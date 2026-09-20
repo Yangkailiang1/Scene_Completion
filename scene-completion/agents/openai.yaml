@@ -1,0 +1,6 @@
+interface:
+  display_name: "Scene Completion"
+  short_description: "Extract system interactions and V2 concern scenarios"
+  default_prompt: "Use $scene-completion to extract system composition, interactions, V2 concerns, diagrams, and scenario workbooks."
+policy:
+  allow_implicit_invocation: true
