@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent-facing CLI for Scene Completion V2."""
+"""Agent-facing CLI for Scene Completion V5."""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ from scene_completion.document_extract import extract_document
 from scene_completion.exporters import export_workbooks
 from scene_completion.knowledge import load_concern, load_diagram_knowledge, list_concerns, list_diagram_knowledge
 from scene_completion.schemas import ValidationFailure, validate_scene_model
+from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
+from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph
 
 
 def _read_json(path: str):
@@ -32,39 +34,59 @@ def _write_json(path: str, value) -> None:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Portable Scene Completion V2 tools")
+    parser = argparse.ArgumentParser(description="Portable Scene Completion V5 tools")
     sub = parser.add_subparsers(dest="command", required=True)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
     extract.add_argument("--output", required=True)
     validate = sub.add_parser("validate-model", help="validate and normalize scene_model.json")
     validate.add_argument("--input", required=True)
-    sub.add_parser("list-concerns", help="list V2 concern definitions")
-    load = sub.add_parser("load-concern", help="load one V2 concern reference")
+    sub.add_parser("list-concerns", help="list V5 concern definitions")
+    load = sub.add_parser("load-concern", help="load one V4 concern reference")
     load.add_argument("--key", required=True)
-    sub.add_parser("list-diagram-knowledge", help="list diagram-generation references")
+    sub.add_parser("list-diagram-knowledge", help="list V5 diagram-generation references")
     load_diagram = sub.add_parser("load-diagram-knowledge", help="load one diagram reference")
     load_diagram.add_argument("--key", required=True)
     plan = sub.add_parser("plan-concerns", help="create a full candidate concern matrix")
     plan.add_argument("--model", required=True)
+    plan.add_argument("--fused-ssd", help="optional fused SSD JSON; route candidates from its standardized messages")
     plan.add_argument("--output", required=True)
-    validate_matrix = sub.add_parser("validate-concerns", help="validate a V2 concern matrix")
+    validate_matrix = sub.add_parser("validate-concerns", help="validate a V5 concern matrix")
     validate_matrix.add_argument("--model", required=True)
     validate_matrix.add_argument("--input", required=True)
-    validate_diagram = sub.add_parser("validate-diagrams", help="validate the two V2 diagram sources")
+    validate_diagram = sub.add_parser("validate-diagrams", help="validate V5 diagram sources")
     validate_diagram.add_argument("--model", required=True)
     validate_diagram.add_argument("--input", required=True)
-    render = sub.add_parser("render-diagrams", help="materialize and optionally render the two diagrams")
+    render = sub.add_parser("render-diagrams", help="generate dependency-free SVG and optionally render PlantUML diagrams")
     render.add_argument("--model", required=True)
     render.add_argument("--input", required=True)
     render.add_argument("--output-dir", required=True)
     render.add_argument("--plantuml-jar")
     render.add_argument("--require-render", action="store_true")
-    assemble = sub.add_parser("assemble", help="assemble V2 findings and export artifacts")
+    generate_ssd = sub.add_parser("generate-ssd", help="generate RR/SR/AR/fused main-flow SSDs per RR use case")
+    generate_ssd.add_argument("--model", required=True)
+    generate_ssd.add_argument("--use-case")
+    generate_ssd.add_argument("--api-map")
+    generate_ssd.add_argument("--output-dir", required=True)
+    generate_ssd.add_argument("--plantuml-jar")
+    generate_ssd.add_argument("--render", action="store_true")
+    fuse = sub.add_parser("fuse-ssd", help="fuse RR/SR/AR SSDs")
+    fuse.add_argument("--rr", required=True)
+    fuse.add_argument("--sr", required=True)
+    fuse.add_argument("--api-map")
+    fuse.add_argument("--output", required=True)
+    validate_ssd_parser = sub.add_parser("validate-ssd", help="validate one SSD JSON")
+    validate_ssd_parser.add_argument("--input", required=True)
+    validate_ssd_parser.add_argument("--model")
+    dep = sub.add_parser("render-dependency-graph", help="render semantic RR use-case dependency graph")
+    dep.add_argument("--model", required=True)
+    dep.add_argument("--output-dir", required=True)
+    assemble = sub.add_parser("assemble", help="assemble V5 findings and export artifacts")
     assemble.add_argument("--model", required=True)
     assemble.add_argument("--concern-matrix", required=True)
     assemble.add_argument("--semantic-findings", required=True)
     assemble.add_argument("--diagram-manifest")
+    assemble.add_argument("--ssd-manifest")
     assemble.add_argument("--output-dir", required=True)
 
     args = parser.parse_args(argv)
@@ -79,19 +101,19 @@ def main(argv=None) -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["valid"] else 2
         if args.command == "list-concerns":
-            print(json.dumps({"version": "2", "concerns": list_concerns()}, ensure_ascii=False, indent=2))
+            print(json.dumps({"version": "5", "concerns": list_concerns()}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "load-concern":
             print(json.dumps(load_concern(args.key), ensure_ascii=False, indent=2))
             return 0
         if args.command == "list-diagram-knowledge":
-            print(json.dumps({"version": "2", "references": list_diagram_knowledge()}, ensure_ascii=False, indent=2))
+            print(json.dumps({"version": "5", "references": list_diagram_knowledge()}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "load-diagram-knowledge":
             print(json.dumps(load_diagram_knowledge(args.key), ensure_ascii=False, indent=2))
             return 0
         if args.command == "plan-concerns":
-            result = plan_concern_matrix(_read_json(args.model))
+            result = plan_concern_matrix(_read_json(args.model), _read_json(args.fused_ssd) if args.fused_ssd else None)
             _write_json(args.output, result)
             print(json.dumps({"status": "success", "output": str(Path(args.output).resolve()), "count": len(result["items"])}, ensure_ascii=False))
             return 0
@@ -107,8 +129,52 @@ def main(argv=None) -> int:
             result = render_diagrams(_read_json(args.model), _read_json(args.input), args.output_dir, args.plantuml_jar, args.require_render)
             print(json.dumps({"status": "success", "manifest": result}, ensure_ascii=False, indent=2))
             return 0
+        if args.command == "generate-ssd":
+            model = _read_json(args.model)
+            api_map = _read_json(args.api_map) if args.api_map else None
+            use_cases = [args.use_case] if args.use_case else [item["use_case_id"] for item in validate_scene_model(model, raise_on_error=True)["normalized_model"]["use_cases"]]
+            manifests = []
+            for use_case_id in use_cases:
+                bundle = generate_ssd_bundle(model, use_case_id, api_map)
+                manifests.append(write_ssd_bundle(bundle, model, args.output_dir, args.plantuml_jar, args.render))
+            root = Path(args.output_dir).expanduser().resolve()
+            root.mkdir(parents=True, exist_ok=True)
+            manifest = {"version": str(model.get("version", "5")), "project": model.get("project", ""), "use_cases": manifests}
+            (root / "diagram_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(json.dumps({"status": "success", "output": str(root / "diagram_manifest.json"), "use_case_count": len(manifests)}, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "fuse-ssd":
+            rr = _read_json(args.rr)
+            sr = _read_json(args.sr)
+            api_map = _read_json(args.api_map) if args.api_map else None
+            result = fuse_ssd(rr, sr, api_map)
+            _write_json(args.output, result)
+            print(json.dumps({"status": "success", "output": str(Path(args.output).resolve()), "review_items": len(result.get("review_items", []))}, ensure_ascii=False))
+            return 0
+        if args.command == "validate-ssd":
+            value = _read_json(args.input)
+            ssd = value.get("fused", value) if isinstance(value, dict) else value
+            result = validate_ssd(ssd, _read_json(args.model) if args.model else None)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result["valid"] else 2
+        if args.command == "render-dependency-graph":
+            model = _read_json(args.model)
+            graph = build_use_case_dependency_graph(model)
+            validate_use_case_dependency_graph(model, graph, True)
+            output = Path(args.output_dir); output.mkdir(parents=True, exist_ok=True)
+            graph_path = output / "use_case_dependency_graph.json"
+            _write_json(graph_path, graph)
+            svg = render_use_case_dependency_svg(graph, output / "use_case_dependency_graph.svg")
+            print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg)}, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "assemble":
             manifest = _read_json(args.diagram_manifest) if args.diagram_manifest else None
+            if args.ssd_manifest:
+                ssd_manifest = _read_json(args.ssd_manifest)
+                if manifest and isinstance(manifest, dict) and isinstance(ssd_manifest, dict):
+                    manifest = {**manifest, "use_cases": ssd_manifest.get("use_cases", manifest.get("use_cases", []))}
+                else:
+                    manifest = ssd_manifest
             bundle = assemble_results(_read_json(args.model), _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest)
             artifacts = export_workbooks(bundle, args.output_dir)
             print(json.dumps({"status": "success", "artifacts": artifacts}, ensure_ascii=False, indent=2))

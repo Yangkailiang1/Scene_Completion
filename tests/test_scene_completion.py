@@ -13,6 +13,7 @@ from tools.scene_completion.document_extract import extract_document
 from tools.scene_completion.exporters import export_workbooks
 from tools.scene_completion.knowledge import load_concern
 from tools.scene_completion.schemas import ValidationFailure, validate_scene_model
+from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd, write_ssd_bundle
 
 
 def sample_model():
@@ -25,6 +26,9 @@ def sample_model():
         {"node_id": "ext-db", "name": "外部财务数据库", "kind": "external_database"},
         {"node_id": "llm", "name": "外部 LLM", "kind": "external_llm"},
         {"node_id": "int-db", "name": "订单数据库", "kind": "internal_database"},
+        {"node_id": "system", "name": "订单系统", "kind": "internal_service", "layer": "RR", "service_type": "unknown"},
+        {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-001"},
+        {"node_id": "impl-order", "name": "createOrder", "kind": "implementation_api", "layer": "AR"},
     ]
     interactions = [
         {"interaction_id": "INT-HUMAN", "use_case_id": "UC-001", "from_node": "user", "to_node": "display", "direction": "incoming", "message": "查询订单", "api": "GET /orders", "sequence": 1, "source_step_index": 1, "source_location": "line 1"},
@@ -36,7 +40,7 @@ def sample_model():
         {"interaction_id": "INT-SERVICE", "use_case_id": "UC-001", "from_node": "display", "to_node": "compute", "direction": "internal", "message": "提交计算", "sequence": 7, "source_step_index": 7},
     ]
     return {
-        "version": "2",
+        "version": "4",
         "project": "fixture",
         "system_name": "订单系统",
         "source": {"path": "fixture.md"},
@@ -49,21 +53,27 @@ def sample_model():
             "trigger": "用户进入订单页面。",
             "postconditions": "系统展示订单。",
             "main_flow": [{"step_index": i, "text": f"步骤 {i}"} for i in range(1, 8)],
+            "architecture": {
+                "rr": {"service_id": "rr-service-UC-001", "service_name": "Order", "abstract_api_id": "RR-ORDER"},
+                "sr": {"design_use_case_id": "SRUC-UC-001-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER"},
+                "ar": [{"microservice_id": "compute", "microservice_name": "订单计算 Service", "implementation_api_id": "createOrder", "implementation_api_node_id": "impl-order", "software_interface": "POST /api/v1/orders"}]
+            },
         }],
         "interactions": interactions,
     }
 
 
 def diagram_spec(model):
-    node_ids = [node["node_id"] for node in model["system_composition"]["nodes"]]
+    node_ids = [node["node_id"] for node in validate_scene_model(model)["normalized_model"]["system_composition"]["nodes"]]
     interaction_ids = [item["interaction_id"] for item in model["interactions"]]
+    declarations = "\n".join(f'rectangle "{node_id}" as {node_id}' for node_id in node_ids)
     return {
-        "version": "2",
+        "version": "4",
         "project": "fixture",
         "system_composition_diagram": {
             "node_ids": node_ids,
             "source_location": "fixture.md",
-            "puml": "@startuml\nrectangle system\n@enduml",
+            "puml": f"@startuml\n{declarations}\n@enduml",
         },
         "interaction_concern_diagram": {
             "interaction_ids": interaction_ids,
@@ -111,7 +121,8 @@ class SceneCompletionV2Tests(unittest.TestCase):
     def test_timeout_needs_requirement_does_not_create_exception(self):
         matrix = plan_concern_matrix(sample_model())
         result = assemble_results(sample_model(), matrix, {"findings": []})
-        self.assertEqual(result["scenario_catalog"], [])
+        self.assertEqual(sum(item["scenario_type"] == "concern_derived_exception" for item in result["scenario_catalog"]), 0)
+        self.assertEqual(sum(item["scenario_type"] == "main_success" for item in result["scenario_catalog"]), 1)
         self.assertTrue(any(item["concern_key"] == "common.timeout" and item["status"] == "needs_requirement" for item in result["concern_matrix"]))
 
     def test_assemble_applicable_findings_and_stable_ids(self):
@@ -124,7 +135,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         first = assemble_results(model, matrix, findings)
         second = assemble_results(model, matrix, findings)
         self.assertEqual([item["prediction_id"] for item in first["scenario_catalog"]], [item["prediction_id"] for item in second["scenario_catalog"]])
-        self.assertEqual(len(first["scenario_catalog"]), 2)
+        self.assertEqual(sum(item["scenario_type"] == "concern_derived_exception" for item in first["scenario_catalog"]), 2)
         self.assertGreater(len(first["review_items"]), 0)
 
     def test_invalid_matrix_and_finding_rejected(self):
@@ -144,9 +155,47 @@ class SceneCompletionV2Tests(unittest.TestCase):
         self.assertFalse(validate_diagram_spec(model, spec)["valid"])
         with tempfile.TemporaryDirectory() as tmp:
             manifest = render_diagrams(model, diagram_spec(model), Path(tmp) / "diagrams")
-            self.assertEqual(manifest["status"], "puml_only")
-            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition", "interaction_concern"})
+            self.assertEqual(manifest["status"], "rendered")
+            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition_svg", "system_composition", "interaction_concern"})
             self.assertTrue(Path(manifest["manifest"]).exists())
+
+    def test_system_composition_rejects_arrows_and_accepts_lines(self):
+        model = sample_model()
+        spec = diagram_spec(model)
+        declarations = spec["system_composition_diagram"]["puml"].replace("@enduml", "user -> display\n@enduml")
+        spec["system_composition_diagram"]["puml"] = declarations
+        report = validate_diagram_spec(model, spec)
+        self.assertFalse(report["valid"])
+        self.assertIn("undirected", " ".join(report["errors"]))
+        spec["system_composition_diagram"]["puml"] = declarations.replace("user -> display", "user -- display")
+        self.assertTrue(validate_diagram_spec(model, spec)["valid"])
+
+    def test_rr_sr_fused_ssd_and_missing_ar_mapping(self):
+        model = sample_model()
+        bundle = generate_ssd_bundle(model, "UC-001")
+        self.assertGreater(len(bundle["rr"]["messages"]), 0)
+        self.assertEqual(bundle["fused"]["layer"], "fused")
+        self.assertTrue(validate_ssd(bundle["fused"], model)["valid"])
+        self.assertIsInstance(bundle["fused"].get("review_items", []), list)
+        self.assertTrue(any(item.get("implementation_api_id") for item in bundle["ar"]["messages"]))
+
+    def test_concern_planning_can_use_fused_ssd_messages(self):
+        model = sample_model()
+        bundle = generate_ssd_bundle(model, "UC-001")
+        matrix = plan_concern_matrix(model, bundle["fused"])
+        self.assertTrue(matrix["items"])
+        self.assertTrue(all(item.get("ssd_id") == bundle["fused"]["ssd_id"] for item in matrix["items"]))
+        self.assertTrue(validate_concern_matrix(model, matrix)["valid"])
+
+    def test_ssd_bundle_writes_four_layers_per_use_case(self):
+        model = sample_model()
+        bundle = generate_ssd_bundle(model, "UC-001")
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = write_ssd_bundle(bundle, model, Path(tmp) / "diagrams")
+            self.assertEqual(set(manifest["artifacts"]), {"rr", "sr", "ar", "fused"})
+            for artifact in manifest["artifacts"].values():
+                self.assertTrue(Path(artifact["puml"]).exists())
+                self.assertTrue(Path(artifact["json"]).exists())
 
     def test_extract_and_export_workbooks(self):
         model = sample_model()
@@ -164,6 +213,46 @@ class SceneCompletionV2Tests(unittest.TestCase):
             self.assertTrue(Path(paths["concern_matrix"]).exists())
             workbook = load_workbook(paths["scenario_workbook"], read_only=True)
             self.assertEqual(workbook.sheetnames, ["场景清单", "关注点矩阵"])
+
+    def test_v3_complete_scenarios_and_actor_separation(self):
+        model = sample_model()
+        model["version"] = "4"
+        model["use_cases"][0]["scenarios"] = [{
+            "scenario_id": "UC-001-main",
+            "scenario_type": "main",
+            "anchor_step_index": 0,
+            "steps": model["use_cases"][0]["main_flow"],
+        }, {
+            "scenario_id": "UC-001-2.a",
+            "scenario_type": "requirement_exception",
+            "anchor_step_index": 2,
+            "anchor_label": "2.a",
+            "steps": [{"step_index": 1, "text": "用户查询订单"}, {"step_index": 2, "text": "系统返回订单不存在"}],
+            "trigger": "订单不存在",
+            "expected_result": "返回订单不存在",
+            "recovery": "返回订单列表",
+        }]
+        report = validate_scene_model(model)
+        self.assertTrue(report["valid"], report["errors"])
+        matrix = applicable_matrix(model)
+        findings = {"findings": [{"interaction_id": "INT-HUMAN", "concern_key": "api.data.completeness", "exception_type": "空请求", "exception_desc": "请求体为空。", "trigger": "用户提交空请求。", "source_step_index": 1, "scenario_steps": ["用户提交请求。", "系统拒绝请求。"], "recovery": "补充字段后重试。"}]}
+        bundle = assemble_results(model, matrix, findings)
+        self.assertEqual(sum(item["scenario_type"] == "main_success" for item in bundle["scenario_catalog"]), 1)
+        self.assertTrue(any(item["scenario_type"] == "requirement_exception" for item in bundle["scenario_catalog"]))
+        self.assertTrue(all(item.get("actor") != "订单系统" for item in bundle["scenario_catalog"] if item.get("actor")))
+
+    def test_v3_ssd_has_pairs_and_hides_footbox(self):
+        model = sample_model()
+        model["version"] = "4"
+        model["use_cases"][0]["scenarios"] = [{"scenario_id": "UC-001-main", "scenario_type": "main", "anchor_step_index": 0, "steps": model["use_cases"][0]["main_flow"]}]
+        bundle = generate_ssd_bundle(model, "UC-001")
+        fused = bundle["fused"]
+        self.assertTrue(validate_ssd(fused, model)["valid"])
+        self.assertTrue(any(item["message_kind"] == "response" for item in fused["messages"]))
+        self.assertTrue(any(item["message_kind"] == "feedback" for item in bundle["rr"]["messages"]))
+        puml = __import__("tools.scene_completion.ssd", fromlist=["ssd_to_puml"]).ssd_to_puml(fused, model)
+        self.assertIn("hide footbox", puml)
+        self.assertNotIn("Delta在线商城系统\" as", puml.split("actor ", 1)[-1] if "actor " in puml else "")
 
 
 if __name__ == "__main__":

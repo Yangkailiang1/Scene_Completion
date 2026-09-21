@@ -1,10 +1,10 @@
-"""V2 concern registry, candidate routing, and concern-matrix validation."""
+"""V5 concern registry, SSD-exchange routing, and matrix validation."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from .schemas import CONCERN_STATUSES, ValidationFailure, node_map, stable_id, validate_scene_model
+from .schemas import CONCERN_STATUSES, ValidationFailure, interaction_has_api, node_map, stable_id, validate_scene_model
 
 
 def _definition(key: str, label: str, group: str, description: str, *, draft: bool = False, examples: list[str] | None = None) -> dict[str, Any]:
@@ -114,14 +114,25 @@ def _node_kind(nodes: dict[str, dict[str, Any]], node_id: str) -> str:
     return nodes.get(node_id, {}).get("kind", "")
 
 
+def _concern_kind(kind: str) -> str:
+    return "internal_service" if kind in {"abstract_service", "implementation_api"} else kind
+
+
+def _is_system_boundary(node: dict[str, Any]) -> bool:
+    """The RR system node is a boundary, not an analyzable AR service."""
+    return bool(node) and (node.get("node_id") == "system" or node.get("layer") == "RR")
+
+
 def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[str]:
     nodes = node_map(model)
-    source_kind = _node_kind(nodes, interaction["from_node"])
-    target_kind = _node_kind(nodes, interaction["to_node"])
+    source_node = nodes.get(interaction.get("from_node"), {})
+    target_node = nodes.get(interaction.get("to_node"), {})
+    source_kind = _concern_kind(source_node.get("kind", ""))
+    target_kind = _concern_kind(target_node.get("kind", ""))
     candidates = ["common.timeout"]
     if source_kind == "human_actor":
         candidates.extend(["human.authentication", "human.authorization", "human.input_data"])
-    if interaction.get("api") or interaction.get("is_api") or interaction.get("boundary") == "api":
+    if interaction_has_api(interaction) or interaction.get("is_api") or interaction.get("boundary") == "api":
         candidates.extend(key for key in concern_keys() if key.startswith("api.data."))
     if target_kind == "external_service" and source_kind not in {"external_actor", "external_service"}:
         candidates.extend(["external_service.availability", "external_service.contract"])
@@ -135,27 +146,66 @@ def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[
         candidates.append("external_llm.access_permission")
     if target_kind == "internal_database":
         candidates.extend(key for key in concern_keys() if key.startswith("internal_database."))
-    if target_kind == "internal_service":
+    # RR boundary and SR abstract services are coordination points. Their
+    # concrete service concerns are routed from AR microservice exchanges.
+    if target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") == "AR" and target_node.get("kind") in {"internal_service", "implementation_api"}:
         candidates.extend(key for key in concern_keys() if key.startswith("internal_service."))
-        service_type = nodes[interaction["to_node"]].get("service_type", "unknown")
+        service_type = target_node.get("service_type", "unknown")
         if service_type == "display":
             candidates.extend(key for key in concern_keys() if key.startswith("internal_service.display."))
         elif service_type == "compute":
             candidates.extend(key for key in concern_keys() if key.startswith("internal_service.compute."))
-    if source_kind == "internal_service" and target_kind == "internal_service" and interaction["from_node"] != interaction["to_node"]:
+    if source_kind == "internal_service" and target_kind == "internal_service" and interaction["from_node"] != interaction["to_node"] and source_node.get("layer") == "AR" and target_node.get("layer") == "AR":
         candidates.extend(key for key in concern_keys() if key.startswith("service_relation."))
     return sorted(set(candidates))
 
 
-def plan_concern_matrix(model: dict[str, Any]) -> dict[str, Any]:
+def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, Any]]:
+    if not fused_ssd:
+        return []
+    value = fused_ssd.get("fused", fused_ssd) if isinstance(fused_ssd, dict) else fused_ssd
+    messages = value.get("messages", []) if isinstance(value, dict) else []
+    if not isinstance(messages, list):
+        raise ValidationFailure(["fused SSD messages must be a list"])
+    known = {item["interaction_id"] for item in model.get("interactions", [])}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for index, raw in enumerate(messages, 1):
+        if not isinstance(raw, dict):
+            raise ValidationFailure([f"fused SSD message {index} must be an object"])
+        exchange_id = raw.get("exchange_id") or stable_id("EXCH", raw.get("use_case_id"), raw.get("ssd_sequence", index))
+        if raw.get("interaction_id") in known or str(value.get("version", "3")) in {"4", "5"}:
+            grouped.setdefault(exchange_id, []).append(dict(raw))
+    result = []
+    for exchange_id, members in grouped.items():
+        members.sort(key=lambda item: item.get("ssd_sequence", item.get("sequence", 0)))
+        request = next((item for item in members if item.get("message_kind") in {"request", "event", "internal_call"}), members[0])
+        response = next((item for item in members if item.get("message_kind") in {"response", "internal_return", "feedback"} and item.get("message_id") != request.get("message_id")), None)
+        interaction_id = request.get("interaction_id", "")
+        exchange = dict(request)
+        exchange["exchange_id"] = request.get("exchange_id") or exchange_id
+        exchange["matrix_key"] = exchange["exchange_id"]
+        exchange["ssd_message_id"] = request.get("message_id", "")
+        exchange["request_message_id"] = request.get("message_id", "")
+        exchange["response_message_id"] = response.get("message_id", "") if response else ""
+        exchange["response_message"] = response.get("message", "") if response else ""
+        exchange["response_fields"] = response.get("response_fields", []) if response else request.get("response_fields", [])
+        result.append(exchange)
+    return result
+
+
+def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None) -> dict[str, Any]:
     report = validate_scene_model(model)
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
     items = []
-    for interaction in sorted(normalized["interactions"], key=lambda item: (item["sequence"], item["interaction_id"])):
+    interactions = _fused_exchanges(normalized, fused_ssd) if fused_ssd else normalized["interactions"]
+    if fused_ssd and not interactions:
+        raise ValidationFailure(["fused SSD has no messages linked to model interactions"])
+    for interaction in sorted(interactions, key=lambda item: (item.get("sequence", 0), item.get("interaction_id", ""))):
         for key in _candidate_keys(normalized, interaction):
             item = {
+                "use_case_id": interaction.get("use_case_id", ""),
                 "interaction_id": interaction["interaction_id"],
                 "concern_key": key,
                 "concern": CONCERN_DEFINITIONS[key]["label"],
@@ -165,10 +215,19 @@ def plan_concern_matrix(model: dict[str, Any]) -> dict[str, Any]:
                 "source_location": interaction.get("source_location", ""),
                 "findings": [],
             }
+            for field in ("ssd_id", "message_id", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message"):
+                if field in interaction:
+                    item[{"message_id": "ssd_message_id"}.get(field, field)] = interaction[field]
             if key == "common.timeout":
                 item.update({"requirement_impact": "unknown", "subsequent_behavior_impact": "unknown", "environment_coordination_impact": "unknown"})
             items.append(item)
-    return {"version": "2", "project": normalized["project"], "items": items}
+    result = {"version": str(normalized.get("version", "4")), "project": normalized["project"], "items": items}
+    if fused_ssd:
+        value = fused_ssd.get("fused", fused_ssd) if isinstance(fused_ssd, dict) else fused_ssd
+        result["ssd_id"] = value.get("ssd_id", "") if isinstance(value, dict) else ""
+        result["interaction_ids"] = sorted({item["interaction_id"] for item in interactions if item.get("interaction_id")})
+        result["exchange_ids"] = sorted({item["exchange_id"] for item in interactions if item.get("exchange_id")})
+    return result
 
 
 def _matrix_items(value: Any) -> list[dict[str, Any]]:
@@ -189,21 +248,37 @@ def validate_concern_matrix(model: dict[str, Any], matrix: Any, raise_on_error: 
     except ValidationFailure as exc:
         errors.extend(exc.errors)
         items = []
-    interactions = {item["interaction_id"]: item for item in normalized.get("interactions", [])}
+    all_interactions = {item["interaction_id"]: item for item in normalized.get("interactions", [])}
+    is_v4 = str(normalized.get("version")) in {"4", "5"}
+    scoped_ids = set(matrix.get("interaction_ids", [])) if isinstance(matrix, dict) else set()
+    interactions = {key: value for key, value in all_interactions.items() if not scoped_ids or key in scoped_ids}
     expected = {interaction_id: set(_candidate_keys(normalized, interaction)) for interaction_id, interaction in interactions.items()}
-    actual: dict[str, set[str]] = {key: set() for key in interactions}
+    if is_v4 and isinstance(matrix, dict) and matrix.get("exchange_ids"):
+        expected = {}
+        for item in _matrix_items(matrix):
+            exchange_id = str(item.get("exchange_id", "")).strip()
+            if exchange_id:
+                expected.setdefault(exchange_id, set()).add(str(item.get("concern_key", "")))
+        # V4 planning records are authoritative for exchange coverage.  Their
+        # candidate set is checked below against the routing function.
+        exchange_messages = {item.get("exchange_id"): item for item in items if item.get("exchange_id")}
+        for exchange_id, message in exchange_messages.items():
+            expected[exchange_id] = set(_candidate_keys(normalized, message))
+    actual: dict[str, set[str]] = {key: set() for key in expected}
     for index, item in enumerate(items, 1):
         interaction_id = str(item.get("interaction_id", "")).strip()
         concern_key = str(item.get("concern_key", "")).strip()
-        if interaction_id not in interactions:
-            errors.append(f"matrix item {index}: unknown interaction_id {interaction_id}")
+        exchange_id = str(item.get("exchange_id", "")).strip()
+        identity = exchange_id if is_v4 and exchange_id else interaction_id
+        if identity not in expected:
+            errors.append(f"matrix item {index}: unknown matrix identity {identity or interaction_id}")
             continue
         if concern_key not in CONCERN_DEFINITIONS:
             errors.append(f"matrix item {index}: unknown concern_key {concern_key}")
             continue
-        if concern_key in actual[interaction_id]:
-            errors.append(f"duplicate concern matrix item: {interaction_id}/{concern_key}")
-        actual[interaction_id].add(concern_key)
+        if concern_key in actual[identity]:
+            errors.append(f"duplicate concern matrix item: {identity}/{concern_key}")
+        actual[identity].add(concern_key)
         status = item.get("status")
         if status not in CONCERN_STATUSES:
             errors.append(f"matrix item {index}: invalid status {status}")

@@ -1,53 +1,83 @@
-# V2 输入协议
+# V5 输入协议
 
 `scene_model.json` 至少包含：
 
 ```json
 {
-  "version": "2",
+  "version": "5",
   "project": "demo",
   "system_name": "业务系统",
   "source": {"path": "requirements.md", "locations": []},
   "system_composition": {
     "nodes": [
       {"node_id": "user", "name": "用户", "kind": "human_actor"},
-      {"node_id": "order", "name": "订单展示 Service", "kind": "internal_service", "service_type": "display", "classification_status": "inferred"}
+      {"node_id": "order", "name": "订单展示 Service", "kind": "internal_service", "service_type": "display", "classification_status": "inferred"},
+      {"node_id": "abstract-uc-1", "name": "提交订单抽象服务", "kind": "abstract_service", "layer": "RR", "use_case_id": "UC-1"},
+      {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR"},
+      {"node_id": "impl-order", "name": "createOrder", "kind": "implementation_api", "layer": "AR"},
+      {"node_id": "order-db", "name": "订单数据库", "kind": "internal_database", "layer": "AR"}
     ],
     "edges": [{"edge_id": "EDGE-1", "from_node": "user", "to_node": "order", "relation": "calls"}]
   },
-  "use_cases": [],
+  "use_cases": [{
+    "use_case_id": "UC-1",
+    "use_case_name": "提交订单",
+    "actors": ["用户"],
+    "main_flow": [{"step_index": 1, "text": "用户提交订单"}],
+    "scenarios": [{"scenario_id": "UC-1-main", "scenario_type": "main", "anchor_step_index": 0, "steps": [{"step_index": 1, "text": "用户提交订单"}]}, {"scenario_id": "UC-1-1.a", "scenario_type": "requirement_exception", "anchor_step_index": 1, "anchor_label": "1.a", "steps": [{"step_index": 1, "text": "请求参数非法"}]}]
+  }],
   "interactions": [
-    {"interaction_id": "INT-1", "use_case_id": "UC-1", "from_node": "user", "to_node": "order", "direction": "incoming", "message": "提交订单", "api": "POST /orders", "sequence": 1, "source_step_index": 3, "source_location": "page 2"}
-  ]
+    {"interaction_id": "INT-1", "use_case_id": "UC-1", "from_node": "user", "to_node": "system", "direction": "incoming", "message": "提交订单", "layer": "RR", "sequence": 1, "source_step_index": 1, "source_location": "page 2"}
+  ],
+  "architecture": {
+    "rr": {"service_id": "rr-service-UC-1", "service_name": "Order", "abstract_api_id": "RR-API-ORDER"},
+    "sr": {"design_use_case_id": "SRUC-UC-1-API-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER-CREATE"},
+    "ar": [{"microservice_id": "order-service", "microservice_name": "OrderMicroservice", "implementation_api_id": "createOrder", "implementation_api_node_id": "impl-order", "software_interface": "POST /api/v1/orders"}]
+  }
 }
 ```
 
-`node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型、交互方向和 Service 类型必须使用协议枚举。`unknown` Service 不阻塞校验，但会产生待确认项。
+`version` 必须为 `5`；旧 V3/V4 输出不直接作为 V5 输入。`node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型、交互方向和 Service 类型必须使用协议枚举。`unknown` Service 不阻塞校验，但会产生待确认项。每个 RR 用例会自动补齐一个 RR `abstract_service` 节点，除非 Agent 已显式提供同一 `use_case_id` 的节点。
 
 ## Diagram spec
 
-Agent 生成的 `diagram_spec.json` 必须包含两张图，并完整声明关联 ID：
+Agent 生成的 `diagram_spec.json` 至少包含系统组成总览图；每个 RR 用例的 SSD 由 `generate-ssd` 单独生成。旧版交互关注点图字段仍可读取，但不再是 V2 主输出：
 
 ```json
 {
-  "version": "2",
+  "version": "5",
   "project": "demo",
   "system_composition_diagram": {
     "node_ids": ["user", "order"],
     "puml": "@startuml\n...\n@enduml"
   },
-  "interaction_concern_diagram": {
-    "interaction_ids": ["INT-1"],
-    "puml": "@startuml\n...\n@enduml"
-  }
+  "ssd_artifacts": [{
+    "use_case_id": "UC-1",
+    "scenario_id": "main",
+    "fused_puml": "@startuml\nactor user\nparticipant system\nuser -> system : submit\n@enduml"
+  }]
 }
 ```
 
-tools 会拒绝缺失节点、交互或 PlantUML 起止标记的图规格。
+系统组成图必须声明全部模型节点，并且只允许 `--` 无方向连线；SSD 使用有方向消息箭头。tools 会拒绝缺失节点、未知 SSD 用例、重复 SSD 场景或 PlantUML 起止标记缺失。
+
+## SSD 消息
+
+`generate-ssd` 输出 `rr_main.json`、`sr_main.json`、`ar_main.json` 和 `fused_main.json`，并默认生成同名 SVG。每条融合消息至少保留：
+
+- `use_case_id`、`ssd_id`、`layer`、`interaction_id`
+- `source_step_index`、`source_location`
+- `abstract_api_id`、`implementation_api_id`、`service_id`
+- `api_method`、`resource_path`
+- `request_fields`、`response_fields`
+
+AR 映射缺失时保留 SR 消息，设置 `ar_mapping_status=missing`，并写入 review item；不得为了填满图而虚构微服务。
 
 ## Concern matrix
 
-关注点矩阵使用 `{"version":"2","items":[...]}`，每条交互对所有候选关注点保留一条记录。状态只能是 `applicable`、`not_applicable` 或 `needs_requirement`。只有 `applicable` 项允许产生 finding。
+关注点矩阵使用 `{"version":"5","items":[...]}`，每个融合 SSD 请求—响应交换对所有候选关注点保留一条记录。状态只能是 `applicable`、`not_applicable` 或 `needs_requirement`。只有 `applicable` 项允许产生 finding。
+
+优先使用融合 SSD 作为 `plan-concerns --fused-ssd` 的输入。矩阵仍保留原始 `interaction_id`，并可附带 `ssd_id`、`ssd_message_id`、`layer`、`source_step_index`、`implementation_api_id` 和 `service_id`，以便从关注点回溯到融合消息。
 
 超时项额外包含 `requirement_impact`、`subsequent_behavior_impact` 和 `environment_coordination_impact`，每个值为 `yes`、`no` 或 `unknown`。
 
@@ -62,6 +92,9 @@ tools 会拒绝缺失节点、交互或 PlantUML 起止标记的图规格。
     "trigger": "调用方提交缺少必填字段的请求。",
     "scenario_steps": ["调用方提交请求。", "系统校验必填字段。", "系统拒绝请求并返回错误。"],
     "recovery": "补充字段后重新提交。",
+    "source_step_index": 1,
+    "ssd_message_id": "MSG-...",
+    "exchange_id": "EXCH-...",
     "source_location": "page 2"
   }]
 }

@@ -1,4 +1,4 @@
-"""V2 scene, system-composition, interaction, and source contracts."""
+"""Scene Completion V5 scene, layered architecture, and source contracts."""
 
 from __future__ import annotations
 
@@ -11,7 +11,9 @@ NODE_KINDS = {
     "human_actor", "external_actor", "connection_device", "internal_service",
     "internal_database", "internal_knowledge_base", "external_service",
     "external_database", "external_llm", "deployment_hardware", "runtime_environment",
+    "abstract_service", "implementation_api",
 }
+LAYERS = {"RR", "SR", "AR"}
 SERVICE_TYPES = {"display", "compute", "unknown"}
 CLASSIFICATION_STATUS = {"confirmed", "inferred", "needs_confirmation"}
 INTERACTION_DIRECTIONS = {"incoming", "outgoing", "internal"}
@@ -67,6 +69,21 @@ def normalize_steps(steps: Any) -> list[dict[str, Any]]:
     return result
 
 
+def _anchor_value(value: Any) -> int:
+    """Accept ``4`` and branch anchors such as ``4.a`` while validating the main step."""
+    if value in (None, ""):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        text = _text(value)
+        prefix = text.split(".", 1)[0]
+        try:
+            return int(prefix)
+        except ValueError:
+            raise ValidationFailure([f"invalid anchor_step_index: {value}"])
+
+
 def _normalize_scenarios(value: Any, use_case_id: str, main_flow: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if value is None:
         return [{"scenario_id": f"{use_case_id}-main", "scenario_type": "main", "name": "主成功场景", "anchor_step_index": 0, "steps": copy.deepcopy(main_flow)}]
@@ -77,16 +94,22 @@ def _normalize_scenarios(value: Any, use_case_id: str, main_flow: list[dict[str,
         if not isinstance(raw, dict):
             raise ValidationFailure([f"{use_case_id}.scenarios[{index}] must be an object"])
         item = dict(raw)
-        try:
-            anchor = int(item.get("anchor_step_index", 0))
-        except (TypeError, ValueError):
-            raise ValidationFailure([f"{use_case_id}.scenarios[{index}] has invalid anchor_step_index"])
+        anchor = _anchor_value(item.get("anchor_step_index", 0))
+        scenario_type = _text(item.get("scenario_type"), "alternative")
+        if scenario_type == "main":
+            anchor = 0
         item.update({
             "scenario_id": _text(item.get("scenario_id"), f"{use_case_id}-scenario-{index:02d}"),
-            "scenario_type": _text(item.get("scenario_type"), "alternative"),
+            "scenario_type": scenario_type,
             "name": _text(item.get("name"), f"场景 {index}"),
             "anchor_step_index": anchor,
+            "anchor_label": _text(item.get("anchor_label"), str(item.get("anchor_step_index", anchor))),
             "steps": normalize_steps(item.get("steps", item.get("flow", []))),
+            "source_type": _text(item.get("source_type"), "requirements"),
+            "source_location": _text(item.get("source_location")),
+            "trigger": _text(item.get("trigger")),
+            "expected_result": _text(item.get("expected_result")),
+            "recovery": _text(item.get("recovery")),
         })
         result.append(item)
     return result
@@ -109,7 +132,17 @@ def _normalize_interfaces(value: Any) -> list[dict[str, Any]]:
 
 
 def _kind_scope(kind: str) -> str:
-    return "external" if kind in {"external_actor", "external_service", "external_database", "external_llm"} else "internal"
+    return "external" if kind in {"human_actor", "external_actor", "external_service", "external_database", "external_llm"} else "internal"
+
+
+def _default_layer(kind: str) -> str:
+    if kind in {"external_service", "external_database", "external_llm"}:
+        return "SR"
+    if kind in {"internal_database", "internal_knowledge_base", "implementation_api", "internal_service"}:
+        return "AR"
+    if kind == "abstract_service":
+        return "RR"
+    return "RR"
 
 
 def _normalize_nodes(value: Any) -> list[dict[str, Any]]:
@@ -131,6 +164,10 @@ def _normalize_nodes(value: Any) -> list[dict[str, Any]]:
         seen.add(node_id)
         item.update({"node_id": node_id, "name": name, "kind": kind})
         item.setdefault("scope", _kind_scope(kind))
+        layer = _text(item.get("layer"), _default_layer(kind))
+        if layer not in LAYERS:
+            raise ValidationFailure([f"node {node_id} has invalid layer: {layer}"])
+        item["layer"] = layer
         if kind == "internal_service":
             service_type = _text(item.get("service_type"), "unknown")
             if service_type not in SERVICE_TYPES:
@@ -139,6 +176,10 @@ def _normalize_nodes(value: Any) -> list[dict[str, Any]]:
             item["classification_status"] = _text(item.get("classification_status"), "needs_confirmation" if service_type == "unknown" else "inferred")
             if item["classification_status"] not in CLASSIFICATION_STATUS:
                 raise ValidationFailure([f"node {node_id} has invalid classification_status"])
+        if kind == "abstract_service":
+            item["use_case_id"] = _text(item.get("use_case_id"))
+            if not item["use_case_id"]:
+                raise ValidationFailure([f"abstract service {node_id} needs use_case_id"])
         result.append(item)
     return result
 
@@ -236,6 +277,12 @@ def _normalize_interactions(value: Any, model: dict[str, Any], nodes: list[dict[
             raise ValidationFailure([f"duplicate interaction_id: {interaction_id}"])
         seen.add(interaction_id)
         item.update({"interaction_id": interaction_id, "from_node": source, "to_node": target, "direction": direction, "message": message, "source_step_index": source_step, "sequence": sequence, "use_case_id": use_case_id, "source_location": _text(item.get("source_location"))})
+        for field in ("layer", "ssd_id", "interface_id", "abstract_api_id", "implementation_api_id", "service_id", "api_method", "resource_path", "ar_mapping_status"):
+            if field in item and item[field] is not None:
+                item[field] = _text(item[field])
+        for field in ("request_fields", "response_fields"):
+            if field in item and item[field] is not None and not isinstance(item[field], list):
+                raise ValidationFailure([f"interaction {interaction_id} {field} must be a list"])
         result.append(item)
     return result
 
@@ -244,6 +291,7 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(model, dict):
         raise ValidationFailure(["scene model must be an object"])
     data = copy.deepcopy(model)
+    data["version"] = _text(data.get("version"), "4")
     data["project"] = _text(data.get("project"), "scene_completion")
     data["system_name"] = _text(data.get("system_name"), data["project"])
     data.setdefault("source", {})
@@ -266,10 +314,20 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
         uc["postconditions"] = _text(uc.get("postconditions"), "未指定")
         uc["main_flow"] = normalize_steps(uc.get("main_flow", []))
         uc["alternative_flow"] = normalize_steps(uc.get("alternative_flow", []))
+        extension_flows = uc.get("extension_flows", [])
+        if extension_flows is None:
+            extension_flows = []
+        if not isinstance(extension_flows, list):
+            raise ValidationFailure([f"{uc['use_case_id']}.extension_flows must be a list"])
+        uc["extension_flows"] = [dict(flow) for flow in extension_flows if isinstance(flow, dict)]
         trigger = _text(uc.get("trigger"))
         uc["trigger_inferred"] = not bool(trigger)
         uc["trigger"] = trigger or (uc["main_flow"][0]["text"] if uc["main_flow"] else "未明确")
         uc["scenarios"] = _normalize_scenarios(uc.get("scenarios"), uc["use_case_id"], uc["main_flow"])
+        architecture = uc.get("architecture") or uc.get("layer_mapping") or {}
+        if not isinstance(architecture, dict):
+            raise ValidationFailure([f"{uc['use_case_id']}.architecture must be an object"])
+        uc["architecture"] = copy.deepcopy(architecture)
         normalized_ucs.append(uc)
     data["use_cases"] = normalized_ucs
     data["entities"] = [_text(entity) for entity in data.get("entities", []) if _text(entity)]
@@ -280,6 +338,31 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
     raw_nodes = composition.get("nodes")
     nodes = _normalize_nodes(raw_nodes) if raw_nodes is not None else _derive_nodes(data, normalized_ucs)
     composition["nodes"] = nodes
+    existing_abstract = {node.get("use_case_id") for node in nodes if node.get("kind") == "abstract_service" and node.get("layer", "RR") == "RR"}
+    for uc in normalized_ucs:
+        if uc["use_case_id"] not in existing_abstract:
+            nodes.append({
+                "node_id": stable_id("ABSTRACT", data["project"], uc["use_case_id"]),
+                "name": f"{uc['use_case_name']}抽象服务",
+                "kind": "abstract_service",
+                "layer": "RR",
+                "use_case_id": uc["use_case_id"],
+                "scope": "internal",
+                "classification_status": "inferred",
+                "source_location": uc.get("source_location", ""),
+            })
+    abstract_use_cases = set()
+    known_use_cases = {uc["use_case_id"] for uc in normalized_ucs}
+    for node in nodes:
+        if node.get("kind") != "abstract_service":
+            continue
+        use_case_id = node.get("use_case_id")
+        if use_case_id not in known_use_cases:
+            raise ValidationFailure([f"abstract service {node['node_id']} references unknown use_case_id: {use_case_id}"])
+        if node.get("layer", "RR") == "RR" and use_case_id in abstract_use_cases:
+            raise ValidationFailure([f"duplicate abstract_service for use_case_id: {use_case_id}"])
+        if node.get("layer", "RR") == "RR":
+            abstract_use_cases.add(use_case_id)
     composition["edges"] = _normalize_edges(composition.get("edges"), nodes)
     data["system_composition"] = composition
     data["interactions"] = _normalize_interactions(data.get("interactions"), data, nodes, normalized_ucs)
@@ -294,6 +377,12 @@ def use_case_map(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def node_map(model: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {node["node_id"]: node for node in model.get("system_composition", {}).get("nodes", [])}
+
+
+def interaction_has_api(interaction: dict[str, Any]) -> bool:
+    return any(str(interaction.get(field, "")).strip() for field in (
+        "api", "interface_id", "abstract_api_id", "implementation_api_id", "api_method", "resource_path"
+    ))
 
 
 def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) -> dict[str, Any]:
@@ -317,6 +406,10 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
             warnings.append(f"{uid} has no actors")
         if not uc["main_flow"]:
             errors.append(f"{uid} has no main_flow")
+        if str(normalized.get("version")) in {"3", "4", "5"}:
+            main_scenarios = [scenario for scenario in uc.get("scenarios", []) if scenario.get("scenario_type") == "main"]
+            if len(main_scenarios) != 1:
+                errors.append(f"{uid} must have exactly one main_success scenario")
         if uc.get("trigger_inferred"):
             warnings.append(f"{uid} trigger was inferred")
         scenario_ids = set()
@@ -329,10 +422,49 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
             anchor = scenario["anchor_step_index"]
             if anchor < 0 or (main_indexes and anchor not in ({0} | main_indexes)):
                 errors.append(f"{uid}/{sid} anchor_step_index outside main_flow")
+            if scenario.get("scenario_type") not in {"main", "main_success", "alternative", "requirement_exception", "concern_derived_exception"}:
+                errors.append(f"{uid}/{sid} has invalid scenario_type: {scenario.get('scenario_type')}")
     node_ids = {node["node_id"] for node in normalized["system_composition"]["nodes"]}
+    system_names = {node.get("name") for node in normalized["system_composition"]["nodes"] if node.get("node_id") == "system" or node.get("kind") == "internal_service" and node.get("name") == normalized.get("system_name")}
+    for uc in normalized["use_cases"]:
+        invalid_actors = sorted(set(uc.get("actors", [])) & system_names)
+        if invalid_actors:
+            errors.append(f"{uc['use_case_id']} uses system node as Actor: {', '.join(invalid_actors)}")
     for interaction in normalized["interactions"]:
         if interaction["from_node"] not in node_ids or interaction["to_node"] not in node_ids:
             errors.append(f"interaction {interaction['interaction_id']} references unknown node")
+    if str(normalized.get("version")) in {"4", "5"}:
+        nodes_by_id = node_map(normalized)
+        for uc in normalized["use_cases"]:
+            architecture = uc.get("architecture") or {}
+            rr = architecture.get("rr") or {}
+            sr = architecture.get("sr") or {}
+            ar = architecture.get("ar") or []
+            for section, value, required in (
+                ("rr", rr, ("service_id", "service_name", "abstract_api_id")),
+                ("sr", sr, ("design_use_case_id", "service_id", "service_name", "abstract_api_id")),
+            ):
+                if not isinstance(value, dict):
+                    errors.append(f"{uc['use_case_id']}.architecture.{section} must be an object")
+                    continue
+                for field in required:
+                    if not _text(value.get(field)):
+                        errors.append(f"{uc['use_case_id']}.architecture.{section} needs {field}")
+                service_id = _text(value.get("service_id"))
+                if service_id and service_id in nodes_by_id and nodes_by_id[service_id].get("layer") not in {"RR", "SR"}:
+                    errors.append(f"{uc['use_case_id']}.architecture.{section}.service_id must reference RR/SR node")
+            if not isinstance(ar, list):
+                errors.append(f"{uc['use_case_id']}.architecture.ar must be a list")
+            for index, component in enumerate(ar if isinstance(ar, list) else [], 1):
+                if not isinstance(component, dict):
+                    errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] must be an object")
+                    continue
+                for field in ("microservice_id", "microservice_name", "implementation_api_id", "software_interface"):
+                    if not _text(component.get(field)):
+                        errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] needs {field}")
+                node_id = _text(component.get("microservice_id"))
+                if node_id and node_id in nodes_by_id and nodes_by_id[node_id].get("layer") != "AR":
+                    errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] microservice must be AR")
     if not normalized["interactions"]:
         warnings.append("no interactions were extracted")
     report = {"valid": not errors, "errors": errors, "warnings": warnings, "normalized_model": normalized}
