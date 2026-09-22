@@ -14,6 +14,7 @@ from tools.scene_completion.exporters import export_workbooks
 from tools.scene_completion.knowledge import load_concern
 from tools.scene_completion.schemas import ValidationFailure, validate_scene_model
 from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd, write_ssd_bundle
+from tools.scene_completion.svg_renderer import render_system_composition_svg
 
 
 def sample_model():
@@ -169,6 +170,18 @@ class SceneCompletionV2Tests(unittest.TestCase):
         self.assertIn("undirected", " ".join(report["errors"]))
         spec["system_composition_diagram"]["puml"] = declarations.replace("user -> display", "user -- display")
         self.assertTrue(validate_diagram_spec(model, spec)["valid"])
+
+    def test_system_composition_uses_boundary_anchors_and_stacked_bottom_zones(self):
+        model = sample_model()
+        model["system_composition"]["edges"].append({"edge_id": "EDGE-2", "from_node": "display", "to_node": "system", "relation": "connects"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = render_system_composition_svg(model, Path(tmp) / "system.svg")
+            svg = path.read_text(encoding="utf-8")
+            self.assertIn("内部资源（数据库 / 知识库）", svg)
+            self.assertIn("部署硬件 / 运行环境", svg)
+            self.assertLess(svg.index("内部资源（数据库 / 知识库）"), svg.index("部署硬件 / 运行环境"))
+            # The user box is not connected from its center (the known center is x=161.5).
+            self.assertNotIn('x1="161.5"', svg)
 
     def test_rr_sr_fused_ssd_and_missing_ar_mapping(self):
         model = sample_model()

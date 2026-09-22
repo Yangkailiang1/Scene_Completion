@@ -33,8 +33,8 @@ def _wrap(text: Any, width: int) -> list[str]:
     return lines or [""]
 
 
-def _node_label(node: dict[str, Any]) -> list[str]:
-    lines = _wrap(node.get("name", node.get("node_id", "")), 19)
+def _node_label(node: dict[str, Any], name_width: int = 19) -> list[str]:
+    lines = _wrap(node.get("name", node.get("node_id", "")), name_width)
     lines.append(f"{node.get('node_id', '')} · {_node_layer(node)}")
     if node.get("use_case_id"):
         lines.append(str(node["use_case_id"]))
@@ -51,10 +51,39 @@ def _draw_node(body: list[str], node: dict[str, Any], box: tuple[float, float, f
         body.append(f'<ellipse cx="{x+w/2:.1f}" cy="{y+h/2:.1f}" rx="{w/2:.1f}" ry="{h/2:.1f}" fill="{fill}" stroke="#356FC4" stroke-width="2"/>')
     else:
         body.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" rx="9" fill="{fill}" stroke="#5B6B7F" stroke-width="1.5"/>')
-    lines = _node_label(node)
+    lines = _node_label(node, 24 if ellipse else 19)
     start_y = y + h/2 - ((len(lines)-1) * 8)
     for i, line in enumerate(lines):
         body.append(_text(x+w/2, start_y + i*18, line, 13 if i else 14, "bold" if i == 0 else "normal", anchor="middle"))
+
+
+def _box_center(box: tuple[float, float, float, float]) -> tuple[float, float]:
+    x, y, w, h = box
+    return x + w / 2, y + h / 2
+
+
+def _boundary_anchor(
+    box: tuple[float, float, float, float],
+    toward: tuple[float, float],
+    ellipse: bool = False,
+) -> tuple[float, float]:
+    """Return the point where a connection meets a node's visible boundary."""
+    cx, cy = _box_center(box)
+    dx, dy = toward[0] - cx, toward[1] - cy
+    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+        return cx, cy
+    x, y, w, h = box
+    if ellipse:
+        rx, ry = w / 2, h / 2
+        scale = 1 / math.sqrt((dx / rx) ** 2 + (dy / ry) ** 2)
+    else:
+        candidates = []
+        if abs(dx) > 1e-9:
+            candidates.append((w / 2) / abs(dx))
+        if abs(dy) > 1e-9:
+            candidates.append((h / 2) / abs(dy))
+        scale = min(candidates)
+    return cx + dx * scale, cy + dy * scale
 
 
 def render_system_composition_svg(model: dict[str, Any], output_path: str | Path) -> Path:
@@ -73,8 +102,9 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     rr_h = max(170, 95 + math.ceil(max(1, len(rr))/2) * 95)
     system_h = rr_h + 85
     external_h = max(170, 95 + len(externals) * 82)
-    bottom_h = max(145, 95 + math.ceil(max(1, len(databases) + len(deployment))/3) * 88)
-    height = 70 + max(system_h, external_h) + bottom_h + 90
+    resource_h = max(135, 95 + math.ceil(max(1, len(databases)) / 3) * 88)
+    deployment_h = max(120, 95 + math.ceil(max(1, len(deployment)) / 3) * 88)
+    height = 70 + max(system_h, external_h) + 26 + resource_h + 18 + deployment_h + 70
     x_actor = margin
     x_device = x_actor + col_w["actors"] + gap
     x_system = x_device + col_w["devices"] + gap
@@ -93,8 +123,9 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     group("系统 / RR 用例", x_system, top_y, col_w["system"], system_h, "#F6F9FE")
     group("外部 Service / 数据库 / LLM（SR）", x_external, top_y, col_w["external"], max(system_h, external_h), "#F7FBF3")
     bottom_y = top_y + max(system_h, external_h) + 26
-    group("内部数据库 / 知识库（AR）", x_system, bottom_y, col_w["system"], bottom_h, "#F7F9FC")
-    group("部署硬件 / 运行环境", x_external, bottom_y, col_w["external"], bottom_h, "#FCFBF4")
+    group("内部资源（数据库 / 知识库）", x_system, bottom_y, col_w["system"], resource_h, "#F7F9FC")
+    deployment_y = bottom_y + resource_h + 18
+    group("部署硬件 / 运行环境", x_system, deployment_y, col_w["system"], deployment_h, "#FCFBF4")
 
     def place_stack(items: list[dict[str, Any]], x: float, y: float, w: float, item_h: float = 62, spacing: float = 12, ellipse: bool = False, cols: int = 1):
         if not items:
@@ -112,11 +143,11 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     place_stack(actors, x_actor, top_y, col_w["actors"])
     place_stack(devices, x_device, top_y, col_w["devices"])
     positions[system["node_id"]] = (x_system+16, top_y+44, col_w["system"]-32, 50)
-    body.append(_text(x_system+col_w["system"]/2, top_y+75, system.get("name", model.get("system_name", "系统")), 18, "bold", "#153E75", "middle"))
+    _draw_node(body, system, positions[system["node_id"]])
     place_stack(rr, x_system, top_y+75, col_w["system"], item_h=62, spacing=14, ellipse=True, cols=2)
     place_stack(externals, x_external, top_y, col_w["external"], item_h=62, spacing=12)
     place_stack(databases, x_system, bottom_y, col_w["system"], item_h=58, spacing=12, cols=3)
-    place_stack(deployment, x_external, bottom_y, col_w["external"], item_h=58, spacing=12)
+    place_stack(deployment, x_system, deployment_y, col_w["system"], item_h=58, spacing=12, cols=3)
 
     rr_ids = {n["node_id"] for n in rr}
     node_by_id = {n.get("node_id"): n for n in all_nodes}
@@ -131,7 +162,10 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
         p, q = positions.get(a), positions.get(b)
         if not p or not q:
             continue
-        body.append(f'<line x1="{p[0]+p[2]/2:.1f}" y1="{p[1]+p[3]/2:.1f}" x2="{q[0]+q[2]/2:.1f}" y2="{q[1]+q[3]/2:.1f}" stroke="#7A8797" stroke-width="1.8"/>')
+        p_center, q_center = _box_center(p), _box_center(q)
+        p_anchor = _boundary_anchor(p, q_center, ellipse=node_by_id.get(a, {}).get("kind") == "abstract_service")
+        q_anchor = _boundary_anchor(q, p_center, ellipse=node_by_id.get(b, {}).get("kind") == "abstract_service")
+        body.append(f'<line x1="{p_anchor[0]:.1f}" y1="{p_anchor[1]:.1f}" x2="{q_anchor[0]:.1f}" y2="{q_anchor[1]:.1f}" stroke="#7A8797" stroke-width="1.8"/>')
     body.append(_text(margin, height-22, "RR 用例以椭圆表示；AR 微服务与软件实现接口详见各用例 SSD 和接口映射表。", 12, "normal", "#536273"))
     body.append("</svg>")
     output = Path(output_path)
