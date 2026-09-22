@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent-facing CLI for Scene Completion V5."""
+"""Agent-facing CLI for Scene Completion V6."""
 
 from __future__ import annotations
 
@@ -13,11 +13,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scene_completion.assembly import assemble_results
-from scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
+from scene_completion.concerns import audit_concern_coverage, plan_concern_matrix, validate_concern_matrix
 from scene_completion.diagrams import render_diagrams, validate_diagram_spec
 from scene_completion.document_extract import extract_document
 from scene_completion.exporters import export_workbooks
 from scene_completion.knowledge import load_concern, load_diagram_knowledge, list_concerns, list_diagram_knowledge
+from scene_completion.png_renderer import convert_svg_to_png
 from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
 from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph
@@ -34,26 +35,33 @@ def _write_json(path: str, value) -> None:
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Portable Scene Completion V5 tools")
+    parser = argparse.ArgumentParser(description="Portable Scene Completion V6 tools")
     sub = parser.add_subparsers(dest="command", required=True)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
     extract.add_argument("--output", required=True)
     validate = sub.add_parser("validate-model", help="validate and normalize scene_model.json")
     validate.add_argument("--input", required=True)
-    sub.add_parser("list-concerns", help="list V5 concern definitions")
-    load = sub.add_parser("load-concern", help="load one V4 concern reference")
+    validate.add_argument("--output")
+    sub.add_parser("list-concerns", help="list V6 concern definitions")
+    load = sub.add_parser("load-concern", help="load one concern reference")
     load.add_argument("--key", required=True)
-    sub.add_parser("list-diagram-knowledge", help="list V5 diagram-generation references")
+    sub.add_parser("list-diagram-knowledge", help="list diagram-generation references")
     load_diagram = sub.add_parser("load-diagram-knowledge", help="load one diagram reference")
     load_diagram.add_argument("--key", required=True)
     plan = sub.add_parser("plan-concerns", help="create a full candidate concern matrix")
     plan.add_argument("--model", required=True)
     plan.add_argument("--fused-ssd", help="optional fused SSD JSON; route candidates from its standardized messages")
+    plan.add_argument("--ssd-manifest", help="diagram_manifest.json containing every use case fused SSD")
     plan.add_argument("--output", required=True)
-    validate_matrix = sub.add_parser("validate-concerns", help="validate a V5 concern matrix")
+    validate_matrix = sub.add_parser("validate-concerns", help="validate a V6 concern matrix")
     validate_matrix.add_argument("--model", required=True)
     validate_matrix.add_argument("--input", required=True)
+    validate_matrix.add_argument("--require-complete", action="store_true")
+    audit = sub.add_parser("audit-run", help="strictly audit complete SSD and concern coverage")
+    audit.add_argument("--model", required=True)
+    audit.add_argument("--ssd-manifest", required=True)
+    audit.add_argument("--concern-matrix", required=True)
     validate_diagram = sub.add_parser("validate-diagrams", help="validate V5 diagram sources")
     validate_diagram.add_argument("--model", required=True)
     validate_diagram.add_argument("--input", required=True)
@@ -63,6 +71,11 @@ def main(argv=None) -> int:
     render.add_argument("--output-dir", required=True)
     render.add_argument("--plantuml-jar")
     render.add_argument("--require-render", action="store_true")
+    render.add_argument("--require-png", action="store_true", help="fail if no local SVG-to-PNG converter is available")
+    render_png = sub.add_parser("render-png", help="convert one generated SVG to PNG")
+    render_png.add_argument("--input-svg", required=True)
+    render_png.add_argument("--output-png", required=True)
+    render_png.add_argument("--require-png", action="store_true")
     generate_ssd = sub.add_parser("generate-ssd", help="generate RR/SR/AR/fused main-flow SSDs per RR use case")
     generate_ssd.add_argument("--model", required=True)
     generate_ssd.add_argument("--use-case")
@@ -98,37 +111,49 @@ def main(argv=None) -> int:
             return 0
         if args.command == "validate-model":
             report = validate_scene_model(_read_json(args.input))
+            if args.output and report.get("normalized_model"):
+                _write_json(args.output, report["normalized_model"])
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["valid"] else 2
         if args.command == "list-concerns":
-            print(json.dumps({"version": "5", "concerns": list_concerns()}, ensure_ascii=False, indent=2))
+            print(json.dumps({"version": "6", "concerns": list_concerns()}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "load-concern":
             print(json.dumps(load_concern(args.key), ensure_ascii=False, indent=2))
             return 0
         if args.command == "list-diagram-knowledge":
-            print(json.dumps({"version": "5", "references": list_diagram_knowledge()}, ensure_ascii=False, indent=2))
+            print(json.dumps({"version": "6", "references": list_diagram_knowledge()}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "load-diagram-knowledge":
             print(json.dumps(load_diagram_knowledge(args.key), ensure_ascii=False, indent=2))
             return 0
         if args.command == "plan-concerns":
-            result = plan_concern_matrix(_read_json(args.model), _read_json(args.fused_ssd) if args.fused_ssd else None)
+            result = plan_concern_matrix(_read_json(args.model), _read_json(args.fused_ssd) if args.fused_ssd else None, _read_json(args.ssd_manifest) if args.ssd_manifest else None)
             _write_json(args.output, result)
             print(json.dumps({"status": "success", "output": str(Path(args.output).resolve()), "count": len(result["items"])}, ensure_ascii=False))
             return 0
         if args.command == "validate-concerns":
-            result = validate_concern_matrix(_read_json(args.model), _read_json(args.input))
+            result = validate_concern_matrix(_read_json(args.model), _read_json(args.input), require_complete=args.require_complete)
             print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result["valid"] else 2
+        if args.command == "audit-run":
+            result = audit_concern_coverage(_read_json(args.model), _read_json(args.concern_matrix), _read_json(args.ssd_manifest))
+            output = Path(args.concern_matrix).with_name("concern_coverage_report.json")
+            _write_json(output, result.get("report", {}))
+            print(json.dumps({**result, "coverage_report": str(output)}, ensure_ascii=False, indent=2))
             return 0 if result["valid"] else 2
         if args.command == "validate-diagrams":
             result = validate_diagram_spec(_read_json(args.model), _read_json(args.input))
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result["valid"] else 2
         if args.command == "render-diagrams":
-            result = render_diagrams(_read_json(args.model), _read_json(args.input), args.output_dir, args.plantuml_jar, args.require_render)
+            result = render_diagrams(_read_json(args.model), _read_json(args.input), args.output_dir, args.plantuml_jar, args.require_render, args.require_png)
             print(json.dumps({"status": "success", "manifest": result}, ensure_ascii=False, indent=2))
             return 0
+        if args.command == "render-png":
+            result = convert_svg_to_png(args.input_svg, args.output_png, require=args.require_png)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result.get("status") == "rendered" else 2
         if args.command == "generate-ssd":
             model = _read_json(args.model)
             api_map = _read_json(args.api_map) if args.api_map else None
@@ -139,7 +164,7 @@ def main(argv=None) -> int:
                 manifests.append(write_ssd_bundle(bundle, model, args.output_dir, args.plantuml_jar, args.render))
             root = Path(args.output_dir).expanduser().resolve()
             root.mkdir(parents=True, exist_ok=True)
-            manifest = {"version": str(model.get("version", "5")), "project": model.get("project", ""), "use_cases": manifests}
+            manifest = {"version": str(model.get("version", "6")), "project": model.get("project", ""), "use_cases": manifests}
             (root / "diagram_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
             print(json.dumps({"status": "success", "output": str(root / "diagram_manifest.json"), "use_case_count": len(manifests)}, ensure_ascii=False, indent=2))
             return 0

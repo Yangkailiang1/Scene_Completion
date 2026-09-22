@@ -305,7 +305,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
-    matrix_report = validate_concern_matrix(normalized, concern_matrix)
+    matrix_report = validate_concern_matrix(normalized, concern_matrix, require_complete=str(normalized.get("version")) == "6")
     if not matrix_report["valid"]:
         raise ValidationFailure(matrix_report["errors"])
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
@@ -324,6 +324,8 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     for item in matrix_report["items"]:
         if item.get("status") == "needs_requirement":
             review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item["interaction_id"], "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
+        if item.get("status") == "pending_review":
+            review_items.append({"type": "concern_review_pending", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "concern_key": item["concern_key"], "message": "该候选关注点尚未完成 Agent 判断。"})
     for use_case_manifest in (diagram_manifest or {}).get("use_cases", []):
         for review_item in use_case_manifest.get("review_items", []):
             if review_item not in review_items:
@@ -396,6 +398,6 @@ def assemble_v2_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
 
 def assemble_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
-    if str(normalized.get("version")) in {"3", "4", "5"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6"}:
         return assemble_v3_results(normalized, concern_matrix, semantic_findings, diagram_manifest)
     return assemble_v2_results(normalized, concern_matrix, semantic_findings, diagram_manifest)

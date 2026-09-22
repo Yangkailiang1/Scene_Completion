@@ -14,10 +14,15 @@ NODE_KINDS = {
     "abstract_service", "implementation_api",
 }
 LAYERS = {"RR", "SR", "AR"}
-SERVICE_TYPES = {"display", "compute", "unknown"}
+SERVICE_TYPES = {
+    "display_interaction", "query_retrieval", "resource_mutation",
+    "analysis_generation", "release_activation", "unknown",
+    # Accepted at the input boundary for V5 migration.
+    "display", "compute",
+}
 CLASSIFICATION_STATUS = {"confirmed", "inferred", "needs_confirmation"}
 INTERACTION_DIRECTIONS = {"incoming", "outgoing", "internal"}
-CONCERN_STATUSES = {"applicable", "not_applicable", "needs_requirement"}
+CONCERN_STATUSES = {"pending_review", "applicable", "not_applicable", "needs_requirement"}
 
 
 class ValidationFailure(ValueError):
@@ -172,6 +177,12 @@ def _normalize_nodes(value: Any) -> list[dict[str, Any]]:
             service_type = _text(item.get("service_type"), "unknown")
             if service_type not in SERVICE_TYPES:
                 raise ValidationFailure([f"node {node_id} has invalid service_type: {service_type}"])
+            if service_type == "display":
+                service_type = "display_interaction"
+                item.setdefault("legacy_service_type", "display")
+            elif service_type == "compute":
+                service_type = "unknown"
+                item.setdefault("legacy_service_type", "compute")
             item["service_type"] = service_type
             item["classification_status"] = _text(item.get("classification_status"), "needs_confirmation" if service_type == "unknown" else "inferred")
             if item["classification_status"] not in CLASSIFICATION_STATUS:
@@ -291,7 +302,7 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(model, dict):
         raise ValidationFailure(["scene model must be an object"])
     data = copy.deepcopy(model)
-    data["version"] = _text(data.get("version"), "4")
+    data["version"] = _text(data.get("version"), "6")
     data["project"] = _text(data.get("project"), "scene_completion")
     data["system_name"] = _text(data.get("system_name"), data["project"])
     data.setdefault("source", {})
@@ -406,7 +417,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
             warnings.append(f"{uid} has no actors")
         if not uc["main_flow"]:
             errors.append(f"{uid} has no main_flow")
-        if str(normalized.get("version")) in {"3", "4", "5"}:
+        if str(normalized.get("version")) in {"3", "4", "5", "6"}:
             main_scenarios = [scenario for scenario in uc.get("scenarios", []) if scenario.get("scenario_type") == "main"]
             if len(main_scenarios) != 1:
                 errors.append(f"{uid} must have exactly one main_success scenario")
@@ -433,7 +444,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
     for interaction in normalized["interactions"]:
         if interaction["from_node"] not in node_ids or interaction["to_node"] not in node_ids:
             errors.append(f"interaction {interaction['interaction_id']} references unknown node")
-    if str(normalized.get("version")) in {"4", "5"}:
+    if str(normalized.get("version")) in {"4", "5", "6"}:
         nodes_by_id = node_map(normalized)
         for uc in normalized["use_cases"]:
             architecture = uc.get("architecture") or {}

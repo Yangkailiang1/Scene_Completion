@@ -1,4 +1,4 @@
-"""On-demand loading for the V2 concern knowledge base."""
+"""On-demand loading for the V6 concern knowledge base."""
 
 from __future__ import annotations
 

@@ -11,6 +11,7 @@ from typing import Any
 
 from .schemas import ValidationFailure, validate_scene_model
 from .svg_renderer import render_system_composition_svg
+from .png_renderer import convert_svg_to_png
 
 
 def _puml_check(value: Any, label: str) -> list[str]:
@@ -127,7 +128,7 @@ def find_plantuml_jar(explicit: str | Path | None = None) -> Path | None:
     return next((path.resolve() for path in candidates if path.is_file()), None)
 
 
-def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str | Path, plantuml_jar: str | Path | None = None, require_render: bool = False) -> dict[str, Any]:
+def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str | Path, plantuml_jar: str | Path | None = None, require_render: bool = False, require_png: bool = False) -> dict[str, Any]:
     report = validate_diagram_spec(model, spec)
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
@@ -148,8 +149,14 @@ def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str
         records.append({"kind": kind, "puml": str(path), "svg": "", "png": "", "rendered": False, "source_location": spec.get(f"{kind}_diagram", {}).get("source_location", "")})
     # SVG is the default and requires only the Python standard library.
     overview_svg = output / "system_composition.svg"
-    render_system_composition_svg(model, overview_svg)
-    records.insert(0, {"kind": "system_composition_svg", "puml": "", "svg": str(overview_svg), "png": "", "rendered": True, "source_location": spec.get("system_composition_diagram", {}).get("source_location", "")})
+    # Always render the canonical normalized model.  Validation may synthesize
+    # one RR abstract service per use case; using the raw input here silently
+    # dropped those services from the overview on another machine.
+    normalized = report["normalized_model"]
+    render_system_composition_svg(normalized, overview_svg)
+    overview_png = output / "system_composition.png"
+    overview_png_result = convert_svg_to_png(overview_svg, overview_png, require=require_png)
+    records.insert(0, {"kind": "system_composition_svg", "puml": "", "svg": str(overview_svg), "png": overview_png_result.get("png", ""), "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "rendered": True, "source_location": spec.get("system_composition_diagram", {}).get("source_location", "")})
     jar = find_plantuml_jar(plantuml_jar)
     status, error = "rendered", ""
     if jar and shutil.which("java"):
@@ -171,7 +178,7 @@ def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str
         record["svg"] = str(svg) if svg.exists() else ""
         record["png"] = str(png) if png.exists() else ""
         record["rendered"] = bool(record["svg"] and record["png"])
-    manifest = {"version": str(model.get("version", "5")), "project": spec.get("project") or model.get("project"), "status": status, "error": error, "artifacts": records, "node_ids": sorted({node["node_id"] for node in model["system_composition"]["nodes"]}), "interaction_ids": sorted({item["interaction_id"] for item in model["interactions"]})}
+    manifest = {"version": str(normalized.get("version", "6")), "project": spec.get("project") or normalized.get("project"), "status": status, "error": error, "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "artifacts": records, "node_ids": sorted({node["node_id"] for node in normalized["system_composition"]["nodes"]}), "interaction_ids": sorted({item["interaction_id"] for item in normalized["interactions"]})}
     manifest_path = output / "diagram_manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     manifest["manifest"] = str(manifest_path)

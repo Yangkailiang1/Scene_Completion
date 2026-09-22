@@ -1,6 +1,6 @@
 interface:
   display_name: "Scene Completion"
-  short_description: "Complete V5 layered SSD abnormal scenarios"
-  default_prompt: "Use $scene-completion to extract system composition and RR use cases, generate RR/SR/AR/fused SSDs and a dependency graph, route concerns from complete exchanges, and export traceable scenario and interface-mapping workbooks."
+  short_description: "Complete V6 layered SSD abnormal scenarios"
+  default_prompt: "Use $scene-completion to normalize one RR service per use case, generate deduplicated RR/SR/AR/fused SSDs, review all routed concerns, and export traceable scenario and interface-mapping workbooks."
 policy:
   allow_implicit_invocation: true

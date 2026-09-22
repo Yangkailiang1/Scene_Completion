@@ -1,4 +1,4 @@
-# V5 输出协议
+# V6 输出协议
 
 - `scene_model.json`: 标准化系统组成、用例、主成功场景、可选/异常分支和交互。
 - `system_composition.json`: 节点和边。
@@ -10,10 +10,13 @@
 - `use_case_dependency_graph.json/.svg`: RR 用例依赖关系的语义和图形产物；边表示显式依赖或共享 AR 服务候选，不代表时序。
 - `interface_service_mapping_<项目>.xlsx`: `SR接口映射` 与 `AR软件实现接口映射` 两张审计表。
 - `diagrams/<use_case_id>/rr_main.*`、`sr_main.*`、`ar_main.*`、`fused_main.*`: 每个 RR 用例主成功流程的四套 SSD；融合 SSD 是关注点分析的交换输入。
-- `diagrams/<use_case_id>/ssd_manifest.json`: 单个用例的四套 SSD 路径、纯 Python SVG 状态和 AR 待确认项。
+- `diagrams/<use_case_id>/ssd_manifest.json`: 单个用例的四套 SSD 路径、SVG/PNG 状态和 AR 待确认项。
 - `review_items.json`: unknown Service 分类、缺少 AR 映射的待确认项。
+- `concern_coverage_report.json`: 按 Use Case、层级、交互对象、关注点族和状态统计审查覆盖率。
 - `prediction_analysis_<项目>.xlsx`: 按 Use Case 和主流程步骤分组的七列异常预测，GT 列为空，并附追溯页。
 - `scenario_catalog_<项目>.xlsx`: 每行一个主成功、可选、需求异常或关注点异常场景，并附关注点矩阵。
 - `run_manifest.json`: 统计信息、评估状态和所有输出路径。
 
-系统组成图只展示 RR 抽象服务/用例，RR 用例使用椭圆且不绘制用例间连线；PlantUML 只使用无方向 `--` 连线。SSD PlantUML 使用有方向消息箭头，ImplementationAPI 与 AR 微服务合并为一条生命线。默认纯 Python 生成 SVG，不依赖 Java、PlantUML、Graphviz 或 Pillow；检测到 PlantUML 时才额外生成可选 `.puml/.png`。
+系统组成图只展示 RR 抽象服务/用例，RR 用例使用椭圆且不绘制用例间连线；PlantUML 只使用无方向 `--` 连线。SSD PlantUML 使用有方向消息箭头，ImplementationAPI 与 AR 微服务合并为一条生命线。默认纯 Python 生成 SVG，并通过本地可用转换器额外生成 PNG；无转换器时保留 SVG 并记录 `png_status=unavailable`。
+
+V6 模型版本为 `6`。旧 `display`/`compute` Service 类型仅在输入边界兼容，规范化结果使用五类功能 Service 或 `unknown`。`pending_review` 不得进入最终 assemble。

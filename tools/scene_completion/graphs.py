@@ -36,7 +36,7 @@ def build_use_case_dependency_graph(model: dict[str, Any]) -> dict[str, Any]:
             a, b = edge.get("from_use_case"), edge.get("to_use_case")
             if a in known and b in known:
                 edges.append(dict(edge))
-    return {"version": "5", "project": normalized["project"], "nodes": [{"use_case_id": u["use_case_id"], "name": u.get("use_case_name", ""), "rr_service_id": (u.get("architecture") or {}).get("rr", {}).get("service_id", "")} for u in ucs], "edges": edges, "semantics": {"shared_ar_service": "两个 RR 用例复用同一个 AR 微服务，因此形成可追踪依赖候选；不表示时序先后。"}}
+    return {"version": "6", "project": normalized["project"], "nodes": [{"use_case_id": u["use_case_id"], "name": u.get("use_case_name", ""), "rr_service_id": (u.get("architecture") or {}).get("rr", {}).get("service_id", "")} for u in ucs], "edges": edges, "semantics": {"shared_ar_service": "两个 RR 用例复用同一个 AR 微服务，因此形成可追踪依赖候选；不表示时序先后。"}}
 
 
 def validate_use_case_dependency_graph(model: dict[str, Any], graph: dict[str, Any], raise_on_error: bool = False) -> dict[str, Any]:

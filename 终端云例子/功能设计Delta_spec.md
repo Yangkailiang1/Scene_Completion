@@ -573,22 +573,34 @@
 
 ##### 前置条件
 
-- 顾客已登录，目标商品与SKU处于可售状态。
-- quantity满足库存和限购规则。
+- 在线商城系统正常运行，加入购物车接口可访问。
+- CartService和ProductCatalogService服务可用。
+- ACT-001已登录，请求携带合法 Authorization Token。
+- 目标商品状态为 ON_SALE，目标SKU库存充足且有效。
+- quantity满足约束（quantity>=1）和限购规则。
 
 ##### 基本流程
 
-1. 顾客选择SKU和购买数量。
-2. 系统校验商品状态、库存和限购规则。
-3. 系统调用API-C-IF1写入购物车。
-4. CartService返回购物车条目及金额摘要。
-5. 系统提示“已加入购物车”。
+1. ACT-001发送 POST /api/v1/cart/items 请求到在线商城系统，请求体包含 productId、skuId、quantity、idempotencyKey。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验请求参数：productId和skuId格式合法、quantity>=1、idempotencyKey非空。
+4. 在线商城系统调用ProductCatalogService的商品与SKU校验能力，传入 productId 和 skuId。
+5. ProductCatalogService查询 product 表和 sku 表，获取 product_id、product_name、status、stock_quantity、sale_price、original_price、limit_per_order，并返回校验结果。
+6. 在线商城系统确认商品状态为 ON_SALE，并校验库存（stock_quantity >= quantity）和限购规则（quantity <= limit_per_order）。
+7. 在线商城系统调用CartService的加入购物车能力，传入顾客ID、productId、skuId、quantity、idempotencyKey。
+8. CartService按 idempotencyKey 执行幂等校验；若同一SKU已存在于购物车，则累加数量并校验累加后不超限购上限。
+9. CartService写入 cart_item 表（字段包括 cart_item_id、customer_id、product_id、sku_id、quantity、unit_price、created_at、updated_at），并计算购物车商品总数和金额汇总。
+10. CartService向在线商城系统返回 HTTP 200，响应体包含 cartItemId、quantity、cartItemCount、amountSummary。
+11. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 cartItemId、quantity、cartItemCount、amountSummary。
 
 ##### 备选流程
 
-- A1：库存不足，返回OUT_OF_STOCK及当前可购买数量。
-- A2：商品已下架，返回PRODUCT_OFF_SHELF。
-- A3：相同SKU已存在时累加数量，但不得超过上限。
+- A1：quantity不合法（例如 quantity<1），在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_QUANTITY。
+- A2：商品状态为 OFF_SALE，在线商城系统返回 HTTP 410 Gone，错误码 PRODUCT_OFF_SHELF。
+- A3：SKU库存不足，在线商城系统返回 HTTP 409 Conflict，错误码 OUT_OF_STOCK，响应体包含当前可购买数量。
+- A4：相同SKU已存在购物车中，CartService累加数量；若累加后超出限购上限，返回 HTTP 409 Conflict，错误码 PURCHASE_LIMIT_EXCEEDED。
+- A5：idempotencyKey重复，CartService返回已有购物车条目，不重复写入。
+- A6：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。
 
 #### UCG-002-UC001-API-O-IF1 创建订单
 
@@ -609,22 +621,36 @@
 
 ##### 前置条件
 
-- 顾客已登录并选中有效购物车商品。
-- 收货地址有效，商品价格与库存可校验。
+- 在线商城系统正常运行，创建订单接口可访问。
+- OrderService和ProductCatalogService服务可用。
+- ACT-001已登录，购物车中存在已选中的有效商品条目。
+- 收货地址有效且属于当前顾客。
+- 商品价格与库存可校验，confirmedAmount与当前价格一致。
+- idempotencyKey由客户端生成。
 
 ##### 基本流程
 
-1. 系统读取选中的购物车商品。
-2. 系统校验价格、库存、促销和收货地址。
-3. 顾客确认订单金额。
-4. 系统调用API-O-IF1创建订单并锁定库存。
-5. 系统返回orderId、WAIT_PAY状态和待支付金额。
+1. ACT-001发送 POST /api/v1/orders 请求到在线商城系统，请求体包含 cartItemIds、addressId、couponId、idempotencyKey、confirmedAmount。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验请求参数：cartItemIds非空、addressId格式合法、confirmedAmount>=0、idempotencyKey非空。
+4. 在线商城系统调用CartService，读取 cart_item 表中 cartItemIds 对应的购物车条目，获取 product_id、sku_id、quantity、unit_price。
+5. 在线商城系统调用ProductCatalogService的价格与库存校验能力，传入各商品的 productId、skuId、quantity。
+6. ProductCatalogService查询 product 表和 sku 表，获取 sale_price、stock_quantity、status，并返回校验结果。
+7. 在线商城系统校验：商品状态为 ON_SALE、库存充足、confirmedAmount与当前价格一致；若携带 couponId，校验优惠券有效性及适用范围。
+8. 在线商城系统校验收货地址，查询 address 表获取 recipient_name、phone、province、city、district、detail_address。
+9. 在线商城系统调用OrderService的创建订单能力，传入顾客ID、商品列表、地址信息、优惠券、confirmedAmount、idempotencyKey。
+10. OrderService按 idempotencyKey 执行幂等校验，创建订单并锁定库存，写入 order 表（字段包括 order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、expire_at、created_at）和 order_item 表（字段包括 order_item_id、order_id、product_id、sku_id、quantity、unit_price、subtotal）。
+11. OrderService向在线商城系统返回 HTTP 200，响应体包含 orderId、orderStatus（WAIT_PAY）、payableAmount、expireAt。
+12. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 orderId、orderStatus、payableAmount、expireAt。
 
 ##### 备选流程
 
-- A1：价格变化时返回PRICE_CHANGED并要求重新确认。
-- A2：库存不足时返回OUT_OF_STOCK并阻止创建。
-- A3：重复提交时按idempotencyKey返回已有订单。
+- A1：商品价格与 confirmedAmount 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 PRICE_CHANGED，响应体包含最新价格。
+- A2：商品库存不足，在线商城系统返回 HTTP 409 Conflict，错误码 OUT_OF_STOCK，响应体包含不足商品及当前库存。
+- A3：收货地址无效或不属于当前顾客，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_ADDRESS。
+- A4：idempotencyKey重复，OrderService返回已有订单，不重复创建。
+- A5：购物车商品为空，在线商城系统返回 HTTP 400 Bad Request，错误码 CART_EMPTY。
+- A6：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。
 
 #### UCG-002-UC002-PAYMENT-PAY-01 支付订单
 
@@ -645,23 +671,33 @@
 
 ##### 前置条件
 
-- 订单状态为WAIT_PAY且未超过支付有效期。
-- PaymentService可用。
+- 在线商城系统正常运行，订单支付接口可访问。
+- PaymentAdapter服务可用，ACT-003（PaymentService）服务可用。
+- 订单状态为 WAIT_PAY 且未超过支付有效期（expireAt）。
+- ACT-001已登录，请求携带合法 Authorization Token。
+- idempotencyKey由客户端生成。
 
 ##### 基本流程
 
-1. 顾客选择支付方式并确认支付。
-2. 系统校验订单状态和应付金额。
-3. PaymentAdapter通过PAYMENT-PAY-01创建支付请求。
-4. PaymentService返回支付成功结果。
-5. 系统记录支付流水并将订单更新为PAID。
-6. 系统展示支付成功页面。
+1. ACT-001发送 POST /payment/v1/payments 请求到在线商城系统，请求体包含 orderId、amount、paymentMethod、notifyUrl、idempotencyKey。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验请求参数：orderId格式合法、amount>=0、paymentMethod合法、notifyUrl非空、idempotencyKey非空。
+4. 在线商城系统调用OrderService查询 order 表，获取 order_id、customer_id、status、payable_amount、expire_at，校验订单状态为 WAIT_PAY、未过期、金额一致。
+5. 在线商城系统调用PaymentAdapter的创建支付能力，传入 orderId、amount、paymentMethod、notifyUrl、idempotencyKey。
+6. PaymentAdapter向ACT-003（PaymentService）发起支付请求，传入 orderId、amount、paymentMethod、notifyUrl。
+7. PaymentService处理支付并向PaymentAdapter返回支付结果。
+8. PaymentAdapter写入 payment 表（字段包括 payment_id、order_id、amount、payment_method、provider_trade_no、status、paid_at、created_at），并向在线商城系统返回 HTTP 200，响应体包含 paymentId、paymentStatus、paidAt、providerTradeNo。
+9. 在线商城系统更新 order 表中订单状态为 PAID，记录支付流水。
+10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 paymentId、paymentStatus、paidAt、providerTradeNo。
 
 ##### 备选流程
 
-- A1：PaymentService不可用时保留WAIT_PAY并提示重试。
-- A2：顾客取消支付时订单保持WAIT_PAY。
-- A3：重复支付通知按paymentId幂等处理。
+- A1：订单状态不是 WAIT_PAY，在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。
+- A2：支付金额与订单应付金额不一致，在线商城系统返回 HTTP 400 Bad Request，错误码 AMOUNT_MISMATCH。
+- A3：PaymentService不可用或超时，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PAYMENT_SERVICE_UNAVAILABLE，订单保持 WAIT_PAY 状态。
+- A4：顾客取消支付，PaymentService返回取消状态，在线商城系统返回 HTTP 200，错误码 PAYMENT_CANCELLED，订单保持 WAIT_PAY。
+- A5：idempotencyKey重复，PaymentAdapter返回已有支付结果，不重复处理。
+- A6：支付回调通知到达时，在线商城系统按 paymentId 幂等处理，不重复更新订单状态。
 
 #### UCG-002-UC003-API-O-IF2 查看订单详情
 
@@ -682,21 +718,31 @@
 
 ##### 前置条件
 
-- 顾客已登录，订单属于当前顾客。
+- 在线商城系统正常运行，订单详情查询接口可访问。
+- OrderService服务可用。
+- ACT-001已登录，请求携带合法 Authorization Token。
+- 目标订单存在且属于当前顾客。
 
 ##### 基本流程
 
-1. 顾客提交orderId。
-2. 系统校验订单归属关系。
-3. 系统调用API-O-IF2查询订单。
-4. OrderService组合商品、金额、支付和履约信息。
-5. 系统展示订单详情。
+1. ACT-001发送 GET /api/v1/orders/{orderId} 请求到在线商城系统。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验 orderId 格式合法。
+4. 在线商城系统调用OrderService的订单详情查询能力，传入 orderId 和顾客ID。
+5. OrderService查询 order 表，获取 order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、created_at、updated_at。
+6. OrderService查询 order_item 表，获取各商品条目的 order_item_id、product_id、sku_id、quantity、unit_price、subtotal。
+7. OrderService查询 payment 表，获取 payment_id、payment_method、provider_trade_no、payment_status、paid_at。
+8. OrderService查询 shipment 表，获取 shipment_id、carrier_code、tracking_number、shipment_status、shipped_at（若已发货）。
+9. OrderService组合商品、金额、支付和履约信息，向在线商城系统返回 HTTP 200，响应体包含 orderId、status、items[]、amountSummary、paymentSummary、shipmentSummary。
+10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含订单详情。
 
 ##### 备选流程
 
-- A1：订单不属于当前顾客时返回ORDER_ACCESS_DENIED。
-- A2：订单不存在时返回ORDER_NOT_FOUND。
-- A3：订单未发货时不展示物流轨迹。
+- A1：orderId 格式错误，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_ORDER_ID。
+- A2：订单不属于当前顾客，在线商城系统返回 HTTP 403 Forbidden，错误码 ORDER_ACCESS_DENIED。
+- A3：订单不存在，在线商城系统返回 HTTP 404 Not Found，错误码 ORDER_NOT_FOUND。
+- A4：订单未发货，shipmentSummary 中物流字段为空，不展示物流轨迹。
+- A5：OrderService查询超时，在线商城系统返回 HTTP 504 Gateway Timeout，错误码 ORDER_SERVICE_TIMEOUT。
 
 #### UCG-003-UC001-API-L-IF1 商家发货
 
@@ -717,22 +763,32 @@
 
 ##### 前置条件
 
-- 商家具有订单处理权限，订单状态为PAID。
-- 商品已完成出库准备。
+- 在线商城系统正常运行，商家发货接口可访问。
+- OrderService服务可用，ACT-004（LogisticsService）服务可用。
+- 商家已登录，具有订单处理权限，请求携带合法 Authorization Token。
+- 订单状态为 PAID，且商品已完成出库准备。
 
 ##### 基本流程
 
-1. 商家填写承运商和物流单号。
-2. 系统校验商家权限和订单状态。
-3. 系统调用API-L-IF1创建发货记录。
-4. 系统向LogisticsService登记物流单。
-5. 系统保存物流单号并将订单更新为SHIPPED。
+1. ACT-002（商家）发送 POST /api/v1/orders/{orderId}/shipments 请求到在线商城系统，请求体包含 orderId、carrierCode、trackingNumber、shippedItems[]。
+2. 在线商城系统校验 Authorization Token，确认商家身份和订单处理权限。
+3. 在线商城系统校验请求参数：orderId格式合法、carrierCode合法、trackingNumber非空、shippedItems[]非空。
+4. 在线商城系统调用OrderService查询 order 表，获取 order_id、merchant_id、status，校验订单状态为 PAID 且属于当前商家。
+5. 在线商城系统调用OrderService的创建发货能力，传入 orderId、carrierCode、trackingNumber、shippedItems[]。
+6. OrderService校验 trackingNumber 格式（如长度、字符集、承运商编码规则）。
+7. OrderService写入 shipment 表（字段包括 shipment_id、order_id、carrier_code、tracking_number、shipped_items、status、shipped_at、created_at、updated_at）。
+8. OrderService更新 order 表中订单状态为 SHIPPED。
+9. OrderService向ACT-004（LogisticsService）登记物流单号，传入 trackingNumber、carrierCode、orderId。
+10. OrderService向在线商城系统返回 HTTP 200，响应体包含 shipmentId、orderStatus（SHIPPED）、trackingNumber。
+11. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 shipmentId、orderStatus、trackingNumber。
 
 ##### 备选流程
 
-- A1：订单状态不是PAID时返回ORDER_STATUS_INVALID。
-- A2：物流单号非法时返回INVALID_TRACKING_NUMBER。
-- A3：物流服务不可用时保存待同步任务并重试。
+- A1：订单状态不是 PAID，在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。
+- A2：trackingNumber 格式不合法，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_TRACKING_NUMBER。
+- A3：ACT-004（LogisticsService）不可用，OrderService保存待同步任务，订单状态仍更新为 SHIPPED，物流单号登记异步重试。
+- A4：shippedItems[] 中的商品不属于该订单，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_SHIPPED_ITEMS。
+- A5：商家无订单处理权限，在线商城系统返回 HTTP 403 Forbidden，错误码 PERMISSION_DENIED。
 
 #### UCG-003-UC002-LOGI-EVT-01 更新物流信息
 
@@ -753,22 +809,30 @@
 
 ##### 前置条件
 
-- 商城已登记有效物流单号。
-- LogisticsService持有合法调用凭证。
+- 在线商城系统正常运行，物流事件接收接口可访问。
+- LogisticsServiceAdapter服务可用。
+- 商城已登记有效物流单号（shipment 表中存在对应记录）。
+- ACT-004（LogisticsService）持有合法调用凭证（signature）。
 
 ##### 基本流程
 
-1. LogisticsService通过LOGI-EVT-01推送物流事件。
-2. 系统校验签名、物流单号和事件时间。
-3. 系统按eventId执行幂等校验。
-4. 系统保存物流节点并更新订单物流摘要。
-5. 系统返回接收结果。
+1. ACT-004（LogisticsService）发送 POST /api/v1/logistics/events 请求到在线商城系统，请求体包含 eventId、trackingNumber、eventCode、eventTime、location、signature。
+2. LogisticsServiceAdapter校验 signature 的合法性，确认请求来源为授权的LogisticsService。
+3. LogisticsServiceAdapter校验 trackingNumber 是否在 shipment 表中存在，查询 shipment 表获取 shipment_id、order_id、carrier_code。
+4. LogisticsServiceAdapter校验 eventTime 的合理性（不早于发货时间、不晚于当前时间）。
+5. LogisticsServiceAdapter按 eventId 执行幂等校验，查询 logistics_event 表是否已存在相同 eventId。
+6. LogisticsServiceAdapter写入 logistics_event 表（字段包括 event_id、tracking_number、event_code、event_time、location、shipment_id、order_id、created_at）。
+7. LogisticsServiceAdapter更新 shipment 表中的物流状态摘要（last_event_code、last_event_time、last_location、last_updated_at）。
+8. LogisticsServiceAdapter向在线商城系统返回 HTTP 200，响应体包含 accepted=true、duplicate=false。
+9. 在线商城系统向ACT-004返回 HTTP 200，响应体包含 accepted、duplicate。
 
 ##### 备选流程
 
-- A1：签名失败时返回INVALID_SIGNATURE并记录告警。
-- A2：重复事件返回duplicate=true，不重复写入。
-- A3：事件时间倒序时返回INVALID_EVENT_TIME并进入审核队列。
+- A1：signature 校验失败，LogisticsServiceAdapter返回 HTTP 401 Unauthorized，错误码 INVALID_SIGNATURE，并记录安全告警日志。
+- A2：trackingNumber 在 shipment 表中不存在，LogisticsServiceAdapter返回 HTTP 404 Not Found，错误码 TRACKING_NUMBER_NOT_FOUND。
+- A3：eventTime 不合理（早于发货时间或晚于当前时间），LogisticsServiceAdapter返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_TIME。
+- A4：eventId 已存在，LogisticsServiceAdapter返回 HTTP 200，响应体包含 accepted=true、duplicate=true，不重复写入。
+- A5：signature 校验通过但 eventCode 非法（不在允许的事件编码范围内），LogisticsServiceAdapter返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_CODE。
 
 #### UCG-003-UC003-API-L-IF2 查询物流信息
 
@@ -789,21 +853,31 @@
 
 ##### 前置条件
 
-- 顾客已登录，订单属于当前顾客且已发货。
+- 在线商城系统正常运行，物流信息查询接口可访问。
+- LogisticsServiceAdapter服务可用。
+- ACT-001已登录，请求携带合法 Authorization Token。
+- 订单属于当前顾客且已发货（订单状态为 SHIPPED 或更后状态）。
 
 ##### 基本流程
 
-1. 顾客提交物流查询请求。
-2. 系统调用API-L-IF2读取本地物流轨迹。
-3. 本地数据过期时，系统查询LogisticsService。
-4. 系统按时间顺序整理物流节点。
-5. 系统展示最新物流状态和轨迹。
+1. ACT-001发送 GET /api/v1/orders/{orderId}/logistics 请求到在线商城系统。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验 orderId 格式合法。
+4. 在线商城系统调用OrderService查询 order 表，校验订单属于当前顾客且状态为 SHIPPED 或之后。
+5. 在线商城系统调用LogisticsServiceAdapter的物流查询能力，传入 orderId。
+6. LogisticsServiceAdapter查询 shipment 表，获取 shipment_id、carrier_code、tracking_number、status、shipped_at。
+7. LogisticsServiceAdapter查询 logistics_event 表，获取该物流单的所有事件节点（event_code、event_time、location），按 event_time 排序。
+8. LogisticsServiceAdapter判断本地数据是否过期（last_updated_at 距当前时间超过阈值）；若过期，调用ACT-004（LogisticsService）查询最新物流轨迹。
+9. LogisticsServiceAdapter向在线商城系统返回 HTTP 200，响应体包含 trackingNumber、status、events[]、lastUpdatedAt、dataSource。
+10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 trackingNumber、status、events[]、lastUpdatedAt、dataSource。
 
 ##### 备选流程
 
-- A1：订单未发货时返回ORDER_NOT_SHIPPED。
-- A2：外部查询失败时展示最近一次同步数据及更新时间。
-- A3：物流已签收时展示签收时间和状态。
+- A1：订单未发货（状态为 WAIT_PAY 或 PAID），在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_NOT_SHIPPED。
+- A2：本地物流数据不存在，在线商城系统返回 HTTP 404 Not Found，错误码 LOGISTICS_NOT_FOUND。
+- A3：ACT-004（LogisticsService）查询失败或超时，LogisticsServiceAdapter返回本地最近一次同步数据，dataSource 标记为 CACHE，并包含 lastUpdatedAt。
+- A4：物流已签收，events[] 中包含签收节点，status 为 DELIVERED，响应包含签收时间。
+- A5：LogisticsServiceAdapter服务不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 LOGISTICS_SERVICE_UNAVAILABLE。
 
 #### UCG-003-UC004-API-R-IF1 申请退款
 
@@ -824,22 +898,34 @@
 
 ##### 前置条件
 
-- 订单属于当前顾客且已支付。
-- 订单满足退款时限和状态规则。
+- 在线商城系统正常运行，退款申请接口可访问。
+- RefundService服务可用，ACT-003（PaymentService）服务可用。
+- ACT-001已登录，订单属于当前顾客且已支付（订单状态为 PAID 或 SHIPPED）。
+- 订单满足退款时限（在退款有效期内）和状态规则。
+- idempotencyKey由客户端生成。
 
 ##### 基本流程
 
-1. 顾客选择退款商品、数量和原因。
-2. 系统校验订单和可退款金额。
-3. 系统调用API-R-IF1创建退款单。
-4. RefundService向PaymentService提交退款请求。
-5. 系统保存退款流水并展示处理状态。
+1. ACT-001发送 POST /api/v1/refunds 请求到在线商城系统，请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey。
+2. 在线商城系统校验 Authorization Token，确认顾客身份。
+3. 在线商城系统校验请求参数：orderId格式合法、items[]非空、reasonCode合法、requestedAmount>=0、idempotencyKey非空。
+4. 在线商城系统调用OrderService查询 order 表和 order_item 表，校验订单属于当前顾客、状态满足退款条件、计算可退款金额。
+5. 在线商城系统调用RefundService的退款申请能力，传入 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey。
+6. RefundService按 idempotencyKey 执行幂等校验。
+7. RefundService校验退款时限（是否在退款有效期内）和退款金额（requestedAmount <= 可退款金额）。
+8. RefundService写入 refund 表（字段包括 refund_id、order_id、customer_id、items_snapshot、reason_code、reason_description、requested_amount、accepted_amount、status、created_at、updated_at）。
+9. RefundService向ACT-003（PaymentService）提交退款请求，传入 refund_id、payment_id、accepted_amount。
+10. PaymentService处理退款并向RefundService返回退款结果。
+11. RefundService更新 refund 表中退款状态，并向在线商城系统返回 HTTP 200，响应体包含 refundId、refundStatus、acceptedAmount。
+12. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 refundId、refundStatus、acceptedAmount。
 
 ##### 备选流程
 
-- A1：超过退款期限时返回REFUND_WINDOW_EXPIRED。
-- A2：金额超限时返回REFUND_AMOUNT_EXCEEDED。
-- A3：支付服务不可用时保留待处理退款单并异步重试。
+- A1：超过退款有效期，在线商城系统返回 HTTP 409 Conflict，错误码 REFUND_WINDOW_EXPIRED。
+- A2：退款金额超过可退款金额，在线商城系统返回 HTTP 409 Conflict，错误码 REFUND_AMOUNT_EXCEEDED，响应体包含可退款金额。
+- A3：订单状态不满足退款条件（例如已退款或已取消），在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。
+- A4：ACT-003（PaymentService）不可用，RefundService保留退款单为 PENDING 状态，异步重试提交退款请求，响应体 refundStatus 为 PROCESSING。
+- A5：idempotencyKey重复，RefundService返回已有退款单，不重复创建。
 
 #### UCG-004-UC001-API-M-IF1 创建商品
 
@@ -860,21 +946,29 @@
 
 ##### 前置条件
 
-- 商家已登录、经营资质有效且拥有商品管理权限。
+- 在线商城系统正常运行，商品创建接口可访问。
+- MerchantProductService服务可用。
+- ACT-002（商家）已登录，经营资质有效，拥有商品管理权限，请求携带合法 Authorization Token。
+- idempotencyKey由客户端生成。
 
 ##### 基本流程
 
-1. 商家点击“创建商品”。
-2. 系统校验商家身份、资质和权限。
-3. 系统调用API-M-IF1创建商品草稿。
-4. MerchantProductService生成productId和初始version。
-5. 系统进入商品信息编辑页面。
+1. ACT-002（商家）发送 POST /api/v1/merchant/products 请求到在线商城系统，请求体包含 merchantId、idempotencyKey。
+2. 在线商城系统校验 Authorization Token，确认商家身份。
+3. 在线商城系统校验请求参数：merchantId格式合法、idempotencyKey非空。
+4. 在线商城系统调用MerchantProductService的创建商品能力，传入 merchantId、idempotencyKey。
+5. MerchantProductService校验商家经营资质（查询 merchant 表，获取 merchant_id、qualification_status、product_permission），确认资质有效且有商品管理权限。
+6. MerchantProductService按 idempotencyKey 执行幂等校验。
+7. MerchantProductService生成 productId 和初始 version，写入 product 表（字段包括 product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）。
+8. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（DRAFT）、version。
+9. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、version。
 
 ##### 备选流程
 
-- A1：资质失效时返回MERCHANT_NOT_QUALIFIED。
-- A2：无权限时返回PERMISSION_DENIED。
-- A3：重复提交时根据idempotencyKey返回已有草稿。
+- A1：商家经营资质已失效，在线商城系统返回 HTTP 403 Forbidden，错误码 MERCHANT_NOT_QUALIFIED。
+- A2：商家无商品管理权限，在线商城系统返回 HTTP 403 Forbidden，错误码 PERMISSION_DENIED。
+- A3：idempotencyKey重复，MerchantProductService返回已有商品草稿，不重复创建。
+- A4：MerchantProductService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 MERCHANT_SERVICE_UNAVAILABLE。
 
 #### UCG-004-UC002-API-M-IF2 填写商品信息
 
@@ -895,22 +989,31 @@
 
 ##### 前置条件
 
-- 商品草稿存在且属于当前商家。
-- 商家拥有编辑权限。
+- 在线商城系统正常运行，商品信息维护接口可访问。
+- MerchantProductService和CategoryService服务可用。
+- 商品草稿存在且属于当前商家（product 表中 status 为 DRAFT）。
+- 商家拥有编辑权限，请求携带合法 Authorization Token。
 
 ##### 基本流程
 
-1. 商家填写名称、描述、分类和图片。
-2. 系统校验必填字段、文本长度、分类和图片格式。
-3. 系统调用API-M-IF2保存资料。
-4. MerchantProductService更新商品版本。
-5. 系统提示保存成功。
+1. ACT-002（商家）发送 PUT /api/v1/merchant/products/{productId} 请求到在线商城系统，请求体包含 name、description、categoryId、imageUrls[]、version。
+2. 在线商城系统校验 Authorization Token，确认商家身份。
+3. 在线商城系统校验请求参数：name非空且长度合法、description长度合法、categoryId格式合法、imageUrls[]格式合法、version非空。
+4. 在线商城系统调用MerchantProductService的商品信息维护能力，传入 productId、name、description、categoryId、imageUrls[]、version。
+5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。
+6. MerchantProductService调用CategoryService校验 categoryId，查询 category 表获取 category_id、status，确认分类有效且未停用。
+7. MerchantProductService校验图片格式和数量约束（imageUrls[] 中每项URL格式合法、数量在允许范围内）。
+8. MerchantProductService更新 product 表（字段包括 name、description、category_id、image_urls、version（+1）、updated_at）。
+9. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（DRAFT）、version（新版本号）、updatedAt。
+10. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、version、updatedAt。
 
 ##### 备选流程
 
-- A1：分类无效时返回INVALID_CATEGORY。
-- A2：图片不合规时返回INVALID_IMAGE。
-- A3：版本冲突时返回VERSION_CONFLICT并要求重新加载。
+- A1：商品不存在，在线商城系统返回 HTTP 404 Not Found，错误码 PRODUCT_NOT_FOUND。
+- A2：categoryId 不存在或已停用，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_CATEGORY。
+- A3：图片URL格式不合法或数量超限，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_IMAGE。
+- A4：version 不一致（商品已被其他操作修改），在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version，要求商家重新加载。
+- A5：商品状态不是 DRAFT（已发布），在线商城系统返回 HTTP 409 Conflict，错误码 INVALID_PRODUCT_STATUS。
 
 #### UCG-004-UC003-API-M-IF3 设置库存与价格
 
@@ -931,21 +1034,31 @@
 
 ##### 前置条件
 
-- 商品草稿存在且至少定义一个SKU。
+- 在线商城系统正常运行，库存价格维护接口可访问。
+- MerchantProductService服务可用。
+- 商品草稿存在且至少定义一个SKU，属于当前商家。
+- 商家拥有编辑权限，请求携带合法 Authorization Token。
 
 ##### 基本流程
 
-1. 商家为各SKU填写库存和价格。
-2. 系统校验库存、价格和SKU唯一性。
-3. 系统调用API-M-IF3保存SKU数据。
-4. MerchantProductService更新版本并返回最新SKU列表。
-5. 系统展示保存结果。
+1. ACT-002（商家）发送 PUT /api/v1/merchant/products/{productId}/skus 请求到在线商城系统，请求体包含 skus[]（每项含 skuId、attributes、stock、salePrice、originalPrice）和商品 version。
+2. 在线商城系统校验 Authorization Token，确认商家身份。
+3. 在线商城系统校验请求参数：skus[]非空、每项 skuId 格式合法、stock>=0、salePrice>=0、originalPrice>=0、version非空。
+4. 在线商城系统调用MerchantProductService的库存与价格维护能力，传入 productId、skus[]、version。
+5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。
+6. MerchantProductService校验 SKU 数据：stock 不为负数、salePrice 合法、originalPrice 合法、skuId 无重复。
+7. MerchantProductService写入/更新 sku 表（字段包括 sku_id、product_id、attributes、stock_quantity、sale_price、original_price、updated_at）。
+8. MerchantProductService更新 product 表中 version（+1）和 updated_at。
+9. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、skus[]、version（新版本号）。
+10. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、skus[]、version。
 
 ##### 备选流程
 
-- A1：库存为负时返回NEGATIVE_STOCK。
-- A2：价格非法时返回INVALID_PRICE。
-- A3：版本冲突时返回VERSION_CONFLICT。
+- A1：stock 为负数，在线商城系统返回 HTTP 400 Bad Request，错误码 NEGATIVE_STOCK。
+- A2：salePrice 或 originalPrice 不合法（例如为负数或格式错误），在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_PRICE。
+- A3：skus[] 中存在重复的 skuId，在线商城系统返回 HTTP 409 Conflict，错误码 DUPLICATE_SKU。
+- A4：version 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version。
+- A5：商品不存在，在线商城系统返回 HTTP 404 Not Found，错误码 PRODUCT_NOT_FOUND。
 
 #### UCG-004-UC004-API-M-IF4 发布商品
 
@@ -966,23 +1079,33 @@
 
 ##### 前置条件
 
-- 商品处于DRAFT状态且资料、SKU、库存和价格完整。
-- 商家经营资质有效。
+- 在线商城系统正常运行，商品发布接口可访问。
+- MerchantProductService和ProductCatalogService服务可用。
+- 商品处于 DRAFT 状态，且资料（名称、描述、分类、图片）、SKU、库存和价格完整。
+- 商家经营资质有效，请求携带合法 Authorization Token。
 
 ##### 基本流程
 
-1. 商家提交商品发布。
-2. 系统校验资料完整性、类目规则、库存和价格。
-3. 系统调用API-M-IF4发布商品。
-4. MerchantProductService将状态更新为ON_SALE。
-5. 系统通知ProductCatalogService刷新可售索引。
-6. 系统提示发布成功。
+1. ACT-002（商家）发送 POST /api/v1/merchant/products/{productId}/publish 请求到在线商城系统，请求体包含 version、publishAt。
+2. 在线商城系统校验 Authorization Token，确认商家身份。
+3. 在线商城系统校验请求参数：version非空、publishAt格式合法。
+4. 在线商城系统调用MerchantProductService的商品发布能力，传入 productId、version、publishAt。
+5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。
+6. MerchantProductService校验商品资料完整性：name、description、category_id、image_urls 非空，sku 表中存在至少一个有效SKU且 stock_quantity>0、sale_price>0。
+7. MerchantProductService校验类目规则：查询 category 表获取分类的必填属性和发布规则，确认商品满足类目要求。
+8. MerchantProductService更新 product 表中 status 为 ON_SALE、published_at、version（+1）、updated_at。
+9. MerchantProductService调用ProductCatalogService刷新可售索引，传入 productId 和最新商品数据。
+10. ProductCatalogService更新商品检索索引，向MerchantProductService返回同步结果。
+11. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（ON_SALE）、publishedAt、catalogSyncStatus。
+12. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、publishedAt、catalogSyncStatus。
 
 ##### 备选流程
 
-- A1：资料不完整时返回PRODUCT_INCOMPLETE。
-- A2：违反类目规则时返回CATEGORY_RULE_VIOLATION并进入审核。
-- A3：目录同步失败时记录待同步任务并自动重试。
+- A1：商品资料不完整（如缺少名称、描述、图片或SKU），在线商城系统返回 HTTP 409 Conflict，错误码 PRODUCT_INCOMPLETE，响应体包含缺失字段列表。
+- A2：商品不满足类目发布规则（如必填属性缺失），在线商城系统返回 HTTP 409 Conflict，错误码 CATEGORY_RULE_VIOLATION，商品进入审核队列。
+- A3：商品状态不是 DRAFT（如已发布或已删除），在线商城系统返回 HTTP 409 Conflict，错误码 INVALID_PRODUCT_STATUS。
+- A4：version 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version。
+- A5：ProductCatalogService同步失败，MerchantProductService记录待同步任务并自动重试，catalogSyncStatus 为 SYNC_PENDING，商品状态仍更新为 ON_SALE。
 
 ### V5标准化设计用例调用链（抽取权威章节）
 

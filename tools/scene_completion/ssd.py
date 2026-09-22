@@ -12,6 +12,7 @@ from typing import Any
 
 from .schemas import ValidationFailure, node_map, stable_id, use_case_map, validate_scene_model
 from .svg_renderer import render_ssd_svg
+from .png_renderer import convert_svg_to_png
 
 
 SSD_LAYERS = {"RR", "SR", "AR", "fused"}
@@ -671,13 +672,63 @@ def _v5_fuse(rr: dict[str, Any], sr: dict[str, Any], ar: dict[str, Any]) -> dict
         if line.get("node_id") and line.get("node_id") not in seen_lifelines:
             lifelines.append(line); seen_lifelines.add(line["node_id"])
     fused["lifelines"] = lifelines
-    fused["messages"] = copy.deepcopy(rr.get("messages", [])) + copy.deepcopy(sr.get("messages", [])) + copy.deepcopy(ar.get("messages", []))
+    messages = copy.deepcopy(rr.get("messages", [])) + copy.deepcopy(sr.get("messages", [])) + copy.deepcopy(ar.get("messages", []))
+    messages, dedupe_report = _v6_dedupe_messages(messages)
+    fused["messages"] = messages
+    fused["dedupe_report"] = dedupe_report
     fused["source_ssds"] = {"rr": rr.get("ssd_id"), "sr": sr.get("ssd_id"), "ar": ar.get("ssd_id")}
     return _v5_resequence(fused)
 
 
+def _v6_message_identity(message: dict[str, Any]) -> tuple[Any, ...]:
+    """Identity for one semantic arrow, independent of generated message_id."""
+    return tuple(str(message.get(field, "")).strip() for field in (
+        "use_case_id", "layer", "exchange_id", "parent_exchange_id",
+        "source_step_index", "from_node", "to_node", "message_kind",
+        "abstract_api_id", "implementation_api_id", "api_method", "resource_path",
+    ))
+
+
+def _v6_message_text(message: dict[str, Any]) -> str:
+    return " ".join(str(message.get("message", message.get("text", ""))).split())
+
+
+def _v6_dedupe_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    retained: list[dict[str, Any]] = []
+    by_identity: dict[tuple[Any, ...], dict[str, Any]] = {}
+    aliases: dict[str, str] = {}
+    conflicts: list[str] = []
+    removed = 0
+    for message in messages:
+        identity = _v6_message_identity(message)
+        existing = by_identity.get(identity)
+        if existing is None:
+            item = copy.deepcopy(message)
+            item["source_locations"] = [message.get("source_location", "")] if message.get("source_location") else []
+            by_identity[identity] = item
+            retained.append(item)
+            continue
+        if _v6_message_text(existing) != _v6_message_text(message):
+            conflicts.append(f"semantic duplicate has conflicting text: {identity}")
+            continue
+        old_id = message.get("message_id")
+        if old_id:
+            aliases[old_id] = existing.get("message_id", old_id)
+        location = message.get("source_location", "")
+        if location and location not in existing.setdefault("source_locations", []):
+            existing["source_locations"].append(location)
+        removed += 1
+    if conflicts:
+        raise ValidationFailure(conflicts)
+    for message in retained:
+        reply = message.get("reply_to_message_id")
+        if reply in aliases:
+            message["reply_to_message_id"] = aliases[reply]
+    return retained, {"input_count": len(messages), "output_count": len(retained), "removed_count": removed, "conflicts": conflicts}
+
+
 def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = None) -> dict[str, Any]:
-    if str(model.get("version")) != "5":
+    if str(model.get("version")) not in {"5", "6"}:
         return _v4_generate_ssd_bundle(model, use_case_id, api_map)
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     uc = use_case_map(normalized).get(use_case_id)
@@ -686,16 +737,22 @@ def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = 
     rr, sr, ar, fused = _v5_chain(normalized, uc, stable_id("SSD", use_case_id, "bundle"))
     rr = _v5_resequence(rr); sr = _v5_resequence(sr); ar = _v5_resequence(ar)
     fused = _v5_fuse(rr, sr, ar)
-    return {"version": "5", "project": normalized["project"], "use_case_id": use_case_id, "scenario_id": "main", "rr": rr, "sr": sr, "ar": ar, "fused": fused, "review_items": []}
+    return {"version": "6", "project": normalized["project"], "use_case_id": use_case_id, "scenario_id": "main", "rr": rr, "sr": sr, "ar": ar, "fused": fused, "review_items": []}
 
 
 def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise_on_error: bool = False) -> dict[str, Any]:
-    if str(ssd.get("version", "")) != "5":
+    if str(ssd.get("version", "")) not in {"5", "6"}:
         return _v4_validate_ssd(ssd, model, raise_on_error)
     errors: list[str] = []
     if ssd.get("layer") not in {"RR", "SR", "AR", "fused"}:
         errors.append("invalid V5 SSD layer")
     messages = ssd.get("messages") if isinstance(ssd.get("messages"), list) else []
+    try:
+        _, dedupe_report = _v6_dedupe_messages(messages)
+        if dedupe_report.get("removed_count"):
+            errors.append(f"SSD contains {dedupe_report['removed_count']} semantic duplicate message(s)")
+    except ValidationFailure as exc:
+        errors.extend(exc.errors)
     previous = 0; seen = set(); by_exchange: dict[str, list[dict[str, Any]]] = {}
     for i, message in enumerate(messages, 1):
         if message.get("message_id") in seen or not message.get("message_id"): errors.append(f"message {i} has duplicate or missing message_id")
@@ -721,21 +778,22 @@ def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise
 
 
 def write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: str | Path, plantuml_jar: str | Path | None = None, render: bool = False) -> dict[str, Any]:
-    if str(bundle.get("version")) != "5":
+    if str(bundle.get("version")) not in {"5", "6"}:
         return _v4_write_ssd_bundle(bundle, model, output_dir, plantuml_jar, render)
     output = Path(output_dir).expanduser().resolve() / bundle["use_case_id"]; output.mkdir(parents=True, exist_ok=True)
     paths = {}
     for layer in ("rr", "sr", "ar", "fused"):
         ssd = bundle[layer]; validate_ssd(ssd, model, True)
-        jp = output / f"{layer}_main.json"; sp = output / f"{layer}_main.svg"
+        jp = output / f"{layer}_main.json"; sp = output / f"{layer}_main.svg"; pp = output / f"{layer}_main.png"
         jp.write_text(json.dumps(ssd, ensure_ascii=False, indent=2), encoding="utf-8"); render_ssd_svg(ssd, model, sp)
-        paths[layer] = {"json": str(jp), "svg": str(sp), "png": "", "puml": ""}
+        png_result = convert_svg_to_png(sp, pp)
+        paths[layer] = {"json": str(jp), "svg": str(sp), "png": png_result.get("png", ""), "png_status": png_result.get("status"), "png_converter": png_result.get("converter", ""), "png_error": png_result.get("error", ""), "puml": ""}
     jar = Path(plantuml_jar or os.environ.get("PLANTUML_JAR", "")).expanduser()
     if jar.is_file() and shutil.which("java"):
         _render_optional_puml(bundle, model, output, jar)
         for layer in ("rr", "sr", "ar", "fused"):
             paths[layer]["puml"] = str(output / "optional" / f"{layer}_main.puml")
             paths[layer]["png"] = str(output / "optional" / f"{layer}_main.png")
-    manifest = {"version": "5", "project": bundle["project"], "use_case_id": bundle["use_case_id"], "scenario_id": "main", "artifacts": paths, "review_items": bundle.get("review_items", [])}
+    manifest = {"version": "6", "project": bundle["project"], "use_case_id": bundle["use_case_id"], "scenario_id": "main", "artifacts": paths, "review_items": bundle.get("review_items", []), "dedupe_report": bundle.get("fused", {}).get("dedupe_report", {})}
     (output / "ssd_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     return manifest
