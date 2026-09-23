@@ -96,10 +96,12 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     externals = [n for n in all_nodes if n.get("kind") in {"external_service", "external_database", "external_llm"}]
     databases = [n for n in all_nodes if n.get("kind") in {"internal_database", "internal_knowledge_base"}]
     deployment = [n for n in all_nodes if n.get("kind") in {"deployment_hardware", "runtime_environment"}]
-    margin, gap = 34, 24
+    margin, gap = 34, 72
     col_w = {"actors": 255, "devices": 235, "system": 660, "external": 290}
     width = margin*2 + sum(col_w.values()) + gap*3
-    rr_h = max(170, 95 + math.ceil(max(1, len(rr))/2) * 95)
+    # One RR use case per row gives participant connectors a clear horizontal
+    # corridor; the old two-column layout sent links through neighbouring ellipses.
+    rr_h = max(170, 128 + max(1, len(rr)) * 86)
     system_h = rr_h + 85
     external_h = max(170, 95 + len(externals) * 82)
     resource_h = max(135, 95 + math.ceil(max(1, len(databases)) / 3) * 88)
@@ -144,16 +146,21 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     place_stack(devices, x_device, top_y, col_w["devices"])
     positions[system["node_id"]] = (x_system+16, top_y+44, col_w["system"]-32, 50)
     _draw_node(body, system, positions[system["node_id"]])
-    place_stack(rr, x_system, top_y+75, col_w["system"], item_h=62, spacing=14, ellipse=True, cols=2)
+    place_stack(rr, x_system, top_y+105, col_w["system"], item_h=66, spacing=14, ellipse=True, cols=1)
     place_stack(externals, x_external, top_y, col_w["external"], item_h=62, spacing=12)
     place_stack(databases, x_system, bottom_y, col_w["system"], item_h=58, spacing=12, cols=3)
     place_stack(deployment, x_system, deployment_y, col_w["system"], item_h=58, spacing=12, cols=3)
 
     rr_ids = {n["node_id"] for n in rr}
     node_by_id = {n.get("node_id"): n for n in all_nodes}
-    # Explicit RR associations: actor to the ellipse's left tip, and external
-    # dependencies to its right tip.  This uses stable semantic edges added by
-    # model normalization, never labels or layout inference.
+    # Route participant associations around the RR list in dedicated boundary
+    # corridors. A single-column RR layout ensures each horizontal branch can
+    # reach an ellipse endpoint without crossing another use-case ellipse.
+    route_y = top_y + 36  # below group titles, above the System node and RR rows
+    actor_bus_x = x_actor + col_w["actors"] + gap / 2
+    rr_left_x = x_system - 8
+    rr_right_x = x_system + col_w["system"] + 8
+    external_bus_x = x_external - gap / 2
     for edge in model.get("system_composition", {}).get("edges", []):
         relation = edge.get("relation")
         if relation not in {"participates_in", "external_participates_in", "uses_external_service"}:
@@ -164,21 +171,28 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
             continue
         if relation == "participates_in":
             actor_box, ellipse_box = p, q
-            actor_center = _box_center(actor_box)
-            source_anchor = _boundary_anchor(actor_box, _box_center(ellipse_box))
+            _, actor_y = _box_center(actor_box)
             _, cy = _box_center(ellipse_box)
             target_anchor = (ellipse_box[0], cy)
-            start, end = source_anchor, target_anchor
+            source_anchor = (actor_box[0] + actor_box[2], actor_y)
+            points = [source_anchor, (actor_bus_x, actor_y), (actor_bus_x, route_y), (rr_left_x, route_y), (rr_left_x, cy), target_anchor]
         else:
             if relation == "external_participates_in":
                 external_box, ellipse_box = p, q
+                _, external_y = _box_center(external_box)
+                _, cy = _box_center(ellipse_box)
+                source_anchor = (external_box[0], external_y)
+                target_anchor = (ellipse_box[0] + ellipse_box[2], cy)
+                points = [source_anchor, (external_bus_x, external_y), (external_bus_x, route_y), (rr_right_x, route_y), (rr_right_x, cy), target_anchor]
             else:
                 ellipse_box, external_box = p, q
-            external_center = _box_center(external_box)
-            source_anchor = (ellipse_box[0] + ellipse_box[2], _box_center(ellipse_box)[1])
-            target_anchor = _boundary_anchor(external_box, _box_center(ellipse_box))
-            start, end = (target_anchor, source_anchor) if relation == "external_participates_in" else (source_anchor, target_anchor)
-        body.append(f'<line data-relation="{_esc(relation)}" data-use-case="{_esc(edge.get("use_case_id", ""))}" x1="{start[0]:.1f}" y1="{start[1]:.1f}" x2="{end[0]:.1f}" y2="{end[1]:.1f}" stroke="#7187A1" stroke-width="1.8"/>')
+                _, external_y = _box_center(external_box)
+                _, cy = _box_center(ellipse_box)
+                source_anchor = (ellipse_box[0] + ellipse_box[2], cy)
+                target_anchor = (external_box[0], external_y)
+                points = [source_anchor, (rr_right_x, cy), (rr_right_x, route_y), (external_bus_x, route_y), (external_bus_x, external_y), target_anchor]
+        path_data = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in points)
+        body.append(f'<path data-relation="{_esc(relation)}" data-use-case="{_esc(edge.get("use_case_id", ""))}" d="{path_data}" fill="none" stroke="#7187A1" stroke-width="1.6" stroke-linejoin="round"/>')
 
     for edge in model.get("system_composition", {}).get("edges", []):
         a, b = edge.get("from_node"), edge.get("to_node")

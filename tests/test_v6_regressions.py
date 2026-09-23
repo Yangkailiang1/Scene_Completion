@@ -6,10 +6,10 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from tests.test_scene_completion import sample_model
-from tools.scene_completion.assembly import assemble_results
+from tools.scene_completion.assembly import _merge_equivalent_database_failures, assemble_results
 from tools.scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
 from tools.scene_completion.exporters import export_workbooks
-from tools.scene_completion.review import load_ecnu_env_file, review_concerns
+from tools.scene_completion.review import _batch_payload, load_ecnu_env_file, review_concerns
 from tools.scene_completion.schemas import validate_scene_model
 from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd
 from tools.scene_completion.ssd import write_ssd_bundle
@@ -81,6 +81,8 @@ def test_v7_actor_and_external_service_associations_reach_ellipse_sides():
         svg = render_system_composition_svg(normalized, Path(tmp) / "system.svg").read_text(encoding="utf-8")
     assert 'data-relation="participates_in"' in svg
     assert 'data-relation="uses_external_service"' in svg
+    assert '<path data-relation="participates_in"' in svg
+    assert '<path data-relation="uses_external_service"' in svg
 
 
 def test_v7_matrix_workbook_has_real_exchange_uc_and_timeout_only_tab():
@@ -106,6 +108,14 @@ def test_v7_matrix_workbook_has_real_exchange_uc_and_timeout_only_tab():
         timeout_headers = [timeout_sheet.cell(3, col).value for col in range(1, timeout_sheet.max_column + 1)]
         assert "需求满足影响" in timeout_headers
         assert timeout_sheet.max_row - 3 == sum(item["concern_key"] == "common.timeout" for item in matrix["items"])
+        impact_col = timeout_headers.index("需求满足影响") + 1
+        impact_values = [timeout_sheet.cell(row, impact_col).value for row in range(4, timeout_sheet.max_row + 1)]
+        assert "待需求确认" in impact_values
+        assert all(value in {"待需求确认", "—", "yes", "no"} for value in impact_values)
+        matrix_sheet = workbook["关注点矩阵"]
+        matrix_headers = [matrix_sheet.cell(3, col).value for col in range(1, matrix_sheet.max_column + 1)]
+        message_col = matrix_headers.index("交互消息") + 1
+        assert all(matrix_sheet.cell(row, message_col).value for row in range(4, matrix_sheet.max_row + 1))
 
 
 def test_v7_source_scenarios_survive_version_six_and_get_exception_predictions():
@@ -125,7 +135,65 @@ def test_v7_source_scenarios_survive_version_six_and_get_exception_predictions()
     assert "alternative" in types
     exception = next(item for item in bundle["scenario_catalog"] if item["scenario_type"] == "requirement_exception")
     assert exception["prediction_id"]
+    assert exception["concern_key"] == ""
+    assert exception["concern"] == "需求来源异常（非关注点）"
     assert any(item["scenario_id"] == exception["scenario_id"] for item in bundle["findings"])
+
+
+def test_v7_requirement_exception_trace_nodes_are_resolved_from_ssd(tmp_path):
+    model = sample_model()
+    model["version"] = "6"
+    model["use_cases"][0]["scenarios"] = [{
+        "scenario_id": "UC-001-main", "scenario_type": "main", "anchor_step_index": 0,
+        "steps": model["use_cases"][0]["main_flow"],
+    }, {
+        "scenario_id": "UC-001-error", "scenario_type": "requirement_exception", "anchor_step_index": 2,
+        "anchor_label": "2.a", "steps": [{"step_index": 1, "text": "提交查询"}, {"step_index": 2, "text": "系统拒绝请求"}],
+        "trigger": "参数非法", "expected_result": "返回400", "recovery": "修改后重试", "source_location": "fixture.md:10",
+    }]
+    bundle_ssd = generate_ssd_bundle(model, "UC-001")
+    manifest = write_ssd_bundle(bundle_ssd, model, tmp_path / "ssd")
+    matrix = plan_concern_matrix(model)
+    for item in matrix["items"]:
+        item.update({"status": "not_applicable", "basis": "该交换没有此类异常依据", "evidence_types": ["ssd"]})
+    assembled = assemble_results(model, matrix, {"findings": []}, {"use_cases": [manifest]})
+    exception = next(item for item in assembled["scenario_catalog"] if item["scenario_type"] == "requirement_exception")
+    assert exception["source_node"] and exception["target_node"]
+    prediction = next(item for item in assembled["findings"] if item.get("exception_origin") == "requirement_branch")
+    assert prediction["source_node"] and prediction["target_node"]
+
+
+def test_v7_database_availability_merges_same_failure_and_preserves_all_trace_refs():
+    model = sample_model()
+    target = "int-db"
+    common = {
+        "use_case_id": "UC-001", "source_step_index": 2, "target_node": target,
+        "target_node_name": "内部数据库", "concern_key": "internal_database.availability",
+        "expected_result": "请求失败并返回服务暂不可用。", "recovery": "提示稍后重试。",
+        "trigger": "数据库连接失败。", "source_node": "impl-order", "source_node_name": "订单服务",
+        "layer": "AR", "interaction_message": "查询资源", "source_location": "fixture.md:12",
+    }
+    items = [
+        {**common, "exception_type": "数据库连接失败", "exception_desc": "商品查询失败。", "exchange_id": "EX-1", "ssd_message_id": "MSG-1"},
+        {**common, "exception_type": "数据库不可用", "exception_desc": "库存读取失败。", "exchange_id": "EX-2", "ssd_message_id": "MSG-2"},
+        {**common, "exception_type": "DatabaseUnavailableException", "exception_desc": "价格读取失败。", "exchange_id": "EX-3", "ssd_message_id": "MSG-3"},
+    ]
+    merged = _merge_equivalent_database_failures(items, validate_scene_model(model)["normalized_model"])
+    assert len(merged) == 1
+    assert merged[0]["exception_type"] == "数据库不可用"
+    assert set(merged[0]["related_exchange_ids"]) == {"EX-1", "EX-2", "EX-3"}
+    assert set(merged[0]["related_ssd_message_ids"]) == {"MSG-1", "MSG-2", "MSG-3"}
+    different_recovery = {**items[1], "recovery": "由管理员恢复后重新查询。"}
+    separate = _merge_equivalent_database_failures([items[0], different_recovery], validate_scene_model(model)["normalized_model"])
+    assert len(separate) == 2
+    paraphrased = [
+        {**items[0], "expected_result": "系统应提示错误信息，如‘商品加载失败’", "recovery": "提示用户稍后重试，恢复后继续主流程。"},
+        {**items[1], "expected_result": "系统提示‘商品加载失败，请稍后重试’", "recovery": "提示后结束或回到主流程。"},
+        {**items[2], "expected_result": "商品查询失败，系统返回错误信息", "recovery": "按该分支处理后结束或回到主流程。"},
+    ]
+    merged_paraphrases = _merge_equivalent_database_failures(paraphrased, validate_scene_model(model)["normalized_model"])
+    assert len(merged_paraphrases) == 1
+    assert set(merged_paraphrases[0]["related_exchange_ids"]) == {"EX-1", "EX-2", "EX-3"}
 
 
 def test_v7_batch_review_uses_exchange_batches_and_resumes_without_network(tmp_path, monkeypatch):
@@ -181,6 +249,19 @@ def test_v7_batch_review_uses_exchange_batches_and_resumes_without_network(tmp_p
     assert assembled["findings"]
     assert assembled["findings"][0]["exchange_id"] == candidate["exchange_id"]
 
+
+def test_v7_review_payload_includes_matching_api_contract_constraints():
+    model = sample_model()
+    model["interfaces"] = [{
+        "name": "API-S-IF1", "abstract_api_id": "API-S-IF1", "method": "GET", "path": "/products",
+        "validation_rules": [{"field": "pageSize", "rule": "1<=pageSize<=100", "source_location": "design.md:12"}],
+    }]
+    candidate = {"use_case_id": "UC-001", "concern_key": "api.data.range"}
+    exchange = {"use_case_id": "UC-001", "messages": [{
+        "message_id": "REQ-1", "exchange_id": "EX-1", "message_kind": "request", "abstract_api_id": "API-S-IF1", "message": "查询商品",
+    }]}
+    payload = _batch_payload(model, "EX-1", [candidate], exchange)
+    assert payload["api_contracts"][0]["validation_rules"][0]["field"] == "pageSize"
 
 def test_ecnu_env_file_loader_only_reads_standard_keys(tmp_path, monkeypatch):
     for key in ("ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL"):

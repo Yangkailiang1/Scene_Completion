@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -142,6 +143,11 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
             "target_node_name": nodes[target_node_id]["name"],
             "interaction_message": raw.get("interaction_message") or matrix_item.get("message") or (interaction or {}).get("message", ""),
             "layer": raw.get("layer") or matrix_item.get("layer", "SR"),
+            "api": raw.get("api") or matrix_item.get("api", ""),
+            "interface_id": raw.get("interface_id") or matrix_item.get("interface_id", ""),
+            "abstract_api_id": raw.get("abstract_api_id") or matrix_item.get("abstract_api_id", ""),
+            "implementation_api_id": raw.get("implementation_api_id") or matrix_item.get("implementation_api_id", ""),
+            "service_id": raw.get("service_id") or matrix_item.get("service_id", ""),
             "concern_key": concern_key,
             "concern": CONCERN_DEFINITIONS[concern_key]["label"],
             "concern_subject": raw.get("concern_subject") or matrix_item.get("concern_subject", "target_node"),
@@ -181,6 +187,86 @@ def _attach_ids(findings: list[dict[str, Any]], model: dict[str, Any]) -> None:
         item["scenario_id"] = stable_id("SCN", normalized["project"], item["use_case_id"], identity, item["concern_key"], atom, item["exception_desc"])
 
 
+def _canonical_availability_type(item: dict[str, Any]) -> str:
+    raw = str(item.get("exception_type", "")).strip().casefold()
+    unavailable_terms = ("连接失败", "无法连接", "不可用", "宕机", "unavailable", "databaseunavailable", "connection refused")
+    if any(term in raw for term in unavailable_terms):
+        return "database_unavailable"
+    return " ".join(raw.split())
+
+
+def _database_failure_outcome_signature(value: Any) -> str:
+    text = " ".join(str(value or "").casefold().split())
+    compact = re.sub(r"[\s，。、“”‘’：:；;,.!?！？]", "", text)
+    resource = next((term for term in ("商品", "订单", "库存", "价格", "退款", "物流") if term in compact), "")
+    if any(term in compact for term in ("失败", "不可用", "错误")):
+        return f"operation_failed:{resource}"
+    return compact
+
+
+def _database_failure_recovery_signature(value: Any) -> str:
+    text = " ".join(str(value or "").casefold().split())
+    compact = re.sub(r"[\s，。、“”‘’：:；;,.!?！？]", "", text)
+    if any(term in compact for term in ("重试", "回到主流程", "继续主流程")):
+        return "notify_then_retry_or_resume"
+    if any(term in compact for term in ("结束", "终止")):
+        return "notify_then_terminate"
+    return compact
+
+
+def _merge_equivalent_database_failures(findings: list[dict[str, Any]], model: dict[str, Any]) -> list[dict[str, Any]]:
+    """Merge equivalent DB-availability failures without losing SSD evidence."""
+    nodes = node_map(model)
+    merged: dict[tuple[Any, ...], dict[str, Any]] = {}
+    result: list[dict[str, Any]] = []
+    for item in findings:
+        target = nodes.get(item.get("target_node", ""), {})
+        is_database_outage = (
+            item.get("concern_key") == "internal_database.availability"
+            and target.get("kind") in {"internal_database", "internal_knowledge_base"}
+            and _canonical_availability_type(item) == "database_unavailable"
+        )
+        if not is_database_outage:
+            result.append(item)
+            continue
+        signature = (
+            item.get("use_case_id"), item.get("source_step_index"), item.get("target_node"),
+            item.get("concern_key"), "database_unavailable",
+            _database_failure_outcome_signature(item.get("expected_result")),
+            _database_failure_recovery_signature(item.get("recovery")),
+        )
+        existing = merged.get(signature)
+        trace_ref = {key: item.get(key, "") for key in (
+            "interaction_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id",
+            "source_node", "target_node", "source_node_name", "target_node_name", "layer", "api",
+            "abstract_api_id", "implementation_api_id", "service_id", "interaction_message", "source_location",
+        )}
+        if existing is None:
+            item["trace_refs"] = [trace_ref]
+            item["source_exception_types"] = [item.get("exception_type", "")]
+            item["related_exchange_ids"] = [trace_ref["exchange_id"]] if trace_ref.get("exchange_id") else []
+            item["related_ssd_message_ids"] = [trace_ref["ssd_message_id"]] if trace_ref.get("ssd_message_id") else []
+            item["source_exception_descriptions"] = [item.get("exception_desc", "")] if item.get("exception_desc") else []
+            merged[signature] = item
+            result.append(item)
+            continue
+        if trace_ref not in existing["trace_refs"]:
+            existing["trace_refs"].append(trace_ref)
+        raw_type = item.get("exception_type", "")
+        if raw_type and raw_type not in existing["source_exception_types"]:
+            existing["source_exception_types"].append(raw_type)
+        raw_desc = item.get("exception_desc", "")
+        if raw_desc and raw_desc not in existing["source_exception_descriptions"]:
+            existing["source_exception_descriptions"].append(raw_desc)
+        existing["trace_refs"].sort(key=lambda ref: (str(ref.get("exchange_id", "")), str(ref.get("ssd_message_id", ""))))
+        existing["source_exception_types"].sort()
+        existing["source_exception_descriptions"].sort()
+        existing["related_exchange_ids"] = sorted({ref.get("exchange_id", "") for ref in existing["trace_refs"] if ref.get("exchange_id")})
+        existing["related_ssd_message_ids"] = sorted({ref.get("ssd_message_id", "") for ref in existing["trace_refs"] if ref.get("ssd_message_id")})
+        existing["exception_type"] = "数据库不可用"
+    return result
+
+
 def _diagram_paths(diagram_manifest: dict[str, Any] | None, use_case_id: str) -> tuple[str, str]:
     for entry in (diagram_manifest or {}).get("use_cases", []):
         if entry.get("use_case_id") != use_case_id:
@@ -209,8 +295,17 @@ def _ssd_trace(diagram_manifest: dict[str, Any] | None, use_case_id: str, anchor
             eligible = [item for item in candidates if int(item.get("source_step_index", 0) or 0) <= int(anchor or 0)]
             message = sorted(eligible or candidates, key=lambda item: (abs(int(item.get("source_step_index", 0) or 0) - int(anchor or 0)), item.get("ssd_sequence", 0)))[0]
         if message:
-            return {"interaction_id": message.get("interaction_id", ""), "exchange_id": message.get("exchange_id", ""), "ssd_message_id": message.get("message_id", "")}
-    return {"interaction_id": "", "exchange_id": "", "ssd_message_id": ""}
+            return {
+                "interaction_id": message.get("interaction_id", ""),
+                "exchange_id": message.get("exchange_id", ""),
+                "ssd_message_id": message.get("message_id", ""),
+                "source_node": message.get("from_node", ""),
+                "target_node": message.get("to_node", ""),
+                "layer": message.get("layer", ""),
+                "interaction_message": message.get("message", ""),
+                "source_location": message.get("source_location", ""),
+            }
+    return {"interaction_id": "", "exchange_id": "", "ssd_message_id": "", "source_node": "", "target_node": "", "layer": "", "interaction_message": "", "source_location": ""}
 
 
 def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str, Any], diagram_manifest: dict[str, Any] | None) -> dict[str, Any]:
@@ -242,16 +337,18 @@ def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str
         "use_case_id": use_case_id,
         "use_case_name": uc.get("use_case_name", ""),
         "actor": _use_case_actor(uc),
-        "source_node": "",
-        "target_node": "",
-        "source_node_name": _use_case_actor(uc),
-        "target_node_name": model.get("system_name", ""),
+        "source_node": trace["source_node"],
+        "target_node": trace["target_node"],
+        "source_node_name": node_map(model).get(trace["source_node"], {}).get("name", _use_case_actor(uc)),
+        "target_node_name": node_map(model).get(trace["target_node"], {}).get("name", model.get("system_name", "")),
+        "layer": trace["layer"],
         "interaction_id": trace["interaction_id"],
         "exchange_id": trace["exchange_id"],
         "ssd_message_id": trace["ssd_message_id"],
         "source_step_index": scenario.get("anchor_step_index", 0),
         "anchor_label": scenario.get("anchor_label", str(scenario.get("anchor_step_index", 0))),
-        "interaction_message": "",
+        "interaction_message": trace["interaction_message"],
+        "trace_mapping_status": "mapped" if trace["source_node"] and trace["target_node"] else "needs_confirmation",
         "concern_key": "",
         "concern": "",
         "concern_subject": "",
@@ -334,8 +431,11 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             continue
         prediction_id = stable_id("PRED", model["project"], scenario.get("use_case_id"), "requirement_exception", scenario.get("scenario_id"))
         scenario["prediction_id"] = prediction_id
-        scenario["concern_key"] = "unclassified.requirement_exception"
-        scenario["concern"] = "需求明确异常"
+        # A requirement branch is an authoritative scenario source, not a
+        # registered concern. Keep it out of the concern taxonomy.
+        scenario["concern_key"] = ""
+        scenario["concern"] = "需求来源异常（非关注点）"
+        scenario["exception_origin"] = "requirement_branch"
         scenario["exception_type"] = scenario.get("name", "需求异常")
         scenario["exception_desc"] = scenario.get("expected_result") or scenario.get("trigger") or scenario.get("name", "需求中明确的异常分支")
         source_predictions.append({
@@ -346,8 +446,9 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             "actor": scenario.get("actor", ""),
             "source_step_index": scenario.get("source_step_index", 0),
             "anchor_label": scenario.get("anchor_label", ""),
-            "concern_key": scenario["concern_key"],
+            "concern_key": "",
             "concern": scenario["concern"],
+            "exception_origin": "requirement_branch",
             "exception_type": scenario["exception_type"],
             "exception_desc": scenario["exception_desc"],
             "trigger": scenario.get("trigger", ""),
@@ -356,7 +457,12 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             "scenario_steps": scenario.get("scenario_steps", []),
             "source_location": scenario.get("source_location", ""),
             "source_type": scenario.get("source_type", "requirements"),
-            "layer": "RR",
+            "layer": scenario.get("layer") or "RR",
+            "source_node": scenario.get("source_node", ""),
+            "target_node": scenario.get("target_node", ""),
+            "source_node_name": scenario.get("source_node_name", ""),
+            "target_node_name": scenario.get("target_node_name", ""),
+            "interaction_message": scenario.get("interaction_message", ""),
             "ssd_message_id": scenario.get("ssd_message_id", ""),
             "exchange_id": scenario.get("exchange_id", ""),
         })
@@ -382,8 +488,11 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
 def _enrich_matrix_findings(matrix_items: list[dict[str, Any]], findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     indexed: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for finding in findings:
-        key = (str(finding.get("exchange_id", "")), str(finding.get("concern_key", "")))
-        indexed.setdefault(key, []).append(finding)
+        refs = finding.get("trace_refs") or [{"exchange_id": finding.get("exchange_id", "")}]
+        for ref in refs:
+            key = (str(ref.get("exchange_id", "")), str(finding.get("concern_key", "")))
+            if finding not in indexed.setdefault(key, []):
+                indexed[key].append(finding)
     result = []
     for raw in matrix_items:
         item = dict(raw)
@@ -411,6 +520,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     if not matrix_report["valid"]:
         raise ValidationFailure(matrix_report["errors"])
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
+    findings = _merge_equivalent_database_failures(findings, normalized)
     _attach_ids(findings, normalized)
     scenarios = _scenario_catalog(findings, normalized, diagram_manifest)
     findings = _link_predictions_to_scenarios(findings, scenarios, normalized)
@@ -430,6 +540,26 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
             review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "use_case_id": item.get("use_case_id", ""), "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
         if item.get("status") == "pending_review":
             review_items.append({"type": "concern_review_pending", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "concern_key": item["concern_key"], "message": "该候选关注点尚未完成 Agent 判断。"})
+    for scenario in scenarios:
+        if scenario.get("scenario_type") == "requirement_exception" and scenario.get("trace_mapping_status") != "mapped":
+            review_items.append({"type": "requirement_exception_trace_missing", "use_case_id": scenario.get("use_case_id", ""), "scenario_id": scenario.get("scenario_id", ""), "source_location": scenario.get("source_location", ""), "message": "需求异常分支未能映射到 SSD 请求的来源/目标节点，需人工确认。"})
+    manifest_messages: dict[str, list[dict[str, Any]]] = {}
+    for entry in (diagram_manifest or {}).get("use_cases", []):
+        fused_path = ((entry.get("artifacts") or {}).get("fused") or {}).get("json", "")
+        if not fused_path:
+            continue
+        try:
+            manifest_messages[entry.get("use_case_id", "")] = json.loads(open(fused_path, encoding="utf-8").read()).get("messages", [])
+        except (OSError, ValueError, TypeError):
+            continue
+    for edge in normalized["system_composition"].get("edges", []):
+        if edge.get("relation") != "uses_external_service" or not edge.get("use_case_id"):
+            continue
+        external_id = edge.get("to_node", "")
+        messages = manifest_messages.get(edge["use_case_id"], [])
+        if external_id and not any(external_id in {message.get("from_node"), message.get("to_node")} for message in messages):
+            external = node_map(normalized).get(external_id, {})
+            review_items.append({"type": "external_dependency_not_in_ssd", "use_case_id": edge["use_case_id"], "node_id": external_id, "source_location": edge.get("source_location", ""), "message": f"架构依赖《{external.get('name', external_id)}》未在该用例融合 SSD 中找到调用消息；需确认调用映射，不据此生成异常。"})
     for use_case_manifest in (diagram_manifest or {}).get("use_cases", []):
         for review_item in use_case_manifest.get("review_items", []):
             if review_item not in review_items:

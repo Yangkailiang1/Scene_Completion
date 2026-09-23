@@ -86,7 +86,8 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
         uc_findings = grouped.get(uc_id, [])
         uc_level = [item for item in uc_findings if not item.get("source_step_index")]
         for item in uc_level:
-            _format_rows(ws, row, [["UC级", item.get("concern_key", ""), item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
+            checkpoint = item.get("concern_key") or ("需求来源｜非注册表关注点" if item.get("exception_origin") == "requirement_branch" else "")
+            _format_rows(ws, row, [["UC级", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
             row += 1
         for step in uc.get("main_flow", []):
             step_index = step.get("step_index")
@@ -97,7 +98,8 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
             cell.alignment = BODY
             row += 1
             for item in [x for x in uc_findings if x.get("source_step_index") == step_index]:
-                _format_rows(ws, row, [[f"步骤 {step_index}", f"{item.get('concern_key', '')}", item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
+                checkpoint = item.get("concern_key") or ("需求来源｜非注册表关注点" if item.get("exception_origin") == "requirement_branch" else "")
+                _format_rows(ws, row, [[f"步骤 {step_index}", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
                 row += 1
     widths = [24, 42, 28, 26, 68, 14, 14]
     for index, width in enumerate(widths, 1):
@@ -107,16 +109,16 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
     ws.sheet_view.showGridLines = False
 
     trace = wb.create_sheet("追溯信息")
-    trace_headers = ["预测ID", "场景ID", "用例ID", "用例名称", "Actor", "层级", "主流程步骤", "SSD交换ID", "SSD请求消息ID", "来源节点", "目标节点", "关注点Key", "关注点", "异常描述", "触发条件", "异常响应", "恢复", "来源定位", "融合SSD路径"]
+    trace_headers = ["预测ID", "场景ID", "用例ID", "用例名称", "Actor", "层级", "主流程步骤", "SSD交换ID", "SSD请求消息ID", "来源节点", "目标节点", "关注点Key", "关注点", "异常描述", "触发条件", "异常响应", "恢复", "来源定位", "融合SSD路径", "合并关联SSD交换/消息"]
     _title(trace, f"{bundle['project']} — 异常追溯", len(trace_headers))
     _headers(trace, trace_headers)
     trace_rows = []
     for item in bundle.get("findings", []):
         trace_rows.append([
-            item.get("prediction_id", ""), item.get("scenario_id", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("layer", ""), item.get("source_step_index", 0), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("source_node_name", ""), item.get("target_node_name", ""), item.get("concern_key", ""), item.get("concern", ""), item.get("exception_desc", ""), item.get("trigger", ""), item.get("expected_result", ""), item.get("recovery", ""), item.get("source_location", ""), item.get("ssd_paths", ""),
+            item.get("prediction_id", ""), item.get("scenario_id", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("layer", ""), item.get("source_step_index", 0), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("source_node_name") or "未映射（待确认）", item.get("target_node_name") or "未映射（待确认）", item.get("concern_key", ""), item.get("concern", ""), item.get("exception_desc", ""), item.get("trigger", ""), item.get("expected_result", ""), item.get("recovery", ""), item.get("source_location", ""), item.get("ssd_paths", ""), "\n".join(f"{ref.get('exchange_id','')} / {ref.get('ssd_message_id','')}" for ref in item.get("trace_refs", []) if ref.get("exchange_id") or ref.get("ssd_message_id")),
         ])
     _format_rows(trace, 4, trace_rows, centered={1, 2, 3, 6, 7, 8, 9})
-    for index, width in enumerate([28, 28, 18, 24, 20, 12, 14, 24, 28, 24, 24, 34, 24, 60, 48, 48, 42, 34, 58], 1):
+    for index, width in enumerate([28, 28, 18, 24, 20, 12, 14, 24, 28, 24, 24, 34, 30, 60, 48, 48, 42, 34, 58, 44], 1):
         trace.column_dimensions[get_column_letter(index)].width = width
     trace.freeze_panes = "A4"
     trace.auto_filter.ref = f"A3:{get_column_letter(len(trace_headers))}{max(3, trace.max_row)}"
@@ -125,16 +127,16 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
 
 
 def _write_scenario_sheet(ws, bundle: dict[str, Any]) -> None:
-    headers = ["场景编号", "场景类型", "来源Use Case", "Use Case名称", "Actor", "主流程锚点", "异常关注点", "前置条件", "触发条件", "场景步骤", "预期结果", "恢复/回归主流程", "来源类型", "来源定位", "SSD消息ID", "预测ID"]
+    headers = ["场景编号", "场景类型", "来源Use Case", "Use Case名称", "Actor", "主流程锚点", "异常关注点", "前置条件", "触发条件", "场景步骤", "预期结果", "恢复/回归主流程", "来源类型", "来源定位", "SSD消息ID", "预测ID", "合并关联SSD交换/消息"]
     _title(ws, f"{bundle['project']} — 场景清单（全量，未进行GT评估）", len(headers))
     _headers(ws, headers)
     rows = []
     for item in bundle.get("scenario_catalog", []):
         rows.append([
-            item.get("scenario_id", ""), item.get("scenario_type", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("anchor_label", item.get("source_step_index", 0)), item.get("concern", ""), item.get("preconditions", ""), item.get("trigger", ""), "\n".join(f"{i}. {step}" for i, step in enumerate(item.get("scenario_steps", []), 1)), item.get("expected_result", item.get("exception_desc", "")), item.get("recovery", ""), item.get("source_type", item.get("scenario_origin", "")), item.get("source_location", ""), item.get("ssd_message_id", ""), item.get("prediction_id", ""),
+            item.get("scenario_id", ""), item.get("scenario_type", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("anchor_label", item.get("source_step_index", 0)), item.get("concern", ""), item.get("preconditions", ""), item.get("trigger", ""), "\n".join(f"{i}. {step}" for i, step in enumerate(item.get("scenario_steps", []), 1)), item.get("expected_result", item.get("exception_desc", "")), item.get("recovery", ""), item.get("source_type", item.get("scenario_origin", "")), item.get("source_location", ""), "\n".join(item.get("related_ssd_message_ids", [item.get("ssd_message_id", "")])), item.get("prediction_id", ""), "\n".join(f"{ref.get('exchange_id','')} / {ref.get('ssd_message_id','')}" for ref in item.get("trace_refs", []) if ref.get("exchange_id") or ref.get("ssd_message_id")),
         ])
     _format_rows(ws, 4, rows, centered={1, 2, 3, 6, 7, 13, 15, 16})
-    widths = [30, 24, 18, 24, 24, 16, 28, 36, 48, 76, 52, 42, 24, 34, 30, 30]
+    widths = [30, 24, 18, 24, 24, 16, 32, 36, 48, 76, 52, 42, 24, 34, 30, 30, 44]
     for index, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A4"
@@ -173,7 +175,7 @@ def _write_timeout_sheet(ws, bundle: dict[str, Any]) -> None:
             continue
         uc = ucs.get(item.get("use_case_id"), {})
         impacts = [item.get("requirement_impact", ""), item.get("subsequent_behavior_impact", ""), item.get("environment_coordination_impact", "")]
-        impacts = [value if value in {"yes", "no"} else "" for value in impacts]
+        impacts = [value if value in {"yes", "no"} else ("待需求确认" if item.get("status") == "needs_requirement" else "—") for value in impacts]
         rows.append([item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("use_case_id", ""), uc.get("use_case_name", ""), item.get("source_step_index", ""), item.get("message", ""), item.get("status", ""), *impacts, item.get("basis", ""), item.get("source_location", "")])
     _format_rows(ws, 4, rows, centered={1, 2, 3, 5, 7, 8, 9, 10})
     for index, width in enumerate([24, 28, 20, 26, 14, 44, 22, 20, 20, 20, 48, 36], 1):

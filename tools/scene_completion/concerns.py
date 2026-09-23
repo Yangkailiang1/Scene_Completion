@@ -280,6 +280,7 @@ def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, An
         exchange["ssd_message_id"] = request.get("message_id", "")
         exchange["request_message_id"] = request.get("message_id", "")
         exchange["response_message_id"] = response.get("message_id", "") if response else ""
+        exchange["message"] = request.get("message", "")
         exchange["response_message"] = response.get("message", "") if response else ""
         exchange["response_fields"] = response.get("response_fields", []) if response else request.get("response_fields", [])
         result.append(exchange)
@@ -330,7 +331,7 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
                 "source_location": interaction.get("source_location", ""),
                 "findings": [],
             }
-            for field in ("ssd_id", "message_id", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message"):
+            for field in ("ssd_id", "message_id", "message", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message"):
                 if field in interaction:
                     item[{"message_id": "ssd_message_id"}.get(field, field)] = interaction[field]
             if key == "common.timeout":

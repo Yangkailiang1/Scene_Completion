@@ -39,6 +39,8 @@
 
 `version` 必须为 `5`；旧 V3/V4 输出不直接作为 V5 输入。`node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型、交互方向和 Service 类型必须使用协议枚举。`unknown` Service 不阻塞校验，但会产生待确认项。每个 RR 用例会自动补齐一个 RR `abstract_service` 节点，除非 Agent 已显式提供同一 `use_case_id` 的节点。
 
+接口条目可以包含 `validation_rules`。每条规则需结构化记录 `field`、`constraint`、`failure_type`、`error_code` 和 `source_location`。只记录需求或设计文档明确给出的约束，不推测最大长度、大小或速率限制。对 API 参数异常，finding 锚定系统执行校验的用例步骤；用户输入步骤可同时作为 `trigger` 与 `scenario_steps` 的成功前缀，但异常的 `source_step_index` 应指向实际校验/拒绝步骤。
+
 ## Diagram spec
 
 Agent 生成的 `diagram_spec.json` 至少包含系统组成总览图；每个 RR 用例的 SSD 由 `generate-ssd` 单独生成。旧版交互关注点图字段仍可读取，但不再是 V2 主输出：
@@ -79,7 +81,7 @@ AR 映射缺失时保留 SR 消息，设置 `ar_mapping_status=missing`，并写
 
 优先使用融合 SSD 作为 `plan-concerns --fused-ssd` 的输入。矩阵仍保留原始 `interaction_id`，并可附带 `ssd_id`、`ssd_message_id`、`layer`、`source_step_index`、`implementation_api_id` 和 `service_id`，以便从关注点回溯到融合消息。
 
-超时项额外包含 `requirement_impact`、`subsequent_behavior_impact` 和 `environment_coordination_impact`，每个值为 `yes`、`no` 或 `unknown`。
+超时项额外包含 `requirement_impact`、`subsequent_behavior_impact` 和 `environment_coordination_impact`。JSON 中未判断的影响值留空；工作簿显示“待需求确认”。
 
 ## Semantic findings
 

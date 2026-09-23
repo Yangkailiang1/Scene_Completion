@@ -56,6 +56,7 @@ metadata:
 
 - 系统组成总览只展示 RR 级抽象服务/用例，RR 用例使用椭圆；不绘制 RR 用例之间的连线。AR 微服务和 ImplementationAPI 放在 SSD 与映射表中。
 - 人类 Actor 根据 Use Case Actor 关联到 RR 用例椭圆左端；外部 Service 根据 SR 依赖关联到 RR 用例椭圆右端。关联写入系统组成语义 JSON。
+- RR 参与关系优先用分区边界走线通道和正交路径；应避免路径穿过其他用例椭圆，必要时使用单列 RR 布局换取清晰可读性。
 - 总览图底部使用“内部资源（数据库 / 知识库）”分区，并将“部署硬件 / 运行环境”放在内部资源分区正下方；两个区块不并排。
 - 每张图同时保存语义 JSON 和 SVG；`render-dependency-graph` 输出 RR 用例依赖关系图的 JSON/SVG。
 - `interface_service_mapping_<项目>.xlsx` 的 `SR接口映射` 和 `AR软件实现接口映射` 是接口、服务、微服务和来源定位的审计表。
@@ -127,6 +128,11 @@ python tools/scene_completion.py assemble --model <scene_model.json> --concern-m
 - `use_case_dependency_graph.json/.svg` 和 `interface_service_mapping_<项目>.xlsx`；
 - `prediction_analysis_<项目>.xlsx`：按 Use Case 和主流程步骤分组，保持参考文件七列；
 - `scenario_catalog_<项目>.xlsx`：每行一个主成功、可选、需求异常或关注点异常场景；
-- 场景工作簿的“超时判断”页只列 `common.timeout`；未判断的影响维度留空并由状态和依据说明。
+- 场景工作簿的“超时判断”页只列 `common.timeout`；JSON 中未判定的影响维度保留空值，Excel 显示“待需求确认”，避免误读成无影响。
+- 接口契约应保留参数约束、错误码和逐条来源定位，并随匹配的 Abstract API/路径加入对应 ECNU-Max 审核批次。只对有契约或需求证据的字段约束生成异常；不得推测未定义的长度、大小或重复操作阈值。
+- 需求中明确的异常分支是需求来源场景，不是关注点注册表中的关注点；输出标为“需求来源异常（非关注点）”，无需虚构 concern key。
+- 需求异常场景从锚定步骤映射到最近的 SSD 请求/事件，带出双方节点、交互消息、层级和来源定位。无法映射时用显式待确认状态，不输出空白追溯字段。
+- 数据库可用性异常只有在同一用例、锚点步骤、数据库、结果和恢复方式一致时合并；合并后保留全部 SSD 交换/消息引用。
+- 场景目录中的主成功和可选场景不生成预测 ID；每条异常场景应可追溯到需求分支预测或关注点 finding。
 - `ecnu_max.config.example.json` 不含密钥；私有配置可复制为 `ecnu_max.local.json`，key 通过 `api_key_env` 指定的环境变量提供。批处理按 SSD 交换保存结构化 checkpoint，可续跑；不得把 key 写入配置文件或日志。
 - `run_manifest.json`：记录数量、图产物、来源和评估未执行状态。
