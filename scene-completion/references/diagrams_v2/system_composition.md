@@ -1,14 +1,16 @@
 # 系统组成图
 
-根据 `system_composition.nodes` 和 `system_composition.edges` 生成独立的 V5 系统组成总览图，参考“外部 Actor—连接设备—系统边界—RR 抽象服务—SR 外部依赖—AR 内部数据库—部署环境”的分区结构。
+根据 `system_composition.nodes` 和 `system_composition.edges` 生成系统组成总览图，参考“外部 Actor—连接设备—系统边界与 RR 用例—SR 外部依赖—AR 内部资源—部署环境”的分区结构。
 
-- 节点 ID 必须稳定，名称可以是中文。
-- 图中区分人类 Actor、外部 Actor、连接设备、内部 Service、内部数据库/知识库、内部 AI 模型、外部服务、外部数据库、外部 LLM、部署硬件和运行环境。
-- 每个 RR 用例还会由 tools 补齐一个 RR `abstract_service` 节点，并在总览图中以椭圆展示；RR 用例之间不画连线。SR 抽象服务/API 是 SR 元数据，Implementation API 与 AR 微服务只在 SSD/映射表中合并展示。
+- 节点 ID 必须稳定，名称可以是中文；每个节点、边和关联都应能由语义 JSON 回溯。
+- 区分人类 Actor、外部 Actor、连接设备、System 边界、RR 抽象服务、SR 外部 Service/数据库/LLM、AR 内部资源以及部署硬件和运行环境。
+- 系统边界内只展示 RR 抽象服务/用例，每个 RR 用例使用椭圆，RR 用例之间不画连线。SR 抽象服务/API 是用例级映射元数据；Implementation API 与 AR 微服务只在 SSD/映射表中合并展示。
+- 人类 Actor 按 Use Case 的结构化 Actor 关联连接到对应 RR 用例椭圆左侧端点；外部 Service 按该用例 SR 依赖关系连接到椭圆右侧端点。无明确映射时不猜测连线，写入待确认项。
+- 关联线应采用分区内正交走线和独立通道，避免穿过 RR 椭圆；若无法避免，优先调整布局，不将线落在椭圆中心或遮盖用例文本。
 - 内部 AI 模型使用 `kind=internal_service`、`service_role=ai_model`，不新增 `internal_llm` 节点类型。
 - 系统组成图的边只表达“存在连接/调用关系”，PlantUML 必须使用 `--`，禁止 `->`、`-->` 和 `<-`；SSD 才使用方向箭头。SVG 中的连接线必须从节点可见边界连接到另一节点可见边界，不得穿过节点中心。
 - 底部资源区命名为“内部资源（数据库 / 知识库）”，部署硬件/运行环境区放在内部资源区正下方；不要将这两个分区并排布局。
-- 内部 Service 需要标记 `display`、`compute` 或 `unknown`，无法判断时保留待确认状态。
+- 不要把用例级 SR 业务分类与 AR 微服务技术分类混为一谈；分类只存在于对应的 `architecture.sr` 或 `architecture.ar[]` 映射中。
 - 不从图形布局反推需求事实；所有节点和边必须能回溯到来源定位。
 - 默认 SVG 由包内纯 Python 渲染器生成；系统组成连接线只画无方向直线，SSD 才画请求箭头和返回虚线箭头。
 

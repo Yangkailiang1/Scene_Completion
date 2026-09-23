@@ -187,11 +187,48 @@ def _is_system_boundary(node: dict[str, Any]) -> bool:
     return bool(node) and (node.get("node_id") == "system" or node.get("layer") == "RR")
 
 
-def _functional_keys(service_type: str, prefix: str) -> list[str]:
+def _functional_keys(service_type: str, prefix: str, prefix_keys: dict[str, list[str]] | None = None) -> list[str]:
     if service_type not in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
         return []
-    prefix = f"{prefix}.{service_type}."
-    return sorted(key for key in concern_keys() if key.startswith(prefix))
+    return (prefix_keys or {}).get(f"{prefix}.{service_type}.", sorted(key for key in concern_keys() if key.startswith(f"{prefix}.{service_type}.")))
+
+
+def _routing_context(model: dict[str, Any]) -> dict[str, Any]:
+    """Build per-model indexes once; routing decisions remain purely structural."""
+    sr_by_uc: dict[str, dict[str, Any]] = {}
+    ar_by_uc_endpoint: dict[str, dict[str, dict[str, Any]]] = {}
+    for uc in model.get("use_cases", []):
+        uc_id = str(uc.get("use_case_id", ""))
+        architecture = uc.get("architecture") or {}
+        sr = architecture.get("sr") or {}
+        if isinstance(sr, dict):
+            sr_by_uc[uc_id] = sr
+        endpoint_map: dict[str, dict[str, Any]] = {}
+        for component_index, component in enumerate(architecture.get("ar") or []):
+            if not isinstance(component, dict):
+                continue
+            for endpoint in (component.get("microservice_id"), component.get("implementation_api_node_id"), component.get("implementation_api_id")):
+                if endpoint:
+                    endpoint_map.setdefault(str(endpoint), (component_index, component))
+        ar_by_uc_endpoint[uc_id] = endpoint_map
+    keys_by_prefix: dict[str, list[str]] = {}
+    for key in CONCERN_DEFINITIONS:
+        parts = key.split(".")
+        for index in range(1, len(parts) + 1):
+            prefix = ".".join(parts[:index])
+            keys_by_prefix.setdefault(prefix, []).append(key)
+    return {
+        "nodes": node_map(model),
+        "sr_by_uc": sr_by_uc,
+        "ar_by_uc_endpoint": ar_by_uc_endpoint,
+        "keys_by_prefix": keys_by_prefix,
+    }
+
+
+def _indexed_ar_mapping(context: dict[str, Any], use_case_id: str, endpoints: set[str]) -> dict[str, Any] | None:
+    endpoint_map = context["ar_by_uc_endpoint"].get(use_case_id, {})
+    matches = [endpoint_map[endpoint] for endpoint in endpoints if endpoint in endpoint_map]
+    return min(matches, key=lambda item: item[0])[1] if matches else None
 
 
 def _use_case_architecture(model: dict[str, Any], interaction: dict[str, Any]) -> dict[str, Any]:
@@ -230,8 +267,10 @@ def _mapping_endpoint(interaction: dict[str, Any], mapping: dict[str, Any], laye
     return next((value for value in endpoints if value in mapped_ids), next((value for value in endpoints if value), ""))
 
 
-def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[str]:
-    nodes = node_map(model)
+def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any], context: dict[str, Any] | None = None) -> list[str]:
+    context = context or _routing_context(model)
+    nodes = context["nodes"]
+    keys_by_prefix = context["keys_by_prefix"]
     source_node = nodes.get(interaction.get("from_node"), {})
     target_node = nodes.get(interaction.get("to_node"), {})
     source_kind = _concern_kind(source_node.get("kind", ""))
@@ -241,7 +280,7 @@ def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[
     if source_kind == "human_actor":
         candidates.extend(["human.authentication", "human.authorization", "human.input_data"])
     if interaction_has_api(interaction) or interaction.get("is_api") or interaction.get("boundary") == "api":
-        candidates.extend(key for key in concern_keys() if key.startswith("api.data."))
+        candidates.extend(keys_by_prefix.get("api.data", []))
     if target_kind == "external_service" and source_kind not in {"external_actor", "external_service"}:
         candidates.extend(["external_service.availability", "external_service.contract"])
     if source_kind == "external_service" and target_kind not in {"external_service", "external_actor"}:
@@ -251,30 +290,34 @@ def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[
     if target_kind == "external_llm":
         candidates.extend(["external_llm.availability", "external_llm.contract"])
         if modern:
-            candidates.extend(key for key in concern_keys() if key.startswith("external_llm.quality."))
+            candidates.extend(keys_by_prefix.get("external_llm.quality", []))
     if source_kind == "external_llm" and target_kind not in {"external_llm", "external_actor"}:
         candidates.append("external_llm.access_permission")
     if target_kind == "internal_database":
-        candidates.extend(key for key in concern_keys() if key.startswith("internal_database."))
+        candidates.extend(keys_by_prefix.get("internal_database", []))
     if modern:
-        sr_mapping = _sr_mapping_for_interaction(model, interaction)
+        endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
+        uc_id = str(interaction.get("use_case_id", ""))
+        sr_mapping = context["sr_by_uc"].get(uc_id)
+        if sr_mapping and str(sr_mapping.get("service_id", "")) not in endpoints:
+            sr_mapping = None
         if sr_mapping and sr_mapping.get("service_type") in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
-            candidates.extend(_functional_keys(str(sr_mapping["service_type"]), "sr_service"))
-        ar_mapping = _ar_mapping_for_interaction(model, interaction)
+            candidates.extend(_functional_keys(str(sr_mapping["service_type"]), "sr_service", keys_by_prefix))
+        ar_mapping = _indexed_ar_mapping(context, uc_id, endpoints)
         if ar_mapping:
-            candidates.extend(key for key in concern_keys() if key.startswith("internal_service.") and key.count(".") == 1)
+            candidates.extend(key for key in keys_by_prefix.get("internal_service", []) if key.count(".") == 1)
             ar_type = str(ar_mapping.get("service_type", "unknown"))
             if ar_type != "unknown":
-                candidates.extend(key for key in concern_keys() if key.startswith(f"ar_service.{ar_type}."))
+                candidates.extend(keys_by_prefix.get(f"ar_service.{ar_type}", []))
     elif target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") == "AR" and target_node.get("kind") in {"internal_service", "implementation_api"}:
-        candidates.extend(key for key in concern_keys() if key.startswith("internal_service."))
+        candidates.extend(keys_by_prefix.get("internal_service", []))
         service_type = target_node.get("legacy_service_type", target_node.get("service_type", "unknown"))
         if service_type == "display":
-            candidates.extend(key for key in concern_keys() if key.startswith("internal_service.display."))
+            candidates.extend(keys_by_prefix.get("internal_service.display", []))
         elif service_type == "compute":
-            candidates.extend(key for key in concern_keys() if key.startswith("internal_service.compute."))
+            candidates.extend(keys_by_prefix.get("internal_service.compute", []))
     if source_kind == "internal_service" and target_kind == "internal_service" and interaction["from_node"] != interaction["to_node"] and source_node.get("layer") in {"SR", "AR"} and target_node.get("layer") in {"SR", "AR"}:
-        candidates.extend(key for key in concern_keys() if key.startswith("service_relation."))
+        candidates.extend(keys_by_prefix.get("service_relation", []))
     # Endpoint devices and deployment/runtime nodes are intentionally out of scope.
     if source_node.get("kind") in {"connection_device", "deployment_hardware", "runtime_environment"} or target_node.get("kind") in {"connection_device", "deployment_hardware", "runtime_environment"}:
         candidates = [key for key in candidates if key == "common.timeout"]
@@ -334,6 +377,7 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
+    routing = _routing_context(normalized)
     items = []
     fused_values = ([fused_ssd] if fused_ssd else []) + _manifest_fused_ssds(ssd_manifest)
     interactions: list[dict[str, Any]] = []
@@ -344,10 +388,14 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
     if fused_values and not interactions:
         raise ValidationFailure(["fused SSD has no messages linked to model interactions"])
     for interaction in sorted(interactions, key=lambda item: (item.get("sequence", 0), item.get("interaction_id", ""))):
-        for key in _candidate_keys(normalized, interaction):
+        for key in _candidate_keys(normalized, interaction, routing):
             definition = CONCERN_DEFINITIONS[key]
-            sr_mapping = _sr_mapping_for_interaction(normalized, interaction) if key.startswith("sr_service.") else None
-            ar_mapping = _ar_mapping_for_interaction(normalized, interaction) if key.startswith("ar_service.") or (key.startswith("internal_service.") and key.count(".") == 1) else None
+            endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
+            uc_id = str(interaction.get("use_case_id", ""))
+            sr_mapping = routing["sr_by_uc"].get(uc_id) if key.startswith("sr_service.") else None
+            if sr_mapping and str(sr_mapping.get("service_id", "")) not in endpoints:
+                sr_mapping = None
+            ar_mapping = _indexed_ar_mapping(routing, uc_id, endpoints) if key.startswith("ar_service.") or (key.startswith("internal_service.") and key.count(".") == 1) else None
             mapped_service = sr_mapping or ar_mapping or {}
             concern_subject = definition.get("concern_subject", "target_node")
             if sr_mapping:

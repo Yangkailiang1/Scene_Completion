@@ -7,7 +7,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from tools.scene_completion.assembly import assemble_results
-from tools.scene_completion.concerns import list_concerns, plan_concern_matrix, validate_concern_matrix
+from tools.scene_completion.concerns import _candidate_keys, _indexed_ar_mapping, _routing_context, list_concerns, plan_concern_matrix, validate_concern_matrix
 from tools.scene_completion.diagrams import render_diagrams, validate_diagram_spec
 from tools.scene_completion.document_extract import extract_document
 from tools.scene_completion.exporters import export_workbooks
@@ -95,6 +95,25 @@ def applicable_matrix(model):
 
 
 class SceneCompletionV2Tests(unittest.TestCase):
+    def test_prebuilt_routing_index_preserves_candidate_keys(self):
+        model = validate_scene_model(sample_model(), raise_on_error=True)["normalized_model"]
+        context = _routing_context(model)
+        for interaction in model["interactions"]:
+            self.assertEqual(_candidate_keys(model, interaction), _candidate_keys(model, interaction, context))
+
+    def test_ar_index_preserves_original_mapping_precedence_for_two_endpoints(self):
+        model = sample_model()
+        model["version"] = "6"
+        mappings = model["use_cases"][0]["architecture"]["ar"]
+        mappings[:] = [
+            {"microservice_id": "first-service", "microservice_name": "First", "implementation_api_id": "first-api", "software_interface": "GET /first", "service_type": "query_read"},
+            {"microservice_id": "second-service", "microservice_name": "Second", "implementation_api_id": "second-api", "software_interface": "POST /second", "service_type": "command_write"},
+        ]
+        normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
+        context = _routing_context(normalized)
+        selected = _indexed_ar_mapping(context, "UC-001", {"second-service", "first-service"})
+        self.assertEqual(selected["microservice_id"], "first-service")
+
     def test_model_and_concern_routing(self):
         report = validate_scene_model(sample_model())
         self.assertTrue(report["valid"], report["errors"])

@@ -23,6 +23,7 @@ from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
 from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph
 from scene_completion.review import load_ecnu_env_file, review_concerns
+from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
 
 
 def _read_json(path: str):
@@ -35,7 +36,7 @@ def _write_json(path: str, value) -> None:
     target.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def main(argv=None) -> int:
+def _main_impl(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Portable Scene Completion V6 tools")
     sub = parser.add_subparsers(dest="command", required=True)
     extract = sub.add_parser("extract", help="extract text from a source document")
@@ -63,12 +64,15 @@ def main(argv=None) -> int:
     audit.add_argument("--model", required=True)
     audit.add_argument("--ssd-manifest", required=True)
     audit.add_argument("--concern-matrix", required=True)
-    review = sub.add_parser("review-concerns", help="batch-review pending concerns through an OpenAI-compatible API")
+    review = sub.add_parser("review-concerns", help="review pending concerns externally, with the Agent, or with automatic fallback")
     review.add_argument("--model", required=True)
     review.add_argument("--ssd-manifest", required=True)
     review.add_argument("--concern-matrix", required=True)
-    review.add_argument("--config", required=True)
+    review.add_argument("--mode", choices=("external", "agent", "auto", "merge-agent"), default="external")
+    review.add_argument("--config", help="OpenAI-compatible endpoint configuration (external/auto modes)")
     review.add_argument("--env-file", help="safely load ECNU_MAX_* values from a .env file")
+    review.add_argument("--agent-batch-dir", help="directory for bounded Agent review packets")
+    review.add_argument("--agent-results", help="Agent judgement batches JSON (merge-agent mode)")
     review.add_argument("--output", required=True)
     validate_diagram = sub.add_parser("validate-diagrams", help="validate V5 diagram sources")
     validate_diagram.add_argument("--model", required=True)
@@ -109,6 +113,9 @@ def main(argv=None) -> int:
     assemble.add_argument("--diagram-manifest")
     assemble.add_argument("--ssd-manifest")
     assemble.add_argument("--output-dir", required=True)
+
+    for command_parser in sub.choices.values():
+        command_parser.add_argument("--metrics-dir", help="optional per-run directory for privacy-safe stage metrics")
 
     args = parser.parse_args(argv)
     try:
@@ -151,11 +158,21 @@ def main(argv=None) -> int:
             print(json.dumps({**result, "coverage_report": str(output)}, ensure_ascii=False, indent=2))
             return 0 if result["valid"] else 2
         if args.command == "review-concerns":
-            if args.env_file:
+            if args.env_file and args.mode in {"external", "auto"}:
                 load_ecnu_env_file(args.env_file)
-            result = review_concerns(_read_json(args.model), _read_json(args.ssd_manifest), _read_json(args.concern_matrix), _read_json(args.config), args.output)
+            if args.mode == "merge-agent" and not args.agent_results:
+                raise ValidationFailure(["--agent-results is required with --mode merge-agent"])
+            if args.mode in {"external", "auto"} and not args.config and args.mode == "external":
+                raise ValidationFailure(["--config is required with --mode external"])
+            result = review_concerns(
+                _read_json(args.model), _read_json(args.ssd_manifest), _read_json(args.concern_matrix),
+                _read_json(args.config) if args.config else {}, args.output,
+                mode=args.mode,
+                agent_results=_read_json(args.agent_results) if args.agent_results else None,
+                agent_batch_dir=args.agent_batch_dir,
+            )
             print(json.dumps(result, ensure_ascii=False, indent=2))
-            return 0 if result["valid"] else 2
+            return 0 if result.get("valid") or result.get("accepted") else 2
         if args.command == "validate-diagrams":
             result = validate_diagram_spec(_read_json(args.model), _read_json(args.input))
             print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -222,6 +239,34 @@ def main(argv=None) -> int:
         print(json.dumps({"status": "error", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2
     return 2
+
+
+def main(argv=None) -> int:
+    """Run a CLI stage and, when requested, persist privacy-safe timing metrics."""
+    import time
+
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    stage = arguments[0] if arguments else "unknown"
+    metrics_dir = metrics_dir_from_argv(arguments)
+    started = time.perf_counter()
+    status = "failed"
+    code = 2
+    try:
+        code = _main_impl(arguments)
+        status = "success" if code == 0 else "failed"
+        return code
+    finally:
+        if metrics_dir is not None:
+            write_stage_metric(metrics_dir, stage, time.perf_counter() - started, status, arguments)
+            if stage == "assemble" and code == 0:
+                output_dirs = []
+                for index, token in enumerate(arguments):
+                    if token == "--output-dir" and index + 1 < len(arguments):
+                        output_dirs.append(arguments[index + 1])
+                    elif token.startswith("--output-dir="):
+                        output_dirs.append(token.split("=", 1)[1])
+                if output_dirs:
+                    attach_metrics_to_run_manifest(output_dirs[-1], metrics_dir)
 
 
 if __name__ == "__main__":

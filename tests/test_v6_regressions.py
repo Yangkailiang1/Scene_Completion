@@ -1,3 +1,4 @@
+import ast
 import copy
 import json
 import os
@@ -15,6 +16,14 @@ from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd
 from tools.scene_completion.ssd import write_ssd_bundle
 from tools.scene_completion.png_renderer import convert_svg_to_png, find_svg_converter
 from tools.scene_completion.svg_renderer import render_system_composition_svg
+
+
+def test_v6_public_ssd_entrypoints_are_defined_once():
+    source = Path(__file__).resolve().parents[1] / "tools" / "scene_completion" / "ssd.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    for name in ("generate_ssd_bundle", "validate_ssd", "write_ssd_bundle"):
+        definitions = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name]
+        assert len(definitions) == 1, f"{name} should have one public definition, got {len(definitions)}"
 
 
 def test_v6_normalization_and_non_data_routing():
@@ -226,9 +235,13 @@ def test_v7_batch_review_uses_exchange_batches_and_resumes_without_network(tmp_p
     first = review_concerns(model, {"use_cases": [manifest]}, matrix, config, output, post=fake_post)
     expected_batches = len({item["exchange_id"] for item in matrix["items"] if item["status"] == "pending_review"})
     assert first["valid"] and len(calls) == expected_batches + 1
+    assert first["metrics"]["batch_count"] == expected_batches
+    assert first["metrics"]["validation_retries"] == 1
+    assert first["metrics"]["checkpoint_hits"] == 0
     call_count = len(calls)
     second = review_concerns(model, {"use_cases": [manifest]}, matrix, config, output, post=fake_post)
     assert second["valid"] and len(calls) == call_count
+    assert second["metrics"]["checkpoint_hits"] == expected_batches
     assert all(call[1] == "not-a-real-secret" for call in calls)
 
     assembled_matrix = json.loads(output.read_text(encoding="utf-8"))
@@ -263,6 +276,82 @@ def test_v7_review_payload_includes_matching_api_contract_constraints():
     }]}
     payload = _batch_payload(model, "EX-1", [candidate], exchange)
     assert payload["api_contracts"][0]["validation_rules"][0]["field"] == "pageSize"
+
+
+def test_review_agent_mode_exports_packets_and_merge_validates_agent_results(tmp_path):
+    model = sample_model()
+    model["version"] = "6"
+    bundle = generate_ssd_bundle(model, "UC-001")
+    manifest = write_ssd_bundle(bundle, model, tmp_path / "ssds")
+    matrix = plan_concern_matrix(model, ssd_manifest={"use_cases": [manifest]})
+    for item in matrix["items"]:
+        item.update({"status": "not_applicable", "basis": "fixture exclusion", "evidence_types": ["ssd"]})
+    candidate = next(item for item in matrix["items"] if item["concern_key"] != "common.timeout")
+    candidate.update({"status": "pending_review", "basis": "", "evidence_types": []})
+
+    agent_matrix_path = tmp_path / "agent_matrix.json"
+    exported = review_concerns(model, {"use_cases": [manifest]}, matrix, {}, agent_matrix_path, mode="agent")
+    assert not exported["valid"]
+    packet_dir = Path(exported["agent_batches"]["directory"])
+    packet_manifest = json.loads((packet_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert packet_manifest["batch_count"] == 1
+    packet = json.loads((packet_dir / packet_manifest["batches"][0]["packet"]).read_text(encoding="utf-8"))
+    assert packet["input"]["candidates"][0]["concern_key"] == candidate["concern_key"]
+
+    results = {"batches": [{"exchange_id": candidate["exchange_id"], "items": [{
+        "concern_key": candidate["concern_key"], "status": "not_applicable",
+        "basis": "本交互没有此类异常证据", "evidence_types": ["ssd"], "findings": [],
+    }]}]}
+    merged = review_concerns(
+        model, {"use_cases": [manifest]}, json.loads(agent_matrix_path.read_text(encoding="utf-8")),
+        {}, tmp_path / "merged.json", mode="merge-agent", agent_results=results,
+    )
+    assert merged["valid"]
+    merged_matrix = json.loads((tmp_path / "merged.json").read_text(encoding="utf-8"))
+    reviewed = next(item for item in merged_matrix["items"] if item["concern_key"] == candidate["concern_key"] and item["exchange_id"] == candidate["exchange_id"])
+    assert reviewed["status"] == "not_applicable"
+
+
+def test_auto_review_falls_back_without_credentials_without_network(tmp_path, monkeypatch):
+    monkeypatch.delenv("ECNU_MAX_API_KEY", raising=False)
+    model = sample_model()
+    model["version"] = "6"
+    bundle = generate_ssd_bundle(model, "UC-001")
+    manifest = write_ssd_bundle(bundle, model, tmp_path / "ssds")
+    matrix = plan_concern_matrix(model, ssd_manifest={"use_cases": [manifest]})
+    output = tmp_path / "auto_matrix.json"
+    result = review_concerns(model, {"use_cases": [manifest]}, matrix, {}, output, mode="auto")
+    assert not result["valid"]
+    assert result["fallback_reason"] == "API key environment variable is not set: ECNU_MAX_API_KEY"
+    assert result["agent_batches"]["batch_count"] > 0
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    assert all(item["status"] == "pending_review" for item in saved["items"])
+
+
+def test_auto_review_falls_back_only_failed_external_exchanges(tmp_path, monkeypatch):
+    monkeypatch.setenv("ECNU_MAX_API_KEY", "test-placeholder")
+    model = sample_model()
+    model["version"] = "6"
+    bundle = generate_ssd_bundle(model, "UC-001")
+    manifest = write_ssd_bundle(bundle, model, tmp_path / "ssds")
+    matrix = plan_concern_matrix(model, ssd_manifest={"use_cases": [manifest]})
+    expected_batches = len({item["exchange_id"] for item in matrix["items"] if item["status"] == "pending_review"})
+    calls = []
+
+    def failed_post(url, api_key, body, timeout, retries):
+        calls.append(url)
+        raise RuntimeError("simulated network outage")
+
+    result = review_concerns(
+        model, {"use_cases": [manifest]}, matrix,
+        {"base_url": "https://example.invalid/v1", "model": "mock", "max_concurrency": 2},
+        tmp_path / "auto_failed.json", mode="auto", post=failed_post,
+    )
+    assert len(calls) == expected_batches
+    assert not result["valid"]
+    assert result["agent_batches"]["batch_count"] == expected_batches
+    saved = json.loads((tmp_path / "auto_failed.json").read_text(encoding="utf-8"))
+    assert all(item["status"] == "pending_review" for item in saved["items"])
 
 def test_ecnu_env_file_loader_only_reads_standard_keys(tmp_path, monkeypatch):
     for key in ("ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL"):

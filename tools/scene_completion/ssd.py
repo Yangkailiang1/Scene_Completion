@@ -345,7 +345,7 @@ def fuse_ssd(rr_ssd: dict[str, Any], sr_ssd: dict[str, Any], api_map: Any = None
     return _fuse(rr_ssd, sr_ssd, empty_ar)
 
 
-def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = None) -> dict[str, Any]:
+def _v4_generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = None) -> dict[str, Any]:
     report = validate_scene_model(model, raise_on_error=True)
     normalized = report["normalized_model"]
     if str(normalized.get("version")) != "4":
@@ -371,7 +371,7 @@ def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = 
     return {"version": "4", "project": normalized["project"], "use_case_id": use_case_id, "scenario_id": "main", "rr": rr, "sr": sr, "ar": ar, "fused": fused}
 
 
-def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise_on_error: bool = False) -> dict[str, Any]:
+def _v4_validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise_on_error: bool = False) -> dict[str, Any]:
     errors: list[str] = []
     if not isinstance(ssd, dict):
         errors.append("ssd must be an object")
@@ -476,7 +476,7 @@ def _render_optional_puml(bundle: dict[str, Any], model: dict[str, Any], output:
             raise RuntimeError(f"PlantUML {fmt} rendering failed: {completed.stderr.strip()[:1000]}")
 
 
-def write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: str | Path,
+def _v4_write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: str | Path,
                      plantuml_jar: str | Path | None = None, render: bool = False) -> dict[str, Any]:
     output = Path(output_dir).expanduser().resolve() / bundle["use_case_id"]
     output.mkdir(parents=True, exist_ok=True)
@@ -509,11 +509,6 @@ def write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: 
 # ---------------------------------------------------------------------------
 # V5: step-driven RR/SR/AR chain.  Kept below the V4 implementation so old
 # fixtures remain readable while V5 models use the corrected semantics.
-
-_v4_generate_ssd_bundle = generate_ssd_bundle
-_v4_validate_ssd = validate_ssd
-_v4_write_ssd_bundle = write_ssd_bundle
-
 
 def _v5_interface(model: dict[str, Any], api_id: str) -> dict[str, Any]:
     for item in model.get("interfaces", []):
