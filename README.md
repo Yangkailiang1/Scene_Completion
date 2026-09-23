@@ -76,6 +76,50 @@ sequenceDiagram
 - `needs_requirement`：需求证据不足，保留待确认，不直接生成异常。
 - `pending_review`：尚未审核；严格审计和最终组装不应接受未完成审核的候选。
 
+### 关注点异常的生命周期
+
+下面这张图细化了“融合 SSD → 候选矩阵 → LLM 审核 → 异常”的路径，并展示它如何与需求中直接抽取的场景汇合。绿色路径只表示**关注点推导异常**，不是所有异常预测的唯一来源。
+
+```mermaid
+flowchart TD
+    SSD[融合 SSD 请求-响应交换] --> PLAN[plan-concerns 规则路由候选关注点]
+    PLAN --> PENDING[每个候选初始状态 pending_review]
+    PENDING --> AGENT[Agent/LLM 按交换批次加载相关知识与证据并审核]
+    AGENT --> DECIDE{审核状态}
+
+    DECIDE -->|applicable| FINDING[必须给出一个或多个原子 finding：异常类型、触发、响应、步骤、恢复]
+    DECIDE -->|not_applicable| NA[填写具体排除依据，不生成异常]
+    DECIDE -->|needs_requirement| NEEDS[说明缺少的需求，生成待确认项，不生成异常]
+
+    FINDING --> GATE[validate-concerns --require-complete + audit-run]
+    NA --> GATE
+    NEEDS --> GATE
+    GATE -->|存在 pending 或字段/覆盖校验失败| FIX[返回 Agent 补审或修正]
+    FIX --> AGENT
+    GATE -->|通过| CONCERN[assemble：去重后形成关注点推导异常预测与场景]
+
+    MODEL[规范化 scene_model 中的需求场景] --> SOURCE{需求场景类型}
+    SOURCE -->|main_success| MAIN[主成功场景]
+    SOURCE -->|alternative| ALT[可选场景]
+    SOURCE -->|requirement_exception| EXPLICIT[需求明确异常：直接保留，不伪装成关注点]
+    MAIN --> ASSEMBLE[场景清单汇总并导出]
+    ALT --> ASSEMBLE
+    EXPLICIT --> EXPLICIT_OUT[异常预测 + 需求异常场景]
+    EXPLICIT_OUT --> ASSEMBLE
+    CONCERN --> ASSEMBLE
+
+    classDef concern fill:#dcfce7,stroke:#16a34a,color:#14532d;
+    class CONCERN concern;
+```
+
+审核状态的后续处理有一个重要区别：
+
+- `applicable` **且有有效 finding**：生成关注点推导异常预测和异常场景；只有状态而没有 finding 不足以产出异常。
+- `not_applicable`：矩阵保留审核记录，但不生成异常。
+- `needs_requirement`：矩阵保留待确认记录，可形成 review item，但不直接生成异常。
+- 需求中明确写出的异常：独立于关注点矩阵，直接进入异常预测和场景清单。
+- 主成功与可选场景：进入场景清单，不进入异常预测表。
+
 ### 异常预测工作簿
 
 #### `异常预测`
