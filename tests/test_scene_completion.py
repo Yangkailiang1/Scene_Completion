@@ -225,7 +225,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
             self.assertTrue(Path(paths["scenario_workbook"]).exists())
             self.assertTrue(Path(paths["concern_matrix"]).exists())
             workbook = load_workbook(paths["scenario_workbook"], read_only=True)
-            self.assertEqual(workbook.sheetnames, ["场景清单", "关注点矩阵"])
+            self.assertEqual(workbook.sheetnames, ["场景清单", "关注点矩阵", "超时判断"])
 
     def test_v3_complete_scenarios_and_actor_separation(self):
         model = sample_model()

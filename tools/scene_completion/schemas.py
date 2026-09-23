@@ -375,6 +375,52 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
         if node.get("layer", "RR") == "RR":
             abstract_use_cases.add(use_case_id)
     composition["edges"] = _normalize_edges(composition.get("edges"), nodes)
+    # Materialize actor and external-dependency participation as first-class
+    # RR use-case associations so diagram semantics and rendering agree.
+    node_by_id = {node["node_id"]: node for node in nodes}
+    abstract_by_uc = {
+        node.get("use_case_id"): node for node in nodes
+        if node.get("kind") == "abstract_service" and node.get("layer", "RR") == "RR"
+    }
+    sr_by_uc = {
+        node.get("use_case_id"): node for node in nodes
+        if node.get("layer") == "SR" and node.get("kind") in {"internal_service", "abstract_service"}
+    }
+    association_edges = list(composition["edges"])
+    existing_associations = {
+        (edge.get("from_node"), edge.get("to_node"), edge.get("relation"))
+        for edge in association_edges
+    }
+    review_items = list(composition.get("review_items") or [])
+    for uc in normalized_ucs:
+        rr_node = abstract_by_uc.get(uc["use_case_id"])
+        if not rr_node:
+            continue
+        for actor in uc.get("actors", []):
+            matches = [node for node in nodes if node.get("kind") in {"human_actor", "external_actor", "external_service", "external_database", "external_llm"} and actor in {node.get("node_id"), node.get("name")}]
+            if len(matches) == 1:
+                relation = "external_participates_in" if matches[0].get("kind") in {"external_service", "external_database", "external_llm"} else "participates_in"
+                edge_key = (matches[0]["node_id"], rr_node["node_id"], relation)
+                if edge_key not in existing_associations:
+                    association_edges.append({"edge_id": stable_id("EDGE", *edge_key), "from_node": edge_key[0], "to_node": edge_key[1], "relation": edge_key[2], "use_case_id": uc["use_case_id"], "source_location": uc.get("source_location", "")})
+                    existing_associations.add(edge_key)
+            elif not matches:
+                review_items.append({"type": "actor_use_case_association", "use_case_id": uc["use_case_id"], "actor": actor, "message": "Use Case Actor 未匹配到唯一的 Actor 节点。"})
+        sr_node = sr_by_uc.get(uc["use_case_id"])
+        if not sr_node:
+            continue
+        for edge in composition["edges"]:
+            if edge.get("from_node") != sr_node["node_id"] or edge.get("relation") != "sr_external_dependency":
+                continue
+            external = node_by_id.get(edge.get("to_node"), {})
+            if external.get("kind") not in {"external_service", "external_database", "external_llm"}:
+                continue
+            edge_key = (rr_node["node_id"], external["node_id"], "uses_external_service")
+            if edge_key not in existing_associations:
+                association_edges.append({"edge_id": stable_id("EDGE", *edge_key), "from_node": edge_key[0], "to_node": edge_key[1], "relation": edge_key[2], "use_case_id": uc["use_case_id"], "source_location": edge.get("source_location", uc.get("source_location", ""))})
+                existing_associations.add(edge_key)
+    composition["edges"] = association_edges
+    composition["review_items"] = review_items
     data["system_composition"] = composition
     data["interactions"] = _normalize_interactions(data.get("interactions"), data, nodes, normalized_ucs)
     if not isinstance(data.get("concern_matrix", []), list):

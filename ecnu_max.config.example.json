@@ -1,0 +1,14 @@
+{
+  "provider": "openai_compatible",
+  "base_url": "${ECNU_MAX_BASE_URL}",
+  "endpoint_path": "/chat/completions",
+  "model": "${ECNU_MAX_MODEL}",
+  "api_key_env": "ECNU_MAX_API_KEY",
+  "timeout_seconds": 90,
+  "max_concurrency": 3,
+  "max_retries": 2,
+  "max_validation_retries": 2,
+  "temperature": 0,
+  "json_mode": true,
+  "resume": true
+}

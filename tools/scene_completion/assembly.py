@@ -63,7 +63,27 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
     use_cases = use_case_map(normalized)
     findings = _finding_list(raw_findings)
     if not findings:
-        findings = [finding for item in matrix_items if item.get("status") == "applicable" for finding in item.get("findings", []) if isinstance(finding, dict)]
+        findings = [
+            {
+                **finding,
+                "interaction_id": finding.get("interaction_id") or item.get("interaction_id", ""),
+                "exchange_id": finding.get("exchange_id") or item.get("exchange_id", ""),
+                "concern_key": finding.get("concern_key") or item.get("concern_key", ""),
+                "use_case_id": finding.get("use_case_id") or item.get("use_case_id", ""),
+                "source_step_index": finding.get("source_step_index") or item.get("source_step_index"),
+                "source_node": finding.get("source_node") or item.get("from_node", ""),
+                "target_node": finding.get("target_node") or item.get("to_node", ""),
+                "source_location": finding.get("source_location") or item.get("source_location", ""),
+                "layer": finding.get("layer") or item.get("layer", ""),
+                "concern_subject": finding.get("concern_subject") or item.get("concern_subject", ""),
+                "basis": finding.get("basis") or item.get("basis", ""),
+                "interaction_message": finding.get("interaction_message") or item.get("message", ""),
+                "request_message_id": finding.get("request_message_id") or item.get("request_message_id", ""),
+                "response_message_id": finding.get("response_message_id") or item.get("response_message_id", ""),
+            }
+            for item in matrix_items if item.get("status") == "applicable"
+            for finding in item.get("findings", []) if isinstance(finding, dict)
+        ]
     errors = []
     result = []
     for index, raw in enumerate(findings, 1):
@@ -102,8 +122,8 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
         if missing:
             errors.append(f"finding {index}: missing {', '.join(missing)}")
             continue
-        source_node_id = raw.get("source_node") or matrix_item.get("from_node") or interaction["from_node"]
-        target_node_id = raw.get("target_node") or matrix_item.get("to_node") or interaction["to_node"]
+        source_node_id = raw.get("source_node") or matrix_item.get("from_node") or (interaction or {}).get("from_node", "")
+        target_node_id = raw.get("target_node") or matrix_item.get("to_node") or (interaction or {}).get("to_node", "")
         if source_node_id not in nodes or target_node_id not in nodes:
             errors.append(f"finding {index}: unknown SSD source/target node {source_node_id}->{target_node_id}")
             continue
@@ -139,6 +159,9 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
             "scenario_origin": "concern_derived_exception",
             "scenario_type": "concern_derived_exception",
             "status": "applicable",
+            "requirement_impact": raw.get("requirement_impact", matrix_item.get("requirement_impact", "")),
+            "subsequent_behavior_impact": raw.get("subsequent_behavior_impact", matrix_item.get("subsequent_behavior_impact", "")),
+            "environment_coordination_impact": raw.get("environment_coordination_impact", matrix_item.get("environment_coordination_impact", "")),
         }
         result.append(item)
     if errors:
@@ -252,7 +275,7 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     use_cases = use_case_map(normalized)
     scenarios: list[dict[str, Any]] = []
-    if str(normalized.get("version")) in {"3", "4", "5"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6"}:
         for uc in normalized["use_cases"]:
             for source in uc.get("scenarios", []):
                 scenarios.append(_base_scenario(uc, source, normalized, diagram_manifest))
@@ -274,6 +297,8 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
                 duplicate_requirement = True
                 break
         if duplicate_requirement:
+            existing["merged_concern_keys"] = sorted(set(existing.get("merged_concern_keys", [])) | {item.get("concern_key", "")})
+            item["merged_requirement_scenario_id"] = existing.get("scenario_id", "")
             continue
         scenario = {
             **item,
@@ -300,6 +325,83 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
     return deduped
 
 
+def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: list[dict[str, Any]], model: dict[str, Any]) -> list[dict[str, Any]]:
+    """Give explicit requirement exceptions predictions and link merged evidence once."""
+    by_id = {scenario.get("scenario_id"): scenario for scenario in scenarios}
+    source_predictions = []
+    for scenario in scenarios:
+        if scenario.get("scenario_type") != "requirement_exception":
+            continue
+        prediction_id = stable_id("PRED", model["project"], scenario.get("use_case_id"), "requirement_exception", scenario.get("scenario_id"))
+        scenario["prediction_id"] = prediction_id
+        scenario["concern_key"] = "unclassified.requirement_exception"
+        scenario["concern"] = "需求明确异常"
+        scenario["exception_type"] = scenario.get("name", "需求异常")
+        scenario["exception_desc"] = scenario.get("expected_result") or scenario.get("trigger") or scenario.get("name", "需求中明确的异常分支")
+        source_predictions.append({
+            "prediction_id": prediction_id,
+            "scenario_id": scenario.get("scenario_id", ""),
+            "use_case_id": scenario.get("use_case_id", ""),
+            "use_case_name": scenario.get("use_case_name", ""),
+            "actor": scenario.get("actor", ""),
+            "source_step_index": scenario.get("source_step_index", 0),
+            "anchor_label": scenario.get("anchor_label", ""),
+            "concern_key": scenario["concern_key"],
+            "concern": scenario["concern"],
+            "exception_type": scenario["exception_type"],
+            "exception_desc": scenario["exception_desc"],
+            "trigger": scenario.get("trigger", ""),
+            "expected_result": scenario.get("expected_result", ""),
+            "recovery": scenario.get("recovery", ""),
+            "scenario_steps": scenario.get("scenario_steps", []),
+            "source_location": scenario.get("source_location", ""),
+            "source_type": scenario.get("source_type", "requirements"),
+            "layer": "RR",
+            "ssd_message_id": scenario.get("ssd_message_id", ""),
+            "exchange_id": scenario.get("exchange_id", ""),
+        })
+    derived = []
+    for item in findings:
+        merged_id = item.pop("merged_requirement_scenario_id", "")
+        if merged_id and merged_id in by_id:
+            requirement = by_id[merged_id]
+            item["scenario_id"] = merged_id
+            item["prediction_id"] = requirement["prediction_id"]
+            requirement.setdefault("merged_concern_keys", [])
+            if item.get("concern_key") not in requirement["merged_concern_keys"]:
+                requirement["merged_concern_keys"].append(item.get("concern_key"))
+            requirement["concern_evidence"] = requirement.get("concern_evidence", []) + [{"concern_key": item.get("concern_key"), "basis": item.get("basis", ""), "ssd_message_id": item.get("ssd_message_id", "")}]
+            continue
+        scenario = next((candidate for candidate in scenarios if candidate.get("scenario_id") == item.get("scenario_id")), None)
+        if scenario:
+            scenario["prediction_id"] = item.get("prediction_id", "")
+        derived.append(item)
+    return source_predictions + derived
+
+
+def _enrich_matrix_findings(matrix_items: list[dict[str, Any]], findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    indexed: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for finding in findings:
+        key = (str(finding.get("exchange_id", "")), str(finding.get("concern_key", "")))
+        indexed.setdefault(key, []).append(finding)
+    result = []
+    for raw in matrix_items:
+        item = dict(raw)
+        matching = indexed.get((str(item.get("exchange_id", "")), str(item.get("concern_key", ""))), [])
+        if matching:
+            item["findings"] = matching
+            item["exception_types"] = sorted({str(f.get("exception_type", "")).strip() for f in matching if str(f.get("exception_type", "")).strip()})
+            latest_basis = next((str(f.get("basis", "")).strip() for f in matching if str(f.get("basis", "")).strip()), "")
+            if latest_basis:
+                item["basis"] = latest_basis
+        if item.get("concern_key") == "common.timeout":
+            for field in ("requirement_impact", "subsequent_behavior_impact", "environment_coordination_impact"):
+                if item.get(field) == "unknown":
+                    item[field] = ""
+        result.append(item)
+    return result
+
+
 def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
     report = validate_scene_model(model)
     if not report["valid"]:
@@ -311,9 +413,11 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
     _attach_ids(findings, normalized)
     scenarios = _scenario_catalog(findings, normalized, diagram_manifest)
+    findings = _link_predictions_to_scenarios(findings, scenarios, normalized)
+    matrix_items = _enrich_matrix_findings(matrix_report["items"], findings)
     result_by_key: dict[str, list[dict[str, Any]]] = {key: [] for key in CONCERN_DEFINITIONS}
     for item in findings:
-        result_by_key[item["concern_key"]].append(item)
+        result_by_key.setdefault(item["concern_key"], []).append(item)
     exception_tree: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for item in findings:
         exception_tree.setdefault(item["use_case_id"], {}).setdefault(str(item.get("source_step_index", 0)), []).append(item)
@@ -323,7 +427,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
             review_items.append({"type": "service_type_confirmation", "node_id": node["node_id"], "message": f"请确认 Service《{node['name']}》属于展示型还是计算型。"})
     for item in matrix_report["items"]:
         if item.get("status") == "needs_requirement":
-            review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item["interaction_id"], "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
+            review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "use_case_id": item.get("use_case_id", ""), "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
         if item.get("status") == "pending_review":
             review_items.append({"type": "concern_review_pending", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "concern_key": item["concern_key"], "message": "该候选关注点尚未完成 Agent 判断。"})
     for use_case_manifest in (diagram_manifest or {}).get("use_cases", []):
@@ -345,7 +449,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
         "scene_model": normalized,
         "system_composition": normalized["system_composition"],
         "interaction_catalog": exchange_catalog,
-        "concern_matrix": matrix_report["items"],
+        "concern_matrix": matrix_items,
         "checkpoint_results": result_by_key,
         "exception_tree": exception_tree,
         "scenario_catalog": scenarios,

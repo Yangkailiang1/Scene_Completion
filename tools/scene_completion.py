@@ -22,6 +22,7 @@ from scene_completion.png_renderer import convert_svg_to_png
 from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
 from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph
+from scene_completion.review import load_ecnu_env_file, review_concerns
 
 
 def _read_json(path: str):
@@ -62,6 +63,13 @@ def main(argv=None) -> int:
     audit.add_argument("--model", required=True)
     audit.add_argument("--ssd-manifest", required=True)
     audit.add_argument("--concern-matrix", required=True)
+    review = sub.add_parser("review-concerns", help="batch-review pending concerns through an OpenAI-compatible API")
+    review.add_argument("--model", required=True)
+    review.add_argument("--ssd-manifest", required=True)
+    review.add_argument("--concern-matrix", required=True)
+    review.add_argument("--config", required=True)
+    review.add_argument("--env-file", help="safely load ECNU_MAX_* values from a .env file")
+    review.add_argument("--output", required=True)
     validate_diagram = sub.add_parser("validate-diagrams", help="validate V5 diagram sources")
     validate_diagram.add_argument("--model", required=True)
     validate_diagram.add_argument("--input", required=True)
@@ -141,6 +149,12 @@ def main(argv=None) -> int:
             output = Path(args.concern_matrix).with_name("concern_coverage_report.json")
             _write_json(output, result.get("report", {}))
             print(json.dumps({**result, "coverage_report": str(output)}, ensure_ascii=False, indent=2))
+            return 0 if result["valid"] else 2
+        if args.command == "review-concerns":
+            if args.env_file:
+                load_ecnu_env_file(args.env_file)
+            result = review_concerns(_read_json(args.model), _read_json(args.ssd_manifest), _read_json(args.concern_matrix), _read_json(args.config), args.output)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result["valid"] else 2
         if args.command == "validate-diagrams":
             result = validate_diagram_spec(_read_json(args.model), _read_json(args.input))

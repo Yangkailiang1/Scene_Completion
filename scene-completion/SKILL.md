@@ -5,7 +5,7 @@ metadata:
   short-description: Complete SSD-based abnormal scenarios
 ---
 
-# Scene Completion V6
+# Scene Completion V7
 
 ## 安全边界
 
@@ -22,6 +22,7 @@ metadata:
 5. `plan-concerns --ssd-manifest` 聚合所有 Use Case 的融合 SSD，生成全量候选矩阵；它只做确定性路由，不判断异常是否真实发生。
 6. Agent 按需读取每个命中的关注点知识文件，必须将每条候选从 `pending_review` 改为 `applicable`、`not_applicable` 或 `needs_requirement`，并记录证据类型和来源定位。
 7. Agent 将 `applicable` 关注点拆成原子异常；一个关注点可以产生多个 finding，但每个 finding 必须有触发、响应、场景步骤和恢复方式。
+7a. 候选较多时使用 `review-concerns` 按 SSD 交换分批调用 ECNU-Max OpenAI 兼容接口；Agent 负责复核汇总结果、失败批次和证据，不把全量候选塞入单个上下文。优先使用 `--env-file .env` 安全加载 `ECNU_MAX_BASE_URL`、`ECNU_MAX_MODEL`、`ECNU_MAX_API_KEY`；加载器只解析这三个键，不执行 shell，也不回显值。API key 不得写入 JSON 配置或批次结果。
 8. 运行 `validate-concerns --require-complete` 和 `audit-run`；存在未审查候选、空泛依据、缺失 SSD 或不可追溯 finding 时不得 assemble。
 9. `assemble` 保留每个用例的主成功场景、需求中的可选/异常分支，并追加去重后的关注点异常场景。
 10. 导出预测表、全量场景表、异常树、覆盖率审计、追溯 JSON 和图产物。
@@ -34,6 +35,8 @@ metadata:
 - 关注点异常按 Use Case、SSD 交换、关注点 key、原子异常类型和结果去重。
 - `needs_requirement` 只生成待确认项，不生成异常预测。
 - `pending_review` 只表示 Agent 尚未完成判断；它不能进入最终 assemble。
+- 矩阵每行表示一个 SSD 交换中的一个候选关注点；只有 `applicable` 且有原子 finding 才生成关注点异常预测和对应异常场景。
+- 需求文档明确的异常分支作为来源异常场景和异常预测保留；主成功与可选场景只进入场景清单。
 - Actor 字段来自 Use Case 的 Actor；交互来源和目标分别使用 `source_node`、`target_node`。
 
 ## SSD 规则
@@ -52,6 +55,7 @@ metadata:
 ## 图与映射表
 
 - 系统组成总览只展示 RR 级抽象服务/用例，RR 用例使用椭圆；不绘制 RR 用例之间的连线。AR 微服务和 ImplementationAPI 放在 SSD 与映射表中。
+- 人类 Actor 根据 Use Case Actor 关联到 RR 用例椭圆左端；外部 Service 根据 SR 依赖关联到 RR 用例椭圆右端。关联写入系统组成语义 JSON。
 - 总览图底部使用“内部资源（数据库 / 知识库）”分区，并将“部署硬件 / 运行环境”放在内部资源分区正下方；两个区块不并排。
 - 每张图同时保存语义 JSON 和 SVG；`render-dependency-graph` 输出 RR 用例依赖关系图的 JSON/SVG。
 - `interface_service_mapping_<项目>.xlsx` 的 `SR接口映射` 和 `AR软件实现接口映射` 是接口、服务、微服务和来源定位的审计表。
@@ -105,6 +109,7 @@ python tools/scene_completion.py validate-ssd --input <fused_ssd.json> [--model 
 python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output <concern_matrix.json>
 python tools/scene_completion.py validate-concerns --model <scene_model.json> --input <concern_matrix.json> --require-complete
 python tools/scene_completion.py audit-run --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json>
+python tools/scene_completion.py review-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --config ecnu_max.config.example.json --env-file .env --output <reviewed_concern_matrix.json>
 python tools/scene_completion.py validate-diagrams --model <scene_model.json> --input <diagram_spec.json>
 python tools/scene_completion.py render-diagrams --model <scene_model.json> --input <diagram_spec.json> --output-dir <diagram-output> [--require-png]
 python tools/scene_completion.py render-png --input-svg <diagram.svg> --output-png <diagram.png> [--require-png]
@@ -122,4 +127,6 @@ python tools/scene_completion.py assemble --model <scene_model.json> --concern-m
 - `use_case_dependency_graph.json/.svg` 和 `interface_service_mapping_<项目>.xlsx`；
 - `prediction_analysis_<项目>.xlsx`：按 Use Case 和主流程步骤分组，保持参考文件七列；
 - `scenario_catalog_<项目>.xlsx`：每行一个主成功、可选、需求异常或关注点异常场景；
+- 场景工作簿的“超时判断”页只列 `common.timeout`；未判断的影响维度留空并由状态和依据说明。
+- `ecnu_max.config.example.json` 不含密钥；私有配置可复制为 `ecnu_max.local.json`，key 通过 `api_key_env` 指定的环境变量提供。批处理按 SSD 交换保存结构化 checkpoint，可续跑；不得把 key 写入配置文件或日志。
 - `run_manifest.json`：记录数量、图产物、来源和评估未执行状态。

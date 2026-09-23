@@ -151,8 +151,39 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
 
     rr_ids = {n["node_id"] for n in rr}
     node_by_id = {n.get("node_id"): n for n in all_nodes}
+    # Explicit RR associations: actor to the ellipse's left tip, and external
+    # dependencies to its right tip.  This uses stable semantic edges added by
+    # model normalization, never labels or layout inference.
+    for edge in model.get("system_composition", {}).get("edges", []):
+        relation = edge.get("relation")
+        if relation not in {"participates_in", "external_participates_in", "uses_external_service"}:
+            continue
+        a, b = edge.get("from_node"), edge.get("to_node")
+        p, q = positions.get(a), positions.get(b)
+        if not p or not q:
+            continue
+        if relation == "participates_in":
+            actor_box, ellipse_box = p, q
+            actor_center = _box_center(actor_box)
+            source_anchor = _boundary_anchor(actor_box, _box_center(ellipse_box))
+            _, cy = _box_center(ellipse_box)
+            target_anchor = (ellipse_box[0], cy)
+            start, end = source_anchor, target_anchor
+        else:
+            if relation == "external_participates_in":
+                external_box, ellipse_box = p, q
+            else:
+                ellipse_box, external_box = p, q
+            external_center = _box_center(external_box)
+            source_anchor = (ellipse_box[0] + ellipse_box[2], _box_center(ellipse_box)[1])
+            target_anchor = _boundary_anchor(external_box, _box_center(ellipse_box))
+            start, end = (target_anchor, source_anchor) if relation == "external_participates_in" else (source_anchor, target_anchor)
+        body.append(f'<line data-relation="{_esc(relation)}" data-use-case="{_esc(edge.get("use_case_id", ""))}" x1="{start[0]:.1f}" y1="{start[1]:.1f}" x2="{end[0]:.1f}" y2="{end[1]:.1f}" stroke="#7187A1" stroke-width="1.8"/>')
+
     for edge in model.get("system_composition", {}).get("edges", []):
         a, b = edge.get("from_node"), edge.get("to_node")
+        if edge.get("relation") in {"participates_in", "external_participates_in", "uses_external_service"}:
+            continue
         if a in rr_ids or b in rr_ids:
             continue
         if a == system.get("node_id") or b == system.get("node_id"):

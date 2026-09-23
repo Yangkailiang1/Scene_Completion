@@ -19,4 +19,8 @@
 
 系统组成图只展示 RR 抽象服务/用例，RR 用例使用椭圆且不绘制用例间连线；PlantUML 只使用无方向 `--` 连线。SSD PlantUML 使用有方向消息箭头，ImplementationAPI 与 AR 微服务合并为一条生命线。默认纯 Python 生成 SVG，并通过本地可用转换器额外生成 PNG；无转换器时保留 SVG 并记录 `png_status=unavailable`。
 
-V6 模型版本为 `6`。旧 `display`/`compute` Service 类型仅在输入边界兼容，规范化结果使用五类功能 Service 或 `unknown`。`pending_review` 不得进入最终 assemble。
+V6/V7 模型版本为 `6`。旧 `display`/`compute` Service 类型仅在输入边界兼容，规范化结果使用五类功能 Service 或 `unknown`。`pending_review` 不得进入最终 assemble。
+
+关注点矩阵每行对应一个 SSD 请求—响应交换和一个候选关注点。工作簿的“SSD交换ID”是请求及其返回的组标识，“SSD请求消息ID”是回溯锚点；V6 SSD 分析不要求旧版 `interaction_id`。用例 ID 直接从矩阵记录读取。超时影响维度只在“超时判断”页列出，未知/未判定值显示为空。
+
+场景工作簿包含需求来源的主成功、可选、异常分支，以及关注点推导异常。关注点推导异常的预测与场景一一对应；需求明确异常也保留为异常预测，主成功和可选场景不产生预测 ID。

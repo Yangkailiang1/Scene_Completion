@@ -107,16 +107,16 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
     ws.sheet_view.showGridLines = False
 
     trace = wb.create_sheet("追溯信息")
-    trace_headers = ["预测ID", "场景ID", "用例ID", "用例名称", "Actor", "层级", "主流程步骤", "交互ID", "交换ID", "SSD消息ID", "来源节点", "目标节点", "关注点Key", "关注点", "异常描述", "触发条件", "异常响应", "恢复", "来源定位", "融合SSD路径"]
+    trace_headers = ["预测ID", "场景ID", "用例ID", "用例名称", "Actor", "层级", "主流程步骤", "SSD交换ID", "SSD请求消息ID", "来源节点", "目标节点", "关注点Key", "关注点", "异常描述", "触发条件", "异常响应", "恢复", "来源定位", "融合SSD路径"]
     _title(trace, f"{bundle['project']} — 异常追溯", len(trace_headers))
     _headers(trace, trace_headers)
     trace_rows = []
     for item in bundle.get("findings", []):
         trace_rows.append([
-            item.get("prediction_id", ""), item.get("scenario_id", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("layer", ""), item.get("source_step_index", 0), item.get("interaction_id", ""), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("source_node_name", ""), item.get("target_node_name", ""), item.get("concern_key", ""), item.get("concern", ""), item.get("exception_desc", ""), item.get("trigger", ""), item.get("expected_result", ""), item.get("recovery", ""), item.get("source_location", ""), item.get("ssd_paths", ""),
+            item.get("prediction_id", ""), item.get("scenario_id", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("layer", ""), item.get("source_step_index", 0), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("source_node_name", ""), item.get("target_node_name", ""), item.get("concern_key", ""), item.get("concern", ""), item.get("exception_desc", ""), item.get("trigger", ""), item.get("expected_result", ""), item.get("recovery", ""), item.get("source_location", ""), item.get("ssd_paths", ""),
         ])
-    _format_rows(trace, 4, trace_rows, centered={1, 2, 3, 6, 7, 8, 9, 10})
-    for index, width in enumerate([28, 28, 18, 24, 20, 12, 14, 20, 24, 28, 24, 24, 34, 24, 60, 48, 48, 42, 34, 58], 1):
+    _format_rows(trace, 4, trace_rows, centered={1, 2, 3, 6, 7, 8, 9})
+    for index, width in enumerate([28, 28, 18, 24, 20, 12, 14, 24, 28, 24, 24, 34, 24, 60, 48, 48, 42, 34, 58], 1):
         trace.column_dimensions[get_column_letter(index)].width = width
     trace.freeze_panes = "A4"
     trace.auto_filter.ref = f"A3:{get_column_letter(len(trace_headers))}{max(3, trace.max_row)}"
@@ -143,19 +143,40 @@ def _write_scenario_sheet(ws, bundle: dict[str, Any]) -> None:
 
 
 def _write_matrix_sheet(ws, bundle: dict[str, Any]) -> None:
-    headers = ["交互ID", "交换ID", "SSD消息ID", "层级", "用例ID", "来源对象", "目标对象", "交互消息", "关注点Key", "关注点", "关注点主体", "适用状态", "判断依据", "异常类型", "需求满足影响", "后续行为影响", "环境协调影响", "来源定位"]
+    headers = ["SSD交换ID（请求及其返回）", "SSD请求消息ID", "层级", "用例ID", "来源对象", "目标对象", "交互消息", "关注点Key", "关注点", "关注点主体", "适用状态", "判断依据", "异常类型", "来源定位"]
     _title(ws, f"{bundle['project']} — 关注点矩阵", len(headers))
     _headers(ws, headers)
     nodes = _node_labels(bundle)
-    interaction_map = {item["interaction_id"]: item for item in bundle["scene_model"].get("interactions", [])}
     rows = []
     for item in bundle.get("concern_matrix", []):
-        interaction = interaction_map.get(item.get("interaction_id"), {})
+        from_id = item.get("from_node", "")
+        to_id = item.get("to_node", "")
         rows.append([
-            item.get("interaction_id", ""), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("layer", ""), interaction.get("use_case_id", ""), nodes.get(item.get("from_node") or interaction.get("from_node"), item.get("from_node") or interaction.get("from_node", "")), nodes.get(item.get("to_node") or interaction.get("to_node"), item.get("to_node") or interaction.get("to_node", "")), item.get("message", interaction.get("message", item.get("response_message", ""))), item.get("concern_key", ""), item.get("concern", item.get("concern_key", "")), item.get("concern_subject", ""), item.get("status", ""), item.get("basis", ""), "\n".join(item.get("exception_types", [])), item.get("requirement_impact", ""), item.get("subsequent_behavior_impact", ""), item.get("environment_coordination_impact", ""), item.get("source_location", interaction.get("source_location", "")),
+            item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("layer", ""), item.get("use_case_id", ""), nodes.get(from_id, from_id), nodes.get(to_id, to_id), item.get("message", item.get("response_message", "")), item.get("concern_key", ""), item.get("concern", item.get("concern_key", "")), item.get("concern_subject", ""), item.get("status", ""), item.get("basis", ""), "\n".join(item.get("exception_types", [])), item.get("source_location", ""),
         ])
-    _format_rows(ws, 4, rows, centered={1, 2, 3, 4, 8, 10, 11, 14, 15, 16})
-    for index, width in enumerate([20, 24, 28, 12, 18, 24, 24, 36, 38, 26, 24, 20, 46, 42, 18, 18, 18, 34], 1):
+    _format_rows(ws, 4, rows, centered={1, 2, 3, 4, 8, 10, 11})
+    for index, width in enumerate([24, 28, 12, 20, 24, 24, 38, 38, 26, 24, 20, 46, 42, 34], 1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.freeze_panes = "A4"
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(headers))}{max(3, ws.max_row)}"
+    ws.sheet_view.showGridLines = False
+
+
+def _write_timeout_sheet(ws, bundle: dict[str, Any]) -> None:
+    headers = ["SSD交换ID", "SSD请求消息ID", "用例ID", "Use Case名称", "主流程步骤", "交互消息", "适用状态", "需求满足影响", "后续行为影响", "环境协调影响", "判断依据", "来源定位"]
+    _title(ws, f"{bundle['project']} — 超时判断", len(headers))
+    _headers(ws, headers)
+    ucs = {uc["use_case_id"]: uc for uc in bundle["scene_model"].get("use_cases", [])}
+    rows = []
+    for item in bundle.get("concern_matrix", []):
+        if item.get("concern_key") != "common.timeout":
+            continue
+        uc = ucs.get(item.get("use_case_id"), {})
+        impacts = [item.get("requirement_impact", ""), item.get("subsequent_behavior_impact", ""), item.get("environment_coordination_impact", "")]
+        impacts = [value if value in {"yes", "no"} else "" for value in impacts]
+        rows.append([item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("use_case_id", ""), uc.get("use_case_name", ""), item.get("source_step_index", ""), item.get("message", ""), item.get("status", ""), *impacts, item.get("basis", ""), item.get("source_location", "")])
+    _format_rows(ws, 4, rows, centered={1, 2, 3, 5, 7, 8, 9, 10})
+    for index, width in enumerate([24, 28, 20, 26, 14, 44, 22, 20, 20, 20, 48, 36], 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A4"
     ws.auto_filter.ref = f"A3:{get_column_letter(len(headers))}{max(3, ws.max_row)}"
@@ -233,6 +254,8 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     _write_scenario_sheet(ws, bundle)
     matrix_ws = wb.create_sheet("关注点矩阵")
     _write_matrix_sheet(matrix_ws, bundle)
+    timeout_ws = wb.create_sheet("超时判断")
+    _write_timeout_sheet(timeout_ws, bundle)
     wb.save(artifacts["scenario_workbook"])
     _write_mapping_workbook(bundle, artifacts["mapping_workbook"])
     # Make the mapping table a first-class trace target from both manifests.

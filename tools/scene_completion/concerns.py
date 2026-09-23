@@ -431,7 +431,7 @@ def validate_concern_matrix(model: dict[str, Any], matrix: Any, raise_on_error: 
             errors.append(f"matrix item {index}: not_applicable must provide an exclusion basis")
         if concern_key == "common.timeout":
             for field in ("requirement_impact", "subsequent_behavior_impact", "environment_coordination_impact"):
-                if item.get(field) not in {"yes", "no", "unknown"}:
+                if item.get(field) not in {"yes", "no", "unknown", "", None}:
                     errors.append(f"matrix item {index}: invalid {field}")
             impact = [item.get(field) for field in ("requirement_impact", "subsequent_behavior_impact", "environment_coordination_impact")]
             if item.get("status") == "applicable" and "yes" not in impact:
