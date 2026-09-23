@@ -5,7 +5,7 @@ metadata:
   short-description: Complete SSD-based abnormal scenarios
 ---
 
-# Scene Completion V7
+# Scene Completion — RR/SR/AR Service Classification
 
 ## 安全边界
 
@@ -69,6 +69,15 @@ metadata:
 - AR：Implementation API、内部微服务和内部数据库。
 - 同一个 AR 微服务可以被多个 RR/SR 用例复用；缺少映射时保留上层结果并生成 `review_items`。
 
+### 分类归属（必须按映射隔离）
+
+- **SR 分类属于用例级映射**：对每个 `use_case_id` 的 `architecture.sr`（一个 SR Service/API）填写 `service_type`、`classification_status`、`classification_basis`、`source_location`。五类为 `display_interaction`、`query_retrieval`、`resource_mutation`、`analysis_generation`、`release_activation`；证据不足或职责混合时使用 `unknown` 并生成待确认项。相同 Service 名称在不同用例/API 下可有不同分类。
+- **AR 分类属于实现映射**：每个 `architecture.ar[]` 的 Implementation API/微服务映射独立填写相同四个字段。首版技术职责为 `query_read`、`command_write`、`orchestration`、`integration_event`、`publish_activation`、`unknown`。共享微服务的不同 API 映射允许分类不同。
+- `classification_basis` 必须说明依据需求、API 契约、主流程或读写/编排行为的哪项事实；`source_location` 指向原文或接口定义。不能仅按 Service 名称分类。
+- Tools 只将 SR 类型路由到 `sr_service.*`，只将 AR 类型路由到 `ar_service.*`；严禁从 AR 类型回退推测 SR 类型，也不允许 SR 类型覆盖 AR 类型。服务分类只在对应 SR/AR 节点实际参加当前 SSD 交互时参与路由。
+- `unknown` 仍可获得按节点/关系确定的通用关注点，但不生成分类专属候选，并必须保留分类待确认项。
+- SR 草案关注点见 `references/concerns_v2/sr_service__*.md`；AR 首版草案见 `ar_service__*.md`。通用内部服务、数据库和服务关系关注点按现有层级/结构独立路由。
+
 ## 关注点路由
 
 Tools 只依据结构化字段路由候选关注点：
@@ -78,7 +87,7 @@ Tools 只依据结构化字段路由候选关注点：
 - `external_service`、`external_database`、`external_llm` → 相应外部对象关注点；
 - 内部数据库、内部 Service 和内部 Service 关系 → 相应对象关注点；
 - 请求—响应交换 → 通用超时关注点。
-- 内部 Service 使用 `display_interaction`、`query_retrieval`、`resource_mutation`、`analysis_generation`、`release_activation` 五类功能分类；旧 `display` 映射为展示交互，旧 `compute` 进入待确认。
+- 仅 `architecture.sr` 使用五类 SR 业务功能分类；仅 `architecture.ar[]` 使用五类 AR 技术职责分类。旧 `display` 可迁移为 SR `display_interaction`；旧 `compute` 以及旧节点级分类不得用于推导 AR 或 SR 映射分类，需重新判定或设为 `unknown`。
 - 端测设备、部署硬件和运行环境本期只保留架构节点，不生成关注点。
 - 适用性可以由需求、SSD 结构、接口契约、数据约束、Service 分类和业务状态共同证明；时限、容量和性能阈值仍需要明确证据。
 

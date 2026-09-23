@@ -200,6 +200,110 @@ class SceneCompletionV2Tests(unittest.TestCase):
         self.assertTrue(all(item.get("ssd_id") == bundle["fused"]["ssd_id"] for item in matrix["items"]))
         self.assertTrue(validate_concern_matrix(model, matrix)["valid"])
 
+    def test_sr_ar_classification_routing_is_mapping_scoped_and_independent(self):
+        model = sample_model()
+        model["version"] = "6"
+        uc = model["use_cases"][0]
+        uc["architecture"]["sr"].update({
+            "service_type": "query_retrieval", "classification_status": "confirmed",
+            "classification_basis": "该用例 API 查询订单", "source_location": "spec.md:API-ORDER",
+        })
+        uc["architecture"]["ar"][0].update({
+            "service_type": "command_write", "classification_status": "confirmed",
+            "classification_basis": "该实现接口写入订单", "source_location": "api.md:createOrder",
+        })
+        model["interactions"].extend([
+            {"interaction_id": "INT-SR-IN", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "direction": "outgoing", "message": "调用订单查询", "api": "API-ORDER", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1},
+            {"interaction_id": "INT-SR-OUT", "use_case_id": "UC-001", "from_node": "sr-order", "to_node": "system", "direction": "incoming", "message": "返回订单查询结果", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 9, "source_step_index": 1},
+            {"interaction_id": "INT-AR", "use_case_id": "UC-001", "from_node": "sr-order", "to_node": "compute", "direction": "internal", "message": "调用写入实现", "implementation_api_id": "createOrder", "layer": "AR", "sequence": 10, "source_step_index": 1},
+        ])
+        first = plan_concern_matrix(model)["items"]
+        by_id = {}
+        for item in first:
+            by_id.setdefault(item["interaction_id"], set()).add(item["concern_key"])
+        sr_expected = {key for key in by_id["INT-SR-IN"] if key.startswith("sr_service.query_retrieval.")}
+        self.assertEqual(len(sr_expected), 3)
+        self.assertTrue({key for key in by_id["INT-SR-OUT"] if key.startswith("sr_service.query_retrieval.")})
+        self.assertFalse(any(key.startswith("ar_service.") for key in by_id["INT-SR-IN"]))
+        self.assertTrue(any(key.startswith("ar_service.command_write.") for key in by_id["INT-AR"]))
+
+        changed_ar = copy.deepcopy(model)
+        changed_ar["use_cases"][0]["architecture"]["ar"][0]["service_type"] = "query_read"
+        second = plan_concern_matrix(changed_ar)["items"]
+        second_by_id = {}
+        for item in second:
+            second_by_id.setdefault(item["interaction_id"], set()).add(item["concern_key"])
+        self.assertEqual(sr_expected, {key for key in second_by_id["INT-SR-IN"] if key.startswith("sr_service.query_retrieval.")})
+        self.assertTrue(any(key.startswith("ar_service.query_read.") for key in second_by_id["INT-AR"]))
+        self.assertFalse(any(key.startswith("ar_service.command_write.") for key in second_by_id["INT-AR"]))
+
+    def test_unknown_service_classification_is_reviewed_but_has_no_specialized_keys(self):
+        model = sample_model()
+        model["version"] = "6"
+        model["interactions"].append({"interaction_id": "INT-SR", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "direction": "outgoing", "message": "访问 SR", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1})
+        normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
+        self.assertTrue(any(item["type"] == "sr_service_classification" and item["use_case_id"] == "UC-001" for item in normalized["review_items"]))
+        keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == "INT-SR"}
+        self.assertFalse(any(key.startswith("sr_service.") for key in keys))
+        self.assertFalse(any(key.startswith("ar_service.") for key in keys))
+
+    def test_legacy_compute_never_becomes_a_new_sr_or_ar_category(self):
+        model = sample_model(); model["version"] = "6"
+        model["use_cases"][0]["architecture"]["sr"].update({"service_type": "compute", "classification_status": "confirmed"})
+        model["use_cases"][0]["architecture"]["ar"][0].update({"service_type": "compute", "classification_status": "confirmed"})
+        normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
+        sr = normalized["use_cases"][0]["architecture"]["sr"]
+        ar = normalized["use_cases"][0]["architecture"]["ar"][0]
+        self.assertEqual((sr["service_type"], sr["classification_status"]), ("unknown", "needs_confirmation"))
+        self.assertEqual((ar["service_type"], ar["classification_status"]), ("unknown", "needs_confirmation"))
+        self.assertTrue(any(item["type"] == "sr_service_classification" for item in normalized["review_items"]))
+        self.assertTrue(any(item["type"] == "ar_service_classification" for item in normalized["review_items"]))
+
+    def test_same_sr_service_name_can_have_use_case_specific_categories(self):
+        model = sample_model()
+        model["version"] = "6"
+        first_uc = model["use_cases"][0]
+        first_uc["architecture"]["sr"].update({
+            "service_type": "query_retrieval", "classification_status": "confirmed",
+            "classification_basis": "本 API 查询订单", "source_location": "spec.md:query",
+        })
+        model["interactions"].append({"interaction_id": "INT-SR-UC1", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "direction": "outgoing", "message": "查询订单", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1})
+        second_uc = copy.deepcopy(first_uc)
+        second_uc.update({"use_case_id": "UC-002", "use_case_name": "修改订单", "main_flow": [{"step_index": 1, "text": "修改订单"}]})
+        second_uc["architecture"]["rr"].update({"service_id": "rr-service-UC-002", "abstract_api_id": "RR-ORDER-UPDATE"})
+        second_uc["architecture"]["sr"].update({
+            "service_id": "sr-order-2", "design_use_case_id": "SRUC-UC-002", "abstract_api_id": "API-ORDER-UPDATE",
+            "service_type": "resource_mutation", "classification_status": "confirmed",
+            "classification_basis": "本 API 更新订单", "source_location": "spec.md:update",
+        })
+        model["use_cases"].append(second_uc)
+        model["system_composition"]["nodes"].append({"node_id": "sr-order-2", "name": "OrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-002"})
+        model["interactions"].append({"interaction_id": "INT-SR-UC2", "use_case_id": "UC-002", "from_node": "system", "to_node": "sr-order-2", "direction": "outgoing", "message": "更新订单", "abstract_api_id": "API-ORDER-UPDATE", "layer": "SR", "sequence": 8, "source_step_index": 1})
+        matrix = plan_concern_matrix(model)["items"]
+        first_keys = {x["concern_key"] for x in matrix if x["interaction_id"] == "INT-SR-UC1"}
+        second_keys = {x["concern_key"] for x in matrix if x["interaction_id"] == "INT-SR-UC2"}
+        self.assertTrue(any(key.startswith("sr_service.query_retrieval.") for key in first_keys))
+        self.assertTrue(any(key.startswith("sr_service.resource_mutation.") for key in second_keys))
+
+    def test_all_sr_and_ar_taxonomy_values_have_independent_registry_routes(self):
+        sr_categories = ("display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation")
+        ar_categories = ("query_read", "command_write", "orchestration", "integration_event", "publish_activation")
+        for index, category in enumerate(sr_categories, 1):
+            model = sample_model(); model["version"] = "6"
+            model["use_cases"][0]["architecture"]["sr"].update({"service_type": category, "classification_status": "confirmed", "classification_basis": "基于该 API 的业务职责", "source_location": "spec.md:sr"})
+            model["interactions"].append({"interaction_id": f"INT-SR-{index}", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "message": "SR 调用", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1})
+            keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == f"INT-SR-{index}"}
+            self.assertTrue(any(key.startswith(f"sr_service.{category}.") for key in keys), category)
+            self.assertFalse(any(key.startswith("ar_service.") for key in keys), category)
+        for index, category in enumerate(ar_categories, 1):
+            model = sample_model(); model["version"] = "6"
+            model["use_cases"][0]["architecture"]["sr"].update({"service_type": "display_interaction", "classification_status": "confirmed", "classification_basis": "基于 SR API 展示职责", "source_location": "spec.md:sr"})
+            model["use_cases"][0]["architecture"]["ar"][0].update({"service_type": category, "classification_status": "confirmed", "classification_basis": "基于实现 API 技术职责", "source_location": "api.md:ar"})
+            model["interactions"].append({"interaction_id": f"INT-AR-{index}", "use_case_id": "UC-001", "from_node": "system", "to_node": "compute", "message": "AR 调用", "implementation_api_id": "createOrder", "layer": "AR", "sequence": 8, "source_step_index": 1})
+            keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == f"INT-AR-{index}"}
+            self.assertTrue(any(key.startswith(f"ar_service.{category}.") for key in keys), category)
+            self.assertFalse(any(key.startswith("sr_service.") for key in keys), category)
+
     def test_ssd_bundle_writes_four_layers_per_use_case(self):
         model = sample_model()
         bundle = generate_ssd_bundle(model, "UC-001")
@@ -224,6 +328,13 @@ class SceneCompletionV2Tests(unittest.TestCase):
             self.assertTrue(Path(paths["prediction_workbook"]).exists())
             self.assertTrue(Path(paths["scenario_workbook"]).exists())
             self.assertTrue(Path(paths["concern_matrix"]).exists())
+            mapping = load_workbook(paths["mapping_workbook"], read_only=True)
+            sr_headers = [mapping["SR接口映射"].cell(3, col).value for col in range(1, mapping["SR接口映射"].max_column + 1)]
+            ar_headers = [mapping["AR软件实现接口映射"].cell(3, col).value for col in range(1, mapping["AR软件实现接口映射"].max_column + 1)]
+            self.assertIn("SR功能分类", sr_headers)
+            self.assertIn("分类依据", sr_headers)
+            self.assertIn("AR技术职责分类", ar_headers)
+            self.assertIn("分类状态", ar_headers)
             workbook = load_workbook(paths["scenario_workbook"], read_only=True)
             self.assertEqual(workbook.sheetnames, ["场景清单", "关注点矩阵", "超时判断"])
 

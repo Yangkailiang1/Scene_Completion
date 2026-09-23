@@ -531,10 +531,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     exception_tree: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for item in findings:
         exception_tree.setdefault(item["use_case_id"], {}).setdefault(str(item.get("source_step_index", 0)), []).append(item)
-    review_items = []
-    for node in normalized["system_composition"]["nodes"]:
-        if node.get("kind") == "internal_service" and node.get("service_type") == "unknown":
-            review_items.append({"type": "service_type_confirmation", "node_id": node["node_id"], "message": f"请确认 Service《{node['name']}》属于展示型还是计算型。"})
+    review_items = list(normalized.get("review_items") or [])
     for item in matrix_report["items"]:
         if item.get("status") == "needs_requirement":
             review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "use_case_id": item.get("use_case_id", ""), "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
@@ -607,10 +604,7 @@ def assemble_v2_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     exception_tree: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for item in findings:
         exception_tree.setdefault(item["use_case_id"] or "unassigned", {}).setdefault(item["interaction_id"], []).append(item)
-    review_items = []
-    for node in normalized["system_composition"]["nodes"]:
-        if node.get("kind") == "internal_service" and node.get("service_type") == "unknown":
-            review_items.append({"type": "service_type_confirmation", "node_id": node["node_id"], "message": f"请确认 Service《{node['name']}》属于展示型还是计算型。"})
+    review_items = list(normalized.get("review_items") or [])
     for item in matrix_report["items"]:
         if item.get("status") == "needs_requirement":
             review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item["interaction_id"], "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})

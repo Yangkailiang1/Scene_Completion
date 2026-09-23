@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -189,27 +190,49 @@ def _write_mapping_workbook(bundle: dict[str, Any], path: Path) -> None:
     """Write the explicit RR/SR/AR interface mapping audit workbook."""
     model = bundle["scene_model"]
     ucs = {u["use_case_id"]: u for u in model.get("use_cases", [])}
-    sr_headers = ["RR Use Case ID", "RR Use Case名称", "SR设计用例ID", "SR Service", "Abstract API ID", "HTTP方法", "资源路径", "请求参数", "响应字段", "错误码", "参与者", "来源定位", "映射状态"]
-    ar_headers = ["RR Use Case ID", "SR Abstract API ID", "Implementation API ID", "软件实现接口", "HTTP方法", "资源路径", "AR微服务ID", "AR微服务名称", "数据库/外部依赖", "数据读写动作", "请求字段", "返回字段", "来源定位", "映射状态", "待确认说明"]
+    sr_headers = ["RR Use Case ID", "RR Use Case名称", "SR设计用例ID", "SR Service", "SR功能分类", "分类状态", "分类依据", "Abstract API ID", "HTTP方法", "资源路径", "请求参数", "响应字段", "错误码", "参与者", "来源定位", "映射状态"]
+    ar_headers = ["RR Use Case ID", "SR Abstract API ID", "Implementation API ID", "AR技术职责分类", "分类状态", "分类依据", "软件实现接口", "HTTP方法", "资源路径", "AR微服务ID", "AR微服务名称", "数据库/外部依赖", "数据读写动作", "请求字段", "返回字段", "来源定位", "映射状态", "待确认说明"]
     wb = Workbook(); sr_ws = wb.active; sr_ws.title = "SR接口映射"
     _title(sr_ws, f"{bundle['project']} — SR接口映射", len(sr_headers)); _headers(sr_ws, sr_headers)
     sr_rows, ar_rows = [], []
     for uc in model.get("use_cases", []):
         arch = uc.get("architecture") or {}; sr = arch.get("sr") or {}; api_id = sr.get("abstract_api_id", "")
         iface = next((i for i in model.get("interfaces", []) if i.get("abstract_api_id") == api_id or i.get("name") == api_id), {})
-        sr_rows.append([uc["use_case_id"], uc.get("use_case_name", ""), sr.get("design_use_case_id", ""), sr.get("service_name", sr.get("service_id", "")), api_id, iface.get("method", ""), iface.get("path", ""), "\n".join(iface.get("request_fields", sr.get("request_fields", [])) or []), "\n".join(iface.get("response_fields", sr.get("response_fields", [])) or []), "\n".join(iface.get("error_codes", []) or []), "、".join(uc.get("actors", [])), sr.get("source_location", uc.get("source_location", "")), sr.get("mapping_status", "confirmed" if iface else "needs_confirmation")])
+        sr_rows.append([uc["use_case_id"], uc.get("use_case_name", ""), sr.get("design_use_case_id", ""), sr.get("service_name", sr.get("service_id", "")), sr.get("service_type", "unknown"), sr.get("classification_status", "needs_confirmation"), sr.get("classification_basis", "证据不足，待确认"), api_id, iface.get("method", ""), iface.get("path", ""), "\n".join(iface.get("request_fields", sr.get("request_fields", [])) or []), "\n".join(iface.get("response_fields", sr.get("response_fields", [])) or []), "\n".join(iface.get("error_codes", []) or []), "、".join(uc.get("actors", [])), sr.get("source_location", uc.get("source_location", "")), sr.get("mapping_status", "confirmed" if iface else "needs_confirmation")])
         for component in arch.get("ar", []) or []:
             status = component.get("mapping_status", "confirmed" if uc["use_case_id"] == "UCG-001-UC001" and component.get("implementation_api_id") in {"listProducts", "getProductDetail"} else "inferred")
-            ar_rows.append([uc["use_case_id"], api_id, component.get("implementation_api_id", ""), component.get("software_interface", ""), component.get("method", ""), component.get("resource_path", ""), component.get("microservice_id", ""), component.get("microservice_name", ""), component.get("database_dependency", component.get("database_action", "")), component.get("database_action", ""), "\n".join(component.get("request_fields", []) or []), "\n".join(component.get("response_fields", []) or []), component.get("source_location", ""), status, component.get("review_note", "" if status != "needs_confirmation" else "请补充 AR 微服务和软件实现接口的明确映射")])
-    _format_rows(sr_ws, 4, sr_rows, centered={1, 3, 5, 6, 13})
-    for i, width in enumerate([20, 24, 30, 28, 22, 12, 38, 38, 42, 30, 24, 34, 18], 1): sr_ws.column_dimensions[get_column_letter(i)].width = width
+            ar_rows.append([uc["use_case_id"], api_id, component.get("implementation_api_id", ""), component.get("service_type", "unknown"), component.get("classification_status", "needs_confirmation"), component.get("classification_basis", "证据不足，待确认"), component.get("software_interface", ""), component.get("method", ""), component.get("resource_path", ""), component.get("microservice_id", ""), component.get("microservice_name", ""), component.get("database_dependency", component.get("database_action", "")), component.get("database_action", ""), "\n".join(component.get("request_fields", []) or []), "\n".join(component.get("response_fields", []) or []), component.get("source_location", ""), status, component.get("review_note", "" if status != "needs_confirmation" else "请补充 AR 微服务和软件实现接口的明确映射")])
+    _format_rows(sr_ws, 4, sr_rows, centered={1, 3, 5, 6, 8, 9, 16})
+    for i, width in enumerate([20, 24, 30, 28, 23, 18, 42, 22, 12, 38, 38, 42, 30, 24, 34, 18], 1): sr_ws.column_dimensions[get_column_letter(i)].width = width
     sr_ws.freeze_panes = "A4"; sr_ws.auto_filter.ref = f"A3:{get_column_letter(len(sr_headers))}{max(3, sr_ws.max_row)}"; sr_ws.sheet_view.showGridLines = False
     ar_ws = wb.create_sheet("AR软件实现接口映射")
     _title(ar_ws, f"{bundle['project']} — AR软件实现接口映射", len(ar_headers)); _headers(ar_ws, ar_headers)
-    _format_rows(ar_ws, 4, ar_rows, centered={1, 2, 3, 5, 7, 13, 14})
-    for i, width in enumerate([20, 22, 28, 42, 12, 38, 24, 28, 34, 34, 34, 34, 34, 18, 38], 1): ar_ws.column_dimensions[get_column_letter(i)].width = width
+    _format_rows(ar_ws, 4, ar_rows, centered={1, 2, 3, 4, 5, 8, 10, 17, 18})
+    for i, width in enumerate([20, 22, 28, 25, 18, 42, 42, 12, 38, 24, 28, 34, 34, 34, 34, 34, 18, 18, 38], 1): ar_ws.column_dimensions[get_column_letter(i)].width = width
     ar_ws.freeze_panes = "A4"; ar_ws.auto_filter.ref = f"A3:{get_column_letter(len(ar_headers))}{max(3, ar_ws.max_row)}"; ar_ws.sheet_view.showGridLines = False
     wb.save(path)
+
+
+def _classification_summary(model: dict[str, Any]) -> dict[str, Any]:
+    use_cases = model.get("use_cases", [])
+    sr_types = Counter((uc.get("architecture") or {}).get("sr", {}).get("service_type", "unknown") for uc in use_cases)
+    ar_mappings = [component for uc in use_cases for component in ((uc.get("architecture") or {}).get("ar") or [])]
+    ar_types = Counter(component.get("service_type", "unknown") for component in ar_mappings)
+    return {
+        "sr_use_case_mapping_count": len(use_cases),
+        "ar_implementation_mapping_count": len(ar_mappings),
+        "sr_by_type": dict(sorted(sr_types.items())),
+        "ar_by_type": dict(sorted(ar_types.items())),
+        "unclassified_sr_use_cases": [
+            uc.get("use_case_id", "") for uc in use_cases
+            if ((uc.get("architecture") or {}).get("sr") or {}).get("service_type", "unknown") == "unknown"
+        ],
+        "unclassified_ar_mappings": [
+            {"use_case_id": uc.get("use_case_id", ""), "implementation_api_id": component.get("implementation_api_id", ""), "microservice_id": component.get("microservice_id", "")}
+            for uc in use_cases for component in ((uc.get("architecture") or {}).get("ar") or [])
+            if component.get("service_type", "unknown") == "unknown"
+        ],
+    }
 
 
 def _json_write(path: Path, value: Any) -> None:
@@ -264,6 +287,7 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     diagram_value = bundle.get("diagram_manifest")
     if isinstance(diagram_value, dict):
         diagram_value["interface_mapping_workbook"] = str(artifacts["mapping_workbook"])
+        diagram_value["service_classification_summary"] = _classification_summary(bundle["scene_model"])
         _json_write(artifacts["diagram_manifest"], diagram_value)
     manifest = {
         "version": bundle.get("version", "3"),
@@ -277,6 +301,7 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
         "evaluation": {"ground_truth": False, "precision": None, "recall": None, "f1": None},
         "outputs": {key: str(path) for key, path in artifacts.items()},
         "interface_mapping_workbook": str(artifacts["mapping_workbook"]),
+        "service_classification_summary": _classification_summary(bundle["scene_model"]),
     }
     manifest_path = output / "run_manifest.json"
     _json_write(manifest_path, manifest)

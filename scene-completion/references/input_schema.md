@@ -1,43 +1,46 @@
-# V5 输入协议
+# RR/SR/AR 分类输入协议
 
 `scene_model.json` 至少包含：
 
 ```json
 {
-  "version": "5",
+  "version": "6",
   "project": "demo",
   "system_name": "业务系统",
   "source": {"path": "requirements.md", "locations": []},
   "system_composition": {
     "nodes": [
       {"node_id": "user", "name": "用户", "kind": "human_actor"},
-      {"node_id": "order", "name": "订单展示 Service", "kind": "internal_service", "service_type": "display", "classification_status": "inferred"},
+      {"node_id": "system", "name": "业务系统", "kind": "internal_service", "layer": "RR", "service_type": "unknown"},
+      {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-1", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该 SR API 创建订单并触发订单状态变化", "source_location": "功能设计Delta_spec.md:API-ORDER-CREATE"},
       {"node_id": "abstract-uc-1", "name": "提交订单抽象服务", "kind": "abstract_service", "layer": "RR", "use_case_id": "UC-1"},
-      {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR"},
+      {"node_id": "order-service", "name": "OrderMicroservice", "kind": "internal_service", "layer": "AR", "service_type": "unknown"},
       {"node_id": "impl-order", "name": "createOrder", "kind": "implementation_api", "layer": "AR"},
       {"node_id": "order-db", "name": "订单数据库", "kind": "internal_database", "layer": "AR"}
     ],
-    "edges": [{"edge_id": "EDGE-1", "from_node": "user", "to_node": "order", "relation": "calls"}]
+    "edges": [{"edge_id": "EDGE-1", "from_node": "user", "to_node": "abstract-uc-1", "relation": "participates_in", "use_case_id": "UC-1"}]
   },
   "use_cases": [{
     "use_case_id": "UC-1",
     "use_case_name": "提交订单",
     "actors": ["用户"],
     "main_flow": [{"step_index": 1, "text": "用户提交订单"}],
-    "scenarios": [{"scenario_id": "UC-1-main", "scenario_type": "main", "anchor_step_index": 0, "steps": [{"step_index": 1, "text": "用户提交订单"}]}, {"scenario_id": "UC-1-1.a", "scenario_type": "requirement_exception", "anchor_step_index": 1, "anchor_label": "1.a", "steps": [{"step_index": 1, "text": "请求参数非法"}]}]
+    "scenarios": [{"scenario_id": "UC-1-main", "scenario_type": "main", "anchor_step_index": 0, "steps": [{"step_index": 1, "text": "用户提交订单"}]}, {"scenario_id": "UC-1-1.a", "scenario_type": "requirement_exception", "anchor_step_index": 1, "anchor_label": "1.a", "steps": [{"step_index": 1, "text": "请求参数非法"}] }],
+    "architecture": {
+      "rr": {"service_id": "rr-service-UC-1", "service_name": "Order", "abstract_api_id": "RR-API-ORDER"},
+      "sr": {"design_use_case_id": "SRUC-UC-1-API-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER-CREATE", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该用例 API 创建订单并触发订单状态变化", "source_location": "功能设计Delta_spec.md:API-ORDER-CREATE"},
+      "ar": [{"microservice_id": "order-service", "microservice_name": "OrderMicroservice", "implementation_api_id": "createOrder", "implementation_api_node_id": "impl-order", "software_interface": "POST /api/v1/orders", "service_type": "command_write", "classification_status": "inferred", "classification_basis": "实现接口执行订单写入", "source_location": "API.md:createOrder"}]
+    }
   }],
   "interactions": [
     {"interaction_id": "INT-1", "use_case_id": "UC-1", "from_node": "user", "to_node": "system", "direction": "incoming", "message": "提交订单", "layer": "RR", "sequence": 1, "source_step_index": 1, "source_location": "page 2"}
-  ],
-  "architecture": {
-    "rr": {"service_id": "rr-service-UC-1", "service_name": "Order", "abstract_api_id": "RR-API-ORDER"},
-    "sr": {"design_use_case_id": "SRUC-UC-1-API-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER-CREATE"},
-    "ar": [{"microservice_id": "order-service", "microservice_name": "OrderMicroservice", "implementation_api_id": "createOrder", "implementation_api_node_id": "impl-order", "software_interface": "POST /api/v1/orders"}]
-  }
+  ]
 }
 ```
 
-`version` 必须为 `5`；旧 V3/V4 输出不直接作为 V5 输入。`node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型、交互方向和 Service 类型必须使用协议枚举。`unknown` Service 不阻塞校验，但会产生待确认项。每个 RR 用例会自动补齐一个 RR `abstract_service` 节点，除非 Agent 已显式提供同一 `use_case_id` 的节点。
+`architecture.sr.service_type` 仅接受 `display_interaction|query_retrieval|resource_mutation|analysis_generation|release_activation|unknown`；`architecture.ar[].service_type` 仅接受 `query_read|command_write|orchestration|integration_event|publish_activation|unknown`。两层都需要 `classification_status`、`classification_basis` 和 `source_location`。工具允许归一化时补成 `unknown`，并生成 review item；未知分类不会路由专属关注点。不能把同名微服务或 AR 分类用作 SR 分类依据。旧 V3/V4 输出不直接作为 V6 输入。
+
+`node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型和交互方向必须使用协议枚举。`unknown` 不阻塞流程，但会产生待确认项。每个 RR 用例会自动补齐一个 RR `abstract_service` 节点，除非 Agent 已显式提供同一 `use_case_id` 的节点。
 
 接口条目可以包含 `validation_rules`。每条规则需结构化记录 `field`、`constraint`、`failure_type`、`error_code` 和 `source_location`。只记录需求或设计文档明确给出的约束，不推测最大长度、大小或速率限制。对 API 参数异常，finding 锚定系统执行校验的用例步骤；用户输入步骤可同时作为 `trigger` 与 `scenario_steps` 的成功前缀，但异常的 `source_step_index` 应指向实际校验/拒绝步骤。
 

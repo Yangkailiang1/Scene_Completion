@@ -20,6 +20,14 @@ SERVICE_TYPES = {
     # Accepted at the input boundary for V5 migration.
     "display", "compute",
 }
+SR_SERVICE_TYPES = {
+    "display_interaction", "query_retrieval", "resource_mutation",
+    "analysis_generation", "release_activation", "unknown",
+}
+AR_SERVICE_TYPES = {
+    "query_read", "command_write", "orchestration", "integration_event",
+    "publish_activation", "unknown",
+}
 CLASSIFICATION_STATUS = {"confirmed", "inferred", "needs_confirmation"}
 INTERACTION_DIRECTIONS = {"incoming", "outgoing", "internal"}
 CONCERN_STATUSES = {"pending_review", "applicable", "not_applicable", "needs_requirement"}
@@ -339,6 +347,41 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(architecture, dict):
             raise ValidationFailure([f"{uc['use_case_id']}.architecture must be an object"])
         uc["architecture"] = copy.deepcopy(architecture)
+        sr = uc["architecture"].get("sr")
+        if isinstance(sr, dict):
+            sr_type = _text(sr.get("service_type"), "unknown")
+            if sr_type == "display":
+                sr_type = "display_interaction"
+                sr.setdefault("legacy_service_type", "display")
+            elif sr_type == "compute":
+                sr_type = "unknown"
+                sr.setdefault("legacy_service_type", "compute")
+                sr["classification_status"] = "needs_confirmation"
+                sr.setdefault("classification_basis", "旧 compute 分类无法安全映射到 SR 业务分类，需重新确认")
+            sr.update({
+                "service_type": sr_type,
+                "classification_status": _text(sr.get("classification_status"), "needs_confirmation" if sr_type == "unknown" else "inferred"),
+                "classification_basis": _text(sr.get("classification_basis"), "证据不足，待确认" if sr_type == "unknown" else "待补充分类依据"),
+                "source_location": _text(sr.get("source_location") or uc.get("source_location") or (data.get("source") or {}).get("path")),
+            })
+        ar = uc["architecture"].get("ar")
+        if isinstance(ar, list):
+            for component in ar:
+                if not isinstance(component, dict):
+                    continue
+                ar_type = _text(component.get("service_type"), "unknown")
+                if ar_type not in AR_SERVICE_TYPES:
+                    # Old node-oriented display/compute labels carry no safe AR semantics.
+                    component.setdefault("legacy_service_type", ar_type)
+                    ar_type = "unknown"
+                    component["classification_status"] = "needs_confirmation"
+                    component.setdefault("classification_basis", "旧节点分类无法安全映射到 AR 技术职责，需重新确认")
+                component.update({
+                    "service_type": ar_type,
+                    "classification_status": _text(component.get("classification_status"), "needs_confirmation" if ar_type == "unknown" else "inferred"),
+                    "classification_basis": _text(component.get("classification_basis"), "证据不足，待确认" if ar_type == "unknown" else "待补充分类依据"),
+                    "source_location": _text(component.get("source_location") or uc.get("source_location") or (data.get("source") or {}).get("path")),
+                })
         normalized_ucs.append(uc)
     data["use_cases"] = normalized_ucs
     data["entities"] = [_text(entity) for entity in data.get("entities", []) if _text(entity)]
@@ -349,6 +392,26 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
     raw_nodes = composition.get("nodes")
     nodes = _normalize_nodes(raw_nodes) if raw_nodes is not None else _derive_nodes(data, normalized_ucs)
     composition["nodes"] = nodes
+    classification_reviews = list(data.get("review_items") or [])
+    nodes_by_id = {node["node_id"]: node for node in nodes}
+    for uc in normalized_ucs:
+        sr = (uc.get("architecture") or {}).get("sr") or {}
+        if isinstance(sr, dict) and _text(sr.get("service_id")):
+            sr_node = nodes_by_id.get(_text(sr.get("service_id")))
+            if sr_node and sr_node.get("kind") in {"internal_service", "abstract_service"} and sr_node.get("layer") == "SR":
+                if sr_node.get("service_type") and sr_node.get("service_type") != sr["service_type"]:
+                    sr_node["_classification_conflict"] = {"mapping": sr["service_type"], "node": sr_node["service_type"], "use_case_id": uc["use_case_id"]}
+                sr_node.update({key: sr[key] for key in ("service_type", "classification_status", "classification_basis", "source_location")})
+            if sr["service_type"] == "unknown":
+                classification_reviews.append({"type": "sr_service_classification", "use_case_id": uc["use_case_id"], "service_id": sr.get("service_id", ""), "abstract_api_id": sr.get("abstract_api_id", ""), "message": "请依据该 RR 用例对应的 SR API 职责确认五类 SR Service 分类。"})
+        for component in (uc.get("architecture") or {}).get("ar") or []:
+            if not isinstance(component, dict):
+                continue
+            if component["service_type"] == "unknown":
+                classification_reviews.append({"type": "ar_service_classification", "use_case_id": uc["use_case_id"], "microservice_id": component.get("microservice_id", ""), "implementation_api_id": component.get("implementation_api_id", ""), "message": "请依据该 AR 实现接口的技术职责确认 AR Service 分类。"})
+    # Stable de-duplication: re-normalizing an already normalized model must not
+    # multiply the same classification review item.
+    data["review_items"] = list({(item.get("type"), item.get("use_case_id"), item.get("service_id", item.get("microservice_id", "")), item.get("abstract_api_id", item.get("implementation_api_id", ""))): item for item in classification_reviews if isinstance(item, dict)}.values())
     existing_abstract = {node.get("use_case_id") for node in nodes if node.get("kind") == "abstract_service" and node.get("layer", "RR") == "RR"}
     for uc in normalized_ucs:
         if uc["use_case_id"] not in existing_abstract:
@@ -522,6 +585,27 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
                 node_id = _text(component.get("microservice_id"))
                 if node_id and node_id in nodes_by_id and nodes_by_id[node_id].get("layer") != "AR":
                     errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] microservice must be AR")
+                if str(normalized.get("version")) in {"6", "7", "8"}:
+                    if component.get("service_type") not in AR_SERVICE_TYPES:
+                        errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] has invalid AR service_type: {component.get('service_type')}")
+                    if component.get("classification_status") not in CLASSIFICATION_STATUS:
+                        errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] has invalid classification_status")
+                    if component.get("service_type") == "unknown" and component.get("classification_status") != "needs_confirmation":
+                        errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] unknown classification must be needs_confirmation")
+                    if not _text(component.get("classification_basis")) or not _text(component.get("source_location")):
+                        errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] needs classification_basis and source_location")
+            if str(normalized.get("version")) in {"6", "7", "8"}:
+                if sr.get("service_type") not in SR_SERVICE_TYPES:
+                    errors.append(f"{uc['use_case_id']}.architecture.sr has invalid SR service_type: {sr.get('service_type')}")
+                if sr.get("classification_status") not in CLASSIFICATION_STATUS:
+                    errors.append(f"{uc['use_case_id']}.architecture.sr has invalid classification_status")
+                if sr.get("service_type") == "unknown" and sr.get("classification_status") != "needs_confirmation":
+                    errors.append(f"{uc['use_case_id']}.architecture.sr unknown classification must be needs_confirmation")
+                if not _text(sr.get("classification_basis")) or not _text(sr.get("source_location")):
+                    errors.append(f"{uc['use_case_id']}.architecture.sr needs classification_basis and source_location")
+            sr_node = nodes_by_id.get(_text(sr.get("service_id")))
+            if sr_node and sr_node.get("_classification_conflict"):
+                errors.append(f"{uc['use_case_id']} SR service node classification conflicts with architecture.sr mapping")
     if not normalized["interactions"]:
         warnings.append("no interactions were extracted")
     report = {"valid": not errors, "errors": errors, "warnings": warnings, "normalized_model": normalized}

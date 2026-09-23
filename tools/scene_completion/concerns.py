@@ -15,7 +15,7 @@ def _definition(key: str, label: str, group: str, description: str, *, draft: bo
         "relation" if group == "service_relation" else "target_node"
     )
     layers = ["RR", "SR", "AR"] if key == "common.timeout" else (
-        ["RR"] if group == "human" else ["SR"] if group.startswith("external") else ["AR"] if group.startswith(("internal", "service_relation")) else []
+        ["RR"] if group == "human" else ["SR"] if group.startswith(("external", "sr_service")) else ["AR"] if group.startswith(("internal", "ar_service", "service_relation")) else []
     )
     return {
         "key": key, "label": label, "group": group, "description": description,
@@ -142,7 +142,19 @@ for prefix, entries in {
     ],
 }.items():
     for key, label, desc in entries:
-        _add(f"internal_service.{prefix}.{key}", label, f"internal_service_{prefix}", desc, draft=True)
+        _add(f"sr_service.{prefix}.{key}", label, f"sr_service_{prefix}", desc, draft=True)
+
+# AR service classifications describe implementation responsibility, not the
+# business function of the RR use case. These first-release concerns are
+# intentionally draft and only routed for a classified AR mapping.
+for category, key, label, desc in [
+    ("query_read", "result_correctness", "AR 查询结果正确性", "实现查询返回错误、遗漏或包含不应可见的数据"),
+    ("command_write", "state_transition_consistency", "AR 状态变更一致性", "实现写操作未按允许的状态迁移规则完成"),
+    ("orchestration", "partial_failure_recovery", "AR 编排部分失败恢复", "跨组件编排部分成功后未补偿或恢复"),
+    ("integration_event", "event_identity", "AR 事件身份与去重", "外部回调或事件身份无法验证，或重复事件未被识别"),
+    ("publish_activation", "activation_consistency", "AR 激活一致性", "发布/激活结果与实际生效状态不一致"),
+]:
+    _add(f"ar_service.{category}.{key}", label, f"ar_service_{category}", desc, draft=True)
 for key, label, desc in [
     ("call_order", "调用顺序", "前置操作未完成就执行后续操作"),
     ("dependency_consistency", "依赖一致性", "被依赖资源不存在或失效"),
@@ -175,36 +187,47 @@ def _is_system_boundary(node: dict[str, Any]) -> bool:
     return bool(node) and (node.get("node_id") == "system" or node.get("layer") == "RR")
 
 
-def _v6_functional_keys(service_type: str) -> list[str]:
+def _functional_keys(service_type: str, prefix: str) -> list[str]:
     if service_type not in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
         return []
-    prefix = f"internal_service.{service_type}."
+    prefix = f"{prefix}.{service_type}."
     return sorted(key for key in concern_keys() if key.startswith(prefix))
 
 
-def _architecture_service_type(model: dict[str, Any], interaction: dict[str, Any], target_node: dict[str, Any]) -> str:
-    def canonical(value: str) -> str:
-        return "display_interaction" if value == "display" else "unknown" if value == "compute" else value
-    direct = str(interaction.get("service_type") or target_node.get("service_type") or "").strip()
-    if direct in {"display", "compute"}:
-        return "display_interaction" if direct == "display" else "unknown"
-    if direct:
-        return direct
-    nodes = node_map(model)
-    mapped = nodes.get(str(interaction.get("service_id", "")))
-    if mapped and mapped.get("service_type"):
-        return canonical(str(mapped.get("legacy_service_type") or mapped.get("service_type")))
+def _use_case_architecture(model: dict[str, Any], interaction: dict[str, Any]) -> dict[str, Any]:
     uc = next((item for item in model.get("use_cases", []) if item.get("use_case_id") == interaction.get("use_case_id")), {})
-    architecture = uc.get("architecture") or {}
-    for section in (architecture.get("sr") or {}, architecture.get("rr") or {}):
-        if section.get("service_type"):
-            return str(section["service_type"])
-    for component in architecture.get("ar") or []:
-        microservice_id = str(component.get("microservice_id", ""))
-        mapped = nodes.get(microservice_id)
-        if mapped and mapped.get("service_type"):
-            return canonical(str(mapped.get("legacy_service_type") or mapped.get("service_type")))
-    return "unknown"
+    return uc.get("architecture") or {}
+
+
+def _sr_mapping_for_interaction(model: dict[str, Any], interaction: dict[str, Any]) -> dict[str, Any] | None:
+    sr = _use_case_architecture(model, interaction).get("sr") or {}
+    if not isinstance(sr, dict):
+        return None
+    endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
+    service_id = str(sr.get("service_id", ""))
+    if service_id in endpoints:
+        return sr
+    return None
+
+
+def _ar_mapping_for_interaction(model: dict[str, Any], interaction: dict[str, Any]) -> dict[str, Any] | None:
+    endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
+    for component in _use_case_architecture(model, interaction).get("ar") or []:
+        if not isinstance(component, dict):
+            continue
+        mapped_endpoints = {str(component.get("microservice_id", "")), str(component.get("implementation_api_node_id", "")), str(component.get("implementation_api_id", ""))}
+        if endpoints & mapped_endpoints:
+            return component
+    return None
+
+
+def _mapping_endpoint(interaction: dict[str, Any], mapping: dict[str, Any], layer: str) -> str:
+    endpoints = [str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))]
+    if layer == "SR":
+        service_id = str(mapping.get("service_id", ""))
+        return service_id if service_id in endpoints else next((value for value in endpoints if value), "")
+    mapped_ids = {str(mapping.get("microservice_id", "")), str(mapping.get("implementation_api_node_id", ""))}
+    return next((value for value in endpoints if value in mapped_ids), next((value for value in endpoints if value), ""))
 
 
 def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[str]:
@@ -213,7 +236,7 @@ def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[
     target_node = nodes.get(interaction.get("to_node"), {})
     source_kind = _concern_kind(source_node.get("kind", ""))
     target_kind = _concern_kind(target_node.get("kind", ""))
-    is_v6 = str(model.get("version")) == "6"
+    modern = str(model.get("version")) in {"6", "7", "8"}
     candidates = ["common.timeout"]
     if source_kind == "human_actor":
         candidates.extend(["human.authentication", "human.authorization", "human.input_data"])
@@ -227,18 +250,23 @@ def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any]) -> list[
         candidates.extend(["external_database.availability", "external_database.query_performance"])
     if target_kind == "external_llm":
         candidates.extend(["external_llm.availability", "external_llm.contract"])
-        if is_v6:
+        if modern:
             candidates.extend(key for key in concern_keys() if key.startswith("external_llm.quality."))
     if source_kind == "external_llm" and target_kind not in {"external_llm", "external_actor"}:
         candidates.append("external_llm.access_permission")
     if target_kind == "internal_database":
         candidates.extend(key for key in concern_keys() if key.startswith("internal_database."))
-    # V6 routes Service concerns at both SR abstract service and AR concrete
-    # service exchanges.  The System boundary itself is never a Service.
-    if is_v6 and target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") in {"SR", "AR"}:
-        candidates.extend(key for key in concern_keys() if key.startswith("internal_service.") and key.count(".") == 1)
-        candidates.extend(_v6_functional_keys(_architecture_service_type(model, interaction, target_node)))
-    elif not is_v6 and target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") == "AR" and target_node.get("kind") in {"internal_service", "implementation_api"}:
+    if modern:
+        sr_mapping = _sr_mapping_for_interaction(model, interaction)
+        if sr_mapping and sr_mapping.get("service_type") in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
+            candidates.extend(_functional_keys(str(sr_mapping["service_type"]), "sr_service"))
+        ar_mapping = _ar_mapping_for_interaction(model, interaction)
+        if ar_mapping:
+            candidates.extend(key for key in concern_keys() if key.startswith("internal_service.") and key.count(".") == 1)
+            ar_type = str(ar_mapping.get("service_type", "unknown"))
+            if ar_type != "unknown":
+                candidates.extend(key for key in concern_keys() if key.startswith(f"ar_service.{ar_type}."))
+    elif target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") == "AR" and target_node.get("kind") in {"internal_service", "implementation_api"}:
         candidates.extend(key for key in concern_keys() if key.startswith("internal_service."))
         service_type = target_node.get("legacy_service_type", target_node.get("service_type", "unknown"))
         if service_type == "display":
@@ -266,7 +294,7 @@ def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, An
         if not isinstance(raw, dict):
             raise ValidationFailure([f"fused SSD message {index} must be an object"])
         exchange_id = raw.get("exchange_id") or stable_id("EXCH", raw.get("use_case_id"), raw.get("ssd_sequence", index))
-        if raw.get("interaction_id") in known or str(value.get("version", "3")) in {"4", "5", "6"}:
+        if raw.get("interaction_id") in known or str(value.get("version", "3")) in {"4", "5", "6", "7", "8"}:
             grouped.setdefault(exchange_id, []).append(dict(raw))
     result = []
     for exchange_id, members in grouped.items():
@@ -317,22 +345,40 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
         raise ValidationFailure(["fused SSD has no messages linked to model interactions"])
     for interaction in sorted(interactions, key=lambda item: (item.get("sequence", 0), item.get("interaction_id", ""))):
         for key in _candidate_keys(normalized, interaction):
+            definition = CONCERN_DEFINITIONS[key]
+            sr_mapping = _sr_mapping_for_interaction(normalized, interaction) if key.startswith("sr_service.") else None
+            ar_mapping = _ar_mapping_for_interaction(normalized, interaction) if key.startswith("ar_service.") or (key.startswith("internal_service.") and key.count(".") == 1) else None
+            mapped_service = sr_mapping or ar_mapping or {}
+            concern_subject = definition.get("concern_subject", "target_node")
+            if sr_mapping:
+                subject_node_id = _mapping_endpoint(interaction, sr_mapping, "SR")
+                service_layer = "SR"
+            elif ar_mapping:
+                subject_node_id = _mapping_endpoint(interaction, ar_mapping, "AR")
+                service_layer = "AR"
+            else:
+                subject_node_id = interaction.get("from_node", "") if concern_subject == "source_node" else interaction.get("to_node", "")
+                service_layer = interaction.get("layer", "")
             item = {
                 "use_case_id": interaction.get("use_case_id", ""),
-                "interaction_id": interaction["interaction_id"],
+                "interaction_id": interaction.get("interaction_id", interaction.get("exchange_id", "")),
                 "concern_key": key,
-                "concern": CONCERN_DEFINITIONS[key]["label"],
+                "concern": definition["label"],
                 "status": "pending_review" if str(normalized.get("version")) == "6" else "needs_requirement",
                 "basis": "待 Agent 根据需求、接口契约、SSD 结构和对象类型判断" if str(normalized.get("version")) == "6" else "待 Agent 根据需求文档判断",
                 "evidence_types": [],
-                "concern_subject": CONCERN_DEFINITIONS[key].get("concern_subject", "target_node"),
-                "subject_node_id": interaction.get("from_node", "") if CONCERN_DEFINITIONS[key].get("concern_subject") == "source_node" else interaction.get("to_node", ""),
+                "concern_subject": concern_subject,
+                "subject_node_id": subject_node_id,
+                "layer": service_layer,
+                "service_classification": mapped_service.get("service_type", ""),
+                "classification_status": mapped_service.get("classification_status", ""),
+                "classification_basis": mapped_service.get("classification_basis", ""),
                 "exception_types": [],
                 "source_location": interaction.get("source_location", ""),
                 "findings": [],
             }
             for field in ("ssd_id", "message_id", "message", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message"):
-                if field in interaction:
+                if field in interaction and field != "layer":
                     item[{"message_id": "ssd_message_id"}.get(field, field)] = interaction[field]
             if key == "common.timeout":
                 item.update({"requirement_impact": "unknown", "subsequent_behavior_impact": "unknown", "environment_coordination_impact": "unknown"})

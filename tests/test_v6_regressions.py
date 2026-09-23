@@ -20,7 +20,9 @@ from tools.scene_completion.svg_renderer import render_system_composition_svg
 def test_v6_normalization_and_non_data_routing():
     model = sample_model()
     model["version"] = "6"
-    model["use_cases"][0]["architecture"]["sr"]["service_type"] = "resource_mutation"
+    sr = model["use_cases"][0]["architecture"]["sr"]
+    sr.update({"service_type": "resource_mutation", "classification_status": "inferred", "classification_basis": "本用例 API 执行订单变更", "source_location": "fixture.md:API-ORDER"})
+    model["interactions"].append({"interaction_id": "INT-SR-ROUTE", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "direction": "outgoing", "message": "调用订单变更 API", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1})
     normalized = validate_scene_model(model)["normalized_model"]
     rr_services = [
         node for node in normalized["system_composition"]["nodes"]
@@ -28,10 +30,9 @@ def test_v6_normalization_and_non_data_routing():
     ]
     assert len(rr_services) == len(normalized["use_cases"])
 
-    bundle = generate_ssd_bundle(model, "UC-001")
-    matrix = plan_concern_matrix(model, bundle["fused"])
+    matrix = plan_concern_matrix(model)
     keys = {item["concern_key"] for item in matrix["items"]}
-    assert "internal_service.resource_mutation.business_constraint" in keys
+    assert "sr_service.resource_mutation.business_constraint" in keys
     assert "service_relation.call_order" in keys
     assert any(item["status"] == "pending_review" for item in matrix["items"])
     assert not validate_concern_matrix(model, matrix, require_complete=True)["valid"]
