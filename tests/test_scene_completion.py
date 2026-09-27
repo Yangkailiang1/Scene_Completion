@@ -32,7 +32,7 @@ def sample_model():
         {"node_id": "impl-order", "name": "createOrder", "kind": "implementation_api", "layer": "AR"},
     ]
     interactions = [
-        {"interaction_id": "INT-HUMAN", "use_case_id": "UC-001", "from_node": "user", "to_node": "display", "direction": "incoming", "message": "查询订单", "api": "GET /orders", "sequence": 1, "source_step_index": 1, "source_location": "line 1"},
+        {"interaction_id": "INT-HUMAN", "use_case_id": "UC-001", "from_node": "user", "to_node": "display", "direction": "incoming", "message": "查询订单", "api": "GET /orders", "layer": "SR", "sequence": 1, "source_step_index": 1, "source_location": "line 1"},
         {"interaction_id": "INT-EXT-SERVICE", "use_case_id": "UC-001", "from_node": "compute", "to_node": "ext-service", "direction": "outgoing", "message": "发起支付", "api": "POST /payments", "sequence": 2, "source_step_index": 2},
         {"interaction_id": "INT-EXT-CALLER", "use_case_id": "UC-001", "from_node": "ext-service", "to_node": "compute", "direction": "incoming", "message": "回调支付结果", "api": "POST /payment-callback", "sequence": 3, "source_step_index": 3},
         {"interaction_id": "INT-EXT-DB", "use_case_id": "UC-001", "from_node": "compute", "to_node": "ext-db", "direction": "outgoing", "message": "查询预算", "sequence": 4, "source_step_index": 4},
@@ -125,9 +125,10 @@ class SceneCompletionV2Tests(unittest.TestCase):
         self.assertIn("external_database.query_performance", keys)
         self.assertIn("external_llm.contract", keys)
         self.assertIn("internal_database.persistence", keys)
-        self.assertIn("service_relation.call_order", keys)
-        self.assertIn("internal_service.compute.calculation_correctness", keys)
-        self.assertIn("internal_service.display.output_completeness", keys)
+        self.assertNotIn("service_relation.call_order", keys)
+        self.assertFalse(any(key.startswith("internal_service.") for key in keys))
+        self.assertFalse(any(key.startswith("ar_service.") for key in keys))
+        self.assertIn("internal_database.persistence", keys)
 
     def test_concern_knowledge_is_loaded_on_demand(self):
         registry = list_concerns()
@@ -143,7 +144,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         result = assemble_results(sample_model(), matrix, {"findings": []})
         self.assertEqual(sum(item["scenario_type"] == "concern_derived_exception" for item in result["scenario_catalog"]), 0)
         self.assertEqual(sum(item["scenario_type"] == "main_success" for item in result["scenario_catalog"]), 1)
-        self.assertTrue(any(item["concern_key"] == "common.timeout" and item["status"] == "needs_requirement" for item in result["concern_matrix"]))
+        self.assertTrue(any(item["concern_key"] == "common.timeout" and item["status"] == "pending_review" for item in result["concern_matrix"]))
 
     def test_assemble_applicable_findings_and_stable_ids(self):
         model = sample_model()
@@ -240,11 +241,11 @@ class SceneCompletionV2Tests(unittest.TestCase):
         by_id = {}
         for item in first:
             by_id.setdefault(item["interaction_id"], set()).add(item["concern_key"])
-        sr_expected = {key for key in by_id["INT-SR-IN"] if key.startswith("sr_service.query_retrieval.")}
+        sr_expected = {key for key in by_id["INT-SR-IN"] if key.startswith("service.query_retrieval.")}
         self.assertEqual(len(sr_expected), 3)
-        self.assertTrue({key for key in by_id["INT-SR-OUT"] if key.startswith("sr_service.query_retrieval.")})
+        self.assertTrue({key for key in by_id["INT-SR-OUT"] if key.startswith("service.query_retrieval.")})
         self.assertFalse(any(key.startswith("ar_service.") for key in by_id["INT-SR-IN"]))
-        self.assertTrue(any(key.startswith("ar_service.command_write.") for key in by_id["INT-AR"]))
+        self.assertNotIn("INT-AR", by_id)  # AR is excluded unless explicitly requested.
 
         changed_ar = copy.deepcopy(model)
         changed_ar["use_cases"][0]["architecture"]["ar"][0]["service_type"] = "query_read"
@@ -252,9 +253,8 @@ class SceneCompletionV2Tests(unittest.TestCase):
         second_by_id = {}
         for item in second:
             second_by_id.setdefault(item["interaction_id"], set()).add(item["concern_key"])
-        self.assertEqual(sr_expected, {key for key in second_by_id["INT-SR-IN"] if key.startswith("sr_service.query_retrieval.")})
-        self.assertTrue(any(key.startswith("ar_service.query_read.") for key in second_by_id["INT-AR"]))
-        self.assertFalse(any(key.startswith("ar_service.command_write.") for key in second_by_id["INT-AR"]))
+        self.assertEqual(sr_expected, {key for key in second_by_id["INT-SR-IN"] if key.startswith("service.query_retrieval.")})
+        self.assertNotIn("INT-AR", second_by_id)
 
     def test_unknown_service_classification_is_reviewed_but_has_no_specialized_keys(self):
         model = sample_model()
@@ -263,7 +263,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
         self.assertTrue(any(item["type"] == "sr_service_classification" and item["use_case_id"] == "UC-001" for item in normalized["review_items"]))
         keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == "INT-SR"}
-        self.assertFalse(any(key.startswith("sr_service.") for key in keys))
+        self.assertFalse(any(key.startswith("service.") for key in keys))
         self.assertFalse(any(key.startswith("ar_service.") for key in keys))
 
     def test_legacy_compute_never_becomes_a_new_sr_or_ar_category(self):
@@ -301,8 +301,8 @@ class SceneCompletionV2Tests(unittest.TestCase):
         matrix = plan_concern_matrix(model)["items"]
         first_keys = {x["concern_key"] for x in matrix if x["interaction_id"] == "INT-SR-UC1"}
         second_keys = {x["concern_key"] for x in matrix if x["interaction_id"] == "INT-SR-UC2"}
-        self.assertTrue(any(key.startswith("sr_service.query_retrieval.") for key in first_keys))
-        self.assertTrue(any(key.startswith("sr_service.resource_mutation.") for key in second_keys))
+        self.assertTrue(any(key.startswith("service.query_retrieval.") for key in first_keys))
+        self.assertTrue(any(key.startswith("service.resource_mutation.") for key in second_keys))
 
     def test_all_sr_and_ar_taxonomy_values_have_independent_registry_routes(self):
         sr_categories = ("display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation")
@@ -312,7 +312,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
             model["use_cases"][0]["architecture"]["sr"].update({"service_type": category, "classification_status": "confirmed", "classification_basis": "基于该 API 的业务职责", "source_location": "spec.md:sr"})
             model["interactions"].append({"interaction_id": f"INT-SR-{index}", "use_case_id": "UC-001", "from_node": "system", "to_node": "sr-order", "message": "SR 调用", "abstract_api_id": "API-ORDER", "layer": "SR", "sequence": 8, "source_step_index": 1})
             keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == f"INT-SR-{index}"}
-            self.assertTrue(any(key.startswith(f"sr_service.{category}.") for key in keys), category)
+            self.assertTrue(any(key.startswith(f"service.{category}.") for key in keys), category)
             self.assertFalse(any(key.startswith("ar_service.") for key in keys), category)
         for index, category in enumerate(ar_categories, 1):
             model = sample_model(); model["version"] = "6"
@@ -320,8 +320,8 @@ class SceneCompletionV2Tests(unittest.TestCase):
             model["use_cases"][0]["architecture"]["ar"][0].update({"service_type": category, "classification_status": "confirmed", "classification_basis": "基于实现 API 技术职责", "source_location": "api.md:ar"})
             model["interactions"].append({"interaction_id": f"INT-AR-{index}", "use_case_id": "UC-001", "from_node": "system", "to_node": "compute", "message": "AR 调用", "implementation_api_id": "createOrder", "layer": "AR", "sequence": 8, "source_step_index": 1})
             keys = {item["concern_key"] for item in plan_concern_matrix(model)["items"] if item["interaction_id"] == f"INT-AR-{index}"}
-            self.assertTrue(any(key.startswith(f"ar_service.{category}.") for key in keys), category)
-            self.assertFalse(any(key.startswith("sr_service.") for key in keys), category)
+            self.assertFalse(any(key.startswith("ar_service.") for key in keys), category)
+            self.assertFalse(any(key.startswith("service.") for key in keys), category)
 
     def test_ssd_bundle_writes_four_layers_per_use_case(self):
         model = sample_model()

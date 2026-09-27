@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .concerns import CONCERN_DEFINITIONS, list_concerns
+from .concerns import ACTIVE_CONCERN_KEYS, CONCERN_DEFINITIONS, list_concerns
 
 
 def _concerns_dir() -> Path:
@@ -14,9 +14,13 @@ def _concerns_dir() -> Path:
 
 def load_concern(key: str) -> dict[str, Any]:
     normalized = str(key).strip().lower()
-    if normalized not in CONCERN_DEFINITIONS:
+    if normalized not in ACTIVE_CONCERN_KEYS:
         raise ValueError(f"unknown concern: {key}")
     path = _concerns_dir() / f"{normalized.replace('.', '__')}.md"
+    if not path.exists() and normalized.startswith("service."):
+        # The business-service definitions were historically stored under an
+        # SR-specific filename; the key is now layer-neutral by design.
+        path = _concerns_dir() / f"sr_service__{normalized.removeprefix('service.').replace('.', '__')}.md"
     if not path.exists():
         raise FileNotFoundError(f"concern reference not found: {path}")
     definition = dict(CONCERN_DEFINITIONS[normalized])

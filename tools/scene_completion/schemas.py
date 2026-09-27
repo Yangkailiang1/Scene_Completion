@@ -391,6 +391,39 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
         raise ValidationFailure(["system_composition must be an object"])
     raw_nodes = composition.get("nodes")
     nodes = _normalize_nodes(raw_nodes) if raw_nodes is not None else _derive_nodes(data, normalized_ucs)
+    # Logical SR resource facades expose database access as an analyzable
+    # service boundary while leaving the physical database at AR. This is an
+    # inferred model abstraction only; it never invents an HTTP endpoint.
+    existing_ids = {node["node_id"] for node in nodes}
+    resource_service_mappings = []
+    for physical in list(nodes):
+        if physical.get("kind") not in {"internal_database", "internal_knowledge_base"} or physical.get("layer") != "AR":
+            continue
+        facade_id = stable_id("SR-RESOURCE", data["project"], physical["node_id"])
+        if facade_id not in existing_ids:
+            nodes.append({
+                "node_id": facade_id,
+                "name": f"{physical['name']}资源服务",
+                "kind": "internal_service",
+                "service_role": "resource_service",
+                "resource_ids": [physical["node_id"]],
+                "layer": "SR",
+                "service_type": "unknown",
+                "classification_status": "inferred",
+                "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+                "source_location": physical.get("source_location", (data.get("source") or {}).get("path", "")),
+                "mapping_status": "inferred",
+            })
+            existing_ids.add(facade_id)
+        resource_service_mappings.append({
+            "resource_service_id": facade_id,
+            "resource_id": physical["node_id"],
+            "physical_layer": "AR",
+            "logical_layer": "SR",
+            "mapping_status": "inferred",
+            "source_location": physical.get("source_location", ""),
+        })
+    data["resource_service_mappings"] = resource_service_mappings
     composition["nodes"] = nodes
     classification_reviews = list(data.get("review_items") or [])
     nodes_by_id = {node["node_id"]: node for node in nodes}
@@ -526,7 +559,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
             warnings.append(f"{uid} has no actors")
         if not uc["main_flow"]:
             errors.append(f"{uid} has no main_flow")
-        if str(normalized.get("version")) in {"3", "4", "5", "6"}:
+        if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
             main_scenarios = [scenario for scenario in uc.get("scenarios", []) if scenario.get("scenario_type") == "main"]
             if len(main_scenarios) != 1:
                 errors.append(f"{uid} must have exactly one main_success scenario")
@@ -553,7 +586,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
     for interaction in normalized["interactions"]:
         if interaction["from_node"] not in node_ids or interaction["to_node"] not in node_ids:
             errors.append(f"interaction {interaction['interaction_id']} references unknown node")
-    if str(normalized.get("version")) in {"4", "5", "6"}:
+    if str(normalized.get("version")) in {"4", "5", "6", "8"}:
         nodes_by_id = node_map(normalized)
         for uc in normalized["use_cases"]:
             architecture = uc.get("architecture") or {}

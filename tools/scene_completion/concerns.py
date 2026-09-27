@@ -1,8 +1,9 @@
-"""V6 concern registry, SSD-exchange routing, and matrix validation."""
+"""Structured concern registry, layer-isolated SSD routing, and matrix validation."""
 
 from __future__ import annotations
 
 from typing import Any
+import hashlib
 
 from .schemas import CONCERN_STATUSES, ValidationFailure, interaction_has_api, node_map, stable_id, validate_scene_model
 
@@ -14,9 +15,11 @@ def _definition(key: str, label: str, group: str, description: str, *, draft: bo
         "target_node" if group.startswith(("external", "internal_service")) or group == "internal_database" else
         "relation" if group == "service_relation" else "target_node"
     )
-    layers = ["RR", "SR", "AR"] if key == "common.timeout" else (
-        ["RR"] if group == "human" else ["SR"] if group.startswith(("external", "sr_service")) else ["AR"] if group.startswith(("internal", "ar_service", "service_relation")) else []
-    )
+    layers = ["SR", "AR"] if key == "common.timeout" or group in {"api_data", "service_relation", "internal_database"} or group.startswith(("external", "service_")) else ["SR"] if group == "human" else []
+    if group == "api_data":
+        subject = "request_payload|response_payload"
+    elif group.startswith("service_"):
+        subject = "source_node|target_node"
     return {
         "key": key, "label": label, "group": group, "description": description,
         "draft": draft, "examples": examples or [], "concern_subject": subject,
@@ -121,14 +124,13 @@ for prefix, entries in {
     ],
     "query_retrieval": [
         ("resource_existence", "资源存在性", "查询资源不存在或已失效"),
-        ("result_correctness", "结果正确性", "查询结果错误或不完整"),
-        ("data_visibility", "数据可见性", "应展示数据未被正确返回或被错误暴露"),
+        ("result_correctness", "结果正确性", "查询结果错误、遗漏或分页重复"),
+        ("data_visibility", "数据可见性", "数据越过用户、租户或权限范围被访问或返回"),
     ],
     "resource_mutation": [
         ("business_constraint", "业务约束", "当前业务条件不满足变更要求"),
         ("persistence_consistency", "持久化一致性", "操作结果未可靠持久化或局部成功"),
-        ("idempotency", "幂等性", "重复请求导致重复变更"),
-        ("concurrency_consistency", "并发一致性", "并发变更产生覆盖或冲突"),
+        ("concurrency_idempotency", "并发与幂等性", "并发变更产生冲突，或重复请求导致重复变更"),
     ],
     "analysis_generation": [
         ("result_correctness", "处理正确性", "分析或生成结果错误"),
@@ -142,7 +144,7 @@ for prefix, entries in {
     ],
 }.items():
     for key, label, desc in entries:
-        _add(f"sr_service.{prefix}.{key}", label, f"sr_service_{prefix}", desc, draft=True)
+        _add(f"service.{prefix}.{key}", label, f"service_{prefix}", desc, draft=False)
 
 # AR service classifications describe implementation responsibility, not the
 # business function of the RR use case. These first-release concerns are
@@ -165,13 +167,25 @@ for key, label, desc in [
 ]:
     _add(f"service_relation.{key}", label, "service_relation", desc)
 
+# The live registry is deliberately narrower than the historical definitions
+# above. Legacy AR-draft and generic internal-service keys remain readable only
+# through old artifacts; they are not candidate keys in new runs.
+ACTIVE_CONCERN_KEYS = {
+    key for key in CONCERN_DEFINITIONS
+    if key == "common.timeout"
+    or key in {"human.authentication", "human.authorization"}
+    or key.startswith(("api.data.", "external_service.", "external_database.", "external_llm.", "internal_database.", "service.", "service_relation."))
+}
+CONCERN_REGISTRY_VERSION = "sr-focused-1"
+ANALYSIS_LAYERS = {"SR", "AR"}
+
 
 def list_concerns() -> list[dict[str, Any]]:
-    return [dict(value) for value in CONCERN_DEFINITIONS.values()]
+    return [dict(CONCERN_DEFINITIONS[key], registry_version=CONCERN_REGISTRY_VERSION) for key in sorted(ACTIVE_CONCERN_KEYS)]
 
 
 def concern_keys() -> set[str]:
-    return set(CONCERN_DEFINITIONS)
+    return set(ACTIVE_CONCERN_KEYS)
 
 
 def _node_kind(nodes: dict[str, dict[str, Any]], node_id: str) -> str:
@@ -190,7 +204,7 @@ def _is_system_boundary(node: dict[str, Any]) -> bool:
 def _functional_keys(service_type: str, prefix: str, prefix_keys: dict[str, list[str]] | None = None) -> list[str]:
     if service_type not in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
         return []
-    return (prefix_keys or {}).get(f"{prefix}.{service_type}.", sorted(key for key in concern_keys() if key.startswith(f"{prefix}.{service_type}.")))
+    return (prefix_keys or {}).get(f"{prefix}.{service_type}", sorted(key for key in concern_keys() if key.startswith(f"{prefix}.{service_type}.")))
 
 
 def _routing_context(model: dict[str, Any]) -> dict[str, Any]:
@@ -212,7 +226,7 @@ def _routing_context(model: dict[str, Any]) -> dict[str, Any]:
                     endpoint_map.setdefault(str(endpoint), (component_index, component))
         ar_by_uc_endpoint[uc_id] = endpoint_map
     keys_by_prefix: dict[str, list[str]] = {}
-    for key in CONCERN_DEFINITIONS:
+    for key in ACTIVE_CONCERN_KEYS:
         parts = key.split(".")
         for index in range(1, len(parts) + 1):
             prefix = ".".join(parts[:index])
@@ -268,60 +282,159 @@ def _mapping_endpoint(interaction: dict[str, Any], mapping: dict[str, Any], laye
 
 
 def _candidate_keys(model: dict[str, Any], interaction: dict[str, Any], context: dict[str, Any] | None = None) -> list[str]:
+    return sorted({item["concern_key"] for item in _candidate_specs(model, interaction, context, {"SR"})})
+
+
+def _candidate_specs(
+    model: dict[str, Any], interaction: dict[str, Any], context: dict[str, Any] | None = None,
+    analysis_layers: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Return endpoint- and payload-specific candidates for one SSD exchange."""
     context = context or _routing_context(model)
+    analysis_layers = analysis_layers or {"SR"}
     nodes = context["nodes"]
     keys_by_prefix = context["keys_by_prefix"]
     source_node = nodes.get(interaction.get("from_node"), {})
     target_node = nodes.get(interaction.get("to_node"), {})
-    source_kind = _concern_kind(source_node.get("kind", ""))
-    target_kind = _concern_kind(target_node.get("kind", ""))
-    modern = str(model.get("version")) in {"6", "7", "8"}
-    candidates = ["common.timeout"]
-    if source_kind == "human_actor":
-        candidates.extend(["human.authentication", "human.authorization", "human.input_data"])
-    if interaction_has_api(interaction) or interaction.get("is_api") or interaction.get("boundary") == "api":
-        candidates.extend(keys_by_prefix.get("api.data", []))
-    if target_kind == "external_service" and source_kind not in {"external_actor", "external_service"}:
-        candidates.extend(["external_service.availability", "external_service.contract"])
-    if source_kind == "external_service" and target_kind not in {"external_service", "external_actor"}:
-        candidates.extend(["external_service.permission", "external_service.identity"])
-    if target_kind == "external_database":
-        candidates.extend(["external_database.availability", "external_database.query_performance"])
-    if target_kind == "external_llm":
-        candidates.extend(["external_llm.availability", "external_llm.contract"])
-        if modern:
-            candidates.extend(keys_by_prefix.get("external_llm.quality", []))
-    if source_kind == "external_llm" and target_kind not in {"external_llm", "external_actor"}:
-        candidates.append("external_llm.access_permission")
-    if target_kind == "internal_database":
-        candidates.extend(keys_by_prefix.get("internal_database", []))
-    if modern:
-        endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
-        uc_id = str(interaction.get("use_case_id", ""))
-        sr_mapping = context["sr_by_uc"].get(uc_id)
-        if sr_mapping and str(sr_mapping.get("service_id", "")) not in endpoints:
-            sr_mapping = None
-        if sr_mapping and sr_mapping.get("service_type") in {"display_interaction", "query_retrieval", "resource_mutation", "analysis_generation", "release_activation"}:
-            candidates.extend(_functional_keys(str(sr_mapping["service_type"]), "sr_service", keys_by_prefix))
-        ar_mapping = _indexed_ar_mapping(context, uc_id, endpoints)
-        if ar_mapping:
-            candidates.extend(key for key in keys_by_prefix.get("internal_service", []) if key.count(".") == 1)
-            ar_type = str(ar_mapping.get("service_type", "unknown"))
-            if ar_type != "unknown":
-                candidates.extend(keys_by_prefix.get(f"ar_service.{ar_type}", []))
-    elif target_kind == "internal_service" and not _is_system_boundary(target_node) and target_node.get("layer") == "AR" and target_node.get("kind") in {"internal_service", "implementation_api"}:
-        candidates.extend(keys_by_prefix.get("internal_service", []))
-        service_type = target_node.get("legacy_service_type", target_node.get("service_type", "unknown"))
-        if service_type == "display":
-            candidates.extend(keys_by_prefix.get("internal_service.display", []))
-        elif service_type == "compute":
-            candidates.extend(keys_by_prefix.get("internal_service.compute", []))
-    if source_kind == "internal_service" and target_kind == "internal_service" and interaction["from_node"] != interaction["to_node"] and source_node.get("layer") in {"SR", "AR"} and target_node.get("layer") in {"SR", "AR"}:
-        candidates.extend(keys_by_prefix.get("service_relation", []))
+    from_id, to_id = str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))
+    inferred_layer = target_node.get("layer") if target_node.get("layer") in {"SR", "AR"} else source_node.get("layer")
+    exchange_layer = str(interaction.get("exchange_layer") or interaction.get("layer") or inferred_layer or "SR").upper()
+    interaction = dict(interaction)
+    interaction["exchange_layer"] = exchange_layer
+    uc_id = str(interaction.get("use_case_id", ""))
+    uc = next((item for item in model.get("use_cases", []) if item.get("use_case_id") == uc_id), {})
+    architecture = uc.get("architecture") or {}
+    specs: list[dict[str, Any]] = []
+
+    def add(key: str, *, subject: str | None = None, node_id: str = "", direction: str = "", layer: str = "") -> None:
+        if key in ACTIVE_CONCERN_KEYS:
+            canonical_layer = layer or ("SR" if key.startswith(("service.", "human.", "external_", "api.data.")) else exchange_layer)
+            specs.append({"concern_key": key, "concern_subject": subject or CONCERN_DEFINITIONS[key]["concern_subject"], "subject_node_id": node_id, "payload_direction": direction, "concern_layer": canonical_layer})
+
+    # The external actor may sit at the RR edge while the corresponding SR
+    # exchange begins at System. Bind its security concerns to the actual actor.
+    if "SR" in analysis_layers and exchange_layer == "SR":
+        add("common.timeout", subject="transport", node_id=to_id)
+        actor_names = set(uc.get("actors", []))
+        human_nodes = [node for node in nodes.values() if node.get("kind") == "human_actor" and node.get("name") in actor_names]
+        for actor in human_nodes:
+            add("human.authentication", subject="source_node", node_id=actor["node_id"])
+            add("human.authorization", subject="source_node", node_id=actor["node_id"])
+        if interaction_has_api(interaction) or interaction.get("is_api") or interaction.get("boundary") == "api":
+            for key in keys_by_prefix.get("api.data", []):
+                add(key, subject="request_payload", node_id=to_id, direction="request")
+                if interaction.get("response_fields"):
+                    add(key, subject="response_payload", node_id=from_id, direction="response")
+
+        sr = architecture.get("sr") or {}
+        sr_id = str(sr.get("service_id", ""))
+        sr_node = nodes.get(sr_id, {})
+        if sr_id in {from_id, to_id} and sr_node.get("kind") in {"internal_service", "abstract_service"}:
+            service_type = str(sr.get("service_type", sr_node.get("service_type", "unknown")))
+            for key in _functional_keys(service_type, "service", keys_by_prefix):
+                add(key, subject="target_node", node_id=sr_id)
+        if target_node.get("kind") == "external_service":
+            add("external_service.availability", subject="target_node", node_id=to_id)
+            add("external_service.contract", subject="target_node", node_id=to_id)
+        if source_node.get("kind") == "external_service":
+            add("external_service.permission", subject="source_node", node_id=from_id)
+            add("external_service.identity", subject="source_node", node_id=from_id)
+        if target_node.get("kind") == "external_database":
+            add("external_database.availability", subject="target_node", node_id=to_id)
+            add("external_database.query_performance", subject="target_node", node_id=to_id)
+        if target_node.get("kind") == "external_llm":
+            for key in ("external_llm.availability", "external_llm.contract", "external_llm.quality.semantic_correctness", "external_llm.quality.instruction_following", "external_llm.quality.prompt_security", "external_llm.quality.context_completeness", "external_llm.quality.output_stability"):
+                add(key, subject="target_node", node_id=to_id)
+        if source_node.get("kind") == "external_llm":
+            add("external_llm.access_permission", subject="source_node", node_id=from_id)
+
+    # AR access messages are implementation evidence for the logical SR
+    # resource service. Keep the physical AR endpoints in trace fields while
+    # assigning the concern to its SR facade.
+    if "SR" in analysis_layers and exchange_layer == "AR" and target_node.get("kind") in {"internal_database", "internal_knowledge_base"}:
+        facade = next((item for item in model.get("resource_service_mappings", []) if item.get("resource_id") == to_id), None)
+        if facade:
+            for key in keys_by_prefix.get("internal_database", []):
+                add(key, subject="target_node", node_id=facade["resource_service_id"], layer="SR")
+
+    if "AR" in analysis_layers and exchange_layer == "AR":
+        add("common.timeout", subject="transport", node_id=to_id)
+        if target_node.get("kind") in {"internal_database", "internal_knowledge_base"}:
+            for key in keys_by_prefix.get("internal_database", []):
+                add(key, subject="target_node", node_id=to_id)
+        ar_mapping = _indexed_ar_mapping(context, uc_id, {from_id, to_id})
+        business_type = str((ar_mapping or {}).get("business_service_type", "unknown"))
+        for key in _functional_keys(business_type, "service", keys_by_prefix):
+            endpoint = _mapping_endpoint(interaction, ar_mapping, "AR") if ar_mapping else ""
+            add(key, subject="target_node", node_id=endpoint)
+        if source_node.get("kind") == "internal_service" and target_node.get("kind") == "internal_service" and from_id != to_id:
+            for key in keys_by_prefix.get("service_relation", []):
+                add(key, subject="relation", node_id="", direction="call")
+
     # Endpoint devices and deployment/runtime nodes are intentionally out of scope.
     if source_node.get("kind") in {"connection_device", "deployment_hardware", "runtime_environment"} or target_node.get("kind") in {"connection_device", "deployment_hardware", "runtime_environment"}:
-        candidates = [key for key in candidates if key == "common.timeout"]
-    return sorted(set(candidates))
+        specs = [item for item in specs if item["concern_key"] == "common.timeout"]
+    deduped = {}
+    for item in specs:
+        identity = (item["concern_key"], item["concern_subject"], item["subject_node_id"], item["payload_direction"])
+        deduped[identity] = item
+    return sorted(deduped.values(), key=lambda item: (item["concern_key"], item["concern_subject"], item["subject_node_id"], item["payload_direction"]))
+
+
+def _dependency_candidates(model: dict[str, Any], interactions: list[dict[str, Any]], layers: set[str]) -> list[dict[str, Any]]:
+    """Route explicit SR service relations without inventing SSD messages."""
+    if "SR" not in layers:
+        return []
+    uc_by_id = {str(uc.get("use_case_id", "")): uc for uc in model.get("use_cases", [])}
+    output = []
+    for raw in model.get("service_dependencies", []):
+        if not isinstance(raw, dict):
+            continue
+        source_uc_id = str(raw.get("from_use_case", raw.get("use_case_id", "")))
+        target_uc_id = str(raw.get("to_use_case", ""))
+        source_uc, target_uc = uc_by_id.get(source_uc_id), uc_by_id.get(target_uc_id)
+        if not source_uc or not target_uc:
+            continue
+        anchor_step = raw.get("anchor_step_index", "")
+        anchor = next((item for item in interactions if item.get("use_case_id") == source_uc_id and str(item.get("source_step_index", "")) == str(anchor_step) and item.get("exchange_id")), None) if anchor_step not in (None, "") else None
+        anchor = anchor or next((item for item in interactions if item.get("use_case_id") == source_uc_id and item.get("exchange_id")), None)
+        if not anchor:
+            continue
+        source_service = ((source_uc.get("architecture") or {}).get("sr") or {}).get("service_id", "")
+        target_service = ((target_uc.get("architecture") or {}).get("sr") or {}).get("service_id", "")
+        relation_id = str(raw.get("relation_id") or stable_id("REL", source_uc_id, target_uc_id, raw.get("relation", "depends_on"), raw.get("source_location", "")))
+        for key in sorted(k for k in ACTIVE_CONCERN_KEYS if k.startswith("service_relation.")):
+            output.append({
+                **anchor, "concern_key": key, "concern_subject": "relation", "subject_node_id": "",
+                "payload_direction": "", "concern_layer": "SR", "exchange_layer": anchor.get("layer", "SR"),
+                "relation_id": relation_id, "relation": raw.get("relation", "depends_on"),
+                "relation_evidence": raw.get("evidence", ""), "from_service_id": source_service,
+                "to_service_id": target_service, "source_step_index": raw.get("anchor_step_index", anchor.get("source_step_index", "")),
+                "use_case_id": source_uc_id, "source_location": raw.get("source_location", anchor.get("source_location", "")),
+            })
+    return output
+
+
+def _spec_layer(interaction: dict[str, Any], spec: dict[str, Any]) -> str:
+    if spec.get("concern_layer"):
+        return str(spec["concern_layer"])
+    key = str(spec.get("concern_key", ""))
+    exchange_layer = str(interaction.get("exchange_layer") or interaction.get("layer", "SR")).upper()
+    if key.startswith(("human.", "external_", "service.")):
+        return "SR"
+    return "AR" if exchange_layer == "AR" else "SR"
+
+
+def _resolved_exchange_layer(interaction: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> str:
+    explicit = str(interaction.get("exchange_layer") or interaction.get("layer") or "").upper()
+    if explicit in ANALYSIS_LAYERS:
+        return explicit
+    source = nodes.get(str(interaction.get("from_node", "")), {})
+    target = nodes.get(str(interaction.get("to_node", "")), {})
+    for node in (target, source):
+        if node.get("layer") in ANALYSIS_LAYERS:
+            return str(node["layer"])
+    return "SR"
 
 
 def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, Any]]:
@@ -372,11 +485,14 @@ def _manifest_fused_ssds(ssd_manifest: Any) -> list[dict[str, Any]]:
     return result
 
 
-def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manifest: Any = None) -> dict[str, Any]:
+def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manifest: Any = None, analysis_layers: str | set[str] = "SR") -> dict[str, Any]:
     report = validate_scene_model(model)
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
+    layers = {part.strip().upper() for part in (analysis_layers.split(",") if isinstance(analysis_layers, str) else analysis_layers) if str(part).strip()}
+    if not layers or not layers <= ANALYSIS_LAYERS:
+        raise ValidationFailure(["analysis_layers must contain SR and/or AR"])
     routing = _routing_context(normalized)
     items = []
     fused_values = ([fused_ssd] if fused_ssd else []) + _manifest_fused_ssds(ssd_manifest)
@@ -388,36 +504,36 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
     if fused_values and not interactions:
         raise ValidationFailure(["fused SSD has no messages linked to model interactions"])
     for interaction in sorted(interactions, key=lambda item: (item.get("sequence", 0), item.get("interaction_id", ""))):
-        for key in _candidate_keys(normalized, interaction, routing):
+        for spec in _candidate_specs(normalized, interaction, routing, layers):
+            key = spec["concern_key"]
             definition = CONCERN_DEFINITIONS[key]
-            endpoints = {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}
             uc_id = str(interaction.get("use_case_id", ""))
-            sr_mapping = routing["sr_by_uc"].get(uc_id) if key.startswith("sr_service.") else None
-            if sr_mapping and str(sr_mapping.get("service_id", "")) not in endpoints:
-                sr_mapping = None
-            ar_mapping = _indexed_ar_mapping(routing, uc_id, endpoints) if key.startswith("ar_service.") or (key.startswith("internal_service.") and key.count(".") == 1) else None
+            concern_subject = spec["concern_subject"]
+            subject_node_id = spec["subject_node_id"]
+            concern_layer = _spec_layer(interaction, spec)
+            sr_mapping = routing["sr_by_uc"].get(uc_id) if concern_layer == "SR" else None
+            ar_mapping = _indexed_ar_mapping(routing, uc_id, {str(interaction.get("from_node", "")), str(interaction.get("to_node", ""))}) if concern_layer == "AR" else None
             mapped_service = sr_mapping or ar_mapping or {}
-            concern_subject = definition.get("concern_subject", "target_node")
-            if sr_mapping:
-                subject_node_id = _mapping_endpoint(interaction, sr_mapping, "SR")
-                service_layer = "SR"
-            elif ar_mapping:
-                subject_node_id = _mapping_endpoint(interaction, ar_mapping, "AR")
-                service_layer = "AR"
-            else:
-                subject_node_id = interaction.get("from_node", "") if concern_subject == "source_node" else interaction.get("to_node", "")
-                service_layer = interaction.get("layer", "")
+            payload_direction = spec.get("payload_direction", "")
+            candidate_anchor = spec.get("relation_id") or interaction.get("exchange_id", interaction.get("interaction_id", ""))
+            candidate_id = stable_id("CAND", concern_layer, candidate_anchor, key, subject_node_id, payload_direction)
             item = {
                 "use_case_id": interaction.get("use_case_id", ""),
-                "interaction_id": interaction.get("interaction_id", interaction.get("exchange_id", "")),
+                "candidate_id": candidate_id,
+                "registry_version": CONCERN_REGISTRY_VERSION,
+                "analysis_layers": sorted(layers),
+                "interaction_id": interaction.get("interaction_id", ""),
                 "concern_key": key,
                 "concern": definition["label"],
-                "status": "pending_review" if str(normalized.get("version")) == "6" else "needs_requirement",
-                "basis": "待 Agent 根据需求、接口契约、SSD 结构和对象类型判断" if str(normalized.get("version")) == "6" else "待 Agent 根据需求文档判断",
+                "status": "pending_review",
+                "basis": "待审核器根据需求、接口契约、SSD 结构和对象类型判断",
                 "evidence_types": [],
                 "concern_subject": concern_subject,
                 "subject_node_id": subject_node_id,
-                "layer": service_layer,
+                "concern_layer": concern_layer,
+                "exchange_layer": _resolved_exchange_layer(interaction, routing["nodes"]),
+                "layer": concern_layer,
+                "payload_direction": payload_direction,
                 "service_classification": mapped_service.get("service_type", ""),
                 "classification_status": mapped_service.get("classification_status", ""),
                 "classification_basis": mapped_service.get("classification_basis", ""),
@@ -425,13 +541,36 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
                 "source_location": interaction.get("source_location", ""),
                 "findings": [],
             }
-            for field in ("ssd_id", "message_id", "message", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message"):
+            if spec.get("relation_id"):
+                item.update({"relation_id": spec["relation_id"], "relation": spec.get("relation", "depends_on"), "relation_evidence": spec.get("relation_evidence", ""), "from_service_id": spec.get("from_service_id", ""), "to_service_id": spec.get("to_service_id", ""), "source_step_index": spec.get("source_step_index", item.get("source_step_index"))})
+            for field in ("ssd_id", "message_id", "message", "layer", "source_step_index", "from_node", "to_node", "api", "interface_id", "abstract_api_id", "api_method", "resource_path", "implementation_api_id", "service_id", "exchange_id", "ssd_message_id", "request_message_id", "response_message_id", "response_message", "response_fields", "request_fields"):
                 if field in interaction and field != "layer":
                     item[{"message_id": "ssd_message_id"}.get(field, field)] = interaction[field]
             if key == "common.timeout":
-                item.update({"requirement_impact": "unknown", "subsequent_behavior_impact": "unknown", "environment_coordination_impact": "unknown"})
+                item.update({"requirement_impact": "", "subsequent_behavior_impact": "", "environment_coordination_impact": ""})
             items.append(item)
-    result = {"version": str(normalized.get("version", "6")), "project": normalized["project"], "items": items}
+    for spec in _dependency_candidates(normalized, interactions, layers):
+        key = spec["concern_key"]
+        relation_id = spec["relation_id"]
+        anchor = spec.get("exchange_id", "")
+        items.append({
+            "use_case_id": spec["use_case_id"], "candidate_id": stable_id("CAND", "SR", relation_id, key, "relation", ""),
+            "registry_version": CONCERN_REGISTRY_VERSION, "analysis_layers": sorted(layers),
+            "interaction_id": spec.get("interaction_id", ""), "concern_key": key,
+            "concern": CONCERN_DEFINITIONS[key]["label"], "status": "pending_review",
+            "basis": "待审核器根据需求/设计中的跨用例服务依赖关系判断", "evidence_types": [],
+            "concern_subject": "relation", "subject_node_id": "", "concern_layer": "SR",
+            "exchange_layer": spec.get("exchange_layer", "SR"), "layer": "SR", "payload_direction": "",
+            "relation_id": relation_id, "relation": spec.get("relation", "depends_on"),
+            "relation_evidence": spec.get("relation_evidence", ""), "from_service_id": spec.get("from_service_id", ""),
+            "to_service_id": spec.get("to_service_id", ""), "source_step_index": spec.get("source_step_index", ""),
+            "from_node": spec.get("from_service_id", ""), "to_node": spec.get("to_service_id", ""),
+            "exchange_id": anchor, "message": spec.get("relation_evidence", ""), "ssd_request_message": spec.get("message", ""),
+            "request_message_id": spec.get("request_message_id", spec.get("message_id", "")),
+            "ssd_message_id": spec.get("request_message_id", spec.get("message_id", "")),
+            "source_location": spec.get("source_location", ""), "exception_types": [], "findings": [],
+        })
+    result = {"version": str(normalized.get("version", "6")), "project": normalized["project"], "registry_version": CONCERN_REGISTRY_VERSION, "analysis_layers": sorted(layers), "items": items}
     if fused_values:
         result["ssd_ids"] = [value.get("fused", value).get("ssd_id", "") for value in fused_values if isinstance(value.get("fused", value), dict)]
         result["interaction_ids"] = sorted({item["interaction_id"] for item in interactions if item.get("interaction_id")})
@@ -478,37 +617,54 @@ def validate_concern_matrix(model: dict[str, Any], matrix: Any, raise_on_error: 
     except ValidationFailure as exc:
         errors.extend(exc.errors)
         items = []
-    all_interactions = {item["interaction_id"]: item for item in normalized.get("interactions", [])}
-    is_v4 = str(normalized.get("version")) in {"4", "5", "6"}
-    scoped_ids = set(matrix.get("interaction_ids", [])) if isinstance(matrix, dict) else set()
-    interactions = {key: value for key, value in all_interactions.items() if not scoped_ids or key in scoped_ids}
-    expected = {interaction_id: set(_candidate_keys(normalized, interaction)) for interaction_id, interaction in interactions.items()}
-    if is_v4 and isinstance(matrix, dict) and matrix.get("exchange_ids"):
-        expected = {}
-        for item in _matrix_items(matrix):
-            exchange_id = str(item.get("exchange_id", "")).strip()
-            if exchange_id:
-                expected.setdefault(exchange_id, set()).add(str(item.get("concern_key", "")))
-        # V4 planning records are authoritative for exchange coverage.  Their
-        # candidate set is checked below against the routing function.
-        exchange_messages = {item.get("exchange_id"): item for item in items if item.get("exchange_id")}
-        for exchange_id, message in exchange_messages.items():
-            expected[exchange_id] = set(_candidate_keys(normalized, message))
+    routing = _routing_context(normalized)
+    layers = set(matrix.get("analysis_layers", ["SR"])) if isinstance(matrix, dict) else {"SR"}
+    if not layers or not layers <= ANALYSIS_LAYERS:
+        errors.append("matrix analysis_layers must contain SR and/or AR")
+    if isinstance(matrix, dict) and matrix.get("registry_version") != CONCERN_REGISTRY_VERSION:
+        errors.append("concern matrix registry/profile is stale; regenerate it with plan-concerns")
+    expected: dict[str, set[str]] = {}
+    groups: dict[str, dict[str, Any]] = {}
+    for item in items:
+        anchor = str(item.get("exchange_id") or item.get("interaction_id") or "")
+        if anchor:
+            groups.setdefault(anchor, item)
+    if groups:
+        for anchor, message in groups.items():
+            expected[anchor] = {
+                stable_id("CAND", _spec_layer(message, spec), anchor, spec["concern_key"], spec["subject_node_id"], spec.get("payload_direction", ""))
+                for spec in _candidate_specs(normalized, message, routing, layers)
+            }
+    else:
+        for interaction in normalized.get("interactions", []):
+            anchor = str(interaction.get("exchange_id") or interaction.get("interaction_id"))
+            expected[anchor] = {
+                stable_id("CAND", _spec_layer(interaction, spec), anchor, spec["concern_key"], spec["subject_node_id"], spec.get("payload_direction", ""))
+                for spec in _candidate_specs(normalized, interaction, routing, layers)
+            }
+    for spec in _dependency_candidates(normalized, list(groups.values()) if groups else normalized.get("interactions", []), layers):
+        anchor = str(spec.get("exchange_id") or spec.get("interaction_id") or "")
+        if anchor:
+            expected.setdefault(anchor, set()).add(stable_id("CAND", "SR", spec["relation_id"], spec["concern_key"], "relation", ""))
     actual: dict[str, set[str]] = {key: set() for key in expected}
     for index, item in enumerate(items, 1):
         interaction_id = str(item.get("interaction_id", "")).strip()
         concern_key = str(item.get("concern_key", "")).strip()
         exchange_id = str(item.get("exchange_id", "")).strip()
-        identity = exchange_id if is_v4 and exchange_id else interaction_id
+        identity = exchange_id or interaction_id
         if identity not in expected:
             errors.append(f"matrix item {index}: unknown matrix identity {identity or interaction_id}")
             continue
-        if concern_key not in CONCERN_DEFINITIONS:
+        if concern_key not in ACTIVE_CONCERN_KEYS:
             errors.append(f"matrix item {index}: unknown concern_key {concern_key}")
             continue
-        if concern_key in actual[identity]:
-            errors.append(f"duplicate concern matrix item: {identity}/{concern_key}")
-        actual[identity].add(concern_key)
+        candidate_id = str(item.get("candidate_id", "")).strip()
+        if not candidate_id:
+            errors.append(f"matrix item {index}: candidate_id is required")
+            candidate_id = stable_id("CAND", item.get("concern_layer", item.get("layer", "SR")), identity, concern_key, item.get("subject_node_id", ""), item.get("payload_direction", ""))
+        if candidate_id in actual[identity]:
+            errors.append(f"duplicate concern matrix candidate: {identity}/{candidate_id}")
+        actual[identity].add(candidate_id)
         status = item.get("status")
         if status not in CONCERN_STATUSES:
             errors.append(f"matrix item {index}: invalid status {status}")
@@ -520,10 +676,18 @@ def validate_concern_matrix(model: dict[str, Any], matrix: Any, raise_on_error: 
             errors.append(f"matrix item {index}: reviewed status requires non-empty basis")
         if status in {"applicable", "not_applicable", "needs_requirement"} and not isinstance(item.get("evidence_types", []), list):
             errors.append(f"matrix item {index}: evidence_types must be a list")
+        if require_complete and status in {"applicable", "not_applicable", "needs_requirement"} and not item.get("evidence_types"):
+            errors.append(f"matrix item {index}: reviewed status requires at least one evidence type")
+        if require_complete and status == "applicable" and (not isinstance(item.get("findings"), list) or not item.get("findings")):
+            errors.append(f"matrix item {index}: applicable candidate requires at least one atomic finding")
         if require_complete and status == "needs_requirement" and "待 Agent" in item.get("basis", ""):
             errors.append(f"matrix item {index}: needs_requirement must identify missing requirement evidence")
         if require_complete and status == "not_applicable" and "待 Agent" in item.get("basis", ""):
             errors.append(f"matrix item {index}: not_applicable must provide an exclusion basis")
+        if require_complete and status == "needs_requirement" and not any(token in item.get("basis", "") for token in ("缺", "未", "无", "没有", "不足", "尚未", "尚无", "neither")):
+            errors.append(f"matrix item {index}: needs_requirement must name missing evidence")
+        if item.get("concern_subject") == "relation" and item.get("relation_id") and not str(item.get("relation_evidence", "")).strip():
+            errors.append(f"matrix item {index}: service relation candidate requires evidence text")
         if concern_key == "common.timeout":
             for field in ("requirement_impact", "subsequent_behavior_impact", "environment_coordination_impact"):
                 if item.get(field) not in {"yes", "no", "unknown", "", None}:

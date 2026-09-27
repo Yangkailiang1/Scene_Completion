@@ -71,7 +71,7 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
     wb = Workbook()
     ws = wb.active
     ws.title = "异常预测"
-    headers = ["步骤/类型", "检查点", "预测ID", "异常关注点", "异常描述", "匹配GT?", "是否合理"]
+    headers = ["步骤/类型", "检查点", "预测ID", "异常关注点", "异常描述", "匹配GT?", "是否合理", "关注点层级"]
     _title(ws, f"{bundle['project']} — 异常预测（未进行GT评估）", len(headers))
     _headers(ws, headers)
     ucs = {uc["use_case_id"]: uc for uc in bundle["scene_model"].get("use_cases", [])}
@@ -84,11 +84,11 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
         cell.font = SECTION_FONT
         cell.alignment = BODY
         row += 1
-        uc_findings = grouped.get(uc_id, [])
+        uc_findings = [item for item in grouped.get(uc_id, []) if item.get("layer") != "AR"]
         uc_level = [item for item in uc_findings if not item.get("source_step_index")]
         for item in uc_level:
             checkpoint = item.get("concern_key") or ("需求来源｜非注册表关注点" if item.get("exception_origin") == "requirement_branch" else "")
-            _format_rows(ws, row, [["UC级", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
+            _format_rows(ws, row, [["UC级", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", "", item.get("layer", "RR")]], centered={1, 2, 3, 6, 7, 8})
             row += 1
         for step in uc.get("main_flow", []):
             step_index = step.get("step_index")
@@ -100,9 +100,9 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
             row += 1
             for item in [x for x in uc_findings if x.get("source_step_index") == step_index]:
                 checkpoint = item.get("concern_key") or ("需求来源｜非注册表关注点" if item.get("exception_origin") == "requirement_branch" else "")
-                _format_rows(ws, row, [[f"步骤 {step_index}", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", ""]], centered={1, 2, 3, 6, 7})
+                _format_rows(ws, row, [[f"步骤 {step_index}", checkpoint, item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", "", item.get("layer", "SR")]], centered={1, 2, 3, 6, 7, 8})
                 row += 1
-    widths = [24, 42, 28, 26, 68, 14, 14]
+    widths = [24, 42, 28, 26, 68, 14, 14, 16]
     for index, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A4"
@@ -124,20 +124,31 @@ def _write_prediction_workbook(bundle: dict[str, Any], path: Path) -> None:
     trace.freeze_panes = "A4"
     trace.auto_filter.ref = f"A3:{get_column_letter(len(trace_headers))}{max(3, trace.max_row)}"
     trace.sheet_view.showGridLines = False
+    if "AR" in bundle.get("analysis_layers", []):
+        ar = wb.create_sheet("AR扩展异常")
+        _title(ar, f"{bundle['project']} — AR扩展异常", len(headers))
+        _headers(ar, headers)
+        ar_items = [item for item in bundle.get("findings", []) if item.get("layer") == "AR"]
+        ar_rows = [[f"步骤 {item.get('source_step_index', '')}", item.get("concern_key", ""), item.get("prediction_id", ""), item.get("concern", ""), item.get("exception_desc", ""), "", "", "AR"] for item in ar_items]
+        _format_rows(ar, 4, ar_rows, centered={1, 2, 3, 6, 7, 8})
+        for index, width in enumerate([24, 42, 28, 26, 68, 14, 14, 16], 1): ar.column_dimensions[get_column_letter(index)].width = width
+        ar.freeze_panes = "A4"
     wb.save(path)
 
 
 def _write_scenario_sheet(ws, bundle: dict[str, Any]) -> None:
-    headers = ["场景编号", "场景类型", "来源Use Case", "Use Case名称", "Actor", "主流程锚点", "异常关注点", "前置条件", "触发条件", "场景步骤", "预期结果", "恢复/回归主流程", "来源类型", "来源定位", "SSD消息ID", "预测ID", "合并关联SSD交换/消息"]
+    headers = ["场景编号", "场景类型", "来源Use Case", "Use Case名称", "Actor", "主流程锚点", "异常关注点", "关注点层级", "前置条件", "触发条件", "场景步骤", "预期结果", "恢复/回归主流程", "来源类型", "来源定位", "SSD交换ID", "SSD消息ID", "预测ID"]
     _title(ws, f"{bundle['project']} — 场景清单（全量，未进行GT评估）", len(headers))
     _headers(ws, headers)
     rows = []
     for item in bundle.get("scenario_catalog", []):
+        if "AR" in bundle.get("analysis_layers", []) and item.get("layer") == "AR":
+            continue
         rows.append([
-            item.get("scenario_id", ""), item.get("scenario_type", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("anchor_label", item.get("source_step_index", 0)), item.get("concern", ""), item.get("preconditions", ""), item.get("trigger", ""), "\n".join(f"{i}. {step}" for i, step in enumerate(item.get("scenario_steps", []), 1)), item.get("expected_result", item.get("exception_desc", "")), item.get("recovery", ""), item.get("source_type", item.get("scenario_origin", "")), item.get("source_location", ""), "\n".join(item.get("related_ssd_message_ids", [item.get("ssd_message_id", "")])), item.get("prediction_id", ""), "\n".join(f"{ref.get('exchange_id','')} / {ref.get('ssd_message_id','')}" for ref in item.get("trace_refs", []) if ref.get("exchange_id") or ref.get("ssd_message_id")),
+            item.get("scenario_id", ""), item.get("scenario_type", ""), item.get("use_case_id", ""), item.get("use_case_name", ""), item.get("actor", ""), item.get("anchor_label", item.get("source_step_index", 0)), item.get("concern", ""), item.get("layer", "RR" if item.get("scenario_type") in {"main_success", "alternative", "requirement_exception"} else "SR"), item.get("preconditions", ""), item.get("trigger", ""), "\n".join(f"{i}. {step}" for i, step in enumerate(item.get("scenario_steps", []), 1)), item.get("expected_result", item.get("exception_desc", "")), item.get("recovery", ""), item.get("source_type", item.get("scenario_origin", "")), item.get("source_location", ""), item.get("exchange_id", ""), item.get("ssd_message_id", ""), item.get("prediction_id", ""),
         ])
-    _format_rows(ws, 4, rows, centered={1, 2, 3, 6, 7, 13, 15, 16})
-    widths = [30, 24, 18, 24, 24, 16, 32, 36, 48, 76, 52, 42, 24, 34, 30, 30, 44]
+    _format_rows(ws, 4, rows, centered={1, 2, 3, 6, 7, 8, 14, 16, 17, 18})
+    widths = [30, 24, 18, 24, 24, 16, 32, 14, 36, 48, 76, 52, 42, 24, 34, 24, 30, 30]
     for index, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A4"
@@ -146,7 +157,7 @@ def _write_scenario_sheet(ws, bundle: dict[str, Any]) -> None:
 
 
 def _write_matrix_sheet(ws, bundle: dict[str, Any]) -> None:
-    headers = ["SSD交换ID（请求及其返回）", "SSD请求消息ID", "层级", "用例ID", "来源对象", "目标对象", "交互消息", "关注点Key", "关注点", "关注点主体", "适用状态", "判断依据", "异常类型", "来源定位"]
+    headers = ["候选ID", "SSD交换ID（请求及其返回）", "SSD请求消息ID", "关注点层级", "证据交换层级", "用例ID", "来源对象", "目标对象", "交互消息/依赖证据", "关注点Key", "关注点", "关注点主体", "适用状态", "判断依据", "异常数", "异常类型", "预测ID", "场景ID", "来源定位"]
     _title(ws, f"{bundle['project']} — 关注点矩阵", len(headers))
     _headers(ws, headers)
     nodes = _node_labels(bundle)
@@ -155,10 +166,10 @@ def _write_matrix_sheet(ws, bundle: dict[str, Any]) -> None:
         from_id = item.get("from_node", "")
         to_id = item.get("to_node", "")
         rows.append([
-            item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("layer", ""), item.get("use_case_id", ""), nodes.get(from_id, from_id), nodes.get(to_id, to_id), item.get("message", item.get("response_message", "")), item.get("concern_key", ""), item.get("concern", item.get("concern_key", "")), item.get("concern_subject", ""), item.get("status", ""), item.get("basis", ""), "\n".join(item.get("exception_types", [])), item.get("source_location", ""),
+            item.get("candidate_id", ""), item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("concern_layer", item.get("layer", "")), item.get("exchange_layer", ""), item.get("use_case_id", ""), nodes.get(from_id, from_id), nodes.get(to_id, to_id), item.get("message", item.get("response_message", "")), item.get("concern_key", ""), item.get("concern", item.get("concern_key", "")), item.get("concern_subject", ""), {"pending_review": "待Agent审核", "not_applicable": "不适用", "needs_requirement": "待需求确认"}.get(item.get("status"), item.get("status", "")), item.get("basis", ""), item.get("exception_count", len(item.get("findings", []))), "\n".join(item.get("exception_types", [])) or ({"pending_review": "待审核", "not_applicable": "无（不适用）", "needs_requirement": "待补需求证据"}.get(item.get("status"), "")), "\n".join(item.get("prediction_ids", [])), "\n".join(item.get("scenario_ids", [])), item.get("source_location", ""),
         ])
-    _format_rows(ws, 4, rows, centered={1, 2, 3, 4, 8, 10, 11})
-    for index, width in enumerate([24, 28, 12, 20, 24, 24, 38, 38, 26, 24, 20, 46, 42, 34], 1):
+    _format_rows(ws, 4, rows, centered={1, 2, 3, 4, 5, 6, 10, 12, 13, 15})
+    for index, width in enumerate([24, 24, 28, 14, 14, 20, 24, 24, 44, 38, 26, 24, 20, 46, 12, 38, 32, 32, 34], 1):
         ws.column_dimensions[get_column_letter(index)].width = width
     ws.freeze_panes = "A4"
     ws.auto_filter.ref = f"A3:{get_column_letter(len(headers))}{max(3, ws.max_row)}"
@@ -176,7 +187,7 @@ def _write_timeout_sheet(ws, bundle: dict[str, Any]) -> None:
             continue
         uc = ucs.get(item.get("use_case_id"), {})
         impacts = [item.get("requirement_impact", ""), item.get("subsequent_behavior_impact", ""), item.get("environment_coordination_impact", "")]
-        impacts = [value if value in {"yes", "no"} else ("待需求确认" if item.get("status") == "needs_requirement" else "—") for value in impacts]
+        impacts = [value if value in {"yes", "no"} else "待需求确认" for value in impacts]
         rows.append([item.get("exchange_id", ""), item.get("request_message_id", item.get("ssd_message_id", "")), item.get("use_case_id", ""), uc.get("use_case_name", ""), item.get("source_step_index", ""), item.get("message", ""), item.get("status", ""), *impacts, item.get("basis", ""), item.get("source_location", "")])
     _format_rows(ws, 4, rows, centered={1, 2, 3, 5, 7, 8, 9, 10})
     for index, width in enumerate([24, 28, 20, 26, 14, 44, 22, 20, 20, 20, 48, 36], 1):
@@ -263,6 +274,8 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     matrix_items = bundle["concern_matrix"]
     _json_write(artifacts["concern_matrix"], {
         "version": bundle.get("version", "4"),
+        "registry_version": bundle.get("registry_version", ""),
+        "analysis_layers": bundle.get("analysis_layers", ["SR"]),
         "items": matrix_items,
         "exchange_ids": sorted({item.get("exchange_id") for item in matrix_items if item.get("exchange_id")}),
         "interaction_ids": sorted({item.get("interaction_id") for item in matrix_items if item.get("interaction_id")}),
@@ -281,6 +294,10 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     _write_matrix_sheet(matrix_ws, bundle)
     timeout_ws = wb.create_sheet("超时判断")
     _write_timeout_sheet(timeout_ws, bundle)
+    if "AR" in bundle.get("analysis_layers", []):
+        ar_ws = wb.create_sheet("AR扩展异常")
+        ar_bundle = {**bundle, "scenario_catalog": [item for item in bundle.get("scenario_catalog", []) if item.get("layer") == "AR"]}
+        _write_scenario_sheet(ar_ws, ar_bundle)
     wb.save(artifacts["scenario_workbook"])
     _write_mapping_workbook(bundle, artifacts["mapping_workbook"])
     # Make the mapping table a first-class trace target from both manifests.

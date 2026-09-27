@@ -723,7 +723,7 @@ def _v6_dedupe_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, 
 
 
 def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = None) -> dict[str, Any]:
-    if str(model.get("version")) not in {"5", "6"}:
+    if str(model.get("version")) not in {"5", "6", "8"}:
         return _v4_generate_ssd_bundle(model, use_case_id, api_map)
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     uc = use_case_map(normalized).get(use_case_id)
@@ -736,7 +736,7 @@ def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = 
 
 
 def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise_on_error: bool = False) -> dict[str, Any]:
-    if str(ssd.get("version", "")) not in {"5", "6"}:
+    if str(ssd.get("version", "")) not in {"5", "6", "8"}:
         return _v4_validate_ssd(ssd, model, raise_on_error)
     errors: list[str] = []
     if ssd.get("layer") not in {"RR", "SR", "AR", "fused"}:
@@ -773,7 +773,7 @@ def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise
 
 
 def write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: str | Path, plantuml_jar: str | Path | None = None, render: bool = False) -> dict[str, Any]:
-    if str(bundle.get("version")) not in {"5", "6"}:
+    if str(bundle.get("version")) not in {"5", "6", "8"}:
         return _v4_write_ssd_bundle(bundle, model, output_dir, plantuml_jar, render)
     output = Path(output_dir).expanduser().resolve() / bundle["use_case_id"]; output.mkdir(parents=True, exist_ok=True)
     paths = {}

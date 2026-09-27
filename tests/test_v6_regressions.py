@@ -41,8 +41,8 @@ def test_v6_normalization_and_non_data_routing():
 
     matrix = plan_concern_matrix(model)
     keys = {item["concern_key"] for item in matrix["items"]}
-    assert "sr_service.resource_mutation.business_constraint" in keys
-    assert "service_relation.call_order" in keys
+    assert "service.resource_mutation.business_constraint" in keys
+    assert "service_relation.call_order" not in keys  # no explicit, evidence-backed SR dependency in this fixture
     assert any(item["status"] == "pending_review" for item in matrix["items"])
     assert not validate_concern_matrix(model, matrix, require_complete=True)["valid"]
 
@@ -124,7 +124,7 @@ def test_v7_matrix_workbook_has_real_exchange_uc_and_timeout_only_tab():
         assert all(value in {"待需求确认", "—", "yes", "no"} for value in impact_values)
         matrix_sheet = workbook["关注点矩阵"]
         matrix_headers = [matrix_sheet.cell(3, col).value for col in range(1, matrix_sheet.max_column + 1)]
-        message_col = matrix_headers.index("交互消息") + 1
+        message_col = matrix_headers.index("交互消息/依赖证据") + 1
         assert all(matrix_sheet.cell(row, message_col).value for row in range(4, matrix_sheet.max_row + 1))
 
 
@@ -223,11 +223,14 @@ def test_v7_batch_review_uses_exchange_batches_and_resumes_without_network(tmp_p
     def fake_post(url, api_key, body, timeout, retries):
         calls.append((url, api_key, body))
         payload = json.loads(body["messages"][1]["content"].split("输入数据：", 1)[1])
-        key = payload["candidates"][0]["concern_key"]
+        candidate = payload["candidates"][0]
         if len(calls) == 1:
-            malformed = {"items": [{"concern_key": key, "status": "needs_requirement"}]}
+            malformed = {"items": [{"candidate_id": candidate["candidate_id"], "concern_key": candidate["concern_key"], "status": "needs_requirement"}]}
             return {"choices": [{"message": {"content": json.dumps(malformed)}}]}
-        response = {"items": [{"concern_key": key, "status": "needs_requirement", "basis": "资料没有给出时限指标", "evidence_types": ["requirement"], "findings": [], "requirement_impact": "", "subsequent_behavior_impact": "", "environment_coordination_impact": ""}]}
+        response = {"items": [
+            {"candidate_id": item["candidate_id"], "concern_key": item["concern_key"], "status": "needs_requirement", "basis": "资料没有给出适用判定的明确依据", "evidence_types": ["requirement"], "findings": [], "requirement_impact": "", "subsequent_behavior_impact": "", "environment_coordination_impact": ""}
+            for item in payload["candidates"]
+        ]}
         return {"choices": [{"message": {"content": json.dumps(response)}}]}
 
     config = {"base_url": "https://example.invalid/v1", "model": "mock", "api_key_env": "ECNU_MAX_API_KEY", "max_concurrency": 2, "json_mode": False}
@@ -299,7 +302,7 @@ def test_review_agent_mode_exports_packets_and_merge_validates_agent_results(tmp
     assert packet["input"]["candidates"][0]["concern_key"] == candidate["concern_key"]
 
     results = {"batches": [{"exchange_id": candidate["exchange_id"], "items": [{
-        "concern_key": candidate["concern_key"], "status": "not_applicable",
+            "candidate_id": candidate["candidate_id"], "concern_key": candidate["concern_key"], "status": "not_applicable",
         "basis": "本交互没有此类异常证据", "evidence_types": ["ssd"], "findings": [],
     }]}]}
     merged = review_concerns(

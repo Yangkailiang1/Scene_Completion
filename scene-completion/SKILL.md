@@ -18,14 +18,15 @@ metadata:
 1. 用 `extract` 抽取 Markdown、TXT、DOCX 或 PDF，并保留文件和行号定位。
 2. Agent 从抽取文本建立 `scene_model.json`：系统组成、Actor、RR 用例、主成功流程、可选流程、异常流程、API、Service、数据库、LLM 和来源定位。
 3. 每个 RR 用例建立一个抽象服务节点。系统节点只表示 System，不得填入 Use Case 的 Actor。
-4. 每个 RR 用例的主成功流程生成 RR、SR、AR 和融合 SSD。融合 SSD 是关注点分析的权威输入。
-5. `plan-concerns --ssd-manifest` 聚合所有 Use Case 的融合 SSD，生成全量候选矩阵；它只做确定性路由，不判断异常是否真实发生。
-6. Agent 按需读取每个命中的关注点知识文件，必须将每条候选从 `pending_review` 改为 `applicable`、`not_applicable` 或 `needs_requirement`，并记录证据类型和来源定位。
-7. Agent 将 `applicable` 关注点拆成原子异常；一个关注点可以产生多个 finding，但每个 finding 必须有触发、响应、场景步骤和恢复方式。
+4. 每个 RR 用例的主成功流程生成 RR、SR、AR 和融合 SSD。SR 交互是默认关注点分析输入；融合 SSD 关联 RR 动作和 AR 实现证据。
+5. 从需求/设计证据建立 SR Service 依赖关系和逻辑资源服务映射；物理数据库仍在 AR，SR 资源服务是 inferred 逻辑边界，不得虚构 HTTP API。
+6. `plan-concerns --ssd-manifest --analysis-layers SR` 聚合全部用例，默认只规划 SR 候选；只有显式传入 `--analysis-layers SR,AR` 才开启 AR 扩展。工具只路由，不判断异常是否真实发生。
+7. Agent 按需读取命中的知识文件，逐个 `candidate_id` 判断 `applicable`、`not_applicable` 或 `needs_requirement`，记录证据及来源。同一 key 在交换两端或请求/响应载荷上是不同候选，不得合并。
+8. Agent 将 `applicable` 关注点拆成原子异常 finding；每个 finding 必须有触发、响应、场景步骤、恢复方式并引用 candidate_id。
 7a. 根据客户环境选择 `review-concerns --mode external|agent|auto`。`external` 只调用 ECNU-Max；`agent` 不联网，按 SSD 交换导出小批次，由当前 Agent 审核；`auto` 有效配置可用时先批量调用外部接口，缺少配置/密钥时全部转为 Agent 批次，单个外部批次失败时只回退该批次。`auto`/`agent` 产生 `pending_review` 批次后，Agent 必须逐包审核并执行 `--mode merge-agent`，不能把导出包当作审核完成。批量请求优先用 `--env-file .env` 安全加载 `ECNU_MAX_BASE_URL`、`ECNU_MAX_MODEL`、`ECNU_MAX_API_KEY`；加载器只解析这三个键，不执行 shell，也不回显值。API key 不得写入 JSON 配置或批次结果。批次包含需求/API/SSD 摘要，视为敏感项目数据，应写入受保护的本地输出目录。
-8. 运行 `validate-concerns --require-complete` 和 `audit-run`；存在未审查候选、空泛依据、缺失 SSD 或不可追溯 finding 时不得 assemble。
-9. `assemble` 保留每个用例的主成功场景、需求中的可选/异常分支，并追加去重后的关注点异常场景。
-10. 导出预测表、全量场景表、异常树、覆盖率审计、追溯 JSON 和图产物。
+9. 运行 `validate-concerns --require-complete` 和 `audit-run`；存在未审查候选、空泛依据、缺失 SSD 或不可追溯 finding 时不得 assemble。
+10. `assemble` 保留需求中的主成功、可选/异常分支，追加去重后的关注点异常，并生成系统总览与 SR Service 依赖图。
+11. 导出预测表、全量场景表、异常树、覆盖率审计、追溯 JSON 和图产物；交付验收使用 `assemble --require-png`。
 
 ## 场景规则
 
@@ -65,13 +66,14 @@ metadata:
 - **SR 分类属于用例级映射**：对每个 `use_case_id` 的 `architecture.sr`（一个 SR Service/API）填写 `service_type`、`classification_status`、`classification_basis`、`source_location`。五类为 `display_interaction`、`query_retrieval`、`resource_mutation`、`analysis_generation`、`release_activation`；证据不足或职责混合时使用 `unknown` 并生成待确认项。相同 Service 名称在不同用例/API 下可有不同分类。
 - **AR 分类属于实现映射**：每个 `architecture.ar[]` 的 Implementation API/微服务映射独立填写相同四个字段。首版技术职责为 `query_read`、`command_write`、`orchestration`、`integration_event`、`publish_activation`、`unknown`。共享微服务的不同 API 映射允许分类不同。
 - `classification_basis` 必须说明依据需求、API 契约、主流程或读写/编排行为的哪项事实；`source_location` 指向原文或接口定义。不能仅按 Service 名称分类。
-- Tools 只将 SR 类型路由到 `sr_service.*`，只将 AR 类型路由到 `ar_service.*`；严禁从 AR 类型回退推测 SR 类型，也不允许 SR 类型覆盖 AR 类型。服务分类只在对应 SR/AR 节点实际参加当前 SSD 交互时参与路由。
+- 默认活跃关注点只包含人类身份认证/权限、外部依赖与 LLM 质量、API 数据七类、五类 SR Service、内部资源数据库十类、服务关系六类及通用超时。旧 `human.input_data`、`internal_service.parameter_validity` 和 `ar_service.*` 草案不进入默认路由。
+- 服务关注点使用层级中立的 `service.*` key，层级通过独立的 `concern_layer` 表达。AR 技术职责不推导业务分类；AR 扩展只有显式启用后才路由。
 - `unknown` 仍可获得按节点/关系确定的通用关注点，但不生成分类专属候选，并必须保留分类待确认项。
 - 详细关注点按需读取 `references/concerns_v2/index.md` 及命中的独立知识文件；不得一次加载全部知识库。
 
 ## 关注点路由
 
-Tools 仅按节点 kind、层级、API 字段、映射端点和 SSD 交换结构路由候选；不得按名称猜测。SR 分类只路由到当前用例实际参与交互的 SR Service，AR 分类只路由到当前实现映射，禁止跨层推断。候选适用性可由需求、SSD、接口契约和业务约束共同证明；定量时限、容量或性能阈值仍须有明确证据。完整路由规则见 `references/concerns_v2/index.md`。
+查询遗漏/分页重复归“结果正确性”，跨用户/租户暴露归“数据可见性”，资源不存在归“资源存在性”。API 字段问题归数据七类，不使用笼统“参数有效性”。候选有稳定 `candidate_id`，并分别记录关注点层级和 SSD 证据交换层级。完整路由规则见 `references/concerns_v2/index.md`。
 
 ## 知识按需加载
 
@@ -96,7 +98,8 @@ python tools/scene_completion.py extract --input <requirements> --output <extrac
 python tools/scene_completion.py validate-model --input <scene_model.json> --output <normalized_scene_model.json>
 python tools/scene_completion.py generate-ssd --model <scene_model.json> --output-dir <diagrams> [--api-map <api_map.json>] [--render]
 python tools/scene_completion.py validate-ssd --input <fused_ssd.json> [--model <scene_model.json>]
-python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output <concern_matrix.json>
+python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR --output <concern_matrix.json>
+python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR,AR --output <concern_matrix_ar.json>
 python tools/scene_completion.py validate-concerns --model <scene_model.json> --input <concern_matrix.json> --require-complete
 python tools/scene_completion.py audit-run --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json>
 python tools/scene_completion.py review-concerns --mode auto --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --config ecnu_max.config.example.json --env-file .env --output <reviewed_concern_matrix.json>
@@ -106,7 +109,8 @@ python tools/scene_completion.py validate-diagrams --model <scene_model.json> --
 python tools/scene_completion.py render-diagrams --model <scene_model.json> --input <diagram_spec.json> --output-dir <diagram-output> [--require-png]
 python tools/scene_completion.py render-png --input-svg <diagram.svg> --output-png <diagram.png> [--require-png]
 python tools/scene_completion.py render-dependency-graph --model <scene_model.json> --output-dir <diagram-output>
-python tools/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --output-dir <output>
+python tools/scene_completion.py render-service-dependency-graph --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output-dir <diagram-output> --require-png
+python tools/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --output-dir <output> --require-png
 ```
 
 为一次完整运行收集脚本耗时，在上述命令末尾统一追加 `--metrics-dir <本次运行专用目录>`。各命令写入不含需求正文、请求正文或密钥的阶段统计；`assemble` 将收集到的工具阶段计时汇总进 `run_manifest.json`。审核报告另含逐 SSD 交换的耗时、候选数、重试和 checkpoint 命中数。Agent 的语义分析耗时不会由 CLI 代测；不同运行必须使用独立目录。未传该参数时，工具输出保持不变。
@@ -119,7 +123,7 @@ python3 -B tools/benchmark_scene_completion.py --baseline-revision d2295a4 --rep
 
 基准会校验候选矩阵与审核结果一致，并报告中位耗时；它不调用真实 ECNU-Max，也不代表线上网络时延。
 
-默认始终生成 `.json`、`.svg` 和可用时的 `.png`。PNG 转换状态、转换器和错误写入 diagram/SSD manifest；使用 `--require-png` 可将 PNG 缺失变为明确错误。PlantUML 查找顺序为 CLI 参数、`PLANTUML_JAR` 和包内可选 JAR；只有检测到 JAR/Java 时才额外生成可选 `.puml`。
+默认始终生成 `.json`、`.svg` 和可用时的 `.png`。PNG 转换会依次尝试所有已安装转换器并验证 PNG 签名；使用 `--require-png` 将缺失变为明确错误，不自动安装依赖。PlantUML 查找顺序为 CLI 参数、`PLANTUML_JAR` 和包内可选 JAR；只有检测到 JAR/Java 时才额外生成可选 `.puml`。
 
 ## 输出
 
@@ -128,7 +132,7 @@ python3 -B tools/benchmark_scene_completion.py --baseline-revision d2295a4 --rep
 - 系统组成图、RR 用例/抽象服务图和每个 Use Case 的 RR/SR/AR/融合 SSD；
 - `use_case_dependency_graph.json/.svg` 和 `interface_service_mapping_<项目>.xlsx`；
 - `prediction_analysis_<项目>.xlsx`：按 Use Case 和主流程步骤分组，保持参考文件七列；
-- `scenario_catalog_<项目>.xlsx`：每行一个主成功、可选、需求异常或关注点异常场景；
+- `scenario_catalog_<项目>.xlsx`：每行一个主成功、可选、需求异常或关注点异常场景；主表不放合并追溯字段，多交换引用集中到追溯表和 JSON；
 - 场景工作簿的“超时判断”页只列 `common.timeout`；JSON 中未判定的影响维度保留空值，Excel 显示“待需求确认”，避免误读成无影响。
 - 接口契约应保留参数约束、错误码和逐条来源定位，并随匹配的 Abstract API/路径加入对应 ECNU-Max 审核批次。只对有契约或需求证据的字段约束生成异常；不得推测未定义的长度、大小或重复操作阈值。
 - 需求中明确的异常分支是需求来源场景，不是关注点注册表中的关注点；输出标为“需求来源异常（非关注点）”，无需虚构 concern key。

@@ -8,7 +8,7 @@ import re
 from collections import defaultdict
 from typing import Any
 
-from .concerns import CONCERN_DEFINITIONS, validate_concern_matrix
+from .concerns import CONCERN_DEFINITIONS, CONCERN_REGISTRY_VERSION, validate_concern_matrix
 from .schemas import ValidationFailure, node_map, stable_id, use_case_map, validate_scene_model
 
 
@@ -61,6 +61,7 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
     interactions = {item["interaction_id"]: item for item in normalized["interactions"]}
     matrix = {(item.get("interaction_id", ""), item["concern_key"]): item for item in matrix_items}
     matrix_by_exchange = {(item.get("exchange_id", ""), item["concern_key"]): item for item in matrix_items if item.get("exchange_id")}
+    matrix_by_candidate = {item.get("candidate_id"): item for item in matrix_items if item.get("candidate_id")}
     use_cases = use_case_map(normalized)
     findings = _finding_list(raw_findings)
     if not findings:
@@ -68,6 +69,8 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
             {
                 **finding,
                 "interaction_id": finding.get("interaction_id") or item.get("interaction_id", ""),
+                "candidate_id": finding.get("candidate_id") or item.get("candidate_id", ""),
+                "concern_layer": finding.get("concern_layer") or item.get("concern_layer", item.get("layer", "")),
                 "exchange_id": finding.get("exchange_id") or item.get("exchange_id", ""),
                 "concern_key": finding.get("concern_key") or item.get("concern_key", ""),
                 "use_case_id": finding.get("use_case_id") or item.get("use_case_id", ""),
@@ -91,7 +94,7 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
         interaction_id = str(raw.get("interaction_id", "")).strip()
         concern_key = str(raw.get("concern_key", "")).strip()
         interaction = interactions.get(interaction_id)
-        matrix_item = matrix_by_exchange.get((str(raw.get("exchange_id", "")).strip(), concern_key)) or matrix.get((interaction_id, concern_key))
+        matrix_item = matrix_by_candidate.get(str(raw.get("candidate_id", "")).strip()) or matrix_by_exchange.get((str(raw.get("exchange_id", "")).strip(), concern_key)) or matrix.get((interaction_id, concern_key))
         if interaction is None and matrix_item:
             interaction_id = str(matrix_item.get("interaction_id", "")).strip()
             interaction = interactions.get(interaction_id)
@@ -130,6 +133,7 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
             continue
         item = {
             "interaction_id": interaction_id,
+            "candidate_id": raw.get("candidate_id") or matrix_item.get("candidate_id", ""),
             "exchange_id": raw.get("exchange_id") or matrix_item.get("exchange_id") or stable_id("EXCH", use_case_id, interaction_id),
             "ssd_message_id": raw.get("ssd_message_id") or matrix_item.get("ssd_message_id") or matrix_item.get("message_id", ""),
             "request_message_id": raw.get("request_message_id") or matrix_item.get("request_message_id", ""),
@@ -142,7 +146,8 @@ def _normalize_findings(model: dict[str, Any], matrix_items: list[dict[str, Any]
             "source_node_name": nodes[source_node_id]["name"],
             "target_node_name": nodes[target_node_id]["name"],
             "interaction_message": raw.get("interaction_message") or matrix_item.get("message") or (interaction or {}).get("message", ""),
-            "layer": raw.get("layer") or matrix_item.get("layer", "SR"),
+            "layer": raw.get("concern_layer") or raw.get("layer") or matrix_item.get("concern_layer", matrix_item.get("layer", "SR")),
+            "exchange_layer": matrix_item.get("exchange_layer", matrix_item.get("layer", "SR")),
             "api": raw.get("api") or matrix_item.get("api", ""),
             "interface_id": raw.get("interface_id") or matrix_item.get("interface_id", ""),
             "abstract_api_id": raw.get("abstract_api_id") or matrix_item.get("abstract_api_id", ""),
@@ -372,7 +377,7 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     use_cases = use_case_map(normalized)
     scenarios: list[dict[str, Any]] = []
-    if str(normalized.get("version")) in {"3", "4", "5", "6"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
         for uc in normalized["use_cases"]:
             for source in uc.get("scenarios", []):
                 scenarios.append(_base_scenario(uc, source, normalized, diagram_manifest))
@@ -473,6 +478,9 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             requirement = by_id[merged_id]
             item["scenario_id"] = merged_id
             item["prediction_id"] = requirement["prediction_id"]
+            requirement.setdefault("merged_candidate_ids", [])
+            if item.get("candidate_id") and item["candidate_id"] not in requirement["merged_candidate_ids"]:
+                requirement["merged_candidate_ids"].append(item["candidate_id"])
             requirement.setdefault("merged_concern_keys", [])
             if item.get("concern_key") not in requirement["merged_concern_keys"]:
                 requirement["merged_concern_keys"].append(item.get("concern_key"))
@@ -482,24 +490,42 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
         if scenario:
             scenario["prediction_id"] = item.get("prediction_id", "")
         derived.append(item)
+    for prediction in source_predictions:
+        requirement = by_id.get(prediction.get("scenario_id"), {})
+        if requirement.get("merged_candidate_ids"):
+            prediction["merged_candidate_ids"] = list(requirement["merged_candidate_ids"])
+            prediction["merged_concern_keys"] = list(requirement.get("merged_concern_keys", []))
     return source_predictions + derived
 
 
 def _enrich_matrix_findings(matrix_items: list[dict[str, Any]], findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    indexed: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    indexed: dict[str, list[dict[str, Any]]] = {}
+    merged_index: dict[str, list[dict[str, Any]]] = {}
     for finding in findings:
-        refs = finding.get("trace_refs") or [{"exchange_id": finding.get("exchange_id", "")}]
-        for ref in refs:
-            key = (str(ref.get("exchange_id", "")), str(finding.get("concern_key", "")))
-            if finding not in indexed.setdefault(key, []):
-                indexed[key].append(finding)
+        candidate_id = str(finding.get("candidate_id", ""))
+        if candidate_id:
+            indexed.setdefault(candidate_id, []).append(finding)
+        for candidate_id in finding.get("merged_candidate_ids", []):
+            merged_index.setdefault(str(candidate_id), []).append(finding)
+        else:
+            for ref in finding.get("trace_refs") or [{"exchange_id": finding.get("exchange_id", "")}]:
+                key = str(ref.get("exchange_id", "")) + "|" + str(finding.get("concern_key", ""))
+                indexed.setdefault(key, []).append(finding)
     result = []
     for raw in matrix_items:
         item = dict(raw)
-        matching = indexed.get((str(item.get("exchange_id", "")), str(item.get("concern_key", ""))), [])
+        candidate_id = str(item.get("candidate_id", ""))
+        matching = indexed.get(candidate_id, []) or indexed.get(str(item.get("exchange_id", "")) + "|" + str(item.get("concern_key", "")), [])
+        merged = merged_index.get(candidate_id, [])
+        if merged:
+            item["prediction_ids"] = sorted(set(item.get("prediction_ids", [])) | {str(f.get("prediction_id", "")) for f in merged if f.get("prediction_id")})
+            item["scenario_ids"] = sorted(set(item.get("scenario_ids", [])) | {str(f.get("scenario_id", "")) for f in merged if f.get("scenario_id")})
         if matching:
             item["findings"] = matching
             item["exception_types"] = sorted({str(f.get("exception_type", "")).strip() for f in matching if str(f.get("exception_type", "")).strip()})
+            item["exception_count"] = len(matching)
+            item["prediction_ids"] = sorted({str(f.get("prediction_id", "")) for f in matching if f.get("prediction_id")})
+            item["scenario_ids"] = sorted({str(f.get("scenario_id", "")) for f in matching if f.get("scenario_id")})
             latest_basis = next((str(f.get("basis", "")).strip() for f in matching if str(f.get("basis", "")).strip()), "")
             if latest_basis:
                 item["basis"] = latest_basis
@@ -507,6 +533,9 @@ def _enrich_matrix_findings(matrix_items: list[dict[str, Any]], findings: list[d
             for field in ("requirement_impact", "subsequent_behavior_impact", "environment_coordination_impact"):
                 if item.get(field) == "unknown":
                     item[field] = ""
+        item.setdefault("exception_count", len(item.get("findings", [])))
+        item.setdefault("prediction_ids", [])
+        item.setdefault("scenario_ids", [])
         result.append(item)
     return result
 
@@ -516,7 +545,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
-    matrix_report = validate_concern_matrix(normalized, concern_matrix, require_complete=str(normalized.get("version")) == "6")
+    matrix_report = validate_concern_matrix(normalized, concern_matrix, require_complete=str(normalized.get("version")) == "8")
     if not matrix_report["valid"]:
         raise ValidationFailure(matrix_report["errors"])
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
@@ -577,6 +606,8 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
         "system_composition": normalized["system_composition"],
         "interaction_catalog": exchange_catalog,
         "concern_matrix": matrix_items,
+        "analysis_layers": concern_matrix.get("analysis_layers", ["SR"]) if isinstance(concern_matrix, dict) else ["SR"],
+        "registry_version": CONCERN_REGISTRY_VERSION,
         "checkpoint_results": result_by_key,
         "exception_tree": exception_tree,
         "scenario_catalog": scenarios,
@@ -626,6 +657,6 @@ def assemble_v2_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
 
 def assemble_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
-    if str(normalized.get("version")) in {"3", "4", "5", "6"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
         return assemble_v3_results(normalized, concern_matrix, semantic_findings, diagram_manifest)
     return assemble_v2_results(normalized, concern_matrix, semantic_findings, diagram_manifest)

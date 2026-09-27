@@ -21,7 +21,8 @@ from scene_completion.knowledge import load_concern, load_diagram_knowledge, lis
 from scene_completion.png_renderer import convert_svg_to_png
 from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
-from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph
+from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph, build_sr_service_dependency_graph, render_sr_service_dependency_svg
+from scene_completion.svg_renderer import render_system_composition_svg
 from scene_completion.review import load_ecnu_env_file, review_concerns
 from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
 
@@ -55,6 +56,7 @@ def _main_impl(argv=None) -> int:
     plan.add_argument("--model", required=True)
     plan.add_argument("--fused-ssd", help="optional fused SSD JSON; route candidates from its standardized messages")
     plan.add_argument("--ssd-manifest", help="diagram_manifest.json containing every use case fused SSD")
+    plan.add_argument("--analysis-layers", default="SR", help="comma-separated analysis layers: SR (default) or SR,AR")
     plan.add_argument("--output", required=True)
     validate_matrix = sub.add_parser("validate-concerns", help="validate a V6 concern matrix")
     validate_matrix.add_argument("--model", required=True)
@@ -106,6 +108,11 @@ def _main_impl(argv=None) -> int:
     dep = sub.add_parser("render-dependency-graph", help="render semantic RR use-case dependency graph")
     dep.add_argument("--model", required=True)
     dep.add_argument("--output-dir", required=True)
+    sr_dep = sub.add_parser("render-service-dependency-graph", help="render evidence-backed SR service dependency graph")
+    sr_dep.add_argument("--model", required=True)
+    sr_dep.add_argument("--ssd-manifest")
+    sr_dep.add_argument("--output-dir", required=True)
+    sr_dep.add_argument("--require-png", action="store_true")
     assemble = sub.add_parser("assemble", help="assemble V5 findings and export artifacts")
     assemble.add_argument("--model", required=True)
     assemble.add_argument("--concern-matrix", required=True)
@@ -113,6 +120,7 @@ def _main_impl(argv=None) -> int:
     assemble.add_argument("--diagram-manifest")
     assemble.add_argument("--ssd-manifest")
     assemble.add_argument("--output-dir", required=True)
+    assemble.add_argument("--require-png", action="store_true", help="require all required overview/dependency/SSD PNG artifacts")
 
     for command_parser in sub.choices.values():
         command_parser.add_argument("--metrics-dir", help="optional per-run directory for privacy-safe stage metrics")
@@ -143,7 +151,7 @@ def _main_impl(argv=None) -> int:
             print(json.dumps(load_diagram_knowledge(args.key), ensure_ascii=False, indent=2))
             return 0
         if args.command == "plan-concerns":
-            result = plan_concern_matrix(_read_json(args.model), _read_json(args.fused_ssd) if args.fused_ssd else None, _read_json(args.ssd_manifest) if args.ssd_manifest else None)
+            result = plan_concern_matrix(_read_json(args.model), _read_json(args.fused_ssd) if args.fused_ssd else None, _read_json(args.ssd_manifest) if args.ssd_manifest else None, args.analysis_layers)
             _write_json(args.output, result)
             print(json.dumps({"status": "success", "output": str(Path(args.output).resolve()), "count": len(result["items"])}, ensure_ascii=False))
             return 0
@@ -223,6 +231,16 @@ def _main_impl(argv=None) -> int:
             svg = render_use_case_dependency_svg(graph, output / "use_case_dependency_graph.svg")
             print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg)}, ensure_ascii=False, indent=2))
             return 0
+        if args.command == "render-service-dependency-graph":
+            model = _read_json(args.model)
+            graph = build_sr_service_dependency_graph(model, _read_json(args.ssd_manifest) if args.ssd_manifest else None)
+            output = Path(args.output_dir); output.mkdir(parents=True, exist_ok=True)
+            graph_path = output / "sr_service_dependency_graph.json"
+            _write_json(graph_path, graph)
+            svg = render_sr_service_dependency_svg(graph, output / "sr_service_dependency_graph.svg")
+            png_result = convert_svg_to_png(svg, output / "sr_service_dependency_graph.png", require=args.require_png)
+            print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg), "png": png_result}, ensure_ascii=False, indent=2))
+            return 0
         if args.command == "assemble":
             manifest = _read_json(args.diagram_manifest) if args.diagram_manifest else None
             if args.ssd_manifest:
@@ -231,7 +249,29 @@ def _main_impl(argv=None) -> int:
                     manifest = {**manifest, "use_cases": ssd_manifest.get("use_cases", manifest.get("use_cases", []))}
                 else:
                     manifest = ssd_manifest
-            bundle = assemble_results(_read_json(args.model), _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest)
+            model_value = _read_json(args.model)
+            output_root = Path(args.output_dir).expanduser().resolve()
+            output_root.mkdir(parents=True, exist_ok=True)
+            normalized = validate_scene_model(model_value, raise_on_error=True)["normalized_model"]
+            composition_svg = render_system_composition_svg(normalized, output_root / "system_composition.svg")
+            composition_png = convert_svg_to_png(composition_svg, output_root / "system_composition.png", require=args.require_png)
+            dependency = build_sr_service_dependency_graph(normalized, manifest)
+            dependency_json = output_root / "sr_service_dependency_graph.json"
+            _write_json(dependency_json, dependency)
+            dependency_svg = render_sr_service_dependency_svg(dependency, output_root / "sr_service_dependency_graph.svg")
+            dependency_png = convert_svg_to_png(dependency_svg, output_root / "sr_service_dependency_graph.png", require=args.require_png)
+            manifest = dict(manifest or {})
+            manifest["system_composition"] = {"svg": str(composition_svg), "png": composition_png.get("png", ""), "png_status": composition_png.get("status")}
+            manifest["sr_service_dependency_graph"] = {"json": str(dependency_json), "svg": str(dependency_svg), "png": dependency_png.get("png", ""), "png_status": dependency_png.get("status"), "edge_count": len(dependency.get("edges", [])), "review_items": dependency.get("review_items", [])}
+            if args.require_png and manifest.get("use_cases"):
+                missing = [
+                    entry.get("use_case_id", "")
+                    for entry in manifest["use_cases"]
+                    if not Path((((entry.get("artifacts") or {}).get("fused") or {}).get("png", ""))).is_file()
+                ]
+                if missing:
+                    raise ValidationFailure(["required fused SSD PNG artifacts missing for: " + ", ".join(missing)])
+            bundle = assemble_results(model_value, _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest)
             artifacts = export_workbooks(bundle, args.output_dir)
             print(json.dumps({"status": "success", "artifacts": artifacts}, ensure_ascii=False, indent=2))
             return 0
