@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from pathlib import Path
 from collections import defaultdict
 from typing import Any
 
@@ -370,37 +371,124 @@ def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str
         "diagram_paths": rendered,
         "ssd_paths": puml,
         "source_type": scenario.get("source_type", "requirements"),
+        "name": scenario.get("name", ""),
+        "scenario_source": "spec_exception_branch" if scenario_type == "requirement_exception" else "spec_scenario",
+        "spec_explicitness": "unverified",
+        "spec_sources": [scenario.get("source_location")] if scenario.get("source_location") else [],
     }
 
 
-def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], diagram_manifest: dict[str, Any] | None) -> list[dict[str, Any]]:
+def _normalized_phrase(value: Any) -> str:
+    return re.sub(r"[\s，。、“”‘’：:；;（）()【】\[\]→\-]", "", str(value or "")).lower()
+
+
+def _spec_lines(source_documents: list[dict[str, Any]] | None) -> list[tuple[str, int, str]]:
+    result = []
+    for source in source_documents or []:
+        text = str(source.get("text", ""))
+        name = str(source.get("name") or Path(str(source.get("path", ""))).name)
+        result.extend((name, index, line.strip()) for index, line in enumerate(text.splitlines(), 1) if line.strip())
+    return result
+
+
+def _find_spec_sources(scenario: dict[str, Any], spec_lines: list[tuple[str, int, str]], trust_location: bool = False) -> list[str]:
+    explicit = str(scenario.get("source_location", ""))
+    if trust_location and explicit and any(name in explicit for name, _, _ in spec_lines):
+        # Extracted scenario locations are authoritative, but still validate that
+        # the cited document/line exists when the source text was supplied.
+        match = re.search(r":(\d+)(?:-\d+)?$", explicit)
+        doc_name = next((name for name, _, _ in spec_lines if name in explicit), "")
+        if doc_name and match and any(name == doc_name and line_no == int(match.group(1)) for name, line_no, _ in spec_lines):
+            return [explicit]
+    phrases = [scenario.get(key, "") for key in ("trigger", "exception_desc", "expected_result", "name")]
+    normalized = [phrase for phrase in (_normalized_phrase(p) for p in phrases) if len(phrase) >= 8]
+    matches = []
+    for name, line_no, line in spec_lines:
+        candidate = _normalized_phrase(line)
+        if any(phrase in candidate or (len(candidate) >= 12 and candidate in phrase) for phrase in normalized):
+            matches.append(f"{name}:{line_no}")
+    return list(dict.fromkeys(matches))
+
+
+def _finding_branch_match(item: dict[str, Any], scenario: dict[str, Any]) -> bool:
+    if item.get("use_case_id") != scenario.get("use_case_id"):
+        return False
+    sid = str(scenario.get("source_scenario_id") or scenario.get("scenario_id") or "")
+    # Prefer explicit branch references in finding text over broad evidence/basis,
+    # which may mention multiple neighboring branches.
+    direct = " ".join(str(item.get(key, "")) for key in ("exception_desc", "trigger", "expected_result", "scenario_steps"))
+    if sid and sid in direct:
+        return True
+    step_gap = abs(int(item.get("source_step_index", 0) or 0) - int(scenario.get("source_step_index", 0) or 0))
+    if step_gap > 1:
+        return False
+    if sid and sid in str(item.get("basis", "")):
+        direct_ids = re.findall(r"[A-Z0-9]+(?:-[A-Z0-9]+)+-\d+\.[a-z]", direct)
+        if direct_ids:
+            return sid in direct_ids
+    item_trigger = _normalized_phrase(" ".join(str(item.get(key, "")) for key in ("trigger", "exception_desc")))
+    branch_trigger = _normalized_phrase(" ".join(str(scenario.get(key, "")) for key in ("trigger", "name")))
+    # Require a distinctive condition phrase, not generic overlap such as
+    # “查询失败”. This accommodates small wording/anchor differences while
+    # keeping unrelated exceptions in the same UC separate.
+    if item_trigger and branch_trigger:
+        shorter, longer = sorted((item_trigger, branch_trigger), key=len)
+        if len(shorter) >= 5 and shorter in longer:
+            return True
+        item_grams = {item_trigger[index:index + 4] for index in range(max(0, len(item_trigger) - 3))}
+        branch_grams = {branch_trigger[index:index + 4] for index in range(max(0, len(branch_trigger) - 3))}
+        generic = {"不符合要求", "返回失败", "返回资源", "系统提示", "异常触发", "导致失败", "无法正常", "操作失败", "查询失败", "请求失败"}
+        if (item_grams & branch_grams) - generic:
+            return True
+    item_result = _normalized_phrase(item.get("expected_result", ""))
+    branch_result = _normalized_phrase(scenario.get("expected_result", ""))
+    shorter, longer = sorted((item_result, branch_result), key=len)
+    return bool(len(shorter) >= 6 and shorter in longer)
+
+
+def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], diagram_manifest: dict[str, Any] | None, source_documents: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     use_cases = use_case_map(normalized)
+    spec_lines = _spec_lines(source_documents)
     scenarios: list[dict[str, Any]] = []
     if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
         for uc in normalized["use_cases"]:
             for source in uc.get("scenarios", []):
                 scenarios.append(_base_scenario(uc, source, normalized, diagram_manifest))
+                scenarios[-1]["source_scenario_id"] = source.get("scenario_id", "")
+                if spec_lines:
+                    sources = _find_spec_sources(scenarios[-1], spec_lines, trust_location=True)
+                    scenarios[-1]["spec_sources"] = sources
+                    scenarios[-1]["spec_explicitness"] = "yes" if sources else "no"
     for item in findings:
         uc = use_cases[item["use_case_id"]]
         # Requirement branches are authoritative.  A semantic finding that
         # repeats the same explicit exception (same UC/anchor and matching
         # exception text) is evidence for that branch, not a second scenario.
-        duplicate_requirement = False
+        matching_requirements = []
         for existing in scenarios:
-            if existing.get("scenario_type") != "requirement_exception":
-                continue
-            if existing.get("use_case_id") != item.get("use_case_id"):
-                continue
-            if int(existing.get("source_step_index", 0) or 0) != int(item.get("source_step_index", 0) or 0):
-                continue
-            existing_text = " ".join(str(existing.get(key, "")) for key in ("exception_desc", "expected_result", "trigger", "scenario_steps"))
-            if any(text and text in existing_text for text in (item.get("exception_desc", ""), item.get("exception_type", ""))):
-                duplicate_requirement = True
-                break
-        if duplicate_requirement:
-            existing["merged_concern_keys"] = sorted(set(existing.get("merged_concern_keys", [])) | {item.get("concern_key", "")})
+            if existing.get("scenario_type") == "requirement_exception" and _finding_branch_match(item, existing):
+                matching_requirements.append(existing)
+        if matching_requirements:
+            # A finding should map to at most one authoritative branch. If the
+            # match is ambiguous, use the branch whose outcome is most similar.
+            existing = matching_requirements[0]
             item["merged_requirement_scenario_id"] = existing.get("scenario_id", "")
+            existing.setdefault("merged_concern_keys", [])
+            if item.get("concern_key") and item["concern_key"] not in existing["merged_concern_keys"]:
+                existing["merged_concern_keys"].append(item["concern_key"])
+            existing.setdefault("concern_evidence", []).append({
+                "concern_key": item.get("concern_key", ""), "concern": item.get("concern", ""),
+                "basis": item.get("basis", ""), "candidate_id": item.get("candidate_id", ""),
+                "exchange_id": item.get("exchange_id", ""), "ssd_message_id": item.get("ssd_message_id", ""),
+                "source_location": item.get("source_location", ""),
+            })
+            existing.setdefault("merged_candidate_ids", [])
+            if item.get("candidate_id") and item["candidate_id"] not in existing["merged_candidate_ids"]:
+                existing["merged_candidate_ids"].append(item["candidate_id"])
+            existing.setdefault("trace_refs", []).extend(item.get("trace_refs") or [{"exchange_id": item.get("exchange_id", ""), "ssd_message_id": item.get("ssd_message_id", "")}])
+            existing.setdefault("mapped_exception_types", []).append(str(item.get("exception_type", "")).strip())
+            existing["scenario_source"] = "spec_exception_branch+concern_mapping"
             continue
         scenario = {
             **item,
@@ -413,7 +501,17 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
             "diagram_paths": _diagram_paths(diagram_manifest, item["use_case_id"])[1],
             "ssd_paths": _diagram_paths(diagram_manifest, item["use_case_id"])[0],
             "source_type": "concern_derived",
+            "scenario_source": "concern_completion",
+            "spec_explicitness": "unverified" if not spec_lines else "no",
+            "spec_sources": [],
         }
+        if spec_lines:
+            sources = _find_spec_sources(scenario, spec_lines)
+            scenario["spec_sources"] = sources
+            scenario["spec_explicitness"] = "yes" if sources else "no"
+        item["spec_explicitness"] = scenario["spec_explicitness"]
+        item["spec_sources"] = list(scenario["spec_sources"])
+        item["scenario_source"] = scenario["scenario_source"]
         scenarios.append(scenario)
     deduped: list[dict[str, Any]] = []
     by_signature: dict[tuple[Any, ...], dict[str, Any]] = {}
@@ -436,13 +534,38 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             continue
         prediction_id = stable_id("PRED", model["project"], scenario.get("use_case_id"), "requirement_exception", scenario.get("scenario_id"))
         scenario["prediction_id"] = prediction_id
-        # A requirement branch is an authoritative scenario source, not a
-        # registered concern. Keep it out of the concern taxonomy.
-        scenario["concern_key"] = ""
-        scenario["concern"] = "需求来源异常（非关注点）"
+        keys = list(dict.fromkeys(key for key in scenario.get("merged_concern_keys", []) if key in CONCERN_DEFINITIONS))
+        # The scenario's primary taxonomy should reflect the SR business
+        # service classification; AR-backed database evidence remains attached
+        # as supporting evidence rather than replacing the SR concern.
+        branch_text = _normalized_phrase(" ".join(str(scenario.get(key, "")) for key in ("name", "trigger", "expected_result")))
+        preferred = []
+        if any(word in branch_text for word in ("重复", "幂等", "并发")):
+            preferred.extend(key for key in keys if "concurrency_idempotency" in key or key.endswith(".idempotency"))
+        if "格式" in branch_text:
+            preferred.extend(key for key in keys if key == "api.data.format")
+        if any(word in branch_text for word in ("不存在", "下架", "失效")):
+            preferred.extend(key for key in keys if key == "service.query_retrieval.resource_existence")
+        primary_key = next((key for key in preferred if key in keys), next((key for key in keys if key.startswith("service.")), keys[0] if keys else ""))
+        scenario["concern_keys"] = keys
+        scenario["concern_key"] = primary_key
+        labels = list(dict.fromkeys(CONCERN_DEFINITIONS[key]["label"] for key in keys))
+        scenario["concern"] = "、".join(labels) if labels else "需求异常｜待分类"
         scenario["exception_origin"] = "requirement_branch"
         scenario["exception_type"] = scenario.get("name", "需求异常")
+        if "service.query_retrieval.resource_existence" in keys:
+            if "下架" in branch_text or "失效" in branch_text or "不可用" in branch_text:
+                scenario["exception_type"] = "资源已失效/不可用"
+            elif "不存在" in branch_text:
+                scenario["exception_type"] = "资源不存在"
         scenario["exception_desc"] = scenario.get("expected_result") or scenario.get("trigger") or scenario.get("name", "需求中明确的异常分支")
+        refs = scenario.get("trace_refs", [])
+        scenario["trace_refs"] = [dict(item) for item in { (str(ref.get("exchange_id", "")), str(ref.get("ssd_message_id", ""))): ref for ref in refs if ref.get("exchange_id") or ref.get("ssd_message_id") }.values()]
+        evidence = scenario.get("concern_evidence", [])
+        scenario["concern_evidence"] = list({
+            (str(ref.get("candidate_id", "")), str(ref.get("concern_key", "")), str(ref.get("exchange_id", "")), str(ref.get("ssd_message_id", "")), str(ref.get("basis", ""))): ref
+            for ref in evidence
+        }.values())
         source_predictions.append({
             "prediction_id": prediction_id,
             "scenario_id": scenario.get("scenario_id", ""),
@@ -451,8 +574,9 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             "actor": scenario.get("actor", ""),
             "source_step_index": scenario.get("source_step_index", 0),
             "anchor_label": scenario.get("anchor_label", ""),
-            "concern_key": "",
+            "concern_key": scenario.get("concern_key", ""),
             "concern": scenario["concern"],
+            "concern_keys": keys,
             "exception_origin": "requirement_branch",
             "exception_type": scenario["exception_type"],
             "exception_desc": scenario["exception_desc"],
@@ -470,6 +594,11 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             "interaction_message": scenario.get("interaction_message", ""),
             "ssd_message_id": scenario.get("ssd_message_id", ""),
             "exchange_id": scenario.get("exchange_id", ""),
+            "spec_explicitness": scenario.get("spec_explicitness", "unverified"),
+            "spec_sources": scenario.get("spec_sources", []),
+            "scenario_source": scenario.get("scenario_source", "spec_exception_branch"),
+            "trace_refs": scenario.get("trace_refs", []),
+            "concern_evidence": scenario.get("concern_evidence", []),
         })
     derived = []
     for item in findings:
@@ -478,13 +607,16 @@ def _link_predictions_to_scenarios(findings: list[dict[str, Any]], scenarios: li
             requirement = by_id[merged_id]
             item["scenario_id"] = merged_id
             item["prediction_id"] = requirement["prediction_id"]
+            item["spec_explicitness"] = requirement.get("spec_explicitness", "unverified")
+            item["spec_sources"] = list(requirement.get("spec_sources", []))
+            item["scenario_source"] = requirement.get("scenario_source", "spec_exception_branch+concern_mapping")
             requirement.setdefault("merged_candidate_ids", [])
             if item.get("candidate_id") and item["candidate_id"] not in requirement["merged_candidate_ids"]:
                 requirement["merged_candidate_ids"].append(item["candidate_id"])
             requirement.setdefault("merged_concern_keys", [])
             if item.get("concern_key") not in requirement["merged_concern_keys"]:
                 requirement["merged_concern_keys"].append(item.get("concern_key"))
-            requirement["concern_evidence"] = requirement.get("concern_evidence", []) + [{"concern_key": item.get("concern_key"), "basis": item.get("basis", ""), "ssd_message_id": item.get("ssd_message_id", "")}]
+            item["exception_origin"] = "requirement_branch+concern_mapping"
             continue
         scenario = next((candidate for candidate in scenarios if candidate.get("scenario_id") == item.get("scenario_id")), None)
         if scenario:
@@ -540,7 +672,7 @@ def _enrich_matrix_findings(matrix_items: list[dict[str, Any]], findings: list[d
     return result
 
 
-def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None, source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     report = validate_scene_model(model)
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
@@ -551,7 +683,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
     findings = _merge_equivalent_database_failures(findings, normalized)
     _attach_ids(findings, normalized)
-    scenarios = _scenario_catalog(findings, normalized, diagram_manifest)
+    scenarios = _scenario_catalog(findings, normalized, diagram_manifest, source_documents)
     findings = _link_predictions_to_scenarios(findings, scenarios, normalized)
     matrix_items = _enrich_matrix_findings(matrix_report["items"], findings)
     result_by_key: dict[str, list[dict[str, Any]]] = {key: [] for key in CONCERN_DEFINITIONS}
@@ -655,8 +787,8 @@ def assemble_v2_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     }
 
 
-def assemble_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None) -> dict[str, Any]:
+def assemble_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None, source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
-        return assemble_v3_results(normalized, concern_matrix, semantic_findings, diagram_manifest)
+        return assemble_v3_results(normalized, concern_matrix, semantic_findings, diagram_manifest, source_documents)
     return assemble_v2_results(normalized, concern_matrix, semantic_findings, diagram_manifest)

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from tests.test_scene_completion import sample_model
-from tools.scene_completion.assembly import _merge_equivalent_database_failures, assemble_results
+from tools.scene_completion.assembly import _link_predictions_to_scenarios, _merge_equivalent_database_failures, _scenario_catalog, assemble_results
 from tools.scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
 from tools.scene_completion.exporters import export_workbooks
 from tools.scene_completion.review import _batch_payload, load_ecnu_env_file, review_concerns
@@ -146,8 +146,37 @@ def test_v7_source_scenarios_survive_version_six_and_get_exception_predictions()
     exception = next(item for item in bundle["scenario_catalog"] if item["scenario_type"] == "requirement_exception")
     assert exception["prediction_id"]
     assert exception["concern_key"] == ""
-    assert exception["concern"] == "需求来源异常（非关注点）"
+    assert exception["concern"] == "需求异常｜待分类"
     assert any(item["scenario_id"] == exception["scenario_id"] for item in bundle["findings"])
+
+
+def test_spec_exception_branch_maps_and_deduplicates_concern_findings():
+    model = sample_model()
+    model["version"] = "8"
+    uc = model["use_cases"][0]
+    uc["scenarios"] = [
+        {"scenario_id": "UC-001-main", "scenario_type": "main", "steps": uc["main_flow"]},
+        {"scenario_id": "UC-001-2.a", "scenario_type": "requirement_exception", "anchor_step_index": 2, "anchor_label": "2.a", "steps": [{"step_index": 1, "text": "查询资源"}, {"step_index": 2, "text": "异常触发：资源不存在"}, {"step_index": 2, "text": "返回资源不存在"}], "trigger": "资源不存在", "expected_result": "返回资源不存在", "recovery": "结束", "source_location": "fixture.md:2"},
+        {"scenario_id": "UC-001-2.b", "scenario_type": "requirement_exception", "anchor_step_index": 2, "anchor_label": "2.b", "steps": [{"step_index": 1, "text": "查询资源"}, {"step_index": 2, "text": "异常触发：资源已失效"}, {"step_index": 2, "text": "返回资源已失效"}], "trigger": "资源已失效", "expected_result": "返回资源已失效", "recovery": "结束", "source_location": "fixture.md:3"},
+    ]
+    findings = [
+        {"use_case_id": uc["use_case_id"], "source_step_index": 2, "concern_key": "service.query_retrieval.resource_existence", "concern": "资源存在性", "candidate_id": "CAND-A", "exception_type": "ResourceNotFound", "exception_desc": "场景 UC-001-2.a：资源不存在", "trigger": "资源不存在", "expected_result": "返回资源不存在", "basis": "明确引用 UC-001-2.a", "exchange_id": "EX-A", "ssd_message_id": "MSG-A"},
+        {"use_case_id": uc["use_case_id"], "source_step_index": 2, "concern_key": "internal_database.resource_existence", "concern": "资源存在性", "candidate_id": "CAND-B", "exception_type": "ResourceNotFound", "exception_desc": "数据库查询未找到资源", "trigger": "查询的资源不存在", "expected_result": "返回资源不存在", "basis": "数据库查询", "exchange_id": "EX-B", "ssd_message_id": "MSG-B"},
+        {"use_case_id": uc["use_case_id"], "source_step_index": 2, "concern_key": "service.query_retrieval.resource_existence", "concern": "资源存在性", "candidate_id": "CAND-C", "exception_type": "ResourceUnavailable", "exception_desc": "场景 UC-001-2.b：资源已失效", "trigger": "资源已失效", "expected_result": "返回资源已失效", "basis": "明确引用 UC-001-2.b", "exchange_id": "EX-C", "ssd_message_id": "MSG-C"},
+    ]
+    catalog = _scenario_catalog(findings, model, None, [{"name": "fixture.md", "text": "1. success\n2. 资源不存在，返回资源不存在\n3. 资源已失效，返回资源已失效"}])
+    predictions = _link_predictions_to_scenarios(findings, catalog, model)
+    branches = [item for item in catalog if item["scenario_type"] == "requirement_exception"]
+    assert len(branches) == 2
+    assert all(item["spec_explicitness"] == "yes" for item in branches)
+    not_found = next(item for item in branches if item["source_scenario_id"] == "UC-001-2.a")
+    unavailable = next(item for item in branches if item["source_scenario_id"] == "UC-001-2.b")
+    assert not_found["concern_key"] == "service.query_retrieval.resource_existence"
+    assert len(not_found["merged_candidate_ids"]) == 2
+    assert unavailable["concern_key"] == "service.query_retrieval.resource_existence"
+    assert not_found["prediction_id"] != unavailable["prediction_id"]
+    assert len([item for item in predictions if item["scenario_id"] == not_found["scenario_id"]]) == 1
+    assert not_found["scenario_source"] == "spec_exception_branch+concern_mapping"
 
 
 def test_v7_requirement_exception_trace_nodes_are_resolved_from_ssd(tmp_path):

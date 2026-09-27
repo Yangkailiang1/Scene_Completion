@@ -37,7 +37,7 @@ metadata:
 - `needs_requirement` 只生成待确认项，不生成异常预测。
 - `pending_review` 只表示 Agent 尚未完成判断；它不能进入最终 assemble。
 - 矩阵每行表示一个 SSD 交换中的一个候选关注点；只有 `applicable` 且有原子 finding 才生成关注点异常预测和对应异常场景。
-- 需求文档明确的异常分支作为来源异常场景和异常预测保留；主成功与可选场景只进入场景清单。
+- 需求文档明确的异常分支作为权威场景和预测保留；主成功与可选场景只进入场景清单。来源与关注点分类分开记录。
 - Actor 字段来自 Use Case 的 Actor；交互来源和目标分别使用 `source_node`、`target_node`。
 
 ## SSD 规则
@@ -110,7 +110,7 @@ python tools/scene_completion.py render-diagrams --model <scene_model.json> --in
 python tools/scene_completion.py render-png --input-svg <diagram.svg> --output-png <diagram.png> [--require-png]
 python tools/scene_completion.py render-dependency-graph --model <scene_model.json> --output-dir <diagram-output>
 python tools/scene_completion.py render-service-dependency-graph --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output-dir <diagram-output> --require-png
-python tools/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --output-dir <output> --require-png
+python tools/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --spec-document <system-spec.md> --spec-document <design-spec.md> --output-dir <output> --require-png
 ```
 
 为一次完整运行收集脚本耗时，在上述命令末尾统一追加 `--metrics-dir <本次运行专用目录>`。各命令写入不含需求正文、请求正文或密钥的阶段统计；`assemble` 将收集到的工具阶段计时汇总进 `run_manifest.json`。审核报告另含逐 SSD 交换的耗时、候选数、重试和 checkpoint 命中数。Agent 的语义分析耗时不会由 CLI 代测；不同运行必须使用独立目录。未传该参数时，工具输出保持不变。
@@ -131,11 +131,13 @@ python3 -B tools/benchmark_scene_completion.py --baseline-revision d2295a4 --rep
 - `concern_matrix.json`、`checkpoint_results.json`、`exception_tree.json`、`review_items.json`；
 - 系统组成图、RR 用例/抽象服务图和每个 Use Case 的 RR/SR/AR/融合 SSD；
 - `use_case_dependency_graph.json/.svg` 和 `interface_service_mapping_<项目>.xlsx`；
-- `prediction_analysis_<项目>.xlsx`：按 Use Case 和主流程步骤分组，保持参考文件七列；
+- `prediction_analysis_<项目>.xlsx`：按 Use Case 和主流程步骤分组，保留参考文件七列并追加关注点层级、Spec 明确性、场景生成来源和 Spec 来源定位；
 - `scenario_catalog_<项目>.xlsx`：每行一个主成功、可选、需求异常或关注点异常场景；主表不放合并追溯字段，多交换引用集中到追溯表和 JSON；
 - 场景工作簿的“超时判断”页只列 `common.timeout`；JSON 中未判定的影响维度保留空值，Excel 显示“待需求确认”，避免误读成无影响。
 - 接口契约应保留参数约束、错误码和逐条来源定位，并随匹配的 Abstract API/路径加入对应 ECNU-Max 审核批次。只对有契约或需求证据的字段约束生成异常；不得推测未定义的长度、大小或重复操作阈值。
-- 需求中明确的异常分支是需求来源场景，不是关注点注册表中的关注点；输出标为“需求来源异常（非关注点）”，无需虚构 concern key。
+- 预测表和场景清单必须记录“Spec中已明确”（是/否/待核实）、“场景生成来源”和 Spec 来源定位；通过 `assemble --spec-document` 提供系统需求与功能设计 Markdown，以原文定位核验明确性。
+- 需求异常分支应尽可能映射到现有注册表关注点并合并重复 finding。可归类时使用规范 concern key/中文标签；确实无法映射时标记“需求异常｜待分类”，不得新增“需求来源异常（非关注点）”伪关注点。
+- finding 引用明确分支 ID，或在同用例、同锚点且异常结果/触发条件吻合时，合并证据到该需求分支，只保留一条预测和场景；所有相关交换/消息引用均保留。异常条件或处理结果不同时分别保留。
 - 需求异常场景从锚定步骤映射到最近的 SSD 请求/事件，带出双方节点、交互消息、层级和来源定位。无法映射时用显式待确认状态，不输出空白追溯字段。
 - 数据库可用性异常只有在同一用例、锚点步骤、数据库、结果和恢复方式一致时合并；合并后保留全部 SSD 交换/消息引用。
 - 场景目录中的主成功和可选场景不生成预测 ID；每条异常场景应可追溯到需求分支预测或关注点 finding。

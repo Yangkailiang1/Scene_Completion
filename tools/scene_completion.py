@@ -119,6 +119,7 @@ def _main_impl(argv=None) -> int:
     assemble.add_argument("--semantic-findings", required=True)
     assemble.add_argument("--diagram-manifest")
     assemble.add_argument("--ssd-manifest")
+    assemble.add_argument("--spec-document", action="append", default=[], help="source Markdown spec used to verify explicit exception provenance; repeatable")
     assemble.add_argument("--output-dir", required=True)
     assemble.add_argument("--require-png", action="store_true", help="require all required overview/dependency/SSD PNG artifacts")
 
@@ -271,7 +272,11 @@ def _main_impl(argv=None) -> int:
                 ]
                 if missing:
                     raise ValidationFailure(["required fused SSD PNG artifacts missing for: " + ", ".join(missing)])
-            bundle = assemble_results(model_value, _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest)
+            source_documents = []
+            for source_path in args.spec_document:
+                path = Path(source_path).expanduser().resolve()
+                source_documents.append({"path": str(path), "name": path.name, "text": path.read_text(encoding="utf-8")})
+            bundle = assemble_results(model_value, _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest, source_documents)
             artifacts = export_workbooks(bundle, args.output_dir)
             print(json.dumps({"status": "success", "artifacts": artifacts}, ensure_ascii=False, indent=2))
             return 0

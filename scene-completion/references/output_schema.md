@@ -13,8 +13,8 @@
 - `diagrams/<use_case_id>/ssd_manifest.json`: 单个用例的四套 SSD 路径、SVG/PNG 状态和 AR 待确认项。
 - `review_items.json`: unknown Service 分类、缺少 AR 映射的待确认项。
 - `concern_coverage_report.json`: 按 Use Case、层级、交互对象、关注点族和状态统计审查覆盖率。
-- `prediction_analysis_<项目>.xlsx`: 按 Use Case 和主流程步骤分组的七列异常预测，GT 列为空，并附追溯页。
-- `scenario_catalog_<项目>.xlsx`: 每行一个主成功、可选、需求异常或关注点异常场景，并附关注点矩阵。
+- `prediction_analysis_<项目>.xlsx`: 按 Use Case 和主流程步骤分组的异常预测，GT 列为空，并附追溯页；增加“关注点层级”“Spec中已明确”“场景生成来源”“Spec来源定位”。
+- `scenario_catalog_<项目>.xlsx`: 每行一个主成功、可选、需求异常或关注点异常场景，并附关注点矩阵；场景清单区分“Spec中已明确”与“场景生成来源”。
 - `run_manifest.json`: 统计信息、评估状态和所有输出路径。
 
 系统组成图只展示 RR 抽象服务/用例，RR 用例使用椭圆且不绘制用例间连线；PlantUML 只使用无方向 `--` 连线。SSD PlantUML 使用有方向消息箭头，ImplementationAPI 与 AR 微服务合并为一条生命线。默认纯 Python 生成 SVG，并通过本地可用转换器额外生成 PNG；无转换器时保留 SVG 并记录 `png_status=unavailable`。
@@ -23,6 +23,8 @@ V6/V7 模型版本为 `6`。旧 `display`/`compute` Service 类型仅在输入�
 
 关注点矩阵每行对应一个 SSD 请求—响应交换和一个候选关注点。工作簿的“SSD交换ID”是请求及其返回的组标识，“SSD请求消息ID”是回溯锚点；用例 ID 直接从矩阵记录读取。请求交互消息必须从 SSD 请求复制到矩阵。超时影响维度只在“超时判断”页列出；JSON 未判定值为空，工作簿显示“待需求确认”。
 
-需求明确异常是来源类别而非注册表关注点，使用 `exception_origin=requirement_branch` 标识，不占用 concern key。关注点推导异常需矩阵审核为 `applicable` 并至少有一个 finding；每个未与需求分支合并的 finding 生成一个异常预测和场景。需求明确异常独立保留为异常预测。主成功与可选场景不是异常，不产生预测 ID。
+异常来源和关注点分类是独立维度。需求异常分支的 `exception_origin=requirement_branch` 表示它由 Spec 中明示的分支产生，不代表它没有 concern key。可分类分支使用注册表 key 和标签；无法归类的使用“需求异常｜待分类”，不得把“非关注点”写成关注点名。关注点推导异常需矩阵审核为 `applicable` 并至少有一个 finding；与需求分支同用例、同锚点且触发/结果一致的 finding 合并到该分支，只保留一个预测和场景，合并其 concern evidence 与 SSD trace refs。其余 finding 单独生成预测和场景。主成功与可选场景不是异常，不产生预测 ID。
+
+组装时可重复传入 `--spec-document` 指定系统需求和功能设计 Markdown。输出中的 `spec_explicitness` 为 `yes|no|unverified`，工作簿对应“是/否/待核实”；`scenario_source` 独立表示 `spec_exception_branch`、`spec_exception_branch+concern_mapping`、`concern_completion` 或 `spec_scenario`。`spec_sources` 为可核验的文件/行号列表。需求异常的 concern key 由已审核的匹配 finding 归类；匹配应优先使用显式场景 ID，其次同锚点及异常结果/触发条件，条件或处理结果不同则不得合并。
 
 当等价的数据库可用性 finding 合并时，须同时满足用例、主流程锚点、目标数据库、异常结果和恢复方式相同。合并记录通过 `trace_refs` 保存全部 SSD 交换和消息；Excel 以多行单元格列出这些引用。需求来源异常的双方节点、层级和消息从锚定 SSD 请求补齐；找不到请求时必须输出待确认项，不得静默留空。
