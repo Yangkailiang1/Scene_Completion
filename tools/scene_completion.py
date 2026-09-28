@@ -23,6 +23,7 @@ from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
 from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph, build_sr_service_dependency_graph, render_sr_service_dependency_svg
 from scene_completion.svg_renderer import render_system_composition_svg
+from scene_completion.overview import build_system_composition_semantics
 from scene_completion.review import load_ecnu_env_file, review_concerns
 from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
 
@@ -108,6 +109,7 @@ def _main_impl(argv=None) -> int:
     dep = sub.add_parser("render-dependency-graph", help="render semantic RR use-case dependency graph")
     dep.add_argument("--model", required=True)
     dep.add_argument("--output-dir", required=True)
+    dep.add_argument("--require-png", action="store_true")
     sr_dep = sub.add_parser("render-service-dependency-graph", help="render evidence-backed SR service dependency graph")
     sr_dep.add_argument("--model", required=True)
     sr_dep.add_argument("--ssd-manifest")
@@ -230,7 +232,8 @@ def _main_impl(argv=None) -> int:
             graph_path = output / "use_case_dependency_graph.json"
             _write_json(graph_path, graph)
             svg = render_use_case_dependency_svg(graph, output / "use_case_dependency_graph.svg")
-            print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg)}, ensure_ascii=False, indent=2))
+            png = convert_svg_to_png(svg, output / "use_case_dependency_graph.png", require=args.require_png)
+            print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg), "png": png}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "render-service-dependency-graph":
             model = _read_json(args.model)
@@ -254,15 +257,31 @@ def _main_impl(argv=None) -> int:
             output_root = Path(args.output_dir).expanduser().resolve()
             output_root.mkdir(parents=True, exist_ok=True)
             normalized = validate_scene_model(model_value, raise_on_error=True)["normalized_model"]
+            use_case_dependency = build_use_case_dependency_graph(normalized)
+            normalized["use_case_dependency_graph"] = use_case_dependency
             composition_svg = render_system_composition_svg(normalized, output_root / "system_composition.svg")
             composition_png = convert_svg_to_png(composition_svg, output_root / "system_composition.png", require=args.require_png)
+            composition_semantics = build_system_composition_semantics(normalized, "participation")
+            _write_json(output_root / "system_composition.json", composition_semantics)
+            dependency_composition_svg = render_system_composition_svg(normalized, output_root / "system_composition_dependencies.svg", view="dependencies")
+            dependency_composition_png = convert_svg_to_png(dependency_composition_svg, output_root / "system_composition_dependencies.png", require=args.require_png)
+            dependency_composition_semantics = build_system_composition_semantics(normalized, "dependencies")
+            _write_json(output_root / "system_composition_dependencies.json", dependency_composition_semantics)
+            use_case_dependency_json = output_root / "use_case_dependency_graph.json"
+            _write_json(use_case_dependency_json, use_case_dependency)
+            use_case_dependency_svg = render_use_case_dependency_svg(use_case_dependency, output_root / "use_case_dependency_graph.svg")
+            use_case_dependency_png = convert_svg_to_png(use_case_dependency_svg, output_root / "use_case_dependency_graph.png", require=args.require_png)
+            _write_json(output_root / "er_model.json", normalized.get("er_model", {}))
+            _write_json(output_root / "use_case_entity_crud.json", {"entities": normalized.get("entities", []), "operations": normalized.get("use_case_entity_operations", [])})
             dependency = build_sr_service_dependency_graph(normalized, manifest)
             dependency_json = output_root / "sr_service_dependency_graph.json"
             _write_json(dependency_json, dependency)
             dependency_svg = render_sr_service_dependency_svg(dependency, output_root / "sr_service_dependency_graph.svg")
             dependency_png = convert_svg_to_png(dependency_svg, output_root / "sr_service_dependency_graph.png", require=args.require_png)
             manifest = dict(manifest or {})
-            manifest["system_composition"] = {"svg": str(composition_svg), "png": composition_png.get("png", ""), "png_status": composition_png.get("status")}
+            manifest["system_composition"] = {"json": str(output_root / "system_composition.json"), "svg": str(composition_svg), "png": composition_png.get("png", ""), "png_status": composition_png.get("status"), "view": "participation"}
+            manifest["system_composition_dependencies"] = {"json": str(output_root / "system_composition_dependencies.json"), "svg": str(dependency_composition_svg), "png": dependency_composition_png.get("png", ""), "png_status": dependency_composition_png.get("status"), "view": "dependencies", "edge_count": len(use_case_dependency.get("edges", [])), "cycle_count": len(use_case_dependency.get("layout", {}).get("cycles", []))}
+            manifest["use_case_dependency_graph"] = {"json": str(use_case_dependency_json), "svg": str(use_case_dependency_svg), "png": use_case_dependency_png.get("png", ""), "png_status": use_case_dependency_png.get("status"), "edge_count": len(use_case_dependency.get("edges", [])), "review_items": use_case_dependency.get("review_items", [])}
             manifest["sr_service_dependency_graph"] = {"json": str(dependency_json), "svg": str(dependency_svg), "png": dependency_png.get("png", ""), "png_status": dependency_png.get("status"), "edge_count": len(dependency.get("edges", [])), "review_items": dependency.get("review_items", [])}
             if args.require_png and manifest.get("use_cases"):
                 missing = [
@@ -277,6 +296,13 @@ def _main_impl(argv=None) -> int:
                 path = Path(source_path).expanduser().resolve()
                 source_documents.append({"path": str(path), "name": path.name, "text": path.read_text(encoding="utf-8")})
             bundle = assemble_results(model_value, _read_json(args.concern_matrix), _read_json(args.semantic_findings), manifest, source_documents)
+            bundle["diagram_manifest"]["system_composition"] = manifest["system_composition"]
+            bundle["diagram_manifest"]["system_composition_dependencies"] = manifest["system_composition_dependencies"]
+            bundle["diagram_manifest"]["use_case_dependency_graph"] = manifest["use_case_dependency_graph"]
+            bundle["scene_model"]["use_case_dependency_graph"] = use_case_dependency
+            bundle["system_composition"] = composition_semantics
+            bundle["system_composition"]["use_case_dependency_graph"] = use_case_dependency
+            bundle["system_composition_dependencies"] = dependency_composition_semantics
             artifacts = export_workbooks(bundle, args.output_dir)
             print(json.dumps({"status": "success", "artifacts": artifacts}, ensure_ascii=False, indent=2))
             return 0

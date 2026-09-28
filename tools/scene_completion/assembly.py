@@ -11,6 +11,7 @@ from typing import Any
 
 from .concerns import CONCERN_DEFINITIONS, CONCERN_REGISTRY_VERSION, validate_concern_matrix
 from .schemas import ValidationFailure, node_map, stable_id, use_case_map, validate_scene_model
+from .graphs import build_use_case_dependency_graph
 
 
 def _finding_list(value: Any) -> list[dict[str, Any]]:
@@ -451,7 +452,7 @@ def _scenario_catalog(findings: list[dict[str, Any]], model: dict[str, Any], dia
     use_cases = use_case_map(normalized)
     spec_lines = _spec_lines(source_documents)
     scenarios: list[dict[str, Any]] = []
-    if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6", "8", "9"}:
         for uc in normalized["use_cases"]:
             for source in uc.get("scenarios", []):
                 scenarios.append(_base_scenario(uc, source, normalized, diagram_manifest))
@@ -677,7 +678,9 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
     normalized = report["normalized_model"]
-    matrix_report = validate_concern_matrix(normalized, concern_matrix, require_complete=str(normalized.get("version")) == "8")
+    use_case_dependency_graph = build_use_case_dependency_graph(normalized)
+    normalized["use_case_dependency_graph"] = use_case_dependency_graph
+    matrix_report = validate_concern_matrix(normalized, concern_matrix, require_complete=str(normalized.get("version")) in {"8", "9"})
     if not matrix_report["valid"]:
         raise ValidationFailure(matrix_report["errors"])
     findings = _normalize_findings(normalized, matrix_report["items"], semantic_findings)
@@ -698,6 +701,7 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
             review_items.append({"type": "concern_requirement_confirmation", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "use_case_id": item.get("use_case_id", ""), "concern_key": item["concern_key"], "message": "需求文档不足以确定该关注点是否适用。"})
         if item.get("status") == "pending_review":
             review_items.append({"type": "concern_review_pending", "interaction_id": item.get("interaction_id", ""), "exchange_id": item.get("exchange_id", ""), "concern_key": item["concern_key"], "message": "该候选关注点尚未完成 Agent 判断。"})
+    review_items.extend(item for item in use_case_dependency_graph.get("review_items", []) if item not in review_items)
     for scenario in scenarios:
         if scenario.get("scenario_type") == "requirement_exception" and scenario.get("trace_mapping_status") != "mapped":
             review_items.append({"type": "requirement_exception_trace_missing", "use_case_id": scenario.get("use_case_id", ""), "scenario_id": scenario.get("scenario_id", ""), "source_location": scenario.get("source_location", ""), "message": "需求异常分支未能映射到 SSD 请求的来源/目标节点，需人工确认。"})
@@ -735,7 +739,11 @@ def assemble_v3_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
         "version": str(normalized.get("version", "3")),
         "project": normalized["project"],
         "scene_model": normalized,
-        "system_composition": normalized["system_composition"],
+        "system_composition": {**normalized["system_composition"], "use_case_dependency_graph": use_case_dependency_graph,
+                               "frontend_mappings": normalized.get("frontend_mappings", []), "supported_devices": normalized.get("supported_devices", [])},
+        "er_model": normalized.get("er_model", {}),
+        "use_case_entity_operations": normalized.get("use_case_entity_operations", []),
+        "use_case_dependency_graph": use_case_dependency_graph,
         "interaction_catalog": exchange_catalog,
         "concern_matrix": matrix_items,
         "analysis_layers": concern_matrix.get("analysis_layers", ["SR"]) if isinstance(concern_matrix, dict) else ["SR"],
@@ -789,6 +797,6 @@ def assemble_v2_results(model: dict[str, Any], concern_matrix: Any, semantic_fin
 
 def assemble_results(model: dict[str, Any], concern_matrix: Any, semantic_findings: Any, diagram_manifest: dict[str, Any] | None = None, source_documents: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
-    if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
+    if str(normalized.get("version")) in {"3", "4", "5", "6", "7", "8", "9"}:
         return assemble_v3_results(normalized, concern_matrix, semantic_findings, diagram_manifest, source_documents)
     return assemble_v2_results(normalized, concern_matrix, semantic_findings, diagram_manifest)

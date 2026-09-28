@@ -177,7 +177,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             manifest = render_diagrams(model, diagram_spec(model), Path(tmp) / "diagrams")
             self.assertEqual(manifest["status"], "rendered")
-            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition_svg", "system_composition", "interaction_concern"})
+            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition", "system_composition_dependencies", "interaction_concern"})
             self.assertTrue(Path(manifest["manifest"]).exists())
 
     def test_system_composition_rejects_arrows_and_accepts_lines(self):

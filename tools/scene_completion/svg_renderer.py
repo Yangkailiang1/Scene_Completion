@@ -86,7 +86,7 @@ def _boundary_anchor(
     return cx + dx * scale, cy + dy * scale
 
 
-def render_system_composition_svg(model: dict[str, Any], output_path: str | Path) -> Path:
+def _render_system_composition_svg_legacy(model: dict[str, Any], output_path: str | Path) -> Path:
     """Render the RR-only system overview with stable, non-overlapping zones."""
     all_nodes = list(model.get("system_composition", {}).get("nodes", []))
     system = next((n for n in all_nodes if n.get("node_id") == "system"), {"node_id": "system", "name": model.get("system_name", "系统"), "kind": "internal_service", "layer": "RR"})
@@ -278,3 +278,9 @@ def render_ssd_svg(ssd: dict[str, Any], model: dict[str, Any], output_path: str 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("\n".join(body), encoding="utf-8")
     return output
+
+
+def render_system_composition_svg(model: dict[str, Any], output_path: str | Path, view: str = "participation") -> Path:
+    """Public overview renderer; historical import path remains stable."""
+    from .overview import render_system_composition_svg as render_v9
+    return render_v9(model, output_path, view=view)

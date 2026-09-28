@@ -11,7 +11,9 @@ from typing import Any
 
 from .schemas import ValidationFailure, validate_scene_model
 from .svg_renderer import render_system_composition_svg
+from .overview import build_system_composition_semantics
 from .png_renderer import convert_svg_to_png
+from .graphs import build_use_case_dependency_graph, render_use_case_dependency_svg
 
 
 def _puml_check(value: Any, label: str) -> list[str]:
@@ -153,10 +155,23 @@ def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str
     # one RR abstract service per use case; using the raw input here silently
     # dropped those services from the overview on another machine.
     normalized = report["normalized_model"]
+    dependency_graph = build_use_case_dependency_graph(normalized)
+    normalized["use_case_dependency_graph"] = dependency_graph
     render_system_composition_svg(normalized, overview_svg)
     overview_png = output / "system_composition.png"
     overview_png_result = convert_svg_to_png(overview_svg, overview_png, require=require_png)
-    records.insert(0, {"kind": "system_composition_svg", "puml": "", "svg": str(overview_svg), "png": overview_png_result.get("png", ""), "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "rendered": True, "source_location": spec.get("system_composition_diagram", {}).get("source_location", "")})
+    overview_json = output / "system_composition.json"
+    overview_json.write_text(json.dumps(build_system_composition_semantics(normalized, "participation"), ensure_ascii=False, indent=2), encoding="utf-8")
+    dependency_composition_svg = render_system_composition_svg(normalized, output / "system_composition_dependencies.svg", view="dependencies")
+    dependency_composition_png_result = convert_svg_to_png(dependency_composition_svg, output / "system_composition_dependencies.png", require=require_png)
+    dependency_composition_json = output / "system_composition_dependencies.json"
+    dependency_composition_json.write_text(json.dumps(build_system_composition_semantics(normalized, "dependencies"), ensure_ascii=False, indent=2), encoding="utf-8")
+    dependency_json = output / "use_case_dependency_graph.json"
+    dependency_json.write_text(json.dumps(dependency_graph, ensure_ascii=False, indent=2), encoding="utf-8")
+    dependency_svg = render_use_case_dependency_svg(dependency_graph, output / "use_case_dependency_graph.svg")
+    dependency_png_result = convert_svg_to_png(dependency_svg, output / "use_case_dependency_graph.png", require=require_png)
+    records.insert(0, {"kind": "system_composition_dependencies", "json": str(dependency_composition_json), "svg": str(dependency_composition_svg), "png": dependency_composition_png_result.get("png", ""), "png_status": dependency_composition_png_result.get("status"), "rendered": True})
+    records.insert(0, {"kind": "system_composition", "json": str(overview_json), "svg": str(overview_svg), "png": overview_png_result.get("png", ""), "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "rendered": True, "source_location": spec.get("system_composition_diagram", {}).get("source_location", "")})
     jar = find_plantuml_jar(plantuml_jar)
     status, error = "rendered", ""
     if jar and shutil.which("java"):
@@ -178,7 +193,7 @@ def render_diagrams(model: dict[str, Any], spec: dict[str, Any], output_dir: str
         record["svg"] = str(svg) if svg.exists() else ""
         record["png"] = str(png) if png.exists() else ""
         record["rendered"] = bool(record["svg"] and record["png"])
-    manifest = {"version": str(normalized.get("version", "6")), "project": spec.get("project") or normalized.get("project"), "status": status, "error": error, "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "artifacts": records, "node_ids": sorted({node["node_id"] for node in normalized["system_composition"]["nodes"]}), "interaction_ids": sorted({item["interaction_id"] for item in normalized["interactions"]})}
+    manifest = {"version": str(normalized.get("version", "10")), "project": spec.get("project") or normalized.get("project"), "status": status, "error": error, "png_status": overview_png_result.get("status"), "png_converter": overview_png_result.get("converter", ""), "png_error": overview_png_result.get("error", ""), "artifacts": records, "system_composition": {"json": str(overview_json), "svg": str(overview_svg), "png": overview_png_result.get("png", ""), "view": "participation"}, "system_composition_dependencies": {"json": str(dependency_composition_json), "svg": str(dependency_composition_svg), "png": dependency_composition_png_result.get("png", ""), "view": "dependencies", "edge_count": len(dependency_graph.get("edges", [])), "cycle_count": len(dependency_graph.get("layout", {}).get("cycles", []))}, "use_case_dependency_graph": {"json": str(dependency_json), "svg": str(dependency_svg), "png": dependency_png_result.get("png", ""), "edge_count": len(dependency_graph.get("edges", [])), "review_items": dependency_graph.get("review_items", [])}, "node_ids": sorted({node["node_id"] for node in normalized["system_composition"]["nodes"]}), "interaction_ids": sorted({item["interaction_id"] for item in normalized["interactions"]})}
     manifest_path = output / "diagram_manifest.json"
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     manifest["manifest"] = str(manifest_path)

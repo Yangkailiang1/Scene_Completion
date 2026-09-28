@@ -8,7 +8,7 @@ from typing import Any
 
 
 NODE_KINDS = {
-    "human_actor", "external_actor", "connection_device", "internal_service",
+    "human_actor", "external_actor", "frontend_ui", "connection_device", "internal_service",
     "internal_database", "internal_knowledge_base", "external_service",
     "external_database", "external_llm", "deployment_hardware", "runtime_environment",
     "abstract_service", "implementation_api",
@@ -156,6 +156,83 @@ def _default_layer(kind: str) -> str:
     if kind == "abstract_service":
         return "RR"
     return "RR"
+
+
+def _normalize_entity_operations(value: Any, entities: list[str], use_cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValidationFailure(["use_case_entity_operations must be a list"])
+    known_entities = set(entities)
+    uc_by_id = {uc["use_case_id"]: uc for uc in use_cases}
+    known_ucs = set(uc_by_id)
+    operations, seen = [], set()
+    for index, raw in enumerate(value, 1):
+        if not isinstance(raw, dict):
+            raise ValidationFailure([f"use_case_entity_operations[{index}] must be an object"])
+        item = dict(raw)
+        uc_id = _text(item.get("use_case_id"))
+        entity = _text(item.get("entity"))
+        operation = _text(item.get("operation")).upper()
+        if uc_id not in known_ucs:
+            raise ValidationFailure([f"CRUD operation {index} references unknown use_case_id: {uc_id}"])
+        if entity not in known_entities:
+            raise ValidationFailure([f"CRUD operation {index} references unknown entity: {entity}"])
+        if operation not in {"C", "R", "U", "D"}:
+            raise ValidationFailure([f"CRUD operation {index} has invalid operation: {operation}"])
+        try:
+            step_index = int(item.get("source_step_index"))
+        except (TypeError, ValueError):
+            raise ValidationFailure([f"CRUD operation {index} needs a valid source_step_index"])
+        if not _text(item.get("source_location")):
+            raise ValidationFailure([f"CRUD operation {index} needs source_location"])
+        if not _text(item.get("evidence")):
+            raise ValidationFailure([f"CRUD operation {index} needs evidence"])
+        available_steps = {step["step_index"] for step in uc_by_id[uc_id].get("main_flow", []) + uc_by_id[uc_id].get("alternative_flow", [])}
+        if step_index not in available_steps:
+            raise ValidationFailure([f"CRUD operation {index} source_step_index {step_index} is not present in {uc_id}"])
+        status = _text(item.get("mapping_status"), "inferred")
+        if status not in {"confirmed", "inferred", "needs_confirmation"}:
+            raise ValidationFailure([f"CRUD operation {index} has invalid mapping_status: {status}"])
+        op_id = _text(item.get("operation_id"), stable_id("CRUD", uc_id, entity, operation, step_index))
+        if op_id in seen:
+            raise ValidationFailure([f"duplicate CRUD operation_id: {op_id}"])
+        seen.add(op_id)
+        item.update({"operation_id": op_id, "use_case_id": uc_id, "entity": entity, "operation": operation,
+                     "source_step_index": step_index, "source_location": _text(item.get("source_location")),
+                     "mapping_status": status, "evidence": _text(item.get("evidence"))})
+        operations.append(item)
+    known_operation_ids = {item["operation_id"] for item in operations}
+    for item in operations:
+        prerequisites = item.get("depends_on_operations", []) or []
+        prerequisites = [prerequisites] if isinstance(prerequisites, str) else prerequisites
+        if not isinstance(prerequisites, list):
+            raise ValidationFailure([f"CRUD operation {item['operation_id']} depends_on_operations must be a list"])
+        missing = [value for value in prerequisites if str(value) not in known_operation_ids]
+        if missing:
+            raise ValidationFailure([f"CRUD operation {item['operation_id']} references unknown prerequisite operation(s): {', '.join(map(str, missing))}"])
+        item["depends_on_operations"] = [str(value) for value in prerequisites]
+    return operations
+
+
+def _normalize_frontend_mappings(value: Any) -> list[dict[str, Any]]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValidationFailure(["frontend_mappings must be a list"])
+    result = []
+    for index, raw in enumerate(value, 1):
+        if not isinstance(raw, dict):
+            raise ValidationFailure([f"frontend_mappings[{index}] must be an object"])
+        item = dict(raw)
+        if not _text(item.get("actor_id")) or not _text(item.get("frontend_id")):
+            raise ValidationFailure([f"frontend_mappings[{index}] needs actor_id and frontend_id"])
+        item["use_case_ids"] = list(dict.fromkeys(_text(v) for v in item.get("use_case_ids", []) if _text(v)))
+        item["mapping_status"] = _text(item.get("mapping_status"), "needs_confirmation")
+        if item["mapping_status"] not in {"confirmed", "inferred", "needs_confirmation"}:
+            raise ValidationFailure([f"frontend_mappings[{index}] has invalid mapping_status"])
+        result.append(item)
+    return result
 
 
 def _normalize_nodes(value: Any) -> list[dict[str, Any]]:
@@ -384,7 +461,44 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
                 })
         normalized_ucs.append(uc)
     data["use_cases"] = normalized_ucs
-    data["entities"] = [_text(entity) for entity in data.get("entities", []) if _text(entity)]
+    data["entities"] = list(dict.fromkeys(_text(entity) for entity in data.get("entities", []) if _text(entity)))
+    er_model = data.get("er_model") or {}
+    if not isinstance(er_model, dict):
+        raise ValidationFailure(["er_model must be an object"])
+    er_entities = er_model.get("entities", [])
+    if not isinstance(er_entities, list):
+        raise ValidationFailure(["er_model.entities must be a list"])
+    for entity in er_entities:
+        name = _text(entity.get("name")) if isinstance(entity, dict) else _text(entity)
+        if name and name not in data["entities"]:
+            data["entities"].append(name)
+    er_model["entities"] = [dict(entity) if isinstance(entity, dict) else {"name": _text(entity)} for entity in er_entities if _text(entity.get("name") if isinstance(entity, dict) else entity)]
+    for index, entity in enumerate(er_model["entities"], 1):
+        status = _text(entity.get("mapping_status"), "inferred")
+        if status not in {"confirmed", "inferred", "needs_confirmation"}:
+            raise ValidationFailure([f"er_model.entities[{index}] has invalid mapping_status: {status}"])
+        entity["mapping_status"] = status
+        if not _text(entity.get("source_location")):
+            raise ValidationFailure([f"er_model.entities[{index}] needs source_location"])
+    relationships = er_model.get("relationships", [])
+    if not isinstance(relationships, list):
+        raise ValidationFailure(["er_model.relationships must be a list"])
+    known_entities = set(data["entities"])
+    for index, relation in enumerate(relationships, 1):
+        if not isinstance(relation, dict):
+            raise ValidationFailure([f"er_model.relationships[{index}] must be an object"])
+        for field in ("from_entity", "to_entity"):
+            if _text(relation.get(field)) not in known_entities:
+                raise ValidationFailure([f"er_model.relationships[{index}] references unknown {field}: {relation.get(field)}"])
+        if not _text(relation.get("source_location")) or not _text(relation.get("evidence")):
+            raise ValidationFailure([f"er_model.relationships[{index}] needs evidence and source_location"])
+    data["er_model"] = er_model
+    data["use_case_entity_operations"] = _normalize_entity_operations(data.get("use_case_entity_operations"), data["entities"], normalized_ucs)
+    semantic_reviews = list(data.get("review_items") or [])
+    for entity in er_model["entities"]:
+        if entity.get("mapping_status") == "needs_confirmation":
+            semantic_reviews.append({"type": "er_entity_confirmation", "entity": entity.get("name", ""), "source_location": entity.get("source_location", ""), "message": entity.get("evidence", "实体映射待确认。")})
+    data["review_items"] = semantic_reviews
     data["interfaces"] = _normalize_interfaces(data.get("interfaces"))
     composition = data.get("system_composition") or {}
     if not isinstance(composition, dict):
@@ -458,6 +572,49 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
                 "classification_status": "inferred",
                 "source_location": uc.get("source_location", ""),
             })
+    # A human actor gets a distinct frontend boundary. Legacy generic UI/device
+    # nodes are not treated as supported hardware; devices require explicit
+    # evidence on a connection_device node.
+    actor_nodes = [node for node in nodes if node.get("kind") == "human_actor"]
+    frontend_mappings = data.get("frontend_mappings")
+    frontend_mappings = _normalize_frontend_mappings(frontend_mappings) if frontend_mappings is not None else []
+    mapping_by_actor = {item["actor_id"]: item for item in frontend_mappings}
+    for actor in actor_nodes:
+        actor_cases = [uc["use_case_id"] for uc in normalized_ucs if actor["name"] in uc.get("actors", []) or actor["node_id"] in uc.get("actors", [])]
+        mapping = mapping_by_actor.get(actor["node_id"])
+        frontend_id = mapping.get("frontend_id") if mapping else stable_id("FRONTEND", data["project"], actor["node_id"])
+        frontend = next((node for node in nodes if node.get("node_id") == frontend_id), None)
+        if frontend is None:
+            frontend = {"node_id": frontend_id, "name": f"{actor['name']}端 UI/前端", "kind": "frontend_ui", "layer": "RR",
+                        "actor_id": actor["node_id"], "mapping_status": "inferred", "source_location": actor.get("source_location", "")}
+            nodes.append(frontend)
+        elif frontend.get("kind") != "frontend_ui":
+            raise ValidationFailure([f"frontend mapping for {actor['node_id']} references a non-frontend node: {frontend_id}"])
+        if mapping is None:
+            mapping = {"actor_id": actor["node_id"], "frontend_id": frontend_id, "use_case_ids": actor_cases,
+                       "mapping_status": "inferred", "source_location": actor.get("source_location", ""),
+                       "basis": "按各 Use Case 的 Actor 关联生成独立前端边界；待具体客户端架构确认"}
+            frontend_mappings.append(mapping)
+        else:
+            mapping["use_case_ids"] = mapping.get("use_case_ids") or actor_cases
+        frontend["actor_id"] = actor["node_id"]
+        frontend["use_case_ids"] = mapping.get("use_case_ids", actor_cases)
+        frontend["mapping_status"] = mapping.get("mapping_status", "needs_confirmation")
+    data["frontend_mappings"] = frontend_mappings
+    normalized_node_ids = {node["node_id"] for node in nodes}
+    normalized_by_id = {node["node_id"]: node for node in nodes}
+    normalized_uc_ids = {uc["use_case_id"] for uc in normalized_ucs}
+    for mapping in frontend_mappings:
+        actor = normalized_by_id.get(mapping["actor_id"])
+        frontend = normalized_by_id.get(mapping["frontend_id"])
+        if not actor or actor.get("kind") != "human_actor":
+            raise ValidationFailure([f"frontend mapping actor_id must reference a human_actor: {mapping['actor_id']}"])
+        if not frontend or frontend.get("kind") != "frontend_ui":
+            raise ValidationFailure([f"frontend mapping frontend_id must reference a frontend_ui: {mapping['frontend_id']}"])
+        if any(use_case_id not in normalized_uc_ids for use_case_id in mapping.get("use_case_ids", [])):
+            raise ValidationFailure([f"frontend mapping for {mapping['actor_id']} references unknown use case"])
+    # Explicit device support only; no device is inferred from a generic web/mobile UI label.
+    data["supported_devices"] = [node["node_id"] for node in nodes if node.get("kind") == "connection_device" and node.get("spec_explicit") is True and _text(node.get("source_location"))]
     abstract_use_cases = set()
     known_use_cases = {uc["use_case_id"] for uc in normalized_ucs}
     for node in nodes:
@@ -483,6 +640,9 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
         if node.get("layer") == "SR" and node.get("kind") in {"internal_service", "abstract_service"}
     }
     association_edges = list(composition["edges"])
+    # Replace generated actor/frontend participation edges on each normalization
+    # pass, retaining unrelated architecture edges.
+    association_edges = [edge for edge in association_edges if edge.get("relation") not in {"participates_in", "uses_frontend", "serves_use_case", "supports_device"}]
     existing_associations = {
         (edge.get("from_node"), edge.get("to_node"), edge.get("relation"))
         for edge in association_edges
@@ -496,6 +656,18 @@ def normalize_model(model: dict[str, Any]) -> dict[str, Any]:
             matches = [node for node in nodes if node.get("kind") in {"human_actor", "external_actor", "external_service", "external_database", "external_llm"} and actor in {node.get("node_id"), node.get("name")}]
             if len(matches) == 1:
                 relation = "external_participates_in" if matches[0].get("kind") in {"external_service", "external_database", "external_llm"} else "participates_in"
+                if matches[0].get("kind") == "human_actor":
+                    mapping = mapping_by_actor.get(matches[0]["node_id"]) or next((item for item in frontend_mappings if item.get("actor_id") == matches[0]["node_id"]), {})
+                    frontend_id = mapping.get("frontend_id")
+                    if frontend_id:
+                        for left, right, edge_relation in ((matches[0]["node_id"], frontend_id, "uses_frontend"), (frontend_id, rr_node["node_id"], "serves_use_case")):
+                            edge_key = (left, right, edge_relation)
+                            if edge_key not in existing_associations:
+                                association_edges.append({"edge_id": stable_id("EDGE", *edge_key, uc["use_case_id"]), "from_node": left, "to_node": right,
+                                                          "relation": edge_relation, "use_case_id": uc["use_case_id"], "mapping_status": mapping.get("mapping_status", "inferred"),
+                                                          "source_location": mapping.get("source_location", uc.get("source_location", ""))})
+                                existing_associations.add(edge_key)
+                    continue
                 edge_key = (matches[0]["node_id"], rr_node["node_id"], relation)
                 if edge_key not in existing_associations:
                     association_edges.append({"edge_id": stable_id("EDGE", *edge_key), "from_node": edge_key[0], "to_node": edge_key[1], "relation": edge_key[2], "use_case_id": uc["use_case_id"], "source_location": uc.get("source_location", "")})
@@ -559,7 +731,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
             warnings.append(f"{uid} has no actors")
         if not uc["main_flow"]:
             errors.append(f"{uid} has no main_flow")
-        if str(normalized.get("version")) in {"3", "4", "5", "6", "8"}:
+        if str(normalized.get("version")) in {"3", "4", "5", "6", "8", "9"}:
             main_scenarios = [scenario for scenario in uc.get("scenarios", []) if scenario.get("scenario_type") == "main"]
             if len(main_scenarios) != 1:
                 errors.append(f"{uid} must have exactly one main_success scenario")
@@ -586,7 +758,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
     for interaction in normalized["interactions"]:
         if interaction["from_node"] not in node_ids or interaction["to_node"] not in node_ids:
             errors.append(f"interaction {interaction['interaction_id']} references unknown node")
-    if str(normalized.get("version")) in {"4", "5", "6", "8"}:
+    if str(normalized.get("version")) in {"4", "5", "6", "8", "9"}:
         nodes_by_id = node_map(normalized)
         for uc in normalized["use_cases"]:
             architecture = uc.get("architecture") or {}
@@ -618,7 +790,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
                 node_id = _text(component.get("microservice_id"))
                 if node_id and node_id in nodes_by_id and nodes_by_id[node_id].get("layer") != "AR":
                     errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] microservice must be AR")
-                if str(normalized.get("version")) in {"6", "7", "8"}:
+                if str(normalized.get("version")) in {"6", "7", "8", "9"}:
                     if component.get("service_type") not in AR_SERVICE_TYPES:
                         errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] has invalid AR service_type: {component.get('service_type')}")
                     if component.get("classification_status") not in CLASSIFICATION_STATUS:
@@ -627,7 +799,7 @@ def validate_scene_model(model: dict[str, Any], raise_on_error: bool = False) ->
                         errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] unknown classification must be needs_confirmation")
                     if not _text(component.get("classification_basis")) or not _text(component.get("source_location")):
                         errors.append(f"{uc['use_case_id']}.architecture.ar[{index}] needs classification_basis and source_location")
-            if str(normalized.get("version")) in {"6", "7", "8"}:
+            if str(normalized.get("version")) in {"6", "7", "8", "9"}:
                 if sr.get("service_type") not in SR_SERVICE_TYPES:
                     errors.append(f"{uc['use_case_id']}.architecture.sr has invalid SR service_type: {sr.get('service_type')}")
                 if sr.get("classification_status") not in CLASSIFICATION_STATUS:

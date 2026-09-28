@@ -265,6 +265,56 @@ def _json_write(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _test_scenarios_payload(bundle: dict[str, Any]) -> dict[str, Any]:
+    """Export every catalog scenario in a stable, test-runner-friendly shape."""
+    items = bundle.get("scenario_catalog", [])
+    counts = Counter(str(item.get("scenario_type", "unknown")) for item in items)
+    scenarios = []
+    for item in items:
+        raw_steps = item.get("scenario_steps", item.get("steps", [])) or []
+        if isinstance(raw_steps, str):
+            raw_steps = [line.strip() for line in raw_steps.splitlines() if line.strip()]
+        steps = [{"step_number": index + 1, "text": str(step)} for index, step in enumerate(raw_steps)]
+        trace_refs = item.get("trace_refs", []) or []
+        if not trace_refs and (item.get("exchange_id") or item.get("ssd_message_id")):
+            trace_refs = [{"exchange_id": item.get("exchange_id", ""), "ssd_message_id": item.get("ssd_message_id", ""), "layer": item.get("layer", "")}]
+        source_docs = item.get("spec_sources", []) or []
+        scenarios.append({
+            "scenario_id": item.get("scenario_id", ""),
+            "prediction_id": item.get("prediction_id") or None,
+            "scenario_type": item.get("scenario_type", "unknown"),
+            "name": item.get("name", item.get("exception_type", "")),
+            "use_case_id": item.get("use_case_id", ""),
+            "use_case_name": item.get("use_case_name", ""),
+            "actor": item.get("actor", ""),
+            "preconditions": item.get("preconditions", ""),
+            "trigger": item.get("trigger", ""),
+            "steps": steps,
+            "expected_result": item.get("expected_result", item.get("exception_desc", "")),
+            "postconditions": item.get("postconditions", ""),
+            "recovery": item.get("recovery", ""),
+            "exception_type": item.get("exception_type", ""),
+            "exception_description": item.get("exception_desc", ""),
+            "concern_keys": item.get("concern_keys", [item["concern_key"]] if item.get("concern_key") else []),
+            "concern": item.get("concern", ""),
+            "concern_layer": item.get("concern_layer", item.get("layer", "")),
+            "scenario_origin": item.get("scenario_origin", item.get("scenario_source", "")),
+            "spec_explicitness": item.get("spec_explicitness", "unverified"),
+            "spec_sources": source_docs,
+            "source_location": item.get("source_location", ""),
+            "trace": {
+                "exchange_id": item.get("exchange_id", ""),
+                "ssd_message_id": item.get("ssd_message_id", ""),
+                "interaction_id": item.get("interaction_id", ""),
+                "source_node": item.get("source_node", ""),
+                "target_node": item.get("target_node", ""),
+                "source_step_index": item.get("source_step_index", ""),
+                "references": trace_refs,
+            },
+        })
+    return {"schema_version": "1.0", "project": bundle.get("project", ""), "scenario_count": len(scenarios), "scenario_type_counts": dict(sorted(counts.items())), "scenarios": scenarios}
+
+
 def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str, str]:
     output = Path(output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -272,11 +322,17 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     artifacts = {
         "scene_model": output / "scene_model.json",
         "system_composition": output / "system_composition.json",
+        "system_composition_dependencies": output / "system_composition_dependencies.json",
+        "er_model": output / "er_model.json",
+        "use_case_entity_crud": output / "use_case_entity_crud.json",
+        "use_case_dependency_graph": output / "use_case_dependency_graph.json",
+        "use_case_entity_crud_workbook": output / f"use_case_entity_crud_{project}.xlsx",
         "interaction_catalog": output / "interaction_catalog.json",
         "concern_matrix": output / "concern_matrix.json",
         "checkpoint_results": output / "checkpoint_results.json",
         "exception_tree": output / "exception_tree.json",
         "scenario_catalog_json": output / "scenario_catalog.json",
+        "test_scenarios": output / "test_scenarios.json",
         "diagram_manifest": output / "diagram_manifest.json",
         "review_items": output / "review_items.json",
         "prediction_workbook": output / f"prediction_analysis_{project}.xlsx",
@@ -285,6 +341,11 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     }
     _json_write(artifacts["scene_model"], bundle["scene_model"])
     _json_write(artifacts["system_composition"], bundle["system_composition"])
+    _json_write(artifacts["system_composition_dependencies"], bundle.get("system_composition_dependencies", {}))
+    _json_write(artifacts["er_model"], bundle.get("er_model", {}))
+    _json_write(artifacts["use_case_entity_crud"], {"entities": bundle.get("scene_model", {}).get("entities", []), "operations": bundle.get("use_case_entity_operations", [])})
+    _json_write(artifacts["use_case_dependency_graph"], bundle.get("use_case_dependency_graph", {}))
+    _write_use_case_entity_crud_workbook(bundle, artifacts["use_case_entity_crud_workbook"])
     _json_write(artifacts["interaction_catalog"], bundle["interaction_catalog"])
     matrix_items = bundle["concern_matrix"]
     _json_write(artifacts["concern_matrix"], {
@@ -298,6 +359,8 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     _json_write(artifacts["checkpoint_results"], bundle["checkpoint_results"])
     _json_write(artifacts["exception_tree"], bundle["exception_tree"])
     _json_write(artifacts["scenario_catalog_json"], bundle["scenario_catalog"])
+    test_scenarios = _test_scenarios_payload(bundle)
+    _json_write(artifacts["test_scenarios"], test_scenarios)
     _json_write(artifacts["diagram_manifest"], bundle.get("diagram_manifest", {"version": "3", "status": "skipped", "artifacts": []}))
     _json_write(artifacts["review_items"], bundle.get("review_items", []))
     _write_prediction_workbook(bundle, artifacts["prediction_workbook"])
@@ -325,6 +388,8 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
         "version": bundle.get("version", "3"),
         "project": bundle["project"],
         "scenario_count": len(bundle.get("scenario_catalog", [])),
+        "test_scenarios": {"path": str(artifacts["test_scenarios"]), "scenario_count": test_scenarios["scenario_count"], "scenario_type_counts": test_scenarios["scenario_type_counts"]},
+        "system_composition_dependencies": bundle.get("diagram_manifest", {}).get("system_composition_dependencies", {}),
         "prediction_count": len(bundle.get("findings", [])),
         "main_success_count": sum(1 for item in bundle.get("scenario_catalog", []) if item.get("scenario_type") == "main_success"),
         "interaction_count": len(bundle.get("interaction_catalog", [])),
@@ -339,3 +404,56 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     _json_write(manifest_path, manifest)
     artifacts["manifest"] = manifest_path
     return {key: str(path) for key, path in artifacts.items()}
+
+
+def _write_use_case_entity_crud_workbook(bundle: dict[str, Any], path: Path) -> None:
+    graph = bundle.get("use_case_dependency_graph", {})
+    entities = bundle.get("scene_model", {}).get("entities", [])
+    wb = Workbook()
+    matrix = wb.active
+    matrix.title = "用例-实体CRUD"
+    headers = ["用例ID", "用例名称", *entities]
+    _title(matrix, f"{bundle.get('project','')} — 用例-实体 CRUD 矩阵", len(headers))
+    _headers(matrix, headers)
+    rows = []
+    for item in graph.get("crud_matrix", []):
+        rows.append([item.get("use_case_id", ""), item.get("use_case_name", ""), *[item.get("operations", {}).get(entity, {}).get("crud", "") for entity in entities]])
+    _format_rows(matrix, 4, rows, centered=set(range(1, len(headers)+1)))
+    matrix.freeze_panes = "C4"
+    matrix.sheet_view.showGridLines = False
+    matrix.column_dimensions["A"].width = 24
+    matrix.column_dimensions["B"].width = 24
+    for column in range(3, len(headers)+1):
+        matrix.column_dimensions[get_column_letter(column)].width = 16
+    matrix.auto_filter.ref = f"A3:{get_column_letter(len(headers))}{max(3,matrix.max_row)}"
+
+    detail = wb.create_sheet("CRUD操作追溯")
+    op_headers = ["操作ID", "用例ID", "用例名称", "实体", "CRUD", "步骤", "操作证据", "依赖用例前置操作ID", "依赖关系", "依赖依据", "来源定位", "映射状态"]
+    _title(detail, f"{bundle.get('project','')} — CRUD 操作与来源", len(op_headers))
+    _headers(detail, op_headers)
+    use_cases = {uc["use_case_id"]: uc for uc in bundle.get("scene_model", {}).get("use_cases", [])}
+    op_rows = []
+    for op in bundle.get("use_case_entity_operations", []):
+        uc = use_cases.get(op.get("use_case_id"), {})
+        op_rows.append([op.get("operation_id", ""), op.get("use_case_id", ""), uc.get("use_case_name", ""), op.get("entity", ""), op.get("operation", ""), op.get("source_step_index", ""), op.get("evidence", ""), ", ".join(op.get("depends_on_operations", []) if isinstance(op.get("depends_on_operations"), list) else [str(op.get("depends_on_operations", ""))]), op.get("dependency_relation", ""), op.get("dependency_evidence", ""), op.get("source_location", ""), op.get("mapping_status", "")])
+    _format_rows(detail, 4, op_rows, centered={1,2,4,5,6,8,12})
+    detail.freeze_panes = "A4"
+    detail.sheet_view.showGridLines = False
+    for col, width in enumerate([24,24,24,22,10,10,55,30,28,60,45,20], 1): detail.column_dimensions[get_column_letter(col)].width = width
+    detail.auto_filter.ref = f"A3:{get_column_letter(len(op_headers))}{max(3,detail.max_row)}"
+
+    er = wb.create_sheet("ER实体关系")
+    er_headers = ["实体/关系", "属性或关系类型", "关联实体", "证据", "来源定位", "状态"]
+    _title(er, f"{bundle.get('project','')} — ER 实体与关系（不绘图）", len(er_headers))
+    _headers(er, er_headers)
+    er_rows = []
+    er_model = bundle.get("er_model", {})
+    for entity in er_model.get("entities", []):
+        if isinstance(entity, dict): er_rows.append([entity.get("name", ""), "属性", ", ".join(entity.get("attributes", [])), entity.get("evidence", ""), entity.get("source_location", ""), entity.get("mapping_status", "")])
+    for relation in er_model.get("relationships", []):
+        er_rows.append([relation.get("from_entity", ""), relation.get("relation", "关系"), relation.get("to_entity", ""), relation.get("evidence", ""), relation.get("source_location", ""), relation.get("mapping_status", "")])
+    _format_rows(er, 4, er_rows, centered={2,6})
+    er.freeze_panes = "A4"
+    er.sheet_view.showGridLines = False
+    for col, width in enumerate([24,20,50,60,45,20], 1): er.column_dimensions[get_column_letter(col)].width = width
+    wb.save(path)

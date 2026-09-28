@@ -2,7 +2,9 @@ import ast
 import copy
 import json
 import os
+import re
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -10,6 +12,9 @@ from tests.test_scene_completion import sample_model
 from tools.scene_completion.assembly import _link_predictions_to_scenarios, _merge_equivalent_database_failures, _scenario_catalog, assemble_results
 from tools.scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
 from tools.scene_completion.exporters import export_workbooks
+from tools.scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg
+from tools.scene_completion.dependency_layout import dependency_layout
+from tools.scene_completion.overview import build_system_composition_semantics
 from tools.scene_completion.review import _batch_payload, load_ecnu_env_file, review_concerns
 from tools.scene_completion.schemas import validate_scene_model
 from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd
@@ -77,22 +82,233 @@ def test_png_outputs_are_generated_when_local_converter_exists():
         assert all(Path(item["png"]).exists() for item in manifest["artifacts"].values())
 
 
-def test_v7_actor_and_external_service_associations_reach_ellipse_sides():
+def test_v9_actor_frontend_and_external_service_associations_reach_use_cases():
     model = sample_model()
     model["version"] = "6"
     sr_service = next(node for node in model["system_composition"]["nodes"] if node["node_id"] == "sr-order")
     sr_service.update({"name": "OrderService"})
     model["system_composition"]["edges"].append({"edge_id": "EDGE-EXT", "from_node": "sr-order", "to_node": "ext-service", "relation": "sr_external_dependency"})
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
-    associations = [edge for edge in normalized["system_composition"]["edges"] if edge.get("relation") in {"participates_in", "uses_external_service"}]
-    assert any(edge["from_node"] == "user" and edge["use_case_id"] == "UC-001" for edge in associations)
+    associations = [edge for edge in normalized["system_composition"]["edges"] if edge.get("relation") in {"uses_frontend", "serves_use_case", "external_participates_in", "uses_external_service"}]
+    mapping = normalized["frontend_mappings"][0]
+    assert any(edge["from_node"] == "user" and edge["to_node"] == mapping["frontend_id"] for edge in associations)
+    assert any(edge["from_node"] == mapping["frontend_id"] and edge["use_case_id"] == "UC-001" for edge in associations)
     assert any(edge["to_node"] == "ext-service" and edge["use_case_id"] == "UC-001" for edge in associations)
+    assert normalized["supported_devices"] == []
     with tempfile.TemporaryDirectory() as tmp:
         svg = render_system_composition_svg(normalized, Path(tmp) / "system.svg").read_text(encoding="utf-8")
-    assert 'data-relation="participates_in"' in svg
-    assert 'data-relation="uses_external_service"' in svg
-    assert '<path data-relation="participates_in"' in svg
-    assert '<path data-relation="uses_external_service"' in svg
+    assert 'data-relation="uses_frontend"' in svg
+    assert 'data-relation="serves_use_case"' in svg
+    assert 'data-relation="external_participates_in"' in svg
+    assert "RR" not in svg and "SR" not in svg and "AR" not in svg
+    assert 'data-node-id="system"' not in svg
+
+
+def test_v9_human_frontends_are_isolated_and_fourteen_use_cases_render_in_grid():
+    model = sample_model()
+    model["version"] = "6"
+    model["system_composition"]["nodes"].append({"node_id": "merchant", "name": "商家", "kind": "human_actor"})
+    merchant_case = copy.deepcopy(model["use_cases"][0])
+    merchant_case.update({"use_case_id": "UC-002", "use_case_name": "商家管理订单", "actors": ["商家"]})
+    merchant_case["architecture"]["rr"]["service_id"] = "rr-service-UC-002"
+    merchant_case["architecture"]["rr"]["service_name"] = "商家管理订单"
+    merchant_case["architecture"]["sr"]["service_id"] = "sr-order-merchant"
+    merchant_case["architecture"]["sr"]["design_use_case_id"] = "SRUC-UC-002-ORDER"
+    model["system_composition"]["nodes"].append({"node_id": "sr-order-merchant", "name": "MerchantOrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-002"})
+    model["use_cases"].append(merchant_case)
+    for index in range(3, 15):
+        case = copy.deepcopy(model["use_cases"][0])
+        case.update({"use_case_id": f"UC-{index:03d}", "use_case_name": f"用例{index}"})
+        case["architecture"]["rr"]["service_id"] = f"rr-service-{index:03d}"
+        case["architecture"]["rr"]["service_name"] = f"用例{index}"
+        case["architecture"]["sr"]["service_id"] = f"sr-service-{index:03d}"
+        case["architecture"]["sr"]["design_use_case_id"] = f"SRUC-{index:03d}"
+        model["system_composition"]["nodes"].append({"node_id": f"sr-service-{index:03d}", "name": f"Service{index}", "kind": "abstract_service", "layer": "SR", "use_case_id": f"UC-{index:03d}"})
+        model["use_cases"].append(case)
+    normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
+    mappings = {mapping["actor_id"]: mapping["frontend_id"] for mapping in normalized["frontend_mappings"]}
+    assert mappings["user"] != mappings["merchant"]
+    with tempfile.TemporaryDirectory() as tmp:
+        svg = render_system_composition_svg(normalized, Path(tmp) / "overview.svg").read_text(encoding="utf-8")
+    assert svg.count("<ellipse") == 14
+    assert "RR" not in svg and "SR" not in svg and "AR" not in svg
+
+
+def test_v9_crud_dependencies_require_an_explicit_evidence_backed_prerequisite():
+    model = sample_model()
+    model["entities"] = ["Product"]
+    model["use_cases"][0]["main_flow"] = [{"step_index": 1, "text": "创建商品"}]
+    second = copy.deepcopy(model["use_cases"][0])
+    second.update({"use_case_id": "UC-002", "use_case_name": "查询商品", "main_flow": [{"step_index": 1, "text": "读取已发布商品"}]})
+    model["use_cases"].append(second)
+    model["use_case_entity_operations"] = [
+        {"operation_id": "CREATE-PRODUCT", "use_case_id": "UC-001", "entity": "Product", "operation": "C", "source_step_index": 1, "evidence": "写入商品记录", "source_location": "design.md:10"},
+        {"operation_id": "READ-PRODUCT", "use_case_id": "UC-002", "entity": "Product", "operation": "R", "source_step_index": 1, "evidence": "查询商品记录", "source_location": "design.md:20"},
+    ]
+    graph = build_use_case_dependency_graph(model)
+    assert graph["edges"] == []  # Shared entity alone is not a dependency.
+    model["use_case_entity_operations"][1].update({"depends_on_operations": ["CREATE-PRODUCT"], "dependency_evidence": "查询前必须存在已创建商品", "dependency_source_location": "design.md:21"})
+    graph = build_use_case_dependency_graph(model)
+    assert len(graph["edges"]) == 1
+    edge = graph["edges"][0]
+    assert (edge["from_use_case"], edge["to_use_case"], edge["entity"]) == ("UC-001", "UC-002", "Product")
+    assert edge["source_locations"] == ["design.md:10", "design.md:20", "design.md:21"]
+
+
+def test_v10_split_composition_views_separate_actor_participation_and_dependencies(tmp_path):
+    model = sample_model()
+    model["version"] = "9"
+    model["system_composition"]["edges"].append({"edge_id": "EDGE-EXT-V10", "from_node": "sr-order", "to_node": "ext-service", "relation": "sr_external_dependency"})
+    normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
+    participant = render_system_composition_svg(normalized, tmp_path / "system_composition.svg", view="participation").read_text(encoding="utf-8")
+    dependency = render_system_composition_svg(normalized, tmp_path / "system_composition_dependencies.svg", view="dependencies").read_text(encoding="utf-8")
+    assert 'data-relation="serves_use_case"' in participant
+    assert 'data-relation="use_case_dependency"' not in participant
+    assert 'data-relation="frontend_to_use_case_area"' in dependency
+    assert 'data-relation="serves_use_case"' not in dependency
+    assert 'data-relation="external_participates_in"' in participant
+    assert 'data-relation="external_participates_in"' in dependency
+    actor_lines = participant.count('data-relation="serves_use_case"')
+    assert actor_lines > 0
+    assert 'data-actor="user"' in participant
+    assert 'stroke="#2563EB"' in participant
+    assert "RR" not in participant and "SR" not in participant and "AR" not in participant
+    assert "RR" not in dependency and "SR" not in dependency and "AR" not in dependency
+    p_semantics = build_system_composition_semantics(normalized, "participation")
+    d_semantics = build_system_composition_semantics(normalized, "dependencies")
+    assert p_semantics["view_id"] == "system_composition"
+    assert d_semantics["view_id"] == "system_composition_dependencies"
+    assert p_semantics["participation_relations"]["frontend_to_use_case"]
+    assert not d_semantics["participation_relations"]["frontend_to_use_case"]
+    # The participation chart intentionally uses a compact multi-column grid;
+    # direct actor lines may cross ovals by user request. Dependency edges
+    # must still avoid unrelated ovals.
+    assert '<line data-relation="serves_use_case"' in participant
+    _assert_direct_relation_lines_clear_of_unrelated_ellipses(dependency)
+
+
+def _assert_orthogonal_relation_paths_clear_of_ellipses(svg_text):
+    root = ET.fromstring(svg_text)
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    ellipses = [
+        (float(el.attrib["cx"]), float(el.attrib["cy"]), float(el.attrib["rx"]), float(el.attrib["ry"]))
+        for el in root.findall(".//s:ellipse", ns)
+    ]
+    for path in root.findall(".//s:path", ns):
+        if not path.attrib.get("data-relation"):
+            continue
+        tokens = re.findall(r"[MHV]|-?\d+(?:\.\d+)?", path.attrib["d"])
+        command = None
+        current = None
+        points = []
+        index = 0
+        while index < len(tokens):
+            token = tokens[index]
+            if token in {"M", "H", "V"}:
+                command = token
+                index += 1
+            if command == "M":
+                current = (float(tokens[index]), float(tokens[index+1]))
+                index += 2
+                points.append(current)
+                command = None
+            elif command == "H":
+                current = (float(tokens[index]), current[1])
+                index += 1
+                points.append(current)
+                command = None
+            elif command == "V":
+                current = (current[0], float(tokens[index]))
+                index += 1
+                points.append(current)
+                command = None
+        for start, end in zip(points, points[1:]):
+            for cx, cy, rx, ry in ellipses:
+                if start[1] == end[1]:
+                    y = start[1]
+                    if abs(y-cy) >= ry:
+                        continue
+                    half = rx * (1 - ((y-cy)/ry)**2) ** 0.5
+                    overlap = min(max(start[0], end[0]), cx+half) - max(min(start[0], end[0]), cx-half)
+                else:
+                    x = start[0]
+                    if abs(x-cx) >= rx:
+                        continue
+                    half = ry * (1 - ((x-cx)/rx)**2) ** 0.5
+                    overlap = min(max(start[1], end[1]), cy+half) - max(min(start[1], end[1]), cy-half)
+                assert overlap <= 0.01, f"relation path crosses ellipse interior: {path.attrib}"
+
+
+def _assert_direct_relation_lines_clear_of_unrelated_ellipses(svg_text):
+    root = ET.fromstring(svg_text)
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    ellipses = [
+        (el.attrib.get("data-node-id", ""), float(el.attrib["cx"]), float(el.attrib["cy"]), float(el.attrib["rx"]), float(el.attrib["ry"]))
+        for el in root.findall(".//s:ellipse", ns)
+    ]
+    for line in root.findall(".//s:line", ns):
+        if not line.attrib.get("data-relation"):
+            continue
+        x1, y1 = float(line.attrib["x1"]), float(line.attrib["y1"])
+        x2, y2 = float(line.attrib["x2"]), float(line.attrib["y2"])
+        for _, cx, cy, rx, ry in ellipses:
+            if not rx or not ry:
+                continue
+            # Sample the open segment; endpoint ellipses are allowed only for
+            # the intended target/source, never for unrelated use cases.
+            hit = False
+            for step in range(1, 100):
+                t = step / 100
+                x, y = x1 + (x2-x1)*t, y1 + (y2-y1)*t
+                if ((x-cx)/rx)**2 + ((y-cy)/ry)**2 < 0.995:
+                    hit = True
+                    break
+            if hit:
+                start_radius = ((x1-cx)/rx)**2 + ((y1-cy)/ry)**2
+                end_radius = ((x2-cx)/rx)**2 + ((y2-cy)/ry)**2
+                touches_endpoint = 0.90 <= start_radius <= 1.10 or 0.90 <= end_radius <= 1.10
+                assert touches_endpoint, f"direct relation line crosses unrelated ellipse: {line.attrib}"
+
+
+def test_v10_dependency_layout_marks_cycles_and_renders_cycle_edges(tmp_path):
+    nodes = [{"use_case_id": "A"}, {"use_case_id": "B"}, {"use_case_id": "C"}]
+    edges = [
+        {"edge_id": "E1", "from_use_case": "A", "to_use_case": "B"},
+        {"edge_id": "E2", "from_use_case": "B", "to_use_case": "A"},
+        {"edge_id": "E3", "from_use_case": "B", "to_use_case": "C"},
+    ]
+    layout = dependency_layout(nodes, edges)
+    assert layout["cycles"] == [["A", "B"]]
+    graph = {"project": "fixture", "nodes": nodes, "edges": [dict(edge, cycle_requires_review=edge["edge_id"] in layout["cycle_edge_ids"]) for edge in edges], "layout": layout}
+    svg = render_use_case_dependency_svg(graph, tmp_path / "dependencies.svg").read_text(encoding="utf-8")
+    assert 'data-cycle="true"' in svg
+    assert 'stroke="#C44536"' in svg
+    assert '<line data-relation="use_case_dependency"' in svg
+
+
+def test_v10_test_scenarios_json_covers_catalog_and_preserves_null_predictions(tmp_path):
+    model = sample_model()
+    model["version"] = "9"
+    uc = model["use_cases"][0]
+    uc["scenarios"] = [
+        {"scenario_id": "main", "scenario_type": "main", "steps": uc["main_flow"]},
+        {"scenario_id": "alt", "scenario_type": "alternative", "steps": [{"step_index": 1, "text": "默认查询"}]},
+        {"scenario_id": "err", "scenario_type": "requirement_exception", "anchor_step_index": 1, "steps": [{"step_index": 1, "text": "订单不存在"}], "trigger": "订单不存在", "expected_result": "提示不存在", "recovery": "结束", "source_location": "fixture.md:9"},
+    ]
+    matrix = plan_concern_matrix(model)
+    for item in matrix["items"]:
+        item.update({"status": "not_applicable", "basis": "无异常证据", "evidence_types": ["ssd"]})
+    bundle = assemble_results(model, matrix, {"findings": []})
+    artifacts = export_workbooks(bundle, tmp_path)
+    exported = json.loads(Path(artifacts["test_scenarios"]).read_text(encoding="utf-8"))
+    catalog_ids = {item["scenario_id"] for item in bundle["scenario_catalog"]}
+    assert {item["scenario_id"] for item in exported["scenarios"]} == catalog_ids
+    assert exported["scenario_count"] == len(bundle["scenario_catalog"])
+    main = next(item for item in exported["scenarios"] if item["scenario_type"] == "main_success")
+    alternative = next(item for item in exported["scenarios"] if item["scenario_type"] == "alternative")
+    assert main["prediction_id"] is None and alternative["prediction_id"] is None
+    assert main["steps"] and main["steps"][0]["step_number"] == 1
+    assert Path(artifacts["system_composition_dependencies"]).exists()
 
 
 def test_v7_matrix_workbook_has_real_exchange_uc_and_timeout_only_tab():

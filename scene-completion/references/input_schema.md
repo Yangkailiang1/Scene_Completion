@@ -42,6 +42,8 @@
 
 `node_id`、`interaction_id`、`edge_id` 缺失时由 tools 稳定生成。节点类型和交互方向必须使用协议枚举。`unknown` 不阻塞流程，但会产生待确认项。每个 RR 用例会自动补齐一个 RR `abstract_service` 节点，除非 Agent 已显式提供同一 `use_case_id` 的节点。
 
+系统总览可选 `frontend_mappings` 为每个人类 Actor 指定独立 `frontend_ui` 节点，缺失时按 Actor 生成 `inferred` 前端；`connection_device` 仅在有 Spec 来源定位且 `spec_explicit=true` 时显示。实体及实体关系放在 `er_model`，Use Case 的实体操作放在 `use_case_entity_operations`；依赖证据字段见 `use_case_crud_dependencies.md`。仅共享实体/微服务不会生成依赖边。
+
 接口条目可以包含 `validation_rules`。每条规则需结构化记录 `field`、`constraint`、`failure_type`、`error_code` 和 `source_location`。只记录需求或设计文档明确给出的约束，不推测最大长度、大小或速率限制。对 API 参数异常，finding 锚定系统执行校验的用例步骤；用户输入步骤可同时作为 `trigger` 与 `scenario_steps` 的成功前缀，但异常的 `source_step_index` 应指向实际校验/拒绝步骤。
 
 ## Diagram spec
