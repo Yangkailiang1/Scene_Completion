@@ -2,7 +2,7 @@
 """Repeatable, network-free benchmark for the Scene Completion hot paths.
 
 Run from the repository after the optimization commit:
-    python3 -B tools/benchmark_scene_completion.py --baseline-revision d2295a4
+    python3 -B .cac/skills/scene-completion/scripts/benchmark_scene_completion.py --baseline-revision d2295a4
 """
 
 from __future__ import annotations
@@ -21,13 +21,14 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[4]
+SCRIPTS = Path(__file__).resolve().parent
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 
 from tests.test_scene_completion import sample_model
-from tools.scene_completion import assembly, concerns, review
-from tools.scene_completion.schemas import validate_scene_model
+from scene_completion import assembly, concerns, review
+from scene_completion.schemas import validate_scene_model
 
 
 def _load_git_module(revision: str, relative_path: str, module_name: str) -> ModuleType:
@@ -38,7 +39,7 @@ def _load_git_module(revision: str, relative_path: str, module_name: str) -> Mod
     if spec is None:
         raise RuntimeError(f"cannot create module spec for {module_name}")
     module = importlib.util.module_from_spec(spec)
-    module.__package__ = "tools.scene_completion"
+    module.__package__ = "scene_completion"
     sys.modules[module_name] = module
     exec(compile(source, f"{revision}:{relative_path}", "exec"), module.__dict__)
     return module
@@ -110,8 +111,8 @@ def _review_once(review_module: ModuleType, model: dict[str, Any], matrix: dict[
 
 
 def run(revision: str, repeats: int = 3) -> dict[str, Any]:
-    old_concerns = _load_git_module(revision, "tools/scene_completion/concerns.py", "tools.scene_completion._benchmark_baseline_concerns")
-    old_review = _load_git_module(revision, "tools/scene_completion/review.py", "tools.scene_completion._benchmark_baseline_review")
+    old_concerns = _load_git_module(revision, "tools/scene_completion/concerns.py", "scene_completion._benchmark_baseline_concerns")
+    old_review = _load_git_module(revision, "tools/scene_completion/review.py", "scene_completion._benchmark_baseline_review")
     model = _benchmark_model()
 
     baseline_plan_seconds, baseline_matrix = _median_seconds(lambda: old_concerns.plan_concern_matrix(model), repeats)

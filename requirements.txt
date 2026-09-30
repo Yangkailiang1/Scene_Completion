@@ -1,3 +1,1 @@
-openpyxl>=3.1
-python-docx>=1.1
-pypdf>=5.0
+-r .cac/skills/scene-completion/scripts/requirements.txt

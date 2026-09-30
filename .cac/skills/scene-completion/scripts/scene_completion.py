@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agent-facing CLI for Scene Completion V6."""
+"""Agent-facing CLI for Scene Completion."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _write_json(path: str, value) -> None:
 
 
 def _main_impl(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Portable Scene Completion V6 tools")
+    parser = argparse.ArgumentParser(description="Portable Scene Completion tools")
     sub = parser.add_subparsers(dest="command", required=True)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
@@ -47,7 +47,7 @@ def _main_impl(argv=None) -> int:
     validate = sub.add_parser("validate-model", help="validate and normalize scene_model.json")
     validate.add_argument("--input", required=True)
     validate.add_argument("--output")
-    sub.add_parser("list-concerns", help="list V6 concern definitions")
+    sub.add_parser("list-concerns", help="list concern definitions")
     load = sub.add_parser("load-concern", help="load one concern reference")
     load.add_argument("--key", required=True)
     sub.add_parser("list-diagram-knowledge", help="list diagram-generation references")
@@ -59,7 +59,7 @@ def _main_impl(argv=None) -> int:
     plan.add_argument("--ssd-manifest", help="diagram_manifest.json containing every use case fused SSD")
     plan.add_argument("--analysis-layers", default="SR", help="comma-separated analysis layers: SR (default) or SR,AR")
     plan.add_argument("--output", required=True)
-    validate_matrix = sub.add_parser("validate-concerns", help="validate a V6 concern matrix")
+    validate_matrix = sub.add_parser("validate-concerns", help="validate a concern matrix")
     validate_matrix.add_argument("--model", required=True)
     validate_matrix.add_argument("--input", required=True)
     validate_matrix.add_argument("--require-complete", action="store_true")
@@ -77,7 +77,7 @@ def _main_impl(argv=None) -> int:
     review.add_argument("--agent-batch-dir", help="directory for bounded Agent review packets")
     review.add_argument("--agent-results", help="Agent judgement batches JSON (merge-agent mode)")
     review.add_argument("--output", required=True)
-    validate_diagram = sub.add_parser("validate-diagrams", help="validate V5 diagram sources")
+    validate_diagram = sub.add_parser("validate-diagrams", help="validate diagram sources")
     validate_diagram.add_argument("--model", required=True)
     validate_diagram.add_argument("--input", required=True)
     render = sub.add_parser("render-diagrams", help="generate dependency-free SVG and optionally render PlantUML diagrams")
@@ -115,7 +115,7 @@ def _main_impl(argv=None) -> int:
     sr_dep.add_argument("--ssd-manifest")
     sr_dep.add_argument("--output-dir", required=True)
     sr_dep.add_argument("--require-png", action="store_true")
-    assemble = sub.add_parser("assemble", help="assemble V5 findings and export artifacts")
+    assemble = sub.add_parser("assemble", help="assemble findings and export artifacts")
     assemble.add_argument("--model", required=True)
     assemble.add_argument("--concern-matrix", required=True)
     assemble.add_argument("--semantic-findings", required=True)

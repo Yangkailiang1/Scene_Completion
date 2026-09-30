@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 
 from tests.test_scene_completion import sample_model
-from tools.scene_completion.concerns import plan_concern_matrix
-from tools.scene_completion.metrics import attach_metrics_to_run_manifest, load_stage_metrics
+from scene_completion.concerns import plan_concern_matrix
+from scene_completion.metrics import attach_metrics_to_run_manifest, load_stage_metrics
 
-_CLI_PATH = Path(__file__).resolve().parents[1] / "tools" / "scene_completion.py"
+_CLI_PATH = Path(__file__).resolve().parents[1] / ".cac" / "skills" / "scene-completion" / "scripts" / "scene_completion.py"
 _CLI_SPEC = importlib.util.spec_from_file_location("scene_completion_cli", _CLI_PATH)
 _CLI_MODULE = importlib.util.module_from_spec(_CLI_SPEC)
 assert _CLI_SPEC and _CLI_SPEC.loader

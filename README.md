@@ -2,6 +2,8 @@
 
 Scene Completion 将需求与设计文档转化为可追溯的系统模型、RR/SR/AR 交互 SSD、关注点审核矩阵、异常预测和完整场景清单。工具以 Python 脚本完成确定性校验、路由、去重和导出；语义抽取、证据判断和异常描述由 Agent/LLM 完成。
 
+Skill 包位于 `.cac/skills/scene-completion/`：`SKILL.md` 是入口说明，`references/` 保存按需读取的知识，`scripts/` 包含 CLI、工具包、基准脚本和依赖清单。CLI 从仓库根目录运行示例见下方；依赖可通过 `python -m pip install -r requirements.txt` 安装。
+
 ## 从 spec 到场景表
 
 ```mermaid
@@ -205,12 +207,12 @@ flowchart TD
 ## 命令入口
 
 ```bash
-python tools/scene_completion.py --help
-python tools/scene_completion.py extract --help
-python tools/scene_completion.py generate-ssd --help
-python tools/scene_completion.py plan-concerns --help
-python tools/scene_completion.py review-concerns --help
-python tools/scene_completion.py validate-concerns --help
-python tools/scene_completion.py audit-run --help
-python tools/scene_completion.py assemble --help
+python .cac/skills/scene-completion/scripts/scene_completion.py --help
+python .cac/skills/scene-completion/scripts/scene_completion.py extract --help
+python .cac/skills/scene-completion/scripts/scene_completion.py generate-ssd --help
+python .cac/skills/scene-completion/scripts/scene_completion.py plan-concerns --help
+python .cac/skills/scene-completion/scripts/scene_completion.py review-concerns --help
+python .cac/skills/scene-completion/scripts/scene_completion.py validate-concerns --help
+python .cac/skills/scene-completion/scripts/scene_completion.py audit-run --help
+python .cac/skills/scene-completion/scripts/scene_completion.py assemble --help
 ```

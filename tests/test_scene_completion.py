@@ -6,15 +6,15 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from tools.scene_completion.assembly import assemble_results
-from tools.scene_completion.concerns import _candidate_keys, _indexed_ar_mapping, _routing_context, list_concerns, plan_concern_matrix, validate_concern_matrix
-from tools.scene_completion.diagrams import render_diagrams, validate_diagram_spec
-from tools.scene_completion.document_extract import extract_document
-from tools.scene_completion.exporters import export_workbooks
-from tools.scene_completion.knowledge import load_concern
-from tools.scene_completion.schemas import ValidationFailure, validate_scene_model
-from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd, write_ssd_bundle
-from tools.scene_completion.svg_renderer import render_system_composition_svg
+from scene_completion.assembly import assemble_results
+from scene_completion.concerns import _candidate_keys, _indexed_ar_mapping, _routing_context, list_concerns, plan_concern_matrix, validate_concern_matrix
+from scene_completion.diagrams import render_diagrams, validate_diagram_spec
+from scene_completion.document_extract import extract_document
+from scene_completion.exporters import export_workbooks
+from scene_completion.knowledge import load_concern
+from scene_completion.schemas import ValidationFailure, validate_scene_model
+from scene_completion.ssd import generate_ssd_bundle, validate_ssd, write_ssd_bundle
+from scene_completion.svg_renderer import render_system_composition_svg
 
 
 def sample_model():
@@ -393,7 +393,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         self.assertTrue(validate_ssd(fused, model)["valid"])
         self.assertTrue(any(item["message_kind"] == "response" for item in fused["messages"]))
         self.assertTrue(any(item["message_kind"] == "feedback" for item in bundle["rr"]["messages"]))
-        puml = __import__("tools.scene_completion.ssd", fromlist=["ssd_to_puml"]).ssd_to_puml(fused, model)
+        puml = __import__("scene_completion.ssd", fromlist=["ssd_to_puml"]).ssd_to_puml(fused, model)
         self.assertIn("hide footbox", puml)
         self.assertNotIn("Delta在线商城系统\" as", puml.split("actor ", 1)[-1] if "actor " in puml else "")
 

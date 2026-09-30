@@ -9,22 +9,22 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from tests.test_scene_completion import sample_model
-from tools.scene_completion.assembly import _link_predictions_to_scenarios, _merge_equivalent_database_failures, _scenario_catalog, assemble_results
-from tools.scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
-from tools.scene_completion.exporters import export_workbooks
-from tools.scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg
-from tools.scene_completion.dependency_layout import dependency_layout
-from tools.scene_completion.overview import build_system_composition_semantics
-from tools.scene_completion.review import _batch_payload, load_ecnu_env_file, review_concerns
-from tools.scene_completion.schemas import validate_scene_model
-from tools.scene_completion.ssd import generate_ssd_bundle, validate_ssd
-from tools.scene_completion.ssd import write_ssd_bundle
-from tools.scene_completion.png_renderer import convert_svg_to_png, find_svg_converter
-from tools.scene_completion.svg_renderer import render_system_composition_svg
+from scene_completion.assembly import _link_predictions_to_scenarios, _merge_equivalent_database_failures, _scenario_catalog, assemble_results
+from scene_completion.concerns import plan_concern_matrix, validate_concern_matrix
+from scene_completion.exporters import export_workbooks
+from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg
+from scene_completion.dependency_layout import dependency_layout
+from scene_completion.overview import build_system_composition_semantics
+from scene_completion.review import _batch_payload, load_ecnu_env_file, review_concerns
+from scene_completion.schemas import validate_scene_model
+from scene_completion.ssd import generate_ssd_bundle, validate_ssd
+from scene_completion.ssd import write_ssd_bundle
+from scene_completion.png_renderer import convert_svg_to_png, find_svg_converter
+from scene_completion.svg_renderer import render_system_composition_svg
 
 
 def test_v6_public_ssd_entrypoints_are_defined_once():
-    source = Path(__file__).resolve().parents[1] / "tools" / "scene_completion" / "ssd.py"
+    source = Path(__file__).resolve().parents[1] / ".cac" / "skills" / "scene-completion" / "scripts" / "scene_completion" / "ssd.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     for name in ("generate_ssd_bundle", "validate_ssd", "write_ssd_bundle"):
         definitions = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name]

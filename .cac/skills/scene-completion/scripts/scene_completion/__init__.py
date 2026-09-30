@@ -1,4 +1,4 @@
-"""Portable Scene Completion V6 tools."""
+"""Portable Scene Completion tools."""
 
 from .assembly import assemble_results
 from .concerns import list_concerns, plan_concern_matrix, validate_concern_matrix

@@ -1,8 +1,8 @@
 ---
 name: scene-completion
 description: 从需求文档抽取系统组成和 RR 用例，生成完整的 RR/SR/AR 融合 SSD，并以 SSD 交互为依据补全异常场景和审计结果。
-metadata:
-  short-description: Complete SSD-based abnormal scenarios
+title: Scene Completion
+version: 10.0.0
 ---
 
 # Scene Completion — RR/SR/AR Service Classification and Scenario Completion
@@ -81,13 +81,13 @@ metadata:
 先读取轻量索引：
 
 ```bash
-python tools/scene_completion.py list-concerns
+python .cac/skills/scene-completion/scripts/scene_completion.py list-concerns
 ```
 
 只加载当前 SSD 实际命中的关注点：
 
 ```bash
-python tools/scene_completion.py load-concern --key api.data.completeness
+python .cac/skills/scene-completion/scripts/scene_completion.py load-concern --key api.data.completeness
 ```
 
 系统组成、RR/SR/AR 和 SSD 规则位于 `references/diagrams_v2/`；每个关注点定义位于 `references/concerns_v2/` 的独立文件中。目录名称保持兼容，内容按 V5 分层协议使用。
@@ -95,23 +95,23 @@ python tools/scene_completion.py load-concern --key api.data.completeness
 ## CLI
 
 ```bash
-python tools/scene_completion.py extract --input <requirements> --output <extracted.json>
-python tools/scene_completion.py validate-model --input <scene_model.json> --output <normalized_scene_model.json>
-python tools/scene_completion.py generate-ssd --model <scene_model.json> --output-dir <diagrams> [--api-map <api_map.json>] [--render]
-python tools/scene_completion.py validate-ssd --input <fused_ssd.json> [--model <scene_model.json>]
-python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR --output <concern_matrix.json>
-python tools/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR,AR --output <concern_matrix_ar.json>
-python tools/scene_completion.py validate-concerns --model <scene_model.json> --input <concern_matrix.json> --require-complete
-python tools/scene_completion.py audit-run --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json>
-python tools/scene_completion.py review-concerns --mode auto --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --config ecnu_max.config.example.json --env-file .env --output <reviewed_concern_matrix.json>
-python tools/scene_completion.py review-concerns --mode agent --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --output <agent_pending_matrix.json> --agent-batch-dir <private-agent-batches>
-python tools/scene_completion.py review-concerns --mode merge-agent --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <agent_pending_matrix.json> --agent-results <agent_results.json> --output <reviewed_concern_matrix.json>
-python tools/scene_completion.py validate-diagrams --model <scene_model.json> --input <diagram_spec.json>
-python tools/scene_completion.py render-diagrams --model <scene_model.json> --input <diagram_spec.json> --output-dir <diagram-output> [--require-png]
-python tools/scene_completion.py render-png --input-svg <diagram.svg> --output-png <diagram.png> [--require-png]
-python tools/scene_completion.py render-dependency-graph --model <scene_model.json> --output-dir <diagram-output>
-python tools/scene_completion.py render-service-dependency-graph --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output-dir <diagram-output> --require-png
-python tools/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --spec-document <system-spec.md> --spec-document <design-spec.md> --output-dir <output> --require-png
+python .cac/skills/scene-completion/scripts/scene_completion.py extract --input <requirements> --output <extracted.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py validate-model --input <scene_model.json> --output <normalized_scene_model.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py generate-ssd --model <scene_model.json> --output-dir <diagrams> [--api-map <api_map.json>] [--render]
+python .cac/skills/scene-completion/scripts/scene_completion.py validate-ssd --input <fused_ssd.json> [--model <scene_model.json>]
+python .cac/skills/scene-completion/scripts/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR --output <concern_matrix.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py plan-concerns --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --analysis-layers SR,AR --output <concern_matrix_ar.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py validate-concerns --model <scene_model.json> --input <concern_matrix.json> --require-complete
+python .cac/skills/scene-completion/scripts/scene_completion.py audit-run --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py review-concerns --mode auto --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --config ecnu_max.config.example.json --env-file .env --output <reviewed_concern_matrix.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py review-concerns --mode agent --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <concern_matrix.json> --output <agent_pending_matrix.json> --agent-batch-dir <private-agent-batches>
+python .cac/skills/scene-completion/scripts/scene_completion.py review-concerns --mode merge-agent --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --concern-matrix <agent_pending_matrix.json> --agent-results <agent_results.json> --output <reviewed_concern_matrix.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py validate-diagrams --model <scene_model.json> --input <diagram_spec.json>
+python .cac/skills/scene-completion/scripts/scene_completion.py render-diagrams --model <scene_model.json> --input <diagram_spec.json> --output-dir <diagram-output> [--require-png]
+python .cac/skills/scene-completion/scripts/scene_completion.py render-png --input-svg <diagram.svg> --output-png <diagram.png> [--require-png]
+python .cac/skills/scene-completion/scripts/scene_completion.py render-dependency-graph --model <scene_model.json> --output-dir <diagram-output>
+python .cac/skills/scene-completion/scripts/scene_completion.py render-service-dependency-graph --model <scene_model.json> --ssd-manifest <diagram_manifest.json> --output-dir <diagram-output> --require-png
+python .cac/skills/scene-completion/scripts/scene_completion.py assemble --model <scene_model.json> --concern-matrix <concern_matrix.json> --semantic-findings <findings.json> [--diagram-manifest <diagram-manifest.json>] [--ssd-manifest <ssd-manifest.json>] --spec-document <system-spec.md> --spec-document <design-spec.md> --output-dir <output> --require-png
 ```
 
 为一次完整运行收集脚本耗时，在上述命令末尾统一追加 `--metrics-dir <本次运行专用目录>`。各命令写入不含需求正文、请求正文或密钥的阶段统计；`assemble` 将收集到的工具阶段计时汇总进 `run_manifest.json`。审核报告另含逐 SSD 交换的耗时、候选数、重试和 checkpoint 命中数。Agent 的语义分析耗时不会由 CLI 代测；不同运行必须使用独立目录。未传该参数时，工具输出保持不变。
@@ -119,7 +119,7 @@ python tools/scene_completion.py assemble --model <scene_model.json> --concern-m
 开发者可用固定的 14 用例、约 1,158 候选网络隔离基准比较本地路由和 mock 审核：
 
 ```bash
-python3 -B tools/benchmark_scene_completion.py --baseline-revision d2295a4 --repeats 3
+python3 -B .cac/skills/scene-completion/scripts/benchmark_scene_completion.py --baseline-revision d2295a4 --repeats 3
 ```
 
 基准会校验候选矩阵与审核结果一致，并报告中位耗时；它不调用真实 ECNU-Max，也不代表线上网络时延。

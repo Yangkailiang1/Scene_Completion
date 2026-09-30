@@ -1,4 +1,4 @@
-"""On-demand loading for the V6 concern knowledge base."""
+"""On-demand loading for the concern knowledge base."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from .concerns import ACTIVE_CONCERN_KEYS, CONCERN_DEFINITIONS, list_concerns
 
 
 def _concerns_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "scene-completion" / "references" / "concerns_v2"
+    return Path(__file__).resolve().parents[2] / "references" / "concerns_v2"
 
 
 def load_concern(key: str) -> dict[str, Any]:
@@ -40,7 +40,7 @@ def load_diagram_knowledge(key: str) -> dict[str, str]:
     references = {item["key"]: item for item in list_diagram_knowledge()}
     if normalized not in references:
         raise ValueError(f"unknown diagram knowledge: {key}")
-    path = Path(__file__).resolve().parents[2] / "scene-completion" / references[normalized]["reference"]
+    path = Path(__file__).resolve().parents[2] / references[normalized]["reference"]
     return {**references[normalized], "reference": str(path), "content": path.read_text(encoding="utf-8")}
 
 
