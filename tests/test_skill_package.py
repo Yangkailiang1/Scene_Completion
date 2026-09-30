@@ -3,22 +3,36 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SKILL_ROOT = REPOSITORY_ROOT / ".cac" / "skills" / "scene-completion"
+SKILLS_ROOT = REPOSITORY_ROOT / ".cac" / "skills"
+SKILL_NAMES = {
+    "scene-extract", "scene-ssd", "scene-review", "scene-assemble",
+    "dependency-graph", "test-scenario-extract", "scenario-match",
+}
 
 
-def test_skill_package_contract_and_referenced_knowledge_files_exist():
-    skill_file = SKILL_ROOT / "SKILL.md"
-    content = skill_file.read_text(encoding="utf-8")
-    frontmatter = content.split("---", 2)[1]
-    fields = dict(re.findall(r"(?m)^([A-Za-z_-]+):\s*(.*?)\s*$", frontmatter))
+def _frontmatter(path: Path) -> tuple[str, str]:
+    content = path.read_text(encoding="utf-8")
+    assert content.startswith("---\n")
+    _, raw, body = content.split("---", 2)
+    return raw, body
 
-    assert fields.get("name") == SKILL_ROOT.name
-    assert fields.get("description")
-    assert fields.get("title")
-    assert fields.get("version")
-    assert (SKILL_ROOT / "scripts" / "scene_completion.py").is_file()
-    assert (SKILL_ROOT / "scripts" / "scene_completion" / "__init__.py").is_file()
 
-    references = re.findall(r"`(references/[^`]+\.md)`", content)
-    assert references
-    assert all((SKILL_ROOT / reference).is_file() for reference in references)
+def test_each_skill_has_valid_frontmatter_and_local_references():
+    for name in SKILL_NAMES:
+        skill_root = SKILLS_ROOT / name
+        raw, body = _frontmatter(skill_root / "SKILL.md")
+        fields = dict(re.findall(r"(?m)^([A-Za-z_-]+):\s*(.*?)\s*$", raw))
+        assert fields.get("name") == name
+        assert fields.get("description")
+        for ref in re.findall(r"`(references/[^`]+\.md)`", body):
+            assert (skill_root / ref).is_file(), f"{name}: missing {ref}"
+    assert not (SKILLS_ROOT / "scene-completion" / "SKILL.md").exists()
+    assert (REPOSITORY_ROOT / ".cac" / "tools" / "scene_completion.py").is_file()
+
+
+def test_scene_agent_declares_only_existing_skills_and_pipeline_gates():
+    raw, body = _frontmatter(REPOSITORY_ROOT / ".cac" / "agents" / "scene-agent.md")
+    declared = set(re.findall(r"(?m)^\s+-\s+([\w-]+)\s*$", raw))
+    assert declared == SKILL_NAMES
+    assert "pending" in body
+    assert "scenario-match" in body

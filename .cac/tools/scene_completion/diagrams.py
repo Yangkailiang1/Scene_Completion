@@ -126,7 +126,7 @@ def find_plantuml_jar(explicit: str | Path | None = None) -> Path | None:
     if os.environ.get("PLANTUML_JAR"):
         candidates.append(Path(os.environ["PLANTUML_JAR"]).expanduser())
     package_root = Path(__file__).resolve().parents[2]
-    candidates.extend(sorted((package_root / "scripts" / "assets").glob("plantuml*.jar")))
+    candidates.extend(sorted((package_root / "tools" / "assets").glob("plantuml*.jar")))
     return next((path.resolve() for path in candidates if path.is_file()), None)
 
 

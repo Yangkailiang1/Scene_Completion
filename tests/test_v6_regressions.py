@@ -24,7 +24,7 @@ from scene_completion.svg_renderer import render_system_composition_svg
 
 
 def test_v6_public_ssd_entrypoints_are_defined_once():
-    source = Path(__file__).resolve().parents[1] / ".cac" / "skills" / "scene-completion" / "scripts" / "scene_completion" / "ssd.py"
+    source = Path(__file__).resolve().parents[1] / ".cac" / "tools" / "scene_completion" / "ssd.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     for name in ("generate_ssd_bundle", "validate_ssd", "write_ssd_bundle"):
         definitions = [node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name]

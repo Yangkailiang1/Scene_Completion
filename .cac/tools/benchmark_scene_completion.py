@@ -2,7 +2,7 @@
 """Repeatable, network-free benchmark for the Scene Completion hot paths.
 
 Run from the repository after the optimization commit:
-    python3 -B .cac/skills/scene-completion/scripts/benchmark_scene_completion.py --baseline-revision d2295a4
+    python3 -B .cac/tools/benchmark_scene_completion.py --baseline-revision d2295a4
 """
 
 from __future__ import annotations
@@ -21,8 +21,10 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 

@@ -1,1 +1,1 @@
--r .cac/skills/scene-completion/scripts/requirements.txt
+-r .cac/tools/requirements.txt

@@ -2,7 +2,19 @@
 
 Scene Completion 将需求与设计文档转化为可追溯的系统模型、RR/SR/AR 交互 SSD、关注点审核矩阵、异常预测和完整场景清单。工具以 Python 脚本完成确定性校验、路由、去重和导出；语义抽取、证据判断和异常描述由 Agent/LLM 完成。
 
-Skill 包位于 `.cac/skills/scene-completion/`：`SKILL.md` 是入口说明，`references/` 保存按需读取的知识，`scripts/` 包含 CLI、工具包、基准脚本和依赖清单。CLI 从仓库根目录运行示例见下方；依赖可通过 `python -m pip install -r requirements.txt` 安装。
+职责单一的 Skills 位于 `.cac/skills/<skill-name>/SKILL.md`，流水线由 `.cac/agents/scene-agent.md` 编排；共享 CLI 和 Python 包位于 `.cac/tools/`。各 Skill 只描述自身输入、输出和规则，不相互调用。依赖可通过 `python -m pip install -r requirements.txt` 安装。
+
+| Skill | 职责 |
+|---|---|
+| `scene-extract` | 从 spec 抽取规范化模型和来源证据 |
+| `scene-ssd` | 建模、生成和校验 RR/SR/AR/fused SSD |
+| `dependency-graph` | 按用户指定的同实体 R/U/D→C 规则单独生成 CRUD 数据依赖图 |
+| `scene-review` | 规划、审核关注点并严格审计 |
+| `scene-assemble` | 汇总预测与场景并导出可追溯图表/工作簿 |
+| `test-scenario-extract` | 从 `test_spec.md` 抽取参考测试场景 JSON |
+| `scenario-match` | 校验 Agent 的场景匹配并计算覆盖率和自动采纳代理率 |
+
+阶段顺序与失败回退由 `.cac/agents/scene-agent.md` 控制，不由某个 Skill 硬调用其他 Skill。
 
 ## 从 spec 到场景表
 
@@ -207,12 +219,44 @@ flowchart TD
 ## 命令入口
 
 ```bash
-python .cac/skills/scene-completion/scripts/scene_completion.py --help
-python .cac/skills/scene-completion/scripts/scene_completion.py extract --help
-python .cac/skills/scene-completion/scripts/scene_completion.py generate-ssd --help
-python .cac/skills/scene-completion/scripts/scene_completion.py plan-concerns --help
-python .cac/skills/scene-completion/scripts/scene_completion.py review-concerns --help
-python .cac/skills/scene-completion/scripts/scene_completion.py validate-concerns --help
-python .cac/skills/scene-completion/scripts/scene_completion.py audit-run --help
-python .cac/skills/scene-completion/scripts/scene_completion.py assemble --help
+python .cac/tools/scene_completion.py --help
+python .cac/tools/scene_completion.py extract --help
+python .cac/tools/scene_completion.py generate-ssd --help
+python .cac/tools/scene_completion.py plan-concerns --help
+python .cac/tools/scene_completion.py review-concerns --help
+python .cac/tools/scene_completion.py validate-concerns --help
+python .cac/tools/scene_completion.py audit-run --help
+python .cac/tools/scene_completion.py assemble --help
 ```
+
+### 参考测试场景抽取与匹配评估
+
+`终端云例子/test_spec.md` 是依据设计用例编写的参考测试集，不等同于组装产物中的生成场景。先抽取并校验：
+
+```bash
+python .cac/tools/scene_completion.py extract-test-scenarios \
+  --input 终端云例子/test_spec.md \
+  --output 终端云例子/reference_test_scenarios.json
+python .cac/tools/scene_completion.py validate-test-scenarios \
+  --input 终端云例子/reference_test_scenarios.json
+```
+
+Agent 根据行为证据创建 `matches.json`，每条链接含测试场景 ID、生成场景 ID、`full|partial|unmatched` 和依据。工具校验匹配并输出指标：
+
+```bash
+python .cac/tools/scene_completion.py score-scenario-matches \
+  --reference 终端云例子/reference_test_scenarios.json \
+  --generated <assembled>/test_scenarios.json \
+  --matches matches.json --output scenario_match_report.json
+```
+
+覆盖率只计算完整匹配的参考测试场景；自动采纳代理率是至少匹配一个测试的生成场景比例，不是人工审核采纳率。部分匹配另行报告。
+
+### 独立 CRUD 数据依赖图
+
+```bash
+python .cac/tools/scene_completion.py build-crud-dependency-graph \
+  --model scene_model.json --output-dir dependency_graph
+```
+
+输出 JSON、Graphviz DOT `digraph` 和 Markdown 四元组。该图严格按 CRUD 生命周期规则：同一实体上的 R/U/D 用例指向创建该实体的 C 用例；它表示数据依赖，不代表交互调用顺序。

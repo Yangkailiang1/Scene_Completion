@@ -38,16 +38,16 @@ SVG 使用 Python 标准库生成；PNG 通过本机可用转换器生成，完�
 先规范化模型并生成每个用例的 SSD（SSD 根清单是后续关注点规划与 `assemble` 的输入）：
 
 ```bash
-python .cac/skills/scene-completion/scripts/scene_completion.py validate-model \
+python .cac/tools/scene_completion.py validate-model \
   --input scene_model.json --output normalized_scene_model.json
-python .cac/skills/scene-completion/scripts/scene_completion.py generate-ssd \
+python .cac/tools/scene_completion.py generate-ssd \
   --model normalized_scene_model.json --output-dir run/diagrams --render
 ```
 
 完成关注点审核后，`assemble` 会在 `--output-dir` 中一次性导出图形和语义 JSON；把 SSD 根清单传给 `--ssd-manifest`，以便场景与消息来源可追溯：
 
 ```bash
-python .cac/skills/scene-completion/scripts/scene_completion.py assemble \
+python .cac/tools/scene_completion.py assemble \
   --model normalized_scene_model.json \
   --concern-matrix reviewed_concern_matrix.json \
   --semantic-findings findings.json \
@@ -63,7 +63,7 @@ python .cac/skills/scene-completion/scripts/scene_completion.py assemble \
 ```
 
 ```bash
-python .cac/skills/scene-completion/scripts/scene_completion.py render-diagrams \
+python .cac/tools/scene_completion.py render-diagrams \
   --model normalized_scene_model.json --input diagram_spec.json \
   --output-dir run/diagram_preview --require-png
 ```

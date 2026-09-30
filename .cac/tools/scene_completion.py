@@ -26,6 +26,7 @@ from scene_completion.svg_renderer import render_system_composition_svg
 from scene_completion.overview import build_system_composition_semantics
 from scene_completion.review import load_ecnu_env_file, review_concerns
 from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
+from scene_completion.assessment import build_crud_dependency_graph, extract_reference_test_scenarios, extract_reference_test_scenarios_from_json, score_scenario_matches
 
 
 def _read_json(path: str):
@@ -115,6 +116,19 @@ def _main_impl(argv=None) -> int:
     sr_dep.add_argument("--ssd-manifest")
     sr_dep.add_argument("--output-dir", required=True)
     sr_dep.add_argument("--require-png", action="store_true")
+    crud_dep = sub.add_parser("build-crud-dependency-graph", help="derive CRUD lifecycle dependencies and export JSON, DOT, and four-tuples")
+    crud_dep.add_argument("--model", required=True)
+    crud_dep.add_argument("--output-dir", required=True)
+    extract_tests = sub.add_parser("extract-test-scenarios", help="extract reference scenarios from test_spec.md")
+    extract_tests.add_argument("--input", required=True)
+    extract_tests.add_argument("--output", required=True)
+    validate_tests = sub.add_parser("validate-test-scenarios", help="validate a reference test scenario JSON")
+    validate_tests.add_argument("--input", required=True)
+    score = sub.add_parser("score-scenario-matches", help="validate Agent matches and compute coverage/adoption proxy metrics")
+    score.add_argument("--reference", required=True)
+    score.add_argument("--generated", required=True)
+    score.add_argument("--matches", required=True)
+    score.add_argument("--output", required=True)
     assemble = sub.add_parser("assemble", help="assemble findings and export artifacts")
     assemble.add_argument("--model", required=True)
     assemble.add_argument("--concern-matrix", required=True)
@@ -245,6 +259,31 @@ def _main_impl(argv=None) -> int:
             png_result = convert_svg_to_png(svg, output / "sr_service_dependency_graph.png", require=args.require_png)
             print(json.dumps({"status": "success", "json": str(graph_path), "svg": str(svg), "png": png_result}, ensure_ascii=False, indent=2))
             return 0
+        if args.command == "build-crud-dependency-graph":
+            model = validate_scene_model(_read_json(args.model), raise_on_error=True)["normalized_model"]
+            graph = build_crud_dependency_graph(model)
+            output = Path(args.output_dir).expanduser().resolve()
+            output.mkdir(parents=True, exist_ok=True)
+            _write_json(output / "crud_dependency_graph.json", graph)
+            (output / "crud_dependency_graph.dot").write_text(graph["dot"] + "\n", encoding="utf-8")
+            (output / "crud_dependency_four_tuples.md").write_text("# CRUD 数据依赖四元组\n\n" + (graph["four_tuples_markdown"] or "（无依赖边）") + "\n", encoding="utf-8")
+            print(json.dumps({"status": "success", "output_dir": str(output), "edge_count": len(graph["edges"]), "reason_count": len(graph["four_tuples"])}, ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "extract-test-scenarios":
+            report = extract_reference_test_scenarios(Path(args.input).read_text(encoding="utf-8"))
+            _write_json(args.output, report)
+            print(json.dumps({"status": "success" if report["valid"] else "error", "output": str(Path(args.output).resolve()), "scenario_count": report["scenario_count"], "errors": report["errors"]}, ensure_ascii=False, indent=2))
+            return 0 if report["valid"] else 2
+        if args.command == "validate-test-scenarios":
+            raw = _read_json(args.input)
+            report = extract_reference_test_scenarios_from_json(raw)
+            print(json.dumps({key: report[key] for key in ("schema_version", "valid", "errors", "scenario_count")}, ensure_ascii=False, indent=2))
+            return 0 if report["valid"] else 2
+        if args.command == "score-scenario-matches":
+            report = score_scenario_matches(_read_json(args.reference), _read_json(args.generated), _read_json(args.matches))
+            _write_json(args.output, report)
+            print(json.dumps({"status": "success" if report["valid"] else "error", "output": str(Path(args.output).resolve()), "metrics": report.get("metrics"), "errors": report.get("errors")}, ensure_ascii=False, indent=2))
+            return 0 if report["valid"] else 2
         if args.command == "assemble":
             manifest = _read_json(args.diagram_manifest) if args.diagram_manifest else None
             if args.ssd_manifest:

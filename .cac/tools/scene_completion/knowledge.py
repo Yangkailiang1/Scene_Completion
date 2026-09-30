@@ -9,7 +9,7 @@ from .concerns import ACTIVE_CONCERN_KEYS, CONCERN_DEFINITIONS, list_concerns
 
 
 def _concerns_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "references" / "concerns_v2"
+    return Path(__file__).resolve().parents[3] / ".cac" / "skills" / "scene-review" / "references" / "concerns_v2"
 
 
 def load_concern(key: str) -> dict[str, Any]:
@@ -30,8 +30,8 @@ def load_concern(key: str) -> dict[str, Any]:
 
 def list_diagram_knowledge() -> list[dict[str, str]]:
     return [
-        {"key": "system_composition", "reference": "references/diagrams_v2/system_composition.md", "focus": "系统组成节点和关系"},
-        {"key": "interaction_concern", "reference": "references/diagrams_v2/interaction_concern.md", "focus": "用例、交互和关注点状态"},
+        {"key": "system_composition", "reference": ".cac/skills/scene-assemble/references/system_composition.md", "focus": "系统组成节点和关系"},
+        {"key": "interaction_concern", "reference": ".cac/skills/scene-ssd/references/diagrams_v2/interaction_concern.md", "focus": "用例、交互和关注点状态"},
     ]
 
 
@@ -40,7 +40,7 @@ def load_diagram_knowledge(key: str) -> dict[str, str]:
     references = {item["key"]: item for item in list_diagram_knowledge()}
     if normalized not in references:
         raise ValueError(f"unknown diagram knowledge: {key}")
-    path = Path(__file__).resolve().parents[2] / references[normalized]["reference"]
+    path = Path(__file__).resolve().parents[3] / references[normalized]["reference"]
     return {**references[normalized], "reference": str(path), "content": path.read_text(encoding="utf-8")}
 
 
