@@ -1,4 +1,8 @@
 import re
+import json
+import importlib.util
+import subprocess
+import sys
 
 from scene_completion.assessment import (
     build_crud_dependency_graph,
@@ -45,8 +49,36 @@ def test_crud_dependency_graph_uses_same_entity_and_correct_direction():
     assert graph["edges"][0]["labels"] == "R->C,U->C"
     assert graph["edges"][0]["entities"] == ["Product", "SKU"]
     assert len(graph["four_tuples"]) == 2
+    assert len(graph["edge_list_markdown"].splitlines()) == 1
+    assert "UC-R（读取商品）" in graph["edge_list_markdown"]
+    assert "[R->C,U->C]" in graph["edge_list_markdown"]
+    assert "Product, SKU" in graph["edge_list_markdown"]
     assert '"UC-R" -> "UC-C" [label="R->C,U->C"]' in graph["dot"]
     assert "digraph G {" in graph["dot"]
+
+
+def test_crud_dependency_cli_exports_edge_list_even_when_graph_is_empty(tmp_path):
+    fixture_path = Path(__file__).with_name("test_scene_completion.py")
+    spec = importlib.util.spec_from_file_location("scene_completion_fixture", fixture_path)
+    fixture = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixture)
+    model = fixture.sample_model()
+    model_path = tmp_path / "model.json"
+    output_dir = tmp_path / "dependency_graph"
+    model_path.write_text(json.dumps(model, ensure_ascii=False), encoding="utf-8")
+    cli = Path(__file__).resolve().parents[1] / ".cac" / "tools" / "scene_completion.py"
+    result = subprocess.run(
+        [sys.executable, str(cli), "build-crud-dependency-graph", "--model", str(model_path), "--output-dir", str(output_dir)],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    expected = {
+        "crud_dependency_graph.json", "crud_dependency_graph.dot",
+        "crud_dependency_edges.md", "crud_dependency_four_tuples.md",
+    }
+    assert expected <= {path.name for path in output_dir.iterdir()}
+    assert "（无依赖边）" in (output_dir / "crud_dependency_edges.md").read_text(encoding="utf-8")
+    assert "digraph G {" in (output_dir / "crud_dependency_graph.dot").read_text(encoding="utf-8")
 
 
 def test_match_metrics_full_partial_unmatched_and_one_to_many():

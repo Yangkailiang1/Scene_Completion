@@ -36,3 +36,11 @@ def test_scene_agent_declares_only_existing_skills_and_pipeline_gates():
     assert declared == SKILL_NAMES
     assert "pending" in body
     assert "scenario-match" in body
+
+
+def test_dependency_graph_skill_keeps_full_algorithm_reference():
+    reference = SKILLS_ROOT / "dependency-graph" / "references" / "crud-dependency-algorithm.md"
+    content = reference.read_text(encoding="utf-8")
+    for heading in ("核心公理", "依赖判定规则", "边的来源标注", "依赖关系四元组", "提示词模板", "不应做的事"):
+        assert heading in content
+    assert len(content.splitlines()) > 150

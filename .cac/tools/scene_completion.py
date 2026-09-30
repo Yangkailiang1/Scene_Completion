@@ -116,7 +116,7 @@ def _main_impl(argv=None) -> int:
     sr_dep.add_argument("--ssd-manifest")
     sr_dep.add_argument("--output-dir", required=True)
     sr_dep.add_argument("--require-png", action="store_true")
-    crud_dep = sub.add_parser("build-crud-dependency-graph", help="derive CRUD lifecycle dependencies and export JSON, DOT, and four-tuples")
+    crud_dep = sub.add_parser("build-crud-dependency-graph", help="derive CRUD lifecycle dependencies and export JSON, DOT, edge list, and four-tuples")
     crud_dep.add_argument("--model", required=True)
     crud_dep.add_argument("--output-dir", required=True)
     extract_tests = sub.add_parser("extract-test-scenarios", help="extract reference scenarios from test_spec.md")
@@ -266,6 +266,7 @@ def _main_impl(argv=None) -> int:
             output.mkdir(parents=True, exist_ok=True)
             _write_json(output / "crud_dependency_graph.json", graph)
             (output / "crud_dependency_graph.dot").write_text(graph["dot"] + "\n", encoding="utf-8")
+            (output / "crud_dependency_edges.md").write_text("# CRUD 数据依赖边清单\n\n" + (graph["edge_list_markdown"] or "（无依赖边）") + "\n", encoding="utf-8")
             (output / "crud_dependency_four_tuples.md").write_text("# CRUD 数据依赖四元组\n\n" + (graph["four_tuples_markdown"] or "（无依赖边）") + "\n", encoding="utf-8")
             print(json.dumps({"status": "success", "output_dir": str(output), "edge_count": len(graph["edges"]), "reason_count": len(graph["four_tuples"])}, ensure_ascii=False, indent=2))
             return 0

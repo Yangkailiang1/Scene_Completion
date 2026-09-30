@@ -259,4 +259,4 @@ python .cac/tools/scene_completion.py build-crud-dependency-graph \
   --model scene_model.json --output-dir dependency_graph
 ```
 
-输出 JSON、Graphviz DOT `digraph` 和 Markdown 四元组。该图严格按 CRUD 生命周期规则：同一实体上的 R/U/D 用例指向创建该实体的 C 用例；它表示数据依赖，不代表交互调用顺序。
+输出四份文件：`crud_dependency_graph.json`（结构化边及追溯缘由）、`crud_dependency_graph.dot`（Graphviz `digraph`）、`crud_dependency_edges.md`（每对用例一行的合并依赖边清单）和 `crud_dependency_four_tuples.md`（每个实体及源操作各列一条缘由）。同一实体上的 R/U/D 用例指向创建该实体的 C 用例；一对用例只保留一条边，标签按 `R->C,U->C,D->C` 顺序合并，实体来源列在边上。箭头表示源用例依赖目标用例，不代表交互调用顺序。完整规则见 [依赖图算法参考](.cac/skills/dependency-graph/references/crud-dependency-algorithm.md)。

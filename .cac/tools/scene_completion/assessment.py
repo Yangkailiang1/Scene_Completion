@@ -146,10 +146,17 @@ def build_crud_dependency_graph(model: dict[str, Any]) -> dict[str, Any]:
     dot_lines.append("}")
     names = {uc_id: str(uc.get("name", uc_id)) for uc_id, uc in use_cases.items()}
     tuple_lines = [f"{names.get(row['source_use_case'], row['source_use_case'])}，数据依赖于，{names.get(row['target_use_case'], row['target_use_case'])}，依赖缘由：{row['source_operation']}（{row['entity']}）依赖于C（{row['entity']}）" for row in quadruples]
+    edge_lines = [
+        f"{edge['from_use_case']}（{names.get(edge['from_use_case'], edge['from_use_case'])}）"
+        f" ──[{','.join(edge['labels'])}]──> "
+        f"{edge['to_use_case']}（{names.get(edge['to_use_case'], edge['to_use_case'])}）"
+        f"（实体：{', '.join(sorted(edge['entities']))}）"
+        for edge in edges
+    ]
     for edge in edges:
         edge["labels"] = ",".join(edge["labels"])
         edge["entities"] = sorted(edge["entities"])
-    return {"schema_version": "1.0", "edge_semantics": "源用例依赖目标用例；R/U/D 依赖同实体创建用例 C", "edges": edges, "dot": "\n".join(dot_lines), "four_tuples": quadruples, "four_tuples_markdown": "\n".join(f"- {line}" for line in tuple_lines)}
+    return {"schema_version": "1.0", "edge_semantics": "源用例依赖目标用例；R/U/D 依赖同实体创建用例 C", "edges": edges, "dot": "\n".join(dot_lines), "edge_list_markdown": "\n".join(f"- {line}" for line in edge_lines), "four_tuples": quadruples, "four_tuples_markdown": "\n".join(f"- {line}" for line in tuple_lines)}
 
 
 def _dot_escape(text: str) -> str:
