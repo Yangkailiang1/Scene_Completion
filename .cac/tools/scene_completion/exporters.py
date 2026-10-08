@@ -12,6 +12,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .graphs import render_crud_dependency_svg
+
 
 HEADER_FILL = PatternFill("solid", fgColor="4472C4")
 SECTION_FILL = PatternFill("solid", fgColor="D9EAF7")
@@ -326,6 +328,9 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
         "er_model": output / "er_model.json",
         "use_case_entity_crud": output / "use_case_entity_crud.json",
         "use_case_dependency_graph": output / "use_case_dependency_graph.json",
+        "crud_dependency_graph": output / "crud_dependency_graph.json",
+        "crud_dependency_graph_dot": output / "crud_dependency_graph.dot",
+        "crud_dependency_graph_svg": output / "crud_dependency_graph.svg",
         "use_case_entity_crud_workbook": output / f"use_case_entity_crud_{project}.xlsx",
         "interaction_catalog": output / "interaction_catalog.json",
         "concern_matrix": output / "concern_matrix.json",
@@ -345,6 +350,10 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
     _json_write(artifacts["er_model"], bundle.get("er_model", {}))
     _json_write(artifacts["use_case_entity_crud"], {"entities": bundle.get("scene_model", {}).get("entities", []), "operations": bundle.get("use_case_entity_operations", [])})
     _json_write(artifacts["use_case_dependency_graph"], bundle.get("use_case_dependency_graph", {}))
+    crud_graph = bundle.get("crud_dependency_graph", bundle.get("scene_model", {}).get("crud_dependency_graph", {}))
+    _json_write(artifacts["crud_dependency_graph"], crud_graph)
+    (artifacts["crud_dependency_graph_dot"]).write_text(str(crud_graph.get("dot", "digraph G {\n}\n")) + "\n", encoding="utf-8")
+    render_crud_dependency_svg(crud_graph, bundle.get("scene_model", {}).get("use_cases", []), artifacts["crud_dependency_graph_svg"])
     _write_use_case_entity_crud_workbook(bundle, artifacts["use_case_entity_crud_workbook"])
     _json_write(artifacts["interaction_catalog"], bundle["interaction_catalog"])
     matrix_items = bundle["concern_matrix"]
@@ -390,6 +399,7 @@ def export_workbooks(bundle: dict[str, Any], output_dir: str | Path) -> dict[str
         "scenario_count": len(bundle.get("scenario_catalog", [])),
         "test_scenarios": {"path": str(artifacts["test_scenarios"]), "scenario_count": test_scenarios["scenario_count"], "scenario_type_counts": test_scenarios["scenario_type_counts"]},
         "system_composition_dependencies": bundle.get("diagram_manifest", {}).get("system_composition_dependencies", {}),
+        "crud_dependency_graph": bundle.get("diagram_manifest", {}).get("crud_dependency_graph", {}),
         "prediction_count": len(bundle.get("findings", [])),
         "main_success_count": sum(1 for item in bundle.get("scenario_catalog", []) if item.get("scenario_type") == "main_success"),
         "interaction_count": len(bundle.get("interaction_catalog", [])),

@@ -1,0 +1,777 @@
+{
+  "version": "6",
+  "project": "Delta_online_mall",
+  "use_cases": [
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-001-UC001",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC001\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-001-UC002",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC002\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 10,
+        "output_count": 10,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-001-UC003",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-001-UC003\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-002-UC001",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC001\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-002-UC002",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC002\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 13,
+        "output_count": 13,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-002-UC003",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-002-UC003\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-003-UC001",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC001\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-003-UC002",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC002\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-003-UC003",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC003\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-003-UC004",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-003-UC004\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-004-UC001",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC001\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 11,
+        "output_count": 11,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-004-UC002",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC002\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-004-UC003",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC003\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    },
+    {
+      "version": "6",
+      "project": "Delta_online_mall",
+      "use_case_id": "UCG-004-UC004",
+      "scenario_id": "main",
+      "artifacts": {
+        "rr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\rr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\rr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\rr_main.png",
+          "puml": ""
+        },
+        "sr": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\sr_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\sr_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\sr_main.png",
+          "puml": ""
+        },
+        "ar": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\ar_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\ar_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\ar_main.png",
+          "puml": ""
+        },
+        "fused": {
+          "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\fused_main.json",
+          "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\fused_main.svg",
+          "png": "",
+          "png_status": "failed",
+          "png_converter": "",
+          "png_error": "C:\\Windows\\system32\\convert.EXE: Invalid Parameter - D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\diagrams\\UCG-004-UC004\\fused_main.png",
+          "puml": ""
+        }
+      },
+      "review_items": [],
+      "dedupe_report": {
+        "input_count": 12,
+        "output_count": 12,
+        "removed_count": 0,
+        "conflicts": []
+      }
+    }
+  ],
+  "system_composition": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition.json",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition.svg",
+    "png": "",
+    "png_status": "failed",
+    "view": "participation"
+  },
+  "system_composition_dependencies": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition_dependencies.json",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition_dependencies.svg",
+    "png": "",
+    "png_status": "failed",
+    "view": "dependencies",
+    "edge_count": 14,
+    "crud_edge_count": 14,
+    "cycle_count": 0
+  },
+  "use_case_dependency_graph": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\use_case_dependency_graph.json",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\use_case_dependency_graph.svg",
+    "png": "",
+    "png_status": "failed",
+    "edge_count": 0,
+    "review_items": []
+  },
+  "crud_dependency_graph": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.json",
+    "dot": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.dot",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.svg",
+    "edge_count": 14,
+    "reason_count": 14
+  },
+  "sr_service_dependency_graph": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\sr_service_dependency_graph.json",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\sr_service_dependency_graph.svg",
+    "png": "",
+    "png_status": "failed",
+    "edge_count": 0,
+    "review_items": []
+  },
+  "interface_mapping_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\interface_service_mapping_Delta_online_mall.xlsx",
+  "service_classification_summary": {
+    "sr_use_case_mapping_count": 14,
+    "ar_implementation_mapping_count": 14,
+    "sr_by_type": {
+      "display_interaction": 2,
+      "query_retrieval": 2,
+      "release_activation": 1,
+      "resource_mutation": 9
+    },
+    "ar_by_type": {
+      "command_write": 10,
+      "query_read": 4
+    },
+    "unclassified_sr_use_cases": [],
+    "unclassified_ar_mappings": []
+  }
+}

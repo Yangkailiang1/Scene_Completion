@@ -1,0 +1,82 @@
+{
+  "version": "6",
+  "project": "Delta_online_mall",
+  "scenario_count": 56,
+  "test_scenarios": {
+    "path": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\test_scenarios.json",
+    "scenario_count": 56,
+    "scenario_type_counts": {
+      "alternative": 5,
+      "main_success": 14,
+      "requirement_exception": 37
+    }
+  },
+  "system_composition_dependencies": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition_dependencies.json",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition_dependencies.svg",
+    "png": "",
+    "png_status": "failed",
+    "view": "dependencies",
+    "edge_count": 14,
+    "crud_edge_count": 14,
+    "cycle_count": 0
+  },
+  "crud_dependency_graph": {
+    "json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.json",
+    "dot": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.dot",
+    "svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.svg",
+    "edge_count": 14,
+    "reason_count": 14
+  },
+  "prediction_count": 37,
+  "main_success_count": 14,
+  "interaction_count": 14,
+  "concern_matrix_count": 584,
+  "review_item_count": 584,
+  "evaluation": {
+    "ground_truth": false,
+    "precision": null,
+    "recall": null,
+    "f1": null
+  },
+  "outputs": {
+    "scene_model": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\scene_model.json",
+    "system_composition": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition.json",
+    "system_composition_dependencies": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\system_composition_dependencies.json",
+    "er_model": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\er_model.json",
+    "use_case_entity_crud": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\use_case_entity_crud.json",
+    "use_case_dependency_graph": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\use_case_dependency_graph.json",
+    "crud_dependency_graph": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.json",
+    "crud_dependency_graph_dot": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.dot",
+    "crud_dependency_graph_svg": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\crud_dependency_graph.svg",
+    "use_case_entity_crud_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\use_case_entity_crud_Delta_online_mall.xlsx",
+    "interaction_catalog": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\interaction_catalog.json",
+    "concern_matrix": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\concern_matrix.json",
+    "checkpoint_results": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\checkpoint_results.json",
+    "exception_tree": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\exception_tree.json",
+    "scenario_catalog_json": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\scenario_catalog.json",
+    "test_scenarios": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\test_scenarios.json",
+    "diagram_manifest": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\diagram_manifest.json",
+    "review_items": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\review_items.json",
+    "prediction_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\prediction_analysis_Delta_online_mall.xlsx",
+    "scenario_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\scenario_catalog_Delta_online_mall.xlsx",
+    "mapping_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\interface_service_mapping_Delta_online_mall.xlsx"
+  },
+  "interface_mapping_workbook": "D:\\project\\Scene_Completion\\终端云例子\\scene_completion_output\\assembled\\interface_service_mapping_Delta_online_mall.xlsx",
+  "service_classification_summary": {
+    "sr_use_case_mapping_count": 14,
+    "ar_implementation_mapping_count": 14,
+    "sr_by_type": {
+      "display_interaction": 2,
+      "query_retrieval": 2,
+      "release_activation": 1,
+      "resource_mutation": 9
+    },
+    "ar_by_type": {
+      "command_write": 10,
+      "query_read": 4
+    },
+    "unclassified_sr_use_cases": [],
+    "unclassified_ar_mappings": []
+  }
+}

@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1446" height="1094" viewBox="0 0 1446 1094"><rect width="100%" height="100%" fill="#fff"/>
+<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#6B82A0"/></marker><marker id="cycle-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C44536"/></marker></defs>
+<text x="30.0" y="42.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">Delta_online_mall · CRUD 数据依赖关系图</text>
+<text x="128.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">根用例</text>
+<text x="366.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">依赖层 2</text>
+<text x="604.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">依赖层 3</text>
+<text x="842.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">依赖层 4</text>
+<text x="1080.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">依赖层 5</text>
+<text x="1318.0" y="74.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#536273">依赖层 6</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="349.48571428571427" y1="578.0" x2="144.5142857142857" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Product：UCG-001-UC001 → UCG-004-UC001</title>
+<rect x="177.0" y="347.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="247.0" y="360.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Product</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="283.42857142857144" y1="186.0" x2="210.57142857142856" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Product：UCG-001-UC002 → UCG-004-UC001</title>
+<rect x="177.0" y="151.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="247.0" y="164.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Product</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="324.7142857142857" y1="284.0" x2="169.28571428571428" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Product：UCG-001-UC003 → UCG-004-UC001</title>
+<rect x="177.0" y="200.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="247.0" y="213.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Product</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="562.7142857142857" y1="156.0" x2="407.2857142857143" y2="284.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Cart：UCG-002-UC001 → UCG-001-UC003</title>
+<rect x="415.0" y="200.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="485.0" y="213.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Cart</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="506.0" y1="122.0" x2="226.0" y2="122.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Product：UCG-002-UC001 → UCG-004-UC001</title>
+<rect x="296.0" y="102.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="366.0" y="115.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Product</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="744.0" y1="122.0" x2="702.0" y2="122.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>U-&gt;C · Order：UCG-002-UC002 → UCG-002-UC001</title>
+<rect x="653.0" y="102.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="723.0" y="115.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">U-&gt;C · Order</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="759.4285714285714" y1="186.0" x2="686.5714285714286" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Order：UCG-002-UC003 → UCG-002-UC001</title>
+<rect x="653.0" y="151.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="723.0" y="164.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Order</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="800.7142857142857" y1="284.0" x2="645.2857142857143" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>U-&gt;C · Order：UCG-003-UC001 → UCG-002-UC001</title>
+<rect x="653.0" y="200.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="723.0" y="213.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">U-&gt;C · Order</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="1038.7142857142858" y1="156.0" x2="883.2857142857143" y2="284.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>U-&gt;C · Shipment：UCG-003-UC002 → UCG-003-UC001</title>
+<rect x="891.0" y="200.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="961.0" y="213.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">U-&gt;C · Shipment</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="1235.4285714285713" y1="156.0" x2="924.5714285714286" y2="284.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Shipment：UCG-003-UC003 → UCG-003-UC001</title>
+<rect x="1010.0" y="200.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="1080.0" y="213.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Shipment</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="1220.0" y1="122.0" x2="1178.0" y2="122.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · LogisticsEvent：UCG-003-UC003 → UCG-003-UC002</title>
+<rect x="1129.0" y="102.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="1199.0" y="115.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · LogisticsEvent</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="814.4761904761905" y1="382.0" x2="631.5238095238095" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>R-&gt;C · Order：UCG-003-UC004 → UCG-002-UC001</title>
+<rect x="653.0" y="249.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="723.0" y="262.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">R-&gt;C · Order</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="338.4761904761905" y1="382.0" x2="155.52380952380952" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>U-&gt;C · Product：UCG-004-UC002 → UCG-004-UC001</title>
+<rect x="177.0" y="249.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="247.0" y="262.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">U-&gt;C · Product</text>
+<line data-relation="crud_lifecycle_dependency" data-edge-ids="" data-cycle="false" x1="345.35714285714283" y1="480.0" x2="148.64285714285714" y2="156.0" fill="none" stroke="#2563EB" stroke-width="1.8" marker-end="url(#dep-arrow)"/>
+<title>U-&gt;C · Product：UCG-004-UC004 → UCG-004-UC001</title>
+<rect x="177.0" y="298.0" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>
+<text x="247.0" y="311.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#536273">U-&gt;C · Product</text>
+<ellipse cx="366.0" cy="612.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="366.0" y="606.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-001-UC001</text>
+<text x="366.0" y="627.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">浏览商品</text>
+<ellipse cx="366.0" cy="220.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="366.0" y="214.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-001-UC002</text>
+<text x="366.0" y="235.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">查看商品详情</text>
+<ellipse cx="366.0" cy="318.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="366.0" y="312.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-001-UC003</text>
+<text x="366.0" y="333.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">加入购物车</text>
+<ellipse cx="604.0" cy="122.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="604.0" y="116.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-002-UC001</text>
+<text x="604.0" y="137.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">创建订单</text>
+<ellipse cx="842.0" cy="122.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="842.0" y="116.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-002-UC002</text>
+<text x="842.0" y="137.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">支付订单</text>
+<ellipse cx="842.0" cy="220.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="842.0" y="214.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-002-UC003</text>
+<text x="842.0" y="235.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">查看订单详情</text>
+<ellipse cx="842.0" cy="318.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="842.0" y="312.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-003-UC001</text>
+<text x="842.0" y="333.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">商家发货</text>
+<ellipse cx="1080.0" cy="122.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1080.0" y="116.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-003-UC002</text>
+<text x="1080.0" y="137.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">更新物流信息</text>
+<ellipse cx="1318.0" cy="122.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1318.0" y="116.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-003-UC003</text>
+<text x="1318.0" y="137.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">查询物流信息</text>
+<ellipse cx="842.0" cy="416.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="842.0" y="410.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-003-UC004</text>
+<text x="842.0" y="431.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">申请退款</text>
+<ellipse cx="128.0" cy="122.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="128.0" y="116.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-004-UC001</text>
+<text x="128.0" y="137.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">创建商品</text>
+<ellipse cx="366.0" cy="416.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="366.0" y="410.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-004-UC002</text>
+<text x="366.0" y="431.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">填写商品信息</text>
+<ellipse cx="128.0" cy="220.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="128.0" y="214.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-004-UC003</text>
+<text x="128.0" y="235.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">设置库存与价格</text>
+<ellipse cx="366.0" cy="514.0" rx="98.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="366.0" y="508.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9px" font-weight="normal" fill="#536273">UCG-004-UC004</text>
+<text x="366.0" y="529.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="bold" fill="#22364D">发布商品</text>
+<text x="30.0" y="696.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#153E75">方向：执行 R/U/D 的用例 → 创建同一实体的 C 用例；边标签说明源操作和实体。</text>
+<text x="34.0" y="719.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  浏览商品 → 创建商品  |  Product · R-&gt;C</text>
+<text x="34.0" y="743.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  查看商品详情 → 创建商品  |  Product · R-&gt;C</text>
+<text x="34.0" y="767.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  加入购物车 → 创建商品  |  Product · R-&gt;C</text>
+<text x="34.0" y="791.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  创建订单 → 加入购物车  |  Cart · R-&gt;C</text>
+<text x="34.0" y="815.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  创建订单 → 创建商品  |  Product · R-&gt;C</text>
+<text x="34.0" y="839.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  支付订单 → 创建订单  |  Order · U-&gt;C</text>
+<text x="34.0" y="863.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  查看订单详情 → 创建订单  |  Order · R-&gt;C</text>
+<text x="34.0" y="887.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  商家发货 → 创建订单  |  Order · U-&gt;C</text>
+<text x="34.0" y="911.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  更新物流信息 → 商家发货  |  Shipment · U-&gt;C</text>
+<text x="34.0" y="935.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  查询物流信息 → 商家发货  |  Shipment · R-&gt;C</text>
+<text x="34.0" y="959.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  查询物流信息 → 更新物流信息  |  LogisticsEvent · R-&gt;C</text>
+<text x="34.0" y="983.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  申请退款 → 创建订单  |  Order · R-&gt;C</text>
+<text x="34.0" y="1007.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  填写商品信息 → 创建商品  |  Product · U-&gt;C</text>
+<text x="34.0" y="1031.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="11px" font-weight="normal" fill="#536273">  发布商品 → 创建商品  |  Product · U-&gt;C</text>
+</svg>

@@ -29,14 +29,22 @@ def build_system_composition_semantics(model: dict[str, Any], view: str = "parti
             if use_case_id:
                 external_cases.append({"from_node": edge.get("to_node"), "to_use_case": use_case_id, "relation": relation, "source_location": edge.get("source_location", "")})
     graph = normalized.get("use_case_dependency_graph") or {}
+    crud_graph = normalized.get("crud_dependency_graph") or {}
+    crud_layout_edges = [
+        {**edge, "from_use_case": edge.get("to_use_case"), "to_use_case": edge.get("from_use_case")}
+        for edge in crud_graph.get("edges", [])
+    ]
+    layout_edges = [*graph.get("edges", []), *crud_layout_edges]
     return {
         **composition,
         "view_id": "system_composition_dependencies" if view == "dependencies" else "system_composition",
-        "view_purpose": "参与关系：Actor → 专属 UI/前端 → 实际参与用例；外部 Service → 有证据的用例" if view != "dependencies" else "依赖关系：Actor → 专属 UI/前端 → 用例区域；展示用例依赖和有证据的外部 Service 参与",
+        "view_purpose": "参与关系：Actor → 专属 UI/前端 → 实际参与用例；外部 Service → 有证据的用例" if view != "dependencies" else "依赖关系：Actor → 专属 UI/前端 → 用例区域；同时展示证据型用例依赖与 CRUD 生命周期依赖，并保留各自方向和标签",
         "participation_relations": {"actor_to_frontend": human_frontend, "frontend_to_use_case": frontend_cases if view != "dependencies" else [], "external_service_to_use_case": external_cases},
         "frontend_area_attachments": ([{"frontend_id": edge.get("to_node"), "use_case_area": "use_case_region"} for edge in human_frontend] if view == "dependencies" else []),
         "use_case_dependency_graph": graph if view == "dependencies" else {"edges": []},
-        "layout": dependency_layout(graph.get("nodes", []), graph.get("edges", [])) if view == "dependencies" else {"type": "grid"},
+        "crud_dependency_graph": crud_graph if view == "dependencies" else {"edges": []},
+        "layout_semantics": "创建用例位于左侧，依赖其数据的 R/U/D 用例位于右侧；CRUD 箭头仍从依赖用例指向创建用例。",
+        "layout": dependency_layout(graph.get("nodes", []), layout_edges) if view == "dependencies" else {"type": "grid"},
     }
 
 
@@ -53,6 +61,13 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
     devices = [by_id[node_id] for node_id in normalized.get("supported_devices", []) if node_id in by_id]
     dependency_graph = normalized.get("use_case_dependency_graph") or {}
     dependencies = dependency_graph.get("edges", []) if view == "dependencies" else []
+    crud_dependency_graph = normalized.get("crud_dependency_graph") or {}
+    crud_dependencies = crud_dependency_graph.get("edges", []) if view == "dependencies" else []
+    crud_layout_edges = [
+        {**edge, "from_use_case": edge.get("to_use_case"), "to_use_case": edge.get("from_use_case")}
+        for edge in crud_dependencies
+    ]
+    all_dependency_edges = [*dependencies, *crud_layout_edges]
     cases = list(normalized.get("use_cases", []))
     actor_order = {actor["node_id"]: i for i, actor in enumerate(actors)}
     actor_name_id = {actor["name"]: actor["node_id"] for actor in actors}
@@ -62,7 +77,7 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
         return (min(indices) if indices else len(actors), uc["use_case_id"])
 
     cols, ew, eh, gx, gy = (3, 260, 78, 38, 44) if view != "dependencies" else (1, 190, 68, 28, 34)
-    graph_layout = dependency_layout(dependency_graph.get("nodes", []), dependencies) if view == "dependencies" else None
+    graph_layout = dependency_layout(dependency_graph.get("nodes", []), all_dependency_edges) if view == "dependencies" else None
     if view == "dependencies":
         case_layers = graph_layout.get("layers", []) or [[uc["use_case_id"] for uc in cases]]
         uc_by_id = {uc["use_case_id"]: uc for uc in cases}
@@ -99,7 +114,7 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
 
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{math.ceil(width)}" height="{math.ceil(height)}" viewBox="0 0 {math.ceil(width)} {math.ceil(height)}">',
            '<rect width="100%" height="100%" fill="#FFFFFF"/>',
-           '<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C07A2A"/></marker></defs>',
+           '<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C07A2A"/></marker><marker id="crud-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#2563EB"/></marker></defs>',
            _text(margin, 36, f"{normalized.get('system_name', normalized['project'])} 系统组成总览", 24, "bold", "#153E75")]
 
     def group(title: str, x: float, y: float, w: float, h: float, fill: str) -> None:
@@ -212,8 +227,8 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
                 x1,y1,x2,y2 = source[0],source[1]+source[3]/2,x+w,y+h/2
             svg.append(f'<line data-relation="external_participates_in" data-node="{_esc(node_id)}" data-use-case="{_esc(uc_id)}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#D97706" stroke-width="1.65"/>')
 
-    # Dependency view places prerequisites to the left and consumers to the
-    # right. Edges use the inter-column gutters and touch ellipse endpoints.
+    # Evidence-backed dependencies remain visually distinct from deterministic
+    # CRUD lifecycle edges, whose direction follows the CRUD dependency skill.
     dependency_pairs: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for edge in dependencies:
         dependency_pairs.setdefault((str(edge.get("from_use_case", "")), str(edge.get("to_use_case", ""))), []).append(edge)
@@ -260,6 +275,32 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
         edge_ids=",".join(str(edge.get("edge_id","")) for edge in pair_edges)
         svg.append(f'<path data-relation="use_case_dependency" data-edge-ids="{_esc(edge_ids)}" d="{d}" fill="none" stroke="#C07A2A" stroke-width="1.55" stroke-dasharray="5 3" marker-end="url(#dep-arrow)"/>')
 
+    crud_lane_counts: dict[tuple[str, str], int] = {}
+    for edge in crud_dependencies:
+        source_id, target_id = str(edge.get("from_use_case", "")), str(edge.get("to_use_case", ""))
+        a, b = case_boxes.get(source_id), case_boxes.get(target_id)
+        if not a or not b:
+            continue
+        ax, ay, aw, ah = a; bx, by, bw, bh = b
+        source_layer = next((i for i, layer in enumerate(case_layers) if source_id in layer), 0)
+        target_layer = next((i for i, layer in enumerate(case_layers) if target_id in layer), 0)
+        if source_layer < target_layer:
+            x1, y1, x2, y2 = ax+aw, ay+ah/2, bx, by+bh/2
+        else:
+            x1, y1, x2, y2 = _ellipse_edge_points(a, b)
+        pair = tuple(sorted((source_id, target_id)))
+        lane_index = crud_lane_counts.get(pair, 0)
+        crud_lane_counts[pair] = lane_index + 1
+        curve_offset = (12 + lane_index * 6) * (1 if source_id < target_id else -1)
+        middle_x, middle_y = (x1+x2)/2, (y1+y2)/2 + curve_offset
+        edge_id = str(edge.get("edge_id", ""))
+        relation = str(edge.get("labels", ""))
+        entities = ", ".join(edge.get("entities", []))
+        label = f"{relation} · {entities}" if entities else relation
+        svg.append(f'<path data-relation="crud_lifecycle_dependency" data-edge-id="{_esc(edge_id)}" data-from-use-case="{_esc(source_id)}" data-to-use-case="{_esc(target_id)}" d="M {x1} {y1} Q {middle_x} {middle_y} {x2} {y2}" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>{_esc(label)}：消费方用例依赖创建方用例</title></path>')
+        svg.append(f'<rect x="{middle_x-72}" y="{middle_y-13}" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>')
+        svg.append(_text(middle_x, middle_y+1, label, 10, "bold", "#1D4ED8", "middle"))
+
     for i,node in enumerate(resources):
         box_node(node,(x0+10+(i%3)*320,bottom_y+46+(i//3)*72,300,56),"#EAF7EA")
     for i,node in enumerate(deployment):
@@ -273,7 +314,7 @@ def render_system_composition_svg(model: dict[str, Any], output_path: str | Path
             lx = margin + i * 150
             svg.append(f'<line x1="{lx}" y1="{legend_y}" x2="{lx+28}" y2="{legend_y}" stroke="{color}" stroke-width="3"/>')
             svg.append(_text(lx+36, legend_y+4, actor.get("name", actor["node_id"]), 12, "normal", "#536273"))
-    note = "用例依赖边表示有证据的数据生命周期/状态前置关系；红色虚线为依赖环，需人工复核。" if view == "dependencies" else "参与关系图：不同颜色表示不同 Actor 的 UI/前端参与连线；外部服务仅绘制有证据的直线关系。"
+    note = "蓝色实线：CRUD 生命周期依赖，R/U/D 用例 → 同实体 C 用例；橙色虚线：另行声明且有证据的状态/前置依赖；红色表示依赖环。" if view == "dependencies" else "参与关系图：不同颜色表示不同 Actor 的 UI/前端参与连线；外部服务仅绘制有证据的直线关系。"
     svg.append(_text(margin,height-18,note,12,"normal","#536273"))
     svg.append("</svg>")
     output=Path(output_path); output.parent.mkdir(parents=True,exist_ok=True); output.write_text("\n".join(svg),encoding="utf-8")

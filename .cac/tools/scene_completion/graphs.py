@@ -259,7 +259,7 @@ def render_use_case_dependency_svg(graph: dict[str, Any], output_path: str | Pat
             y = top + int(row_positions.get(node_id, row)) * (box_h + gap_y)
             boxes[node_id] = (x, y, box_w, box_h)
             layer_of[node_id] = layer_index
-    body = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><rect width="100%" height="100%" fill="#fff"/>', '<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#6B82A0"/></marker><marker id="cycle-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C44536"/></marker></defs>', _text(margin, 42, f"{graph.get('project','')} · 用例数据依赖关系图", 22, "bold", "#153E75")]
+    body = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><rect width="100%" height="100%" fill="#fff"/>', '<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#6B82A0"/></marker><marker id="cycle-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C44536"/></marker></defs>', _text(margin, 42, graph.get("title", f"{graph.get('project','')} · 用例数据依赖关系图"), 22, "bold", "#153E75")]
     for i, layer in enumerate(layers):
         x = margin + i * (box_w + gap_x)
         label = "根用例" if i == 0 else f"依赖层 {i+1}"
@@ -285,10 +285,19 @@ def render_use_case_dependency_svg(graph: dict[str, Any], output_path: str | Pat
             start = (acx+dx*scale_a, acy+dy*scale_a)
             end = (bcx-dx*scale_b, bcy-dy*scale_b)
         edge_ids = ",".join(str(edge.get("edge_id", "")) for edge in pair_edges)
-        color = "#C44536" if cycle else "#6B82A0"
+        color = "#C44536" if cycle else graph.get("edge_color", "#6B82A0")
         marker = "cycle-arrow" if cycle else "dep-arrow"
         dash = ' stroke-dasharray="6 4"' if cycle else ""
-        body.append(f'<line data-relation="use_case_dependency" data-edge-ids="{_esc(edge_ids)}" data-cycle="{str(cycle).lower()}" x1="{start[0]}" y1="{start[1]}" x2="{end[0]}" y2="{end[1]}" fill="none" stroke="{color}" stroke-width="1.8"{dash} marker-end="url(#{marker})"/>')
+        body.append(f'<line data-relation="{_esc(graph.get("edge_data_relation", "use_case_dependency"))}" data-edge-ids="{_esc(edge_ids)}" data-cycle="{str(cycle).lower()}" x1="{start[0]}" y1="{start[1]}" x2="{end[0]}" y2="{end[1]}" fill="none" stroke="{color}" stroke-width="1.8"{dash} marker-end="url(#{marker})"/>')
+        for edge_index, edge in enumerate(pair_edges):
+            relation = str(edge.get("labels") or edge.get("relation") or "依赖")
+            entity = str(edge.get("entity") or "")
+            label = f"{relation} · {entity}" if entity else relation
+            label_x = (start[0] + end[0]) / 2
+            label_y = (start[1] + end[1]) / 2 - 7 - edge_index * 13
+            body.append(f'<title>{_esc(label)}：{_esc(edge.get("source_use_case", source_id))} → {_esc(edge.get("target_use_case", target_id))}</title>')
+            body.append(f'<rect x="{label_x-70}" y="{label_y-13}" width="140" height="18" rx="5" fill="#fff" opacity="0.94"/>')
+            body.append(_text(label_x, label_y, label, 10, "bold", "#536273", "middle"))
     for node in nodes:
         if node["use_case_id"] not in boxes:
             continue
@@ -299,7 +308,7 @@ def render_use_case_dependency_svg(graph: dict[str, Any], output_path: str | Pat
     if not graph.get("edges"):
         body.append(_text(width/2, height-18, "暂无具备明确实体生命周期/状态前置证据的依赖边。", 13, "normal", "#8A4B08", "middle"))
     else:
-        body.append(_text(margin, legend_top, "依赖证据（生产/前置用例 → 消费/依赖用例）", 14, "bold", "#153E75"))
+        body.append(_text(margin, legend_top, graph.get("edge_semantics", "依赖证据（生产/前置用例 → 消费/依赖用例）"), 14, "bold", "#153E75"))
         node_names = {node["use_case_id"]: node.get("name", node["use_case_id"]) for node in nodes}
         for index, edge in enumerate(edges):
             label = (f"{edge.get('edge_id','')}  {node_names.get(edge.get('from_use_case'), edge.get('from_use_case',''))} → "
@@ -308,3 +317,26 @@ def render_use_case_dependency_svg(graph: dict[str, Any], output_path: str | Pat
     body.append("</svg>")
     output = Path(output_path); output.parent.mkdir(parents=True, exist_ok=True); output.write_text("\n".join(body), encoding="utf-8")
     return output
+
+
+def render_crud_dependency_svg(graph: dict[str, Any], use_cases: list[dict[str, Any]], output_path: str | Path) -> Path:
+    """Render the CRUD lifecycle graph using its documented R/U/D -> C direction."""
+    nodes = graph.get("nodes") or [{"use_case_id": str(uc.get("use_case_id", "")), "name": str(uc.get("use_case_name", uc.get("use_case_id", "")))} for uc in use_cases]
+    edges = [{
+        **edge,
+        "relation": str(edge.get("labels", "")),
+        "entity": ", ".join(edge.get("entities", [])),
+        "source_use_case": edge.get("from_use_case", ""),
+        "target_use_case": edge.get("to_use_case", ""),
+    } for edge in graph.get("edges", [])]
+    visual_graph = {
+        "project": graph.get("project", ""),
+        "title": f"{graph.get('project', '')} · CRUD 数据依赖关系图",
+        "edge_semantics": "方向：执行 R/U/D 的用例 → 创建同一实体的 C 用例；边标签说明源操作和实体。",
+        "edge_data_relation": "crud_lifecycle_dependency",
+        "edge_color": "#2563EB",
+        "nodes": nodes,
+        "edges": edges,
+        "layout": graph.get("layout") or dependency_layout(nodes, edges),
+    }
+    return render_use_case_dependency_svg(visual_graph, output_path)

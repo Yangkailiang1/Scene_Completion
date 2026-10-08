@@ -21,7 +21,7 @@ from scene_completion.knowledge import load_concern, load_diagram_knowledge, lis
 from scene_completion.png_renderer import convert_svg_to_png
 from scene_completion.schemas import ValidationFailure, validate_scene_model
 from scene_completion.ssd import fuse_ssd, generate_ssd_bundle, validate_ssd, write_ssd_bundle
-from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, validate_use_case_dependency_graph, build_sr_service_dependency_graph, render_sr_service_dependency_svg
+from scene_completion.graphs import build_use_case_dependency_graph, render_use_case_dependency_svg, render_crud_dependency_svg, validate_use_case_dependency_graph, build_sr_service_dependency_graph, render_sr_service_dependency_svg
 from scene_completion.svg_renderer import render_system_composition_svg
 from scene_completion.overview import build_system_composition_semantics
 from scene_completion.review import load_ecnu_env_file, review_concerns
@@ -268,7 +268,8 @@ def _main_impl(argv=None) -> int:
             (output / "crud_dependency_graph.dot").write_text(graph["dot"] + "\n", encoding="utf-8")
             (output / "crud_dependency_edges.md").write_text("# CRUD 数据依赖边清单\n\n" + (graph["edge_list_markdown"] or "（无依赖边）") + "\n", encoding="utf-8")
             (output / "crud_dependency_four_tuples.md").write_text("# CRUD 数据依赖四元组\n\n" + (graph["four_tuples_markdown"] or "（无依赖边）") + "\n", encoding="utf-8")
-            print(json.dumps({"status": "success", "output_dir": str(output), "edge_count": len(graph["edges"]), "reason_count": len(graph["four_tuples"])}, ensure_ascii=False, indent=2))
+            svg_path = render_crud_dependency_svg(graph, model.get("use_cases", []), output / "crud_dependency_graph.svg")
+            print(json.dumps({"status": "success", "output_dir": str(output), "edge_count": len(graph["edges"]), "reason_count": len(graph["four_tuples"]), "svg": str(svg_path)}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "extract-test-scenarios":
             report = extract_reference_test_scenarios(Path(args.input).read_text(encoding="utf-8"))
@@ -297,6 +298,8 @@ def _main_impl(argv=None) -> int:
             output_root = Path(args.output_dir).expanduser().resolve()
             output_root.mkdir(parents=True, exist_ok=True)
             normalized = validate_scene_model(model_value, raise_on_error=True)["normalized_model"]
+            crud_dependency = build_crud_dependency_graph(normalized)
+            normalized["crud_dependency_graph"] = crud_dependency
             use_case_dependency = build_use_case_dependency_graph(normalized)
             normalized["use_case_dependency_graph"] = use_case_dependency
             composition_svg = render_system_composition_svg(normalized, output_root / "system_composition.svg")
@@ -320,8 +323,13 @@ def _main_impl(argv=None) -> int:
             dependency_png = convert_svg_to_png(dependency_svg, output_root / "sr_service_dependency_graph.png", require=args.require_png)
             manifest = dict(manifest or {})
             manifest["system_composition"] = {"json": str(output_root / "system_composition.json"), "svg": str(composition_svg), "png": composition_png.get("png", ""), "png_status": composition_png.get("status"), "view": "participation"}
-            manifest["system_composition_dependencies"] = {"json": str(output_root / "system_composition_dependencies.json"), "svg": str(dependency_composition_svg), "png": dependency_composition_png.get("png", ""), "png_status": dependency_composition_png.get("status"), "view": "dependencies", "edge_count": len(use_case_dependency.get("edges", [])), "cycle_count": len(use_case_dependency.get("layout", {}).get("cycles", []))}
+            manifest["system_composition_dependencies"] = {"json": str(output_root / "system_composition_dependencies.json"), "svg": str(dependency_composition_svg), "png": dependency_composition_png.get("png", ""), "png_status": dependency_composition_png.get("status"), "view": "dependencies", "edge_count": len(use_case_dependency.get("edges", [])) + len(crud_dependency.get("edges", [])), "crud_edge_count": len(crud_dependency.get("edges", [])), "cycle_count": len(use_case_dependency.get("layout", {}).get("cycles", []))}
             manifest["use_case_dependency_graph"] = {"json": str(use_case_dependency_json), "svg": str(use_case_dependency_svg), "png": use_case_dependency_png.get("png", ""), "png_status": use_case_dependency_png.get("status"), "edge_count": len(use_case_dependency.get("edges", [])), "review_items": use_case_dependency.get("review_items", [])}
+            crud_svg = render_crud_dependency_svg(crud_dependency, normalized.get("use_cases", []), output_root / "crud_dependency_graph.svg")
+            crud_dot = output_root / "crud_dependency_graph.dot"
+            crud_dot.write_text(crud_dependency["dot"] + "\n", encoding="utf-8")
+            _write_json(output_root / "crud_dependency_graph.json", crud_dependency)
+            manifest["crud_dependency_graph"] = {"json": str(output_root / "crud_dependency_graph.json"), "dot": str(crud_dot), "svg": str(crud_svg), "edge_count": len(crud_dependency.get("edges", [])), "reason_count": len(crud_dependency.get("four_tuples", []))}
             manifest["sr_service_dependency_graph"] = {"json": str(dependency_json), "svg": str(dependency_svg), "png": dependency_png.get("png", ""), "png_status": dependency_png.get("status"), "edge_count": len(dependency.get("edges", [])), "review_items": dependency.get("review_items", [])}
             if args.require_png and manifest.get("use_cases"):
                 missing = [
@@ -339,10 +347,15 @@ def _main_impl(argv=None) -> int:
             bundle["diagram_manifest"]["system_composition"] = manifest["system_composition"]
             bundle["diagram_manifest"]["system_composition_dependencies"] = manifest["system_composition_dependencies"]
             bundle["diagram_manifest"]["use_case_dependency_graph"] = manifest["use_case_dependency_graph"]
+            bundle["diagram_manifest"]["crud_dependency_graph"] = manifest["crud_dependency_graph"]
             bundle["scene_model"]["use_case_dependency_graph"] = use_case_dependency
+            bundle["scene_model"]["crud_dependency_graph"] = crud_dependency
             bundle["system_composition"] = composition_semantics
             bundle["system_composition"]["use_case_dependency_graph"] = use_case_dependency
+            bundle["system_composition"]["crud_dependency_graph"] = crud_dependency
             bundle["system_composition_dependencies"] = dependency_composition_semantics
+            bundle["system_composition_dependencies"]["crud_dependency_graph"] = crud_dependency
+            bundle["crud_dependency_graph"] = crud_dependency
             artifacts = export_workbooks(bundle, args.output_dir)
             print(json.dumps({"status": "success", "artifacts": artifacts}, ensure_ascii=False, indent=2))
             return 0

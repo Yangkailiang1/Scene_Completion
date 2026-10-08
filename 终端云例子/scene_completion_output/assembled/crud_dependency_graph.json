@@ -1,0 +1,554 @@
+{
+  "schema_version": "1.0",
+  "project": "Delta_online_mall",
+  "edge_semantics": "源用例依赖目标用例；R/U/D 依赖同实体创建用例 C",
+  "layout_semantics": "仅为左到右阅读而将创建用例放在依赖用例左侧；箭头仍表示依赖用例指向创建用例。",
+  "nodes": [
+    {
+      "use_case_id": "UCG-001-UC001",
+      "name": "浏览商品"
+    },
+    {
+      "use_case_id": "UCG-001-UC002",
+      "name": "查看商品详情"
+    },
+    {
+      "use_case_id": "UCG-001-UC003",
+      "name": "加入购物车"
+    },
+    {
+      "use_case_id": "UCG-002-UC001",
+      "name": "创建订单"
+    },
+    {
+      "use_case_id": "UCG-002-UC002",
+      "name": "支付订单"
+    },
+    {
+      "use_case_id": "UCG-002-UC003",
+      "name": "查看订单详情"
+    },
+    {
+      "use_case_id": "UCG-003-UC001",
+      "name": "商家发货"
+    },
+    {
+      "use_case_id": "UCG-003-UC002",
+      "name": "更新物流信息"
+    },
+    {
+      "use_case_id": "UCG-003-UC003",
+      "name": "查询物流信息"
+    },
+    {
+      "use_case_id": "UCG-003-UC004",
+      "name": "申请退款"
+    },
+    {
+      "use_case_id": "UCG-004-UC001",
+      "name": "创建商品"
+    },
+    {
+      "use_case_id": "UCG-004-UC002",
+      "name": "填写商品信息"
+    },
+    {
+      "use_case_id": "UCG-004-UC003",
+      "name": "设置库存与价格"
+    },
+    {
+      "use_case_id": "UCG-004-UC004",
+      "name": "发布商品"
+    }
+  ],
+  "edges": [
+    {
+      "from_use_case": "UCG-001-UC001",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-001-UCG-001-UC001-Product-R",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC001",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-001-UC002",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-002-UCG-001-UC002-Product-R",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC002",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-001-UC003",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-003-UCG-001-UC003-Product-R",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC003",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-002-UC001",
+      "to_use_case": "UCG-001-UC003",
+      "labels": "R->C",
+      "entities": [
+        "Cart"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Cart",
+          "source_operation_id": "CRUD-005-UCG-002-UC001-Cart-R",
+          "target_operation_id": "CRUD-004-UCG-001-UC003-Cart-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC003"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-002-UC001",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-006-UCG-002-UC001-Product-R",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-002-UC002",
+      "to_use_case": "UCG-002-UC001",
+      "labels": "U->C",
+      "entities": [
+        "Order"
+      ],
+      "reasons": [
+        {
+          "source_operation": "U",
+          "target_operation": "C",
+          "entity": "Order",
+          "source_operation_id": "CRUD-009-UCG-002-UC002-Order-U",
+          "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC002",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-002-UC003",
+      "to_use_case": "UCG-002-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Order"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Order",
+          "source_operation_id": "CRUD-011-UCG-002-UC003-Order-R",
+          "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC003",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-003-UC001",
+      "to_use_case": "UCG-002-UC001",
+      "labels": "U->C",
+      "entities": [
+        "Order"
+      ],
+      "reasons": [
+        {
+          "source_operation": "U",
+          "target_operation": "C",
+          "entity": "Order",
+          "source_operation_id": "CRUD-013-UCG-003-UC001-Order-U",
+          "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-003-UC002",
+      "to_use_case": "UCG-003-UC001",
+      "labels": "U->C",
+      "entities": [
+        "Shipment"
+      ],
+      "reasons": [
+        {
+          "source_operation": "U",
+          "target_operation": "C",
+          "entity": "Shipment",
+          "source_operation_id": "CRUD-015-UCG-003-UC002-Shipment-U",
+          "target_operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC002",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-003-UC003",
+      "to_use_case": "UCG-003-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Shipment"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Shipment",
+          "source_operation_id": "CRUD-016-UCG-003-UC003-Shipment-R",
+          "target_operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC003",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-003-UC003",
+      "to_use_case": "UCG-003-UC002",
+      "labels": "R->C",
+      "entities": [
+        "LogisticsEvent"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "LogisticsEvent",
+          "source_operation_id": "CRUD-017-UCG-003-UC003-LogisticsEvent-R",
+          "target_operation_id": "CRUD-014-UCG-003-UC002-LogisticsEvent-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC003",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC002"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-003-UC004",
+      "to_use_case": "UCG-002-UC001",
+      "labels": "R->C",
+      "entities": [
+        "Order"
+      ],
+      "reasons": [
+        {
+          "source_operation": "R",
+          "target_operation": "C",
+          "entity": "Order",
+          "source_operation_id": "CRUD-018-UCG-003-UC004-Order-R",
+          "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC004",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-004-UC002",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "U->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "U",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-021-UCG-004-UC002-Product-U",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC002",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    },
+    {
+      "from_use_case": "UCG-004-UC004",
+      "to_use_case": "UCG-004-UC001",
+      "labels": "U->C",
+      "entities": [
+        "Product"
+      ],
+      "reasons": [
+        {
+          "source_operation": "U",
+          "target_operation": "C",
+          "entity": "Product",
+          "source_operation_id": "CRUD-023-UCG-004-UC004-Product-U",
+          "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+          "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC004",
+          "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+        }
+      ],
+      "cycle_requires_review": false
+    }
+  ],
+  "layout": {
+    "layers": [
+      [
+        "UCG-004-UC001",
+        "UCG-004-UC003"
+      ],
+      [
+        "UCG-001-UC001",
+        "UCG-001-UC002",
+        "UCG-001-UC003",
+        "UCG-004-UC002",
+        "UCG-004-UC004"
+      ],
+      [
+        "UCG-002-UC001"
+      ],
+      [
+        "UCG-002-UC002",
+        "UCG-002-UC003",
+        "UCG-003-UC001",
+        "UCG-003-UC004"
+      ],
+      [
+        "UCG-003-UC002"
+      ],
+      [
+        "UCG-003-UC003"
+      ]
+    ],
+    "row_positions": {
+      "UCG-001-UC001": 5,
+      "UCG-001-UC002": 1,
+      "UCG-001-UC003": 2,
+      "UCG-004-UC002": 3,
+      "UCG-004-UC004": 4,
+      "UCG-002-UC001": 0,
+      "UCG-002-UC002": 0,
+      "UCG-002-UC003": 1,
+      "UCG-003-UC001": 2,
+      "UCG-003-UC004": 3,
+      "UCG-003-UC002": 0,
+      "UCG-003-UC003": 0,
+      "UCG-004-UC001": 0,
+      "UCG-004-UC003": 1
+    },
+    "direct_edge_conflicts": [],
+    "cycles": [],
+    "cycle_edge_ids": []
+  },
+  "dot": "digraph G {\n  \"UCG-001-UC001\" [shape=box];\n  \"UCG-001-UC002\" [shape=box];\n  \"UCG-001-UC003\" [shape=box];\n  \"UCG-002-UC001\" [shape=box];\n  \"UCG-002-UC002\" [shape=box];\n  \"UCG-002-UC003\" [shape=box];\n  \"UCG-003-UC001\" [shape=box];\n  \"UCG-003-UC002\" [shape=box];\n  \"UCG-003-UC003\" [shape=box];\n  \"UCG-003-UC004\" [shape=box];\n  \"UCG-004-UC001\" [shape=box];\n  \"UCG-004-UC002\" [shape=box];\n  \"UCG-004-UC003\" [shape=box];\n  \"UCG-004-UC004\" [shape=box];\n  \"UCG-001-UC001\" -> \"UCG-004-UC001\" [label=\"R->C\"];\n  \"UCG-001-UC002\" -> \"UCG-004-UC001\" [label=\"R->C\"];\n  \"UCG-001-UC003\" -> \"UCG-004-UC001\" [label=\"R->C\"];\n  \"UCG-002-UC001\" -> \"UCG-001-UC003\" [label=\"R->C\"];\n  \"UCG-002-UC001\" -> \"UCG-004-UC001\" [label=\"R->C\"];\n  \"UCG-002-UC002\" -> \"UCG-002-UC001\" [label=\"U->C\"];\n  \"UCG-002-UC003\" -> \"UCG-002-UC001\" [label=\"R->C\"];\n  \"UCG-003-UC001\" -> \"UCG-002-UC001\" [label=\"U->C\"];\n  \"UCG-003-UC002\" -> \"UCG-003-UC001\" [label=\"U->C\"];\n  \"UCG-003-UC003\" -> \"UCG-003-UC001\" [label=\"R->C\"];\n  \"UCG-003-UC003\" -> \"UCG-003-UC002\" [label=\"R->C\"];\n  \"UCG-003-UC004\" -> \"UCG-002-UC001\" [label=\"R->C\"];\n  \"UCG-004-UC002\" -> \"UCG-004-UC001\" [label=\"U->C\"];\n  \"UCG-004-UC004\" -> \"UCG-004-UC001\" [label=\"U->C\"];\n}",
+  "edge_list_markdown": "- UCG-001-UC001（UCG-001-UC001） ──[R->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）\n- UCG-001-UC002（UCG-001-UC002） ──[R->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）\n- UCG-001-UC003（UCG-001-UC003） ──[R->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）\n- UCG-002-UC001（UCG-002-UC001） ──[R->C]──> UCG-001-UC003（UCG-001-UC003）（实体：Cart）\n- UCG-002-UC001（UCG-002-UC001） ──[R->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）\n- UCG-002-UC002（UCG-002-UC002） ──[U->C]──> UCG-002-UC001（UCG-002-UC001）（实体：Order）\n- UCG-002-UC003（UCG-002-UC003） ──[R->C]──> UCG-002-UC001（UCG-002-UC001）（实体：Order）\n- UCG-003-UC001（UCG-003-UC001） ──[U->C]──> UCG-002-UC001（UCG-002-UC001）（实体：Order）\n- UCG-003-UC002（UCG-003-UC002） ──[U->C]──> UCG-003-UC001（UCG-003-UC001）（实体：Shipment）\n- UCG-003-UC003（UCG-003-UC003） ──[R->C]──> UCG-003-UC001（UCG-003-UC001）（实体：Shipment）\n- UCG-003-UC003（UCG-003-UC003） ──[R->C]──> UCG-003-UC002（UCG-003-UC002）（实体：LogisticsEvent）\n- UCG-003-UC004（UCG-003-UC004） ──[R->C]──> UCG-002-UC001（UCG-002-UC001）（实体：Order）\n- UCG-004-UC002（UCG-004-UC002） ──[U->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）\n- UCG-004-UC004（UCG-004-UC004） ──[U->C]──> UCG-004-UC001（UCG-004-UC001）（实体：Product）",
+  "four_tuples": [
+    {
+      "source_use_case": "UCG-001-UC001",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-001-UCG-001-UC001-Product-R",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC001",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    },
+    {
+      "source_use_case": "UCG-001-UC002",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-002-UCG-001-UC002-Product-R",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC002",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    },
+    {
+      "source_use_case": "UCG-001-UC003",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-003-UCG-001-UC003-Product-R",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC003",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    },
+    {
+      "source_use_case": "UCG-002-UC001",
+      "target_use_case": "UCG-001-UC003",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Cart",
+      "source_operation_id": "CRUD-005-UCG-002-UC001-Cart-R",
+      "target_operation_id": "CRUD-004-UCG-001-UC003-Cart-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-001-UC003"
+    },
+    {
+      "source_use_case": "UCG-002-UC001",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-006-UCG-002-UC001-Product-R",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    },
+    {
+      "source_use_case": "UCG-002-UC002",
+      "target_use_case": "UCG-002-UC001",
+      "source_operation": "U",
+      "target_operation": "C",
+      "entity": "Order",
+      "source_operation_id": "CRUD-009-UCG-002-UC002-Order-U",
+      "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC002",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+    },
+    {
+      "source_use_case": "UCG-002-UC003",
+      "target_use_case": "UCG-002-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Order",
+      "source_operation_id": "CRUD-011-UCG-002-UC003-Order-R",
+      "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC003",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+    },
+    {
+      "source_use_case": "UCG-003-UC001",
+      "target_use_case": "UCG-002-UC001",
+      "source_operation": "U",
+      "target_operation": "C",
+      "entity": "Order",
+      "source_operation_id": "CRUD-013-UCG-003-UC001-Order-U",
+      "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+    },
+    {
+      "source_use_case": "UCG-003-UC002",
+      "target_use_case": "UCG-003-UC001",
+      "source_operation": "U",
+      "target_operation": "C",
+      "entity": "Shipment",
+      "source_operation_id": "CRUD-015-UCG-003-UC002-Shipment-U",
+      "target_operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC002",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001"
+    },
+    {
+      "source_use_case": "UCG-003-UC003",
+      "target_use_case": "UCG-003-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Shipment",
+      "source_operation_id": "CRUD-016-UCG-003-UC003-Shipment-R",
+      "target_operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC003",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC001"
+    },
+    {
+      "source_use_case": "UCG-003-UC003",
+      "target_use_case": "UCG-003-UC002",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "LogisticsEvent",
+      "source_operation_id": "CRUD-017-UCG-003-UC003-LogisticsEvent-R",
+      "target_operation_id": "CRUD-014-UCG-003-UC002-LogisticsEvent-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC003",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC002"
+    },
+    {
+      "source_use_case": "UCG-003-UC004",
+      "target_use_case": "UCG-002-UC001",
+      "source_operation": "R",
+      "target_operation": "C",
+      "entity": "Order",
+      "source_operation_id": "CRUD-018-UCG-003-UC004-Order-R",
+      "target_operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-003-UC004",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-002-UC001"
+    },
+    {
+      "source_use_case": "UCG-004-UC002",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "U",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-021-UCG-004-UC002-Product-U",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC002",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    },
+    {
+      "source_use_case": "UCG-004-UC004",
+      "target_use_case": "UCG-004-UC001",
+      "source_operation": "U",
+      "target_operation": "C",
+      "entity": "Product",
+      "source_operation_id": "CRUD-023-UCG-004-UC004-Product-U",
+      "target_operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC004",
+      "target_source_location": "功能设计Delta_spec.md:V5 call chain; UCG-004-UC001"
+    }
+  ],
+  "four_tuples_markdown": "- UCG-001-UC001，数据依赖于，UCG-004-UC001，依赖缘由：R（Product）依赖于C（Product）\n- UCG-001-UC002，数据依赖于，UCG-004-UC001，依赖缘由：R（Product）依赖于C（Product）\n- UCG-001-UC003，数据依赖于，UCG-004-UC001，依赖缘由：R（Product）依赖于C（Product）\n- UCG-002-UC001，数据依赖于，UCG-001-UC003，依赖缘由：R（Cart）依赖于C（Cart）\n- UCG-002-UC001，数据依赖于，UCG-004-UC001，依赖缘由：R（Product）依赖于C（Product）\n- UCG-002-UC002，数据依赖于，UCG-002-UC001，依赖缘由：U（Order）依赖于C（Order）\n- UCG-002-UC003，数据依赖于，UCG-002-UC001，依赖缘由：R（Order）依赖于C（Order）\n- UCG-003-UC001，数据依赖于，UCG-002-UC001，依赖缘由：U（Order）依赖于C（Order）\n- UCG-003-UC002，数据依赖于，UCG-003-UC001，依赖缘由：U（Shipment）依赖于C（Shipment）\n- UCG-003-UC003，数据依赖于，UCG-003-UC001，依赖缘由：R（Shipment）依赖于C（Shipment）\n- UCG-003-UC003，数据依赖于，UCG-003-UC002，依赖缘由：R（LogisticsEvent）依赖于C（LogisticsEvent）\n- UCG-003-UC004，数据依赖于，UCG-002-UC001，依赖缘由：R（Order）依赖于C（Order）\n- UCG-004-UC002，数据依赖于，UCG-004-UC001，依赖缘由：U（Product）依赖于C（Product）\n- UCG-004-UC004，数据依赖于，UCG-004-UC001，依赖缘由：U（Product）依赖于C（Product）"
+}

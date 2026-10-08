@@ -7,6 +7,8 @@ import re
 from collections import defaultdict
 from typing import Any
 
+from .dependency_layout import dependency_layout
+
 
 REQUIRED_TEST_FIELDS = {
     "场景类型": "scenario_type",
@@ -156,7 +158,16 @@ def build_crud_dependency_graph(model: dict[str, Any]) -> dict[str, Any]:
     for edge in edges:
         edge["labels"] = ",".join(edge["labels"])
         edge["entities"] = sorted(edge["entities"])
-    return {"schema_version": "1.0", "edge_semantics": "源用例依赖目标用例；R/U/D 依赖同实体创建用例 C", "edges": edges, "dot": "\n".join(dot_lines), "edge_list_markdown": "\n".join(f"- {line}" for line in edge_lines), "four_tuples": quadruples, "four_tuples_markdown": "\n".join(f"- {line}" for line in tuple_lines)}
+    graph_nodes = [{"use_case_id": uc_id, "name": str(uc.get("use_case_name", uc_id))} for uc_id, uc in use_cases.items()]
+    # The stored arrows point from a dependent R/U/D use case to its creator.
+    # For left-to-right reading, arrange creators on the left by reversing
+    # only the layout edges; the rendered dependency arrows keep their meaning.
+    layout_edges = [{**edge, "from_use_case": edge["to_use_case"], "to_use_case": edge["from_use_case"]} for edge in edges]
+    layout = dependency_layout(graph_nodes, layout_edges)
+    cycle_ids = set(layout.get("cycle_edge_ids", []))
+    for edge in edges:
+        edge["cycle_requires_review"] = edge.get("edge_id") in cycle_ids
+    return {"schema_version": "1.0", "project": model.get("project", ""), "edge_semantics": "源用例依赖目标用例；R/U/D 依赖同实体创建用例 C", "layout_semantics": "仅为左到右阅读而将创建用例放在依赖用例左侧；箭头仍表示依赖用例指向创建用例。", "nodes": graph_nodes, "edges": edges, "layout": layout, "dot": "\n".join(dot_lines), "edge_list_markdown": "\n".join(f"- {line}" for line in edge_lines), "four_tuples": quadruples, "four_tuples_markdown": "\n".join(f"- {line}" for line in tuple_lines)}
 
 
 def _dot_escape(text: str) -> str:

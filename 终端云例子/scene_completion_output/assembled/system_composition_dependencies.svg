@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2150" height="1152" viewBox="0 0 2150 1152">
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C07A2A"/></marker><marker id="crud-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#2563EB"/></marker></defs>
+<text x="34.0" y="36.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="24px" font-weight="bold" fill="#153E75">Delta Online Mall 系统组成总览</text>
+<rect x="34" y="58" width="230" height="690" rx="14" fill="#F7FBF3" stroke="#8AA4C4" stroke-width="2"/>
+<text x="49.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">外部 Actor</text>
+<rect x="300" y="58" width="250" height="690" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="315.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">UI/前端</text>
+<rect x="548" y="58" width="1324" height="690" rx="14" fill="#F6F9FE" stroke="#8AA4C4" stroke-width="2"/>
+<text x="563.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">用例及依赖关系</text>
+<rect x="1906" y="58" width="210" height="690" rx="14" fill="#F7FBF3" stroke="#8AA4C4" stroke-width="2"/>
+<text x="1921.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">外部系统</text>
+<rect x="300" y="794" width="250" height="100" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="315.0" y="821.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">连接设备</text>
+<rect x="548" y="794" width="1324" height="144" rx="14" fill="#F7F9FC" stroke="#8AA4C4" stroke-width="2"/>
+<text x="563.0" y="821.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">内部资源（数据库 / 知识库）</text>
+<rect x="548" y="956" width="1324" height="144" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="563.0" y="983.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">部署硬件 / 运行环境</text>
+<rect data-node-id="actor-1" x="48" y="138" width="202" height="62" rx="9" fill="#E8F1FF" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="149.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">顾客</text>
+<rect data-node-id="FRONTEND-4F837A377C" x="314" y="138" width="222" height="62" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="425.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">顾客端 UI/前端</text>
+<path data-relation="uses_frontend" d="M 250 169 H 314" fill="none" stroke="#7187A1" stroke-width="1.5"/>
+<rect data-node-id="actor-2" x="48" y="232" width="202" height="62" rx="9" fill="#E8F1FF" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="149.0" y="268.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">商家</text>
+<rect data-node-id="FRONTEND-BD2FB21D80" x="314" y="232" width="222" height="62" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="425.0" y="268.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">商家端 UI/前端</text>
+<path data-relation="uses_frontend" d="M 250 263 H 314" fill="none" stroke="#7187A1" stroke-width="1.5"/>
+<rect data-node-id="actor-3" x="1918" y="138" width="186" height="58" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="2011.0" y="172.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">PaymentService</text>
+<rect data-node-id="actor-4" x="1918" y="216" width="186" height="58" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="2011.0" y="250.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">LogisticsService</text>
+<ellipse data-node-id="ABSTRACT-550445542D" cx="665.0" cy="160.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="665.0" y="156.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC001</text>
+<text x="665.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">创建商品</text>
+<ellipse data-node-id="ABSTRACT-943F5BC74A" cx="665.0" cy="262.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="665.0" y="258.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC003</text>
+<text x="665.0" y="276.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">设置库存与价格</text>
+<ellipse data-node-id="ABSTRACT-6C805EB598" cx="883.0" cy="670.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="883.0" y="666.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC001</text>
+<text x="883.0" y="684.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">浏览商品</text>
+<ellipse data-node-id="ABSTRACT-09E01262FC" cx="883.0" cy="262.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="883.0" y="258.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC002</text>
+<text x="883.0" y="276.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查看商品详情</text>
+<ellipse data-node-id="ABSTRACT-6791F10AB5" cx="883.0" cy="364.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="883.0" y="360.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC003</text>
+<text x="883.0" y="378.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">加入购物车</text>
+<ellipse data-node-id="ABSTRACT-B3C60656E2" cx="883.0" cy="466.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="883.0" y="462.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC002</text>
+<text x="883.0" y="480.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">填写商品信息</text>
+<ellipse data-node-id="ABSTRACT-25D3D367D9" cx="883.0" cy="568.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="883.0" y="564.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC004</text>
+<text x="883.0" y="582.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">发布商品</text>
+<ellipse data-node-id="ABSTRACT-555954131C" cx="1101.0" cy="160.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1101.0" y="156.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC001</text>
+<text x="1101.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">创建订单</text>
+<ellipse data-node-id="ABSTRACT-05A44DEF33" cx="1319.0" cy="160.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1319.0" y="156.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC002</text>
+<text x="1319.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">支付订单</text>
+<ellipse data-node-id="ABSTRACT-F29992B401" cx="1319.0" cy="262.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1319.0" y="258.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC003</text>
+<text x="1319.0" y="276.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查看订单详情</text>
+<ellipse data-node-id="ABSTRACT-80E85992E1" cx="1319.0" cy="364.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1319.0" y="360.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC001</text>
+<text x="1319.0" y="378.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">商家发货</text>
+<ellipse data-node-id="ABSTRACT-F2095B298B" cx="1319.0" cy="466.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1319.0" y="462.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC004</text>
+<text x="1319.0" y="480.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">申请退款</text>
+<ellipse data-node-id="ABSTRACT-8E6FE8347C" cx="1537.0" cy="160.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1537.0" y="156.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC002</text>
+<text x="1537.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">更新物流信息</text>
+<ellipse data-node-id="ABSTRACT-3DD04DF564" cx="1755.0" cy="160.0" rx="95.0" ry="34.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1755.0" y="156.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC003</text>
+<text x="1755.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查询物流信息</text>
+<path data-relation="frontend_to_use_case_area" data-frontend="FRONTEND-4F837A377C" d="M 536 169.0 H 548" fill="none" stroke="#7187A1" stroke-width="1.4"/>
+<path data-relation="frontend_to_use_case_area" data-frontend="FRONTEND-BD2FB21D80" d="M 536 263.0 H 548" fill="none" stroke="#7187A1" stroke-width="1.4"/>
+<line data-relation="external_participates_in" data-node="actor-3" data-use-case="UCG-002-UC002" x1="1918" y1="167.0" x2="1872" y2="160.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-3" data-use-case="UCG-003-UC004" x1="1918" y1="167.0" x2="1872" y2="466.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC001" x1="1918" y1="245.0" x2="1872" y2="364.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC002" x1="1918" y1="245.0" x2="1872" y2="160.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC003" x1="1918" y1="245.0" x2="1872" y2="160.0" stroke="#D97706" stroke-width="1.65"/>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-001-UC001" data-to-use-case="UCG-004-UC001" d="M 868.6338049813598 636.39101165364 Q 774.0 427.0 679.3661950186402 193.60898834635995" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="702.0" y="414.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="774.0" y="428.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Product</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-001-UC002" data-to-use-case="UCG-004-UC001" d="M 825.282412949678 234.99452349021632 Q 774.0 223.0 722.717587050322 187.00547650978368" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="702.0" y="210.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="774.0" y="224.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Product</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-001-UC003" data-to-use-case="UCG-004-UC001" d="M 849.0639517430619 332.2433309889203 Q 774.0 274.0 698.9360482569381 191.75666901107968" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="702.0" y="261.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="774.0" y="275.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Product</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-002-UC001" data-to-use-case="UCG-001-UC003" d="M 1067.0639517430618 191.75666901107968 Q 992.0 250.0 916.9360482569381 332.2433309889203" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Cart：消费方用例依赖创建方用例</title></path>
+<rect x="920.0" y="237.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="992.0" y="251.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Cart</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-002-UC001" data-to-use-case="UCG-004-UC001" d="M 1006.0 160.0 Q 883.0 172.0 760.0 160.0" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="811.0" y="159.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="883.0" y="173.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Product</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-002-UC002" data-to-use-case="UCG-002-UC001" d="M 1224.0 160.0 Q 1210.0 148.0 1196.0 160.0" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>U-&gt;C · Order：消费方用例依赖创建方用例</title></path>
+<rect x="1138.0" y="135.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1210.0" y="149.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">U-&gt;C · Order</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-002-UC003" data-to-use-case="UCG-002-UC001" d="M 1261.282412949678 234.99452349021632 Q 1210.0 199.0 1158.717587050322 187.00547650978368" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Order：消费方用例依赖创建方用例</title></path>
+<rect x="1138.0" y="186.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1210.0" y="200.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Order</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-003-UC001" data-to-use-case="UCG-002-UC001" d="M 1285.0639517430618 332.2433309889203 Q 1210.0 250.0 1134.9360482569382 191.75666901107968" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>U-&gt;C · Order：消费方用例依赖创建方用例</title></path>
+<rect x="1138.0" y="237.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1210.0" y="251.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">U-&gt;C · Order</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-003-UC002" data-to-use-case="UCG-003-UC001" d="M 1503.0639517430618 191.75666901107968 Q 1428.0 250.0 1352.9360482569382 332.2433309889203" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>U-&gt;C · Shipment：消费方用例依赖创建方用例</title></path>
+<rect x="1356.0" y="237.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1428.0" y="251.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">U-&gt;C · Shipment</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-003-UC003" data-to-use-case="UCG-003-UC001" d="M 1697.282412949678 187.00547650978368 Q 1537.0 250.0 1376.717587050322 336.99452349021635" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Shipment：消费方用例依赖创建方用例</title></path>
+<rect x="1465.0" y="237.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1537.0" y="251.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Shipment</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-003-UC003" data-to-use-case="UCG-003-UC002" d="M 1660.0 160.0 Q 1646.0 148.0 1632.0 160.0" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · LogisticsEvent：消费方用例依赖创建方用例</title></path>
+<rect x="1574.0" y="135.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1646.0" y="149.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · LogisticsEvent</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-003-UC004" data-to-use-case="UCG-002-UC001" d="M 1295.5287011433713 433.0540483939067 Q 1210.0 301.0 1124.4712988566287 192.9459516060933" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>R-&gt;C · Order：消费方用例依赖创建方用例</title></path>
+<rect x="1138.0" y="288.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="1210.0" y="302.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">R-&gt;C · Order</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-004-UC002" data-to-use-case="UCG-004-UC001" d="M 859.5287011433714 433.0540483939067 Q 774.0 301.0 688.4712988566286 192.9459516060933" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>U-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="702.0" y="288.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="774.0" y="302.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">U-&gt;C · Product</text>
+<path data-relation="crud_lifecycle_dependency" data-edge-id="" data-from-use-case="UCG-004-UC004" data-to-use-case="UCG-004-UC001" d="M 865.1566533758082 534.6051127400447 Q 774.0 352.0 682.8433466241918 193.39488725995534" fill="none" stroke="#2563EB" stroke-width="2.2" marker-end="url(#crud-arrow)"><title>U-&gt;C · Product：消费方用例依赖创建方用例</title></path>
+<rect x="702.0" y="339.0" width="144" height="19" rx="5" fill="#FFFFFF" stroke="#BFDBFE" opacity="0.97"/>
+<text x="774.0" y="353.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10px" font-weight="bold" fill="#1D4ED8">U-&gt;C · Product</text>
+<rect data-node-id="db-commerce" x="580" y="840" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="730.0" y="873.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">CommerceDatabase</text>
+<text x="34.0" y="1134.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#536273">蓝色实线：CRUD 生命周期依赖，R/U/D 用例 → 同实体 C 用例；橙色虚线：另行声明且有证据的状态/前置依赖；红色表示依赖环。</text>
+</svg>

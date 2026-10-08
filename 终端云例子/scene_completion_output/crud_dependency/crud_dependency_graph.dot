@@ -1,0 +1,30 @@
+digraph G {
+  "UCG-001-UC001" [shape=box];
+  "UCG-001-UC002" [shape=box];
+  "UCG-001-UC003" [shape=box];
+  "UCG-002-UC001" [shape=box];
+  "UCG-002-UC002" [shape=box];
+  "UCG-002-UC003" [shape=box];
+  "UCG-003-UC001" [shape=box];
+  "UCG-003-UC002" [shape=box];
+  "UCG-003-UC003" [shape=box];
+  "UCG-003-UC004" [shape=box];
+  "UCG-004-UC001" [shape=box];
+  "UCG-004-UC002" [shape=box];
+  "UCG-004-UC003" [shape=box];
+  "UCG-004-UC004" [shape=box];
+  "UCG-001-UC001" -> "UCG-004-UC001" [label="R->C"];
+  "UCG-001-UC002" -> "UCG-004-UC001" [label="R->C"];
+  "UCG-001-UC003" -> "UCG-004-UC001" [label="R->C"];
+  "UCG-002-UC001" -> "UCG-001-UC003" [label="R->C"];
+  "UCG-002-UC001" -> "UCG-004-UC001" [label="R->C"];
+  "UCG-002-UC002" -> "UCG-002-UC001" [label="U->C"];
+  "UCG-002-UC003" -> "UCG-002-UC001" [label="R->C"];
+  "UCG-003-UC001" -> "UCG-002-UC001" [label="U->C"];
+  "UCG-003-UC002" -> "UCG-003-UC001" [label="U->C"];
+  "UCG-003-UC003" -> "UCG-003-UC001" [label="R->C"];
+  "UCG-003-UC003" -> "UCG-003-UC002" [label="R->C"];
+  "UCG-003-UC004" -> "UCG-002-UC001" [label="R->C"];
+  "UCG-004-UC002" -> "UCG-004-UC001" [label="U->C"];
+  "UCG-004-UC004" -> "UCG-004-UC001" [label="U->C"];
+}
