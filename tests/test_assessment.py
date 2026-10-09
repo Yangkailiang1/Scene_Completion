@@ -99,10 +99,10 @@ def test_match_metrics_full_partial_unmatched_and_one_to_many():
     assert report["metrics"]["unmatched_test_scenarios"] == ["T3"]
 
 
-def test_terminal_cloud_reference_test_spec_covers_14_use_cases_and_7_ar_groups():
+def test_online_shopping_reference_test_spec_covers_14_use_cases_and_7_ar_groups():
     root = Path(__file__).resolve().parents[1]
-    spec = root / "终端云例子" / "test_spec.md"
-    source = root / "终端云例子" / "功能设计Delta_spec.md"
+    spec = root / "在线商城购物系统" / "test_spec.md"
+    source = root / "在线商城购物系统" / "功能设计_spec.md"
     extracted = extract_reference_test_scenarios(spec.read_text(encoding="utf-8"))
     assert extracted["valid"], extracted["errors"]
     scenarios = extracted["scenarios"]

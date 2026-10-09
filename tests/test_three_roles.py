@@ -190,7 +190,7 @@ def test_failed_semantic_verification_preserves_retry_and_blocks_metrics(tmp_pat
 
 
 def test_native_semantic_review_requires_complete_scope_and_exact_quotations(tmp_path):
-    from scene_completion.matching_audit import verify_matching, native_review_packet, apply_native_review
+    from scene_completion.matching_audit import verify_matching, native_review_packet, apply_native_review, validate_native_review_binding
     gen, ref = dataset([scene("G")]), dataset([scene("C")])
     batch = match_packets(gen, ref, tmp_path)["batches"][0]
     packet = read_json(tmp_path / "packets" / (batch["batch_id"] + ".json"))
@@ -201,11 +201,12 @@ def test_native_semantic_review_requires_complete_scope_and_exact_quotations(tmp
     class Client:
         def model(self, kind): return "initial-model"
         def agent(self, packet): return {"decisions": [decision]}
-    proposed = {**batch, "checked_checker_ids": ["C"], "checked_generated_ids": ["G"], "matches": [link("C", "G", "full")]}
+    proposed = {**batch, "checked_checker_ids": ["C"], "checked_generated_ids": ["G"],
+                "matches": [link("C", "G", "full")], "decisions": [link("C", "G", "full")]}
     target = tmp_path / "results" / (batch["batch_id"] + ".json")
     write_json(target, verify_matching(packet, proposed, Client()))
     bound = native_review_packet(tmp_path)
-    review = {"input_hash": bound["input_hash"], "model": "native-fixture", "reasoning_effort": "max", "decisions": []}
+    review = {"input_hash": bound["input_hash"], "model": "gpt-6-luna", "reasoning_effort": "max", "decisions": []}
     before = read_json(target)
     with pytest.raises(ValueError): apply_native_review(tmp_path, review)
     assert read_json(target) == before
@@ -219,7 +220,13 @@ def test_native_semantic_review_requires_complete_scope_and_exact_quotations(tmp
     result = apply_native_review(tmp_path, review)
     assert result["accepted_pair_count"] == 0
     assert merge_matches(gen, ref, tmp_path)["complete"]
-    assert merge_matches(gen, ref, tmp_path)["verification_models"] == ["native-fixture"]
+    assert merge_matches(gen, ref, tmp_path)["verification_models"] == ["gpt-6-luna"]
+    assert validate_native_review_binding(tmp_path) == bound
+    altered = {**review, "decisions": [{**corrected, "evidence": "different valid rationale"}]}
+    with pytest.raises(ValueError, match="differ from applied"):
+        validate_native_review_binding(tmp_path, altered)
+    with pytest.raises(ValueError, match="gpt-6-luna"):
+        validate_native_review_binding(tmp_path, {**review, "model": "other-model"})
     with pytest.raises(ValueError): apply_native_review(tmp_path, review)  # stale review cannot be reapplied
 
 
@@ -327,7 +334,8 @@ def test_full_tile_universe_and_missing_batch_gate(tmp_path):
     packet = read_json(directory / "packets" / (batch["batch_id"] + ".json"))
     raw = {"batch_id": batch["batch_id"], "input_hash": batch["input_hash"],
            "checked_generated_ids": [s["scenario_id"] for s in gen["scenarios"]],
-           "checked_checker_ids": ["C"], "matches": []}
+           "checked_checker_ids": ["C"], "matches": [],
+           "decisions": [{**link("C", f"G{i}", "unmatched"), "missing_behavior": []} for i in range(5)]}
     write_json(directory / "results" / (batch["batch_id"] + ".json"), raw)
     assert merge_matches(gen, ref, directory)["complete"]
     raw["checked_generated_ids"] = ["G0"]
@@ -415,15 +423,16 @@ def test_changed_match_set_reuses_only_identical_candidate_scores(tmp_path):
     root = tmp_path / "recommendation"
     manifest = recommendation_packets(report, index, root)
     batch = manifest["batches"][0]
-    write_json(root / "results" / (batch["batch_id"] + ".json"), {**batch, "items": [
+    original = {**batch, "model": "ecnu-max", "items": [
         {"scenario_id": sid, "support_score": 0, "missing_score": .7,
-         "basis": "no supplied evidence proves failure", "evidence_refs": []} for sid in ["G1", "G2"]]})
+         "basis": "no supplied evidence proves failure", "evidence_refs": []} for sid in ["G1", "G2"]]}
+    write_json(root / "results" / (batch["batch_id"] + ".json"), original)
     # Add a new unmatched candidate: the two scores remain reusable and only G3 is pending.
     gen["scenarios"].append(scene("G3"))
     updated = compare_scenes(gen, ref, matched(gen, ref, []))
     new = recommendation_packets(updated, index, root)
     known = read_json(root / "results" / (new["batches"][0]["batch_id"] + ".json"))
-    assert known["reused_candidate_scores"] and {i["scenario_id"] for i in known["items"]} == {"G1", "G2"}
+    assert known == original  # unchanged packet keeps its actual model and proofs
     assert not (root / "results" / (new["batches"][1]["batch_id"] + ".json")).exists()
     # A changed failure mechanism must not reuse G1's old score.
     gen["scenarios"][0]["trigger"] = "different mechanism"
@@ -431,6 +440,38 @@ def test_changed_match_set_reuses_only_identical_candidate_scores(tmp_path):
     last = recommendation_packets(changed, index, root)
     uncached = read_json(root / "packets" / (last["batches"][-1]["batch_id"] + ".json"))
     assert {s["scenario_id"] for s in uncached["input"]["candidates"]} == {"G1", "G3"}
+    regrouped = read_json(root / "results" / (last["batches"][0]["batch_id"] + ".json"))
+    assert regrouped["model"] == "ecnu-max" and regrouped["source_executions"] == [
+        {"scenario_id": "G2", "model": "ecnu-max", "batch_id": batch["batch_id"], "input_hash": batch["input_hash"]}]
+
+
+def test_recommendation_without_execution_identity_is_regenerated_not_relabelled(tmp_path):
+    from scene_completion.semantic_backend import run_agent_packets
+    index = sources(tmp_path)
+    gen, ref = dataset([scene("G")]), dataset([])
+    report = compare_scenes(gen, ref, matched(gen, ref, []))
+    manifest = recommendation_packets(report, index, tmp_path)
+    batch = manifest["batches"][0]
+    target = tmp_path / "results" / (batch["batch_id"] + ".json")
+    write_json(target, {**batch, "items": [{"scenario_id": "G", "support_score": 0,
+               "missing_score": .9, "basis": "old unknown-model score", "evidence_refs": []}]})
+    class Client:
+        config = {}
+        calls = 0
+        def model(self, kind): return "ecnu-max"
+        def agent(self, packet):
+            self.calls += 1
+            return {"items": [{"scenario_id": "G", "support_score": 0, "missing_score": .5,
+                               "basis": "new actual execution", "evidence_refs": []}]}
+    client = Client()
+    assert run_agent_packets(tmp_path, client, recommendation_validator(index))["complete"]
+    assert client.calls == 1 and read_json(target)["model"] == "ecnu-max"
+    assert read_json(target)["items"][0]["basis"] == "new actual execution"
+    saved = read_json(target)
+    recommendation_packets(report, index, tmp_path)
+    assert read_json(target) == saved
+    assert run_agent_packets(tmp_path, client, recommendation_validator(index))["batches"][0]["status"] == "cached"
+    assert client.calls == 1
 
 
 def test_score_cache_prefers_verified_cap_over_older_uncalibrated_score(tmp_path):

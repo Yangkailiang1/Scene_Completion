@@ -1,0 +1,200 @@
+{
+  "stage": "matching",
+  "input": {
+    "use_case_id": "UCG-003-UC003",
+    "generated": [
+      {
+        "scenario_id": "GEN-F1F4E0081C",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据合法性：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-A509CACD5E",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据合法性：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-28776040F7",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据长度：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-B13CF70E86",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据长度：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-CE9511DDF7",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据范围：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-0CD498E876",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据范围：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-DB928F534A",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据大小：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：文件或请求体超过限制",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：文件或请求体超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-CB57E74916",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "数据大小：调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "trigger": "执行「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」时：文件或请求体超过限制",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "在「调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics」检查：文件或请求体超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      }
+    ],
+    "checker": [
+      {
+        "scenario_id": "CHK-f5a9fce6189033287f2b",
+        "use_case_id": "UCG-003-UC003",
+        "use_case_name": "查询物流信息",
+        "name": "外部物流服务查询失败",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 订单属于当前顾客且已发货。③ 本地数据已过期，需调用LogisticsService。",
+        "trigger": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "系统通过物流查询接口 API-L-IF2读取本地轨迹。",
+          "本地数据过期，系统调用LogisticsService查询最新轨迹。",
+          "外部物流服务查询失败。"
+        ],
+        "expected_result": "系统展示最近一次成功同步的数据并标记更新时间。",
+        "recovery": "系统回退展示最近一次成功同步的数据并标记更新时间。"
+      }
+    ],
+    "pairwise": true
+  },
+  "instructions": [
+    "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
+    "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
+    "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+    "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+    "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
+    "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+    "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+    "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+    "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
+    "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match."
+  ],
+  "output_contract": {
+    "checked_checker_ids": [
+      "all tile checker IDs"
+    ],
+    "checked_generated_ids": [
+      "all tile generated IDs"
+    ],
+    "decisions": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "EVERY GEN-ID",
+        "status": "full|partial|unmatched",
+        "evidence": "specific reason",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ],
+    "matches": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "GEN-ID",
+        "status": "full|partial",
+        "evidence": "specific behavior evidence",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ]
+  },
+  "batch_id": "matching-0011-e43313df7d27",
+  "input_hash": "e43313df7d27c51ecf5581283f3bb1978fe8f5bdf109c69fe9df406f4184ca6c"
+}

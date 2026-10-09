@@ -1,0 +1,30 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-69c91d08774029d46b73"
+  ],
+  "checked_generated_ids": [
+    "GEN-758A23C15F",
+    "GEN-216F7CA856"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-758A23C15F",
+      "status": "unmatched",
+      "evidence": "Checker 处理的是顾客提交订单时的重复提交（幂等）异常，触发条件为检测到重复提交并依据幂等标识返回已创建订单；GEN-758A23C15F 处理的是对 Order 记录进行读/写/删时目标资源不存在（资源存在性异常），触发条件与失败机制完全不同，预期响应亦不同，无共享的具体分支行为。",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-216F7CA856",
+      "status": "unmatched",
+      "evidence": "Checker 针对订单提交的重复提交（幂等键冲突/重复业务请求），GEN-216F7CA856 针对 Order 记录写入时的唯一性约束冲突（名称重复或唯一键冲突），二者虽同属唯一性/重复类关注，但受影响资源、操作语义（业务订单提交幂等 vs 表记录唯一键约束）与预期结果不同，仅有泛化主题相似，不足以构成匹配。",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0004-7e31494e279a",
+  "input_hash": "7e31494e279a5afc909138da3e61605cef8df4bb65c0645053cdb83b3f8a3709",
+  "model": "ecnu-max"
+}

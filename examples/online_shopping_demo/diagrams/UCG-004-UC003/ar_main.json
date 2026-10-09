@@ -1,0 +1,347 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-004-UC003",
+  "scenario_id": "main",
+  "name": "设置库存与价格",
+  "ssd_id": "SSD-5162E9F8D5",
+  "layer": "AR",
+  "lifelines": [
+    {
+      "node_id": "sr-UCG-004-UC003",
+      "label": "MerchantProductService",
+      "kind": "sr_service",
+      "layer": "SR"
+    },
+    {
+      "node_id": "impl-UCG-004-UC003",
+      "label": "ImplementationAPI\nMerchantProductService",
+      "kind": "implementation_microservice",
+      "layer": "AR",
+      "implementation_api_id": "updateSkuInventoryAndPrice",
+      "microservice_id": "ar-UCG-004-UC003"
+    },
+    {
+      "node_id": "NODE-C730E4A666",
+      "label": "product 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "NODE-95A5DAEE15",
+      "label": "sku 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-4DE28BDE9D",
+      "exchange_id": "EXCH-F972E73FE4",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-M-IF3",
+      "from_node": "sr-UCG-004-UC003",
+      "to_node": "impl-UCG-004-UC003",
+      "message": "调用 updateSkuInventoryAndPrice：PUT /api/v1/merchant/products/{productId}/skus",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "skus[]",
+        "version"
+      ],
+      "response_fields": [],
+      "phase": 30,
+      "parent_exchange_id": "EXCH-E4B0C80650",
+      "implementation_api_id": "updateSkuInventoryAndPrice",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003",
+      "api_method": "PUT",
+      "resource_path": "/api/v1/merchant/products/{productId}/skus",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-2E53A2E7A3",
+      "exchange_id": "EXCH-34AEC69F81",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:1048-1048",
+      "from_node": "impl-UCG-004-UC003",
+      "to_node": "NODE-C730E4A666",
+      "message": "查询 product 表获取 product_id、merchant_id、status、version；更新 version（+1）和 updated_at",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId"
+      ],
+      "response_fields": [
+        "product_id",
+        "merchant_id",
+        "status",
+        "version"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-F972E73FE4",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003",
+      "dependency_node_id": "NODE-C730E4A666",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1048,
+          "line_end": 1048
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1051,
+          "line_end": 1051
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-55375CA949",
+      "exchange_id": "EXCH-A81D00F6B2",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 3,
+      "sequence": 3,
+      "source_step_index": 7,
+      "source_location": "功能设计_spec.md:1050-1050",
+      "from_node": "impl-UCG-004-UC003",
+      "to_node": "NODE-95A5DAEE15",
+      "message": "写入/更新 sku 表（sku_id、product_id、attributes、stock_quantity、sale_price、original_price、updated_at）",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "sku_id",
+        "product_id",
+        "attributes",
+        "stock_quantity",
+        "sale_price",
+        "original_price",
+        "updated_at"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-F972E73FE4",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003",
+      "dependency_node_id": "NODE-95A5DAEE15",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1050,
+          "line_end": 1050
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1ea1933212336684",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 1191,
+          "line_end": 1192
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-CD9D81F376",
+      "exchange_id": "EXCH-34AEC69F81",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 4,
+      "sequence": 4,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:1048-1048",
+      "from_node": "NODE-C730E4A666",
+      "to_node": "impl-UCG-004-UC003",
+      "message": "返回：查询 product 表获取 product_id、merchant_id、status、version；更新 version（+1）和 updated_at 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "product_id",
+        "merchant_id",
+        "status",
+        "version"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-2E53A2E7A3",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-F972E73FE4",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003",
+      "dependency_node_id": "NODE-C730E4A666",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1048,
+          "line_end": 1048
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1051,
+          "line_end": 1051
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-39E811634E",
+      "exchange_id": "EXCH-A81D00F6B2",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 5,
+      "sequence": 5,
+      "source_step_index": 7,
+      "source_location": "功能设计_spec.md:1050-1050",
+      "from_node": "NODE-95A5DAEE15",
+      "to_node": "impl-UCG-004-UC003",
+      "message": "返回：写入/更新 sku 表（sku_id、product_id、attributes、stock_quantity、sale_price、original_price、updated_at） 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-55375CA949",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-F972E73FE4",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003",
+      "dependency_node_id": "NODE-95A5DAEE15",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1050,
+          "line_end": 1050
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1ea1933212336684",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 1191,
+          "line_end": 1192
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-87752EA59D",
+      "exchange_id": "EXCH-F972E73FE4",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC003",
+      "ssd_id": "SSD-5162E9F8D5",
+      "layer": "AR",
+      "ssd_sequence": 6,
+      "sequence": 6,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-M-IF3",
+      "from_node": "impl-UCG-004-UC003",
+      "to_node": "sr-UCG-004-UC003",
+      "message": "返回 updateSkuInventoryAndPrice 结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 60,
+      "parent_exchange_id": "EXCH-E4B0C80650",
+      "reply_to_message_id": "MSG-4DE28BDE9D",
+      "implementation_api_id": "updateSkuInventoryAndPrice",
+      "microservice_id": "ar-UCG-004-UC003",
+      "service_id": "ar-UCG-004-UC003"
+    }
+  ]
+}

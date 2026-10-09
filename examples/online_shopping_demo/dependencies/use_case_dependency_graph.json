@@ -1,0 +1,1459 @@
+{
+  "version": "10",
+  "project": "online_shopping_system",
+  "nodes": [
+    {
+      "use_case_id": "UCG-001-UC001",
+      "name": "浏览商品",
+      "rr_service_id": "rr-UCG-001-UC001"
+    },
+    {
+      "use_case_id": "UCG-001-UC002",
+      "name": "查看商品详情",
+      "rr_service_id": "rr-UCG-001-UC002"
+    },
+    {
+      "use_case_id": "UCG-001-UC003",
+      "name": "加入购物车",
+      "rr_service_id": "rr-UCG-001-UC003"
+    },
+    {
+      "use_case_id": "UCG-002-UC001",
+      "name": "创建订单",
+      "rr_service_id": "rr-UCG-002-UC001"
+    },
+    {
+      "use_case_id": "UCG-002-UC002",
+      "name": "支付订单",
+      "rr_service_id": "rr-UCG-002-UC002"
+    },
+    {
+      "use_case_id": "UCG-002-UC003",
+      "name": "查看订单详情",
+      "rr_service_id": "rr-UCG-002-UC003"
+    },
+    {
+      "use_case_id": "UCG-003-UC001",
+      "name": "商家发货",
+      "rr_service_id": "rr-UCG-003-UC001"
+    },
+    {
+      "use_case_id": "UCG-003-UC002",
+      "name": "更新物流信息",
+      "rr_service_id": "rr-UCG-003-UC002"
+    },
+    {
+      "use_case_id": "UCG-003-UC003",
+      "name": "查询物流信息",
+      "rr_service_id": "rr-UCG-003-UC003"
+    },
+    {
+      "use_case_id": "UCG-003-UC004",
+      "name": "申请退款",
+      "rr_service_id": "rr-UCG-003-UC004"
+    },
+    {
+      "use_case_id": "UCG-004-UC001",
+      "name": "创建商品",
+      "rr_service_id": "rr-UCG-004-UC001"
+    },
+    {
+      "use_case_id": "UCG-004-UC002",
+      "name": "填写商品信息",
+      "rr_service_id": "rr-UCG-004-UC002"
+    },
+    {
+      "use_case_id": "UCG-004-UC003",
+      "name": "设置库存与价格",
+      "rr_service_id": "rr-UCG-004-UC003"
+    },
+    {
+      "use_case_id": "UCG-004-UC004",
+      "name": "发布商品",
+      "rr_service_id": "rr-UCG-004-UC004"
+    }
+  ],
+  "edges": [],
+  "layout": {
+    "layers": [
+      [
+        "UCG-001-UC001",
+        "UCG-001-UC002",
+        "UCG-001-UC003",
+        "UCG-002-UC001",
+        "UCG-002-UC002",
+        "UCG-002-UC003",
+        "UCG-003-UC001",
+        "UCG-003-UC002",
+        "UCG-003-UC003",
+        "UCG-003-UC004",
+        "UCG-004-UC001",
+        "UCG-004-UC002",
+        "UCG-004-UC003",
+        "UCG-004-UC004"
+      ]
+    ],
+    "row_positions": {
+      "UCG-001-UC001": 0,
+      "UCG-001-UC002": 1,
+      "UCG-001-UC003": 2,
+      "UCG-002-UC001": 3,
+      "UCG-002-UC002": 4,
+      "UCG-002-UC003": 5,
+      "UCG-003-UC001": 6,
+      "UCG-003-UC002": 7,
+      "UCG-003-UC003": 8,
+      "UCG-003-UC004": 9,
+      "UCG-004-UC001": 10,
+      "UCG-004-UC002": 11,
+      "UCG-004-UC003": 12,
+      "UCG-004-UC004": 13
+    },
+    "direct_edge_conflicts": [],
+    "cycles": [],
+    "cycle_edge_ids": []
+  },
+  "er_model": {
+    "entities": [
+      {
+        "name": "Product",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "SKU",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Cart",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Order",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "OrderItem",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Payment",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Shipment",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "LogisticsEvent",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Refund",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Category",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      }
+    ],
+    "relationships": []
+  },
+  "use_case_entity_operations": [
+    {
+      "operation_id": "CRUD-001-UCG-001-UC001-Product-R",
+      "use_case_id": "UCG-001-UC001",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 4,
+      "evidence": "Search ON_SALE products through the product catalog API.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-002-UCG-001-UC002-Product-R",
+      "use_case_id": "UCG-001-UC002",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 3,
+      "evidence": "Retrieve product detail including description, price, and stock status.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-003-UCG-001-UC003-Product-R",
+      "use_case_id": "UCG-001-UC003",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate product state, inventory, and purchase limits.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-004-UCG-001-UC003-Cart-C",
+      "use_case_id": "UCG-001-UC003",
+      "entity": "Cart",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Call the cart write API to save the selected product and quantity.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-005-UCG-002-UC001-Cart-R",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Cart",
+      "operation": "R",
+      "source_step_index": 1,
+      "evidence": "Read selected cart items before order creation.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-006-UCG-002-UC001-Product-R",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate price, inventory, and promotion.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Order",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Create a WAIT_PAY order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-008-UCG-002-UC001-SKU-U",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "SKU",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Lock inventory for the order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-009-UCG-002-UC002-Order-U",
+      "use_case_id": "UCG-002-UC002",
+      "entity": "Order",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update order state to PAID after a successful payment.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-010-UCG-002-UC002-Payment-C",
+      "use_case_id": "UCG-002-UC002",
+      "entity": "Payment",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a payment request and record the payment flow.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-011-UCG-002-UC003-Order-R",
+      "use_case_id": "UCG-002-UC003",
+      "entity": "Order",
+      "operation": "R",
+      "source_step_index": 3,
+      "evidence": "Query order details and compose order data.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+      "use_case_id": "UCG-003-UC001",
+      "entity": "Shipment",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a shipment record for the order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-013-UCG-003-UC001-Order-U",
+      "use_case_id": "UCG-003-UC001",
+      "entity": "Order",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update order state to SHIPPED.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-014-UCG-003-UC002-LogisticsEvent-C",
+      "use_case_id": "UCG-003-UC002",
+      "entity": "LogisticsEvent",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Save a new logistics event.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-015-UCG-003-UC002-Shipment-U",
+      "use_case_id": "UCG-003-UC002",
+      "entity": "Shipment",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update logistics summary from the new event.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-016-UCG-003-UC003-Shipment-R",
+      "use_case_id": "UCG-003-UC003",
+      "entity": "Shipment",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Read the local shipment trace.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-017-UCG-003-UC003-LogisticsEvent-R",
+      "use_case_id": "UCG-003-UC003",
+      "entity": "LogisticsEvent",
+      "operation": "R",
+      "source_step_index": 4,
+      "evidence": "Read and order logistics events by timestamp.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-018-UCG-003-UC004-Order-R",
+      "use_case_id": "UCG-003-UC004",
+      "entity": "Order",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate order and refundable amount.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-019-UCG-003-UC004-Refund-C",
+      "use_case_id": "UCG-003-UC004",
+      "entity": "Refund",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a refund request.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "use_case_id": "UCG-004-UC001",
+      "entity": "Product",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Create a DRAFT product.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-021-UCG-004-UC002-Product-U",
+      "use_case_id": "UCG-004-UC002",
+      "entity": "Product",
+      "operation": "U",
+      "source_step_index": 4,
+      "evidence": "Save product name, description, category, and images.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-022-UCG-004-UC003-SKU-U",
+      "use_case_id": "UCG-004-UC003",
+      "entity": "SKU",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Save inventory and sales price for each SKU.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-023-UCG-004-UC004-Product-U",
+      "use_case_id": "UCG-004-UC004",
+      "entity": "Product",
+      "operation": "U",
+      "source_step_index": 4,
+      "evidence": "Change product state to ON_SALE after publication checks.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    }
+  ],
+  "crud_matrix": [
+    {
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "operations": {
+        "Product": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-001-UCG-001-UC001-Product-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-001-UC001"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "operations": {
+        "Product": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-002-UCG-001-UC002-Product-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-001-UC002"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "operations": {
+        "Product": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-003-UCG-001-UC003-Product-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-001-UC003"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-004-UCG-001-UC003-Cart-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-001-UC003"
+          ]
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "operations": {
+        "Product": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-006-UCG-002-UC001-Product-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC001"
+          ]
+        },
+        "SKU": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-008-UCG-002-UC001-SKU-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC001"
+          ]
+        },
+        "Cart": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-005-UCG-002-UC001-Cart-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC001"
+          ]
+        },
+        "Order": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-007-UCG-002-UC001-Order-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC001"
+          ]
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-009-UCG-002-UC002-Order-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC002"
+          ]
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-010-UCG-002-UC002-Payment-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC002"
+          ]
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-011-UCG-002-UC003-Order-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-002-UC003"
+          ]
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-013-UCG-003-UC001-Order-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC001"
+          ]
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-012-UCG-003-UC001-Shipment-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC001"
+          ]
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-015-UCG-003-UC002-Shipment-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC002"
+          ]
+        },
+        "LogisticsEvent": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-014-UCG-003-UC002-LogisticsEvent-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC002"
+          ]
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-016-UCG-003-UC003-Shipment-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC003"
+          ]
+        },
+        "LogisticsEvent": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-017-UCG-003-UC003-LogisticsEvent-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC003"
+          ]
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "R",
+          "operation_ids": [
+            "CRUD-018-UCG-003-UC004-Order-R"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC004"
+          ]
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-019-UCG-003-UC004-Refund-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-003-UC004"
+          ]
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-004-UC001",
+      "use_case_name": "创建商品",
+      "operations": {
+        "Product": {
+          "crud": "C",
+          "operation_ids": [
+            "CRUD-020-UCG-004-UC001-Product-C"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-004-UC001"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "operations": {
+        "Product": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-021-UCG-004-UC002-Product-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-004-UC002"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "operations": {
+        "Product": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "SKU": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-022-UCG-004-UC003-SKU-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-004-UC003"
+          ]
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    },
+    {
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "operations": {
+        "Product": {
+          "crud": "U",
+          "operation_ids": [
+            "CRUD-023-UCG-004-UC004-Product-U"
+          ],
+          "mapping_status": "inferred",
+          "source_locations": [
+            "功能设计_spec.md:V5 call chain; UCG-004-UC004"
+          ]
+        },
+        "SKU": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Cart": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Order": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "OrderItem": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Payment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Shipment": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "LogisticsEvent": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Refund": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        },
+        "Category": {
+          "crud": "",
+          "operation_ids": [],
+          "mapping_status": "",
+          "source_locations": []
+        }
+      }
+    }
+  ],
+  "review_items": [],
+  "semantics": {
+    "dependency_rule": "仅当消费方 CRUD 记录显式引用同实体的前置 C/U 操作，且附有关系证据和来源定位时才生成依赖边；仅共享实体或 AR 实现不构成依赖。",
+    "direction": "前置/生产用例 → 消费/依赖用例；表示数据生命周期或有证据的状态前置，不表示全局执行顺序。"
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "checked_checker_ids": [
+    "CHK-e334d924b044c0587e7b"
+  ],
+  "checked_generated_ids": [
+    "GEN-3164C18FFD",
+    "GEN-CE3954E6FA",
+    "GEN-FDDCAAFE7E",
+    "GEN-F0064F1F05",
+    "GEN-5406886B89",
+    "GEN-1C8A4E5F0F",
+    "GEN-F56ADD8C97",
+    "GEN-073716B04B"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-3164C18FFD",
+      "status": "unmatched",
+      "evidence": "Checker concerns duplicate payment-result notifications requiring idempotent handling to avoid repeated order updates; generator concerns input-data validity (illegal characters, disallowed fields, illegal values) in the PAYMENT-PAY-01 API call. Triggers and failure mechanisms are different, so no shared concrete condition or behavior.",
+      "missing_behavior": [
+        "Duplicate payment-result notification and idempotent response are absent; generator instead covers input-data validation errors with a pending TBD response."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-CE3954E6FA",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-3164C18FFD semantically; checker covers duplicate notification idempotency while generator covers invalid payment API input data. No shared trigger, operation outcome or expected result.",
+      "missing_behavior": [
+        "Idempotent handling of repeated payment notifications is absent."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-FDDCAAFE7E",
+      "status": "unmatched",
+      "evidence": "Checker is about duplicated payment-result notifications; generator is about string-length validation failure in the payment API request. Different failure class and no shared behavior.",
+      "missing_behavior": [
+        "Repeated notification/idempotency behavior is absent; generator response itself is TBD."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-F0064F1F05",
+      "status": "unmatched",
+      "evidence": "Same string-length validation concern as GEN-FDDCAAFE7E; checker requires duplicate-notification idempotency, which is not addressed.",
+      "missing_behavior": [
+        "Duplicate payment notification scenario and idempotent order-update behavior are absent."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-5406886B89",
+      "status": "unmatched",
+      "evidence": "Checker: duplicate payment-result notification; generator: numeric out-of-range validation in payment API call. Distinct triggers and distinct expected outcomes.",
+      "missing_behavior": [
+        "Idempotent handling of duplicate payment results is absent."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-1C8A4E5F0F",
+      "status": "unmatched",
+      "evidence": "Same numeric-range validation as GEN-5406886B89; no overlap with duplicate-notification idempotency concern.",
+      "missing_behavior": [
+        "Duplicate notification handling and idempotent order update are absent."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-F56ADD8C97",
+      "status": "unmatched",
+      "evidence": "Checker concerns duplicate payment-result notification idempotency; generator concerns payload/file size limit validation in the payment API. Different semantic failure and no shared branch behavior.",
+      "missing_behavior": [
+        "Duplicate notification idempotency behavior is absent."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-073716B04B",
+      "status": "unmatched",
+      "evidence": "Same payload-size validation concern as GEN-F56ADD8C97; no relationship to repeated payment notification handling.",
+      "missing_behavior": [
+        "Idempotent handling of duplicate payment results is absent."
+      ]
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0006-88f78b950465",
+  "input_hash": "88f78b9504651115f6360ca36a0a996e811e4a577b761ceb0bd726a5b05bc4e0",
+  "model": "ecnu-max"
+}

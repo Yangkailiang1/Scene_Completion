@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1445" viewBox="0 0 1100 1445">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">商家发货 · RR SSD</text>
+<rect x="30.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="125.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">商家</text>
+<line x1="125.0" y1="142.0" x2="125.0" y2="1415.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="880.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="975.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="975.0" y1="142.0" x2="975.0" y2="1415.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="125.0" y1="186.0" x2="975.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 商家选择待发货订单。</text>
+<line x1="975.0" y1="256.0" x2="125.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：商家选择待发货订单。</text>
+<line x1="975.0" y1="326.0" x2="125.0" y2="326.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 系统校验订单状态和商家权限。</text>
+<line x1="975.0" y1="403.0" x2="125.0" y2="403.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="387.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 系统向 LogisticsService</text>
+<text x="133.0" y="405.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> 登记物流单。</text>
+<line x1="975.0" y1="487.0" x2="125.0" y2="487.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="471.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统保存物流单号并将订单更新为 SHIP</text>
+<text x="133.0" y="489.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">PED。</text>
+<line x1="975.0" y1="571.0" x2="125.0" y2="571.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="555.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 在线商城系统校验 Authorizati</text>
+<text x="133.0" y="573.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">on Token，确认商家身份和订单处理权限。</text>
+<line x1="975.0" y1="677.0" x2="125.0" y2="677.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="643.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[7] 在线商城系统校验请求参数：orderId</text>
+<text x="133.0" y="661.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> 格式合法、carrierCode 合法、tra</text>
+<text x="133.0" y="679.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ckingNumber 非空、shippedIt</text>
+<text x="133.0" y="697.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ems[] 非空。</text>
+<line x1="975.0" y1="805.0" x2="125.0" y2="805.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="771.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[8] 在线商城系统调用 OrderServic</text>
+<text x="133.0" y="789.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">e 查询 order 表，获取 order_id</text>
+<text x="133.0" y="807.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">、merchant_id、status，校验订单</text>
+<text x="133.0" y="825.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">状态为 PAID 且属于当前商家。</text>
+<line x1="975.0" y1="933.0" x2="125.0" y2="933.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="899.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[9] 在线商城系统调用 OrderServic</text>
+<text x="133.0" y="917.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">e 的创建发货能力，传入 orderId、car</text>
+<text x="133.0" y="935.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">rierCode、trackingNumber、</text>
+<text x="133.0" y="953.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">shippedItems[]。</text>
+<line x1="125.0" y1="1061.0" x2="975.0" y2="1061.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="1027.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[13] OrderService 向 ACT-</text>
+<text x="133.0" y="1045.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">004（LogisticsService）登记物</text>
+<text x="133.0" y="1063.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">流单号，传入 trackingNumber、ca</text>
+<text x="133.0" y="1081.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">rrierCode、orderId。</text>
+<line x1="975.0" y1="1189.0" x2="125.0" y2="1189.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="1155.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[13] 系统受理：OrderService 向</text>
+<text x="133.0" y="1173.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> ACT-004（LogisticsServic</text>
+<text x="133.0" y="1191.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">e）登记物流单号，传入 trackingNumb</text>
+<text x="133.0" y="1209.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">er、carrierCode、orderId。</text>
+<line x1="975.0" y1="1317.0" x2="125.0" y2="1317.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="1283.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[15] 在线商城系统向 ACT-002 返回 </text>
+<text x="133.0" y="1301.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">HTTP 200，响应体包含 shipmentI</text>
+<text x="133.0" y="1319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">d、orderStatus、trackingNu</text>
+<text x="133.0" y="1337.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">mber。</text>
+</svg>

@@ -1,0 +1,165 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-837007732b14891e21e0"
+  ],
+  "checked_generated_ids": [
+    "GEN-BB13252D3D",
+    "GEN-0BB9E4A934",
+    "GEN-1673D36091",
+    "GEN-D39A1BF21C",
+    "GEN-854696338A",
+    "GEN-FD8C23DF6E",
+    "GEN-C582C81F8D",
+    "GEN-D6967BBE26"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-BB13252D3D",
+      "status": "unmatched",
+      "evidence": "Checker is an exception branch where the sales price is out of the allowed range and the system prompts the merchant to fix the price. GEN-BB13252D3D is the main success path ending in saving stock and price and returning a version number; it shares only the use-case main-flow prefix and has an incompatible (success vs. rejection/prompt) outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-0BB9E4A934",
+      "status": "unmatched",
+      "evidence": "GEN-0BB9E4A934 is triggered by negative stock and rejects saving with an error-marked SKU, whereas the checker is triggered by a sales price outside the allowed range and prompts the merchant to correct the price. Different failure condition and different system response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "full",
+      "evidence": "Same trigger (sales price not in the allowed range discovered during the price/SKU validation step), same core behavior (system validation detects the out-of-range price) and same expected result (system prompts the merchant to fix the price). Trigger, operation and outcome align semantically.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-D39A1BF21C",
+      "status": "unmatched",
+      "evidence": "GEN-D39A1BF21C is triggered by concurrent version conflict at API-M-IF3 and returns a data-conflict/reload prompt, which is a different initiating condition, operation failure mode and outcome from the checker's out-of-range price prompt.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-854696338A",
+      "status": "unmatched",
+      "evidence": "GEN-854696338A concerns missing required data / empty request body at API-M-IF3 with an undetermined response, not an out-of-range sales price with a merchant correction prompt.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-FD8C23DF6E",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-854696338A covering missing required data / empty request body at API-M-IF3; trigger and response differ from the checker's price-range prompt.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-C582C81F8D",
+      "status": "unmatched",
+      "evidence": "GEN-C582C81F8D concerns format-nonconforming data at API-M-IF3 with an undetermined response; this is a generic format concern, not the specific out-of-range price business rule and correction prompt of the checker.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-D6967BBE26",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-C582C81F8D covering format-nonconforming data at API-M-IF3; trigger and undetermined response do not align with the checker's out-of-range price trigger and fix-price prompt.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "full",
+      "evidence": "两侧都明确是 SKU 销售价格超出允许范围，且步骤与 expected_result 均为提示商家修正价格。前置条件一致，checker 没有给出相反的校验或处理行为。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "generated": "销售价格不在允许范围。"
+      }
+    }
+  ],
+  "batch_id": "matching-0015-9400c1d5f184",
+  "input_hash": "9400c1d5f184a2c47753e8fa212cb7b8abaaf6a7e3892558496c11bf5471cbaf",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "full",
+      "evidence": "Both describe the exception where the merchant sets a sales price outside the allowed range; the system's validation step detects it and prompts the merchant to correct the price. Same trigger, shared core validation behavior, and same expected result.",
+      "missing_behavior": []
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "b4f3e4a2e5f676f887b0a2dff6f99ceb787c69a23dfd90c7a08ef50421844bef",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-837007732b14891e21e0",
+        "generated_scenario_id": "GEN-1673D36091",
+        "status": "full",
+        "evidence": "Both triggers describe the same concrete failure condition: the sales price set by the merchant is outside the permitted range. The generated trigger omits the checker's detail that discovery occurs during the step ③ validation, but that is a non-contradictory specificity gap, not a different failure mechanism. Core behavior aligns: merchant inputs SKU stock quantities, sets sales price and optional original price, the system performs validation of stock, price, and SKU uniqueness, and in this branch the validation catches the out-of-range price. Both expected outcomes are identical: the system prompts the merchant to correct the price. The generated branch's generic preconditions/postconditions defer to the use-case context ('商品草稿存在; 商品已定义至少一个SKU' and '系统保存每个SKU的库存和销售价格'), which matches the checker's stated preconditions and is consistent with the success context; no explicit contradiction exists. Because the trigger is the same specific business failure, the shared behavior includes the concrete validation response, the expected outcome matches, and constraints are compatible, this pair is a full match.",
+        "missing_behavior": [],
+        "trigger_quotes": {
+          "checker": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated": "销售价格不在允许范围。"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0015-9400c1d5f184:0",
+        "status": "full",
+        "same_specific_trigger": true,
+        "shared_core_behavior": true,
+        "same_expected_outcome": true,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "销售价格不在允许范围。",
+        "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "evidence": "两侧都明确是 SKU 销售价格超出允许范围，且步骤与 expected_result 均为提示商家修正价格。前置条件一致，checker 没有给出相反的校验或处理行为。",
+        "missing_behavior": [],
+        "pair_index": 0
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "b4f3e4a2e5f676f887b0a2dff6f99ceb787c69a23dfd90c7a08ef50421844bef",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-837007732b14891e21e0",
+          "generated_scenario_id": "GEN-1673D36091",
+          "status": "full",
+          "evidence": "Same trigger (sales price not in the allowed range discovered during the price/SKU validation step), same core behavior (system validation detects the out-of-range price) and same expected result (system prompts the merchant to fix the price). Trigger, operation and outcome align semantically.",
+          "missing_behavior": []
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated_trigger_quote": "销售价格不在允许范围。",
+          "status": "full",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": true,
+          "compatible_constraints": true,
+          "evidence": "Both triggers describe the same concrete failure condition: the sales price set by the merchant is outside the permitted range. The generated trigger omits the checker's detail that discovery occurs during the step ③ validation, but that is a non-contradictory specificity gap, not a different failure mechanism. Core behavior aligns: merchant inputs SKU stock quantities, sets sales price and optional original price, the system performs validation of stock, price, and SKU uniqueness, and in this branch the validation catches the out-of-range price. Both expected outcomes are identical: the system prompts the merchant to correct the price. The generated branch's generic preconditions/postconditions defer to the use-case context ('商品草稿存在; 商品已定义至少一个SKU' and '系统保存每个SKU的库存和销售价格'), which matches the checker's stated preconditions and is consistent with the success context; no explicit contradiction exists. Because the trigger is the same specific business failure, the shared behavior includes the concrete validation response, the expected outcome matches, and constraints are compatible, this pair is a full match.",
+          "missing_behavior": []
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

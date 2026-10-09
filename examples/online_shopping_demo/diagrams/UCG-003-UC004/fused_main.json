@@ -1,0 +1,841 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-003-UC004",
+  "scenario_id": "main",
+  "name": "申请退款",
+  "ssd_id": "SSD-2C5F3918FF",
+  "layer": "fused",
+  "lifelines": [
+    {
+      "node_id": "actor-1",
+      "label": "顾客",
+      "kind": "actor",
+      "layer": "RR"
+    },
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-003-UC004",
+      "label": "RefundService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-R-IF1"
+    },
+    {
+      "node_id": "impl-UCG-003-UC004",
+      "label": "ImplementationAPI\nRefundService",
+      "kind": "implementation_microservice",
+      "layer": "AR",
+      "implementation_api_id": "createRefund",
+      "microservice_id": "ar-UCG-003-UC004"
+    },
+    {
+      "node_id": "ar-UCG-003-UC001",
+      "label": "OrderService",
+      "kind": "internal_service",
+      "layer": "AR"
+    },
+    {
+      "node_id": "NODE-7D1B9C0A5F",
+      "label": "refund 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "actor-3",
+      "label": "PaymentService",
+      "kind": "external_service",
+      "layer": "SR"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-CF2C4B4134",
+      "exchange_id": "EXCH-49FEE2FAC8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "RR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:318-318",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "message": "顾客选择退款商品、数量和原因（请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey）",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 10,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:318-318"
+      ]
+    },
+    {
+      "message_id": "MSG-3A4E400207",
+      "exchange_id": "EXCH-49FEE2FAC8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "RR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:318-318",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统受理：顾客选择退款商品、数量和原因（请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey）",
+      "message_kind": "feedback",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "reply_to_message_id": "MSG-CF2C4B4134",
+      "inference_basis": "RR 层为每个同步业务动作补齐可见受理反馈。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "系统需求_spec.md:318-318"
+      ]
+    },
+    {
+      "message_id": "MSG-AFADE66798",
+      "exchange_id": "EXCH-ED50F5ACE8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 3,
+      "sequence": 3,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "system",
+      "to_node": "sr-UCG-003-UC004",
+      "message": "调用 API-R-IF1：POST /api/v1/orders/{orderId}/refunds",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "orderId",
+        "reason",
+        "amount"
+      ],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-R-IF1",
+      "service_id": "sr-UCG-003-UC004",
+      "api_method": "POST",
+      "resource_path": "/api/v1/orders/{orderId}/refunds",
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-R-IF1"
+      ]
+    },
+    {
+      "message_id": "MSG-7E9B4F5D38",
+      "exchange_id": "EXCH-DB9812C92B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 4,
+      "sequence": 4,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "sr-UCG-003-UC004",
+      "to_node": "impl-UCG-003-UC004",
+      "message": "调用 createRefund：POST /api/v1/orders/{orderId}/refunds",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "orderId",
+        "reason",
+        "amount"
+      ],
+      "response_fields": [],
+      "phase": 30,
+      "parent_exchange_id": "EXCH-ED50F5ACE8",
+      "implementation_api_id": "createRefund",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "api_method": "POST",
+      "resource_path": "/api/v1/orders/{orderId}/refunds",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-R-IF1"
+      ]
+    },
+    {
+      "message_id": "MSG-1155D93E46",
+      "exchange_id": "EXCH-7101B3C0D5",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 5,
+      "sequence": 5,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:912-912",
+      "from_node": "impl-UCG-003-UC004",
+      "to_node": "ar-UCG-003-UC001",
+      "message": "查询 order 表和 order_item 表，校验订单归属、状态与可退款金额",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "orderId"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "ar-UCG-003-UC001",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 912,
+          "line_end": 912
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:912-912"
+      ]
+    },
+    {
+      "message_id": "MSG-3A82F19320",
+      "exchange_id": "EXCH-0A8530E0CE",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 6,
+      "sequence": 6,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:916-916",
+      "from_node": "impl-UCG-003-UC004",
+      "to_node": "NODE-7D1B9C0A5F",
+      "message": "写入 refund 表并更新退款状态",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "refund_id",
+        "order_id",
+        "customer_id",
+        "items_snapshot",
+        "reason_code",
+        "reason_description",
+        "requested_amount",
+        "accepted_amount",
+        "status",
+        "created_at",
+        "updated_at"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "NODE-7D1B9C0A5F",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 916,
+          "line_end": 916
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 919,
+          "line_end": 919
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:916-916"
+      ]
+    },
+    {
+      "message_id": "MSG-29738A683F",
+      "exchange_id": "EXCH-EA756A3143",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 7,
+      "sequence": 7,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:321-321",
+      "from_node": "impl-UCG-003-UC004",
+      "to_node": "actor-3",
+      "message": "提交退款请求",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [
+        "refund_id",
+        "payment_id",
+        "accepted_amount"
+      ],
+      "response_fields": [
+        "退款结果"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "actor-3",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 917,
+          "line_end": 917
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdf4095a7929c88c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 1174,
+          "line_end": 1174
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:321-321"
+      ]
+    },
+    {
+      "message_id": "MSG-F94742A51F",
+      "exchange_id": "EXCH-956C02D07F",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 8,
+      "sequence": 8,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:321-321",
+      "from_node": "actor-3",
+      "to_node": "impl-UCG-003-UC004",
+      "message": "向 RefundService 返回退款结果",
+      "message_kind": "event",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [
+        "退款结果"
+      ],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "actor-3",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 918,
+          "line_end": 918
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "incoming",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:321-321"
+      ]
+    },
+    {
+      "message_id": "MSG-84E0027FE5",
+      "exchange_id": "EXCH-7101B3C0D5",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 9,
+      "sequence": 9,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:912-912",
+      "from_node": "ar-UCG-003-UC001",
+      "to_node": "impl-UCG-003-UC004",
+      "message": "返回：查询 order 表和 order_item 表，校验订单归属、状态与可退款金额 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-1155D93E46",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "ar-UCG-003-UC001",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 912,
+          "line_end": 912
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:912-912"
+      ]
+    },
+    {
+      "message_id": "MSG-54C80AE0D8",
+      "exchange_id": "EXCH-0A8530E0CE",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 10,
+      "sequence": 10,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:916-916",
+      "from_node": "NODE-7D1B9C0A5F",
+      "to_node": "impl-UCG-003-UC004",
+      "message": "返回：写入 refund 表并更新退款状态 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-3A82F19320",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "NODE-7D1B9C0A5F",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 916,
+          "line_end": 916
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 919,
+          "line_end": 919
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:916-916"
+      ]
+    },
+    {
+      "message_id": "MSG-E9175C749C",
+      "exchange_id": "EXCH-EA756A3143",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 11,
+      "sequence": 11,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:321-321",
+      "from_node": "actor-3",
+      "to_node": "impl-UCG-003-UC004",
+      "message": "返回：提交退款请求 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [
+        "退款结果"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-29738A683F",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "actor-3",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 917,
+          "line_end": 917
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdf4095a7929c88c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 1174,
+          "line_end": 1174
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:321-321"
+      ]
+    },
+    {
+      "message_id": "MSG-E8E51BA6A3",
+      "exchange_id": "EXCH-956C02D07F",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 12,
+      "sequence": 12,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:321-321",
+      "from_node": "impl-UCG-003-UC004",
+      "to_node": "actor-3",
+      "message": "返回：向 RefundService 返回退款结果 处理结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-F94742A51F",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-DB9812C92B",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "dependency_node_id": "actor-3",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 918,
+          "line_end": 918
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 2,
+      "dependency_direction": "incoming",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:321-321"
+      ]
+    },
+    {
+      "message_id": "MSG-4947683C71",
+      "exchange_id": "EXCH-DB9812C92B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "AR",
+      "ssd_sequence": 13,
+      "sequence": 13,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "impl-UCG-003-UC004",
+      "to_node": "sr-UCG-003-UC004",
+      "message": "返回 createRefund 结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 60,
+      "parent_exchange_id": "EXCH-ED50F5ACE8",
+      "reply_to_message_id": "MSG-7E9B4F5D38",
+      "implementation_api_id": "createRefund",
+      "microservice_id": "ar-UCG-003-UC004",
+      "service_id": "ar-UCG-003-UC004",
+      "source_locations": [
+        "功能设计_spec.md:API-R-IF1"
+      ]
+    },
+    {
+      "message_id": "MSG-E7CFF7A3FC",
+      "exchange_id": "EXCH-ED50F5ACE8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "SR",
+      "ssd_sequence": 14,
+      "sequence": 14,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "sr-UCG-003-UC004",
+      "to_node": "system",
+      "message": "返回 API-R-IF1 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-R-IF1",
+      "service_id": "sr-UCG-003-UC004",
+      "reply_to_message_id": "MSG-AFADE66798",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-R-IF1"
+      ]
+    },
+    {
+      "message_id": "MSG-7045EA46C7",
+      "exchange_id": "EXCH-DAF814C79A",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "RR",
+      "ssd_sequence": 15,
+      "sequence": 15,
+      "source_step_index": 3,
+      "source_location": "系统需求_spec.md:320-320",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统通过退款申请接口 API-R-IF1 创建退款单（系统调用 RefundService 退款申请能力，RefundService 按 idempotencyKey 幂等校验、校验退款时限与退款金额并写入 refund 表，状态字段为 status）",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:320-320"
+      ]
+    },
+    {
+      "message_id": "MSG-491C3A3E11",
+      "exchange_id": "EXCH-775581D8B5",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "RR",
+      "ssd_sequence": 16,
+      "sequence": 16,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:321-321",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统向 PaymentService 提交退款请求（RefundService 传入 refund_id、payment_id、accepted_amount，PaymentService 处理并返回退款结果）",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:321-321"
+      ]
+    },
+    {
+      "message_id": "MSG-D7F2A45490",
+      "exchange_id": "EXCH-48A9131E3E",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-2C5F3918FF",
+      "layer": "RR",
+      "ssd_sequence": 17,
+      "sequence": 17,
+      "source_step_index": 5,
+      "source_location": "系统需求_spec.md:322-322",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统保存退款流水并展示处理状态（RefundService 更新 refund 表退款状态并向在线商城系统返回 HTTP 200 及 refundId、refundStatus、acceptedAmount，系统再向顾客返回 HTTP 200）",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:322-322"
+      ]
+    }
+  ],
+  "dedupe_report": {
+    "input_count": 17,
+    "output_count": 17,
+    "removed_count": 0,
+    "conflicts": []
+  },
+  "source_ssds": {
+    "rr": "SSD-C9BAA6C477",
+    "sr": "SSD-102A3BFE33",
+    "ar": "SSD-5AB52407DC"
+  }
+}

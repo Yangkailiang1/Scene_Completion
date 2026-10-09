@@ -1,0 +1,51 @@
+{
+  "version": "6",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-001-UC001",
+  "scenario_id": "main",
+  "artifacts": {
+    "rr": {
+      "json": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\rr_main.json",
+      "svg": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\rr_main.svg",
+      "png": "",
+      "png_status": "unavailable",
+      "png_converter": "",
+      "png_error": "未找到 rsvg-convert、sips、ImageMagick 或 Inkscape。",
+      "puml": ""
+    },
+    "sr": {
+      "json": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\sr_main.json",
+      "svg": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\sr_main.svg",
+      "png": "",
+      "png_status": "unavailable",
+      "png_converter": "",
+      "png_error": "未找到 rsvg-convert、sips、ImageMagick 或 Inkscape。",
+      "puml": ""
+    },
+    "ar": {
+      "json": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\ar_main.json",
+      "svg": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\ar_main.svg",
+      "png": "",
+      "png_status": "unavailable",
+      "png_converter": "",
+      "png_error": "未找到 rsvg-convert、sips、ImageMagick 或 Inkscape。",
+      "puml": ""
+    },
+    "fused": {
+      "json": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\fused_main.json",
+      "svg": "D:\\project\\Scene_Completion\\tmp\\online_shopping\\run_v2\\diagrams\\UCG-001-UC001\\fused_main.svg",
+      "png": "",
+      "png_status": "unavailable",
+      "png_converter": "",
+      "png_error": "未找到 rsvg-convert、sips、ImageMagick 或 Inkscape。",
+      "puml": ""
+    }
+  },
+  "review_items": [],
+  "dedupe_report": {
+    "input_count": 12,
+    "output_count": 12,
+    "removed_count": 0,
+    "conflicts": []
+  }
+}

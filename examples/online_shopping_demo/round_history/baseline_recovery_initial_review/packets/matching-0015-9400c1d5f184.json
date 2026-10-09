@@ -1,0 +1,224 @@
+{
+  "stage": "matching",
+  "input": {
+    "use_case_id": "UCG-004-UC003",
+    "generated": [
+      {
+        "scenario_id": "GEN-BB13252D3D",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "Main success",
+        "scenario_type": "main_success",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "商家在商品编辑页提交库存和价格。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统调用库存价格维护接口 API-M-IF3。",
+          "系统保存设置并返回最新版本号。"
+        ],
+        "expected_result": "系统保存每个SKU的库存和销售价格。",
+        "recovery": "",
+        "postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      {
+        "scenario_id": "GEN-0BB9E4A934",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "库存为负数。",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "库存为负数。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统拒绝保存并标记错误SKU。"
+        ],
+        "expected_result": "系统拒绝保存并标记错误SKU。",
+        "recovery": "Follow the documented recovery or termination",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      {
+        "scenario_id": "GEN-1673D36091",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "销售价格不在允许范围。",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "销售价格不在允许范围。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "recovery": "Follow the documented recovery or termination",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      {
+        "scenario_id": "GEN-D39A1BF21C",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "商品版本已被其他操作更新。",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品版本已被其他操作更新。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统调用库存价格维护接口 API-M-IF3。",
+          "系统提示数据冲突并要求重新加载。"
+        ],
+        "expected_result": "系统提示数据冲突并要求重新加载。",
+        "recovery": "Follow the documented recovery or termination",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      {
+        "scenario_id": "GEN-854696338A",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "数据完整性：调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：必填数据缺失或请求体为空",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：必填数据缺失或请求体为空",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-FD8C23DF6E",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "数据完整性：调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：必填数据缺失或请求体为空",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：必填数据缺失或请求体为空",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-C582C81F8D",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "数据格式：调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数据不满足格式规范",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数据不满足格式规范",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-D6967BBE26",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "数据格式：调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数据不满足格式规范",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数据不满足格式规范",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      }
+    ],
+    "checker": [
+      {
+        "scenario_id": "CHK-837007732b14891e21e0",
+        "use_case_id": "UCG-004-UC003",
+        "use_case_name": "设置库存与价格",
+        "name": "销售价格不在允许范围导致提示修正",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价，销售价格超出允许范围。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "recovery": "待需求确认"
+      }
+    ],
+    "pairwise": true
+  },
+  "instructions": [
+    "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
+    "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
+    "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+    "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+    "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
+    "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+    "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+    "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+    "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
+    "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match."
+  ],
+  "output_contract": {
+    "checked_checker_ids": [
+      "all tile checker IDs"
+    ],
+    "checked_generated_ids": [
+      "all tile generated IDs"
+    ],
+    "decisions": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "EVERY GEN-ID",
+        "status": "full|partial|unmatched",
+        "evidence": "specific reason",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ],
+    "matches": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "GEN-ID",
+        "status": "full|partial",
+        "evidence": "specific behavior evidence",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ]
+  },
+  "batch_id": "matching-0015-9400c1d5f184",
+  "input_hash": "9400c1d5f184a2c47753e8fa212cb7b8abaaf6a7e3892558496c11bf5471cbaf"
+}

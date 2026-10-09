@@ -1,0 +1,737 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-004-UC004",
+  "scenario_id": "main",
+  "name": "发布商品",
+  "ssd_id": "SSD-4A4491D987",
+  "layer": "fused",
+  "lifelines": [
+    {
+      "node_id": "actor-2",
+      "label": "商家",
+      "kind": "actor",
+      "layer": "RR"
+    },
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-004-UC004",
+      "label": "MerchantProductService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-M-IF4"
+    },
+    {
+      "node_id": "impl-UCG-004-UC004",
+      "label": "ImplementationAPI\nMerchantProductService",
+      "kind": "implementation_microservice",
+      "layer": "AR",
+      "implementation_api_id": "publishMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC004"
+    },
+    {
+      "node_id": "NODE-0D177DC4DD",
+      "label": "product/category/sku 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "ar-UCG-001-UC002",
+      "label": "ProductCatalogService",
+      "kind": "internal_service",
+      "layer": "AR"
+    },
+    {
+      "node_id": "ar-UCG-004-UC004",
+      "label": "MerchantProductService",
+      "kind": "internal_service",
+      "layer": "AR"
+    },
+    {
+      "node_id": "ar-UCG-001-UC001",
+      "label": "ProductCatalogService",
+      "kind": "internal_service",
+      "layer": "AR"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-97677CE1AF",
+      "exchange_id": "EXCH-1940CE663F",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:413-413",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "message": "商家提交商品发布。",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 10,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:413-413"
+      ]
+    },
+    {
+      "message_id": "MSG-710EA10491",
+      "exchange_id": "EXCH-1940CE663F",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:413-413",
+      "from_node": "system",
+      "to_node": "actor-2",
+      "message": "系统受理：商家提交商品发布。",
+      "message_kind": "feedback",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "reply_to_message_id": "MSG-97677CE1AF",
+      "inference_basis": "RR 层为每个同步业务动作补齐可见受理反馈。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "系统需求_spec.md:413-413"
+      ]
+    },
+    {
+      "message_id": "MSG-B11334BE40",
+      "exchange_id": "EXCH-38FAE16061",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 3,
+      "sequence": 3,
+      "source_step_index": 2,
+      "source_location": "系统需求_spec.md:414-414",
+      "from_node": "system",
+      "to_node": "actor-2",
+      "message": "系统校验资料完整性、类目规则、库存和价格。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:414-414"
+      ]
+    },
+    {
+      "message_id": "MSG-E93565ED37",
+      "exchange_id": "EXCH-E279D1A3F3",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "SR",
+      "ssd_sequence": 4,
+      "sequence": 4,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:API-M-IF4",
+      "from_node": "system",
+      "to_node": "sr-UCG-004-UC004",
+      "message": "调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "version",
+        "publishAt"
+      ],
+      "response_fields": [
+        "productId",
+        "status",
+        "publishedAt",
+        "catalogSyncStatus"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-M-IF4",
+      "service_id": "sr-UCG-004-UC004",
+      "api_method": "POST",
+      "resource_path": "/api/v1/merchant/products/{productId}/publish",
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-M-IF4"
+      ]
+    },
+    {
+      "message_id": "MSG-992600626B",
+      "exchange_id": "EXCH-672209A6AE",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 5,
+      "sequence": 5,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:API-M-IF4",
+      "from_node": "sr-UCG-004-UC004",
+      "to_node": "impl-UCG-004-UC004",
+      "message": "调用 publishMerchantProduct：POST /api/v1/merchant/products/{productId}/publish",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "version",
+        "publishAt"
+      ],
+      "response_fields": [],
+      "phase": 30,
+      "parent_exchange_id": "EXCH-E279D1A3F3",
+      "implementation_api_id": "publishMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "api_method": "POST",
+      "resource_path": "/api/v1/merchant/products/{productId}/publish",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-M-IF4"
+      ]
+    },
+    {
+      "message_id": "MSG-1D9149EAE5",
+      "exchange_id": "EXCH-92D14E7140",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 6,
+      "sequence": 6,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:1093-1096",
+      "from_node": "impl-UCG-004-UC004",
+      "to_node": "NODE-0D177DC4DD",
+      "message": "查询 product 表（product_id、merchant_id、status、version）及 category 表（必填属性与发布规则）、sku 表（有效SKU、stock_quantity、sale_price）；更新 product 表 status、published_at、version、updated_at",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "dependency_node_id": "NODE-0D177DC4DD",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1093,
+          "line_end": 1096
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 414
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:1093-1096"
+      ]
+    },
+    {
+      "message_id": "MSG-6D16196D5F",
+      "exchange_id": "EXCH-0420DC832F",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 7,
+      "sequence": 7,
+      "source_step_index": 5,
+      "source_location": "系统需求_spec.md:417-417",
+      "from_node": "impl-UCG-004-UC004",
+      "to_node": "ar-UCG-001-UC002",
+      "message": "调用 refreshCatalog 刷新可售索引，传入 productId 和最新商品数据",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId"
+      ],
+      "response_fields": [
+        "catalogSyncStatus"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "dependency_node_id": "ar-UCG-001-UC002",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 417,
+          "line_end": 417
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1097,
+          "line_end": 1098
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-ef8a2ea0659f3c60",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 1198,
+          "line_end": 1198
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:417-417"
+      ]
+    },
+    {
+      "message_id": "MSG-4AA89410C1",
+      "exchange_id": "EXCH-E7DC5B90A9",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 8,
+      "sequence": 8,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:1098-1098",
+      "from_node": "ar-UCG-004-UC004",
+      "to_node": "ar-UCG-001-UC001",
+      "message": "向 MerchantProductService 返回索引同步结果",
+      "message_kind": "event",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [
+        "catalogSyncStatus"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-001-UC001",
+      "service_id": "ar-UCG-001-UC001",
+      "dependency_node_id": "ar-UCG-004-UC004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1098,
+          "line_end": 1098
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "incoming",
+      "caller_node_id": "ar-UCG-001-UC001",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:1098-1098"
+      ]
+    },
+    {
+      "message_id": "MSG-86293C40A3",
+      "exchange_id": "EXCH-92D14E7140",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 9,
+      "sequence": 9,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:1093-1096",
+      "from_node": "NODE-0D177DC4DD",
+      "to_node": "impl-UCG-004-UC004",
+      "message": "返回：查询 product 表（product_id、merchant_id、status、version）及 category 表（必填属性与发布规则）、sku 表（有效SKU、stock_quantity、sale_price）；更新 product 表 status、published_at、version、updated_at 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-1D9149EAE5",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "dependency_node_id": "NODE-0D177DC4DD",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1093,
+          "line_end": 1096
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 414
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:1093-1096"
+      ]
+    },
+    {
+      "message_id": "MSG-39B9835F9B",
+      "exchange_id": "EXCH-0420DC832F",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 10,
+      "sequence": 10,
+      "source_step_index": 5,
+      "source_location": "系统需求_spec.md:417-417",
+      "from_node": "ar-UCG-001-UC002",
+      "to_node": "impl-UCG-004-UC004",
+      "message": "返回：调用 refreshCatalog 刷新可售索引，传入 productId 和最新商品数据 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "catalogSyncStatus"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-6D16196D5F",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "dependency_node_id": "ar-UCG-001-UC002",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 417,
+          "line_end": 417
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1097,
+          "line_end": 1098
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-ef8a2ea0659f3c60",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 1198,
+          "line_end": 1198
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:417-417"
+      ]
+    },
+    {
+      "message_id": "MSG-97F609C3D4",
+      "exchange_id": "EXCH-E7DC5B90A9",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 11,
+      "sequence": 11,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:1098-1098",
+      "from_node": "ar-UCG-001-UC001",
+      "to_node": "ar-UCG-004-UC004",
+      "message": "返回：向 MerchantProductService 返回索引同步结果 处理结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [
+        "catalogSyncStatus"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-4AA89410C1",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-672209A6AE",
+      "microservice_id": "ar-UCG-001-UC001",
+      "service_id": "ar-UCG-001-UC001",
+      "dependency_node_id": "ar-UCG-004-UC004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1098,
+          "line_end": 1098
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 3,
+      "dependency_direction": "incoming",
+      "caller_node_id": "ar-UCG-001-UC001",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:1098-1098"
+      ]
+    },
+    {
+      "message_id": "MSG-25DDEAC7C6",
+      "exchange_id": "EXCH-672209A6AE",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "AR",
+      "ssd_sequence": 12,
+      "sequence": 12,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:API-M-IF4",
+      "from_node": "impl-UCG-004-UC004",
+      "to_node": "sr-UCG-004-UC004",
+      "message": "返回 publishMerchantProduct 结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 60,
+      "parent_exchange_id": "EXCH-E279D1A3F3",
+      "reply_to_message_id": "MSG-992600626B",
+      "implementation_api_id": "publishMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC004",
+      "service_id": "ar-UCG-004-UC004",
+      "source_locations": [
+        "功能设计_spec.md:API-M-IF4"
+      ]
+    },
+    {
+      "message_id": "MSG-F9F329C776",
+      "exchange_id": "EXCH-E279D1A3F3",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "SR",
+      "ssd_sequence": 13,
+      "sequence": 13,
+      "source_step_index": 3,
+      "source_location": "功能设计_spec.md:API-M-IF4",
+      "from_node": "sr-UCG-004-UC004",
+      "to_node": "system",
+      "message": "返回 API-M-IF4 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "productId",
+        "status",
+        "publishedAt",
+        "catalogSyncStatus"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-M-IF4",
+      "service_id": "sr-UCG-004-UC004",
+      "reply_to_message_id": "MSG-E93565ED37",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "功能设计_spec.md:API-M-IF4"
+      ]
+    },
+    {
+      "message_id": "MSG-AD9C86B241",
+      "exchange_id": "EXCH-EFBB7CC2A5",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 14,
+      "sequence": 14,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:416-416",
+      "from_node": "system",
+      "to_node": "actor-2",
+      "message": "系统将商品状态更新为 ON_SALE。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:416-416"
+      ]
+    },
+    {
+      "message_id": "MSG-09D0B8CC03",
+      "exchange_id": "EXCH-8C39473BB3",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 15,
+      "sequence": 15,
+      "source_step_index": 5,
+      "source_location": "系统需求_spec.md:417-417",
+      "from_node": "system",
+      "to_node": "actor-2",
+      "message": "系统通知商品目录服务刷新可售商品索引。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:417-417"
+      ]
+    },
+    {
+      "message_id": "MSG-2AA4937ACB",
+      "exchange_id": "EXCH-675AC8B77D",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC004",
+      "ssd_id": "SSD-4A4491D987",
+      "layer": "RR",
+      "ssd_sequence": 16,
+      "sequence": 16,
+      "source_step_index": 6,
+      "source_location": "系统需求_spec.md:418-418",
+      "from_node": "system",
+      "to_node": "actor-2",
+      "message": "系统提示发布成功。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:418-418"
+      ]
+    }
+  ],
+  "dedupe_report": {
+    "input_count": 16,
+    "output_count": 16,
+    "removed_count": 0,
+    "conflicts": []
+  },
+  "source_ssds": {
+    "rr": "SSD-41A7CCC306",
+    "sr": "SSD-C9CC284E4B",
+    "ar": "SSD-72242982B7"
+  }
+}

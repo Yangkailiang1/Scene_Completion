@@ -1,0 +1,205 @@
+{
+  "stage": "matching",
+  "input": {
+    "use_case_id": "UCG-002-UC002",
+    "generated": [
+      {
+        "scenario_id": "GEN-3164C18FFD",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据合法性：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-CE3954E6FA",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据合法性：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-FDDCAAFE7E",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据长度：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-F0064F1F05",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据长度：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-5406886B89",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据范围：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-1C8A4E5F0F",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据范围：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-F56ADD8C97",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据大小：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：文件或请求体超过限制",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：文件或请求体超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-073716B04B",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "数据大小：调用 PAYMENT-PAY-01：POST /payment/v1/payments",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：文件或请求体超过限制",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：文件或请求体超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      }
+    ],
+    "checker": [
+      {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "支付结果重复通知",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "5.a 异常场景：支付结果重复通知。",
+        "scenario_steps": [
+          "PaymentService发送重复的支付结果通知。"
+        ],
+        "expected_result": "系统进行幂等处理，不重复更新订单。",
+        "recovery": "待需求确认"
+      }
+    ],
+    "pairwise": true
+  },
+  "instructions": [
+    "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
+    "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
+    "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+    "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+    "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
+    "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+    "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+    "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+    "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
+    "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match."
+  ],
+  "output_contract": {
+    "checked_checker_ids": [
+      "all tile checker IDs"
+    ],
+    "checked_generated_ids": [
+      "all tile generated IDs"
+    ],
+    "decisions": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "EVERY GEN-ID",
+        "status": "full|partial|unmatched",
+        "evidence": "specific reason",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ],
+    "matches": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "GEN-ID",
+        "status": "full|partial",
+        "evidence": "specific behavior evidence",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ]
+  },
+  "batch_id": "matching-0006-88f78b950465",
+  "input_hash": "88f78b9504651115f6360ca36a0a996e811e4a577b761ceb0bd726a5b05bc4e0"
+}

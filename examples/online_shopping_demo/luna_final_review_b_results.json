@@ -1,0 +1,689 @@
+{
+  "input_hash": "720d29b1a13c1ddd43cc254b3577f27492cde4a9d80ae90728657ba9cd32fb08",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "max",
+  "decisions": [
+    {
+      "review_id": "matching-0155-c68afe309392:0",
+      "checker_trigger_quote": "3.a 异常场景：PaymentService不可用。",
+      "generated_trigger_quote": "PaymentService不可用（异常场景：PaymentService不可用）。",
+      "status": "full",
+      "evidence": "CHK-03c6a9972c7a1450af5f / GEN-AF441D72F6: 同一 PAYMENT-PAY-01 创建支付请求分支遇到 PaymentService 不可用；双方都保持 WAIT_PAY 并提示稍后重试。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0160-60936654ec5e:0",
+      "checker_trigger_quote": "3.a 异常场景：PaymentService不可用。",
+      "generated_trigger_quote": "执行「发起支付请求，传入 orderId、amount、paymentMethod、notifyUrl」时：服务不可用、连接失败或调用失败",
+      "status": "partial",
+      "evidence": "CHK-03c6a9972c7a1450af5f / GEN-26CF6D4062: 双方都涉及支付请求期间 PaymentService 不可用；生成侧把连接或调用失败也并入，但没有该分支的响应来核对检查侧的 WAIT_PAY 和稍后重试行为。",
+      "missing_behavior": [
+        "未说明 PaymentService 不可用时的响应、订单状态处理及稍后重试提示。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0164-9be8c1fef8ff:0",
+      "checker_trigger_quote": "3.a 异常场景：PaymentService不可用。",
+      "generated_trigger_quote": "PaymentService不可用或超时。",
+      "status": "partial",
+      "evidence": "CHK-03c6a9972c7a1450af5f / GEN-969205E015: 双方都涉及 PAYMENT-PAY-01 创建支付请求时 PaymentService 不可用；生成侧还覆盖超时并返回 503、保持 WAIT_PAY，但未明确提示顾客稍后重试。",
+      "missing_behavior": [
+        "未明确检查侧要求的稍后重试提示；生成触发还包括超时。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0166-2b2df9f0df5e:0",
+      "checker_trigger_quote": "4.a 异常场景：顾客取消支付。",
+      "generated_trigger_quote": "顾客取消支付（异常场景：顾客取消支付）。",
+      "status": "full",
+      "evidence": "CHK-138a928b92687a45f739 / GEN-9B221FB2E1: 顾客支付中取消，支付请求返回取消状态后返回订单详情并保持 WAIT_PAY，触发及结果一致。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0177-be3ddc9ffca4:0",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "支付结果重复通知（异常场景：支付结果重复通知）。",
+      "status": "full",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-3A8F6A53D2: PaymentService 支付成功后的重复结果通知分支都执行幂等处理，且不重复更新订单。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0177-be3ddc9ffca4:1",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "支付回调通知到达时按 paymentId 幂等处理。（SEC-b66df8b17f37b2e8:700）",
+      "status": "partial",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-5543AEAFD8: 都描述支付成功后的回调按 paymentId 幂等并避免重复更新订单状态；生成侧没有明确说明回调重复到达。",
+      "missing_behavior": [
+        "未明确回调通知重复到达；仅说明支付成功后回调到达并按 paymentId 幂等。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0181-097a8d6f8432:0",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：并发变更产生冲突，或重复请求导致重复变更",
+      "status": "unmatched",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-B9A75819EE: 检查侧是 PaymentService 重复发送支付结果通知；生成侧是 POST /payment/v1/payments 重复请求导致重复变更。回调结果与发起支付请求是不同操作阶段，生成侧响应也待确认。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0183-bb7e49b391df:0",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "执行「写入 payment 表（payment_id、order_id、amount、payment_method、provider_trade_no、status、paid_at、created_at）」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-4AA7E8CA5F: 检查侧是重复支付结果通知；生成侧是写入 payment 表时重复请求导致重复操作异常。回调事件与数据库写入操作不同，且生成侧没有幂等结果。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0184-ea21906dc32c:0",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "执行「更新 order 表中订单状态为 PAID，记录支付流水」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-8513C5F26C: 检查侧是重复支付结果通知；生成侧是更新 order 表为 PAID 并记录流水时重复请求异常。重复回调与状态写入操作不同，生成侧响应待确认。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0187-77f3e2905d59:0",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "支付结果重复通知 / 支付回调通知到达时 paymentId 已处理。",
+      "status": "full",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-E2F24CA69E: 双方都描述重复支付回调按 paymentId 幂等处理，且不重复更新订单状态。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0187-77f3e2905d59:1",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "generated_trigger_quote": "支付回调通知到达时 paymentId 对应的订单已被更新为 PAID。",
+      "status": "partial",
+      "evidence": "CHK-e334d924b044c0587e7b / GEN-3E7F56F28D: 检查侧要求重复支付结果通知幂等；生成侧说明回调到达时订单已为 PAID 并按 paymentId 幂等，结果一致，但未明确通知重复到达。",
+      "missing_behavior": [
+        "未明确通知重复到达，仅以订单已为 PAID 描述回调到达时的状态。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0188-6ca4fc7b221e:0",
+      "checker_trigger_quote": "顾客从订单列表选择一个订单，并提交订单编号。",
+      "generated_trigger_quote": "顾客从订单列表选择一个订单。",
+      "status": "full",
+      "evidence": "CHK-d5b7b9c2abad4dfabaee / GEN-E68BB98077: 当前顾客从订单列表选择订单并提交订单号，归属校验后通过 API-O-IF2 组合并展示订单商品、金额、支付和履约信息，行为一致。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0197-670d579fab52:0",
+      "checker_trigger_quote": "系统校验订单归属关系时发现订单不属于当前顾客。",
+      "generated_trigger_quote": "2.a 异常场景：订单不属于当前顾客。",
+      "status": "full",
+      "evidence": "CHK-59bdd199f4d9c2851429 / GEN-4BC0AF8D95: 都在订单归属校验发现订单不属于当前顾客时拒绝访问并记录安全事件。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0199-21da99bbe2f0:0",
+      "checker_trigger_quote": "系统校验订单归属关系时发现订单不属于当前顾客。",
+      "generated_trigger_quote": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：水平越权或垂直越权",
+      "status": "unmatched",
+      "evidence": "CHK-59bdd199f4d9c2851429 / GEN-D93159F051: 检查侧是归属校验发现非当前顾客订单；生成侧是 GET 订单详情 API 上水平或垂直越权，未证明它发生在同一归属校验失败分支。生成侧响应待确认。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0199-21da99bbe2f0:1",
+      "checker_trigger_quote": "系统校验订单归属关系时发现订单不属于当前顾客。",
+      "generated_trigger_quote": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：数据越过用户、租户或权限范围被访问或返回",
+      "status": "unmatched",
+      "evidence": "CHK-59bdd199f4d9c2851429 / GEN-ECBB5327E3: 检查侧是系统校验订单归属并判定非当前顾客；生成侧是 GET 订单详情 API 上用户、租户或权限范围数据访问，未绑定到同一归属校验触发，响应待确认。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0205-807c0dcd641b:0",
+      "checker_trigger_quote": "系统校验订单归属关系时发现订单不属于当前顾客。",
+      "generated_trigger_quote": "目标订单的归属顾客与当前登录顾客不一致（订单不属于当前顾客）。",
+      "status": "full",
+      "evidence": "CHK-59bdd199f4d9c2851429 / GEN-F6161AB735: 都在目标订单归属顾客与当前登录顾客不一致时拒绝访问并记录安全事件；生成侧只补充 403 和错误码。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0206-60093a30df63:0",
+      "checker_trigger_quote": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+      "generated_trigger_quote": "3.a 异常场景：订单不存在。",
+      "status": "full",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff / GEN-034B065978: 都通过 API-O-IF2 查询订单时发现订单不存在并提示“订单不存在”。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0208-c1dab0d7f836:0",
+      "checker_trigger_quote": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+      "generated_trigger_quote": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：查询资源不存在或已失效",
+      "status": "partial",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff / GEN-44100799C7: 都是订单详情 GET 查询时订单不存在，生成侧也覆盖该订单资源不存在；生成触发另含失效资源，且响应待确认。",
+      "missing_behavior": [
+        "未给出检查侧要求的“订单不存在”提示。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0210-2a21e3d0317e:0",
+      "checker_trigger_quote": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+      "generated_trigger_quote": "执行「查询 order 表，获取 order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、created_at、updated_at」时：查询、修改或删除不存在资源",
+      "status": "partial",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff / GEN-64B6BB0A0A: 检查侧是 API-O-IF2 订单详情查询未找到订单；生成侧是查询 order 表时不存在资源，字段对应订单，但还泛化到修改或删除操作且响应未知。",
+      "missing_behavior": [
+        "未说明订单不存在时返回“订单不存在”；触发同时覆盖修改、删除操作。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0214-2aafa3e30731:0",
+      "checker_trigger_quote": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+      "generated_trigger_quote": "系统按 orderId 查询订单时目标订单不存在。",
+      "status": "full",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff / GEN-D8AFF48090: 都按 orderId 查询订单时目标订单不存在，并提示“订单不存在”。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0215-45145da56eaa:0",
+      "checker_trigger_quote": "系统组合订单商品、金额、支付和物流摘要时，订单尚未发货。",
+      "generated_trigger_quote": "4.a 可选场景：订单尚未发货。",
+      "status": "full",
+      "evidence": "CHK-b3ad0500eb013a19914d / GEN-599880FC65: 都在组合订单详情时订单尚未发货，不展示物流轨迹。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0223-bed9d5e32a62:0",
+      "checker_trigger_quote": "系统组合订单商品、金额、支付和物流摘要时，订单尚未发货。",
+      "generated_trigger_quote": "订单尚未发货，shipment 表无已发货记录（shipped_at 缺失）。",
+      "status": "full",
+      "evidence": "CHK-b3ad0500eb013a19914d / GEN-0E80706608: 都将订单未发货作为条件，组合详情时物流字段为空且不展示物流轨迹。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0224-de7984813fb2:0",
+      "checker_trigger_quote": "商家填写承运商和物流单号后确认发货。",
+      "generated_trigger_quote": "商家填写承运商和物流单号后确认发货。",
+      "status": "full",
+      "evidence": "CHK-5514121431ac36cd5c10 / GEN-6D3555C883: 商家填写承运商和物流单号后确认发货，校验权限和状态、创建发货记录、登记物流并更新 SHIPPED、保存物流单号，流程一致。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0233-32163dd0fe98:0",
+      "checker_trigger_quote": "步骤 2 中系统校验发现订单状态不是 PAID。",
+      "generated_trigger_quote": "订单状态不是 PAID",
+      "status": "full",
+      "evidence": "CHK-e8627f5835b2dfc07e05 / GEN-F6C1DA578D: 都在发货状态校验发现订单不是 PAID 时拒绝发货。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0233-32163dd0fe98:1",
+      "checker_trigger_quote": "步骤 2 中系统校验发现订单状态不是 PAID。",
+      "generated_trigger_quote": "订单状态不是 PAID",
+      "status": "full",
+      "evidence": "CHK-e8627f5835b2dfc07e05 / GEN-34A76E3539: 都在商家提交发货请求时发现订单状态不是 PAID；生成侧返回 409 ORDER_STATUS_INVALID，符合拒绝发货结果。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0239-604b9b7712c7:0",
+      "checker_trigger_quote": "步骤 2 中系统校验发现订单状态不是 PAID。",
+      "generated_trigger_quote": "订单状态不是 PAID",
+      "status": "full",
+      "evidence": "CHK-e8627f5835b2dfc07e05 / GEN-99CE06F8CB: 都在状态校验发现订单不是 PAID 时拒绝发货；生成侧补充 409 错误细节。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0242-f4d8b08f7ffe:0",
+      "checker_trigger_quote": "步骤 3 中物流单号格式错误。",
+      "generated_trigger_quote": "物流单号格式错误",
+      "status": "full",
+      "evidence": "CHK-e5029d0f39400b451bec / GEN-9BDCEAA495: 都在创建发货记录时发现物流单号格式错误，并提示商家修正。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0242-f4d8b08f7ffe:1",
+      "checker_trigger_quote": "步骤 3 中物流单号格式错误。",
+      "generated_trigger_quote": "trackingNumber 格式不合法（如长度、字符集、承运商编码规则不满足）",
+      "status": "partial",
+      "evidence": "CHK-e5029d0f39400b451bec / GEN-5BAB7326A0: 都校验 trackingNumber 格式并发现不合法；生成侧返回 400 INVALID_TRACKING_NUMBER，但未明确检查侧要求的提示修正。",
+      "missing_behavior": [
+        "未明确系统向商家提示修正物流单号。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0247-b10de11d96cb:0",
+      "checker_trigger_quote": "步骤 3 中物流单号格式错误。",
+      "generated_trigger_quote": "执行「更新订单状态为 SHIPPED」时：类型错误、非法字符或超长",
+      "status": "unmatched",
+      "evidence": "CHK-e5029d0f39400b451bec / GEN-CF0A41CEC3: 检查侧是发货时物流单号格式错误；生成侧是更新订单为 SHIPPED 时出现类型错误、非法字符或超长，异常字段和操作不同。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0248-101a464448d5:0",
+      "checker_trigger_quote": "步骤 3 中物流单号格式错误。",
+      "generated_trigger_quote": "trackingNumber 长度、字符集或承运商编码规则不满足格式要求",
+      "status": "full",
+      "evidence": "CHK-e5029d0f39400b451bec / GEN-93F5944772: 都因 trackingNumber 长度、字符集或承运商编码规则不满足格式要求而提示商家修正。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0251-9c7ad1427793:0",
+      "checker_trigger_quote": "步骤 4 中 LogisticsService 暂时不可用。",
+      "generated_trigger_quote": "LogisticsService 暂时不可用",
+      "status": "full",
+      "evidence": "CHK-b278565690498914751f / GEN-F234FB4D21: 都在向 LogisticsService 登记物流单时遇到服务暂时不可用，并保留待同步记录进入重试队列。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0251-9c7ad1427793:1",
+      "checker_trigger_quote": "步骤 4 中 LogisticsService 暂时不可用。",
+      "generated_trigger_quote": "ACT-004（LogisticsService）不可用",
+      "status": "full",
+      "evidence": "CHK-b278565690498914751f / GEN-67BFE24F08: 都在 LogisticsService 登记物流单失败时保存待同步任务并异步重试；生成侧补充订单仍更新为 SHIPPED。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0257-5c570ea41b1a:0",
+      "checker_trigger_quote": "步骤 4 中 LogisticsService 暂时不可用。",
+      "generated_trigger_quote": "执行「登记物流单号（传入 trackingNumber、carrierCode、orderId）」时：服务不可用、连接失败或调用失败",
+      "status": "partial",
+      "evidence": "CHK-b278565690498914751f / GEN-8ADDF0D1C6: 都在登记物流单时遇到 LogisticsService 不可用；生成侧还包括连接或调用失败，但未说明异常响应及恢复结果。",
+      "missing_behavior": [
+        "未说明保留待同步记录并进入重试队列。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0258-252d84589e41:0",
+      "checker_trigger_quote": "步骤 4 中 LogisticsService 暂时不可用。",
+      "generated_trigger_quote": "LogisticsService 暂时不可用",
+      "status": "full",
+      "evidence": "CHK-b278565690498914751f / GEN-756C89E665: 都在 LogisticsService 暂时不可用时保留待同步记录并进入重试队列。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0260-36e17f2fe3fd:0",
+      "checker_trigger_quote": "LogisticsService产生新的物流轨迹。",
+      "generated_trigger_quote": "LogisticsService产生新的物流轨迹。(SEC-53149cee043d3119:266-267)",
+      "status": "full",
+      "evidence": "CHK-a42d92dda40462a74277 / GEN-B81FBC19CE: 收到 LogisticsService 新物流轨迹后都校验签名、物流单号和节点时间顺序，保存新节点并更新订单物流摘要。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0270-6ec707c40a6b:0",
+      "checker_trigger_quote": "主成功路径第2步校验消息签名时签名校验失败。",
+      "generated_trigger_quote": "签名校验失败。",
+      "status": "full",
+      "evidence": "CHK-780641148ecd16c7fd58 / GEN-843C29B7C8: 都在物流消息签名校验失败时拒绝消息并记录安全告警。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0279-8952d63bebf8:0",
+      "checker_trigger_quote": "主成功路径第2步校验消息签名时签名校验失败。",
+      "generated_trigger_quote": "signature 不合法（请求来源非授权LogisticsService）。",
+      "status": "full",
+      "evidence": "CHK-780641148ecd16c7fd58 / GEN-8AAED4A8D3: 都因签名不合法拒绝物流消息并记录安全告警；生成侧具体说明未授权来源和 401 响应。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0280-7c8a28d42c94:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "generated_trigger_quote": "收到重复物流节点。",
+      "status": "full",
+      "evidence": "CHK-639f4f77b8d00ff0914c / GEN-174FAEF6E7: 都在物流轨迹收到重复节点时执行幂等处理。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0284-1dbfb8b4c79a:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "generated_trigger_quote": "执行「写入 logistics_event 表（event_id、tracking_number、event_code、event_time、location、shipment_id、order_id、created_at）。」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "evidence": "CHK-639f4f77b8d00ff0914c / GEN-0A5306510A: 检查侧是收到重复物流节点后幂等处理；生成侧是写入 logistics_event 表时重复请求导致重复操作异常。业务事件去重与数据库写入重复错误不同。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0286-ed79ad7edb80:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "generated_trigger_quote": "执行「校验 trackingNumber 是否存在，查询 shipment 表获取 shipment_id、order_id、carrier_code。」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "evidence": "CHK-639f4f77b8d00ff0914c / GEN-69150ED674: 检查侧是重复物流节点触发幂等处理；生成侧是查询 shipment 表校验 trackingNumber 时的重复请求异常，操作不同。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0287-bc32c7c41def:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "generated_trigger_quote": "执行「更新 shipment 表中的物流状态摘要（last_event_code、last_event_time、last_location、last_updated_at）。」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "evidence": "CHK-639f4f77b8d00ff0914c / GEN-718461A494: 检查侧要求重复物流节点幂等；生成侧是更新 shipment 物流状态摘要时重复请求异常，生成侧响应待确认。",
+      "missing_behavior": [],
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false
+    },
+    {
+      "review_id": "matching-0289-e1509b17b9dc:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "generated_trigger_quote": "logistics_event 表已存在相同 eventId。",
+      "status": "full",
+      "evidence": "CHK-639f4f77b8d00ff0914c / GEN-4076880F5D: 检查侧描述收到重复物流节点并幂等处理；生成侧明确 logistics_event 表已有相同 eventId 时返回 accepted=true、duplicate=true 且不重复写入。对象同为物流事件，重复事件检测和幂等结果一致，检查侧没有提出与 eventId 冲突的条件。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0290-a1ae59f36f62:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+      "generated_trigger_quote": "物流节点时间早于已保存节点。",
+      "status": "full",
+      "evidence": "CHK-e8fa603f5daa44b41293 / GEN-582C6D4719: 都在物流节点时间早于已保存节点时保留原状态并将异常消息送入审核队列。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0299-cc18efca2e5a:0",
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+      "generated_trigger_quote": "物流节点时间早于已保存节点。",
+      "status": "full",
+      "evidence": "CHK-e8fa603f5daa44b41293 / GEN-65168F3571: 都因物流节点时间早于已保存节点而保留原状态并将异常消息送入审核队列。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0300-21aa1da47f7f:0",
+      "checker_trigger_quote": "顾客在订单详情页点击“查看物流”。",
+      "generated_trigger_quote": "顾客在订单详情页点击“查看物流”。",
+      "status": "full",
+      "evidence": "CHK-ce609766bdb14e7e2f53 / GEN-30B6A5327A: 顾客查看已发货订单物流时，都读取本地轨迹、过期时查询 LogisticsService、排序并展示最新物流状态和轨迹。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0309-155da1fada7e:0",
+      "checker_trigger_quote": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+      "generated_trigger_quote": "订单尚未发货。",
+      "status": "full",
+      "evidence": "CHK-93dbf4d7306619c69a90 / GEN-7F4C447965: 都在顾客发起物流查询时发现订单尚未发货，并提示“商家尚未发货”。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0309-155da1fada7e:1",
+      "checker_trigger_quote": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+      "generated_trigger_quote": "订单未发货（状态为 WAIT_PAY 或 PAID）。",
+      "status": "full",
+      "evidence": "CHK-93dbf4d7306619c69a90 / GEN-A157C312BB: 都以订单未发货作为查询触发并返回 ORDER_NOT_SHIPPED；生成侧枚举 WAIT_PAY 或 PAID 是状态补充。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0316-29c07b1fe068:0",
+      "checker_trigger_quote": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+      "generated_trigger_quote": "订单尚未发货（状态为 WAIT_PAY、PAID 或其他未发货状态）时发起查询。",
+      "status": "full",
+      "evidence": "CHK-93dbf4d7306619c69a90 / GEN-ACB189885F: 都在订单未发货时发起物流查询，提示“商家尚未发货”并返回 409 ORDER_NOT_SHIPPED。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0318-c3b039c1c5dd:0",
+      "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "generated_trigger_quote": "外部物流服务查询失败。",
+      "status": "full",
+      "evidence": "CHK-f5a9fce6189033287f2b / GEN-2DE6C9FBD2: 都在本地物流数据过期、LogisticsService 查询失败时展示最近一次成功同步的数据并标记更新时间。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0318-c3b039c1c5dd:1",
+      "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "generated_trigger_quote": "ACT-004（LogisticsService）查询失败或超时。",
+      "status": "partial",
+      "evidence": "CHK-f5a9fce6189033287f2b / GEN-0C88D6AE66: 都在本地数据过期后查询 LogisticsService 失败时取得最近同步数据和更新时间；生成侧只说明 Adapter 返回缓存，未说明系统将其展示给顾客。",
+      "missing_behavior": [
+        "未明确缓存数据和更新时间最终展示给顾客。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0325-e891d619d195:0",
+      "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "generated_trigger_quote": "执行「查询最新物流轨迹」时：服务不可用、连接失败或调用失败",
+      "status": "partial",
+      "evidence": "CHK-f5a9fce6189033287f2b / GEN-54DFB02D0C: 都在查询最新物流轨迹时遇到服务不可用、连接失败或调用失败；生成侧未说明缓存回退展示和更新时间。",
+      "missing_behavior": [
+        "未给出失败时展示最近一次成功同步数据并标记更新时间的行为。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0326-c76422680e26:0",
+      "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "generated_trigger_quote": "外部物流服务查询失败或超时。",
+      "status": "full",
+      "evidence": "CHK-f5a9fce6189033287f2b / GEN-0DCB023AF2: 都在外部物流服务查询失败或超时时展示最近成功同步数据并标记更新时间；生成侧增加缓存来源和更新时间字段。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0327-210a1ceaa99b:0",
+      "checker_trigger_quote": "整理物流节点时发现物流已签收（主成功路径步骤4）。",
+      "generated_trigger_quote": "物流已签收。",
+      "status": "full",
+      "evidence": "CHK-d4eaaef76ea35d3d64b0 / GEN-E544EA452F: 都在整理物流节点时识别已签收，并展示签收状态和时间。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0327-210a1ceaa99b:1",
+      "checker_trigger_quote": "整理物流节点时发现物流已签收（主成功路径步骤4）。",
+      "generated_trigger_quote": "物流已签收。",
+      "status": "partial",
+      "evidence": "CHK-d4eaaef76ea35d3d64b0 / GEN-F27FBC182A: 检查侧要求展示签收时间和状态；生成侧 API 响应包含 DELIVERED 和签收时间，但未明确将内容展示给顾客。",
+      "missing_behavior": [
+        "未明确将响应中的签收时间和状态展示给顾客。"
+      ],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true
+    },
+    {
+      "review_id": "matching-0336-a46b04d27217:0",
+      "checker_trigger_quote": "顾客在订单详情页选择退款原因并提交。",
+      "generated_trigger_quote": "顾客在订单详情页选择退款原因并提交",
+      "status": "full",
+      "evidence": "CHK-e300ad05cc1e283ae429 / GEN-D6AA320806: 顾客选择退款原因并提交后，双方校验订单及可退款金额、通过 API-R-IF1 创建退款单、向 PaymentService 提交退款请求、保存退款流水并返回申请编号。",
+      "missing_behavior": [],
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true
+    }
+  ]
+}

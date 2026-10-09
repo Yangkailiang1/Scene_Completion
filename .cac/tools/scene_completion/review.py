@@ -453,7 +453,7 @@ def review_concerns(
             "必须对输入中的每个 candidate_id 恰好输出一条结果，不得遗漏、改名或合并；concern_key 必须保持不变。"
             "本次 analysis_layers 默认只有 SR；service.* 只依据当前 Use Case architecture.sr 的 SR Service/API 业务分类。AR 只有显式开启才分析，AR技术职责不得推断SR分类。"
             "若 api_contracts 提供参数约束或错误码，必须据此审核对应 api.data.* 候选；约束违反可生成原子异常，并以系统校验步骤作为异常锚点。"
-            "当 API-S-IF1 的筛选输入违反接口约束时，finding.source_step_index 应锚定 Use Case 中系统执行参数校验的步骤（终端云浏览商品用例为步骤4），scenario_steps 应包含步骤3用户输入作为触发，并明确步骤4返回 HTTP 400 与对应错误码。"
+            "当 API-S-IF1 的筛选输入违反接口约束时，finding.source_step_index 应锚定 Use Case 中系统执行参数校验的步骤（在线商城购物系统浏览商品用例为步骤4），scenario_steps 应包含步骤3用户输入作为触发，并明确步骤4返回 HTTP 400 与对应错误码。"
             "不得把未规定的长度、载荷大小、点击次数等假设成用户输入异常。"
             "每条结果无论状态如何都必须提供非空 basis 和至少一个 evidence_types；"
             "needs_requirement 需说明缺少什么证据，not_applicable 需说明排除依据。"

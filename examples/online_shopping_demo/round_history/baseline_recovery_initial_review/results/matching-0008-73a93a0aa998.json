@@ -1,0 +1,171 @@
+{
+  "checked_checker_ids": [
+    "CHK-e334d924b044c0587e7b"
+  ],
+  "checked_generated_ids": [
+    "GEN-8E48196DDC",
+    "GEN-C4F606A5C7",
+    "GEN-54259CC79E",
+    "GEN-7B845CE134",
+    "GEN-80245B2409",
+    "GEN-2C2A29EE38",
+    "GEN-A3E4E8A897",
+    "GEN-BDFE7023D6"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-8E48196DDC",
+      "status": "unmatched",
+      "evidence": "Checker is triggered by a duplicate payment result notification from PaymentService and requires idempotent handling to avoid duplicate order updates. GEN-8E48196DDC is triggered by database connection failure or database outage while reading/updating OrderItem records; the failure mechanism and expected response differ.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-C4F606A5C7",
+      "status": "unmatched",
+      "evidence": "Checker concerns repeated payment result notifications and idempotent processing. GEN-C4F606A5C7 concerns concurrent update conflicts or lost updates on OrderItem records, which is a different concurrency failure, not duplicate notification handling; expected result is also unspecified.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-54259CC79E",
+      "status": "unmatched",
+      "evidence": "Checker trigger is duplicate payment result notification. GEN-54259CC79E trigger is field validity errors such as wrong type, illegal characters, or overlength on OrderItem records; no shared duplicate/idempotency behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-7B845CE134",
+      "status": "partial",
+      "evidence": "Both scenarios involve duplicate requests leading to idempotency concerns. Checker explicitly has PaymentService sending duplicate payment result notifications and expects idempotent processing so the order is not updated repeatedly. GEN-7B845CE134 is a concern-derived exception during 'Read or update OrderItem records' triggered by duplicate requests causing repeated operations, but it is not tied to payment result notifications and its expected response/recovery is '待需求确认' rather than the documented idempotent no-duplicate-update outcome.",
+      "missing_behavior": [
+        "The duplicate event is not identified as a repeated payment result notification from PaymentService.",
+        "Expected behavior of idempotent processing and not repeatedly updating the order is not specified; it remains '待需求确认'."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-80245B2409",
+      "status": "unmatched",
+      "evidence": "Checker handles duplicate payment notifications with idempotent processing. GEN-80245B2409 handles write failure or transaction rollback during OrderItem persistence; different failure type and no duplicate-notification idempotency behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-2C2A29EE38",
+      "status": "unmatched",
+      "evidence": "Checker is about duplicate payment result notifications and avoiding duplicate order updates. GEN-2C2A29EE38 is about query performance timeout on large-table joins for OrderItem records; no shared trigger or idempotency behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-A3E4E8A897",
+      "status": "unmatched",
+      "evidence": "Checker concerns duplicate payment notification idempotency. GEN-A3E4E8A897 concerns cascade delete failure or residual child objects on OrderItem records; failure mechanism and expected behavior are unrelated.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-BDFE7023D6",
+      "status": "unmatched",
+      "evidence": "Checker trigger is duplicate payment result notification. GEN-BDFE7023D6 trigger is missing required fields during OrderItem record read/update; no shared duplicate/idempotency condition.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0008-73a93a0aa998",
+  "input_hash": "73a93a0aa9983c799edafd3dc30c1f8796dd52dc69bfda5393ba631906545e27",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-7B845CE134",
+      "status": "partial",
+      "evidence": "Both address duplicate handling: checker receives duplicate payment result notifications and expects idempotent processing with no repeated order update; GEN-7B845CE134 is triggered by duplicate requests causing repeated-operation exceptions during OrderItem read/update. The concrete idempotency concern aligns, but the duplicate source and required idempotent outcome are not the same.",
+      "missing_behavior": [
+        "The duplicate event is not identified as a repeated payment result notification from PaymentService.",
+        "Expected behavior of idempotent processing and not repeatedly updating the order is not specified; it remains '待需求确认'."
+      ]
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "ab39fb050131fb8635f92b515818649b75b84009ea8f36977686ae8951d7d876",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+        "generated_scenario_id": "GEN-7B845CE134",
+        "status": "partial",
+        "evidence": "两个触发器都描述同一类幂等性失败条件：同一操作被重复触发（Checker 为支付结果的重复通知，Generated 为对 OrderItem 记录的重复请求导致重复操作）。受影响实体/操作（支付结果通知触发的订单/订单项更新）与重复请求机制一致，因此 same_specific_trigger 与 shared_core_behavior（重复请求触发、需按幂等进行处理）为 true。但预期响应存在明确差距：Checker 明确要求系统幂等处理、不重复更新订单；Generated 仅写“异常响应及恢复方式待需求确认”，期望结果也是“待需求确认”，未定义具体的幂等响应或防止重复更新的行为。由于预期响应未明确且缺少具体的幂等结果，same_expected_outcome 为 false；约束之间无矛盾，故 compatible_constraints 为 true。status=partial。",
+        "missing_behavior": [
+          "Generated 未定义重复请求异常的具体系统响应（幂等处理、不重复更新订单）",
+          "Generated 的异常恢复方式为“待需求确认”，缺少可验证的预期结果",
+          "Generated 未明确重复请求的幂等处理对订单/订单项更新的保护行为"
+        ],
+        "trigger_quotes": {
+          "checker": "5.a 异常场景：支付结果重复通知。",
+          "generated": "执行「Read or update OrderItem records」时：重复请求导致重复操作异常"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0008-73a93a0aa998:0",
+        "status": "unmatched",
+        "same_specific_trigger": false,
+        "shared_core_behavior": false,
+        "same_expected_outcome": false,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "执行「Read or update OrderItem records」时：重复请求导致重复操作异常",
+        "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+        "evidence": "生成侧对象是 OrderItem records，触发为重复请求导致重复操作异常；checker 对象和触发分别是订单支付结果通知以及 PaymentService 重复发送该结果。对象与操作阶段不同，支付用例前置条件相同不足以证明行为相同。生成侧响应未定义，未发现前置约束冲突。",
+        "missing_behavior": [
+          "checker 未描述 OrderItem records 重复请求异常；生成侧未说明该异常的响应或恢复方式。"
+        ],
+        "pair_index": 0
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "ab39fb050131fb8635f92b515818649b75b84009ea8f36977686ae8951d7d876",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+          "generated_scenario_id": "GEN-7B845CE134",
+          "status": "partial",
+          "evidence": "Both scenarios involve duplicate requests leading to idempotency concerns. Checker explicitly has PaymentService sending duplicate payment result notifications and expects idempotent processing so the order is not updated repeatedly. GEN-7B845CE134 is a concern-derived exception during 'Read or update OrderItem records' triggered by duplicate requests causing repeated operations, but it is not tied to payment result notifications and its expected response/recovery is '待需求确认' rather than the documented idempotent no-duplicate-update outcome.",
+          "missing_behavior": [
+            "The duplicate event is not identified as a repeated payment result notification from PaymentService.",
+            "Expected behavior of idempotent processing and not repeatedly updating the order is not specified; it remains '待需求确认'."
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+          "generated_trigger_quote": "执行「Read or update OrderItem records」时：重复请求导致重复操作异常",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": false,
+          "compatible_constraints": true,
+          "evidence": "两个触发器都描述同一类幂等性失败条件：同一操作被重复触发（Checker 为支付结果的重复通知，Generated 为对 OrderItem 记录的重复请求导致重复操作）。受影响实体/操作（支付结果通知触发的订单/订单项更新）与重复请求机制一致，因此 same_specific_trigger 与 shared_core_behavior（重复请求触发、需按幂等进行处理）为 true。但预期响应存在明确差距：Checker 明确要求系统幂等处理、不重复更新订单；Generated 仅写“异常响应及恢复方式待需求确认”，期望结果也是“待需求确认”，未定义具体的幂等响应或防止重复更新的行为。由于预期响应未明确且缺少具体的幂等结果，same_expected_outcome 为 false；约束之间无矛盾，故 compatible_constraints 为 true。status=partial。",
+          "missing_behavior": [
+            "Generated 未定义重复请求异常的具体系统响应（幂等处理、不重复更新订单）",
+            "Generated 的异常恢复方式为“待需求确认”，缺少可验证的预期结果",
+            "Generated 未明确重复请求的幂等处理对订单/订单项更新的保护行为"
+          ]
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

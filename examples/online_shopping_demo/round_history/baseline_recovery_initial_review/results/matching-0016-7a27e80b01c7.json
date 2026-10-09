@@ -1,0 +1,240 @@
+{
+  "checked_checker_ids": [
+    "CHK-837007732b14891e21e0"
+  ],
+  "checked_generated_ids": [
+    "GEN-793EC23E15",
+    "GEN-C5D6D1ECB7",
+    "GEN-320E803230",
+    "GEN-0D0F69097F",
+    "GEN-4D900C8F7C",
+    "GEN-14ED2234B4",
+    "GEN-EE977E6747",
+    "GEN-1E556985DB"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-793EC23E15",
+      "status": "unmatched",
+      "evidence": "Checker triggers on sales price out of allowed range (numeric range). Generated triggers on illegal characters, disallowed fields, or invalid values in the PUT skus payload — a distinct data-legality failure condition. The generated scenario itself subsumes the range case by listing '非法取值'/'非法字符'/'不允许字段', which are broader and different validation failure mechanisms from the checker's specific price-range trigger.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-C5D6D1ECB7",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-793EC23E15. Same illegal-character/disallowed-field/invalid-value trigger, distinct from the checker's sales-price-out-of-range trigger.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-320E803230",
+      "status": "unmatched",
+      "evidence": "Checker trigger is numeric price out of range; generated trigger is string length exceeding limit — a different validation dimension (length vs. numeric range).",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-0D0F69097F",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-320E803230. String-length-exceeded trigger is distinct from the checker's numeric-range price trigger.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-4D900C8F7C",
+      "status": "partial",
+      "evidence": "Generated trigger '数值超出允许范围' (numeric value out of allowed range) aligns with the checker's condition that the sales price is out of the allowed range, and both share the same use case 设置库存与价格, same operation PUT /api/v1/merchant/products/{productId}/skus, same preconditions (draft exists, SKU defined), and the same path segment where the seller sets selling price and the system validates. The checker's expected result is '系统提示商家修正价格' (system prompts seller to correct the price) plus '待需求确认' recovery; the generated scenario has '待需求确认：应明确该异常下的系统响应' with an explicit '异常响应及恢复方式待需求确认' step, i.e. no concrete recovery/response behavior.",
+      "missing_behavior": [
+        "Concrete system response: the checker specifies the system prompts the seller to correct the price, while the generated scenario leaves expected_result and recovery as '待需求确认' (to be confirmed) with no actual prompt behavior.",
+        "Specificity: the generated trigger is a generic 'numeric value out of range' across the PUT skus payload rather than explicitly the sales-price field range; the alignment is inferred, not stated."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-14ED2234B4",
+      "status": "partial",
+      "evidence": "Duplicate of GEN-4D900C8F7C. Numeric-out-of-range trigger overlaps with the checker's sales-price-out-of-range trigger on the same PUT skus operation and use case, but the generated response is unspecified ('待需求确认') rather than the checker's concrete prompt-to-correct behavior.",
+      "missing_behavior": [
+        "Concrete response: checker requires the system to prompt the seller to correct the price; generated leaves response and recovery as '待需求确认'.",
+        "The trigger does not explicitly name the sales-price field as the out-of-range value."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-EE977E6747",
+      "status": "unmatched",
+      "evidence": "Generated trigger is file or request body exceeding size limit (data-size concern), unrelated to the checker's sales-price-out-of-range validation failure.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1E556985DB",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-EE977E6747. Request-body/file-size-exceeded trigger is a different failure condition from the checker's numeric price-range validation.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0016-7a27e80b01c7",
+  "input_hash": "7a27e80b01c76082a2e8dbd7d3219cf9c24777b737228ad66e78344549fe520a",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-4D900C8F7C",
+      "status": "partial",
+      "evidence": "Both concern the same operation (PUT /api/v1/merchant/products/{productId}/skus) during 设置库存与价格 where the seller sets SKU stock/price; generated trigger '数值超出允许范围' semantically overlaps the checker's '销售价格不在允许范围内' numeric-range condition, and both trigger at the system validation step. The checker specifies a concrete response (prompt seller to correct price); the generated scenario's response and recovery remain '待需求确认'.",
+      "missing_behavior": [
+        "Concrete expected result: checker '系统提示商家修正价格'; generated '待需求确认：应明确该异常下的系统响应'.",
+        "Explicit indication that the out-of-range value is the sales-price field rather than any numeric value."
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-14ED2234B4",
+      "status": "partial",
+      "evidence": "Same as GEN-4D900C8F7C: numeric out-of-range trigger on the same PUT skus operation overlaps the checker's sales-price-range condition, but the generated response/recovery is unspecified while the checker defines a prompt-to-correct response.",
+      "missing_behavior": [
+        "Concrete expected result: checker '系统提示商家修正价格'; generated '待需求确认：应明确该异常下的系统响应'.",
+        "Explicit indication that the out-of-range value is the sales-price field."
+      ]
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "1ac52116c5aa5a5481da55c60a80e84834f3ad4a6497e04ab6d602e799231d17",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-837007732b14891e21e0",
+        "generated_scenario_id": "GEN-4D900C8F7C",
+        "status": "partial",
+        "evidence": "Both triggers describe the same concrete failure mechanism: a numeric value (specifically the selling price) set by the merchant exceeds the permitted range and is detected during the system's price validation at path step ③. The generated scenario's trigger is broader ('数值超出允许范围') but occurs at the same API operation (PUT skus) and same validation step, so the initiating business condition aligns. Core behavior overlaps: both involve entering SKU stock/price data and the system performing validity checks on price. However, expected outcome differs: the checker concretely specifies '系统提示商家修正价格', while the generated result is '待需求确认：应明确该异常下的系统响应' — an unknown response. Per the rule that unknown response cannot be full, this is a partial match. The generated scenario also lacks the explicit corrective prompt behavior.",
+        "missing_behavior": [
+          "Concrete expected response (prompt merchant to correct price) is not defined; generated says '待需求确认'",
+          "Generated trigger is broader than the checker's specific '销售价格不在允许范围内'",
+          "Generated includes an extra step ('异常响应及恢复方式待需求确认') that adds no defined recovery behavior"
+        ],
+        "trigger_quotes": {
+          "checker": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围"
+        }
+      },
+      {
+        "checker_scenario_id": "CHK-837007732b14891e21e0",
+        "generated_scenario_id": "GEN-14ED2234B4",
+        "status": "partial",
+        "evidence": "Identical content to pair 0. Both triggers describe the same concrete failure mechanism: a merchant-set numeric value (selling price) out of the allowed range, detected at path step ③ during price validation on the PUT skus API. Core behavior aligns: merchants input stock and price for each SKU and the system validates price. Expected outcome diverges: the checker concretely states '系统提示商家修正价格', while the generated outcome is left as '待需求确认：应明确该异常下的系统响应' (unknown). Under the rule that an unknown response cannot be full, and since trigger and core behavior align with no explicit contradiction, the verdict is partial.",
+        "missing_behavior": [
+          "Concrete expected response (prompt merchant to correct price) is undefined; generated leaves it pending requirement confirmation",
+          "Generated trigger is broader ('数值超出允许范围') than the checker's specific price-range condition",
+          "Generated includes an extra unconfirmed step regarding exception response and recovery"
+        ],
+        "trigger_quotes": {
+          "checker": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0016-7a27e80b01c7:0",
+        "status": "unmatched",
+        "same_specific_trigger": false,
+        "shared_core_behavior": false,
+        "same_expected_outcome": false,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "evidence": "生成侧说明 SKU PUT 请求中的某个数值超出范围，步骤涉及库存数量、销售价格和可选原价，并未指出具体越界字段；checker 明确指定销售价格越界。API 与 SKU 范围相同不能确定两侧是同一个字段触发，生成侧响应也待确认。前置条件一致。",
+        "missing_behavior": [
+          "生成侧没有指明超范围的是库存、销售价格、原价或其他数值字段，也没有说明该异常的响应，因此不能确认与 checker 的销售价格修正提示对应。"
+        ],
+        "pair_index": 0
+      },
+      {
+        "review_id": "matching-0016-7a27e80b01c7:1",
+        "status": "unmatched",
+        "same_specific_trigger": false,
+        "shared_core_behavior": false,
+        "same_expected_outcome": false,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "evidence": "该生成侧记录同样只将异常定位为 SKU PUT 请求中的数值超范围；其列出的输入包含库存、销售价格和可选原价，未将异常限定到销售价格。checker 则具体限定为销售价格校验，不能依据同一 API 或步骤上下文推定字段相同。生成侧响应待确认，前置条件一致。",
+        "missing_behavior": [
+          "生成侧未确定超范围的具体字段，也未给出异常响应；checker 的销售价格越界及修正提示无法由生成侧记录证实。"
+        ],
+        "pair_index": 1
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "1ac52116c5aa5a5481da55c60a80e84834f3ad4a6497e04ab6d602e799231d17",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-837007732b14891e21e0",
+          "generated_scenario_id": "GEN-4D900C8F7C",
+          "status": "partial",
+          "evidence": "Generated trigger '数值超出允许范围' (numeric value out of allowed range) aligns with the checker's condition that the sales price is out of the allowed range, and both share the same use case 设置库存与价格, same operation PUT /api/v1/merchant/products/{productId}/skus, same preconditions (draft exists, SKU defined), and the same path segment where the seller sets selling price and the system validates. The checker's expected result is '系统提示商家修正价格' (system prompts seller to correct the price) plus '待需求确认' recovery; the generated scenario has '待需求确认：应明确该异常下的系统响应' with an explicit '异常响应及恢复方式待需求确认' step, i.e. no concrete recovery/response behavior.",
+          "missing_behavior": [
+            "Concrete system response: the checker specifies the system prompts the seller to correct the price, while the generated scenario leaves expected_result and recovery as '待需求确认' (to be confirmed) with no actual prompt behavior.",
+            "Specificity: the generated trigger is a generic 'numeric value out of range' across the PUT skus payload rather than explicitly the sales-price field range; the alignment is inferred, not stated."
+          ]
+        },
+        {
+          "checker_scenario_id": "CHK-837007732b14891e21e0",
+          "generated_scenario_id": "GEN-14ED2234B4",
+          "status": "partial",
+          "evidence": "Duplicate of GEN-4D900C8F7C. Numeric-out-of-range trigger overlaps with the checker's sales-price-out-of-range trigger on the same PUT skus operation and use case, but the generated response is unspecified ('待需求确认') rather than the checker's concrete prompt-to-correct behavior.",
+          "missing_behavior": [
+            "Concrete response: checker requires the system to prompt the seller to correct the price; generated leaves response and recovery as '待需求确认'.",
+            "The trigger does not explicitly name the sales-price field as the out-of-range value."
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": false,
+          "compatible_constraints": true,
+          "evidence": "Both triggers describe the same concrete failure mechanism: a numeric value (specifically the selling price) set by the merchant exceeds the permitted range and is detected during the system's price validation at path step ③. The generated scenario's trigger is broader ('数值超出允许范围') but occurs at the same API operation (PUT skus) and same validation step, so the initiating business condition aligns. Core behavior overlaps: both involve entering SKU stock/price data and the system performing validity checks on price. However, expected outcome differs: the checker concretely specifies '系统提示商家修正价格', while the generated result is '待需求确认：应明确该异常下的系统响应' — an unknown response. Per the rule that unknown response cannot be full, this is a partial match. The generated scenario also lacks the explicit corrective prompt behavior.",
+          "missing_behavior": [
+            "Concrete expected response (prompt merchant to correct price) is not defined; generated says '待需求确认'",
+            "Generated trigger is broader than the checker's specific '销售价格不在允许范围内'",
+            "Generated includes an extra step ('异常响应及恢复方式待需求确认') that adds no defined recovery behavior"
+          ]
+        },
+        {
+          "pair_index": 1,
+          "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+          "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": false,
+          "compatible_constraints": true,
+          "evidence": "Identical content to pair 0. Both triggers describe the same concrete failure mechanism: a merchant-set numeric value (selling price) out of the allowed range, detected at path step ③ during price validation on the PUT skus API. Core behavior aligns: merchants input stock and price for each SKU and the system validates price. Expected outcome diverges: the checker concretely states '系统提示商家修正价格', while the generated outcome is left as '待需求确认：应明确该异常下的系统响应' (unknown). Under the rule that an unknown response cannot be full, and since trigger and core behavior align with no explicit contradiction, the verdict is partial.",
+          "missing_behavior": [
+            "Concrete expected response (prompt merchant to correct price) is undefined; generated leaves it pending requirement confirmation",
+            "Generated trigger is broader ('数值超出允许范围') than the checker's specific price-range condition",
+            "Generated includes an extra unconfirmed step regarding exception response and recovery"
+          ]
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-69c91d08774029d46b73"
+  ],
+  "checked_generated_ids": [
+    "GEN-C8A9312AFA",
+    "GEN-8D90BBB6CA",
+    "GEN-7C9D158555",
+    "GEN-A01F9F0DBB",
+    "GEN-C76431EE89",
+    "GEN-B8096B8140",
+    "GEN-5FA4F82032",
+    "GEN-97BD90F9BA"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-C8A9312AFA",
+      "status": "unmatched",
+      "evidence": "Checker is an exception branch about duplicate submission with idempotency-key replay returning the existing order; GEN-C8A9312AFA is the main success flow creating a new WAIT_PAY order and locking inventory, with no duplicate/idempotency handling.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-8D90BBB6CA",
+      "status": "unmatched",
+      "evidence": "GEN-8D90BBB6CA handles price change requiring customer re-confirmation; the checker's condition is duplicate submission and its behavior is idempotent return of the already-created order — different failure condition and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-7C9D158555",
+      "status": "unmatched",
+      "evidence": "GEN-7C9D158555 handles insufficient stock blocking order creation; the checker concerns duplicate submission resolved via idempotency key, a different condition and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "Both scenarios share the same initiating condition (customer confirms submit / system detects duplicate submission), the same core behavior (system uses the idempotency identifier to return the already-created order), and the same expected result (return the existing order instead of creating a duplicate). Checker trigger '系统检测到重复提交' aligns semantically with GEN trigger '重复提交'.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-C76431EE89",
+      "status": "unmatched",
+      "evidence": "GEN-C76431EE89 is a data-integrity concern about missing required data or empty request body on API-O-IF1, not a duplicate-submission/idempotency branch; the failure condition and response differ.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-B8096B8140",
+      "status": "unmatched",
+      "evidence": "Same data-integrity concern (missing required data/empty body) as GEN-C76431EE89; unrelated to duplicate submission handling.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-5FA4F82032",
+      "status": "unmatched",
+      "evidence": "GEN-5FA4F82032 concerns data-format violations on API-O-IF1; the checker concerns duplicate submission with idempotency-key reuse — different failure condition and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-97BD90F9BA",
+      "status": "unmatched",
+      "evidence": "Same data-format concern as GEN-5FA4F82032; no duplicate-submission or idempotency semantics.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "生成侧在结算流程中明确通过订单创建接口处理，并按幂等标识返回已创建订单；checker 明确在结算页检测重复提交并返回已创建订单。触发、核心处理与 expected_result 一致，约束没有冲突。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "generated": "重复提交。"
+      }
+    }
+  ],
+  "batch_id": "matching-0000-5d209463b1ff",
+  "input_hash": "5d209463b1ffbb4e960cce0851e826e9789db31fd13356a3638dddaa40ff1631",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "Duplicate submission is detected and the system returns the already-created order using the idempotency identifier, matching the checker's trigger, core behavior, and expected result exactly.",
+      "missing_behavior": []
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "a57e3b83d356bf113212ddb60f4dc9af5b15ea333e8c2321ea7a2afbafaa9f73",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-69c91d08774029d46b73",
+        "generated_scenario_id": "GEN-A01F9F0DBB",
+        "status": "partial",
+        "evidence": "Both triggers describe the same concrete failure/exception mechanism: a duplicate order submission. The checker scenario specifies the customer confirming the order on the checkout page and the system detecting the duplicate submission; the generated scenario's trigger is simply 'repeat submission', but its preceding steps (reading selected cart items, validating price/stock/promotion, confirming address and amount, creating order via API, then returning the existing order by idempotency key) clearly place it in the same order-submission duplicate-submission context. Shared core behavior: both resolve the duplicate by returning an already-created order based on an idempotency key. Same expected outcome: '系统根据幂等标识返回已创建的订单'. Constraints are compatible; no contradictions. Gaps: the generated scenario lacks the explicit checkout-page confirmation trigger wording and includes an elongated step sequence that is not part of the checker’s core exception behavior.",
+        "missing_behavior": [
+          "No explicit checkout-page confirmation as the trigger context.",
+          "Generated includes an elongated order-creation step sequence rather than focusing on duplicate-submission detection and idempotent return.",
+          "Checker does not include the generated scenario's preconditions/postconditions (e.g., order status WAIT_PAY, inventory lock) beyond the idempotent return outcome."
+        ],
+        "trigger_quotes": {
+          "checker": "顾客在结算页确认提交订单时，系统检测到重复提交",
+          "generated": "重复提交。"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0000-5d209463b1ff:0",
+        "status": "full",
+        "same_specific_trigger": true,
+        "shared_core_behavior": true,
+        "same_expected_outcome": true,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "重复提交。",
+        "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "evidence": "生成侧在结算流程中明确通过订单创建接口处理，并按幂等标识返回已创建订单；checker 明确在结算页检测重复提交并返回已创建订单。触发、核心处理与 expected_result 一致，约束没有冲突。",
+        "missing_behavior": [],
+        "pair_index": 0
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "a57e3b83d356bf113212ddb60f4dc9af5b15ea333e8c2321ea7a2afbafaa9f73",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-69c91d08774029d46b73",
+          "generated_scenario_id": "GEN-A01F9F0DBB",
+          "status": "full",
+          "evidence": "Both scenarios share the same initiating condition (customer confirms submit / system detects duplicate submission), the same core behavior (system uses the idempotency identifier to return the already-created order), and the same expected result (return the existing order instead of creating a duplicate). Checker trigger '系统检测到重复提交' aligns semantically with GEN trigger '重复提交'.",
+          "missing_behavior": []
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+          "generated_trigger_quote": "重复提交。",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": true,
+          "compatible_constraints": true,
+          "evidence": "Both triggers describe the same concrete failure/exception mechanism: a duplicate order submission. The checker scenario specifies the customer confirming the order on the checkout page and the system detecting the duplicate submission; the generated scenario's trigger is simply 'repeat submission', but its preceding steps (reading selected cart items, validating price/stock/promotion, confirming address and amount, creating order via API, then returning the existing order by idempotency key) clearly place it in the same order-submission duplicate-submission context. Shared core behavior: both resolve the duplicate by returning an already-created order based on an idempotency key. Same expected outcome: '系统根据幂等标识返回已创建的订单'. Constraints are compatible; no contradictions. Gaps: the generated scenario lacks the explicit checkout-page confirmation trigger wording and includes an elongated step sequence that is not part of the checker’s core exception behavior.",
+          "missing_behavior": [
+            "No explicit checkout-page confirmation as the trigger context.",
+            "Generated includes an elongated order-creation step sequence rather than focusing on duplicate-submission detection and idempotent return.",
+            "Checker does not include the generated scenario's preconditions/postconditions (e.g., order status WAIT_PAY, inventory lock) beyond the idempotent return outcome."
+          ]
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

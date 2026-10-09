@@ -1,0 +1,77 @@
+{
+  "checked_checker_ids": [
+    "CHK-837007732b14891e21e0"
+  ],
+  "checked_generated_ids": [
+    "GEN-7CC14B6B29",
+    "GEN-20599B6077",
+    "GEN-1C6EAA0529",
+    "GEN-D21F3CFFEA",
+    "GEN-F628F02B48",
+    "GEN-ECFFB1D2C3",
+    "GEN-0BA303A669",
+    "GEN-9021C050C2"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-7CC14B6B29",
+      "status": "unmatched",
+      "evidence": "Checker covers an out-of-range sales price discovered during step-3 validation, with expected behavior 'prompt merchant to correct price'. GEN-7CC14B6B29 covers a data-type mismatch with the API interface definition (request payload type not matching schema). Different failure cause and validation layer; the generated expected result is undefined, so no shared concrete behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-20599B6077",
+      "status": "unmatched",
+      "evidence": "Duplicate candidate of GEN-7CC14B6B29 covering data-type mismatch against the API interface definition. The checker's failure is an out-of-range business value on sales price; this is a schema/type precondition failure, not the same condition, and no concrete shared response exists.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1C6EAA0529",
+      "status": "unmatched",
+      "evidence": "Checker concern is invalid price range; GEN-1C6EAA0529 concerns latency/timeout affecting requirement satisfaction on the API call. Distinct failure class (temporal vs. validation) with no shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-D21F3CFFEA",
+      "status": "unmatched",
+      "evidence": "GEN-D21F3CFFEA addresses authentication failures (missing/invalid/expired credentials) on the API call. The checker addresses a business validation of price range. Different failure mechanism; no aligned behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-F628F02B48",
+      "status": "unmatched",
+      "evidence": "GEN-F628F02B48 covers horizontal/vertical privilege escalation (authorization), whereas the checker covers out-of-range sales price validation. Different concern and response; not a match.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-ECFFB1D2C3",
+      "status": "unmatched",
+      "evidence": "GEN-ECFFB1D2C3 is a generic 'business condition does not satisfy change requirement' exception. While a price out of range could be construed as a business constraint, the generated trigger is unspecified and its response is undefined; it lacks the specific condition (price outside allowed range) and the 'prompt to correct price' behavior. No concrete aligned behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-0BA303A669",
+      "status": "unmatched",
+      "evidence": "GEN-0BA303A669 concerns concurrency conflicts / duplicate idempotent requests. The checker concerns price-range validation on a single request; no shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-9021C050C2",
+      "status": "unmatched",
+      "evidence": "GEN-9021C050C2 concerns persistence consistency/partial success. The checker concerns price validation rejection before/without committing. Different failure and outcome; no shared trigger or behavior.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0017-7172c5b4ea88",
+  "input_hash": "7172c5b4ea88d85894ea91b32946fa2067a2a4646b81e84cb9ce35b62e2eace8",
+  "model": "ecnu-max"
+}

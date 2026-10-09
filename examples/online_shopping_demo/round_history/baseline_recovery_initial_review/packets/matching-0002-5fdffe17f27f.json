@@ -1,0 +1,215 @@
+{
+  "stage": "matching",
+  "input": {
+    "use_case_id": "UCG-002-UC001",
+    "generated": [
+      {
+        "scenario_id": "GEN-F62525FA8C",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "数据类型：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：数据类型与接口定义不符",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：数据类型与接口定义不符",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-D218F18258",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "数据类型：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：数据类型与接口定义不符",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：数据类型与接口定义不符",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-E370ED9096",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "超时关注点：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：延时是否影响需求满足、后续行为执行或系统与环境协调",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：延时是否影响需求满足、后续行为执行或系统与环境协调",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-D974AA2834",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "身份认证：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：无凭证、Token 无效或过期",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：无凭证、Token 无效或过期",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-647031FB7B",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "权限控制：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：水平越权或垂直越权",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：水平越权或垂直越权",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-79954A57E0",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "业务约束：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：当前业务条件不满足变更要求",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：当前业务条件不满足变更要求",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-E04C2C6EB0",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "并发与幂等性：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：并发变更产生冲突，或重复请求导致重复变更",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：并发变更产生冲突，或重复请求导致重复变更",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-649DB4A161",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "持久化一致性：调用 API-O-IF1：POST /api/v1/orders",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「调用 API-O-IF1：POST /api/v1/orders」时：操作结果未可靠持久化或局部成功",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「调用 API-O-IF1：POST /api/v1/orders」检查：操作结果未可靠持久化或局部成功",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      }
+    ],
+    "checker": [
+      {
+        "scenario_id": "CHK-69c91d08774029d46b73",
+        "use_case_id": "UCG-002-UC001",
+        "use_case_name": "创建订单",
+        "name": "重复提交",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+        "trigger": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "scenario_steps": [
+          "顾客在结算页确认提交订单",
+          "系统检测到重复提交",
+          "系统根据幂等标识返回已创建的订单"
+        ],
+        "expected_result": "系统根据幂等标识返回已创建的订单",
+        "recovery": "系统根据幂等标识返回已创建的订单"
+      }
+    ],
+    "pairwise": true
+  },
+  "instructions": [
+    "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
+    "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
+    "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+    "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+    "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
+    "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+    "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+    "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+    "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
+    "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match."
+  ],
+  "output_contract": {
+    "checked_checker_ids": [
+      "all tile checker IDs"
+    ],
+    "checked_generated_ids": [
+      "all tile generated IDs"
+    ],
+    "decisions": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "EVERY GEN-ID",
+        "status": "full|partial|unmatched",
+        "evidence": "specific reason",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ],
+    "matches": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "GEN-ID",
+        "status": "full|partial",
+        "evidence": "specific behavior evidence",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ]
+  },
+  "batch_id": "matching-0002-5fdffe17f27f",
+  "input_hash": "5fdffe17f27f2010c84427e3c89fe1f4ac4c7af0ecf810c37ea42108952827bb"
+}

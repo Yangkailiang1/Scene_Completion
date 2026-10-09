@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="747" viewBox="0 0 1100 747">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">支付订单 · RR SSD</text>
+<rect x="30.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="125.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">顾客</text>
+<line x1="125.0" y1="142.0" x2="125.0" y2="717.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="880.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="975.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="975.0" y1="142.0" x2="975.0" y2="717.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="125.0" y1="186.0" x2="975.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 顾客发起订单支付。</text>
+<line x1="975.0" y1="256.0" x2="125.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：顾客发起订单支付。</text>
+<line x1="975.0" y1="326.0" x2="125.0" y2="326.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 系统校验订单状态和应付金额。</text>
+<line x1="125.0" y1="403.0" x2="975.0" y2="403.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="387.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] PaymentService完成支付并返</text>
+<text x="133.0" y="405.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">回成功结果。</text>
+<line x1="975.0" y1="487.0" x2="125.0" y2="487.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="471.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 系统受理：PaymentService完</text>
+<text x="133.0" y="489.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">成支付并返回成功结果。</text>
+<line x1="975.0" y1="571.0" x2="125.0" y2="571.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="555.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统校验支付结果并将订单更新为 PAID</text>
+<text x="133.0" y="573.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">。</text>
+<line x1="975.0" y1="648.0" x2="125.0" y2="648.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="641.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 系统向顾客展示支付成功页面。</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2160" height="1405" viewBox="0 0 2160 1405">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">申请退款 · fused SSD</text>
+<rect x="30.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="180.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">顾客</text>
+<line x1="180.0" y1="142.0" x2="180.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="330.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="480.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="480.0" y1="142.0" x2="480.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="630.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="780.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">RefundService</text>
+<line x1="780.0" y1="142.0" x2="780.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="930.0" y="100.0" width="300.0" height="59" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1080.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ImplementationAPI</text>
+<text x="1080.0" y="142.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#1F2937">RefundService</text>
+<line x1="1080.0" y1="159.0" x2="1080.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1230.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1380.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">OrderService</text>
+<line x1="1380.0" y1="142.0" x2="1380.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1530.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1680.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">refund 表</text>
+<line x1="1680.0" y1="142.0" x2="1680.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1830.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1980.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">PaymentService</text>
+<line x1="1980.0" y1="142.0" x2="1980.0" y2="1375.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="180.0" y1="186.0" x2="480.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="188.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 顾客选择退款商品、数量和原因（请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey）</text>
+<line x1="480.0" y1="256.0" x2="180.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：顾客选择退款商品、数量和原因（请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey）</text>
+<line x1="480.0" y1="326.0" x2="780.0" y2="326.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="488.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 调用 API-R-IF1：POST /api/v1/orders/{orderId}/refunds · POST</text>
+<line x1="780.0" y1="396.0" x2="1080.0" y2="396.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="788.0" y="389.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 调用 createRefund：POST /api/v1/orders/{orderId}/refunds · POST</text>
+<line x1="1080.0" y1="466.0" x2="1380.0" y2="466.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="459.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 查询 order 表和 order_item 表，校验订单归属、状态与可退款金额</text>
+<line x1="1080.0" y1="536.0" x2="1680.0" y2="536.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="529.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 写入 refund 表并更新退款状态</text>
+<line x1="1080.0" y1="606.0" x2="1980.0" y2="606.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="599.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 提交退款请求</text>
+<line x1="1980.0" y1="676.0" x2="1080.0" y2="676.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="669.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 向 RefundService 返回退款结果</text>
+<line x1="1380.0" y1="746.0" x2="1080.0" y2="746.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="739.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回：查询 order 表和 order_item 表，校验订单归属、状态与可退款金额 处理结果</text>
+<line x1="1680.0" y1="816.0" x2="1080.0" y2="816.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="809.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 返回：写入 refund 表并更新退款状态 处理结果</text>
+<line x1="1980.0" y1="886.0" x2="1080.0" y2="886.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="879.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回：提交退款请求 处理结果</text>
+<line x1="1080.0" y1="956.0" x2="1980.0" y2="956.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="949.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回：向 RefundService 返回退款结果 处理结果</text>
+<line x1="1080.0" y1="1026.0" x2="780.0" y2="1026.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="788.0" y="1019.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回 createRefund 结果 · createRefund</text>
+<line x1="780.0" y1="1096.0" x2="480.0" y2="1096.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="488.0" y="1089.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回 API-R-IF1 结果 · API-R-IF1</text>
+<line x1="480.0" y1="1166.0" x2="180.0" y2="1166.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1159.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 系统通过退款申请接口 API-R-IF1 创建退款单（系统调用 RefundService 退款申请能力，RefundService 按 idempotencyKey 幂等校验、校验退款时限与退款金额并写入 refund 表，状态字段为 status）</text>
+<line x1="480.0" y1="1236.0" x2="180.0" y2="1236.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1229.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 系统向 PaymentService 提交退款请求（RefundService 传入 refund_id、payment_id、accepted_amount，PaymentService 处理并返回退款结果）</text>
+<line x1="480.0" y1="1306.0" x2="180.0" y2="1306.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1299.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统保存退款流水并展示处理状态（RefundService 更新 refund 表退款状态并向在线商城系统返回 HTTP 200 及 refundId、refundStatus、acceptedAmount，系统再向顾客返回 HTTP 200）</text>
+</svg>

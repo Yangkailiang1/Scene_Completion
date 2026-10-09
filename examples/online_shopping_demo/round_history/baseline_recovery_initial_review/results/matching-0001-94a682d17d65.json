@@ -1,0 +1,78 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-69c91d08774029d46b73"
+  ],
+  "checked_generated_ids": [
+    "GEN-9DAF9DCBEA",
+    "GEN-B15CF36573",
+    "GEN-1A962C9C31",
+    "GEN-49681DEB1C",
+    "GEN-F9C097B077",
+    "GEN-4414FB106B",
+    "GEN-280CF8A581",
+    "GEN-11EBD529FC"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-9DAF9DCBEA",
+      "status": "unmatched",
+      "evidence": "Checker addresses duplicate order submission detected at confirmation (idempotency-based resolution: return already-created order). Generated addresses malformed input data (illegal characters / disallowed fields / illegal values) on the order-creation API. Different trigger, failure mechanism and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-B15CF36573",
+      "status": "unmatched",
+      "evidence": "Same as GEN-9DAF9DCBEA: duplicate-submission detection differs from data-validity rejection of illegal characters/fields/values. No shared branch condition or response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-1A962C9C31",
+      "status": "unmatched",
+      "evidence": "Checker concerns repeated submission and idempotent order return; generated concerns string length exceeding limits. Distinct trigger and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-49681DEB1C",
+      "status": "unmatched",
+      "evidence": "Same as GEN-1A962C9C31: length-limit failure vs duplicate-submission idempotency. No aligned condition or response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-F9C097B077",
+      "status": "unmatched",
+      "evidence": "Checker addresses duplicate submission; generated addresses numeric values out of allowed range. Different failure cause and distinct expected outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-4414FB106B",
+      "status": "unmatched",
+      "evidence": "Same as GEN-F9C097B077: range violation vs duplicate-submission handling. No shared behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-280CF8A581",
+      "status": "unmatched",
+      "evidence": "Checker concerns duplicate submission detection/return of created order; generated concerns oversized file or request body. Trigger, branch and outcome differ.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-11EBD529FC",
+      "status": "unmatched",
+      "evidence": "Same as GEN-280CF8A581: payload-size failure vs idempotent duplicate handling. No shared condition or resolution.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0001-94a682d17d65",
+  "input_hash": "94a682d17d65784eb78d840b4b80680cdd6c867c770a6c434000931b424037a2",
+  "model": "ecnu-max"
+}

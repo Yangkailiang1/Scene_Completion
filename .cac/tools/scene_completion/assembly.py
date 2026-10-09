@@ -284,7 +284,7 @@ def _diagram_paths(diagram_manifest: dict[str, Any] | None, use_case_id: str) ->
     return "", ""
 
 
-def _ssd_trace(diagram_manifest: dict[str, Any] | None, use_case_id: str, anchor: int) -> dict[str, str]:
+def _ssd_trace(diagram_manifest: dict[str, Any] | None, use_case_id: str, anchor: int, artifact_loader=None) -> dict[str, str]:
     for entry in (diagram_manifest or {}).get("use_cases", []):
         if entry.get("use_case_id") != use_case_id:
             continue
@@ -293,7 +293,11 @@ def _ssd_trace(diagram_manifest: dict[str, Any] | None, use_case_id: str, anchor
         if not path:
             continue
         try:
-            messages = json.loads(open(path, encoding="utf-8").read()).get("messages", [])
+            if artifact_loader:
+                messages = artifact_loader(path).get("messages", [])
+            else:
+                with open(path, encoding="utf-8") as stream:
+                    messages = json.load(stream).get("messages", [])
         except (OSError, ValueError, TypeError):
             continue
         candidates = [item for item in messages if item.get("message_kind") in {"request", "event", "internal_call"}]
@@ -315,7 +319,7 @@ def _ssd_trace(diagram_manifest: dict[str, Any] | None, use_case_id: str, anchor
     return {"interaction_id": "", "exchange_id": "", "ssd_message_id": "", "source_node": "", "target_node": "", "layer": "", "interaction_message": "", "source_location": ""}
 
 
-def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str, Any], diagram_manifest: dict[str, Any] | None) -> dict[str, Any]:
+def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str, Any], diagram_manifest: dict[str, Any] | None, artifact_loader=None) -> dict[str, Any]:
     use_case_id = uc["use_case_id"]
     scenario_type = "main_success" if scenario.get("scenario_type") == "main" else scenario.get("scenario_type", "alternative")
     source_id = scenario.get("scenario_id", f"{use_case_id}-main")
@@ -323,7 +327,7 @@ def _base_scenario(uc: dict[str, Any], scenario: dict[str, Any], model: dict[str
     puml, rendered = _diagram_paths(diagram_manifest, use_case_id)
     steps = [step.get("text", "") for step in scenario.get("steps", [])]
     trace_anchor = scenario.get("anchor_step_index", 0) or (scenario.get("steps") or [{}])[0].get("step_index", 1)
-    trace = _ssd_trace(diagram_manifest, use_case_id, trace_anchor)
+    trace = _ssd_trace(diagram_manifest, use_case_id, trace_anchor, artifact_loader)
     anchor_step = int(scenario.get("anchor_step_index", 0) or 0)
     step_conditions = []
     for step in uc.get("main_flow", []):

@@ -1,0 +1,8 @@
+{
+  "formal_acceptance": false,
+  "affected_batches": 103,
+  "failure": "Recommendation cache repack replaced unchanged result objects and lost batch model identity. Formal gate rejected them.",
+  "fix": "Keep unchanged result metadata exactly; preserve source execution identities on repack; rerun all scores with missing model using ecnu-max. No model identity fabricated.",
+  "generator_or_checker_changed": false,
+  "matching_changed": false
+}

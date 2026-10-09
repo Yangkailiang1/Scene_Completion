@@ -1,0 +1,121 @@
+{
+  "checked_checker_ids": [
+    "CHK-f5a9fce6189033287f2b"
+  ],
+  "checked_generated_ids": [
+    "GEN-A62997BDE7",
+    "GEN-A88F0A1919",
+    "GEN-D29B34D82A",
+    "GEN-4EF83574B5",
+    "GEN-32EB226631",
+    "GEN-70E1A2766D",
+    "GEN-C768757F0D",
+    "GEN-1C629C3CB6"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-A62997BDE7",
+      "status": "unmatched",
+      "evidence": "Checker describes a failure branch: LogisticsService query fails, system falls back to last successfully synced data with updated timestamp. Generated scenario is the main success path ending in displaying latest logistics status and track; no external service failure and no fallback behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-A88F0A1919",
+      "status": "unmatched",
+      "evidence": "Checker trigger is external LogisticsService query failure during refresh. Generated scenario trigger is '订单尚未发货' (order not yet shipped) and outcome is prompt '商家尚未发货'. Different failure condition and different outcome; no shared failure mechanism.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "full",
+      "evidence": "Same trigger: external logistics service query fails when local data is stale and LogisticsService is invoked. Same core behavior: system reads local track via API-L-IF2, then on stale data calls LogisticsService, and on failure displays the last successfully synced data with a marked update time. Same expected result: '系统展示最近一次成功同步的数据并标记更新时间' identical. Resource (logistics track of order), operation (query newest track) and temporal reference (when local data expired) align.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-4EF83574B5",
+      "status": "unmatched",
+      "evidence": "Checker is an external-service failure branch with fallback to stale data. Generated scenario is a successful alternative for signed-for logistics, displaying sign time and status; no failure mechanism and incompatible outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-32EB226631",
+      "status": "unmatched",
+      "evidence": "Checker failure condition is external LogisticsService query failure (downstream service unavailable). Generated scenario failure condition is missing required data or empty request body when calling API-L-IF2. Different failure source and operation; response even marked as to-be-confirmed, so no aligned behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-70E1A2766D",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-32EB226631: trigger is missing required data/empty request body on API-L-IF2, whereas checker trigger is external LogisticsService query failure. Different failure condition and no defined aligned response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-C768757F0D",
+      "status": "unmatched",
+      "evidence": "Generated failure condition is data not satisfying format specification on API-L-IF2; checker failure condition is external LogisticsService query failure. Different failure mechanism and unknown response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-1C629C3CB6",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-C768757F0D: trigger is data format violation on API-L-IF2, not external LogisticsService query failure; no shared fallback behavior.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0010-724417585f80",
+  "input_hash": "724417585f80cc242c813181b011bb26a60a763c187ad57663cc59640c225e8c",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "full",
+      "evidence": "Both scenarios cover the same branch: local logistics data is expired, system calls LogisticsService to fetch the latest track, the external logistics service query fails, and the system falls back to displaying the last successfully synced data and marks its update time. Trigger, core failure behavior, affected resource (order logistics track) and expected result all align.",
+      "missing_behavior": []
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "3a6dec061551f75fbaea24727770317ed1e747d6434412e70fcfaa11c501713b",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+        "generated_scenario_id": "GEN-D29B34D82A",
+        "status": "full",
+        "evidence": "Same trigger: external logistics service query fails when local data is stale and LogisticsService is invoked. Same core behavior: system reads local track via API-L-IF2, then on stale data calls LogisticsService, and on failure displays the last successfully synced data with a marked update time. Same expected result: '系统展示最近一次成功同步的数据并标记更新时间' identical. Resource (logistics track of order), operation (query newest track) and temporal reference (when local data expired) align.",
+        "missing_behavior": []
+      }
+    ],
+    "decisions": [
+      {
+        "pair_index": 0,
+        "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+        "generated_trigger_quote": "外部物流服务查询失败。",
+        "status": "unmatched",
+        "same_specific_trigger": true,
+        "shared_core_behavior": true,
+        "same_expected_outcome": true,
+        "compatible_constraints": false,
+        "evidence": "Both triggers describe the same concrete failure mechanism: the external logistics service call (LogisticsService) for the latest tracking data fails. Both share the core behavior of reading local tracking via API-L-IF2 first, then calling LogisticsService when local data is stale, and both expect the system to display the last successfully synced data with its update time. However, the generated branch's own preconditions are marked as unconfirmed ('待需求确认：该分支前置条件未单独描述') and its postconditions likewise unconfirmed, while the checker states explicit branch preconditions (local data expired, need to call LogisticsService). More critically, the generated branch lists as an explicit step that the system displays the last successful data with update time, yet also claims the use_case_postconditions '系统展示最新物流状态和轨迹' (system displays the latest logistics status and tracking), which conflicts with the failure-path outcome of showing stale data rather than the latest. This is an explicit outcome contradiction between the branch outcome and the declared use-case postcondition within the generated artifact, so compatible_constraints is false.",
+        "missing_behavior": [
+          "Generated branch preconditions are explicitly marked unconfirmed ('待需求确认') rather than asserting the required condition '本地数据已过期，需调用LogisticsService'",
+          "Generated branch does not state that the failure occurs during the LogisticsService call on main success path step 3, weakening the trigger anchoring",
+          "Generated use_case_postconditions claim the system displays the latest logistics status and tracking, contradicting the failure-path outcome of showing last successfully synced (stale) data"
+        ],
+        "llm_status": "partial"
+      }
+    ],
+    "model": "ecnu-max",
+    "tile_size": 8
+  }
+}

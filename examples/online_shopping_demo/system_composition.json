@@ -1,0 +1,3240 @@
+{
+  "nodes": [
+    {
+      "node_id": "system",
+      "name": "在线商城购物系统",
+      "kind": "internal_service",
+      "layer": "RR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "actor-1",
+      "name": "顾客",
+      "kind": "human_actor",
+      "layer": "RR",
+      "scope": "external"
+    },
+    {
+      "node_id": "actor-2",
+      "name": "商家",
+      "kind": "human_actor",
+      "layer": "RR",
+      "scope": "external"
+    },
+    {
+      "node_id": "actor-3",
+      "name": "PaymentService",
+      "kind": "external_service",
+      "layer": "SR",
+      "scope": "external"
+    },
+    {
+      "node_id": "actor-4",
+      "name": "LogisticsService",
+      "kind": "external_service",
+      "layer": "SR",
+      "scope": "external"
+    },
+    {
+      "node_id": "db-commerce",
+      "name": "CommerceDatabase",
+      "kind": "internal_database",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-001-UC001",
+      "name": "ProductDisplayService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-001-UC001",
+      "service_type": "display_interaction",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-001-UC001 to ProductDisplayService",
+      "source_location": "功能设计_spec.md:API-S-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-001-UC001",
+      "name": "ProductCatalogService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-001-UC001",
+      "name": "listProducts",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-001-UC002",
+      "name": "ProductDisplayService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-001-UC002",
+      "service_type": "display_interaction",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-001-UC002 to ProductDisplayService",
+      "source_location": "功能设计_spec.md:API-S-IF2",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-001-UC002",
+      "name": "ProductCatalogService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-001-UC002",
+      "name": "getProductDetail",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-001-UC003",
+      "name": "CartService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-001-UC003",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-001-UC003 to CartService",
+      "source_location": "功能设计_spec.md:API-C-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-001-UC003",
+      "name": "CartService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-001-UC003",
+      "name": "addCartItem",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-002-UC001",
+      "name": "OrderService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-002-UC001",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-002-UC001 to OrderService",
+      "source_location": "功能设计_spec.md:API-O-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-002-UC001",
+      "name": "OrderService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-002-UC001",
+      "name": "createOrder",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-002-UC002",
+      "name": "PaymentAdapter",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-002-UC002",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-002-UC002 to PaymentAdapter",
+      "source_location": "功能设计_spec.md:PAYMENT-PAY-01",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-002-UC002",
+      "name": "PaymentAdapter",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-002-UC002",
+      "name": "createPayment",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-002-UC003",
+      "name": "OrderService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-002-UC003",
+      "service_type": "query_retrieval",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-002-UC003 to OrderService",
+      "source_location": "功能设计_spec.md:API-O-IF2",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-002-UC003",
+      "name": "OrderService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-002-UC003",
+      "name": "getOrderDetail",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-003-UC001",
+      "name": "LogisticsServiceAdapter",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-003-UC001",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-003-UC001 to LogisticsServiceAdapter",
+      "source_location": "功能设计_spec.md:API-L-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-003-UC001",
+      "name": "OrderService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-003-UC001",
+      "name": "createShipment",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-003-UC002",
+      "name": "LogisticsServiceAdapter",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-003-UC002",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-003-UC002 to LogisticsServiceAdapter",
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-003-UC002",
+      "name": "LogisticsServiceAdapter",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-003-UC002",
+      "name": "receiveLogisticsEvent",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-003-UC003",
+      "name": "LogisticsServiceAdapter",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-003-UC003",
+      "service_type": "query_retrieval",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-003-UC003 to LogisticsServiceAdapter",
+      "source_location": "功能设计_spec.md:API-L-IF2",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-003-UC003",
+      "name": "LogisticsServiceAdapter",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-003-UC003",
+      "name": "getOrderLogistics",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-003-UC004",
+      "name": "RefundService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-003-UC004",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-003-UC004 to RefundService",
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-003-UC004",
+      "name": "RefundService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-003-UC004",
+      "name": "createRefund",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-004-UC001",
+      "name": "MerchantProductService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-004-UC001",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-004-UC001 to MerchantProductService",
+      "source_location": "功能设计_spec.md:API-M-IF1",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-004-UC001",
+      "name": "MerchantProductService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-004-UC001",
+      "name": "createMerchantProduct",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-004-UC002",
+      "name": "MerchantProductService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-004-UC002",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-004-UC002 to MerchantProductService",
+      "source_location": "功能设计_spec.md:API-M-IF2",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-004-UC002",
+      "name": "MerchantProductService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-004-UC002",
+      "name": "updateMerchantProduct",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-004-UC003",
+      "name": "MerchantProductService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-004-UC003",
+      "service_type": "resource_mutation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-004-UC003 to MerchantProductService",
+      "source_location": "功能设计_spec.md:API-M-IF3",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-004-UC003",
+      "name": "MerchantProductService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-004-UC003",
+      "name": "updateSkuInventoryAndPrice",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "sr-UCG-004-UC004",
+      "name": "MerchantProductService",
+      "kind": "abstract_service",
+      "layer": "SR",
+      "use_case_id": "UCG-004-UC004",
+      "service_type": "release_activation",
+      "classification_status": "confirmed",
+      "classification_basis": "V5 call chain maps UCG-004-UC004 to MerchantProductService",
+      "source_location": "功能设计_spec.md:API-M-IF4",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ar-UCG-004-UC004",
+      "name": "MerchantProductService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "service_type": "unknown",
+      "scope": "internal",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "impl-UCG-004-UC004",
+      "name": "publishMerchantProduct",
+      "kind": "implementation_api",
+      "layer": "AR",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-6330FDD3BF",
+      "name": "CommerceDatabase资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "db-commerce"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "系统需求_spec.md",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "ABSTRACT-6C805EB598",
+      "name": "浏览商品抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-001-UC001",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:85"
+    },
+    {
+      "node_id": "ABSTRACT-09E01262FC",
+      "name": "查看商品详情抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-001-UC002",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:111"
+    },
+    {
+      "node_id": "ABSTRACT-6791F10AB5",
+      "name": "加入购物车抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-001-UC003",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:134"
+    },
+    {
+      "node_id": "ABSTRACT-555954131C",
+      "name": "创建订单抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-002-UC001",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:158"
+    },
+    {
+      "node_id": "ABSTRACT-05A44DEF33",
+      "name": "支付订单抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-002-UC002",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:183"
+    },
+    {
+      "node_id": "ABSTRACT-F29992B401",
+      "name": "查看订单详情抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-002-UC003",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:209"
+    },
+    {
+      "node_id": "ABSTRACT-80E85992E1",
+      "name": "商家发货抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-003-UC001",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:233"
+    },
+    {
+      "node_id": "ABSTRACT-8E6FE8347C",
+      "name": "更新物流信息抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-003-UC002",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:258"
+    },
+    {
+      "node_id": "ABSTRACT-3DD04DF564",
+      "name": "查询物流信息抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-003-UC003",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:282"
+    },
+    {
+      "node_id": "ABSTRACT-F2095B298B",
+      "name": "申请退款抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-003-UC004",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:306"
+    },
+    {
+      "node_id": "ABSTRACT-550445542D",
+      "name": "创建商品抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-004-UC001",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:331"
+    },
+    {
+      "node_id": "ABSTRACT-B3C60656E2",
+      "name": "填写商品信息抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-004-UC002",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:353"
+    },
+    {
+      "node_id": "ABSTRACT-943F5BC74A",
+      "name": "设置库存与价格抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-004-UC003",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:377"
+    },
+    {
+      "node_id": "ABSTRACT-25D3D367D9",
+      "name": "发布商品抽象服务",
+      "kind": "abstract_service",
+      "layer": "RR",
+      "use_case_id": "UCG-004-UC004",
+      "scope": "internal",
+      "classification_status": "inferred",
+      "source_location": "系统需求_spec.md:401"
+    },
+    {
+      "node_id": "FRONTEND-4F837A377C",
+      "name": "顾客端 UI/前端",
+      "kind": "frontend_ui",
+      "layer": "RR",
+      "actor_id": "actor-1",
+      "mapping_status": "inferred",
+      "source_location": "",
+      "use_case_ids": [
+        "UCG-001-UC001",
+        "UCG-001-UC002",
+        "UCG-001-UC003",
+        "UCG-002-UC001",
+        "UCG-002-UC002",
+        "UCG-002-UC003",
+        "UCG-003-UC003",
+        "UCG-003-UC004"
+      ],
+      "scope": "internal"
+    },
+    {
+      "node_id": "FRONTEND-BD2FB21D80",
+      "name": "商家端 UI/前端",
+      "kind": "frontend_ui",
+      "layer": "RR",
+      "actor_id": "actor-2",
+      "mapping_status": "inferred",
+      "source_location": "",
+      "use_case_ids": [
+        "UCG-003-UC001",
+        "UCG-004-UC001",
+        "UCG-004-UC002",
+        "UCG-004-UC003",
+        "UCG-004-UC004"
+      ],
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-C730E4A666",
+      "name": "product 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:502-502",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-dadbcadc066d7900",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "基本流程"
+          ],
+          "line_start": 502,
+          "line_end": 502
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-dd6babaac46eb3ee",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 1120,
+          "line_end": 1120
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-C04D1BD23A",
+      "name": "product 表和 sku 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:588-588",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-61d6f7d8b35d21b9",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 588,
+          "line_end": 588
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-B98FB65522",
+      "name": "cart_item 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:592-592",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-61d6f7d8b35d21b9",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 592,
+          "line_end": 592
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-A51397E792",
+      "name": "address 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:640-640",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 640,
+          "line_end": 640
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-73D34D2698",
+      "name": "order 表和 order_item 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:642-642",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 642,
+          "line_end": 642
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-88582b3495b3a1b5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 1138,
+          "line_end": 1138
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-0147533E97",
+      "name": "payment 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:689-689",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 689,
+          "line_end": 689
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-9E25121582",
+      "name": "order 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:690-690",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 690,
+          "line_end": 690
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 191,
+          "line_end": 191
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-AB4F19FC9E",
+      "name": "order_item 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:733-733",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 733,
+          "line_end": 733
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-D8EC68ECC3",
+      "name": "shipment 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:735-735",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 735,
+          "line_end": 735
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-3922649EF9",
+      "name": "logistics_event 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:823-823",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 823,
+          "line_end": 823
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-7D1B9C0A5F",
+      "name": "refund 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:916-916",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 916,
+          "line_end": 916
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 919,
+          "line_end": 919
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-7EA7791653",
+      "name": "merchant 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:960-960",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-7c944fc4f843f7b8",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "基本流程"
+          ],
+          "line_start": 960,
+          "line_end": 960
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-6D6C807F60",
+      "name": "Category records",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:1179-1179",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e3945e98e53f5411",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 1179,
+          "line_end": 1179
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-F332011A86",
+      "name": "CategoryService",
+      "kind": "internal_service",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:1004-1004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-839db891846ce487",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 1186,
+          "line_end": 1186
+        }
+      ],
+      "scope": "internal",
+      "service_type": "unknown",
+      "classification_status": "needs_confirmation"
+    },
+    {
+      "node_id": "NODE-C980AF7CDC",
+      "name": "category 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:1004-1004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-95A5DAEE15",
+      "name": "sku 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:1050-1050",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1050,
+          "line_end": 1050
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1ea1933212336684",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 1191,
+          "line_end": 1192
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "NODE-0D177DC4DD",
+      "name": "product/category/sku 表",
+      "kind": "internal_database",
+      "layer": "AR",
+      "source_location": "功能设计_spec.md:1093-1096",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1093,
+          "line_end": 1096
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 414
+        }
+      ],
+      "model_role": "logical_data_resource",
+      "deployment_status": "not_a_new_deployment_component",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-2C5A28C2C4",
+      "name": "CommerceDatabase资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "db-commerce"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "系统需求_spec.md",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-0948C5399D",
+      "name": "product 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-C730E4A666"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:502-502",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-DC3CEE2DB3",
+      "name": "product 表和 sku 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-C04D1BD23A"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:588-588",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-076FCF6C9D",
+      "name": "cart_item 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-B98FB65522"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:592-592",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-C8DD689ECF",
+      "name": "address 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-A51397E792"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:640-640",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-A6ADFE7114",
+      "name": "order 表和 order_item 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-73D34D2698"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:642-642",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-335B551498",
+      "name": "payment 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-0147533E97"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:689-689",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-2B0AFC6E7D",
+      "name": "order 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-9E25121582"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:690-690",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-2C92220552",
+      "name": "order_item 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-AB4F19FC9E"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:733-733",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-CB1A81712D",
+      "name": "shipment 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-D8EC68ECC3"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:735-735",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-FC3CB18F3F",
+      "name": "logistics_event 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-3922649EF9"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:823-823",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-0563098FD0",
+      "name": "refund 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-7D1B9C0A5F"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:916-916",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-AE9DC27A96",
+      "name": "merchant 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-7EA7791653"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:960-960",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-FF89EDCC5C",
+      "name": "Category records资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-6D6C807F60"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:1179-1179",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-6CB360D303",
+      "name": "category 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-C980AF7CDC"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:1004-1004",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-903BB61311",
+      "name": "sku 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-95A5DAEE15"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:1050-1050",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    },
+    {
+      "node_id": "SR-RESOURCE-7ED825AAEF",
+      "name": "product/category/sku 表资源服务",
+      "kind": "internal_service",
+      "service_role": "resource_service",
+      "resource_ids": [
+        "NODE-0D177DC4DD"
+      ],
+      "layer": "SR",
+      "service_type": "unknown",
+      "classification_status": "inferred",
+      "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+      "source_location": "功能设计_spec.md:1093-1096",
+      "mapping_status": "inferred",
+      "scope": "internal"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "EDGE-3940A627CE",
+      "from_node": "actor-3",
+      "to_node": "ABSTRACT-05A44DEF33",
+      "relation": "external_participates_in",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "系统需求_spec.md:183"
+    },
+    {
+      "edge_id": "EDGE-92FA32CB82",
+      "from_node": "actor-4",
+      "to_node": "ABSTRACT-80E85992E1",
+      "relation": "external_participates_in",
+      "use_case_id": "UCG-003-UC001",
+      "source_location": "系统需求_spec.md:233"
+    },
+    {
+      "edge_id": "EDGE-047C125424",
+      "from_node": "actor-4",
+      "to_node": "ABSTRACT-8E6FE8347C",
+      "relation": "external_participates_in",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "系统需求_spec.md:258"
+    },
+    {
+      "edge_id": "EDGE-3A8A5E9AF6",
+      "from_node": "actor-4",
+      "to_node": "ABSTRACT-3DD04DF564",
+      "relation": "external_participates_in",
+      "use_case_id": "UCG-003-UC003",
+      "source_location": "系统需求_spec.md:282"
+    },
+    {
+      "edge_id": "EDGE-A5C7B1578D",
+      "from_node": "actor-3",
+      "to_node": "ABSTRACT-F2095B298B",
+      "relation": "external_participates_in",
+      "use_case_id": "UCG-003-UC004",
+      "source_location": "系统需求_spec.md:306"
+    },
+    {
+      "edge_id": "EDGE-A4A4E8DE76",
+      "from_node": "ar-UCG-001-UC001",
+      "to_node": "NODE-C730E4A666",
+      "relation": "calls",
+      "use_case_id": "UCG-001-UC001",
+      "source_location": "功能设计_spec.md:502-502",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-dadbcadc066d7900",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "基本流程"
+          ],
+          "line_start": 502,
+          "line_end": 502
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-dd6babaac46eb3ee",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 1120,
+          "line_end": 1120
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-001-UC001：功能设计_spec.md:502 明确写 ProductCatalogService 按请求条件查询 product 表；1120 又给出 listProducts → ProductCatalogService → product 表的调用链。可确认这是逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-3AA88E882E",
+      "from_node": "ar-UCG-001-UC002",
+      "to_node": "NODE-C730E4A666",
+      "relation": "calls",
+      "use_case_id": "UCG-001-UC002",
+      "source_location": "功能设计_spec.md:544-544",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-7afcd29df9d02eef",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "基本流程"
+          ],
+          "line_start": 544,
+          "line_end": 544
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-ae0a02d6d1a20ce7",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 1126,
+          "line_end": 1126
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-001-UC002：功能设计_spec.md:544 明确写 ProductCatalogService 根据 productId 查询 product 表；1126 给出 getProductDetail → ProductCatalogService → product 表。可确认逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-8B9A02A25C",
+      "from_node": "ar-UCG-001-UC003",
+      "to_node": "ar-UCG-001-UC002",
+      "relation": "calls",
+      "use_case_id": "UCG-001-UC003",
+      "source_location": "功能设计_spec.md:587-588",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-61d6f7d8b35d21b9",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 587,
+          "line_end": 588
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-f6e95ec3895f983f",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 1132,
+          "line_end": 1132
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-001-UC003：功能设计_spec.md:587-588 明确调用 ProductCatalogService 的商品与 SKU 校验能力并查询两表；1132 将 addCartItem → CartService 调用 getProductDetail → ProductCatalogService 校验连在一起，支持该服务间关系。"
+    },
+    {
+      "edge_id": "EDGE-031AEFA303",
+      "from_node": "ar-UCG-001-UC001",
+      "to_node": "NODE-C04D1BD23A",
+      "relation": "calls",
+      "use_case_id": "UCG-001-UC003",
+      "source_location": "功能设计_spec.md:588-588",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-61d6f7d8b35d21b9",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 588,
+          "line_end": 588
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-001-UC003：功能设计_spec.md:588 明确 ProductCatalogService 查询 product 表和 sku 表并返回校验结果；目标是逻辑表资源。"
+    },
+    {
+      "edge_id": "EDGE-BAD0DCE697",
+      "from_node": "ar-UCG-001-UC003",
+      "to_node": "NODE-B98FB65522",
+      "relation": "calls",
+      "use_case_id": "UCG-001-UC003",
+      "source_location": "功能设计_spec.md:592-592",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-61d6f7d8b35d21b9",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 592,
+          "line_end": 592
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-001-UC003：功能设计_spec.md:592 明确 CartService 写入 cart_item 表及字段，支持该逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-93363A3415",
+      "from_node": "ar-UCG-002-UC001",
+      "to_node": "ar-UCG-001-UC003",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC001",
+      "source_location": "功能设计_spec.md:636-636",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 636,
+          "line_end": 636
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-002-UC001：功能设计_spec.md:636 明确在线商城系统调用 CartService 读取 cart_item；但该条边把调用方记为 OrderService，来源没有说 OrderService 调用 CartService。1138 仅把 createOrder 映射到 OrderService，未补足这条跨服务调用。CartService 读取表有依据，OrderService → CartService 的调用方归属仍待确认。"
+    },
+    {
+      "edge_id": "EDGE-762B62F1A7",
+      "from_node": "ar-UCG-002-UC001",
+      "to_node": "ar-UCG-001-UC002",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC001",
+      "source_location": "功能设计_spec.md:637-638",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 637,
+          "line_end": 638
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-88582b3495b3a1b5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 1138,
+          "line_end": 1138
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC001：功能设计_spec.md:637-638 明确调用 ProductCatalogService 做价格/库存校验；1138 明确 createOrder → OrderService 调用 validatePriceStock → ProductCatalogService，支持该边。"
+    },
+    {
+      "edge_id": "EDGE-71A6D64E9F",
+      "from_node": "ar-UCG-001-UC001",
+      "to_node": "NODE-C04D1BD23A",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC001",
+      "source_location": "功能设计_spec.md:638-638",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 638,
+          "line_end": 638
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC001：功能设计_spec.md:638 明确 ProductCatalogService 查询 product 与 sku 表并读取 sale_price、stock_quantity、status；目标为逻辑表资源。"
+    },
+    {
+      "edge_id": "EDGE-CA1B3E36E4",
+      "from_node": "ar-UCG-002-UC001",
+      "to_node": "NODE-A51397E792",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC001",
+      "source_location": "功能设计_spec.md:640-640",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 640,
+          "line_end": 640
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-002-UC001：功能设计_spec.md:640 明确在线商城系统查询 address 表并读取地址字段，表访问有原文依据；但来源未将该查询明确分配给图中的 OrderService 调用方，故 OrderService → address 表的精确归属仍需确认。"
+    },
+    {
+      "edge_id": "EDGE-D1342EAE66",
+      "from_node": "ar-UCG-002-UC001",
+      "to_node": "NODE-73D34D2698",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC001",
+      "source_location": "功能设计_spec.md:642-642",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-5c2c4d085490809b",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 642,
+          "line_end": 642
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-88582b3495b3a1b5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 1138,
+          "line_end": 1138
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC001：功能设计_spec.md:642 明确 OrderService 按 idempotencyKey 校验、创建订单并写入 order 与 order_item 表；1138 同时映射 createOrder → OrderService。"
+    },
+    {
+      "edge_id": "EDGE-253264676C",
+      "from_node": "ar-UCG-002-UC002",
+      "to_node": "ar-UCG-003-UC001",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "功能设计_spec.md:685-685",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 685,
+          "line_end": 685
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-002-UC002：功能设计_spec.md:685 明确在线商城系统调用 OrderService 查询 order 表；但该边的调用方是 PaymentAdapter，685 未说 PaymentAdapter 调用 OrderService。1144 只说明 PaymentAdapter 对外调用 PaymentService 和接收回调，不能证明这条 PaymentAdapter → OrderService 边。"
+    },
+    {
+      "edge_id": "EDGE-BFC9EF867A",
+      "from_node": "ar-UCG-002-UC002",
+      "to_node": "actor-3",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "功能设计_spec.md:687-688",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 687,
+          "line_end": 688
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-290239e600343d9c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 1144,
+          "line_end": 1144
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC002：功能设计_spec.md:687-688 明确 PaymentAdapter 向 ACT-003 PaymentService 发起支付请求并接收支付结果；1144 也列出 createPayment → PaymentAdapter → 外部 PaymentService。"
+    },
+    {
+      "edge_id": "EDGE-26403CDB8D",
+      "from_node": "ar-UCG-002-UC002",
+      "to_node": "NODE-0147533E97",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "功能设计_spec.md:689-689",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 689,
+          "line_end": 689
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC002：功能设计_spec.md:689 明确 PaymentAdapter 写入 payment 表并返回支付信息，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-14B38B03B6",
+      "from_node": "ar-UCG-002-UC002",
+      "to_node": "NODE-9E25121582",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "功能设计_spec.md:690-690",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-883b4f2a45139283",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 690,
+          "line_end": 690
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 191,
+          "line_end": 191
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-002-UC002：功能设计_spec.md:690 与系统需求_spec.md:191 明确在线商城系统把订单状态更新为 PAID 并记录支付流水；但没有把此 order 表更新明确归给 PaymentAdapter。操作存在，PaymentAdapter → order 表的调用方归属仍需确认。"
+    },
+    {
+      "edge_id": "EDGE-AEFE750DD8",
+      "from_node": "actor-3",
+      "to_node": "ar-UCG-002-UC002",
+      "relation": "callback",
+      "use_case_id": "UCG-002-UC002",
+      "source_location": "功能设计_spec.md:700-700",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1ff81645e4ce30db",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "备选流程"
+          ],
+          "line_start": 700,
+          "line_end": 700
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 206,
+          "line_end": 207
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC002：功能设计_spec.md:687-688 明确 PaymentService 返回支付结果给 PaymentAdapter；700 说明支付回调通知到达时按 paymentId 幂等处理，系统需求_spec.md:206-207 也明确重复通知处理，支持外部回调方向。"
+    },
+    {
+      "edge_id": "EDGE-30F332A18A",
+      "from_node": "ar-UCG-002-UC003",
+      "to_node": "NODE-9E25121582",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC003",
+      "source_location": "功能设计_spec.md:732-732",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 732,
+          "line_end": 732
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC003：功能设计_spec.md:732 明确 OrderService 查询 order 表并读取订单字段；这是逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-263DD80BB5",
+      "from_node": "ar-UCG-002-UC003",
+      "to_node": "NODE-AB4F19FC9E",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC003",
+      "source_location": "功能设计_spec.md:733-733",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 733,
+          "line_end": 733
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC003：功能设计_spec.md:733 明确 OrderService 查询 order_item 表并读取商品条目字段；这是逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-C01760D50F",
+      "from_node": "ar-UCG-002-UC003",
+      "to_node": "NODE-0147533E97",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC003",
+      "source_location": "功能设计_spec.md:734-734",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 734,
+          "line_end": 734
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC003：功能设计_spec.md:734 明确 OrderService 查询 payment 表并读取支付字段；这是逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-C60C55DE0C",
+      "from_node": "ar-UCG-002-UC003",
+      "to_node": "NODE-D8EC68ECC3",
+      "relation": "calls",
+      "use_case_id": "UCG-002-UC003",
+      "source_location": "功能设计_spec.md:735-735",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-38a6baa1deae52fd",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 735,
+          "line_end": 735
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-002-UC003：功能设计_spec.md:735 明确 OrderService 查询 shipment 表并读取物流字段；这是逻辑数据资源关系。"
+    },
+    {
+      "edge_id": "EDGE-DA02826156",
+      "from_node": "ar-UCG-003-UC001",
+      "to_node": "NODE-D8EC68ECC3",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC001",
+      "source_location": "功能设计_spec.md:779-779",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-75aede58afe81393",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "基本流程"
+          ],
+          "line_start": 779,
+          "line_end": 779
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC001：功能设计_spec.md:779 明确 OrderService 写入 shipment 记录及字段，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-709811497C",
+      "from_node": "ar-UCG-003-UC001",
+      "to_node": "NODE-9E25121582",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC001",
+      "source_location": "功能设计_spec.md:780-780",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-75aede58afe81393",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "基本流程"
+          ],
+          "line_start": 780,
+          "line_end": 780
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC001：功能设计_spec.md:780 明确 OrderService 更新 order 表状态为 SHIPPED，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-925BC4BF9F",
+      "from_node": "ar-UCG-003-UC001",
+      "to_node": "actor-4",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC001",
+      "source_location": "功能设计_spec.md:781-781",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-75aede58afe81393",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "基本流程"
+          ],
+          "line_start": 781,
+          "line_end": 781
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-7c3203b711551042",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 1156,
+          "line_end": 1156
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC001：功能设计_spec.md:781 明确 OrderService 向 ACT-004 LogisticsService 登记物流单号及参数；1156 也列出 createShipment → OrderService → 外部 LogisticsService。"
+    },
+    {
+      "edge_id": "EDGE-048910420B",
+      "from_node": "ar-UCG-003-UC002",
+      "to_node": "NODE-3922649EF9",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "功能设计_spec.md:823-823",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 823,
+          "line_end": 823
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:823 明确 LogisticsServiceAdapter 按 eventId 幂等校验并查询 logistics_event 表。"
+    },
+    {
+      "edge_id": "EDGE-7209319D33",
+      "from_node": "ar-UCG-003-UC002",
+      "to_node": "NODE-3922649EF9",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "功能设计_spec.md:824-824",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 824,
+          "line_end": 824
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:824 明确 LogisticsServiceAdapter 写入 logistics_event 表及字段，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-3D069CBE2C",
+      "from_node": "ar-UCG-003-UC002",
+      "to_node": "NODE-D8EC68ECC3",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "功能设计_spec.md:821-821",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 821,
+          "line_end": 821
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:821 明确 LogisticsServiceAdapter 检查 trackingNumber 并查询 shipment 表。"
+    },
+    {
+      "edge_id": "EDGE-09DBA1E16E",
+      "from_node": "ar-UCG-003-UC002",
+      "to_node": "NODE-D8EC68ECC3",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "功能设计_spec.md:825-825",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 825,
+          "line_end": 825
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:825 明确 LogisticsServiceAdapter 更新 shipment 表中的物流状态摘要。"
+    },
+    {
+      "edge_id": "EDGE-5376283B31",
+      "from_node": "actor-4",
+      "to_node": "ar-UCG-003-UC002",
+      "relation": "callback",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "系统需求_spec.md:268-269",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 268,
+          "line_end": 269
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 819,
+          "line_end": 819
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdbcc613bed6f71a",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 1161,
+          "line_end": 1161
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:819 明确 ACT-004 LogisticsService 向在线商城系统发送 POST /api/v1/logistics/events；同一处理流程821-825明确由 LogisticsServiceAdapter 校验、写入和更新，支持将系统入口映射到该接收适配器。系统需求_spec.md:268-269 也描述物流服务推送轨迹。"
+    },
+    {
+      "edge_id": "EDGE-E762A1D0D1",
+      "from_node": "ar-UCG-003-UC002",
+      "to_node": "actor-4",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC002",
+      "source_location": "功能设计_spec.md:827-827",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC002：功能设计_spec.md:827 明确在线商城系统向 ACT-004 返回 HTTP 200 及 accepted、duplicate；同一事件接收用例由 LogisticsServiceAdapter 处理（821-825），故该响应属于该入口处理链。"
+    },
+    {
+      "edge_id": "EDGE-55EAC95B35",
+      "from_node": "ar-UCG-003-UC003",
+      "to_node": "ar-UCG-003-UC001",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC003",
+      "source_location": "功能设计_spec.md:866-866",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1601f6f3ac8a9392",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本流程"
+          ],
+          "line_start": 866,
+          "line_end": 866
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-003-UC003：功能设计_spec.md:866 明确在线商城系统调用 OrderService 查询订单归属和状态；该条边却把调用方记为 LogisticsServiceAdapter。来源没有说物流适配器调用 OrderService，需确认准确调用方或改为系统级关系。"
+    },
+    {
+      "edge_id": "EDGE-0DB2C72E61",
+      "from_node": "ar-UCG-003-UC003",
+      "to_node": "NODE-D8EC68ECC3",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC003",
+      "source_location": "功能设计_spec.md:868-868",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1601f6f3ac8a9392",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本流程"
+          ],
+          "line_start": 868,
+          "line_end": 868
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC003：功能设计_spec.md:868 明确 LogisticsServiceAdapter 查询 shipment 表并读取物流字段，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-0C01965195",
+      "from_node": "ar-UCG-003-UC003",
+      "to_node": "NODE-3922649EF9",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC003",
+      "source_location": "功能设计_spec.md:869-869",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1601f6f3ac8a9392",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本流程"
+          ],
+          "line_start": 869,
+          "line_end": 869
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC003：功能设计_spec.md:869 明确 LogisticsServiceAdapter 查询 logistics_event 表并按 event_time 排序，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-66EA6E39B1",
+      "from_node": "ar-UCG-003-UC003",
+      "to_node": "actor-4",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC003",
+      "source_location": "功能设计_spec.md:870-870",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1601f6f3ac8a9392",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本流程"
+          ],
+          "line_start": 870,
+          "line_end": 870
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-4663ba431ec36b48",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 295,
+          "line_end": 295
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC003：功能设计_spec.md:870 明确本地数据过期时 LogisticsServiceAdapter 调用 ACT-004 LogisticsService 查询最新轨迹；系统需求_spec.md:295 也明确过期时调用物流服务。"
+    },
+    {
+      "edge_id": "EDGE-A719C6241A",
+      "from_node": "ar-UCG-003-UC004",
+      "to_node": "ar-UCG-003-UC001",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC004",
+      "source_location": "功能设计_spec.md:912-912",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 912,
+          "line_end": 912
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-003-UC004：功能设计_spec.md:912 明确在线商城系统调用 OrderService 查询 order 与 order_item 并校验退款条件；但该边的调用方标为 RefundService，来源未说明 RefundService 调用 OrderService。916-918 明确的是 RefundService 写退款记录并调用 PaymentService，不能据此补出 RefundService → OrderService。"
+    },
+    {
+      "edge_id": "EDGE-5C2C0F6561",
+      "from_node": "ar-UCG-003-UC004",
+      "to_node": "NODE-7D1B9C0A5F",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC004",
+      "source_location": "功能设计_spec.md:916-916",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 916,
+          "line_end": 916
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 919,
+          "line_end": 919
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC004：功能设计_spec.md:916 明确 RefundService 写入 refund 表；919 明确更新退款状态，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-C9B0B592A3",
+      "from_node": "ar-UCG-003-UC004",
+      "to_node": "actor-3",
+      "relation": "calls",
+      "use_case_id": "UCG-003-UC004",
+      "source_location": "系统需求_spec.md:321-321",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 917,
+          "line_end": 917
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdf4095a7929c88c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 1174,
+          "line_end": 1174
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC004：功能设计_spec.md:917 明确 RefundService 向 ACT-003 PaymentService 提交退款请求及参数；系统需求_spec.md:321 和 V5 行1174相符。"
+    },
+    {
+      "edge_id": "EDGE-BA8486E75B",
+      "from_node": "actor-3",
+      "to_node": "ar-UCG-003-UC004",
+      "relation": "callback",
+      "use_case_id": "UCG-003-UC004",
+      "source_location": "系统需求_spec.md:321-321",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 321,
+          "line_end": 321
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-0fee9229109ac24c",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 918,
+          "line_end": 918
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-003-UC004：功能设计_spec.md:918 明确 PaymentService 处理退款并向 RefundService 返回退款结果，支持响应方向。"
+    },
+    {
+      "edge_id": "EDGE-6F38CCA7D3",
+      "from_node": "ar-UCG-004-UC001",
+      "to_node": "NODE-7EA7791653",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC001",
+      "source_location": "功能设计_spec.md:960-960",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-7c944fc4f843f7b8",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "基本流程"
+          ],
+          "line_start": 960,
+          "line_end": 960
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC001：功能设计_spec.md:960 明确 MerchantProductService 查询 merchant 表并读取资质和权限字段，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-E11A52F6A7",
+      "from_node": "ar-UCG-004-UC001",
+      "to_node": "NODE-C730E4A666",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC001",
+      "source_location": "功能设计_spec.md:962-962",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-7c944fc4f843f7b8",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "基本流程"
+          ],
+          "line_start": 962,
+          "line_end": 962
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC001：功能设计_spec.md:962 明确 MerchantProductService 写入 product 表及字段，支持逻辑表资源关系。"
+    },
+    {
+      "edge_id": "EDGE-3523A1678B",
+      "from_node": "ar-UCG-004-UC001",
+      "to_node": "NODE-6D6C807F60",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC001",
+      "source_location": "功能设计_spec.md:1179-1179",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e3945e98e53f5411",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 1179,
+          "line_end": 1179
+        }
+      ],
+      "evidence_status": "needs_confirmation",
+      "evidence_assessment": "UCG-004-UC001：功能设计_spec.md:1179 仅列 POST 请求字段 name/categoryId/description/imageUrls[]、返回字段和 CATEGORY_NOT_FOUND 等错误码，没有 CategoryService 调用或读取/更新 Category records 的步骤。962 明确的是写 product 表，不能证明 MerchantProductService → Category records。该关联应待确认。"
+    },
+    {
+      "edge_id": "EDGE-76A3FB42D9",
+      "from_node": "ar-UCG-004-UC002",
+      "to_node": "NODE-C730E4A666",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC002",
+      "source_location": "功能设计_spec.md:1003-1003",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1003,
+          "line_end": 1003
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1006,
+          "line_end": 1006
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC002：功能设计_spec.md:1003 与1006明确 MerchantProductService 查询并更新 product 表字段，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-FCB8523EB9",
+      "from_node": "ar-UCG-004-UC002",
+      "to_node": "NODE-F332011A86",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC002",
+      "source_location": "功能设计_spec.md:1004-1004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-839db891846ce487",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 1186,
+          "line_end": 1186
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC002：功能设计_spec.md:1004 明确 MerchantProductService 调用 CategoryService 校验 categoryId；1186 也列出 updateMerchantProduct → MerchantProductService → validateCategory → CategoryService。"
+    },
+    {
+      "edge_id": "EDGE-6D05859798",
+      "from_node": "ar-UCG-004-UC002",
+      "to_node": "NODE-C980AF7CDC",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC002",
+      "source_location": "功能设计_spec.md:1004-1004",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC002：功能设计_spec.md:1004 明确 category 表查询及 category_id/status 字段，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-BCF8F5EC5F",
+      "from_node": "ar-UCG-004-UC003",
+      "to_node": "NODE-C730E4A666",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC003",
+      "source_location": "功能设计_spec.md:1048-1048",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1048,
+          "line_end": 1048
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1051,
+          "line_end": 1051
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC003：功能设计_spec.md:1048 明确查询 product 表并校验归属、状态、version；1051 明确更新 version 与 updated_at，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-B6292088C8",
+      "from_node": "ar-UCG-004-UC003",
+      "to_node": "NODE-95A5DAEE15",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC003",
+      "source_location": "功能设计_spec.md:1050-1050",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c9deaaa84b0e71d5",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1050,
+          "line_end": 1050
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-1ea1933212336684",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 1191,
+          "line_end": 1192
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC003：功能设计_spec.md:1050 明确 MerchantProductService 写入/更新 sku 表及字段；1191-1192列出 SKU 接口和更新操作，支持逻辑资源关系。"
+    },
+    {
+      "edge_id": "EDGE-7C3A7662E6",
+      "from_node": "ar-UCG-004-UC004",
+      "to_node": "NODE-0D177DC4DD",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC004",
+      "source_location": "功能设计_spec.md:1093-1096",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1093,
+          "line_end": 1096
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 414
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC004：功能设计_spec.md:1093-1096 明确 MerchantProductService 查询 product/category/sku 表并更新 product 状态；系统需求_spec.md:414 同样要求校验资料、类目、库存和价格。目标是逻辑数据资源集合。"
+    },
+    {
+      "edge_id": "EDGE-50A6A41CEA",
+      "from_node": "ar-UCG-004-UC004",
+      "to_node": "ar-UCG-001-UC002",
+      "relation": "calls",
+      "use_case_id": "UCG-004-UC004",
+      "source_location": "系统需求_spec.md:417-417",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 417,
+          "line_end": 417
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1097,
+          "line_end": 1098
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-ef8a2ea0659f3c60",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 1198,
+          "line_end": 1198
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC004：功能设计_spec.md:1097-1098 明确 MerchantProductService 调用 ProductCatalogService 刷新可售索引并传入 productId/数据，后者更新索引并返回同步结果；系统需求_spec.md:417也要求通知目录服务刷新索引。"
+    },
+    {
+      "edge_id": "EDGE-83B74C12EC",
+      "from_node": "ar-UCG-004-UC004",
+      "to_node": "ar-UCG-001-UC001",
+      "relation": "callback",
+      "use_case_id": "UCG-004-UC004",
+      "source_location": "功能设计_spec.md:1098-1098",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-57aed14ea6783b04",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1098,
+          "line_end": 1098
+        }
+      ],
+      "evidence_status": "confirmed",
+      "evidence_assessment": "UCG-004-UC004：功能设计_spec.md:1098 明确 ProductCatalogService 更新商品检索索引后向 MerchantProductService 返回同步结果，支持该响应方向。"
+    },
+    {
+      "edge_id": "EDGE-2A5F895741",
+      "from_node": "actor-1",
+      "to_node": "FRONTEND-4F837A377C",
+      "relation": "uses_frontend",
+      "use_case_id": "UCG-001-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-E8FA7804C9",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-6C805EB598",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-001-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-30605CA8F6",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-09E01262FC",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-001-UC002",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-18E90F9242",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-6791F10AB5",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-001-UC003",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-14C9E8ADDF",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-555954131C",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-002-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-7405E5DAA0",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-05A44DEF33",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-002-UC002",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-24C032DF87",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-F29992B401",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-002-UC003",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-5B29CE8EE1",
+      "from_node": "actor-2",
+      "to_node": "FRONTEND-BD2FB21D80",
+      "relation": "uses_frontend",
+      "use_case_id": "UCG-003-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-3300EC0C73",
+      "from_node": "FRONTEND-BD2FB21D80",
+      "to_node": "ABSTRACT-80E85992E1",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-003-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-E7D81BE52D",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-3DD04DF564",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-003-UC003",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-F5320A7969",
+      "from_node": "FRONTEND-4F837A377C",
+      "to_node": "ABSTRACT-F2095B298B",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-003-UC004",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-6C1609869C",
+      "from_node": "FRONTEND-BD2FB21D80",
+      "to_node": "ABSTRACT-550445542D",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-004-UC001",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-7C259B8EB1",
+      "from_node": "FRONTEND-BD2FB21D80",
+      "to_node": "ABSTRACT-B3C60656E2",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-004-UC002",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-FCF2920E81",
+      "from_node": "FRONTEND-BD2FB21D80",
+      "to_node": "ABSTRACT-943F5BC74A",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-004-UC003",
+      "mapping_status": "inferred",
+      "source_location": ""
+    },
+    {
+      "edge_id": "EDGE-F94E69FDEE",
+      "from_node": "FRONTEND-BD2FB21D80",
+      "to_node": "ABSTRACT-25D3D367D9",
+      "relation": "serves_use_case",
+      "use_case_id": "UCG-004-UC004",
+      "mapping_status": "inferred",
+      "source_location": ""
+    }
+  ],
+  "review_items": [],
+  "view_id": "system_composition",
+  "view_purpose": "参与关系：Actor → 专属 UI/前端 → 实际参与用例；外部 Service → 有证据的用例",
+  "participation_relations": {
+    "actor_to_frontend": [
+      {
+        "edge_id": "EDGE-2A5F895741",
+        "from_node": "actor-1",
+        "to_node": "FRONTEND-4F837A377C",
+        "relation": "uses_frontend",
+        "use_case_id": "UCG-001-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-5B29CE8EE1",
+        "from_node": "actor-2",
+        "to_node": "FRONTEND-BD2FB21D80",
+        "relation": "uses_frontend",
+        "use_case_id": "UCG-003-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      }
+    ],
+    "frontend_to_use_case": [
+      {
+        "edge_id": "EDGE-E8FA7804C9",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-6C805EB598",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-30605CA8F6",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-09E01262FC",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-18E90F9242",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-6791F10AB5",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-14C9E8ADDF",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-555954131C",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-7405E5DAA0",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-05A44DEF33",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-24C032DF87",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-F29992B401",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-3300EC0C73",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-80E85992E1",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-E7D81BE52D",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-3DD04DF564",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-F5320A7969",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-F2095B298B",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC004",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-6C1609869C",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-550445542D",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-7C259B8EB1",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-B3C60656E2",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-FCF2920E81",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-943F5BC74A",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-F94E69FDEE",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-25D3D367D9",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC004",
+        "mapping_status": "inferred",
+        "source_location": ""
+      }
+    ],
+    "external_service_to_use_case": [
+      {
+        "from_node": "actor-3",
+        "to_use_case": "UCG-002-UC002",
+        "relation": "external_participates_in",
+        "source_location": "系统需求_spec.md:183"
+      },
+      {
+        "from_node": "actor-4",
+        "to_use_case": "UCG-003-UC001",
+        "relation": "external_participates_in",
+        "source_location": "系统需求_spec.md:233"
+      },
+      {
+        "from_node": "actor-4",
+        "to_use_case": "UCG-003-UC002",
+        "relation": "external_participates_in",
+        "source_location": "系统需求_spec.md:258"
+      },
+      {
+        "from_node": "actor-4",
+        "to_use_case": "UCG-003-UC003",
+        "relation": "external_participates_in",
+        "source_location": "系统需求_spec.md:282"
+      },
+      {
+        "from_node": "actor-3",
+        "to_use_case": "UCG-003-UC004",
+        "relation": "external_participates_in",
+        "source_location": "系统需求_spec.md:306"
+      }
+    ]
+  },
+  "frontend_area_attachments": [],
+  "use_case_dependency_graph": {
+    "edges": []
+  },
+  "crud_dependency_graph": {
+    "edges": []
+  },
+  "layout_semantics": "创建用例位于左侧，依赖其数据的 R/U/D 用例位于右侧；CRUD 箭头仍从依赖用例指向创建用例。",
+  "layout": {
+    "type": "grid"
+  },
+  "call_evidence_review": {
+    "dependency_claims_hash": "a008b9c9e896840bc6b09ee43bd478e5d06f7253b9dc79f30cf4941d3de1d4b5",
+    "evidence_review_complete": true,
+    "confirmed_call_count": 40,
+    "pending_call_count": 7
+  }
+}

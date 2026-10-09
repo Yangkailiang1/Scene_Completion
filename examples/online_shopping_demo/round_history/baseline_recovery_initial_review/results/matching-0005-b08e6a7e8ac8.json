@@ -1,0 +1,162 @@
+{
+  "checked_checker_ids": [
+    "CHK-e334d924b044c0587e7b"
+  ],
+  "checked_generated_ids": [
+    "GEN-69F1AC0A02",
+    "GEN-88352D1CC0",
+    "GEN-A80786BF86",
+    "GEN-40BF014705",
+    "GEN-6B2E228FF9",
+    "GEN-54EF0D36E9",
+    "GEN-34CFF8E551",
+    "GEN-2D2E542386"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-69F1AC0A02",
+      "status": "unmatched",
+      "evidence": "Checker describes duplicate payment notification idempotency exception; generated scenario is the main success flow ending in order paid. Different trigger, behavior and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-88352D1CC0",
+      "status": "unmatched",
+      "evidence": "Checker trigger is duplicate payment result notification with idempotent no-reupdate outcome; generated scenario is PaymentService unavailability with retained WAIT_PAY state. Different failure conditions and outcomes.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-A80786BF86",
+      "status": "unmatched",
+      "evidence": "Checker concerns repeated payment notification and idempotency; generated scenario concerns customer cancellation with order staying WAIT_PAY. Incompatible trigger and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-40BF014705",
+      "status": "full",
+      "evidence": "Both target duplicate payment result notification; generated scenario verifies payment result, updates order to PAID then performs idempotent handling with no repeated order update, matching checker's idempotent no-reupdate expected result and duplicate-notification trigger.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-6B2E228FF9",
+      "status": "unmatched",
+      "evidence": "Checker is about duplicate payment result notification idempotency at the notification level; generated scenario is about missing/empty required data when calling PAYMENT-PAY-01. Different failure condition.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-54EF0D36E9",
+      "status": "unmatched",
+      "evidence": "Duplicate of the missing-required-data concern scenario; checker concerns duplicate notification idempotency. Different trigger and behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-34CFF8E551",
+      "status": "unmatched",
+      "evidence": "Checker concerns duplicate payment notification; generated scenario concerns data format non-compliance when calling PAYMENT-PAY-01. Different failure condition.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-2D2E542386",
+      "status": "unmatched",
+      "evidence": "Duplicate of the data-format concern scenario; checker concerns duplicate notification idempotency. Different trigger and behavior.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-40BF014705",
+      "status": "full",
+      "evidence": "两侧触发均为支付结果重复通知，expected_result 均明确系统幂等处理且不重复更新订单。checker 省略支付成功与订单更新的前序步骤，但重复通知的核心处理和结果明确一致，前置条件没有冲突。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "5.a 异常场景：支付结果重复通知。",
+        "generated": "支付结果重复通知。"
+      }
+    }
+  ],
+  "batch_id": "matching-0005-b08e6a7e8ac8",
+  "input_hash": "b08e6a7e8ac85a19e0ebca83e27c767d23360dba032eb3ad74eff5ec5d6682bb",
+  "model": "ecnu-max",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "9fa373d6e681b6b7b3bc3de19df4513704e3df63d38fd650bd04b1a690947349",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+        "generated_scenario_id": "GEN-40BF014705",
+        "status": "partial",
+        "evidence": "两个触发器均指支付结果重复通知这一具体异常条件；共享核心行为是系统对重复支付结果进行幂等处理、不重复更新订单；预期结果一致。生成场景额外包含支付成功后的正常支付流程步骤，并未与异常条件矛盾，但缺少独立异常步骤（如明确列出接收重复通知的步骤）。",
+        "missing_behavior": [
+          "生成场景未将“接收重复支付结果通知”作为独立异常步骤显式列出，仅作为触发器出现。",
+          "前置条件未独立描述异常分支特有前置条件，标注为“待需求确认”。",
+          "后置条件未独立描述异常分支特有后置条件，标注为“待需求确认”。"
+        ],
+        "trigger_quotes": {
+          "checker": "5.a 异常场景：支付结果重复通知。",
+          "generated": "支付结果重复通知。"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0005-b08e6a7e8ac8:0",
+        "status": "full",
+        "same_specific_trigger": true,
+        "shared_core_behavior": true,
+        "same_expected_outcome": true,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "支付结果重复通知。",
+        "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+        "evidence": "两侧触发均为支付结果重复通知，expected_result 均明确系统幂等处理且不重复更新订单。checker 省略支付成功与订单更新的前序步骤，但重复通知的核心处理和结果明确一致，前置条件没有冲突。",
+        "missing_behavior": [],
+        "pair_index": 0
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "9fa373d6e681b6b7b3bc3de19df4513704e3df63d38fd650bd04b1a690947349",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+          "generated_scenario_id": "GEN-40BF014705",
+          "status": "full",
+          "evidence": "Both target duplicate payment result notification; generated scenario verifies payment result, updates order to PAID then performs idempotent handling with no repeated order update, matching checker's idempotent no-reupdate expected result and duplicate-notification trigger.",
+          "missing_behavior": []
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+          "generated_trigger_quote": "支付结果重复通知。",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": true,
+          "compatible_constraints": true,
+          "evidence": "两个触发器均指支付结果重复通知这一具体异常条件；共享核心行为是系统对重复支付结果进行幂等处理、不重复更新订单；预期结果一致。生成场景额外包含支付成功后的正常支付流程步骤，并未与异常条件矛盾，但缺少独立异常步骤（如明确列出接收重复通知的步骤）。",
+          "missing_behavior": [
+            "生成场景未将“接收重复支付结果通知”作为独立异常步骤显式列出，仅作为触发器出现。",
+            "前置条件未独立描述异常分支特有前置条件，标注为“待需求确认”。",
+            "后置条件未独立描述异常分支特有后置条件，标注为“待需求确认”。"
+          ]
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

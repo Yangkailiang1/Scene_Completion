@@ -1,0 +1,4155 @@
+{
+  "schema_version": "three-agent-v1",
+  "role": "checker",
+  "complete": true,
+  "source_hash": "16571f2e08a73a1683a5f8895e425ff0fb00b3b495ebb250c8bfb65946651055",
+  "batch_status": {
+    "stage": "checker",
+    "complete": true,
+    "batch_count": 14,
+    "pending": [],
+    "errors": {},
+    "input_hash": "d52764baaddbc1e149e720e0d6750db80b870a56c4dc80ce911855550aa47e5d"
+  },
+  "scenario_count": 56,
+  "scenarios": [
+    {
+      "name": "顾客浏览商品主成功路径",
+      "scenario_type": "main_success",
+      "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+      "trigger": "顾客进入商品浏览页面，或发起商品搜索、筛选请求。",
+      "scenario_steps": [
+        "① 顾客进入商品浏览页面。",
+        "② 系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。",
+        "③ 顾客输入关键词、选择分类或设置价格、排序条件。",
+        "④ 系统根据条件查询状态为 ON_SALE 的商品。",
+        "⑤ 系统展示符合条件的商品列表和分页信息。"
+      ],
+      "expected_result": "系统展示符合当前条件的可售商品列表。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-aeda6c8ed4183e3d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 88,
+          "line_end": 100
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 85,
+            "line_end": 110
+          }
+        ]
+      },
+      "scenario_id": "CHK-070766467502912bfc37"
+    },
+    {
+      "name": "顾客未设置搜索或筛选条件",
+      "scenario_type": "alternative",
+      "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+      "trigger": "3.a 可选场景：顾客未设置搜索或筛选条件。",
+      "scenario_steps": [
+        "顾客进入商品浏览页面但未输入关键词、未选择分类或未设置价格、排序条件。",
+        "系统按默认规则展示商品。"
+      ],
+      "expected_result": "系统按默认规则展示商品。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-aeda6c8ed4183e3d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 102,
+          "line_end": 103
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 85,
+            "line_end": 110
+          }
+        ]
+      },
+      "scenario_id": "CHK-7fbfa1ab17dba83166bd"
+    },
+    {
+      "name": "未查询到符合条件的商品",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。③ 顾客已设置搜索或筛选条件。",
+      "trigger": "4.a 异常场景：未查询到符合条件的商品。",
+      "scenario_steps": [
+        "系统根据顾客条件查询状态为 ON_SALE 的商品。",
+        "查询结果为空。"
+      ],
+      "expected_result": "系统返回空列表并提示“暂无符合条件的商品”。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.query_retrieval.resource_existence"
+      ],
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-aeda6c8ed4183e3d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 104,
+          "line_end": 105
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 85,
+            "line_end": 110
+          }
+        ]
+      },
+      "scenario_id": "CHK-5e67e0936a275cebc26a",
+      "classification_evidence": {
+        "scenario_id": "CHK-5e67e0936a275cebc26a",
+        "concern_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该异常的唯一失败机制是查询结果为空、无符合条件资源，业务返回空列表并提示“暂无符合条件的商品”，属于查询资源存在性。无超时、格式、权限或外部依赖故障证据，故仅保留 service.query_retrieval.resource_existence。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 99,
+            "line_end": 105
+          }
+        ]
+      }
+    },
+    {
+      "name": "查询参数非法",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+      "trigger": "4.b 异常场景：查询参数非法。",
+      "scenario_steps": [
+        "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+        "系统校验查询参数发现非法。"
+      ],
+      "expected_result": "系统提示顾客修正查询条件。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.legality"
+      ],
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-aeda6c8ed4183e3d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 106,
+          "line_end": 107
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 85,
+            "line_end": 110
+          }
+        ]
+      },
+      "scenario_id": "CHK-3fe019e613999d41e5bf",
+      "classification_evidence": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "concern_keys": [
+          "api.data.legality"
+        ],
+        "reason": "该异常的失败机制是参数取值非法、不允许，系统提示修正查询条件。原始证据未给出具体数值边界或类型不符，不构成 range/type 的直接证据；也无缺失、格式、长度等证据，故仅保留 api.data.legality。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 106,
+            "line_end": 107
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品目录服务超时",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用（但调用时超时）。",
+      "trigger": "4.c 异常场景：商品目录服务超时。",
+      "scenario_steps": [
+        "系统调用商品目录服务查询商品。",
+        "商品目录服务响应超时。"
+      ],
+      "expected_result": "系统提示“商品加载失败，请稍后重试”。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "common.timeout",
+        "service.dependency.availability"
+      ],
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-aeda6c8ed4183e3d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 108,
+          "line_end": 109
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 85,
+            "line_end": 110
+          }
+        ]
+      },
+      "scenario_id": "CHK-88aef7035cd381c9cf82",
+      "classification_evidence": {
+        "scenario_id": "CHK-88aef7035cd381c9cf82",
+        "concern_keys": [
+          "common.timeout",
+          "service.dependency.availability"
+        ],
+        "reason": "该异常同时包含两个直接机制：响应超时（common.timeout）和内部业务服务调用失败（service.dependency.availability）。商品目录服务不是外部第三方系统，故不归 external_service.availability；无契约字段、身份或权限证据，故仅保留这两个键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 108,
+            "line_end": 109
+          }
+        ]
+      }
+    },
+    {
+      "name": "顾客选择商品并查看商品详情",
+      "scenario_type": "main_success",
+      "preconditions": "① 顾客已进入商品列表。② 目标商品处于可浏览状态。",
+      "trigger": "顾客选择一个商品（顾客点击商品）。",
+      "scenario_steps": [
+        "顾客点击商品。",
+        "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+        "系统获取商品描述、图片、价格和库存状态。",
+        "系统展示商品详情页面。"
+      ],
+      "expected_result": "系统展示目标商品的完整详情。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-18bdf243e787704d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 111,
+          "line_end": 125
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 111,
+            "line_end": 133
+          }
+        ]
+      },
+      "scenario_id": "CHK-0b5e7f35242595a4d612"
+    },
+    {
+      "name": "商品不存在",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已进入商品列表。",
+      "trigger": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品不存在。",
+      "scenario_steps": [
+        "顾客点击商品。",
+        "系统通过商品详情接口 API-S-IF2 查询商品信息，商品不存在。",
+        "系统提示“商品不存在”并返回商品列表。"
+      ],
+      "expected_result": "系统提示“商品不存在”并返回商品列表。",
+      "recovery": "返回商品列表。",
+      "concern_keys": [
+        "service.query_retrieval.resource_existence"
+      ],
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-18bdf243e787704d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 127,
+          "line_end": 128
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 111,
+            "line_end": 133
+          }
+        ]
+      },
+      "scenario_id": "CHK-96b0d81b72f06b623793",
+      "classification_evidence": {
+        "scenario_id": "CHK-96b0d81b72f06b623793",
+        "concern_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该异常对应查询商品详情时目标资源不存在，最终分类为 service.query_retrieval.resource_existence。商品不存在是查询结果状态，不是接口请求必填数据缺失或请求体为空，故不引入 api.data.completeness。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 127,
+            "line_end": 128
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品已下架",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已进入商品列表。",
+      "trigger": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品已下架。",
+      "scenario_steps": [
+        "顾客点击商品。",
+        "系统通过商品详情接口 API-S-IF2 查询商品信息，商品已下架。",
+        "系统提示“商品已下架”且禁止购买。"
+      ],
+      "expected_result": "系统提示“商品已下架”且禁止购买。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.query_retrieval.resource_existence",
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-18bdf243e787704d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 129,
+          "line_end": 130
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 111,
+            "line_end": 133
+          }
+        ]
+      },
+      "scenario_id": "CHK-22435214c5b768a5f1dd",
+      "classification_evidence": {
+        "scenario_id": "CHK-22435214c5b768a5f1dd",
+        "concern_keys": [
+          "service.query_retrieval.resource_existence",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "商品已下架同时包含资源已失效的查询状态和禁止购买的业务约束。两者分别由 service.query_retrieval.resource_existence 与 service.resource_mutation.business_constraint 直接表达，故最终分类为这两个键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 129,
+            "line_end": 130
+          }
+        ]
+      }
+    },
+    {
+      "name": "部分非关键展示信息缺失",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已进入商品列表。② 目标商品处于可浏览状态。",
+      "trigger": "步骤 3 系统获取商品描述、图片、价格和库存状态时，部分非关键展示信息缺失。",
+      "scenario_steps": [
+        "顾客点击商品。",
+        "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+        "系统获取商品描述、图片、价格和库存状态，部分非关键展示信息缺失。",
+        "系统展示已有信息并隐藏缺失区域。"
+      ],
+      "expected_result": "系统展示已有信息并隐藏缺失区域。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.display_interaction.display_correctness"
+      ],
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-18bdf243e787704d",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 131,
+          "line_end": 132
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 111,
+            "line_end": 133
+          }
+        ]
+      },
+      "scenario_id": "CHK-2031266bdbc5770f83f6",
+      "classification_evidence": {
+        "scenario_id": "CHK-2031266bdbc5770f83f6",
+        "concern_keys": [
+          "service.display_interaction.display_correctness"
+        ],
+        "reason": "该异常发生在展示层信息缺失的处理，最终分类为 service.display_interaction.display_correctness。不是接口必填数据缺失或格式错误，故不引入 api.data.completeness 或 api.data.format。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 131,
+            "line_end": 132
+          }
+        ]
+      }
+    },
+    {
+      "name": "顾客选择SKU和数量后成功加入购物车",
+      "scenario_type": "main_success",
+      "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+      "trigger": "顾客在商品详情页选择SKU和数量并点击“加入购物车”。",
+      "scenario_steps": [
+        "① 顾客选择SKU和购买数量。",
+        "② 系统校验商品状态、库存和限购规则。",
+        "③ 系统调用购物车写入接口 API-C-IF1。",
+        "④ 系统更新购物车商品数量和金额摘要。",
+        "⑤ 系统提示“已加入购物车”。"
+      ],
+      "expected_result": "商品及购买数量被保存到顾客购物车，系统更新购物车商品数量和金额摘要并提示“已加入购物车”。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-e41c63c68d42dcb5",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 134,
+          "line_end": 149
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 134,
+            "line_end": 157
+          }
+        ]
+      },
+      "scenario_id": "CHK-b102b8270eb4b460f17c"
+    },
+    {
+      "name": "库存不足时提示当前可购买数量",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+      "trigger": "系统校验商品状态、库存和限购规则时发现库存不足。",
+      "scenario_steps": [
+        "① 顾客选择SKU和购买数量。",
+        "② 系统校验商品状态、库存和限购规则，发现库存不足。"
+      ],
+      "expected_result": "系统提示当前可购买数量。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-e41c63c68d42dcb5",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 146,
+          "line_end": 152
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 134,
+            "line_end": 157
+          }
+        ]
+      },
+      "scenario_id": "CHK-806e5a4b0a34df92413e",
+      "classification_evidence": {
+        "scenario_id": "CHK-806e5a4b0a34df92413e",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景是加入购物车变更操作因库存这一业务前置条件不满足而失败，系统不写入购物车，属于业务约束类失败机制。库存不足并非数据缺失、格式、范围或外部服务问题，唯一分类键 service.resource_mutation.business_constraint 成立；未发现定义更贴切的遗漏键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 146,
+            "line_end": 152
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品已下架时拒绝加入购物车",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+      "trigger": "系统校验商品状态时发现商品已下架。",
+      "scenario_steps": [
+        "① 顾客选择SKU和购买数量。",
+        "② 系统校验商品状态、库存和限购规则，发现商品已下架。"
+      ],
+      "expected_result": "系统拒绝加入购物车。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-e41c63c68d42dcb5",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 146,
+          "line_end": 154
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 134,
+            "line_end": 157
+          }
+        ]
+      },
+      "scenario_id": "CHK-f9417fc2545bae75adae",
+      "classification_evidence": {
+        "scenario_id": "CHK-f9417fc2545bae75adae",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景是商品下架导致业务可售条件不满足，系统拒绝加入购物车变更，属于业务约束。下架状态是业务规则结果而非资源不存在、数据格式或外部调用失败，故 service.resource_mutation.business_constraint 成立；前置条件第139行明确“商品及所选SKU处于可售状态”。另注意分类键名称中的“resource_mutation”指变更操作，虽涉及读取商品状态，但失败机制落在变更被业务条件拦截上，故仍归入该键；未发现定义更贴切的遗漏键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 146,
+            "line_end": 154
+          }
+        ]
+      }
+    },
+    {
+      "name": "购物车已存在相同SKU时累加数量",
+      "scenario_type": "alternative",
+      "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+      "trigger": "调用购物车写入接口 API-C-IF1 时购物车中已存在相同SKU。",
+      "scenario_steps": [
+        "① 顾客选择SKU和购买数量。",
+        "② 系统校验商品状态、库存和限购规则。",
+        "③ 系统调用购物车写入接口 API-C-IF1，检测到购物车中已存在相同SKU。",
+        "④ 系统累加数量，但不得超过库存和限购上限。"
+      ],
+      "expected_result": "系统累加数量，但不得超过库存和限购上限。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-e41c63c68d42dcb5",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 147,
+          "line_end": 156
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 134,
+            "line_end": 157
+          }
+        ]
+      },
+      "scenario_id": "CHK-75525b22e2c90a9d7e50"
+    },
+    {
+      "name": "顾客成功创建订单",
+      "scenario_type": "main_success",
+      "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+      "trigger": "顾客在结算页确认提交订单",
+      "scenario_steps": [
+        "系统读取顾客选中的购物车商品",
+        "系统校验价格、库存和促销有效性",
+        "顾客确认收货地址和订单金额",
+        "系统通过订单创建接口 API-O-IF1 创建订单",
+        "系统锁定库存并返回订单编号和待支付金额"
+      ],
+      "expected_result": "系统生成状态为 WAIT_PAY 的订单并锁定相应库存，返回订单编号和待支付金额",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-25eb14421da072fa",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 158,
+          "line_end": 182
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 158,
+            "line_end": 182
+          }
+        ]
+      },
+      "scenario_id": "CHK-454b1b7e1b9fcbbcbeba"
+    },
+    {
+      "name": "商品价格已变化",
+      "scenario_type": "requirement_exception",
+      "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+      "trigger": "系统校验价格、库存和促销有效性时，发现商品价格已变化",
+      "scenario_steps": [
+        "系统读取顾客选中的购物车商品",
+        "系统校验价格、库存和促销有效性时，发现商品价格已变化",
+        "系统展示最新价格并要求顾客重新确认"
+      ],
+      "expected_result": "系统展示最新价格并要求顾客重新确认",
+      "recovery": "系统展示最新价格并要求顾客重新确认",
+      "concern_keys": [
+        "service.display_interaction.display_correctness",
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-25eb14421da072fa",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 176,
+          "line_end": 177
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 158,
+            "line_end": 182
+          }
+        ]
+      },
+      "scenario_id": "CHK-0c52832445a8daf9e227",
+      "classification_evidence": {
+        "scenario_id": "CHK-0c52832445a8daf9e227",
+        "concern_keys": [
+          "service.display_interaction.display_correctness",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景的失败机制是结算校验发现选中商品价格已变化，导致原确认前提失效，并驱动展示最新价格与重新确认。因此选 service.resource_mutation.business_constraint（业务条件不满足继续下单）与 service.display_interaction.display_correctness（展示最新价格必须与业务实况一致）。未选 api.data.*，因为价格变化不是请求数据格式、类型或范围问题；未选 service.query_retrieval.result_correctness，因为这里不是查询结果错误或数据越权，而是业务时效导致的价格失效。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 176,
+            "line_end": 177
+          }
+        ]
+      }
+    },
+    {
+      "name": "库存不足",
+      "scenario_type": "requirement_exception",
+      "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+      "trigger": "系统校验价格、库存和促销有效性时，发现库存不足",
+      "scenario_steps": [
+        "系统读取顾客选中的购物车商品",
+        "系统校验价格、库存和促销有效性时，发现库存不足",
+        "系统标记缺货商品并阻止订单创建"
+      ],
+      "expected_result": "系统标记缺货商品并阻止订单创建",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-25eb14421da072fa",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 178,
+          "line_end": 179
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 158,
+            "line_end": 182
+          }
+        ]
+      },
+      "scenario_id": "CHK-f160dcbfd73b8b29618f",
+      "classification_evidence": {
+        "scenario_id": "CHK-f160dcbfd73b8b29618f",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景失败机制是订单创建前校验发现库存不足，业务条件不满足，系统标记缺货并阻止创建。仅 service.resource_mutation.business_constraint 有直接文本支撑。internal_database.concurrency_consistency 需要并发更新冲突或覆盖的证据，而原始需求未提及并发写入机制，故排除。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 178,
+            "line_end": 179
+          }
+        ]
+      }
+    },
+    {
+      "name": "重复提交",
+      "scenario_type": "requirement_exception",
+      "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+      "trigger": "顾客在结算页确认提交订单时，系统检测到重复提交",
+      "scenario_steps": [
+        "顾客在结算页确认提交订单",
+        "系统检测到重复提交",
+        "系统根据幂等标识返回已创建的订单"
+      ],
+      "expected_result": "系统根据幂等标识返回已创建的订单",
+      "recovery": "系统根据幂等标识返回已创建的订单",
+      "concern_keys": [
+        "internal_database.idempotency",
+        "service.resource_mutation.concurrency_idempotency"
+      ],
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-25eb14421da072fa",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 180,
+          "line_end": 181
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 158,
+            "line_end": 182
+          }
+        ]
+      },
+      "scenario_id": "CHK-69c91d08774029d46b73",
+      "classification_evidence": {
+        "scenario_id": "CHK-69c91d08774029d46b73",
+        "concern_keys": [
+          "internal_database.idempotency",
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "该场景失败机制是确认提交时检测到重复提交，系统以幂等标识返回已创建订单，核心是重复请求不得重复创建订单。service.resource_mutation.concurrency_idempotency 覆盖服务变更层重复变更防护，internal_database.idempotency 覆盖持久层重复操作异常防护，二者均由幂等标识文本直接支撑。未选 internal_database.uniqueness，因为没有唯一键冲突或名称重复证据；未选 external_service.*，因为没有涉及第三方服务调用。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 180,
+            "line_end": 181
+          }
+        ]
+      }
+    },
+    {
+      "name": "顾客发起订单支付并完成支付",
+      "scenario_type": "main_success",
+      "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+      "trigger": "顾客选择支付方式并确认支付",
+      "scenario_steps": [
+        "① 顾客发起订单支付。",
+        "② 系统校验订单状态和应付金额。",
+        "③ 系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求。",
+        "④ PaymentService完成支付并返回成功结果。",
+        "⑤ 系统校验支付结果并将订单更新为 PAID。",
+        "⑥ 系统向顾客展示支付成功页面。"
+      ],
+      "expected_result": "订单状态更新为 PAID，并记录支付流水，向顾客展示支付成功页面。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 189,
+          "line_end": 200
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 183,
+            "line_end": 208
+          }
+        ]
+      },
+      "scenario_id": "CHK-f8736c8c4dbe882dc81d"
+    },
+    {
+      "name": "PaymentService不可用",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+      "trigger": "3.a 异常场景：PaymentService不可用。",
+      "scenario_steps": [
+        "系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求时，PaymentService不可用。"
+      ],
+      "expected_result": "系统保留待支付状态并提示稍后重试。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "external_service.availability"
+      ],
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 202,
+          "line_end": 203
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 183,
+            "line_end": 208
+          }
+        ]
+      },
+      "scenario_id": "CHK-03c6a9972c7a1450af5f",
+      "classification_evidence": {
+        "scenario_id": "CHK-03c6a9972c7a1450af5f",
+        "concern_keys": [
+          "external_service.availability"
+        ],
+        "reason": "仅保留external_service.availability。故障发生在系统边界之外的第三方PaymentService调用上，属外部服务可用性问题；期望结果只是状态保留与用户提示，未涉及内部依赖服务失败、数据契约、超时条件或数据库机制，故不以其他键替代。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 197,
+            "line_end": 203
+          }
+        ]
+      }
+    },
+    {
+      "name": "顾客取消支付",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+      "trigger": "4.a 异常场景：顾客取消支付。",
+      "scenario_steps": [
+        "顾客在支付过程中取消支付。"
+      ],
+      "expected_result": "系统返回订单详情，订单保持 WAIT_PAY。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.workflow.interruption"
+      ],
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 204,
+          "line_end": 205
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 183,
+            "line_end": 208
+          }
+        ]
+      },
+      "scenario_id": "CHK-138a928b92687a45f739",
+      "classification_evidence": {
+        "scenario_id": "CHK-138a928b92687a45f739",
+        "concern_keys": [
+          "service.workflow.interruption"
+        ],
+        "reason": "仅保留service.workflow.interruption。参与者主动取消已发起的支付流程，核心验证点是流程中止后的终止状态（订单仍为WAIT_PAY）与副作用控制，属业务流程取消与中止范畴；不涉及外部服务失败、数据契约或幂等机制。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 194,
+            "line_end": 205
+          }
+        ]
+      }
+    },
+    {
+      "name": "支付结果重复通知",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+      "trigger": "5.a 异常场景：支付结果重复通知。",
+      "scenario_steps": [
+        "PaymentService发送重复的支付结果通知。"
+      ],
+      "expected_result": "系统进行幂等处理，不重复更新订单。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.concurrency_idempotency"
+      ],
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-1ffdfbdc487c95fe",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 206,
+          "line_end": 207
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 183,
+            "line_end": 208
+          }
+        ]
+      },
+      "scenario_id": "CHK-e334d924b044c0587e7b",
+      "classification_evidence": {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "concern_keys": [
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "仅保留service.resource_mutation.concurrency_idempotency。触发机制为外部合法支付结果通知的重复投递引发对订单的重复变更，属于重复请求导致重复变更的并发与幂等问题；外部契约类键被排除（单条通知格式合规），也不推断数据库级幂等或跨服务一致性。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 198,
+            "line_end": 207
+          }
+        ]
+      }
+    },
+    {
+      "name": "查看订单详情成功",
+      "scenario_type": "main_success",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客。",
+      "trigger": "顾客从订单列表选择一个订单，并提交订单编号。",
+      "scenario_steps": [
+        "顾客提交订单编号。",
+        "系统校验订单归属关系。",
+        "系统通过订单详情接口 API-O-IF2 查询订单。",
+        "系统组合订单商品、金额、支付和物流摘要。",
+        "系统展示订单详情。"
+      ],
+      "expected_result": "系统展示订单的商品、金额、支付和履约信息。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 211,
+          "line_end": 224
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 209,
+            "line_end": 232
+          }
+        ]
+      },
+      "scenario_id": "CHK-d5b7b9c2abad4dfabaee"
+    },
+    {
+      "name": "订单不属于当前顾客",
+      "scenario_type": "requirement_exception",
+      "preconditions": "顾客已登录；订单可能不属于当前顾客。",
+      "trigger": "系统校验订单归属关系时发现订单不属于当前顾客。",
+      "scenario_steps": [
+        "系统校验订单归属关系。",
+        "系统判定订单不属于当前顾客。"
+      ],
+      "expected_result": "系统拒绝访问并记录安全事件。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "human.authorization"
+      ],
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 213,
+          "line_end": 214
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 221,
+          "line_end": 221
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 226,
+          "line_end": 227
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 209,
+            "line_end": 232
+          }
+        ]
+      },
+      "scenario_id": "CHK-59bdd199f4d9c2851429",
+      "classification_evidence": {
+        "scenario_id": "CHK-59bdd199f4d9c2851429",
+        "concern_keys": [
+          "human.authorization"
+        ],
+        "reason": "该场景的唯一失败机制是订单归属关系校验失败，即已登录顾客越权访问他人订单资源，被系统拒绝并记录安全事件。唯一支持的分类为 human.authorization（水平越权）。未提出其他键，且无定义能更贴切表达此机制（api.data.legality 指数据取值非法，而非资源归属越权）。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 213,
+            "line_end": 214
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 221,
+            "line_end": 221
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 226,
+            "line_end": 227
+          }
+        ]
+      }
+    },
+    {
+      "name": "订单不存在",
+      "scenario_type": "requirement_exception",
+      "preconditions": "顾客已登录；订单属于当前顾客。",
+      "trigger": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+      "scenario_steps": [
+        "系统通过订单详情接口 API-O-IF2 查询订单。",
+        "系统未查到对应订单。"
+      ],
+      "expected_result": "系统提示“订单不存在”。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.query_retrieval.resource_existence"
+      ],
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 213,
+          "line_end": 214
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 222,
+          "line_end": 222
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 228,
+          "line_end": 229
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 209,
+            "line_end": 232
+          }
+        ]
+      },
+      "scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+      "classification_evidence": {
+        "scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+        "concern_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该场景失败机制为查询目标订单资源不存在，系统以“订单不存在”提示收束。唯一支持的分类为 service.query_retrieval.resource_existence。未提出 external_service 相关键，且无证据表明涉及数据库实现或跨服务一致性，不应据业务实体推断。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 222,
+            "line_end": 222
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 228,
+            "line_end": 229
+          }
+        ]
+      }
+    },
+    {
+      "name": "订单尚未发货",
+      "scenario_type": "alternative",
+      "preconditions": "顾客已登录；订单属于当前顾客。",
+      "trigger": "系统组合订单商品、金额、支付和物流摘要时，订单尚未发货。",
+      "scenario_steps": [
+        "系统组合订单商品、金额、支付和物流摘要。",
+        "系统判定订单尚未发货。"
+      ],
+      "expected_result": "系统不展示物流轨迹。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 213,
+          "line_end": 214
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 223,
+          "line_end": 223
+        },
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-231badca1ad1bc2b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 230,
+          "line_end": 231
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 209,
+            "line_end": 232
+          }
+        ]
+      },
+      "scenario_id": "CHK-b3ad0500eb013a19914d"
+    },
+    {
+      "name": "商家发货主成功路径",
+      "scenario_type": "main_success",
+      "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备。",
+      "trigger": "商家填写承运商和物流单号后确认发货。",
+      "scenario_steps": [
+        "商家选择待发货订单。",
+        "系统校验订单状态和商家权限。",
+        "系统调用发货接口 API-L-IF1 创建发货记录。",
+        "系统向 LogisticsService 登记物流单。",
+        "系统保存物流单号并将订单更新为 SHIPPED。"
+      ],
+      "expected_result": "订单状态更新为 SHIPPED，并保存物流单号。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-c4edb8dcadf9cfe8",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 236,
+          "line_end": 249
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 233,
+            "line_end": 257
+          }
+        ]
+      },
+      "scenario_id": "CHK-5514121431ac36cd5c10"
+    },
+    {
+      "name": "订单状态不是 PAID 时拒绝发货",
+      "scenario_type": "requirement_exception",
+      "preconditions": "订单状态为 PAID；商品已完成出库准备。",
+      "trigger": "步骤 2 中系统校验发现订单状态不是 PAID。",
+      "scenario_steps": [
+        "系统校验订单状态和商家权限。",
+        "系统发现订单状态不是 PAID。"
+      ],
+      "expected_result": "系统拒绝发货。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-c4edb8dcadf9cfe8",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 246,
+          "line_end": 252
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 233,
+            "line_end": 257
+          }
+        ]
+      },
+      "scenario_id": "CHK-e8627f5835b2dfc07e05",
+      "classification_evidence": {
+        "scenario_id": "CHK-e8627f5835b2dfc07e05",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "触发器与扩展路径 2.a 语义一致：订单状态不是 PAID 时系统拒绝发货。该失败由业务前置条件未满足驱动，唯一匹配的原子分类为 service.resource_mutation.business_constraint，未发现其他被证据直接支持的分类键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 236,
+            "line_end": 252
+          }
+        ]
+      }
+    },
+    {
+      "name": "物流单号格式错误时提示商家修正",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备；商家已填写承运商和物流单号。",
+      "trigger": "步骤 3 中物流单号格式错误。",
+      "scenario_steps": [
+        "系统调用发货接口 API-L-IF1 创建发货记录。",
+        "系统检测到物流单号格式错误。"
+      ],
+      "expected_result": "系统提示商家修正。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.format"
+      ],
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-c4edb8dcadf9cfe8",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 247,
+          "line_end": 254
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 233,
+            "line_end": 257
+          }
+        ]
+      },
+      "scenario_id": "CHK-e5029d0f39400b451bec",
+      "classification_evidence": {
+        "scenario_id": "CHK-e5029d0f39400b451bec",
+        "concern_keys": [
+          "api.data.format"
+        ],
+        "reason": "触发器明确为物流单号格式错误，发生在发货接口调用阶段。该失败由数据格式不符合规范引起，恰好匹配 api.data.format。未发现需新增的其他分类键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 247,
+            "line_end": 254
+          }
+        ]
+      }
+    },
+    {
+      "name": "LogisticsService 暂时不可用时保留待同步记录并重试",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备。",
+      "trigger": "步骤 4 中 LogisticsService 暂时不可用。",
+      "scenario_steps": [
+        "系统向 LogisticsService 登记物流单。",
+        "系统发现 LogisticsService 暂时不可用。"
+      ],
+      "expected_result": "系统保留待同步记录并进入重试队列。",
+      "recovery": "系统保留待同步记录并进入重试队列。",
+      "concern_keys": [
+        "external_service.availability"
+      ],
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-c4edb8dcadf9cfe8",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 248,
+          "line_end": 256
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 233,
+            "line_end": 257
+          }
+        ]
+      },
+      "scenario_id": "CHK-b278565690498914751f",
+      "classification_evidence": {
+        "scenario_id": "CHK-b278565690498914751f",
+        "concern_keys": [
+          "external_service.availability"
+        ],
+        "reason": "触发器中的 LogisticsService 是明确的外部第三方物流服务（ACT-004），其不可用属于外部服务可用性故障。证据仅支持 external_service.availability，故保留该键；未发现其他被证据直接支持或遗漏的分类键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-edc597e30efb8a5e",
+            "heading_path": [
+              "需求[RR-DELTA-001]描述",
+              "系统上下文"
+            ],
+            "line_start": 27,
+            "line_end": 36
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 248,
+            "line_end": 256
+          }
+        ]
+      }
+    },
+    {
+      "name": "LogisticsService推送新物流轨迹并成功更新物流信息",
+      "scenario_type": "main_success",
+      "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+      "trigger": "LogisticsService产生新的物流轨迹。",
+      "scenario_steps": [
+        "LogisticsService通过物流事件协议 LOGI-EVT-01 推送轨迹。",
+        "系统校验消息签名和物流单号。",
+        "系统校验物流节点的时间顺序。",
+        "系统保存新的物流节点。",
+        "系统更新订单物流摘要。"
+      ],
+      "expected_result": "商城保存最新物流节点并更新物流状态。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 261,
+          "line_end": 273
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 258,
+            "line_end": 281
+          }
+        ]
+      },
+      "scenario_id": "CHK-a42d92dda40462a74277"
+    },
+    {
+      "name": "签名校验失败",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+      "trigger": "主成功路径第2步校验消息签名时签名校验失败。",
+      "scenario_steps": [
+        "系统执行消息签名校验。",
+        "签名校验失败。"
+      ],
+      "expected_result": "系统拒绝消息并记录安全告警。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "external_service.identity"
+      ],
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 270,
+          "line_end": 276
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 258,
+            "line_end": 281
+          }
+        ]
+      },
+      "scenario_id": "CHK-780641148ecd16c7fd58",
+      "classification_evidence": {
+        "scenario_id": "CHK-780641148ecd16c7fd58",
+        "concern_keys": [
+          "external_service.identity"
+        ],
+        "reason": "该场景是外部参与者LogisticsService推送消息时签名验证失败，唯一机制是调用方身份无法确认，因此仅归入external_service.identity。不涉及字段缺失/格式/版本（契约）或权限函数级授权，也无超时、数据库或内部服务失败机制。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 260,
+            "line_end": 276
+          }
+        ]
+      }
+    },
+    {
+      "name": "收到重复物流节点",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+      "trigger": "主成功路径第3步校验物流节点时收到重复物流节点。",
+      "scenario_steps": [
+        "系统校验物流节点。",
+        "检测到该物流节点为重复节点。"
+      ],
+      "expected_result": "系统进行幂等处理。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "internal_database.idempotency"
+      ],
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 271,
+          "line_end": 278
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 258,
+            "line_end": 281
+          }
+        ]
+      },
+      "scenario_id": "CHK-639f4f77b8d00ff0914c",
+      "classification_evidence": {
+        "scenario_id": "CHK-639f4f77b8d00ff0914c",
+        "concern_keys": [
+          "internal_database.idempotency"
+        ],
+        "reason": "触发条件即重复物流节点，预期为幂等处理，机制单一明确地对应internal_database.idempotency。未涉及字段合法性、唯一性约束或并发冲突，也无外部服务调用或超时条件，故不添加其他键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 271,
+            "line_end": 278
+          }
+        ]
+      }
+    },
+    {
+      "name": "物流节点时间早于已保存节点",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+      "trigger": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+      "scenario_steps": [
+        "系统校验物流节点的时间顺序。",
+        "发现新物流节点时间早于已保存节点。"
+      ],
+      "expected_result": "系统保留原状态并将异常消息送入审核队列。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 271,
+          "line_end": 280
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 258,
+            "line_end": 281
+          }
+        ]
+      },
+      "scenario_id": "CHK-e8fa603f5daa44b41293",
+      "classification_evidence": {
+        "scenario_id": "CHK-e8fa603f5daa44b41293",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "场景失败根因是业务时间顺序约束不满足，系统以保留原状态加审核队列方式处理不合规变更，对应service.resource_mutation.business_constraint。重复节点机制已由另一场景承载，本场景触发条件是逆序时间而非重复请求，故不保留internal_database.idempotency。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 271,
+            "line_end": 280
+          }
+        ]
+      }
+    },
+    {
+      "name": "顾客查询物流信息（主成功路径）",
+      "scenario_type": "main_success",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已发货。",
+      "trigger": "顾客在订单详情页点击“查看物流”。",
+      "scenario_steps": [
+        "顾客发起物流查询。",
+        "系统通过物流查询接口 API-L-IF2读取本地轨迹。",
+        "当本地数据过期时，系统调用LogisticsService查询最新轨迹。",
+        "系统按时间顺序整理物流节点。",
+        "系统向顾客展示物流信息。"
+      ],
+      "expected_result": "系统展示最新物流状态和轨迹。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-4663ba431ec36b48",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 282,
+          "line_end": 305
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 282,
+            "line_end": 305
+          }
+        ]
+      },
+      "scenario_id": "CHK-ce609766bdb14e7e2f53"
+    },
+    {
+      "name": "订单尚未发货",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客但尚未发货。",
+      "trigger": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+      "scenario_steps": [
+        "顾客发起物流查询。",
+        "系统检测到订单尚未发货。"
+      ],
+      "expected_result": "系统提示“商家尚未发货”。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-4663ba431ec36b48",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 285,
+          "line_end": 300
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 282,
+            "line_end": 305
+          }
+        ]
+      },
+      "scenario_id": "CHK-93dbf4d7306619c69a90",
+      "classification_evidence": {
+        "scenario_id": "CHK-93dbf4d7306619c69a90",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景是扩展路径2.a（第299行），描述订单业务状态未达到已发货的前置条件即发起物流查询，系统拒绝并提示商家尚未发货。失败机制为业务状态前置条件不满足，唯一匹配的既有定义是 service.resource_mutation.business_constraint。不新增键：无数据格式/存在性/依赖/并发证据。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 285,
+            "line_end": 300
+          }
+        ]
+      }
+    },
+    {
+      "name": "外部物流服务查询失败",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已发货。③ 本地数据已过期，需调用LogisticsService。",
+      "trigger": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "scenario_steps": [
+        "顾客发起物流查询。",
+        "系统通过物流查询接口 API-L-IF2读取本地轨迹。",
+        "本地数据过期，系统调用LogisticsService查询最新轨迹。",
+        "外部物流服务查询失败。"
+      ],
+      "expected_result": "系统展示最近一次成功同步的数据并标记更新时间。",
+      "recovery": "系统回退展示最近一次成功同步的数据并标记更新时间。",
+      "concern_keys": [
+        "external_service.availability",
+        "service.display_interaction.display_correctness"
+      ],
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-4663ba431ec36b48",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 294,
+          "line_end": 302
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 282,
+            "line_end": 305
+          }
+        ]
+      },
+      "scenario_id": "CHK-f5a9fce6189033287f2b",
+      "classification_evidence": {
+        "scenario_id": "CHK-f5a9fce6189033287f2b",
+        "concern_keys": [
+          "external_service.availability",
+          "service.display_interaction.display_correctness"
+        ],
+        "reason": "该场景是扩展路径3.a（第301行），失败原因为外部第三方物流服务活跃查询失败，属外部服务可用性；其补救要求也对展示内容与真实数据状态的一致性提出约束，故显示正确性亦直接成立。未命中external_service.contract——无返回字段缺失、格式改变或版本不兼容证据；亦无身份或权限证据（actor为已登录顾客）。不新增键：service.display_interaction.render_performance需渲染耗时证据，service.dependency.availability针对已声明的内部业务服务，均不适用。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 294,
+            "line_end": 302
+          }
+        ]
+      }
+    },
+    {
+      "name": "物流已签收",
+      "scenario_type": "alternative",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已发货。③ 物流已签收。",
+      "trigger": "整理物流节点时发现物流已签收（主成功路径步骤4）。",
+      "scenario_steps": [
+        "顾客发起物流查询。",
+        "系统读取或同步物流轨迹。",
+        "系统按时间顺序整理物流节点。",
+        "系统识别物流已签收。"
+      ],
+      "expected_result": "系统展示签收时间和签收状态。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-4663ba431ec36b48",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 296,
+          "line_end": 304
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 282,
+            "line_end": 305
+          }
+        ]
+      },
+      "scenario_id": "CHK-d4eaaef76ea35d3d64b0"
+    },
+    {
+      "name": "顾客成功提交退款申请",
+      "scenario_type": "main_success",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+      "trigger": "顾客在订单详情页选择退款原因并提交。",
+      "scenario_steps": [
+        "顾客选择退款商品、数量和原因。",
+        "系统校验订单和可退款金额。",
+        "系统通过退款申请接口 API-R-IF1 创建退款单。",
+        "系统向PaymentService提交退款请求。",
+        "系统保存退款流水并展示处理状态。"
+      ],
+      "expected_result": "系统生成退款申请并返回申请编号。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 308,
+          "line_end": 322
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 306,
+            "line_end": 330
+          }
+        ]
+      },
+      "scenario_id": "CHK-e300ad05cc1e283ae429"
+    },
+    {
+      "name": "超过退款期限",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+      "trigger": "系统校验订单和可退款金额时，发现超过退款期限。",
+      "scenario_steps": [
+        "系统校验订单和可退款金额时，发现超过退款期限。"
+      ],
+      "expected_result": "系统拒绝申请并说明原因。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 323,
+          "line_end": 325
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 306,
+            "line_end": 330
+          }
+        ]
+      },
+      "scenario_id": "CHK-5a4569f33268c8719354",
+      "classification_evidence": {
+        "scenario_id": "CHK-5a4569f33268c8719354",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景仅在系统校验订单和可退款金额阶段检测到退款期限已过，属于业务条件不满足退款变更要求的资源变更业务约束失败；不涉及数据格式、范围、外部服务或数据库实现，故唯一分类为业务约束。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 323,
+            "line_end": 325
+          }
+        ]
+      }
+    },
+    {
+      "name": "申请金额超过可退款金额",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+      "trigger": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+      "scenario_steps": [
+        "系统校验订单和可退款金额时，发现申请金额超过可退款金额。"
+      ],
+      "expected_result": "系统提示顾客调整退款内容。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.range",
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 326,
+          "line_end": 327
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 306,
+            "line_end": 330
+          }
+        ]
+      },
+      "scenario_id": "CHK-89f43df1b1cff6178b7a",
+      "classification_evidence": {
+        "scenario_id": "CHK-89f43df1b1cff6178b7a",
+        "concern_keys": [
+          "api.data.range",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景包含两层失败机制：一是退款金额不得超出可退款金额的业务约束被违反，二是金额数值超出系统允许范围。两者均有直接定义支持，故保留业务约束与数据范围两个分类；未涉及格式、类型、完整性或外部服务。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 326,
+            "line_end": 327
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaymentService暂时不可用",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+      "trigger": "系统向PaymentService提交退款请求时，PaymentService暂时不可用。",
+      "scenario_steps": [
+        "系统向PaymentService提交退款请求时，PaymentService暂时不可用。"
+      ],
+      "expected_result": "系统保存待处理退款单并异步重试。",
+      "recovery": "系统保存待处理退款单并异步重试。",
+      "concern_keys": [
+        "external_service.availability"
+      ],
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-998ed07be8f3ae1b",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 328,
+          "line_end": 329
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 306,
+            "line_end": 330
+          }
+        ]
+      },
+      "scenario_id": "CHK-381d441fe9966817b11d",
+      "classification_evidence": {
+        "scenario_id": "CHK-381d441fe9966817b11d",
+        "concern_keys": [
+          "external_service.availability"
+        ],
+        "reason": "PaymentService 是第三方支付服务（外部系统/边界外），其暂时不可用导致退款请求无法提交，符合外部服务可用性定义；系统保存待处理退款单并异步重试不改变失败机制，未涉及契约、权限、超时或内部依赖，故唯一分类为外部服务可用性。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 328,
+            "line_end": 329
+          }
+        ]
+      }
+    },
+    {
+      "name": "商家成功创建商品草稿",
+      "scenario_type": "main_success",
+      "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限",
+      "trigger": "商家在商品管理页面点击\"创建商品\"",
+      "scenario_steps": [
+        "商家发起商品创建",
+        "系统校验商家身份和权限",
+        "系统调用商品创建接口 API-M-IF1",
+        "系统生成商品编号并创建空白草稿",
+        "系统进入商品信息编辑页面"
+      ],
+      "expected_result": "系统创建状态为 DRAFT 的商品并返回商品编号，进入商品信息编辑页面",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-004-UC001",
+      "use_case_name": "创建商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-649a5506d78a5dce",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 333,
+          "line_end": 346
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      },
+      "scenario_id": "CHK-db17621895a7cdd75e20"
+    },
+    {
+      "name": "商家资质已失效时拒绝创建",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商家已登录；商家资质已失效",
+      "trigger": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+      "scenario_steps": [
+        "系统校验商家身份和权限时检测到商家资质已失效",
+        "系统拒绝创建并提示重新认证"
+      ],
+      "expected_result": "系统拒绝创建并提示重新认证",
+      "recovery": "提示商家重新认证",
+      "concern_keys": [
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-004-UC001",
+      "use_case_name": "创建商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-649a5506d78a5dce",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 343,
+          "line_end": 349
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      },
+      "scenario_id": "CHK-3215aadd6ba1899db048",
+      "classification_evidence": {
+        "scenario_id": "CHK-3215aadd6ba1899db048",
+        "concern_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "场景触发于步骤②校验商家身份和权限时发现商家资质已失效（扩展路径 2.a），系统拒绝创建并提示重新认证。驳回 human.authentication：资质失效属于业务资格/许可前置条件不满足，不等同于无凭证或 Token 无效过期。采纳 service.resource_mutation.business_constraint：该定义直接表达“当前业务条件不满足变更要求”这一具体失败机制。最终 concern_keys = [service.resource_mutation.business_constraint]。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 343,
+            "line_end": 349
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      }
+    },
+    {
+      "name": "重复提交时返回已有草稿",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限；存在相同幂等标识的先前创建请求",
+      "trigger": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "scenario_steps": [
+        "商家重复发起商品创建提交",
+        "系统识别重复提交及幂等标识",
+        "系统根据幂等标识返回已有草稿"
+      ],
+      "expected_result": "系统根据幂等标识返回已有草稿，不重复创建商品",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.resource_mutation.concurrency_idempotency"
+      ],
+      "use_case_id": "UCG-004-UC001",
+      "use_case_name": "创建商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-649a5506d78a5dce",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 350,
+          "line_end": 351
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      },
+      "scenario_id": "CHK-9827f20c28e4db22a5ed",
+      "classification_evidence": {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "concern_keys": [
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "场景触发为商家重复提交商品创建请求（扩展路径 3.a），系统识别重复提交及幂等标识后返回已有草稿，不重复创建商品。采纳 service.resource_mutation.concurrency_idempotency：直接表达重复请求导致重复变更的失败机制。驳回 internal_database.idempotency：需求文本未涉及数据库幂等性实现，不得从业务实体推断数据库层机制。最终 concern_keys = [service.resource_mutation.concurrency_idempotency]。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 350,
+            "line_end": 351
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      }
+    },
+    {
+      "name": "商家填写并保存商品基本资料",
+      "scenario_type": "main_success",
+      "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+      "trigger": "商家编辑商品基本资料并保存",
+      "scenario_steps": [
+        "商家填写商品名称和描述",
+        "商家选择有效商品分类并上传图片",
+        "系统校验必填字段、文本长度和图片格式",
+        "系统调用商品信息维护接口 API-M-IF2 保存资料",
+        "系统提示保存成功"
+      ],
+      "expected_result": "系统保存商品名称、描述、分类和图片，并提示保存成功",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-374a2aa0aa389982",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 353,
+          "line_end": 368
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 353,
+            "line_end": 376
+          }
+        ]
+      },
+      "scenario_id": "CHK-22538d7f627c87271905"
+    },
+    {
+      "name": "分类不存在或已停用",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+      "trigger": "商家选择商品分类时，该分类不存在或已停用",
+      "scenario_steps": [
+        "商家选择商品分类",
+        "系统检测到分类不存在或已停用",
+        "系统要求商家重新选择分类"
+      ],
+      "expected_result": "系统要求商家重新选择分类",
+      "recovery": "商家重新选择有效分类",
+      "concern_keys": [
+        "service.query_retrieval.resource_existence"
+      ],
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-374a2aa0aa389982",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 365,
+          "line_end": 371
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 353,
+            "line_end": 376
+          }
+        ]
+      },
+      "scenario_id": "CHK-567bb5e16157a9936c5f",
+      "classification_evidence": {
+        "scenario_id": "CHK-567bb5e16157a9936c5f",
+        "concern_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该异常的本质是引用的商品分类资源不存在/已停用，属于资源存在性失败；扩展路径 2.a 以“分类不存在或已停用”明确表达了这一机制，唯一支持键为 service.query_retrieval.resource_existence。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 370,
+            "line_end": 371
+          }
+        ]
+      }
+    },
+    {
+      "name": "图片格式或大小不符合要求",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+      "trigger": "商家上传的图片格式或大小不符合要求",
+      "scenario_steps": [
+        "商家上传图片",
+        "系统校验图片格式与大小",
+        "系统拒绝对应图片并显示限制条件"
+      ],
+      "expected_result": "系统拒绝对应图片并显示限制条件",
+      "recovery": "商家按限制条件重新上传符合要求的图片",
+      "concern_keys": [
+        "api.data.format",
+        "api.data.size"
+      ],
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-374a2aa0aa389982",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 365,
+          "line_end": 373
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 353,
+            "line_end": 376
+          }
+        ]
+      },
+      "scenario_id": "CHK-59ba4a6d109dfebf9eb9",
+      "classification_evidence": {
+        "scenario_id": "CHK-59ba4a6d109dfebf9eb9",
+        "concern_keys": [
+          "api.data.format",
+          "api.data.size"
+        ],
+        "reason": "该异常由图片格式与图片大小两项校验同时触发，分别精确匹配数据格式与数据大小两个既有定义，无超出定义范围的机制，故两个提议键均支持。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 372,
+            "line_end": 373
+          }
+        ]
+      }
+    },
+    {
+      "name": "信息未完成时保存草稿",
+      "scenario_type": "alternative",
+      "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+      "trigger": "商家暂未完成全部信息并执行保存",
+      "scenario_steps": [
+        "商家填写部分商品信息",
+        "系统允许保存草稿",
+        "系统不允许发布"
+      ],
+      "expected_result": "系统允许保存草稿，但不允许发布",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-374a2aa0aa389982",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 367,
+          "line_end": 375
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 353,
+            "line_end": 376
+          }
+        ]
+      },
+      "scenario_id": "CHK-71ba2c18a125c0133663"
+    },
+    {
+      "name": "商家设置SKU库存与价格并成功保存",
+      "scenario_type": "main_success",
+      "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+      "trigger": "商家在商品编辑页提交库存和价格。",
+      "scenario_steps": [
+        "商家为每个SKU输入库存数量。",
+        "商家设置销售价格和可选原价。",
+        "系统校验库存、价格和SKU唯一性。",
+        "系统调用库存价格维护接口 API-M-IF3。",
+        "系统保存设置并返回最新版本号。"
+      ],
+      "expected_result": "系统保存每个SKU的库存和销售价格，并返回最新版本号。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-6788aa84dd6f9181",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 380,
+          "line_end": 392
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 377,
+            "line_end": 400
+          }
+        ]
+      },
+      "scenario_id": "CHK-d539fcfa3cca1edc76d2"
+    },
+    {
+      "name": "库存为负数导致保存被拒绝",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+      "trigger": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+      "scenario_steps": [
+        "商家为每个SKU输入库存数量，其中包含负数库存。",
+        "商家设置销售价格和可选原价。",
+        "系统校验库存、价格和SKU唯一性。",
+        "系统拒绝保存并标记错误SKU。"
+      ],
+      "expected_result": "系统拒绝保存并标记错误SKU。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.range",
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-6788aa84dd6f9181",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 390,
+          "line_end": 395
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 377,
+            "line_end": 400
+          }
+        ]
+      },
+      "scenario_id": "CHK-636a74a3e1a612ee93a1",
+      "classification_evidence": {
+        "scenario_id": "CHK-636a74a3e1a612ee93a1",
+        "concern_keys": [
+          "api.data.range",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景的失败机制为：库存数值跌破允许下限（api.data.range），同时该取值不满足库存变更的业务前置约束，导致变更被拒绝（service.resource_mutation.business_constraint）。两个键均由定义直接表达该特定失败机制，予以保留。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 390,
+            "line_end": 395
+          }
+        ]
+      }
+    },
+    {
+      "name": "销售价格不在允许范围导致提示修正",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+      "trigger": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "scenario_steps": [
+        "商家为每个SKU输入库存数量。",
+        "商家设置销售价格和可选原价，销售价格超出允许范围。",
+        "系统校验库存、价格和SKU唯一性。",
+        "系统提示商家修正价格。"
+      ],
+      "expected_result": "系统提示商家修正价格。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.range",
+        "service.resource_mutation.business_constraint"
+      ],
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-6788aa84dd6f9181",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 390,
+          "line_end": 397
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 377,
+            "line_end": 400
+          }
+        ]
+      },
+      "scenario_id": "CHK-837007732b14891e21e0",
+      "classification_evidence": {
+        "scenario_id": "CHK-837007732b14891e21e0",
+        "concern_keys": [
+          "api.data.range",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "失败机制为价格数值越界（api.data.range），且该越界使库存与价格变更操作无法满足业务条件（service.resource_mutation.business_constraint）。两个键均由定义直接对应，予以保留。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 390,
+            "line_end": 397
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品版本已被其他操作更新导致数据冲突",
+      "scenario_type": "requirement_exception",
+      "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+      "trigger": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+      "scenario_steps": [
+        "商家为每个SKU输入库存数量。",
+        "商家设置销售价格和可选原价。",
+        "系统校验库存、价格和SKU唯一性。",
+        "系统调用库存价格维护接口 API-M-IF3，检测到商品版本已被其他操作更新。",
+        "系统提示数据冲突并要求重新加载。"
+      ],
+      "expected_result": "系统提示数据冲突并要求重新加载。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "internal_database.concurrency_consistency",
+        "service.resource_mutation.concurrency_idempotency"
+      ],
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-6788aa84dd6f9181",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 391,
+          "line_end": 399
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 377,
+            "line_end": 400
+          }
+        ]
+      },
+      "scenario_id": "CHK-445815fd3b931054a35c",
+      "classification_evidence": {
+        "scenario_id": "CHK-445815fd3b931054a35c",
+        "concern_keys": [
+          "internal_database.concurrency_consistency",
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "失败机制为变更提交时商品版本已被并发更新，导致版本冲突并要求重新加载。既有定义已可直接表达该机制：内部并发一致性（internal_database.concurrency_consistency）与资源变更的并发/幂等冲突（service.resource_mutation.concurrency_idempotency）。无证据表明 API-M-IF3 是外部系统边界或第三方服务调用，故不归入外部服务类；亦非新增分类缺口。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 391,
+            "line_end": 399
+          }
+        ]
+      }
+    },
+    {
+      "name": "商家发布商品（主成功路径）",
+      "scenario_type": "main_success",
+      "preconditions": "① 商品处于 DRAFT 状态。② 商品基本资料、SKU、库存和价格均已填写。③ 商家经营资质有效。",
+      "trigger": "商家点击“发布商品”并提交商品发布。",
+      "scenario_steps": [
+        "商家提交商品发布。",
+        "系统校验资料完整性、类目规则、库存和价格。",
+        "系统调用商品发布接口 API-M-IF4。",
+        "系统将商品状态更新为 ON_SALE。",
+        "系统通知商品目录服务刷新可售商品索引。",
+        "系统提示发布成功。"
+      ],
+      "expected_result": "商品状态更新为 ON_SALE，并可被顾客查询；系统提示发布成功。",
+      "recovery": "待需求确认",
+      "concern_keys": [],
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 403,
+          "line_end": 418
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 401,
+            "line_end": 425
+          }
+        ]
+      },
+      "scenario_id": "CHK-7662b001d4804a7f0705"
+    },
+    {
+      "name": "商品资料不完整阻止发布",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商品处于 DRAFT 状态。② 商家经营资质有效。",
+      "trigger": "商家提交商品发布，但商品资料不完整。",
+      "scenario_steps": [
+        "商家提交商品发布。",
+        "系统校验发现商品资料不完整。",
+        "系统列出缺失信息并阻止发布。"
+      ],
+      "expected_result": "系统列出缺失信息并阻止发布。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "api.data.completeness"
+      ],
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 421
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 401,
+            "line_end": 425
+          }
+        ]
+      },
+      "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+      "classification_evidence": {
+        "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+        "concern_keys": [
+          "api.data.completeness"
+        ],
+        "reason": "场景的失败机制是发布请求中必填商品资料缺失，由系统资料完整性校验在发布入口拦截，直接对应 api.data.completeness。其余分类均不表达“必填数据缺失”这一具体机制，故仅保留该键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 414,
+            "line_end": 421
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品内容违反类目规则送入人工审核",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商品处于 DRAFT 状态。② 商品基本资料、SKU、库存和价格均已填写。③ 商家经营资质有效。",
+      "trigger": "商家提交商品发布，但商品内容违反类目规则。",
+      "scenario_steps": [
+        "商家提交商品发布。",
+        "系统校验类目规则，发现商品内容违反类目规则。",
+        "系统将商品送入人工审核。"
+      ],
+      "expected_result": "系统将商品送入人工审核。",
+      "recovery": "待需求确认",
+      "concern_keys": [
+        "service.release_activation.prerequisite"
+      ],
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 414,
+          "line_end": 423
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 401,
+            "line_end": 425
+          }
+        ]
+      },
+      "scenario_id": "CHK-17a8320338b2b52c1fcb",
+      "classification_evidence": {
+        "scenario_id": "CHK-17a8320338b2b52c1fcb",
+        "concern_keys": [
+          "service.release_activation.prerequisite"
+        ],
+        "reason": "失败机制是发布前类目规则前置条件不满足，由发布流程在审验阶段拦截并转人工审核，符合发布前置条件。api.data.legality 虽涉及非法取值，但此处是类目规则合规失败而非字段取值非法；且需求明确将该失败路径绑定在发布环节，因此保留 release_activation.prerequisite 作为唯一支持键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 414,
+            "line_end": 423
+          }
+        ]
+      }
+    },
+    {
+      "name": "商品目录索引刷新失败记录待同步并重试",
+      "scenario_type": "requirement_exception",
+      "preconditions": "① 商品处于 DRAFT 状态。② 商品基本资料、SKU、库存和价格均已填写。③ 商家经营资质有效。",
+      "trigger": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+      "scenario_steps": [
+        "系统将商品状态更新为 ON_SALE。",
+        "系统通知商品目录服务刷新可售商品索引。",
+        "商品目录索引刷新失败。",
+        "系统记录待同步任务并自动重试。"
+      ],
+      "expected_result": "系统记录待同步任务并自动重试。",
+      "recovery": "系统记录待同步任务并自动重试。",
+      "concern_keys": [
+        "service.dependency.availability"
+      ],
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-b745c7d12d5bc1af",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 417,
+          "line_end": 425
+        }
+      ],
+      "target_sections": {
+        "系统需求_spec.md": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 401,
+            "line_end": 425
+          }
+        ]
+      },
+      "scenario_id": "CHK-1e6511bec1e62371622c",
+      "classification_evidence": {
+        "scenario_id": "CHK-1e6511bec1e62371622c",
+        "concern_keys": [
+          "service.dependency.availability"
+        ],
+        "reason": "失败机制是内部商品目录服务调用失败导致索引刷新无法完成，属于已声明内部依赖可用性失败，与 service.dependency.availability 定义吻合；因文档未将商品目录服务列为外部交互方，不归入 external_service.availability。重试属恢复手段而非跨服务一致性或契约问题，故不添加其他键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 417,
+            "line_end": 425
+          }
+        ]
+      }
+    }
+  ],
+  "taxonomy_audit": {
+    "version": "requirement-classification-v2",
+    "behavior_unchanged": true,
+    "batch_status": {
+      "stage": "checker-taxonomy",
+      "complete": true,
+      "batch_count": 14,
+      "pending": [],
+      "errors": {},
+      "input_hash": "3b245f840e4dc531a73af03bc479d098d81074df2b1d7cf9f29e5eb1b7335372"
+    },
+    "changes": [
+      {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "old_keys": [
+          "api.data.legality",
+          "api.data.format",
+          "api.data.type",
+          "api.data.range",
+          "api.data.length"
+        ],
+        "new_keys": [
+          "api.data.legality"
+        ],
+        "reason": "该异常的失败机制是参数取值非法、不允许，系统提示修正查询条件。原始证据未给出具体数值边界或类型不符，不构成 range/type 的直接证据；也无缺失、格式、长度等证据，故仅保留 api.data.legality。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 106,
+            "line_end": 107
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-88aef7035cd381c9cf82",
+        "old_keys": [
+          "common.timeout",
+          "external_service.availability",
+          "service.dependency.availability"
+        ],
+        "new_keys": [
+          "common.timeout",
+          "service.dependency.availability"
+        ],
+        "reason": "该异常同时包含两个直接机制：响应超时（common.timeout）和内部业务服务调用失败（service.dependency.availability）。商品目录服务不是外部第三方系统，故不归 external_service.availability；无契约字段、身份或权限证据，故仅保留这两个键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-aeda6c8ed4183e3d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC001：浏览商品"
+            ],
+            "line_start": 108,
+            "line_end": 109
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-22435214c5b768a5f1dd",
+        "old_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "new_keys": [
+          "service.query_retrieval.resource_existence",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "商品已下架同时包含资源已失效的查询状态和禁止购买的业务约束。两者分别由 service.query_retrieval.resource_existence 与 service.resource_mutation.business_constraint 直接表达，故最终分类为这两个键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 129,
+            "line_end": 130
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-2031266bdbc5770f83f6",
+        "old_keys": [
+          "api.data.completeness",
+          "service.query_retrieval.result_correctness"
+        ],
+        "new_keys": [
+          "service.display_interaction.display_correctness"
+        ],
+        "reason": "该异常发生在展示层信息缺失的处理，最终分类为 service.display_interaction.display_correctness。不是接口必填数据缺失或格式错误，故不引入 api.data.completeness 或 api.data.format。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-18bdf243e787704d",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC002：查看商品详情"
+            ],
+            "line_start": 131,
+            "line_end": 132
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-f9417fc2545bae75adae",
+        "old_keys": [
+          "service.resource_mutation.business_constraint",
+          "service.query_retrieval.resource_existence"
+        ],
+        "new_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景是商品下架导致业务可售条件不满足，系统拒绝加入购物车变更，属于业务约束。下架状态是业务规则结果而非资源不存在、数据格式或外部调用失败，故 service.resource_mutation.business_constraint 成立；前置条件第139行明确“商品及所选SKU处于可售状态”。另注意分类键名称中的“resource_mutation”指变更操作，虽涉及读取商品状态，但失败机制落在变更被业务条件拦截上，故仍归入该键；未发现定义更贴切的遗漏键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-e41c63c68d42dcb5",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-001-UC003：加入购物车"
+            ],
+            "line_start": 146,
+            "line_end": 154
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-0c52832445a8daf9e227",
+        "old_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "new_keys": [
+          "service.display_interaction.display_correctness",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景的失败机制是结算校验发现选中商品价格已变化，导致原确认前提失效，并驱动展示最新价格与重新确认。因此选 service.resource_mutation.business_constraint（业务条件不满足继续下单）与 service.display_interaction.display_correctness（展示最新价格必须与业务实况一致）。未选 api.data.*，因为价格变化不是请求数据格式、类型或范围问题；未选 service.query_retrieval.result_correctness，因为这里不是查询结果错误或数据越权，而是业务时效导致的价格失效。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-25eb14421da072fa",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC001：创建订单"
+            ],
+            "line_start": 176,
+            "line_end": 177
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "old_keys": [
+          "internal_database.idempotency",
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "new_keys": [
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "仅保留service.resource_mutation.concurrency_idempotency。触发机制为外部合法支付结果通知的重复投递引发对订单的重复变更，属于重复请求导致重复变更的并发与幂等问题；外部契约类键被排除（单条通知格式合规），也不推断数据库级幂等或跨服务一致性。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-1ffdfbdc487c95fe",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC002：支付订单"
+            ],
+            "line_start": 198,
+            "line_end": 207
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-59bdd199f4d9c2851429",
+        "old_keys": [
+          "service.query_retrieval.data_visibility",
+          "human.authorization"
+        ],
+        "new_keys": [
+          "human.authorization"
+        ],
+        "reason": "该场景的唯一失败机制是订单归属关系校验失败，即已登录顾客越权访问他人订单资源，被系统拒绝并记录安全事件。唯一支持的分类为 human.authorization（水平越权）。未提出其他键，且无定义能更贴切表达此机制（api.data.legality 指数据取值非法，而非资源归属越权）。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 213,
+            "line_end": 214
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 221,
+            "line_end": 221
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 226,
+            "line_end": 227
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+        "old_keys": [
+          "service.query_retrieval.resource_existence",
+          "internal_database.resource_existence"
+        ],
+        "new_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该场景失败机制为查询目标订单资源不存在，系统以“订单不存在”提示收束。唯一支持的分类为 service.query_retrieval.resource_existence。未提出 external_service 相关键，且无证据表明涉及数据库实现或跨服务一致性，不应据业务实体推断。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 222,
+            "line_end": 222
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-231badca1ad1bc2b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-002-UC003：查看订单详情"
+            ],
+            "line_start": 228,
+            "line_end": 229
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-b278565690498914751f",
+        "old_keys": [
+          "external_service.availability",
+          "service_relation.cross_service_consistency"
+        ],
+        "new_keys": [
+          "external_service.availability"
+        ],
+        "reason": "触发器中的 LogisticsService 是明确的外部第三方物流服务（ACT-004），其不可用属于外部服务可用性故障。证据仅支持 external_service.availability，故保留该键；未发现其他被证据直接支持或遗漏的分类键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-edc597e30efb8a5e",
+            "heading_path": [
+              "需求[RR-DELTA-001]描述",
+              "系统上下文"
+            ],
+            "line_start": 27,
+            "line_end": 36
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-c4edb8dcadf9cfe8",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC001：商家发货"
+            ],
+            "line_start": 248,
+            "line_end": 256
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-780641148ecd16c7fd58",
+        "old_keys": [
+          "service_relation.dependency_consistency",
+          "external_service.identity",
+          "external_service.contract"
+        ],
+        "new_keys": [
+          "external_service.identity"
+        ],
+        "reason": "该场景是外部参与者LogisticsService推送消息时签名验证失败，唯一机制是调用方身份无法确认，因此仅归入external_service.identity。不涉及字段缺失/格式/版本（契约）或权限函数级授权，也无超时、数据库或内部服务失败机制。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 260,
+            "line_end": 276
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-639f4f77b8d00ff0914c",
+        "old_keys": [
+          "internal_database.idempotency",
+          "service.resource_mutation.concurrency_idempotency",
+          "service_relation.idempotency"
+        ],
+        "new_keys": [
+          "internal_database.idempotency"
+        ],
+        "reason": "触发条件即重复物流节点，预期为幂等处理，机制单一明确地对应internal_database.idempotency。未涉及字段合法性、唯一性约束或并发冲突，也无外部服务调用或超时条件，故不添加其他键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 271,
+            "line_end": 278
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-e8fa603f5daa44b41293",
+        "old_keys": [
+          "internal_database.concurrency_consistency",
+          "service.resource_mutation.business_constraint",
+          "service.resource_mutation.persistence_consistency"
+        ],
+        "new_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "场景失败根因是业务时间顺序约束不满足，系统以保留原状态加审核队列方式处理不合规变更，对应service.resource_mutation.business_constraint。重复节点机制已由另一场景承载，本场景触发条件是逆序时间而非重复请求，故不保留internal_database.idempotency。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-53149cee043d3119",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC002：更新物流信息"
+            ],
+            "line_start": 271,
+            "line_end": 280
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-f5a9fce6189033287f2b",
+        "old_keys": [
+          "external_service.availability",
+          "external_service.contract",
+          "common.timeout"
+        ],
+        "new_keys": [
+          "external_service.availability",
+          "service.display_interaction.display_correctness"
+        ],
+        "reason": "该场景是扩展路径3.a（第301行），失败原因为外部第三方物流服务活跃查询失败，属外部服务可用性；其补救要求也对展示内容与真实数据状态的一致性提出约束，故显示正确性亦直接成立。未命中external_service.contract——无返回字段缺失、格式改变或版本不兼容证据；亦无身份或权限证据（actor为已登录顾客）。不新增键：service.display_interaction.render_performance需渲染耗时证据，service.dependency.availability针对已声明的内部业务服务，均不适用。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-4663ba431ec36b48",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC003：查询物流信息"
+            ],
+            "line_start": 294,
+            "line_end": 302
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-89f43df1b1cff6178b7a",
+        "old_keys": [
+          "api.data.range"
+        ],
+        "new_keys": [
+          "api.data.range",
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "该场景包含两层失败机制：一是退款金额不得超出可退款金额的业务约束被违反，二是金额数值超出系统允许范围。两者均有直接定义支持，故保留业务约束与数据范围两个分类；未涉及格式、类型、完整性或外部服务。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-998ed07be8f3ae1b",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-003-UC004：申请退款"
+            ],
+            "line_start": 326,
+            "line_end": 327
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-3215aadd6ba1899db048",
+        "old_keys": [
+          "human.authorization",
+          "service.resource_mutation.business_constraint"
+        ],
+        "new_keys": [
+          "service.resource_mutation.business_constraint"
+        ],
+        "reason": "场景触发于步骤②校验商家身份和权限时发现商家资质已失效（扩展路径 2.a），系统拒绝创建并提示重新认证。驳回 human.authentication：资质失效属于业务资格/许可前置条件不满足，不等同于无凭证或 Token 无效过期。采纳 service.resource_mutation.business_constraint：该定义直接表达“当前业务条件不满足变更要求”这一具体失败机制。最终 concern_keys = [service.resource_mutation.business_constraint]。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 343,
+            "line_end": 349
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "old_keys": [
+          "internal_database.idempotency",
+          "service.resource_mutation.concurrency_idempotency",
+          "service_relation.idempotency"
+        ],
+        "new_keys": [
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "场景触发为商家重复提交商品创建请求（扩展路径 3.a），系统识别重复提交及幂等标识后返回已有草稿，不重复创建商品。采纳 service.resource_mutation.concurrency_idempotency：直接表达重复请求导致重复变更的失败机制。驳回 internal_database.idempotency：需求文本未涉及数据库幂等性实现，不得从业务实体推断数据库层机制。最终 concern_keys = [service.resource_mutation.concurrency_idempotency]。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 350,
+            "line_end": 351
+          },
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-649a5506d78a5dce",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC001：创建商品"
+            ],
+            "line_start": 331,
+            "line_end": 352
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-567bb5e16157a9936c5f",
+        "old_keys": [
+          "internal_database.resource_existence",
+          "service_relation.dependency_consistency"
+        ],
+        "new_keys": [
+          "service.query_retrieval.resource_existence"
+        ],
+        "reason": "该异常的本质是引用的商品分类资源不存在/已停用，属于资源存在性失败；扩展路径 2.a 以“分类不存在或已停用”明确表达了这一机制，唯一支持键为 service.query_retrieval.resource_existence。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 370,
+            "line_end": 371
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-59ba4a6d109dfebf9eb9",
+        "old_keys": [
+          "api.data.format",
+          "api.data.type",
+          "api.data.size",
+          "service.display_interaction.display_correctness"
+        ],
+        "new_keys": [
+          "api.data.format",
+          "api.data.size"
+        ],
+        "reason": "该异常由图片格式与图片大小两项校验同时触发，分别精确匹配数据格式与数据大小两个既有定义，无超出定义范围的机制，故两个提议键均支持。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-374a2aa0aa389982",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC002：填写商品信息"
+            ],
+            "line_start": 372,
+            "line_end": 373
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-445815fd3b931054a35c",
+        "old_keys": [
+          "internal_database.concurrency_consistency",
+          "service.resource_mutation.concurrency_idempotency",
+          "service_relation.concurrency_consistency"
+        ],
+        "new_keys": [
+          "internal_database.concurrency_consistency",
+          "service.resource_mutation.concurrency_idempotency"
+        ],
+        "reason": "失败机制为变更提交时商品版本已被并发更新，导致版本冲突并要求重新加载。既有定义已可直接表达该机制：内部并发一致性（internal_database.concurrency_consistency）与资源变更的并发/幂等冲突（service.resource_mutation.concurrency_idempotency）。无证据表明 API-M-IF3 是外部系统边界或第三方服务调用，故不归入外部服务类；亦非新增分类缺口。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-6788aa84dd6f9181",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC003：设置库存与价格"
+            ],
+            "line_start": 391,
+            "line_end": 399
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+        "old_keys": [
+          "internal_database.required_field_completeness"
+        ],
+        "new_keys": [
+          "api.data.completeness"
+        ],
+        "reason": "场景的失败机制是发布请求中必填商品资料缺失，由系统资料完整性校验在发布入口拦截，直接对应 api.data.completeness。其余分类均不表达“必填数据缺失”这一具体机制，故仅保留该键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 414,
+            "line_end": 421
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-17a8320338b2b52c1fcb",
+        "old_keys": [],
+        "new_keys": [
+          "service.release_activation.prerequisite"
+        ],
+        "reason": "失败机制是发布前类目规则前置条件不满足，由发布流程在审验阶段拦截并转人工审核，符合发布前置条件。api.data.legality 虽涉及非法取值，但此处是类目规则合规失败而非字段取值非法；且需求明确将该失败路径绑定在发布环节，因此保留 release_activation.prerequisite 作为唯一支持键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 414,
+            "line_end": 423
+          }
+        ]
+      },
+      {
+        "scenario_id": "CHK-1e6511bec1e62371622c",
+        "old_keys": [
+          "service_relation.cross_service_consistency",
+          "service.release_activation.result_consistency"
+        ],
+        "new_keys": [
+          "service.dependency.availability"
+        ],
+        "reason": "失败机制是内部商品目录服务调用失败导致索引刷新无法完成，属于已声明内部依赖可用性失败，与 service.dependency.availability 定义吻合；因文档未将商品目录服务列为外部交互方，不归入 external_service.availability。重试属恢复手段而非跨服务一致性或契约问题，故不添加其他键。",
+        "source_refs": [
+          {
+            "document": "系统需求_spec.md",
+            "chapter_id": "SEC-b745c7d12d5bc1af",
+            "heading_path": [
+              "场景用例分析",
+              "用例详细说明",
+              "UCG-004-UC004：发布商品"
+            ],
+            "line_start": 417,
+            "line_end": 425
+          }
+        ]
+      }
+    ],
+    "exception_count": 37
+  }
+}

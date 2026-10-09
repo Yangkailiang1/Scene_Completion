@@ -1,0 +1,55 @@
+{
+  "input_hash": "7337677afc4fc437f7ac846336b1709020b2c3a65776256771151802a6f1b97d",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "max",
+  "decisions": [
+    {
+      "review_id": "matching-0000-d1154c1ac359:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "核查条件是 eventTime 早于已保存节点；生成触发把该条件与早于发货时间、晚于当前时间放进同一括号说明。三种比较基准并不等价，生成侧的合并条件不能证明与核查侧是同一具体触发。两侧都保留原状态并送审核队列，因此核心处置相同，但触发不匹配。",
+      "missing_behavior": [],
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+      "generated_trigger_quote": "物流节点时间早于已保存节点（eventTime不合理，早于发货时间或晚于当前时间）。"
+    },
+    {
+      "review_id": "matching-0009-d7729873ca2d:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "核查条件是 eventTime 早于已保存节点；生成条件实际写的是早于发货时间或晚于当前时间，并把它们等同于早于已保存节点。早于发货时间与早于最近已保存节点是不同校验基准，晚于当前时间又是另一种异常；同属时间错误不足以构成同一具体触发。处置结果相同。",
+      "missing_behavior": [],
+      "checker_trigger_quote": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+      "generated_trigger_quote": "eventTime不合理：早于发货时间或晚于当前时间（即时间早于已保存节点）。"
+    },
+    {
+      "review_id": "matching-0010-b357cbd7eb8a:0",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "核查侧是商家重复提交并由幂等标识识别；生成侧明确 idempotencyKey 重复。两侧均返回已存在的商品草稿且不重复创建，商家资质、权限和幂等键条件相容。",
+      "missing_behavior": [],
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "idempotencyKey重复"
+    },
+    {
+      "review_id": "matching-0014-e5807f403ec6:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "核查侧是 API 层相同幂等标识的商品创建重试，要求返回已有草稿且不重复创建；生成侧只定位到写入 product 表时重复请求造成重复操作异常，未明确相同幂等标识、返回既有草稿或避免第二次写入。API 幂等回放与数据库写入异常是不同操作，不能凭同属商品创建流程接受。",
+      "missing_behavior": [],
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "执行「写入 product 表（字段包括 product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）」时：重复请求导致重复操作异常"
+    }
+  ]
+}

@@ -12,7 +12,7 @@
   "to_entity": "OrderItem",
   "relation": "has_many",
   "evidence": "订单包含订单商品明细",
-  "source_location": "功能设计Delta_spec.md:line 640",
+  "source_location": "功能设计_spec.md:line 640",
   "mapping_status": "confirmed"
 }
 ```
@@ -27,7 +27,7 @@
   "operation": "C",
   "source_step_index": 4,
   "evidence": "创建订单记录并返回订单编号",
-  "source_location": "功能设计Delta_spec.md:line 642",
+  "source_location": "功能设计_spec.md:line 642",
   "mapping_status": "confirmed"
 }
 ```
@@ -43,7 +43,7 @@ CRUD 操作值只允许 `C`、`R`、`U`、`D`。无法确定实体或操作时�
   "depends_on_operations": ["CRUD-PRODUCT-DRAFT-CREATE"],
   "dependency_relation": "consumes_created_resource",
   "dependency_evidence": "编辑接口的前置条件要求商品草稿已存在",
-  "dependency_source_location": "功能设计Delta_spec.md:line 994"
+  "dependency_source_location": "功能设计_spec.md:line 994"
 }
 ```
 

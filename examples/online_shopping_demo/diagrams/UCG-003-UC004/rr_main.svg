@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1009" viewBox="0 0 1100 1009">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">申请退款 · RR SSD</text>
+<rect x="30.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="125.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">顾客</text>
+<line x1="125.0" y1="142.0" x2="125.0" y2="979.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="880.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="975.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="975.0" y1="142.0" x2="975.0" y2="979.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="125.0" y1="226.0" x2="975.0" y2="226.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="183.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 顾客选择退款商品、数量和原因（请求体包含</text>
+<text x="133.0" y="201.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> orderId、items[]、reasonC</text>
+<text x="133.0" y="219.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ode、reasonDescription、re</text>
+<text x="133.0" y="237.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">questedAmount、idempotenc</text>
+<text x="133.0" y="255.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">yKey）</text>
+<line x1="975.0" y1="376.0" x2="125.0" y2="376.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="333.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：顾客选择退款商品、数量和原因（</text>
+<text x="133.0" y="351.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">请求体包含 orderId、items[]、re</text>
+<text x="133.0" y="369.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">asonCode、reasonDescripti</text>
+<text x="133.0" y="387.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">on、requestedAmount、idemp</text>
+<text x="133.0" y="405.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">otencyKey）</text>
+<line x1="975.0" y1="537.0" x2="125.0" y2="537.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="485.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 系统通过退款申请接口 API-R-IF1</text>
+<text x="133.0" y="503.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> 创建退款单（系统调用 RefundServic</text>
+<text x="133.0" y="521.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">e 退款申请能力，RefundService 按</text>
+<text x="133.0" y="539.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B"> idempotencyKey 幂等校验、校验退</text>
+<text x="133.0" y="557.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">款时限与退款金额并写入 refund 表，状态字</text>
+<text x="133.0" y="575.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">段为 status）</text>
+<line x1="975.0" y1="698.0" x2="125.0" y2="698.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="655.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 系统向 PaymentService 提</text>
+<text x="133.0" y="673.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">交退款请求（RefundService 传入 r</text>
+<text x="133.0" y="691.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">efund_id、payment_id、acce</text>
+<text x="133.0" y="709.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">pted_amount，PaymentServi</text>
+<text x="133.0" y="727.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ce 处理并返回退款结果）</text>
+<line x1="975.0" y1="859.0" x2="125.0" y2="859.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="807.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统保存退款流水并展示处理状态（Refu</text>
+<text x="133.0" y="825.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ndService 更新 refund 表退款状</text>
+<text x="133.0" y="843.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">态并向在线商城系统返回 HTTP 200 及 r</text>
+<text x="133.0" y="861.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">efundId、refundStatus、acc</text>
+<text x="133.0" y="879.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">eptedAmount，系统再向顾客返回 HTT</text>
+<text x="133.0" y="897.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">P 200）</text>
+</svg>

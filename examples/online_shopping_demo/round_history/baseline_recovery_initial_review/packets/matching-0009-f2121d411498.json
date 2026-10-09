@@ -1,0 +1,103 @@
+{
+  "stage": "matching",
+  "input": {
+    "use_case_id": "UCG-002-UC002",
+    "generated": [
+      {
+        "scenario_id": "GEN-667D2D9853",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "资源存在性：Read or update OrderItem records",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「Read or update OrderItem records」时：查询、修改或删除不存在资源",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「Read or update OrderItem records」检查：查询、修改或删除不存在资源",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      },
+      {
+        "scenario_id": "GEN-61B6E05B7A",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "唯一性约束：Read or update OrderItem records",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「Read or update OrderItem records」时：名称重复或唯一键冲突",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「Read or update OrderItem records」检查：名称重复或唯一键冲突",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "recovery": "待需求确认"
+      }
+    ],
+    "checker": [
+      {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "use_case_id": "UCG-002-UC002",
+        "use_case_name": "支付订单",
+        "name": "支付结果重复通知",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "5.a 异常场景：支付结果重复通知。",
+        "scenario_steps": [
+          "PaymentService发送重复的支付结果通知。"
+        ],
+        "expected_result": "系统进行幂等处理，不重复更新订单。",
+        "recovery": "待需求确认"
+      }
+    ],
+    "pairwise": true
+  },
+  "instructions": [
+    "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
+    "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
+    "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+    "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+    "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
+    "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+    "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+    "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+    "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
+    "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match."
+  ],
+  "output_contract": {
+    "checked_checker_ids": [
+      "all tile checker IDs"
+    ],
+    "checked_generated_ids": [
+      "all tile generated IDs"
+    ],
+    "decisions": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "EVERY GEN-ID",
+        "status": "full|partial|unmatched",
+        "evidence": "specific reason",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ],
+    "matches": [
+      {
+        "checker_scenario_id": "CHK-ID",
+        "generated_scenario_id": "GEN-ID",
+        "status": "full|partial",
+        "evidence": "specific behavior evidence",
+        "missing_behavior": [
+          "required for partial; empty for full"
+        ]
+      }
+    ]
+  },
+  "batch_id": "matching-0009-f2121d411498",
+  "input_hash": "f2121d411498b62332c002f3fea9c7d003997da0a76bf9a6c3b3d894ce6128fe"
+}

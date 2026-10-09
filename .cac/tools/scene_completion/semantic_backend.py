@@ -5,6 +5,7 @@ import concurrent.futures
 import json
 import math
 import os
+import threading
 from pathlib import Path
 
 from .review import _content_from_response, _post_chat_completions, _resolve_env_reference
@@ -14,7 +15,7 @@ from .sources import fingerprint
 def write_json(path: str | Path, value) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + ".tmp")
+    temporary = target.with_suffix(target.suffix + f".{os.getpid()}.{threading.get_ident()}.tmp")
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
     temporary.replace(target)
 
@@ -126,6 +127,10 @@ class SemanticClient:
                 "checked_generated_ids": [s["scenario_id"] for s in packet["input"]["generated"]],
                 "checked_checker_ids": [s["scenario_id"] for s in packet["input"]["checker"]]}
             prompt["coverage_reminder"] = "Copy BOTH coverage arrays exactly after inspecting every pair. Include IDs with no links. Do not list only matched IDs."
+            if packet["input"].get("pairwise"):
+                prompt["required_pair_decisions"] = [
+                    {"checker_scenario_id": c["scenario_id"], "generated_scenario_id": g["scenario_id"]}
+                    for c in packet["input"]["checker"] for g in packet["input"]["generated"]]
         if packet["stage"] == "recommendation":
             prompt["required_scenario_ids"] = [s["scenario_id"] for s in packet["input"]["candidates"]]
             prompt["coverage_reminder"] = "Return one item for EVERY listed scenario_id. Do not merge equal-looking candidates. Cite exact supplied evidence line ranges."
@@ -221,8 +226,11 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 existing = read_json(target)
                 if existing.get("input_hash") == packet["input_hash"] and existing.get("batch_id") == bid:
                     validator(packet, existing)
-                    cached = existing
-                    if packet["stage"] not in {"matching", "recommendation"}:
+                    # Missing/mismatched score identity cannot be repaired by
+                    # labelling an old cache with the currently configured model.
+                    if packet["stage"] != "recommendation" or existing.get("model") == client.model("agent"):
+                        cached = existing
+                    if packet["stage"] not in {"matching", "recommendation", "checker-taxonomy", "generator-taxonomy"}:
                         return {"batch_id": bid, "status": "cached"}
             except (ValueError, KeyError, TypeError):
                 pass
@@ -235,6 +243,11 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 result = dict(cached) if cached is not None else client.agent(retry_packet)
                 # Transport worker, not the model, attaches immutable batch metadata.
                 result.update({"batch_id": bid, "input_hash": packet["input_hash"]})
+                if cached is None:
+                    result["model"] = client.model("agent")
+                    if packet["stage"] == "matching":
+                        from .three_roles import normalize_matching_summary
+                        result = normalize_matching_summary(packet, result)
                 validator(packet, result)
                 if packet["stage"] == "matching":
                     from .matching_audit import verify_matching
@@ -242,6 +255,11 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 if packet["stage"] == "recommendation":
                     from .support_audit import verify_support
                     result = verify_support(packet, result, client)
+                if packet["stage"] in {"checker-taxonomy", "generator-taxonomy"}:
+                    from .taxonomy_audit import verify_taxonomy
+                    # The validator closes over the requirement index; worker
+                    # attaches it explicitly for source-only proof validation.
+                    result = verify_taxonomy(packet, result, client, client.config["taxonomy_sources_index"])
                 write_json(target, result)
                 return {"batch_id": bid, "status": "cached" if cached is not None else "complete"}
             except (ValueError, KeyError, TypeError, RuntimeError) as exc:
@@ -249,8 +267,18 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
         return {"batch_id": bid, "status": "failed", "error": last_error}
 
     # Sharded child workers run serially; a single standalone worker can use 3 requests.
+    suffix = "-" + fingerprint(batch_ids)[:10] if batch_ids else ""
+    status_path = root / f"worker-status-{worker_index}-of-{worker_count}{suffix}.json"
+    states = []
+    write_json(status_path, {"complete": False, "running": True, "batch_count": len(batches), "batches": states})
     with concurrent.futures.ThreadPoolExecutor(max_workers=3 if worker_count == 1 else 1) as pool:
-        states = list(pool.map(process, batches))
+        futures = [pool.submit(process, batch) for batch in batches]
+        for future in concurrent.futures.as_completed(futures):
+            states.append(future.result())
+            write_json(status_path, {"complete": False, "running": True,
+                "batch_count": len(batches), "completed_count": len(states), "batches": states})
+    order = {batch["batch_id"]: i for i, batch in enumerate(batches)}
+    states.sort(key=lambda state: order[state["batch_id"]])
     status = {"complete": all(s["status"] != "failed" for s in states), "batches": states}
-    write_json(root / f"worker-status-{worker_index}-of-{worker_count}.json", status)
+    write_json(status_path, status)
     return status

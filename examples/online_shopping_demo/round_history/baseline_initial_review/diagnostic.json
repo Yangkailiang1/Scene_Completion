@@ -1,0 +1,15 @@
+{
+  "formal_acceptance": false,
+  "note": "Initial review contained identified false rejections; superseded by complete review and recovery comparison.",
+  "miss_rate": {
+    "numerator": 4,
+    "denominator": 37,
+    "rate": 0.10810810810810811
+  },
+  "missing_ids": [
+    "CHK-69c91d08774029d46b73",
+    "CHK-837007732b14891e21e0",
+    "CHK-e334d924b044c0587e7b",
+    "CHK-f5a9fce6189033287f2b"
+  ]
+}

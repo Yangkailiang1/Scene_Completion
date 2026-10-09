@@ -1,0 +1,424 @@
+{
+  "schema_version": "three-agent-v1",
+  "complete": true,
+  "backend": "agent",
+  "input_hash": "3574de34eaf25904e2e715df3593a387d44106c5f4ffdf9293f98def50494242",
+  "batch_status": {
+    "stage": "matching",
+    "complete": true,
+    "batch_count": 182,
+    "pending": [],
+    "errors": {},
+    "input_hash": "519320b181ff4c1a4cee964eb235e8cfb7497eb4adb678e6617ba34b321fd3ad"
+  },
+  "verification_models": [
+    "ecnu-max",
+    "gpt-6-luna"
+  ],
+  "matches": [
+    {
+      "checker_scenario_id": "CHK-5e67e0936a275cebc26a",
+      "generated_scenario_id": "GEN-4E8410AA60",
+      "status": "full",
+      "evidence": "CHK-5e67e0936a275cebc26a ↔ GEN-4E8410AA60: Both rows say no products meet the customer conditions; both query ON_SALE products and return an empty list with the same no-results prompt.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "4.a 异常场景：未查询到符合条件的商品。",
+        "generated": "未查询到符合条件的商品。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-3fe019e613999d41e5bf",
+      "generated_scenario_id": "GEN-9CD781DEB4",
+      "status": "full",
+      "evidence": "CHK-3fe019e613999d41e5bf ↔ GEN-9CD781DEB4: Both triggers are illegal product-search query parameters, and both rows state that the customer should correct the search conditions.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "4.b 异常场景：查询参数非法。",
+        "generated": "查询参数非法。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-88aef7035cd381c9cf82",
+      "generated_scenario_id": "GEN-A00696170B",
+      "status": "full",
+      "evidence": "CHK-88aef7035cd381c9cf82 ↔ GEN-A00696170B: Both rows identify the product-directory service timing out while browsing and return “商品加载失败，请稍后重试”.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "4.c 异常场景：商品目录服务超时。",
+        "generated": "商品目录服务超时。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-96b0d81b72f06b623793",
+      "generated_scenario_id": "GEN-6ABDFABD2C",
+      "status": "full",
+      "evidence": "CHK-96b0d81b72f06b623793 ↔ GEN-6ABDFABD2C: Both rows have the customer click a product, query it through API-S-IF2, find it absent, and show “商品不存在” before returning to the list.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品不存在。",
+        "generated": "商品不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-22435214c5b768a5f1dd",
+      "generated_scenario_id": "GEN-E80F0305D0",
+      "status": "full",
+      "evidence": "CHK-22435214c5b768a5f1dd ↔ GEN-E80F0305D0: Both rows detect an off-sale product during API-S-IF2 detail lookup and tell the customer it is off-sale and cannot be purchased.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品已下架。",
+        "generated": "商品已下架。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2031266bdbc5770f83f6",
+      "generated_scenario_id": "GEN-7B805E063F",
+      "status": "full",
+      "evidence": "CHK-2031266bdbc5770f83f6 ↔ GEN-7B805E063F: Both triggers specify missing noncritical display information, and both expected results display available data while hiding the missing area.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 3 系统获取商品描述、图片、价格和库存状态时，部分非关键展示信息缺失。",
+        "generated": "部分非关键展示信息缺失。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-806e5a4b0a34df92413e",
+      "generated_scenario_id": "GEN-49C77EEBE5",
+      "status": "full",
+      "evidence": "CHK-806e5a4b0a34df92413e ↔ GEN-49C77EEBE5: Both rows detect insufficient inventory while checking the chosen SKU and quantity and report the currently purchasable quantity.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验商品状态、库存和限购规则时发现库存不足。",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-f9417fc2545bae75adae",
+      "generated_scenario_id": "GEN-4581F93AAA",
+      "status": "full",
+      "evidence": "CHK-f9417fc2545bae75adae ↔ GEN-4581F93AAA: Both rows detect an off-sale product during the add-to-cart checks and reject adding it to the cart.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验商品状态时发现商品已下架。",
+        "generated": "商品已下架。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-0c52832445a8daf9e227",
+      "generated_scenario_id": "GEN-8D90BBB6CA",
+      "status": "full",
+      "evidence": "CHK-0c52832445a8daf9e227 ↔ GEN-8D90BBB6CA: Both rows detect a selected cart item’s price change during checkout validation and show the latest price for reconfirmation.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验价格、库存和促销有效性时，发现商品价格已变化",
+        "generated": "商品价格已变化。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-f160dcbfd73b8b29618f",
+      "generated_scenario_id": "GEN-7C9D158555",
+      "status": "full",
+      "evidence": "CHK-f160dcbfd73b8b29618f ↔ GEN-7C9D158555: Both rows detect insufficient inventory during checkout, identify the item as out of stock, and prevent order creation.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验价格、库存和促销有效性时，发现库存不足",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-03c6a9972c7a1450af5f",
+      "generated_scenario_id": "GEN-88352D1CC0",
+      "status": "full",
+      "evidence": "CHK-03c6a9972c7a1450af5f ↔ GEN-88352D1CC0: Both rows trigger when PaymentService is unavailable during PAYMENT-PAY-01 payment-request creation and retain WAIT_PAY with a retry-later prompt.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "3.a 异常场景：PaymentService不可用。",
+        "generated": "PaymentService不可用。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-59bdd199f4d9c2851429",
+      "generated_scenario_id": "GEN-801F8EF3B7",
+      "status": "full",
+      "evidence": "CHK-59bdd199f4d9c2851429 ↔ GEN-801F8EF3B7: Both rows check whether the submitted order belongs to the current customer; when it does not, both deny access and record a security event.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验订单归属关系时发现订单不属于当前顾客。",
+        "generated": "订单不属于当前顾客。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+      "generated_scenario_id": "GEN-2970C4053A",
+      "status": "full",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff ↔ GEN-2970C4053A: Both rows query API-O-IF2 for the requested order, fail to find it, and show “订单不存在”.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+        "generated": "订单不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+      "generated_scenario_id": "GEN-D6EF57EBF5",
+      "status": "partial",
+      "evidence": "CHK-3adfb05eb58a56c8d4ff ↔ GEN-D6EF57EBF5: The checker asks for a missing order. GEN-D6EF says the queried resource is absent or expired/invalid, which leaves the exact branch ambiguous; it also leaves the response unspecified.",
+      "missing_behavior": [
+        "The generated trigger does not distinguish not-found from expired/invalid.",
+        "Generated response is a requirement-confirmation placeholder."
+      ],
+      "trigger_quotes": {
+        "checker": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+        "generated": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：查询资源不存在或已失效"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e8627f5835b2dfc07e05",
+      "generated_scenario_id": "GEN-D966960BCA",
+      "status": "full",
+      "evidence": "CHK-e8627f5835b2dfc07e05 ↔ GEN-D966960BCA: Both rows detect an order state other than PAID during merchant shipment processing and reject shipment.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 2 中系统校验发现订单状态不是 PAID。",
+        "generated": "订单状态不是 PAID。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e5029d0f39400b451bec",
+      "generated_scenario_id": "GEN-AB2FC6BAC5",
+      "status": "full",
+      "evidence": "CHK-e5029d0f39400b451bec ↔ GEN-AB2FC6BAC5: Both rows specify a malformed logistics tracking number during API-L-IF1 shipment creation and prompt the merchant to correct it.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 3 中物流单号格式错误。",
+        "generated": "物流单号格式错误。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-b278565690498914751f",
+      "generated_scenario_id": "GEN-D0DF305D5F",
+      "status": "full",
+      "evidence": "CHK-b278565690498914751f ↔ GEN-D0DF305D5F: Both rows detect LogisticsService unavailable during shipment registration and keep a pending synchronization record for retry.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "步骤 4 中 LogisticsService 暂时不可用。",
+        "generated": "LogisticsService暂时不可用。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-780641148ecd16c7fd58",
+      "generated_scenario_id": "GEN-8FC1C0C244",
+      "status": "full",
+      "evidence": "CHK-780641148ecd16c7fd58 ↔ GEN-8FC1C0C244: Both rows reject a logistics message after signature validation fails and record a security alert.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "主成功路径第2步校验消息签名时签名校验失败。",
+        "generated": "签名校验失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-639f4f77b8d00ff0914c",
+      "generated_scenario_id": "GEN-DAA8D90358",
+      "status": "full",
+      "evidence": "CHK-639f4f77b8d00ff0914c ↔ GEN-DAA8D90358: Both rows detect a repeated logistics node and specify idempotent handling; the generated time-order check does not alter that stated result.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "主成功路径第3步校验物流节点时收到重复物流节点。",
+        "generated": "收到重复物流节点。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e8fa603f5daa44b41293",
+      "generated_scenario_id": "GEN-21A9B22C8E",
+      "status": "full",
+      "evidence": "CHK-e8fa603f5daa44b41293 ↔ GEN-21A9B22C8E: Both rows say the incoming logistics-node timestamp is earlier than an already-saved node and preserve the current state while sending the message for review.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+        "generated": "物流节点时间早于已保存节点。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-93dbf4d7306619c69a90",
+      "generated_scenario_id": "GEN-A88F0A1919",
+      "status": "partial",
+      "evidence": "CHK-93dbf4d7306619c69a90 ↔ GEN-A88F0A1919: Both branches concern an order not yet shipped and give the same customer message. GEN-A88F also reads local logistics data first, but this pair gives no result or condition for that extra read.",
+      "missing_behavior": [
+        "Generated path includes a local-trajectory read before the not-shipped message without specifying its result."
+      ],
+      "trigger_quotes": {
+        "checker": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+        "generated": "订单尚未发货。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-5a4569f33268c8719354",
+      "generated_scenario_id": "GEN-3C19AB2A05",
+      "status": "full",
+      "evidence": "CHK-5a4569f33268c8719354 ↔ GEN-3C19AB2A05: Both rows detect that the refund deadline has passed and reject the request with an explanation.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验订单和可退款金额时，发现超过退款期限。",
+        "generated": "超过退款期限。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-89f43df1b1cff6178b7a",
+      "generated_scenario_id": "GEN-0310D69FD9",
+      "status": "full",
+      "evidence": "CHK-89f43df1b1cff6178b7a ↔ GEN-0310D69FD9: Both rows detect the requested refund amount exceeding the refundable amount and ask the customer to adjust the refund content.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+        "generated": "申请金额超过可退款金额。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-381d441fe9966817b11d",
+      "generated_scenario_id": "GEN-473A451238",
+      "status": "full",
+      "evidence": "CHK-381d441fe9966817b11d ↔ GEN-473A451238: Both rows detect PaymentService being unavailable during refund submission and preserve a pending refund for asynchronous retry.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统向PaymentService提交退款请求时，PaymentService暂时不可用。",
+        "generated": "PaymentService暂时不可用。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-3215aadd6ba1899db048",
+      "generated_scenario_id": "GEN-CB7E648FCA",
+      "status": "full",
+      "evidence": "CHK-3215aadd6ba1899db048 ↔ GEN-CB7E648FCA: Both rows detect expired merchant qualifications during product creation, reject creation, and require re-authentication.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+        "generated": "商家资质已失效。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-9827f20c28e4db22a5ed",
+      "generated_scenario_id": "GEN-CDEB6D42D0",
+      "status": "partial",
+      "evidence": "CHK-9827f20c28e4db22a5ed ↔ GEN-CDEB6D42D0: Both rows concern a repeated product-creation submission and return an existing draft by an idempotency marker. GEN-CDEB does not bind that marker to the prior request or explicitly state that a second product is not created.",
+      "missing_behavior": [
+        "The generated row does not explicitly require the same idempotency key as the prior creation.",
+        "The generated expected result does not explicitly state that no second product is created."
+      ],
+      "trigger_quotes": {
+        "checker": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+        "generated": "重复提交。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-59ba4a6d109dfebf9eb9",
+      "generated_scenario_id": "GEN-9FCFD67BBA",
+      "status": "full",
+      "evidence": "CHK-59ba4a6d109dfebf9eb9 ↔ GEN-9FCFD67BBA: Both rows reject an uploaded image for invalid format or size and display the applicable limits.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家上传的图片格式或大小不符合要求",
+        "generated": "图片格式或大小不符合要求。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-636a74a3e1a612ee93a1",
+      "generated_scenario_id": "GEN-0BB9E4A934",
+      "status": "full",
+      "evidence": "CHK-636a74a3e1a612ee93a1 ↔ GEN-0BB9E4A934: Both rows identify negative inventory for a SKU during validation, refuse saving, and mark the erroneous SKU.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+        "generated": "库存为负数。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "full",
+      "evidence": "两侧都在商家设置SKU销售价格超出允许范围时进行价格校验，并提示商家修正价格。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "generated": "销售价格不在允许范围。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-445815fd3b931054a35c",
+      "generated_scenario_id": "GEN-D39A1BF21C",
+      "status": "full",
+      "evidence": "CHK-445815fd3b931054a35c ↔ GEN-D39A1BF21C: Both rows detect another operation updating the product version before API-M-IF3 writes it, then report a data conflict and require reloading.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+        "generated": "商品版本已被其他操作更新。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+      "generated_scenario_id": "GEN-0A397765C8",
+      "status": "full",
+      "evidence": "CHK-e9d16a8dacfc0e8d5b96 ↔ GEN-0A397765C8: Both rows detect incomplete product information on publish, list the missing information, and block publication.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家提交商品发布，但商品资料不完整。",
+        "generated": "商品资料不完整。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-17a8320338b2b52c1fcb",
+      "generated_scenario_id": "GEN-0580C339C6",
+      "status": "full",
+      "evidence": "CHK-17a8320338b2b52c1fcb ↔ GEN-0580C339C6: Both rows detect product content violating category rules during publication and send the product to manual review.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "商家提交商品发布，但商品内容违反类目规则。",
+        "generated": "商品内容违反类目规则。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-1e6511bec1e62371622c",
+      "generated_scenario_id": "GEN-64CDB603C5",
+      "status": "full",
+      "evidence": "CHK-1e6511bec1e62371622c ↔ GEN-64CDB603C5: Both rows put the product in ON_SALE before the catalog-index refresh failure and then record a pending synchronization task for automatic retry; neither row requires rollback.",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+        "generated": "商品目录索引刷新失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "G虽将trigger简写为重复提交，但步骤明确顾客在结算确认后调用订单创建接口，按幂等标识返回既有订单；C描述相同的结算重复提交和返回既有订单。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "generated": "重复提交。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-40BF014705",
+      "status": "full",
+      "evidence": "两侧trigger均为支付结果重复通知，且都规定系统进行幂等处理、不重复更新订单；G步骤包含首次成功更新后处理重复结果。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "5.a 异常场景：支付结果重复通知。",
+        "generated": "支付结果重复通知。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "full",
+      "evidence": "两侧都是本地物流轨迹已过期后调用LogisticsService查询最新轨迹失败；两侧均展示最近一次成功同步的数据并标记更新时间。用例后置条件仅是成功路径上下文。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+        "generated": "外部物流服务查询失败。"
+      }
+    }
+  ]
+}

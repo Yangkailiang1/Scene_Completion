@@ -1,0 +1,459 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-004-UC002",
+  "scenario_id": "main",
+  "name": "填写商品信息",
+  "ssd_id": "SSD-7073FBECD3",
+  "layer": "AR",
+  "lifelines": [
+    {
+      "node_id": "sr-UCG-004-UC002",
+      "label": "MerchantProductService",
+      "kind": "sr_service",
+      "layer": "SR"
+    },
+    {
+      "node_id": "impl-UCG-004-UC002",
+      "label": "ImplementationAPI\nMerchantProductService",
+      "kind": "implementation_microservice",
+      "layer": "AR",
+      "implementation_api_id": "updateMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC002"
+    },
+    {
+      "node_id": "NODE-C730E4A666",
+      "label": "product 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "NODE-F332011A86",
+      "label": "CategoryService",
+      "kind": "internal_service",
+      "layer": "AR"
+    },
+    {
+      "node_id": "NODE-C980AF7CDC",
+      "label": "category 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-13407B7035",
+      "exchange_id": "EXCH-B4EF81695C",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-M-IF2",
+      "from_node": "sr-UCG-004-UC002",
+      "to_node": "impl-UCG-004-UC002",
+      "message": "调用 updateMerchantProduct：PUT /api/v1/merchant/products/{productId}",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "name",
+        "description",
+        "categoryId",
+        "imageUrls[]",
+        "version"
+      ],
+      "response_fields": [],
+      "phase": 30,
+      "parent_exchange_id": "EXCH-178D36A0D3",
+      "implementation_api_id": "updateMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "api_method": "PUT",
+      "resource_path": "/api/v1/merchant/products/{productId}",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-0D29CD6E6A",
+      "exchange_id": "EXCH-BC3912F9BD",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1003-1003",
+      "from_node": "impl-UCG-004-UC002",
+      "to_node": "NODE-C730E4A666",
+      "message": "查询 product 表获取 product_id、merchant_id、status、version，并更新 name、description、category_id、image_urls、version（+1）、updated_at",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "name",
+        "description",
+        "categoryId",
+        "imageUrls[]",
+        "version"
+      ],
+      "response_fields": [
+        "productId",
+        "status",
+        "version",
+        "updatedAt"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-C730E4A666",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1003,
+          "line_end": 1003
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1006,
+          "line_end": 1006
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-541580D90C",
+      "exchange_id": "EXCH-29F2412D5B",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 3,
+      "sequence": 3,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1004-1004",
+      "from_node": "impl-UCG-004-UC002",
+      "to_node": "NODE-F332011A86",
+      "message": "validateCategory → 查询 category 表获取 category_id、status 校验分类有效且未停用",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "categoryId"
+      ],
+      "response_fields": [
+        "category_id",
+        "status"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-F332011A86",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-839db891846ce487",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 1186,
+          "line_end": 1186
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-EB6AFEFCB2",
+      "exchange_id": "EXCH-B1738387F7",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 4,
+      "sequence": 4,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1004-1004",
+      "from_node": "impl-UCG-004-UC002",
+      "to_node": "NODE-C980AF7CDC",
+      "message": "查询 category 表获取 category_id、status，确认分类有效且未停用",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "categoryId"
+      ],
+      "response_fields": [
+        "category_id",
+        "status"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-C980AF7CDC",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-0813E46B08",
+      "exchange_id": "EXCH-BC3912F9BD",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 5,
+      "sequence": 5,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1003-1003",
+      "from_node": "NODE-C730E4A666",
+      "to_node": "impl-UCG-004-UC002",
+      "message": "返回：查询 product 表获取 product_id、merchant_id、status、version，并更新 name、description、category_id、image_urls、version（+1）、updated_at 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "productId",
+        "status",
+        "version",
+        "updatedAt"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-0D29CD6E6A",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-C730E4A666",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1003,
+          "line_end": 1003
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1006,
+          "line_end": 1006
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-A7F429DCC8",
+      "exchange_id": "EXCH-29F2412D5B",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 6,
+      "sequence": 6,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1004-1004",
+      "from_node": "NODE-F332011A86",
+      "to_node": "impl-UCG-004-UC002",
+      "message": "返回：validateCategory → 查询 category 表获取 category_id、status 校验分类有效且未停用 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "category_id",
+        "status"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-541580D90C",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-F332011A86",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-839db891846ce487",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 1186,
+          "line_end": 1186
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-47DCFA30B7",
+      "exchange_id": "EXCH-B1738387F7",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 7,
+      "sequence": 7,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:1004-1004",
+      "from_node": "NODE-C980AF7CDC",
+      "to_node": "impl-UCG-004-UC002",
+      "message": "返回：查询 category 表获取 category_id、status，确认分类有效且未停用 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "category_id",
+        "status"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-EB6AFEFCB2",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-B4EF81695C",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002",
+      "dependency_node_id": "NODE-C980AF7CDC",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-e7331b278dc8d139",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 1004,
+          "line_end": 1004
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 4,
+      "dependency_direction": "outgoing",
+      "entity_attribute": ""
+    },
+    {
+      "message_id": "MSG-F773CB05C7",
+      "exchange_id": "EXCH-B4EF81695C",
+      "interaction_id": "",
+      "use_case_id": "UCG-004-UC002",
+      "ssd_id": "SSD-7073FBECD3",
+      "layer": "AR",
+      "ssd_sequence": 8,
+      "sequence": 8,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-M-IF2",
+      "from_node": "impl-UCG-004-UC002",
+      "to_node": "sr-UCG-004-UC002",
+      "message": "返回 updateMerchantProduct 结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 60,
+      "parent_exchange_id": "EXCH-178D36A0D3",
+      "reply_to_message_id": "MSG-13407B7035",
+      "implementation_api_id": "updateMerchantProduct",
+      "microservice_id": "ar-UCG-004-UC002",
+      "service_id": "ar-UCG-004-UC002"
+    }
+  ]
+}

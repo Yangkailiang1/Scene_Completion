@@ -1,0 +1,2059 @@
+{
+  "stage": "native-matching-review",
+  "input_hash": "b33525bd980a8d40daa33922a7eefc4ad4fd2f884439435f183de8add94c9ad9",
+  "pairs": [
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-4E8410AA60",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "未查询到符合条件的商品。",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。",
+          "顾客输入关键词、选择分类或设置价格、排序条件。",
+          "系统根据条件查询状态为 ON_SALE 的商品。",
+          "系统返回空列表并提示“暂无符合条件的商品”。"
+        ],
+        "expected_result": "系统返回空列表并提示“暂无符合条件的商品”。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "use_case_postconditions": "系统展示符合当前条件的可售商品列表。"
+      },
+      "checker": {
+        "scenario_id": "CHK-5e67e0936a275cebc26a",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。③ 顾客已设置搜索或筛选条件。",
+        "trigger": "4.a 异常场景：未查询到符合条件的商品。",
+        "scenario_steps": [
+          "系统根据顾客条件查询状态为 ON_SALE 的商品。",
+          "查询结果为空。"
+        ],
+        "expected_result": "系统返回空列表并提示“暂无符合条件的商品”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0000-dc0e7c4a0559:0",
+      "batch_id": "matching-0000-dc0e7c4a0559"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-9CD781DEB4",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "查询参数非法。",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。",
+          "顾客输入关键词、选择分类或设置价格、排序条件。",
+          "系统根据条件查询状态为 ON_SALE 的商品。",
+          "系统提示顾客修正查询条件。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "use_case_postconditions": "系统展示符合当前条件的可售商品列表。"
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0005-5408f2fb7bf9:0",
+      "batch_id": "matching-0005-5408f2fb7bf9"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-1220FCB729",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：数据不满足格式规范",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：数据不满足格式规范",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:0",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-142B3FD0A4",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:1",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 2,
+      "generated": {
+        "scenario_id": "GEN-6948F60E61",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:2",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 3,
+      "generated": {
+        "scenario_id": "GEN-9F571B285A",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:3",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 4,
+      "generated": {
+        "scenario_id": "GEN-1004A63E78",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：字符串长度超过限制",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：字符串长度超过限制",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:4",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 5,
+      "generated": {
+        "scenario_id": "GEN-9FA15340C5",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:5",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 6,
+      "generated": {
+        "scenario_id": "GEN-8D4F17F2CF",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「调用 API-S-IF1：GET /api/v1/products」时：数值超出允许范围",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「调用 API-S-IF1：GET /api/v1/products」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3fe019e613999d41e5bf",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用。",
+        "trigger": "4.b 异常场景：查询参数非法。",
+        "scenario_steps": [
+          "顾客提交包含非法参数的查询条件（如关键词、分类、价格或排序参数不合法）。",
+          "系统校验查询参数发现非法。"
+        ],
+        "expected_result": "系统提示顾客修正查询条件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0006-d81e53616ea7:6",
+      "batch_id": "matching-0006-d81e53616ea7"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-A00696170B",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品目录服务超时。",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。",
+          "顾客输入关键词、选择分类或设置价格、排序条件。",
+          "系统根据条件查询状态为 ON_SALE 的商品。",
+          "系统提示“商品加载失败，请稍后重试”。"
+        ],
+        "expected_result": "系统提示“商品加载失败，请稍后重试”。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "use_case_postconditions": "系统展示符合当前条件的可售商品列表。"
+      },
+      "checker": {
+        "scenario_id": "CHK-88aef7035cd381c9cf82",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用（但调用时超时）。",
+        "trigger": "4.c 异常场景：商品目录服务超时。",
+        "scenario_steps": [
+          "系统调用商品目录服务查询商品。",
+          "商品目录服务响应超时。"
+        ],
+        "expected_result": "系统提示“商品加载失败，请稍后重试”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0010-29f5a13fc054:0",
+      "batch_id": "matching-0010-29f5a13fc054"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-7C6D5AB474",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "Delta在线商城系统正常运行。; 商品浏览功能和商品目录服务可用。",
+        "trigger": "执行「Read or update Product records」时：大表联查超时",
+        "scenario_steps": [
+          "顾客进入商品浏览页面。",
+          "在「Read or update Product records」检查：大表联查超时",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-88aef7035cd381c9cf82",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 在线商城购物系统正常运行。② 商品浏览功能和商品目录服务可用（但调用时超时）。",
+        "trigger": "4.c 异常场景：商品目录服务超时。",
+        "scenario_steps": [
+          "系统调用商品目录服务查询商品。",
+          "商品目录服务响应超时。"
+        ],
+        "expected_result": "系统提示“商品加载失败，请稍后重试”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0013-b39ebb897ef2:0",
+      "batch_id": "matching-0013-b39ebb897ef2"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-6ABDFABD2C",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品不存在。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+          "系统提示“商品不存在”并返回商品列表。"
+        ],
+        "expected_result": "系统提示“商品不存在”并返回商品列表。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已进入商品列表。; 目标商品处于可浏览状态。",
+        "use_case_postconditions": "系统展示目标商品的完整详情。"
+      },
+      "checker": {
+        "scenario_id": "CHK-96b0d81b72f06b623793",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已进入商品列表。",
+        "trigger": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品不存在。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息，商品不存在。",
+          "系统提示“商品不存在”并返回商品列表。"
+        ],
+        "expected_result": "系统提示“商品不存在”并返回商品列表。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0015-a1510c40c821:0",
+      "batch_id": "matching-0015-a1510c40c821"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-E80F0305D0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品已下架。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+          "系统提示“商品已下架”且禁止购买。"
+        ],
+        "expected_result": "系统提示“商品已下架”且禁止购买。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已进入商品列表。; 目标商品处于可浏览状态。",
+        "use_case_postconditions": "系统展示目标商品的完整详情。"
+      },
+      "checker": {
+        "scenario_id": "CHK-22435214c5b768a5f1dd",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已进入商品列表。",
+        "trigger": "步骤 2 调用商品详情接口 API-S-IF2 查询商品信息时，商品已下架。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息，商品已下架。",
+          "系统提示“商品已下架”且禁止购买。"
+        ],
+        "expected_result": "系统提示“商品已下架”且禁止购买。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0020-1a06cc783622:0",
+      "batch_id": "matching-0020-1a06cc783622"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-7B805E063F",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "部分非关键展示信息缺失。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+          "系统获取商品描述、图片、价格和库存状态。",
+          "系统展示已有信息并隐藏缺失区域。"
+        ],
+        "expected_result": "系统展示已有信息并隐藏缺失区域。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已进入商品列表。; 目标商品处于可浏览状态。",
+        "use_case_postconditions": "系统展示目标商品的完整详情。"
+      },
+      "checker": {
+        "scenario_id": "CHK-2031266bdbc5770f83f6",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已进入商品列表。② 目标商品处于可浏览状态。",
+        "trigger": "步骤 3 系统获取商品描述、图片、价格和库存状态时，部分非关键展示信息缺失。",
+        "scenario_steps": [
+          "顾客点击商品。",
+          "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+          "系统获取商品描述、图片、价格和库存状态，部分非关键展示信息缺失。",
+          "系统展示已有信息并隐藏缺失区域。"
+        ],
+        "expected_result": "系统展示已有信息并隐藏缺失区域。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0025-216dc38ff77c:0",
+      "batch_id": "matching-0025-216dc38ff77c"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-49C77EEBE5",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "库存不足。",
+        "scenario_steps": [
+          "顾客选择SKU和购买数量。",
+          "系统校验商品状态、库存和限购规则。",
+          "系统提示当前可购买数量。"
+        ],
+        "expected_result": "系统提示当前可购买数量。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 商品及所选SKU处于可售状态。",
+        "use_case_postconditions": "商品及购买数量被保存到顾客购物车。"
+      },
+      "checker": {
+        "scenario_id": "CHK-806e5a4b0a34df92413e",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+        "trigger": "系统校验商品状态、库存和限购规则时发现库存不足。",
+        "scenario_steps": [
+          "① 顾客选择SKU和购买数量。",
+          "② 系统校验商品状态、库存和限购规则，发现库存不足。"
+        ],
+        "expected_result": "系统提示当前可购买数量。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0030-685a7f56a801:0",
+      "batch_id": "matching-0030-685a7f56a801"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-4581F93AAA",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品已下架。",
+        "scenario_steps": [
+          "顾客选择SKU和购买数量。",
+          "系统校验商品状态、库存和限购规则。",
+          "系统拒绝加入购物车。"
+        ],
+        "expected_result": "系统拒绝加入购物车。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 商品及所选SKU处于可售状态。",
+        "use_case_postconditions": "商品及购买数量被保存到顾客购物车。"
+      },
+      "checker": {
+        "scenario_id": "CHK-f9417fc2545bae75adae",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 商品及所选SKU处于可售状态。",
+        "trigger": "系统校验商品状态时发现商品已下架。",
+        "scenario_steps": [
+          "① 顾客选择SKU和购买数量。",
+          "② 系统校验商品状态、库存和限购规则，发现商品已下架。"
+        ],
+        "expected_result": "系统拒绝加入购物车。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0035-96dadda07bbc:0",
+      "batch_id": "matching-0035-96dadda07bbc"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-8D90BBB6CA",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品价格已变化。",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "系统展示最新价格并要求顾客重新确认。"
+        ],
+        "expected_result": "系统展示最新价格并要求顾客重新确认。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "use_case_postconditions": "系统生成状态为 WAIT_PAY 的订单并锁定相应库存。"
+      },
+      "checker": {
+        "scenario_id": "CHK-0c52832445a8daf9e227",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+        "trigger": "系统校验价格、库存和促销有效性时，发现商品价格已变化",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品",
+          "系统校验价格、库存和促销有效性时，发现商品价格已变化",
+          "系统展示最新价格并要求顾客重新确认"
+        ],
+        "expected_result": "系统展示最新价格并要求顾客重新确认",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0040-85f350e672b4:0",
+      "batch_id": "matching-0040-85f350e672b4"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-7C9D158555",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "库存不足。",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "系统标记缺货商品并阻止订单创建。"
+        ],
+        "expected_result": "系统标记缺货商品并阻止订单创建。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "use_case_postconditions": "系统生成状态为 WAIT_PAY 的订单并锁定相应库存。"
+      },
+      "checker": {
+        "scenario_id": "CHK-f160dcbfd73b8b29618f",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+        "trigger": "系统校验价格、库存和促销有效性时，发现库存不足",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品",
+          "系统校验价格、库存和促销有效性时，发现库存不足",
+          "系统标记缺货商品并阻止订单创建"
+        ],
+        "expected_result": "系统标记缺货商品并阻止订单创建",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0045-44f514bd42cd:0",
+      "batch_id": "matching-0045-44f514bd42cd"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-4A0AD69249",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+        "trigger": "执行「Read or update Order records」时：重复请求导致重复操作异常",
+        "scenario_steps": [
+          "系统读取顾客选中的购物车商品。",
+          "系统校验价格、库存和促销有效性。",
+          "顾客确认收货地址和订单金额。",
+          "在「Read or update Order records」检查：重复请求导致重复操作异常",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-69c91d08774029d46b73",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；购物车中存在已选中的有效商品；顾客已提供有效收货地址",
+        "trigger": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "scenario_steps": [
+          "顾客在结算页确认提交订单",
+          "系统检测到重复提交",
+          "系统根据幂等标识返回已创建的订单"
+        ],
+        "expected_result": "系统根据幂等标识返回已创建的订单",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0053-8479babd0375:0",
+      "batch_id": "matching-0053-8479babd0375"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-88352D1CC0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "PaymentService不可用。",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求。",
+          "系统保留待支付状态并提示稍后重试。"
+        ],
+        "expected_result": "系统保留待支付状态并提示稍后重试。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "use_case_postconditions": "订单状态更新为 PAID，并记录支付流水。"
+      },
+      "checker": {
+        "scenario_id": "CHK-03c6a9972c7a1450af5f",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "3.a 异常场景：PaymentService不可用。",
+        "scenario_steps": [
+          "系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求时，PaymentService不可用。"
+        ],
+        "expected_result": "系统保留待支付状态并提示稍后重试。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0055-dc0a9e69bdd4:0",
+      "batch_id": "matching-0055-dc0a9e69bdd4"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-A80786BF86",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "顾客取消支付。",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求。",
+          "PaymentService完成支付并返回成功结果。",
+          "系统返回订单详情，订单保持 WAIT_PAY。"
+        ],
+        "expected_result": "系统返回订单详情，订单保持 WAIT_PAY。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "use_case_postconditions": "订单状态更新为 PAID，并记录支付流水。"
+      },
+      "checker": {
+        "scenario_id": "CHK-138a928b92687a45f739",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "4.a 异常场景：顾客取消支付。",
+        "scenario_steps": [
+          "顾客在支付过程中取消支付。"
+        ],
+        "expected_result": "系统返回订单详情，订单保持 WAIT_PAY。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0060-8a0340aa3875:0",
+      "batch_id": "matching-0060-8a0340aa3875"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-39D15BC889",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：并发变更产生冲突，或重复请求导致重复变更",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「调用 PAYMENT-PAY-01：POST /payment/v1/payments」检查：并发变更产生冲突，或重复请求导致重复变更",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "5.a 异常场景：支付结果重复通知。",
+        "scenario_steps": [
+          "PaymentService发送重复的支付结果通知。"
+        ],
+        "expected_result": "系统进行幂等处理，不重复更新订单。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0067-3aaf528c1223:0",
+      "batch_id": "matching-0067-3aaf528c1223"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-7B845CE134",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+        "trigger": "执行「Read or update OrderItem records」时：重复请求导致重复操作异常",
+        "scenario_steps": [
+          "顾客发起订单支付。",
+          "系统校验订单状态和应付金额。",
+          "在「Read or update OrderItem records」检查：重复请求导致重复操作异常",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e334d924b044c0587e7b",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 订单状态为 WAIT_PAY。② 订单未超过支付有效期。③ PaymentService可用。",
+        "trigger": "5.a 异常场景：支付结果重复通知。",
+        "scenario_steps": [
+          "PaymentService发送重复的支付结果通知。"
+        ],
+        "expected_result": "系统进行幂等处理，不重复更新订单。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0068-73a93a0aa998:0",
+      "batch_id": "matching-0068-73a93a0aa998"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-801F8EF3B7",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "订单不属于当前顾客。",
+        "scenario_steps": [
+          "顾客提交订单编号。",
+          "系统校验订单归属关系。",
+          "系统拒绝访问并记录安全事件。"
+        ],
+        "expected_result": "系统拒绝访问并记录安全事件。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客。",
+        "use_case_postconditions": "系统展示订单的商品、金额、支付和履约信息。"
+      },
+      "checker": {
+        "scenario_id": "CHK-59bdd199f4d9c2851429",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；订单可能不属于当前顾客。",
+        "trigger": "系统校验订单归属关系时发现订单不属于当前顾客。",
+        "scenario_steps": [
+          "系统校验订单归属关系。",
+          "系统判定订单不属于当前顾客。"
+        ],
+        "expected_result": "系统拒绝访问并记录安全事件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0070-7fecf60f43ba:0",
+      "batch_id": "matching-0070-7fecf60f43ba"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-B419A69125",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客。",
+        "trigger": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：水平越权或垂直越权",
+        "scenario_steps": [
+          "顾客提交订单编号。",
+          "系统校验订单归属关系。",
+          "在「调用 API-O-IF2：GET /api/v1/orders/{orderId}」检查：水平越权或垂直越权",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-59bdd199f4d9c2851429",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；订单可能不属于当前顾客。",
+        "trigger": "系统校验订单归属关系时发现订单不属于当前顾客。",
+        "scenario_steps": [
+          "系统校验订单归属关系。",
+          "系统判定订单不属于当前顾客。"
+        ],
+        "expected_result": "系统拒绝访问并记录安全事件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0072-9f8435cd9eb0:0",
+      "batch_id": "matching-0072-9f8435cd9eb0"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-CC2857D09A",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客。",
+        "trigger": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：数据越过用户、租户或权限范围被访问或返回",
+        "scenario_steps": [
+          "顾客提交订单编号。",
+          "系统校验订单归属关系。",
+          "在「调用 API-O-IF2：GET /api/v1/orders/{orderId}」检查：数据越过用户、租户或权限范围被访问或返回",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-59bdd199f4d9c2851429",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；订单可能不属于当前顾客。",
+        "trigger": "系统校验订单归属关系时发现订单不属于当前顾客。",
+        "scenario_steps": [
+          "系统校验订单归属关系。",
+          "系统判定订单不属于当前顾客。"
+        ],
+        "expected_result": "系统拒绝访问并记录安全事件。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0072-9f8435cd9eb0:1",
+      "batch_id": "matching-0072-9f8435cd9eb0"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-2970C4053A",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "订单不存在。",
+        "scenario_steps": [
+          "顾客提交订单编号。",
+          "系统校验订单归属关系。",
+          "系统通过订单详情接口 API-O-IF2 查询订单。",
+          "系统提示“订单不存在”。"
+        ],
+        "expected_result": "系统提示“订单不存在”。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客。",
+        "use_case_postconditions": "系统展示订单的商品、金额、支付和履约信息。"
+      },
+      "checker": {
+        "scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；订单属于当前顾客。",
+        "trigger": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+        "scenario_steps": [
+          "系统通过订单详情接口 API-O-IF2 查询订单。",
+          "系统未查到对应订单。"
+        ],
+        "expected_result": "系统提示“订单不存在”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0075-2198925524c4:0",
+      "batch_id": "matching-0075-2198925524c4"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-D6EF57EBF5",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "顾客已登录。; 订单属于当前顾客。",
+        "trigger": "执行「调用 API-O-IF2：GET /api/v1/orders/{orderId}」时：查询资源不存在或已失效",
+        "scenario_steps": [
+          "顾客提交订单编号。",
+          "系统校验订单归属关系。",
+          "在「调用 API-O-IF2：GET /api/v1/orders/{orderId}」检查：查询资源不存在或已失效",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-3adfb05eb58a56c8d4ff",
+        "scenario_type": "requirement_exception",
+        "preconditions": "顾客已登录；订单属于当前顾客。",
+        "trigger": "系统通过订单详情接口 API-O-IF2 查询订单时订单不存在。",
+        "scenario_steps": [
+          "系统通过订单详情接口 API-O-IF2 查询订单。",
+          "系统未查到对应订单。"
+        ],
+        "expected_result": "系统提示“订单不存在”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0077-16cde8bb60ed:0",
+      "batch_id": "matching-0077-16cde8bb60ed"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-D966960BCA",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "订单状态不是 PAID。",
+        "scenario_steps": [
+          "商家选择待发货订单。",
+          "系统校验订单状态和商家权限。",
+          "系统拒绝发货。"
+        ],
+        "expected_result": "系统拒绝发货。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+        "use_case_postconditions": "订单状态更新为 SHIPPED，并保存物流单号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-e8627f5835b2dfc07e05",
+        "scenario_type": "requirement_exception",
+        "preconditions": "订单状态为 PAID；商品已完成出库准备。",
+        "trigger": "步骤 2 中系统校验发现订单状态不是 PAID。",
+        "scenario_steps": [
+          "系统校验订单状态和商家权限。",
+          "系统发现订单状态不是 PAID。"
+        ],
+        "expected_result": "系统拒绝发货。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0080-bec30dd35a46:0",
+      "batch_id": "matching-0080-bec30dd35a46"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-AB2FC6BAC5",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "物流单号格式错误。",
+        "scenario_steps": [
+          "商家选择待发货订单。",
+          "系统校验订单状态和商家权限。",
+          "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "系统提示商家修正。"
+        ],
+        "expected_result": "系统提示商家修正。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+        "use_case_postconditions": "订单状态更新为 SHIPPED，并保存物流单号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-e5029d0f39400b451bec",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备；商家已填写承运商和物流单号。",
+        "trigger": "步骤 3 中物流单号格式错误。",
+        "scenario_steps": [
+          "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "系统检测到物流单号格式错误。"
+        ],
+        "expected_result": "系统提示商家修正。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0085-c1d0db1c11ab:0",
+      "batch_id": "matching-0085-c1d0db1c11ab"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-DE83CDF2DA",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+        "trigger": "执行「调用 API-L-IF1：POST /api/v1/orders/{orderId}/shipments」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "商家选择待发货订单。",
+          "系统校验订单状态和商家权限。",
+          "在「调用 API-L-IF1：POST /api/v1/orders/{orderId}/shipments」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e5029d0f39400b451bec",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备；商家已填写承运商和物流单号。",
+        "trigger": "步骤 3 中物流单号格式错误。",
+        "scenario_steps": [
+          "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "系统检测到物流单号格式错误。"
+        ],
+        "expected_result": "系统提示商家修正。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0086-4a749c9c186a:0",
+      "batch_id": "matching-0086-4a749c9c186a"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-855CA96E87",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+        "trigger": "执行「调用 API-L-IF1：POST /api/v1/orders/{orderId}/shipments」时：非法字符、不允许字段或非法取值",
+        "scenario_steps": [
+          "商家选择待发货订单。",
+          "系统校验订单状态和商家权限。",
+          "在「调用 API-L-IF1：POST /api/v1/orders/{orderId}/shipments」检查：非法字符、不允许字段或非法取值",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e5029d0f39400b451bec",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备；商家已填写承运商和物流单号。",
+        "trigger": "步骤 3 中物流单号格式错误。",
+        "scenario_steps": [
+          "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "系统检测到物流单号格式错误。"
+        ],
+        "expected_result": "系统提示商家修正。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0086-4a749c9c186a:1",
+      "batch_id": "matching-0086-4a749c9c186a"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-D0DF305D5F",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "LogisticsService暂时不可用。",
+        "scenario_steps": [
+          "商家选择待发货订单。",
+          "系统校验订单状态和商家权限。",
+          "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "系统向LogisticsService登记物流单。",
+          "系统保留待同步记录并进入重试队列。"
+        ],
+        "expected_result": "系统保留待同步记录并进入重试队列。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+        "use_case_postconditions": "订单状态更新为 SHIPPED，并保存物流单号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-b278565690498914751f",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录且拥有订单处理权限；订单状态为 PAID；商品已完成出库准备。",
+        "trigger": "步骤 4 中 LogisticsService 暂时不可用。",
+        "scenario_steps": [
+          "系统向 LogisticsService 登记物流单。",
+          "系统发现 LogisticsService 暂时不可用。"
+        ],
+        "expected_result": "系统保留待同步记录并进入重试队列。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0090-e672f7cb6feb:0",
+      "batch_id": "matching-0090-e672f7cb6feb"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-8FC1C0C244",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "签名校验失败。",
+        "scenario_steps": [
+          "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+          "系统校验消息签名和物流单号。",
+          "系统拒绝消息并记录安全告警。"
+        ],
+        "expected_result": "系统拒绝消息并记录安全告警。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商城已登记有效物流单号。; LogisticsService已获得合法调用凭证。",
+        "use_case_postconditions": "商城保存最新物流节点并更新物流状态。"
+      },
+      "checker": {
+        "scenario_id": "CHK-780641148ecd16c7fd58",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第2步校验消息签名时签名校验失败。",
+        "scenario_steps": [
+          "系统执行消息签名校验。",
+          "签名校验失败。"
+        ],
+        "expected_result": "系统拒绝消息并记录安全告警。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0095-cd40f5d9f396:0",
+      "batch_id": "matching-0095-cd40f5d9f396"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-DAA8D90358",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "收到重复物流节点。",
+        "scenario_steps": [
+          "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+          "系统校验消息签名和物流单号。",
+          "系统校验物流节点的时间顺序。",
+          "系统进行幂等处理。"
+        ],
+        "expected_result": "系统进行幂等处理。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商城已登记有效物流单号。; LogisticsService已获得合法调用凭证。",
+        "use_case_postconditions": "商城保存最新物流节点并更新物流状态。"
+      },
+      "checker": {
+        "scenario_id": "CHK-639f4f77b8d00ff0914c",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第3步校验物流节点时收到重复物流节点。",
+        "scenario_steps": [
+          "系统校验物流节点。",
+          "检测到该物流节点为重复节点。"
+        ],
+        "expected_result": "系统进行幂等处理。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0099-cef9c1cdbe17:0",
+      "batch_id": "matching-0099-cef9c1cdbe17"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-B8AF03CF55",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商城已登记有效物流单号。; LogisticsService已获得合法调用凭证。",
+        "trigger": "执行「Read or update LogisticsEvent records」时：重复请求导致重复操作异常",
+        "scenario_steps": [
+          "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+          "系统校验消息签名和物流单号。",
+          "系统校验物流节点的时间顺序。",
+          "系统保存新的物流节点。",
+          "在「Read or update LogisticsEvent records」检查：重复请求导致重复操作异常",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-639f4f77b8d00ff0914c",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第3步校验物流节点时收到重复物流节点。",
+        "scenario_steps": [
+          "系统校验物流节点。",
+          "检测到该物流节点为重复节点。"
+        ],
+        "expected_result": "系统进行幂等处理。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0102-5cc894c1ebd7:0",
+      "batch_id": "matching-0102-5cc894c1ebd7"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-21A9B22C8E",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "物流节点时间早于已保存节点。",
+        "scenario_steps": [
+          "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+          "系统校验消息签名和物流单号。",
+          "系统校验物流节点的时间顺序。",
+          "系统保留原状态并将异常消息送入审核队列。"
+        ],
+        "expected_result": "系统保留原状态并将异常消息送入审核队列。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商城已登记有效物流单号。; LogisticsService已获得合法调用凭证。",
+        "use_case_postconditions": "商城保存最新物流节点并更新物流状态。"
+      },
+      "checker": {
+        "scenario_id": "CHK-e8fa603f5daa44b41293",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+        "scenario_steps": [
+          "系统校验物流节点的时间顺序。",
+          "发现新物流节点时间早于已保存节点。"
+        ],
+        "expected_result": "系统保留原状态并将异常消息送入审核队列。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0103-7ced8c4534e3:0",
+      "batch_id": "matching-0103-7ced8c4534e3"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-A88F0A1919",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "订单尚未发货。",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "系统通过物流查询接口 API-L-IF2读取本地轨迹。",
+          "系统提示“商家尚未发货”。"
+        ],
+        "expected_result": "系统提示“商家尚未发货”。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+        "use_case_postconditions": "系统展示最新物流状态和轨迹。"
+      },
+      "checker": {
+        "scenario_id": "CHK-93dbf4d7306619c69a90",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 订单属于当前顾客但尚未发货。",
+        "trigger": "顾客发起物流查询时订单尚未发货（主成功路径步骤2）。",
+        "scenario_steps": [
+          "顾客发起物流查询。",
+          "系统检测到订单尚未发货。"
+        ],
+        "expected_result": "系统提示“商家尚未发货”。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0107-2cf35e95f635:0",
+      "batch_id": "matching-0107-2cf35e95f635"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-3C19AB2A05",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "超过退款期限。",
+        "scenario_steps": [
+          "顾客选择退款商品、数量和原因。",
+          "系统校验订单和可退款金额。",
+          "系统拒绝申请并说明原因。"
+        ],
+        "expected_result": "系统拒绝申请并说明原因。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客且已支付。; 订单满足退款时限和状态规则。",
+        "use_case_postconditions": "系统生成退款申请并返回申请编号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-5a4569f33268c8719354",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+        "trigger": "系统校验订单和可退款金额时，发现超过退款期限。",
+        "scenario_steps": [
+          "系统校验订单和可退款金额时，发现超过退款期限。"
+        ],
+        "expected_result": "系统拒绝申请并说明原因。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0117-55935268dcd5:0",
+      "batch_id": "matching-0117-55935268dcd5"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-0310D69FD9",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "申请金额超过可退款金额。",
+        "scenario_steps": [
+          "顾客选择退款商品、数量和原因。",
+          "系统校验订单和可退款金额。",
+          "系统提示顾客调整退款内容。"
+        ],
+        "expected_result": "系统提示顾客调整退款内容。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客且已支付。; 订单满足退款时限和状态规则。",
+        "use_case_postconditions": "系统生成退款申请并返回申请编号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-89f43df1b1cff6178b7a",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+        "trigger": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+        "scenario_steps": [
+          "系统校验订单和可退款金额时，发现申请金额超过可退款金额。"
+        ],
+        "expected_result": "系统提示顾客调整退款内容。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0122-466f97212cfc:0",
+      "batch_id": "matching-0122-466f97212cfc"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-473A451238",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "PaymentService暂时不可用。",
+        "scenario_steps": [
+          "顾客选择退款商品、数量和原因。",
+          "系统校验订单和可退款金额。",
+          "系统通过退款申请接口 API-R-IF1 创建退款单。",
+          "系统向PaymentService提交退款请求。",
+          "系统保存待处理退款单并异步重试。"
+        ],
+        "expected_result": "系统保存待处理退款单并异步重试。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "顾客已登录。; 订单属于当前顾客且已支付。; 订单满足退款时限和状态规则。",
+        "use_case_postconditions": "系统生成退款申请并返回申请编号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-381d441fe9966817b11d",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 顾客已登录。② 订单属于当前顾客且已支付。③ 订单满足退款时限和状态规则。",
+        "trigger": "系统向PaymentService提交退款请求时，PaymentService暂时不可用。",
+        "scenario_steps": [
+          "系统向PaymentService提交退款请求时，PaymentService暂时不可用。"
+        ],
+        "expected_result": "系统保存待处理退款单并异步重试。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0127-759fca81877f:0",
+      "batch_id": "matching-0127-759fca81877f"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-CB7E648FCA",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商家资质已失效。",
+        "scenario_steps": [
+          "商家发起商品创建。",
+          "系统校验商家身份和权限。",
+          "系统拒绝创建并提示重新认证。"
+        ],
+        "expected_result": "系统拒绝创建并提示重新认证。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商家已登录并通过经营资质审核。; 商家拥有商品管理权限。",
+        "use_case_postconditions": "系统创建状态为 DRAFT 的商品并返回商品编号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-3215aadd6ba1899db048",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录；商家资质已失效",
+        "trigger": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+        "scenario_steps": [
+          "系统校验商家身份和权限时检测到商家资质已失效",
+          "系统拒绝创建并提示重新认证"
+        ],
+        "expected_result": "系统拒绝创建并提示重新认证",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0132-f2be898b3788:0",
+      "batch_id": "matching-0132-f2be898b3788"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-CDEB6D42D0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "重复提交。",
+        "scenario_steps": [
+          "商家发起商品创建。",
+          "系统校验商家身份和权限。",
+          "系统调用商品创建接口 API-M-IF1。",
+          "系统根据幂等标识返回已有草稿。"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商家已登录并通过经营资质审核。; 商家拥有商品管理权限。",
+        "use_case_postconditions": "系统创建状态为 DRAFT 的商品并返回商品编号。"
+      },
+      "checker": {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限；存在相同幂等标识的先前创建请求",
+        "trigger": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+        "scenario_steps": [
+          "商家重复发起商品创建提交",
+          "系统识别重复提交及幂等标识",
+          "系统根据幂等标识返回已有草稿"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿，不重复创建商品",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0137-18a4dfe324e4:0",
+      "batch_id": "matching-0137-18a4dfe324e4"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-995F875E0B",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商家已登录并通过经营资质审核。; 商家拥有商品管理权限。",
+        "trigger": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：并发变更产生冲突，或重复请求导致重复变更",
+        "scenario_steps": [
+          "商家发起商品创建。",
+          "系统校验商家身份和权限。",
+          "在「调用 API-M-IF1：POST /api/v1/merchant/products」检查：并发变更产生冲突，或重复请求导致重复变更",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限；存在相同幂等标识的先前创建请求",
+        "trigger": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+        "scenario_steps": [
+          "商家重复发起商品创建提交",
+          "系统识别重复提交及幂等标识",
+          "系统根据幂等标识返回已有草稿"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿，不重复创建商品",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0139-f874e99d1dae:0",
+      "batch_id": "matching-0139-f874e99d1dae"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-E5CA74E988",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "分类不存在或已停用。",
+        "scenario_steps": [
+          "商家填写商品名称和描述。",
+          "商家选择有效商品分类并上传图片。",
+          "系统要求商家重新选择分类。"
+        ],
+        "expected_result": "系统要求商家重新选择分类。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在且属于当前商家。; 商家拥有编辑权限。",
+        "use_case_postconditions": "系统保存商品名称、描述、分类和图片。"
+      },
+      "checker": {
+        "scenario_id": "CHK-567bb5e16157a9936c5f",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+        "trigger": "商家选择商品分类时，该分类不存在或已停用",
+        "scenario_steps": [
+          "商家选择商品分类",
+          "系统检测到分类不存在或已停用",
+          "系统要求商家重新选择分类"
+        ],
+        "expected_result": "系统要求商家重新选择分类",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0142-0dae70f5fbed:0",
+      "batch_id": "matching-0142-0dae70f5fbed"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-9FCFD67BBA",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "图片格式或大小不符合要求。",
+        "scenario_steps": [
+          "商家填写商品名称和描述。",
+          "商家选择有效商品分类并上传图片。",
+          "系统校验必填字段、文本长度和图片格式。",
+          "系统拒绝对应图片并显示限制条件。"
+        ],
+        "expected_result": "系统拒绝对应图片并显示限制条件。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在且属于当前商家。; 商家拥有编辑权限。",
+        "use_case_postconditions": "系统保存商品名称、描述、分类和图片。"
+      },
+      "checker": {
+        "scenario_id": "CHK-59ba4a6d109dfebf9eb9",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在且属于当前商家；商家拥有编辑权限",
+        "trigger": "商家上传的图片格式或大小不符合要求",
+        "scenario_steps": [
+          "商家上传图片",
+          "系统校验图片格式与大小",
+          "系统拒绝对应图片并显示限制条件"
+        ],
+        "expected_result": "系统拒绝对应图片并显示限制条件",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0147-905e58fd19b6:0",
+      "batch_id": "matching-0147-905e58fd19b6"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-0BB9E4A934",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "库存为负数。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统拒绝保存并标记错误SKU。"
+        ],
+        "expected_result": "系统拒绝保存并标记错误SKU。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      "checker": {
+        "scenario_id": "CHK-636a74a3e1a612ee93a1",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量，其中包含负数库存。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统拒绝保存并标记错误SKU。"
+        ],
+        "expected_result": "系统拒绝保存并标记错误SKU。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0152-3ef96e4f2df9:0",
+      "batch_id": "matching-0152-3ef96e4f2df9"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-4D900C8F7C",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-636a74a3e1a612ee93a1",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量，其中包含负数库存。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统拒绝保存并标记错误SKU。"
+        ],
+        "expected_result": "系统拒绝保存并标记错误SKU。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0153-d3f096ea1859:0",
+      "batch_id": "matching-0153-d3f096ea1859"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-14ED2234B4",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-636a74a3e1a612ee93a1",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量，其中包含负数库存。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统拒绝保存并标记错误SKU。"
+        ],
+        "expected_result": "系统拒绝保存并标记错误SKU。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0153-d3f096ea1859:1",
+      "batch_id": "matching-0153-d3f096ea1859"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-1673D36091",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "销售价格不在允许范围。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      "checker": {
+        "scenario_id": "CHK-837007732b14891e21e0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价，销售价格超出允许范围。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0157-9400c1d5f184:0",
+      "batch_id": "matching-0157-9400c1d5f184"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-4D900C8F7C",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-837007732b14891e21e0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价，销售价格超出允许范围。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0158-7a27e80b01c7:0",
+      "batch_id": "matching-0158-7a27e80b01c7"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-14ED2234B4",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "trigger": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "在「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」检查：数值超出允许范围",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-837007732b14891e21e0",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价，销售价格超出允许范围。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统提示商家修正价格。"
+        ],
+        "expected_result": "系统提示商家修正价格。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0158-7a27e80b01c7:1",
+      "batch_id": "matching-0158-7a27e80b01c7"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-D39A1BF21C",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品版本已被其他操作更新。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统调用库存价格维护接口 API-M-IF3。",
+          "系统提示数据冲突并要求重新加载。"
+        ],
+        "expected_result": "系统提示数据冲突并要求重新加载。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+        "use_case_postconditions": "系统保存每个SKU的库存和销售价格。"
+      },
+      "checker": {
+        "scenario_id": "CHK-445815fd3b931054a35c",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商品草稿存在；商品已定义至少一个SKU。",
+        "trigger": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+        "scenario_steps": [
+          "商家为每个SKU输入库存数量。",
+          "商家设置销售价格和可选原价。",
+          "系统校验库存、价格和SKU唯一性。",
+          "系统调用库存价格维护接口 API-M-IF3，检测到商品版本已被其他操作更新。",
+          "系统提示数据冲突并要求重新加载。"
+        ],
+        "expected_result": "系统提示数据冲突并要求重新加载。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0162-734fb6be5dd8:0",
+      "batch_id": "matching-0162-734fb6be5dd8"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-0A397765C8",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品资料不完整。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验资料完整性、类目规则、库存和价格。",
+          "系统列出缺失信息并阻止发布。"
+        ],
+        "expected_result": "系统列出缺失信息并阻止发布。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+        "use_case_postconditions": "商品状态更新为 ON_SALE，并可被顾客查询。"
+      },
+      "checker": {
+        "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商品处于 DRAFT 状态。② 商家经营资质有效。",
+        "trigger": "商家提交商品发布，但商品资料不完整。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验发现商品资料不完整。",
+          "系统列出缺失信息并阻止发布。"
+        ],
+        "expected_result": "系统列出缺失信息并阻止发布。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0167-45a8b243160b:0",
+      "batch_id": "matching-0167-45a8b243160b"
+    },
+    {
+      "pair_index": 1,
+      "generated": {
+        "scenario_id": "GEN-5C5A3FF406",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+        "trigger": "执行「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」时：必填数据缺失或请求体为空",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验资料完整性、类目规则、库存和价格。",
+          "在「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」检查：必填数据缺失或请求体为空",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商品处于 DRAFT 状态。② 商家经营资质有效。",
+        "trigger": "商家提交商品发布，但商品资料不完整。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验发现商品资料不完整。",
+          "系统列出缺失信息并阻止发布。"
+        ],
+        "expected_result": "系统列出缺失信息并阻止发布。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0167-45a8b243160b:1",
+      "batch_id": "matching-0167-45a8b243160b"
+    },
+    {
+      "pair_index": 2,
+      "generated": {
+        "scenario_id": "GEN-291A7E5B95",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+        "trigger": "执行「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」时：必填数据缺失或请求体为空",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验资料完整性、类目规则、库存和价格。",
+          "在「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」检查：必填数据缺失或请求体为空",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e9d16a8dacfc0e8d5b96",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商品处于 DRAFT 状态。② 商家经营资质有效。",
+        "trigger": "商家提交商品发布，但商品资料不完整。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验发现商品资料不完整。",
+          "系统列出缺失信息并阻止发布。"
+        ],
+        "expected_result": "系统列出缺失信息并阻止发布。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0167-45a8b243160b:2",
+      "batch_id": "matching-0167-45a8b243160b"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-0580C339C6",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品内容违反类目规则。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验资料完整性、类目规则、库存和价格。",
+          "系统将商品送入人工审核。"
+        ],
+        "expected_result": "系统将商品送入人工审核。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+        "use_case_postconditions": "商品状态更新为 ON_SALE，并可被顾客查询。"
+      },
+      "checker": {
+        "scenario_id": "CHK-17a8320338b2b52c1fcb",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商品处于 DRAFT 状态。② 商品基本资料、SKU、库存和价格均已填写。③ 商家经营资质有效。",
+        "trigger": "商家提交商品发布，但商品内容违反类目规则。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验类目规则，发现商品内容违反类目规则。",
+          "系统将商品送入人工审核。"
+        ],
+        "expected_result": "系统将商品送入人工审核。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0172-be0bd0119486:0",
+      "batch_id": "matching-0172-be0bd0119486"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-64CDB603C5",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "商品目录索引刷新失败。",
+        "scenario_steps": [
+          "商家提交商品发布。",
+          "系统校验资料完整性、类目规则、库存和价格。",
+          "系统调用商品发布接口 API-M-IF4。",
+          "系统将商品状态更新为 ON_SALE。",
+          "系统通知商品目录服务刷新可售商品索引。",
+          "系统记录待同步任务并自动重试。"
+        ],
+        "expected_result": "系统记录待同步任务并自动重试。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+        "use_case_postconditions": "商品状态更新为 ON_SALE，并可被顾客查询。"
+      },
+      "checker": {
+        "scenario_id": "CHK-1e6511bec1e62371622c",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商品处于 DRAFT 状态。② 商品基本资料、SKU、库存和价格均已填写。③ 商家经营资质有效。",
+        "trigger": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+        "scenario_steps": [
+          "系统将商品状态更新为 ON_SALE。",
+          "系统通知商品目录服务刷新可售商品索引。",
+          "商品目录索引刷新失败。",
+          "系统记录待同步任务并自动重试。"
+        ],
+        "expected_result": "系统记录待同步任务并自动重试。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0177-cef9ba959c92:0",
+      "batch_id": "matching-0177-cef9ba959c92"
+    }
+  ],
+  "instructions": [
+    "Independently evaluate every pair with the four semantic assessments and exact trigger quotations.",
+    "Require the same specific failure mechanism, resource/entity and operation. A generic question or possible topic overlap is insufficient.",
+    "Consider branch pre/postconditions, core behavior and outcomes. Unknown response prevents full; conflicting outcomes prevent matching.",
+    "Return one decision per review_id, including status, same_specific_trigger, shared_core_behavior, same_expected_outcome, compatible_constraints, evidence and missing_behavior."
+  ]
+}

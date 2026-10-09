@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="567" viewBox="0 0 1100 567">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">浏览商品 · AR SSD</text>
+<rect x="30.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="180.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ProductDisplayService</text>
+<line x1="180.0" y1="142.0" x2="180.0" y2="537.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="400.0" y="100.0" width="300.0" height="59" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="550.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ImplementationAPI</text>
+<text x="550.0" y="142.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#1F2937">ProductCatalogService</text>
+<line x1="550.0" y1="159.0" x2="550.0" y2="537.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="770.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="920.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">product 表</text>
+<line x1="920.0" y1="142.0" x2="920.0" y2="537.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="180.0" y1="186.0" x2="550.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="188.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 调用 listProducts：GET /api/v1/products · GET</text>
+<line x1="550.0" y1="274.0" x2="920.0" y2="274.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="558.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 根据请求条件查询 product 表，涉及字段 product_id、product_name、category_id、cover_image</text>
+<text x="558.0" y="267.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">_url、sale_price、original_price、stock_quantity、sales_count、status、merchant_i</text>
+<text x="558.0" y="285.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">d、updated_at</text>
+<line x1="920.0" y1="380.0" x2="550.0" y2="380.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="558.0" y="355.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回：根据请求条件查询 product 表，涉及字段 product_id、product_name、category_id、cover_im</text>
+<text x="558.0" y="373.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">age_url、sale_price、original_price、stock_quantity、sales_count、status、merchan</text>
+<text x="558.0" y="391.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">t_id、updated_at 处理结果</text>
+<line x1="550.0" y1="468.0" x2="180.0" y2="468.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="461.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回 listProducts 结果 · listProducts</text>
+</svg>

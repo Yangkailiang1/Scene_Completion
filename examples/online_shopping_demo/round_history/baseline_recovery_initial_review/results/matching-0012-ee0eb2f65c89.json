@@ -1,0 +1,77 @@
+{
+  "checked_checker_ids": [
+    "CHK-f5a9fce6189033287f2b"
+  ],
+  "checked_generated_ids": [
+    "GEN-1EDCB9AB04",
+    "GEN-C0F5765232",
+    "GEN-983554CCFF",
+    "GEN-8543765468",
+    "GEN-DB80CDDFA5",
+    "GEN-F5B53E7B83",
+    "GEN-AD63DADCFA",
+    "GEN-B3BCB44D21"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-1EDCB9AB04",
+      "status": "unmatched",
+      "evidence": "Checker failure is external LogisticsService query failure with fallback to last synchronized data; generated failure is data type mismatch against API-L-IF2 definition. Different failure mechanism and no shared concrete behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-C0F5765232",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-1EDCB9AB04: data type mismatch on API-L-IF2, not external LogisticsService failure. No shared failure condition or behavior with checker.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-983554CCFF",
+      "status": "unmatched",
+      "evidence": "Checker specifies external service failure; generated addresses latency/timeout impact on requirement satisfaction. Different failure mechanism and expected response.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-8543765468",
+      "status": "unmatched",
+      "evidence": "Checker concerns external LogisticsService query failure; generated concerns missing/invalid/expired credentials (authentication). Unrelated failure conditions and outcomes.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-DB80CDDFA5",
+      "status": "unmatched",
+      "evidence": "Checker failure is external service query failure; generated failure is horizontal/vertical privilege escalation. Different security failure with no shared behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-F5B53E7B83",
+      "status": "unmatched",
+      "evidence": "Checker describes external LogisticsService failure with stale-data fallback; generated describes data visibility crossing user/tenant/permission scope. Distinct failure semantics.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-AD63DADCFA",
+      "status": "unmatched",
+      "evidence": "Checker failure is external service query failure; generated failure is queried resource not existing or expired. Different condition, and generated response unknown.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-B3BCB44D21",
+      "status": "unmatched",
+      "evidence": "Checker concerns external LogisticsService failure with last-synced fallback; generated concerns query result correctness/pagination issues. No shared trigger or expected behavior.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0012-ee0eb2f65c89",
+  "input_hash": "ee0eb2f65c8976f3c2b30ac4767bc65f04135ba67ecc8e2e98cfc3e36be26840",
+  "model": "ecnu-max"
+}

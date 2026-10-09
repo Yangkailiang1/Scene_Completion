@@ -1,0 +1,89 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-003-UC002",
+  "scenario_id": "main",
+  "name": "更新物流信息",
+  "ssd_id": "SSD-F68701F24E",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-003-UC002",
+      "label": "LogisticsServiceAdapter",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "LOGI-EVT-01"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-82247C0419",
+      "exchange_id": "EXCH-5044511CE9",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-F68701F24E",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "system",
+      "to_node": "sr-UCG-003-UC002",
+      "message": "调用 LOGI-EVT-01：POST /api/v1/logistics/events",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "trackingNo",
+        "status",
+        "eventTime"
+      ],
+      "response_fields": [
+        "accepted",
+        "eventId"
+      ],
+      "phase": 20,
+      "abstract_api_id": "LOGI-EVT-01",
+      "service_id": "sr-UCG-003-UC002",
+      "api_method": "POST",
+      "resource_path": "/api/v1/logistics/events",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-898D8AF1F3",
+      "exchange_id": "EXCH-5044511CE9",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-F68701F24E",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "sr-UCG-003-UC002",
+      "to_node": "system",
+      "message": "返回 LOGI-EVT-01 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "accepted",
+        "eventId"
+      ],
+      "phase": 80,
+      "abstract_api_id": "LOGI-EVT-01",
+      "service_id": "sr-UCG-003-UC002",
+      "reply_to_message_id": "MSG-82247C0419",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

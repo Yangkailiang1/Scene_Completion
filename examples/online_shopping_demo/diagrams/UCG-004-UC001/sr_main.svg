@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="369" viewBox="0 0 1100 369">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">创建商品 · SR SSD</text>
+<rect x="30.0" y="100.0" width="261.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="160.5" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="160.5" y1="142.0" x2="160.5" y2="339.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="809.0" y="100.0" width="261.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="939.5" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">MerchantProductService</text>
+<line x1="939.5" y1="142.0" x2="939.5" y2="339.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="160.5" y1="193.0" x2="939.5" y2="193.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="168.5" y="177.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 调用 API-M-IF1：POST /api/v1/me</text>
+<text x="168.5" y="195.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">rchant/products · POST</text>
+<line x1="939.5" y1="270.0" x2="160.5" y2="270.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="168.5" y="263.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 返回 API-M-IF1 结果 · API-M-IF1</text>
+</svg>

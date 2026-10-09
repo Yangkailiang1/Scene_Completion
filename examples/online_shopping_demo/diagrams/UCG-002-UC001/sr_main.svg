@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="383" viewBox="0 0 1100 383">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">创建订单 · SR SSD</text>
+<rect x="30.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="125.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="125.0" y1="142.0" x2="125.0" y2="353.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="880.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="975.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">OrderService</text>
+<line x1="975.0" y1="142.0" x2="975.0" y2="353.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="125.0" y1="193.0" x2="975.0" y2="193.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="177.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 调用 API-O-IF1：POST /a</text>
+<text x="133.0" y="195.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">pi/v1/orders · POST</text>
+<line x1="975.0" y1="277.0" x2="125.0" y2="277.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="261.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回 API-O-IF1 结果 · AP</text>
+<text x="133.0" y="279.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">I-O-IF1</text>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1063" viewBox="0 0 1100 1063">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">设置库存与价格 · RR SSD</text>
+<rect x="30.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="125.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">商家</text>
+<line x1="125.0" y1="142.0" x2="125.0" y2="1033.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="880.0" y="100.0" width="190.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="975.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="975.0" y1="142.0" x2="975.0" y2="1033.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="125.0" y1="186.0" x2="975.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 商家为每个SKU输入库存数量。</text>
+<line x1="975.0" y1="256.0" x2="125.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：商家为每个SKU输入库存数量。</text>
+<line x1="125.0" y1="326.0" x2="975.0" y2="326.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 商家设置销售价格和可选原价。</text>
+<line x1="975.0" y1="396.0" x2="125.0" y2="396.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="389.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 系统受理：商家设置销售价格和可选原价。</text>
+<line x1="975.0" y1="466.0" x2="125.0" y2="466.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="459.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 系统校验库存、价格和SKU唯一性。</text>
+<line x1="975.0" y1="536.0" x2="125.0" y2="536.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="529.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统保存设置并返回最新版本号。</text>
+<line x1="125.0" y1="646.0" x2="975.0" y2="646.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="133.0" y="603.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] MerchantProductServi</text>
+<text x="133.0" y="621.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">ce查询 product 表，获取 produc</text>
+<text x="133.0" y="639.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">t_id、merchant_id、status、</text>
+<text x="133.0" y="657.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">version，校验商品属于当前商家、状态为 D</text>
+<text x="133.0" y="675.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">RAFT、version 一致（乐观锁）。</text>
+<line x1="975.0" y1="807.0" x2="125.0" y2="807.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="755.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 系统受理：MerchantProduct</text>
+<text x="133.0" y="773.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">Service查询 product 表，获取 p</text>
+<text x="133.0" y="791.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">roduct_id、merchant_id、st</text>
+<text x="133.0" y="809.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">atus、version，校验商品属于当前商家、</text>
+<text x="133.0" y="827.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">状态为 DRAFT、version 一致（乐观锁</text>
+<text x="133.0" y="845.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">）。</text>
+<line x1="975.0" y1="946.0" x2="125.0" y2="946.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="133.0" y="921.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[8] 系统返回：系统保存每个SKU的库存和销售</text>
+<text x="133.0" y="939.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">价格。（系统需求_spec.md:383-384</text>
+<text x="133.0" y="957.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">）</text>
+</svg>

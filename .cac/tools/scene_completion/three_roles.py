@@ -109,32 +109,79 @@ def merge_checker(index: dict, directory, use_cases: list[dict] | None = None) -
               "scenario_count": len(scenes), "scenarios": scenes}
     if result["complete"]:
         scene_map(result)
+        audit_directory = Path(directory).parent / "checker-taxonomy"
+        if (audit_directory / "manifest.json").exists():
+            from .checker_taxonomy import apply_taxonomy_audit
+            result = apply_taxonomy_audit(result, index, audit_directory)
     return result
 
 
-def match_packets(generated: dict, checker: dict, directory, tile_size: int = 20) -> dict:
+def match_packets(generated: dict, checker: dict, directory, tile_size: int = 8) -> dict:
     gen, ref = scene_map(generated), scene_map(checker)
     payloads = []
     for uc in sorted({s["use_case_id"] for s in ref.values()} | {s["use_case_id"] for s in gen.values()}):
-        gs = [s for s in gen.values() if s["use_case_id"] == uc]
-        cs = [s for s in ref.values() if s["use_case_id"] == uc]
+        fields = ("scenario_id", "use_case_id", "use_case_name", "name", "scenario_type", "preconditions",
+                  "trigger", "scenario_steps", "expected_result", "recovery", "postconditions",
+                  "use_case_preconditions", "use_case_postconditions")
+        gs = [{k: s[k] for k in fields if k in s} for s in gen.values() if s["use_case_id"] == uc]
+        cs = [{k: s[k] for k in fields if k in s} for s in ref.values() if s["use_case_id"] == uc]
         # The entire same-UC cross product is inspected; no similarity prefilter.
         if not gs or not cs:
             continue
-        for gi in range(0, len(gs), tile_size):
-            for ci in range(0, len(cs), tile_size):
+        tile_size = min(tile_size, 8)
+        for c in cs:
+            for gi in range(0, len(gs), tile_size):
                 payloads.append({"use_case_id": uc, "generated": gs[gi:gi+tile_size],
-                                 "checker": cs[ci:ci+tile_size]})
+                                 "checker": [c], "pairwise": True})
     return prepare_packets(directory, "matching", payloads, [
-        "Inspect EVERY checker/generated pair in the assigned tile semantically. Return links only for full or partial matches.",
+        "Inspect EVERY checker/generated pair in the assigned tile semantically. Return a decision for EACH pair, including unmatched. Also return matches only for full/partial, using identical evidence/gaps.",
         "full requires the same trigger, core behavior and expected result. partial requires a concrete shared condition/behavior, and must state what is missing.",
         "Sharing a concern label, topic, use-case ID or a main-flow prefix alone is NOT a match. Incompatible outcomes are not matches.",
+        "Use-case pre/postconditions are contextual success conditions only. Evaluate the actual branch pre/postconditions; explicit branch contradictions cannot match.",
+        "The affected resource, operation, idempotency key and temporal reference point must align. A business-request duplicate is not a generic table-write duplicate; earlier than last event is not earlier than shipment time.",
         "An unreviewed generated candidate can partially match an explicit exception if its specific failure condition aligns; do not invent its response.",
+        "For main_success and successful alternative scenarios evaluate the initiating business condition, shared core operation and success outcome; never require a failure mechanism for these types.",
+        "Documented detail enrichment is a partial match when the actual failure/operation and a concrete behavior align. Unknown response or omitted fields are gaps, not automatically a different failure.",
+        "Chinese service names and their explicitly associated English/API names may denote the same operation. Do not demand identical wording; explain the specific semantic correspondence.",
         "Return checked_checker_ids and checked_generated_ids listing EVERY assigned ID even for items having no match.",
     ], {"checked_checker_ids": ["all tile checker IDs"], "checked_generated_ids": ["all tile generated IDs"],
+        "decisions": [{"checker_scenario_id": "CHK-ID", "generated_scenario_id": "EVERY GEN-ID",
+                      "status": "full|partial|unmatched", "evidence": "specific reason",
+                      "missing_behavior": ["required for partial; empty for full"]}],
         "matches": [{"checker_scenario_id": "CHK-ID", "generated_scenario_id": "GEN-ID",
                      "status": "full|partial", "evidence": "specific behavior evidence",
                      "missing_behavior": ["required for partial; empty for full"]}]})
+
+
+def normalize_matching_summary(packet, result):
+    """Use exhaustive decisions as the authoritative explanation, never infer a match.
+
+    The model's redundant summary must still agree on every pair and status.
+    Wording differences in evidence/gaps are recorded, then summarized by tools.
+    """
+    if not packet["input"].get("pairwise"):
+        return result
+    decisions = result.get("decisions")
+    has_summary = "matches" in result and result["matches"] is not None
+    summary = result.get("matches", [])
+    if summary is None:
+        summary = []
+    if not isinstance(decisions, list) or not isinstance(summary, list):
+        raise ValueError("matching needs exhaustive decisions; a supplied summary must be a list")
+    if any(not isinstance(d, dict) for d in decisions + summary):
+        raise ValueError("matching decisions and summary must contain objects")
+    accepted = [{k: d[k] for k in ("checker_scenario_id", "generated_scenario_id", "status", "evidence", "missing_behavior")}
+                for d in decisions if d.get("status") in {"full", "partial"}]
+    binding = lambda row: (row.get("checker_scenario_id"), row.get("generated_scenario_id"), row.get("status"))
+    if has_summary and (len(summary) != len(accepted) or
+            {binding(d) for d in summary} != {binding(d) for d in accepted}):
+        raise ValueError("matching summary contradicts exhaustive pair IDs/statuses")
+    normalized = {**result, "matches": accepted}
+    matching_validator(packet, normalized)
+    if not has_summary or summary != accepted:
+        if "matches" in result: normalized["raw_match_summary"] = result["matches"]
+        normalized["summary_basis"] = "exhaustive_pair_decisions"
+    return normalized
 
 
 def matching_validator(packet, result):
@@ -148,6 +195,8 @@ def matching_validator(packet, result):
     if not isinstance(links, list):
         raise ValueError("missing matching links")
     for link in links:
+        if not isinstance(link, dict):
+            raise ValueError("matching links must contain objects")
         pair = (link.get("checker_scenario_id"), link.get("generated_scenario_id"))
         if pair[0] not in ref or pair[1] not in gen or pair in seen:
             raise ValueError("unknown or duplicate matching pair")
@@ -159,6 +208,39 @@ def matching_validator(packet, result):
                 or (link["status"] == "partial" and not missing)
                 or (link["status"] == "full" and missing)):
             raise ValueError("partial match missing behavioral gaps")
+    if packet["input"].get("pairwise"):
+        decisions = result.get("decisions")
+        expected = {(c, g) for c in ref for g in gen}
+        if not isinstance(decisions, list) or len(decisions) != len(expected):
+            raise ValueError("matching must return a decision for EVERY pair")
+        pairs = set()
+        accepted = []
+        for d in decisions:
+            if not isinstance(d, dict):
+                raise ValueError("pairwise decisions must contain objects")
+            pair = (d.get("checker_scenario_id"), d.get("generated_scenario_id"))
+            if pair not in expected or pair in pairs:
+                raise ValueError("unknown/duplicate pairwise decision")
+            pairs.add(pair)
+            if d.get("status") not in {"full", "partial", "unmatched"} or not str(d.get("evidence", "")).strip():
+                raise ValueError("invalid pairwise decision")
+            gaps = d.get("missing_behavior")
+            if not isinstance(gaps, list) or (d["status"] == "partial" and not gaps) or (d["status"] == "full" and gaps):
+                raise ValueError("invalid pairwise gaps")
+            if d["status"] != "unmatched":
+                accepted.append({k: d[k] for k in ("checker_scenario_id", "generated_scenario_id",
+                    "status", "evidence", "missing_behavior")})
+        # A semantic verification may downgrade an initially accepted decision.
+        audit = result.get("semantic_verification")
+        original_audit = audit
+        while isinstance(original_audit, dict) and original_audit.get("prior_verification"):
+            original_audit = original_audit["prior_verification"]
+        proposed = original_audit.get("proposed_matches") if isinstance(original_audit, dict) else links
+        canonical = lambda rows: sorted([{k: x[k] for k in ("checker_scenario_id", "generated_scenario_id",
+                                        "status", "evidence", "missing_behavior")} for x in rows],
+                                        key=lambda x: (x["checker_scenario_id"], x["generated_scenario_id"]))
+        if canonical(proposed) != canonical(accepted):
+            raise ValueError("links differ from exhaustive pair decisions")
     return links
 
 
@@ -230,7 +312,7 @@ def recommendation_packets(report: dict, index: dict, directory, client=None, re
     contexts = evidence_contexts(candidates, index, client, rerank)
     # Reuse individually grounded scores when a changed match set moves a candidate
     # into a different batch. Candidate, evidence and enhancement must be identical.
-    cache = {}
+    cache, executions = {}, {}
     root = Path(directory)
     for old_packet_path in (root / "packets").glob("*.json"):
         old = read_json(old_packet_path)
@@ -252,6 +334,8 @@ def recommendation_packets(report: dict, index: dict, directory, client=None, re
                     check_support(old, score)
                 if key not in cache or (score.get("support_verification") and not cache[key].get("support_verification")):
                     cache[key] = score
+                    executions[key] = {"scenario_id": s["scenario_id"], "model": raw.get("model"),
+                                       "batch_id": raw["batch_id"], "input_hash": raw["input_hash"]}
         except (ValueError, KeyError, TypeError):
             continue
     keys = {s["scenario_id"]: fingerprint([s, contexts[s["scenario_id"]], rerank]) for s in candidates}
@@ -272,10 +356,25 @@ def recommendation_packets(report: dict, index: dict, directory, client=None, re
     for batch, payload in zip(manifest["batches"], payloads):
         if all(keys[s["scenario_id"]] in cache for s in payload["candidates"]):
             packet = read_json(root / "packets" / (batch["batch_id"] + ".json"))
+            target = root / "results" / (batch["batch_id"] + ".json")
+            if target.exists():
+                existing = read_json(target)
+                if existing.get("input_hash") == packet["input_hash"] and existing.get("batch_id") == packet["batch_id"]:
+                    try:
+                        recommendation_validator(index)(packet, existing)
+                        # An unchanged packet retains its exact original execution
+                        # and proof metadata, rather than becoming a synthetic batch.
+                        continue
+                    except (ValueError, KeyError, TypeError):
+                        pass
+            provenance = [executions[keys[s["scenario_id"]]] for s in payload["candidates"]]
+            models = {entry["model"] for entry in provenance}
             result = {**batch, "items": [cache[keys[s["scenario_id"]]] for s in payload["candidates"]],
-                      "reused_candidate_scores": True}
+                      "reused_candidate_scores": True, "source_executions": provenance}
+            if len(models) == 1 and None not in models:
+                result["model"] = next(iter(models))
             recommendation_validator(index)(packet, result)
-            write_json(root / "results" / (batch["batch_id"] + ".json"), result)
+            write_json(target, result)
     return manifest
 
 
@@ -316,7 +415,7 @@ def recommendation_validator(index: dict):
     return validate
 
 
-def finish_recommendations(report: dict, items: list[dict], backend: str, rerank: bool, complete: bool) -> dict:
+def finish_recommendations(report: dict, items: list[dict], backend: str, rerank: bool, complete: bool, index=None) -> dict:
     candidates = {s["scenario_id"]: s for s in report["overall"]["unmatched_generated_scenarios"]}
     ids = [i["scenario_id"] for i in items]
     if complete and (len(ids) != len(set(ids)) or set(ids) != set(candidates)):
@@ -324,7 +423,17 @@ def finish_recommendations(report: dict, items: list[dict], backend: str, rerank
     rows = []
     for item in items:
         confidence = .7 * item["support_score"] + .3 * item["missing_score"]
-        rows.append({**candidates[item["scenario_id"]], **item, "confidence": confidence,
+        candidate = candidates[item["scenario_id"]]
+        locations = {}
+        if index is not None:
+            required = [d["document"] for d in index["documents"] if d.get("role") == "requirement"]
+            assessed = required or [d["document"] for d in index["documents"]]
+            targets = candidate.get("target_sections", {})
+            locations = {"assessment_documents": assessed,
+                "recommendation_target_sections": {d: targets.get(d, []) for d in assessed},
+                "related_design_sections": {d["document"]: targets.get(d["document"], [])
+                    for d in index["documents"] if d.get("role") == "design"}}
+        rows.append({**candidate, **item, **locations, "confidence": confidence,
                      "confidence_kind": "heuristic_recommendation_score_not_probability",
                      "priority": "high" if confidence >= .75 else "medium" if confidence >= .5 else "needs_confirmation"})
     rows.sort(key=lambda r: (-r["confidence"], r["scenario_id"]))
@@ -341,7 +450,7 @@ def merge_recommendations(report: dict, index: dict, directory, rerank: bool = F
         packet = read_json(Path(directory) / "packets" / (batch["batch_id"] + ".json"))
         if packet["input"]["rerank"] != rerank:
             raise ValueError("recommendation batch rerank configuration differs")
-    result = finish_recommendations(report, items, "agent", rerank, status["complete"])
+    result = finish_recommendations(report, items, "agent", rerank, status["complete"], index)
     result["batch_status"] = status
     return result
 
@@ -369,4 +478,4 @@ def embedding_recommendations(report: dict, checker: dict, index: dict, client, 
                       "evidence_refs": [evidence[best]["source_ref"]] if best is not None else [],
                       "ranked_evidence": sorted(evidence, key=lambda e: e.get("rerank_score", e.get("embedding_similarity", 0)), reverse=True),
                       "basis": "证据相关度代理（非逻辑证明）与已有场景距离的加权评分"})
-    return finish_recommendations(report, items, "embedding", rerank, True)
+    return finish_recommendations(report, items, "embedding", rerank, True, index)

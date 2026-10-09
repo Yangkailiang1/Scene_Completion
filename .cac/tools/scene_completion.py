@@ -13,7 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scene_completion.assembly import assemble_results
-from scene_completion.concerns import audit_concern_coverage, plan_concern_matrix, validate_concern_matrix
+from scene_completion.concerns import CONCERN_REGISTRY_VERSION, audit_concern_coverage, plan_concern_matrix, validate_concern_matrix
 from scene_completion.diagrams import render_diagrams, validate_diagram_spec
 from scene_completion.document_extract import extract_document
 from scene_completion.exporters import export_workbooks
@@ -27,7 +27,7 @@ from scene_completion.overview import build_system_composition_semantics
 from scene_completion.review import load_ecnu_env_file, review_concerns
 from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
 from scene_completion.assessment import build_crud_dependency_graph, extract_reference_test_scenarios, extract_reference_test_scenarios_from_json, score_scenario_matches
-from scene_completion.role_cli import register_commands, run_pipeline, run_worker, run_matching_review
+from scene_completion.role_cli import register_commands, run_pipeline, run_worker, run_matching_review, run_prepare_model, run_evaluate, run_prepare_taxonomy
 
 
 def _read_json(path: str):
@@ -146,9 +146,12 @@ def _main_impl(argv=None) -> int:
 
     args = parser.parse_args(argv)
     try:
-        if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review"}:
+        if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review", "prepare-generator-model", "evaluate-generator", "prepare-checker-taxonomy", "prepare-generator-taxonomy"}:
             result, code = (run_pipeline(args) if args.command == "scene-pipeline" else
-                            run_worker(args) if args.command == "run-agent-batches" else run_matching_review(args))
+                            run_worker(args) if args.command == "run-agent-batches" else
+                            run_prepare_model(args) if args.command == "prepare-generator-model" else
+                            run_prepare_taxonomy(args) if args.command in {"prepare-checker-taxonomy", "prepare-generator-taxonomy"} else
+                            run_evaluate(args) if args.command == "evaluate-generator" else run_matching_review(args))
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return code
         if args.command == "extract":
@@ -163,7 +166,8 @@ def _main_impl(argv=None) -> int:
             print(json.dumps(report, ensure_ascii=False, indent=2))
             return 0 if report["valid"] else 2
         if args.command == "list-concerns":
-            print(json.dumps({"version": "6", "concerns": list_concerns()}, ensure_ascii=False, indent=2))
+            print(json.dumps({"version": "6", "registry_version": CONCERN_REGISTRY_VERSION,
+                              "concerns": list_concerns()}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "load-concern":
             print(json.dumps(load_concern(args.key), ensure_ascii=False, indent=2))

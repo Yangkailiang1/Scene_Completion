@@ -1,0 +1,77 @@
+{
+  "checked_checker_ids": [
+    "CHK-837007732b14891e21e0"
+  ],
+  "checked_generated_ids": [
+    "GEN-4CD12AA7C3",
+    "GEN-D39E225B32",
+    "GEN-2621CFFA34",
+    "GEN-02F1D20F6A",
+    "GEN-6E23D85EF3",
+    "GEN-62024FBD12",
+    "GEN-B68A400EE4",
+    "GEN-6F443B1F6B"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-4CD12AA7C3",
+      "status": "unmatched",
+      "evidence": "Checker exception is business validation of out-of-range sales price during price input; generated exception is a database availability failure (connection failure/database down) during an unrelated 'Read or update Category records' operation. Trigger and failure mechanism are incompatible.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-D39E225B32",
+      "status": "unmatched",
+      "evidence": "Checker is a price-range validation exception for sales price; generated is a concurrency conflict/lost update during Category record persistence. Different trigger and behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-2621CFFA34",
+      "status": "unmatched",
+      "evidence": "Generated exception concerns field legality (type error, illegal characters, over length) for Category records, while checker concerns sales price exceeding allowed numerical range. Different validation target and failure condition.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-02F1D20F6A",
+      "status": "unmatched",
+      "evidence": "Checker covers price-range validation; generated covers idempotency (duplicate requests causing duplicate operations). No shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-6E23D85EF3",
+      "status": "unmatched",
+      "evidence": "Generated is a persistence failure (write failure/transaction rollback) for Category records; checker is a validation failure for sales price range. Different failure mechanism.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-62024FBD12",
+      "status": "unmatched",
+      "evidence": "Generated is query performance timeout on large joins; checker is sales price range validation. No shared trigger or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-B68A400EE4",
+      "status": "unmatched",
+      "evidence": "Generated concerns referential integrity (cascade delete failure or orphaned child objects); checker concerns sales price range validation. Different trigger and operation.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-6F443B1F6B",
+      "status": "unmatched",
+      "evidence": "Generated concerns missing required fields for Category records; checker concerns out-of-range sales price. Different validation target and failure condition.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0018-effe4e5d7eeb",
+  "input_hash": "effe4e5d7eeb0911bd85ad8bb1422c1122130b0a4762ac856c4b3e2f21774369",
+  "model": "ecnu-max"
+}

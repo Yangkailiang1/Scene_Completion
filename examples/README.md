@@ -1,12 +1,12 @@
-# 终端云三角色实验
+# 在线商城购物系统实验与历史记录
 
-terminal_cloud_model.json 是终端云规范模型快照。原始输入为“终端云例子”目录内的系统需求Delta_spec.md、功能设计Delta_spec.md。生成器使用现有模型、SSD 和关注点路由，得到 472 个 G：14 主成功、5 可选、37 明确异常、416 未经过适用性审查的候选。
+terminal_cloud_model.json 是改名前的历史规范模型快照。历史输入现已迁入“在线商城购物系统”目录，原始文件名和输入文本保留在历史 sources_index.json 中。生成器使用现有模型、SSD 和关注点路由，得到 472 个 G：14 主成功、5 可选、37 明确异常、416 未经过适用性审查的候选。
 
 检查器独立读取两份原始用例，得到 97 个 C；不读取 G、旧审核结果或 test_spec。为公平比较，各实验冻结同一个检查集合，并保留首次抽取的场景 ID。新抽取的稳定 ID 已加入前置条件和步骤；历史 ID 在快照中作为不透明标识使用。
 
 Agent 批次由最多三个实际子 Agent 调度 ecnu-max；embedding 为 ecnu-embedding-small，rerank 为 ecnu-rerank。审查使用 gpt-6-luna / max，发现的问题已通过语义复核、分支条件修正和评分量表复核处理，再重新运行。Luna 对最终 60 条已接受关系全量复核：3 条完整、45 条部分、12 条未匹配；脚本校验并应用全部决定，再重新计算以下指标。
 
-## 实际结果
+## 历史三角色结果（需求与设计联合分母）
 
 |实验|完整/部分链接|漏报率|当前已有完整率|待推荐数|
 |---|---:|---:|---:|---:|
@@ -47,19 +47,21 @@ python examples/verify_demo.py --output-dir examples/results/replayed
 
 第一条重新计算全部指标并校验候选集合、公式、排序和 rerank 不变性，无需联网或密钥；第二条重新导出完整 JSON、Markdown 和 Excel。快照中的 SSD 路径保留首次运行位置用于追溯，重新生成图形应运行 scene-pipeline。
 
-## 重新调用模型
+## 历史流程重放
 
-Agent 的完整生成/分包/续跑方法见仓库 README。比较 embedding 时，可复用冻结检查器：
+历史 CLI 的 --spec-document 会将需求和设计共同交给检查器，因此这里的 97 个 C（含 76 个异常）不能用作本轮验收分母。历史结果及其模型名、ID 和来源记录保持原样，以便追溯。
+
+本轮使用 online_shopping_seed.json 独立构建生成输入，再通过 --requirement-document / --design-document 明确文档角色。检查器只读需求，固定 37 条已有异常；正式结果通过全部逐对批次、推荐、续跑和回归后才发布。具体命令见仓库 README。所有主成功、可选、异常均保留导出；原始约束实例化与泛化候选贡献分开统计。
+
+## 本轮需求专用验收
+
+[online_shopping_demo](online_shopping_demo/README.md) 保存实际 ecnu-max 的完整批次及原生 gpt-6-luna / max 复核。固定 C=37 下，旧生成器漏报 2/37（5.41%），优化后 0/37（0%）；全部 G=947，待推荐 824 项，低分候选仍全部展示。
+
+关注点推导覆盖从 1/37 提升至 31/37；明确异常保留从 35/37 提升至 37/37。来源约束实例化贡献 30/37，泛化 SSD 路由贡献 9/37，两者有重叠。尚未推导覆盖的 6 条异常和 118 条待精确挂载的来源约束见[优化诊断](online_shopping_demo/optimization_review.md)；不把总体覆盖与关注点方法贡献混为一个指标。
 
 ~~~bash
-python .cac/tools/scene_completion.py scene-pipeline \
-  --model examples/terminal_cloud_model.json \
-  --spec-document 终端云例子/系统需求Delta_spec.md \
-  --spec-document 终端云例子/功能设计Delta_spec.md \
-  --checker-input examples/three_agent_demo/common/existing_scenarios.json \
-  --match-backend embedding --recommend-backend embedding \
-  --full-threshold 0.95 --partial-threshold 0.85 \
-  --output-dir examples/results/embedding
+python examples/verify_online_shopping.py
+python examples/verify_online_shopping.py --output-dir examples/results/replayed_online
 ~~~
 
-增加 --rerank 运行增强对照。默认阈值实验省略两个阈值参数。examples/results 与 .scene_cache 均忽略提交；.env 和密钥始终只保留在本地。推荐缺失描述表示建议补充文档，不直接断言产品未实现。
+此复验独立使用快照内的 SSD、来源与原始批次，在新检出的目录也能重算，不需要历史临时目录。输入/Skill/工具版本、同版本续跑记录、未达标轮次以及误拒复核历史分别归档，原检查器抽取缺少历史模型身份的情况如实保留。

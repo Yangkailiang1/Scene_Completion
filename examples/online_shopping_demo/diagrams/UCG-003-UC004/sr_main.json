@@ -1,0 +1,89 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-003-UC004",
+  "scenario_id": "main",
+  "name": "申请退款",
+  "ssd_id": "SSD-102A3BFE33",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-003-UC004",
+      "label": "RefundService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-R-IF1"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-C9E5EEE2DE",
+      "exchange_id": "EXCH-ED50F5ACE8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-102A3BFE33",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "system",
+      "to_node": "sr-UCG-003-UC004",
+      "message": "调用 API-R-IF1：POST /api/v1/orders/{orderId}/refunds",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "orderId",
+        "reason",
+        "amount"
+      ],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-R-IF1",
+      "service_id": "sr-UCG-003-UC004",
+      "api_method": "POST",
+      "resource_path": "/api/v1/orders/{orderId}/refunds",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-585A302439",
+      "exchange_id": "EXCH-ED50F5ACE8",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC004",
+      "ssd_id": "SSD-102A3BFE33",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-R-IF1",
+      "from_node": "sr-UCG-003-UC004",
+      "to_node": "system",
+      "message": "返回 API-R-IF1 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-R-IF1",
+      "service_id": "sr-UCG-003-UC004",
+      "reply_to_message_id": "MSG-C9E5EEE2DE",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

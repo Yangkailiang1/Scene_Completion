@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3060" height="2105" viewBox="0 0 3060 2105">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">创建订单 · fused SSD</text>
+<rect x="30.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="180.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">顾客</text>
+<line x1="180.0" y1="142.0" x2="180.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="330.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="480.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="480.0" y1="142.0" x2="480.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="630.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="780.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">OrderService</text>
+<line x1="780.0" y1="142.0" x2="780.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="930.0" y="100.0" width="300.0" height="59" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1080.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ImplementationAPI</text>
+<text x="1080.0" y="142.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#1F2937">OrderService</text>
+<line x1="1080.0" y1="159.0" x2="1080.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1230.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1380.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">CartService</text>
+<line x1="1380.0" y1="142.0" x2="1380.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1530.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1680.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ProductCatalogService</text>
+<line x1="1680.0" y1="142.0" x2="1680.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1830.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1980.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">product 表和 sku 表</text>
+<line x1="1980.0" y1="142.0" x2="1980.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="2130.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="2280.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ProductCatalogService</text>
+<line x1="2280.0" y1="142.0" x2="2280.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="2430.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="2580.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">address 表</text>
+<line x1="2580.0" y1="142.0" x2="2580.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="2730.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="2880.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">order 表和 order_item 表</text>
+<line x1="2880.0" y1="142.0" x2="2880.0" y2="2075.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="480.0" y1="186.0" x2="180.0" y2="186.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统读取顾客选中的购物车商品。</text>
+<line x1="480.0" y1="256.0" x2="180.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 系统校验价格、库存和促销有效性。</text>
+<line x1="180.0" y1="326.0" x2="480.0" y2="326.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="188.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 顾客确认收货地址和订单金额。</text>
+<line x1="480.0" y1="396.0" x2="180.0" y2="396.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="389.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 系统受理：顾客确认收货地址和订单金额。</text>
+<line x1="480.0" y1="466.0" x2="780.0" y2="466.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="488.0" y="459.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 调用 API-O-IF1：POST /api/v1/orders · POST</text>
+<line x1="780.0" y1="536.0" x2="1080.0" y2="536.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="788.0" y="529.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 调用 createOrder：POST /api/v1/orders · POST</text>
+<line x1="1080.0" y1="606.0" x2="1380.0" y2="606.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="599.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 读取 cart_item 表中 cartItemIds 对应的购物车条目，获取 product_id、sku_id、quantity、unit_price</text>
+<line x1="1080.0" y1="676.0" x2="1680.0" y2="676.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="669.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 价格与库存校验能力，传入各商品的 productId、skuId、quantity</text>
+<line x1="2280.0" y1="746.0" x2="1980.0" y2="746.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1988.0" y="739.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 查询 product 表和 sku 表获取 sale_price、stock_quantity、status</text>
+<line x1="1080.0" y1="816.0" x2="2580.0" y2="816.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="809.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[8] 校验收货地址，查询 address 表获取 recipient_name、phone、province、city、district、detail_address</text>
+<line x1="1080.0" y1="886.0" x2="2880.0" y2="886.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="879.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[10] 创建订单并锁定库存，写入 order 表（order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、expire_at、created_at）和 order_item 表（order_item_id、order_id、product_id、sku_id、quantity、unit_price、subtotal）</text>
+<line x1="1380.0" y1="956.0" x2="1080.0" y2="956.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="949.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回：读取 cart_item 表中 cartItemIds 对应的购物车条目，获取 product_id、sku_id、quantity、unit_price 处理结果</text>
+<line x1="1680.0" y1="1026.0" x2="1080.0" y2="1026.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="1019.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 返回：价格与库存校验能力，传入各商品的 productId、skuId、quantity 处理结果</text>
+<line x1="1980.0" y1="1096.0" x2="2280.0" y2="1096.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1988.0" y="1089.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 返回：查询 product 表和 sku 表获取 sale_price、stock_quantity、status 处理结果</text>
+<line x1="2580.0" y1="1166.0" x2="1080.0" y2="1166.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="1159.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[8] 返回：校验收货地址，查询 address 表获取 recipient_name、phone、province、city、district、detail_address 处理结果</text>
+<line x1="2880.0" y1="1236.0" x2="1080.0" y2="1236.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="1229.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[10] 返回：创建订单并锁定库存，写入 order 表（order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、expire_at、created_at）和 order_item 表（order_item_id、order_id、product_id、sku_id、quantity、unit_price、subtotal） 处理结果</text>
+<line x1="1080.0" y1="1306.0" x2="780.0" y2="1306.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="788.0" y="1299.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回 createOrder 结果 · createOrder</text>
+<line x1="780.0" y1="1376.0" x2="480.0" y2="1376.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="488.0" y="1369.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回 API-O-IF1 结果 · API-O-IF1</text>
+<line x1="480.0" y1="1446.0" x2="180.0" y2="1446.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1439.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统锁定库存并返回订单编号和待支付金额。</text>
+<line x1="480.0" y1="1516.0" x2="180.0" y2="1516.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1509.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[6] 在线商城系统校验 Authorization Token，确认顾客身份。</text>
+<line x1="480.0" y1="1586.0" x2="180.0" y2="1586.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1579.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[7] 在线商城系统校验请求参数：cartItemIds非空、addressId格式合法、confirmedAmount&gt;=0、idempotencyKey非空。</text>
+<line x1="480.0" y1="1656.0" x2="180.0" y2="1656.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1649.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[8] 在线商城系统调用CartService，读取 cart_item 表中 cartItemIds 对应的购物车条目，获取 product_id、sku_id、quantity、unit_price。</text>
+<line x1="480.0" y1="1726.0" x2="180.0" y2="1726.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1719.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[9] 在线商城系统调用ProductCatalogService的价格与库存校验能力，传入各商品的 productId、skuId、quantity。</text>
+<line x1="480.0" y1="1796.0" x2="180.0" y2="1796.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1789.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[11] 在线商城系统校验：商品状态为 ON_SALE、库存充足、confirmedAmount与当前价格一致；若携带 couponId，校验优惠券有效性及适用范围。</text>
+<line x1="480.0" y1="1866.0" x2="180.0" y2="1866.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1859.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[12] 在线商城系统校验收货地址，查询 address 表获取 recipient_name、phone、province、city、district、detail_address。</text>
+<line x1="480.0" y1="1936.0" x2="180.0" y2="1936.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1929.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[13] 在线商城系统调用OrderService的创建订单能力，传入顾客ID、商品列表、地址信息、优惠券、confirmedAmount、idempotencyKey。</text>
+<line x1="480.0" y1="2006.0" x2="180.0" y2="2006.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="1999.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[16] 在线商城系统向ACT-001返回 HTTP 200，响应体包含 orderId、orderStatus、payableAmount、expireAt。</text>
+</svg>

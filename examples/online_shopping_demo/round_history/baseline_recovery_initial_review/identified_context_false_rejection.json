@@ -1,0 +1,34 @@
+{
+  "version": "grounded-pair-v2",
+  "pairs_hash": "3a6dec061551f75fbaea24727770317ed1e747d6434412e70fcfaa11c501713b",
+  "proposed_matches": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "full",
+      "evidence": "Same trigger: external logistics service query fails when local data is stale and LogisticsService is invoked. Same core behavior: system reads local track via API-L-IF2, then on stale data calls LogisticsService, and on failure displays the last successfully synced data with a marked update time. Same expected result: '系统展示最近一次成功同步的数据并标记更新时间' identical. Resource (logistics track of order), operation (query newest track) and temporal reference (when local data expired) align.",
+      "missing_behavior": []
+    }
+  ],
+  "decisions": [
+    {
+      "pair_index": 0,
+      "checker_trigger_quote": "调用LogisticsService查询最新轨迹时外部物流服务查询失败（主成功路径步骤3）。",
+      "generated_trigger_quote": "外部物流服务查询失败。",
+      "status": "unmatched",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": false,
+      "evidence": "Both triggers describe the same concrete failure mechanism: the external logistics service call (LogisticsService) for the latest tracking data fails. Both share the core behavior of reading local tracking via API-L-IF2 first, then calling LogisticsService when local data is stale, and both expect the system to display the last successfully synced data with its update time. However, the generated branch's own preconditions are marked as unconfirmed ('待需求确认：该分支前置条件未单独描述') and its postconditions likewise unconfirmed, while the checker states explicit branch preconditions (local data expired, need to call LogisticsService). More critically, the generated branch lists as an explicit step that the system displays the last successful data with update time, yet also claims the use_case_postconditions '系统展示最新物流状态和轨迹' (system displays the latest logistics status and tracking), which conflicts with the failure-path outcome of showing stale data rather than the latest. This is an explicit outcome contradiction between the branch outcome and the declared use-case postcondition within the generated artifact, so compatible_constraints is false.",
+      "missing_behavior": [
+        "Generated branch preconditions are explicitly marked unconfirmed ('待需求确认') rather than asserting the required condition '本地数据已过期，需调用LogisticsService'",
+        "Generated branch does not state that the failure occurs during the LogisticsService call on main success path step 3, weakening the trigger anchoring",
+        "Generated use_case_postconditions claim the system displays the latest logistics status and tracking, contradicting the failure-path outcome of showing last successfully synced (stale) data"
+      ],
+      "llm_status": "partial"
+    }
+  ],
+  "model": "ecnu-max",
+  "tile_size": 8
+}

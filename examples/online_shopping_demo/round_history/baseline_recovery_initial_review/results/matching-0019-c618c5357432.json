@@ -1,0 +1,29 @@
+{
+  "checked_checker_ids": [
+    "CHK-837007732b14891e21e0"
+  ],
+  "checked_generated_ids": [
+    "GEN-265E452FD4",
+    "GEN-7B00E90BB9"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-265E452FD4",
+      "status": "unmatched",
+      "evidence": "Checker requires an exception where the selling price is outside the allowed range during SKU inventory and price setup. Generated scenario requires a resource-existence exception while executing 'Read or update Category records' (querying, modifying, or deleting a non-existent resource). The failure conditions, affected resources, and operations are different.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-837007732b14891e21e0",
+      "generated_scenario_id": "GEN-7B00E90BB9",
+      "status": "unmatched",
+      "evidence": "Checker requires an exception where the selling price is outside the allowed range during SKU inventory and price setup. Generated scenario requires a uniqueness-constraint exception (duplicate name or unique key conflict) while executing 'Read or update Category records'. The failure conditions and affected resources differ; sharing the use-case ID and main-flow prefix is insufficient.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0019-c618c5357432",
+  "input_hash": "c618c5357432c018e08f818a723859e491588a7922e71706975b12e878a0fb9c",
+  "model": "ecnu-max"
+}

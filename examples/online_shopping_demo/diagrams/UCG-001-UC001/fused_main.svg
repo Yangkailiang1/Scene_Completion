@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1083" viewBox="0 0 1560 1083">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L9,3 L0,6 z" fill="#27364B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="32.0" y="38.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="22px" font-weight="bold" fill="#153E75">浏览商品 · fused SSD</text>
+<rect x="30.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="180.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">顾客</text>
+<line x1="180.0" y1="142.0" x2="180.0" y2="1053.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="330.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="480.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">在线商城购物系统</text>
+<line x1="480.0" y1="142.0" x2="480.0" y2="1053.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="630.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="780.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ProductDisplayService</text>
+<line x1="780.0" y1="142.0" x2="780.0" y2="1053.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="930.0" y="100.0" width="300.0" height="59" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1080.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">ImplementationAPI</text>
+<text x="1080.0" y="142.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#1F2937">ProductCatalogService</text>
+<line x1="1080.0" y1="159.0" x2="1080.0" y2="1053.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<rect x="1230.0" y="100.0" width="300.0" height="42" rx="7" fill="#E9EEF7" stroke="#687A91"/>
+<text x="1380.0" y="125.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#1F2937">product 表</text>
+<line x1="1380.0" y1="142.0" x2="1380.0" y2="1053.0" stroke="#9AA6B2" stroke-dasharray="5,5"/>
+<line x1="180.0" y1="186.0" x2="480.0" y2="186.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="188.0" y="179.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 顾客进入商品浏览页面。</text>
+<line x1="480.0" y1="256.0" x2="180.0" y2="256.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="249.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[1] 系统受理：顾客进入商品浏览页面。</text>
+<line x1="480.0" y1="326.0" x2="780.0" y2="326.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="488.0" y="319.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 调用 API-S-IF1：GET /api/v1/products · GET</text>
+<line x1="780.0" y1="396.0" x2="1080.0" y2="396.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="788.0" y="389.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 调用 listProducts：GET /api/v1/products · GET</text>
+<line x1="1080.0" y1="473.0" x2="1380.0" y2="473.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="1088.0" y="457.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 根据请求条件查询 product 表，涉及字段 product_id、product_name、category_id、cover_image_url、sale_price、original_price、stock_quantity、sales_count、status、merchant_i</text>
+<text x="1088.0" y="475.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">d、updated_at</text>
+<line x1="1380.0" y1="557.0" x2="1080.0" y2="557.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="1088.0" y="541.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 返回：根据请求条件查询 product 表，涉及字段 product_id、product_name、category_id、cover_image_url、sale_price、original_price、stock_quantity、sales_count、status、merchan</text>
+<text x="1088.0" y="559.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">t_id、updated_at 处理结果</text>
+<line x1="1080.0" y1="634.0" x2="780.0" y2="634.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="788.0" y="627.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回 listProducts 结果 · listProducts</text>
+<line x1="780.0" y1="704.0" x2="480.0" y2="704.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="488.0" y="697.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[2] 返回 API-S-IF1 结果 · API-S-IF1</text>
+<line x1="180.0" y1="774.0" x2="480.0" y2="774.0" stroke="#27364B" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="188.0" y="767.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 顾客输入关键词、选择分类或设置价格、排序条件。</text>
+<line x1="480.0" y1="844.0" x2="180.0" y2="844.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="837.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[3] 系统受理：顾客输入关键词、选择分类或设置价格、排序条件。</text>
+<line x1="480.0" y1="914.0" x2="180.0" y2="914.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="907.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[4] 系统根据条件查询状态为 ON_SALE 的商品。</text>
+<line x1="480.0" y1="984.0" x2="180.0" y2="984.0" stroke="#27364B" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow)"/>
+<text x="188.0" y="977.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#27364B">[5] 系统展示符合条件的商品列表和分页信息。</text>
+</svg>

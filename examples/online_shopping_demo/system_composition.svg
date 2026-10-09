@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1870" height="1520" viewBox="0 0 1870 1520">
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<defs><marker id="dep-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#C07A2A"/></marker><marker id="crud-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0,0 L0,8 L9,4 z" fill="#2563EB"/></marker></defs>
+<text x="34.0" y="36.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="24px" font-weight="bold" fill="#153E75">在线商城购物系统 系统组成总览</text>
+<rect x="34" y="58" width="230" height="678" rx="14" fill="#F7FBF3" stroke="#8AA4C4" stroke-width="2"/>
+<text x="49.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">外部 Actor</text>
+<rect x="300" y="58" width="250" height="678" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="315.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">UI/前端</text>
+<rect x="608" y="58" width="900" height="678" rx="14" fill="#F6F9FE" stroke="#8AA4C4" stroke-width="2"/>
+<text x="623.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">用例及依赖关系</text>
+<rect x="1586" y="58" width="250" height="678" rx="14" fill="#F7FBF3" stroke="#8AA4C4" stroke-width="2"/>
+<text x="1601.0" y="85.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">外部系统</text>
+<rect x="300" y="782" width="250" height="100" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="315.0" y="809.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">连接设备</text>
+<rect x="608" y="782" width="900" height="524" rx="14" fill="#F7F9FC" stroke="#8AA4C4" stroke-width="2"/>
+<text x="623.0" y="809.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">内部资源（数据库 / 知识库）</text>
+<rect x="608" y="1324" width="900" height="144" rx="14" fill="#FCFBF4" stroke="#8AA4C4" stroke-width="2"/>
+<text x="623.0" y="1351.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="16px" font-weight="bold" fill="#1F4E79">部署硬件 / 运行环境</text>
+<rect data-node-id="actor-1" x="48" y="138" width="202" height="62" rx="9" fill="#E8F1FF" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="149.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">顾客</text>
+<rect data-node-id="FRONTEND-4F837A377C" x="314" y="138" width="222" height="62" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="425.0" y="174.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">顾客端 UI/前端</text>
+<path data-relation="uses_frontend" d="M 250 169 H 314" fill="none" stroke="#7187A1" stroke-width="1.5"/>
+<rect data-node-id="actor-2" x="48" y="232" width="202" height="62" rx="9" fill="#E8F1FF" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="149.0" y="268.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">商家</text>
+<rect data-node-id="FRONTEND-BD2FB21D80" x="314" y="232" width="222" height="62" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="425.0" y="268.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">商家端 UI/前端</text>
+<path data-relation="uses_frontend" d="M 250 263 H 314" fill="none" stroke="#7187A1" stroke-width="1.5"/>
+<rect data-node-id="actor-3" x="1598" y="138" width="226" height="58" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1711.0" y="172.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">PaymentService</text>
+<rect data-node-id="actor-4" x="1598" y="216" width="226" height="58" rx="9" fill="#FFF4DE" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1711.0" y="250.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">LogisticsService</text>
+<ellipse data-node-id="ABSTRACT-6C805EB598" cx="760.0" cy="165.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="760.0" y="161.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC001</text>
+<text x="760.0" y="179.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">浏览商品</text>
+<ellipse data-node-id="ABSTRACT-09E01262FC" cx="1058.0" cy="165.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1058.0" y="161.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC002</text>
+<text x="1058.0" y="179.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查看商品详情</text>
+<ellipse data-node-id="ABSTRACT-6791F10AB5" cx="1356.0" cy="165.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1356.0" y="161.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-001-UC003</text>
+<text x="1356.0" y="179.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">加入购物车</text>
+<ellipse data-node-id="ABSTRACT-555954131C" cx="760.0" cy="287.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="760.0" y="283.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC001</text>
+<text x="760.0" y="301.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">创建订单</text>
+<ellipse data-node-id="ABSTRACT-05A44DEF33" cx="1058.0" cy="287.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1058.0" y="283.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC002</text>
+<text x="1058.0" y="301.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">支付订单</text>
+<ellipse data-node-id="ABSTRACT-F29992B401" cx="1356.0" cy="287.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1356.0" y="283.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-002-UC003</text>
+<text x="1356.0" y="301.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查看订单详情</text>
+<ellipse data-node-id="ABSTRACT-3DD04DF564" cx="760.0" cy="409.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="760.0" y="405.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC003</text>
+<text x="760.0" y="423.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">查询物流信息</text>
+<ellipse data-node-id="ABSTRACT-F2095B298B" cx="1058.0" cy="409.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1058.0" y="405.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC004</text>
+<text x="1058.0" y="423.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">申请退款</text>
+<ellipse data-node-id="ABSTRACT-80E85992E1" cx="1356.0" cy="409.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1356.0" y="405.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC001</text>
+<text x="1356.0" y="423.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">商家发货</text>
+<ellipse data-node-id="ABSTRACT-550445542D" cx="760.0" cy="531.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="760.0" y="527.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC001</text>
+<text x="760.0" y="545.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">创建商品</text>
+<ellipse data-node-id="ABSTRACT-B3C60656E2" cx="1058.0" cy="531.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1058.0" y="527.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC002</text>
+<text x="1058.0" y="545.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">填写商品信息</text>
+<ellipse data-node-id="ABSTRACT-943F5BC74A" cx="1356.0" cy="531.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1356.0" y="527.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC003</text>
+<text x="1356.0" y="545.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">设置库存与价格</text>
+<ellipse data-node-id="ABSTRACT-25D3D367D9" cx="760.0" cy="653.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="760.0" y="649.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-004-UC004</text>
+<text x="760.0" y="667.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">发布商品</text>
+<ellipse data-node-id="ABSTRACT-8E6FE8347C" cx="1058.0" cy="653.0" rx="130.0" ry="39.0" fill="#E8F1FF" stroke="#356FC4" stroke-width="2"/>
+<text x="1058.0" y="649.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="bold" fill="#23364D">UCG-003-UC002</text>
+<text x="1058.0" y="667.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13px" font-weight="normal" fill="#23364D">更新物流信息</text>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-001-UC001" x1="536" y1="169.0" x2="630" y2="165.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-001-UC002" x1="536" y1="169.0" x2="928" y2="165.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-001-UC003" x1="536" y1="169.0" x2="1226" y2="165.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-002-UC001" x1="536" y1="169.0" x2="630" y2="287.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-002-UC002" x1="536" y1="169.0" x2="928" y2="287.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-002-UC003" x1="536" y1="169.0" x2="1226" y2="287.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-003-UC003" x1="536" y1="169.0" x2="630" y2="409.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-4F837A377C" data-actor="actor-1" data-use-case="UCG-003-UC004" x1="536" y1="169.0" x2="928" y2="409.0" stroke="#2563EB" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-BD2FB21D80" data-actor="actor-2" data-use-case="UCG-003-UC001" x1="536" y1="263.0" x2="1226" y2="409.0" stroke="#16A34A" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-BD2FB21D80" data-actor="actor-2" data-use-case="UCG-004-UC001" x1="536" y1="263.0" x2="630" y2="531.0" stroke="#16A34A" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-BD2FB21D80" data-actor="actor-2" data-use-case="UCG-004-UC002" x1="536" y1="263.0" x2="928" y2="531.0" stroke="#16A34A" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-BD2FB21D80" data-actor="actor-2" data-use-case="UCG-004-UC003" x1="536" y1="263.0" x2="1226" y2="531.0" stroke="#16A34A" stroke-width="1.8"/>
+<line data-relation="serves_use_case" data-frontend="FRONTEND-BD2FB21D80" data-actor="actor-2" data-use-case="UCG-004-UC004" x1="536" y1="263.0" x2="630" y2="653.0" stroke="#16A34A" stroke-width="1.8"/>
+<line data-relation="external_participates_in" data-node="actor-3" data-use-case="UCG-002-UC002" x1="1598" y1="167.0" x2="1188" y2="287.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-3" data-use-case="UCG-003-UC004" x1="1598" y1="167.0" x2="1188" y2="409.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC001" x1="1598" y1="245.0" x2="1486" y2="409.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC002" x1="1598" y1="245.0" x2="1188" y2="653.0" stroke="#D97706" stroke-width="1.65"/>
+<line data-relation="external_participates_in" data-node="actor-4" data-use-case="UCG-003-UC003" x1="1598" y1="245.0" x2="890" y2="409.0" stroke="#D97706" stroke-width="1.65"/>
+<rect data-node-id="db-commerce" x="640" y="828" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="861.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">CommerceDatabase</text>
+<rect data-node-id="NODE-C730E4A666" x="960" y="828" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="861.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">product 表</text>
+<rect data-node-id="NODE-C04D1BD23A" x="1280" y="828" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1430.0" y="861.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">product 表和 sku 表</text>
+<rect data-node-id="NODE-B98FB65522" x="640" y="900" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="933.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">cart_item 表</text>
+<rect data-node-id="NODE-A51397E792" x="960" y="900" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="933.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">address 表</text>
+<rect data-node-id="NODE-73D34D2698" x="1280" y="900" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1430.0" y="933.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">order 表和 order_item 表</text>
+<rect data-node-id="NODE-0147533E97" x="640" y="972" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="1005.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">payment 表</text>
+<rect data-node-id="NODE-9E25121582" x="960" y="972" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="1005.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">order 表</text>
+<rect data-node-id="NODE-AB4F19FC9E" x="1280" y="972" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1430.0" y="1005.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">order_item 表</text>
+<rect data-node-id="NODE-D8EC68ECC3" x="640" y="1044" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="1077.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">shipment 表</text>
+<rect data-node-id="NODE-3922649EF9" x="960" y="1044" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="1077.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">logistics_event 表</text>
+<rect data-node-id="NODE-7D1B9C0A5F" x="1280" y="1044" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1430.0" y="1077.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">refund 表</text>
+<rect data-node-id="NODE-7EA7791653" x="640" y="1116" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="1149.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">merchant 表</text>
+<rect data-node-id="NODE-6D6C807F60" x="960" y="1116" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="1149.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">Category records</text>
+<rect data-node-id="NODE-C980AF7CDC" x="1280" y="1116" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1430.0" y="1149.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">category 表</text>
+<rect data-node-id="NODE-95A5DAEE15" x="640" y="1188" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="790.0" y="1221.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">sku 表</text>
+<rect data-node-id="NODE-0D177DC4DD" x="960" y="1188" width="300" height="56" rx="9" fill="#EAF7EA" stroke="#5B6B7F" stroke-width="1.5"/>
+<text x="1110.0" y="1221.0" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="14px" font-weight="bold" fill="#23364D">product/category/sku 表</text>
+<line x1="34" y1="1476" x2="62" y2="1476" stroke="#2563EB" stroke-width="3"/>
+<text x="70.0" y="1480.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#536273">顾客</text>
+<line x1="184" y1="1476" x2="212" y2="1476" stroke="#16A34A" stroke-width="3"/>
+<text x="220.0" y="1480.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#536273">商家</text>
+<text x="34.0" y="1502.0" text-anchor="start" font-family="Arial,Helvetica,sans-serif" font-size="12px" font-weight="normal" fill="#536273">参与关系图：不同颜色表示不同 Actor 的 UI/前端参与连线；外部服务仅绘制有证据的直线关系。</text>
+</svg>

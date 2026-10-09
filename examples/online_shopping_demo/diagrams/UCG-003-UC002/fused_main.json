@@ -1,0 +1,1053 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-003-UC002",
+  "scenario_id": "main",
+  "name": "更新物流信息",
+  "ssd_id": "SSD-A98FA434BC",
+  "layer": "fused",
+  "lifelines": [
+    {
+      "node_id": "actor-1",
+      "label": "顾客",
+      "kind": "actor",
+      "layer": "RR"
+    },
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-003-UC002",
+      "label": "LogisticsServiceAdapter",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "LOGI-EVT-01"
+    },
+    {
+      "node_id": "impl-UCG-003-UC002",
+      "label": "ImplementationAPI\nLogisticsServiceAdapter",
+      "kind": "implementation_microservice",
+      "layer": "AR",
+      "implementation_api_id": "receiveLogisticsEvent",
+      "microservice_id": "ar-UCG-003-UC002"
+    },
+    {
+      "node_id": "NODE-3922649EF9",
+      "label": "logistics_event 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "NODE-D8EC68ECC3",
+      "label": "shipment 表",
+      "kind": "internal_database",
+      "layer": "AR"
+    },
+    {
+      "node_id": "actor-4",
+      "label": "LogisticsService",
+      "kind": "external_service",
+      "layer": "SR"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-22C54007D0",
+      "exchange_id": "EXCH-95317FB55E",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:268-269",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "message": "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 10,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:268-269"
+      ]
+    },
+    {
+      "message_id": "MSG-4B746C01A4",
+      "exchange_id": "EXCH-95317FB55E",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:268-269",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统受理：LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+      "message_kind": "feedback",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "reply_to_message_id": "MSG-22C54007D0",
+      "inference_basis": "RR 层为每个同步业务动作补齐可见受理反馈。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "系统需求_spec.md:268-269"
+      ]
+    },
+    {
+      "message_id": "MSG-2C9B31E8B6",
+      "exchange_id": "EXCH-2050FB3244",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 3,
+      "sequence": 3,
+      "source_step_index": 2,
+      "source_location": "系统需求_spec.md:270-270",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统校验消息签名和物流单号。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:270-270"
+      ]
+    },
+    {
+      "message_id": "MSG-DAD7F840A7",
+      "exchange_id": "EXCH-F75E26EE33",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 4,
+      "sequence": 4,
+      "source_step_index": 3,
+      "source_location": "系统需求_spec.md:271-271",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统校验物流节点的时间顺序。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:271-271"
+      ]
+    },
+    {
+      "message_id": "MSG-3BF4D368EF",
+      "exchange_id": "EXCH-400F072F3B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 5,
+      "sequence": 5,
+      "source_step_index": 4,
+      "source_location": "系统需求_spec.md:272-272",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统保存新的物流节点。",
+      "message_kind": "feedback",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:272-272"
+      ]
+    },
+    {
+      "message_id": "MSG-A4053267A4",
+      "exchange_id": "EXCH-5044511CE9",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 6,
+      "sequence": 6,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "system",
+      "to_node": "sr-UCG-003-UC002",
+      "message": "调用 LOGI-EVT-01：POST /api/v1/logistics/events",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "trackingNo",
+        "status",
+        "eventTime"
+      ],
+      "response_fields": [
+        "accepted",
+        "eventId"
+      ],
+      "phase": 20,
+      "abstract_api_id": "LOGI-EVT-01",
+      "service_id": "sr-UCG-003-UC002",
+      "api_method": "POST",
+      "resource_path": "/api/v1/logistics/events",
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:LOGI-EVT-01"
+      ]
+    },
+    {
+      "message_id": "MSG-F851B9E3C2",
+      "exchange_id": "EXCH-80E83DEC55",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 7,
+      "sequence": 7,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "sr-UCG-003-UC002",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "调用 receiveLogisticsEvent：POST /api/v1/logistics/events",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "trackingNo",
+        "status",
+        "eventTime"
+      ],
+      "response_fields": [],
+      "phase": 30,
+      "parent_exchange_id": "EXCH-5044511CE9",
+      "implementation_api_id": "receiveLogisticsEvent",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "api_method": "POST",
+      "resource_path": "/api/v1/logistics/events",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "功能设计_spec.md:LOGI-EVT-01"
+      ]
+    },
+    {
+      "message_id": "MSG-2E12F6EA39",
+      "exchange_id": "EXCH-2984C11A41",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 8,
+      "sequence": 8,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:823-823",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "NODE-3922649EF9",
+      "message": "按 eventId 幂等校验，查询是否已存在相同 eventId。",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "eventId"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-3922649EF9",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 823,
+          "line_end": 823
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:823-823"
+      ]
+    },
+    {
+      "message_id": "MSG-3536549CD6",
+      "exchange_id": "EXCH-D5EFCE9B3B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 9,
+      "sequence": 9,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:824-824",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "NODE-3922649EF9",
+      "message": "写入 logistics_event 表（event_id、tracking_number、event_code、event_time、location、shipment_id、order_id、created_at）。",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "event_id",
+        "tracking_number",
+        "event_code",
+        "event_time",
+        "location",
+        "shipment_id",
+        "order_id",
+        "created_at"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-3922649EF9",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 824,
+          "line_end": 824
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:824-824"
+      ]
+    },
+    {
+      "message_id": "MSG-263E69C8CA",
+      "exchange_id": "EXCH-6B993AD539",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 10,
+      "sequence": 10,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:821-821",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "NODE-D8EC68ECC3",
+      "message": "校验 trackingNumber 是否存在，查询 shipment 表获取 shipment_id、order_id、carrier_code。",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "trackingNumber"
+      ],
+      "response_fields": [
+        "shipment_id",
+        "order_id",
+        "carrier_code"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-D8EC68ECC3",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 821,
+          "line_end": 821
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:821-821"
+      ]
+    },
+    {
+      "message_id": "MSG-A7CA9ACA78",
+      "exchange_id": "EXCH-2725A7F411",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 11,
+      "sequence": 11,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:825-825",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "NODE-D8EC68ECC3",
+      "message": "更新 shipment 表中的物流状态摘要（last_event_code、last_event_time、last_location、last_updated_at）。",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "last_event_code",
+        "last_event_time",
+        "last_location",
+        "last_updated_at"
+      ],
+      "response_fields": [],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-D8EC68ECC3",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 825,
+          "line_end": 825
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:825-825"
+      ]
+    },
+    {
+      "message_id": "MSG-6D3BCE5ECA",
+      "exchange_id": "EXCH-528835C51B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 12,
+      "sequence": 12,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:268-269",
+      "from_node": "actor-4",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "发送 POST /api/v1/logistics/events 请求到在线商城系统，请求体包含 eventId、trackingNumber、eventCode、eventTime、location、signature。",
+      "message_kind": "event",
+      "explicitness": "explicit",
+      "direction": "incoming",
+      "request_fields": [
+        "eventId",
+        "trackingNumber",
+        "eventCode",
+        "eventTime",
+        "location",
+        "signature"
+      ],
+      "response_fields": [
+        "accepted",
+        "duplicate"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "actor-4",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 268,
+          "line_end": 269
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 819,
+          "line_end": 819
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdbcc613bed6f71a",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 1161,
+          "line_end": 1161
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "incoming",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:268-269"
+      ]
+    },
+    {
+      "message_id": "MSG-23BF81AEB9",
+      "exchange_id": "EXCH-9BAD333B1F",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 13,
+      "sequence": 13,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:827-827",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "actor-4",
+      "message": "向ACT-004返回 HTTP 200，响应体包含 accepted、duplicate。",
+      "message_kind": "internal_call",
+      "explicitness": "explicit",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [
+        "accepted",
+        "duplicate"
+      ],
+      "phase": 40,
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "actor-4",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:827-827"
+      ]
+    },
+    {
+      "message_id": "MSG-C512AB00C4",
+      "exchange_id": "EXCH-2984C11A41",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 14,
+      "sequence": 14,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:823-823",
+      "from_node": "NODE-3922649EF9",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "返回：按 eventId 幂等校验，查询是否已存在相同 eventId。 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-2E12F6EA39",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-3922649EF9",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 823,
+          "line_end": 823
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:823-823"
+      ]
+    },
+    {
+      "message_id": "MSG-58B0B30CD8",
+      "exchange_id": "EXCH-D5EFCE9B3B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 15,
+      "sequence": 15,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:824-824",
+      "from_node": "NODE-3922649EF9",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "返回：写入 logistics_event 表（event_id、tracking_number、event_code、event_time、location、shipment_id、order_id、created_at）。 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-3536549CD6",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-3922649EF9",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 824,
+          "line_end": 824
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:824-824"
+      ]
+    },
+    {
+      "message_id": "MSG-915E4156D3",
+      "exchange_id": "EXCH-6B993AD539",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 16,
+      "sequence": 16,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:821-821",
+      "from_node": "NODE-D8EC68ECC3",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "返回：校验 trackingNumber 是否存在，查询 shipment 表获取 shipment_id、order_id、carrier_code。 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "shipment_id",
+        "order_id",
+        "carrier_code"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-263E69C8CA",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-D8EC68ECC3",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 821,
+          "line_end": 821
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:821-821"
+      ]
+    },
+    {
+      "message_id": "MSG-57C0D8E1EE",
+      "exchange_id": "EXCH-2725A7F411",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 17,
+      "sequence": 17,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:825-825",
+      "from_node": "NODE-D8EC68ECC3",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "返回：更新 shipment 表中的物流状态摘要（last_event_code、last_event_time、last_location、last_updated_at）。 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 50,
+      "reply_to_message_id": "MSG-A7CA9ACA78",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "NODE-D8EC68ECC3",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 825,
+          "line_end": 825
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:825-825"
+      ]
+    },
+    {
+      "message_id": "MSG-D7DBB2B0B7",
+      "exchange_id": "EXCH-528835C51B",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 18,
+      "sequence": 18,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:268-269",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "actor-4",
+      "message": "返回：发送 POST /api/v1/logistics/events 请求到在线商城系统，请求体包含 eventId、trackingNumber、eventCode、eventTime、location、signature。 处理结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [
+        "accepted",
+        "duplicate"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-6D3BCE5ECA",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "actor-4",
+      "source_refs": [
+        {
+          "document": "系统需求_spec.md",
+          "chapter_id": "SEC-53149cee043d3119",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 268,
+          "line_end": 269
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 819,
+          "line_end": 819
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        },
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-fdbcc613bed6f71a",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 1161,
+          "line_end": 1161
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "incoming",
+      "entity_attribute": "",
+      "source_locations": [
+        "系统需求_spec.md:268-269"
+      ]
+    },
+    {
+      "message_id": "MSG-C6270E166F",
+      "exchange_id": "EXCH-9BAD333B1F",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 19,
+      "sequence": 19,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:827-827",
+      "from_node": "actor-4",
+      "to_node": "impl-UCG-003-UC002",
+      "message": "返回：向ACT-004返回 HTTP 200，响应体包含 accepted、duplicate。 处理结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "incoming",
+      "request_fields": [],
+      "response_fields": [
+        "accepted",
+        "duplicate"
+      ],
+      "phase": 50,
+      "reply_to_message_id": "MSG-23BF81AEB9",
+      "inference_basis": "有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。",
+      "parent_exchange_id": "EXCH-80E83DEC55",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "dependency_node_id": "actor-4",
+      "source_refs": [
+        {
+          "document": "功能设计_spec.md",
+          "chapter_id": "SEC-c5f4920ff0a083b3",
+          "heading_path": [
+            "在线商城购物系统功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 827,
+          "line_end": 827
+        }
+      ],
+      "failure_conditions": [],
+      "execution_step_index": 5,
+      "dependency_direction": "outgoing",
+      "entity_attribute": "",
+      "source_locations": [
+        "功能设计_spec.md:827-827"
+      ]
+    },
+    {
+      "message_id": "MSG-97E3106085",
+      "exchange_id": "EXCH-80E83DEC55",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "AR",
+      "ssd_sequence": 20,
+      "sequence": 20,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "impl-UCG-003-UC002",
+      "to_node": "sr-UCG-003-UC002",
+      "message": "返回 receiveLogisticsEvent 结果",
+      "message_kind": "internal_return",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 60,
+      "parent_exchange_id": "EXCH-5044511CE9",
+      "reply_to_message_id": "MSG-F851B9E3C2",
+      "implementation_api_id": "receiveLogisticsEvent",
+      "microservice_id": "ar-UCG-003-UC002",
+      "service_id": "ar-UCG-003-UC002",
+      "source_locations": [
+        "功能设计_spec.md:LOGI-EVT-01"
+      ]
+    },
+    {
+      "message_id": "MSG-FF9C0FA124",
+      "exchange_id": "EXCH-5044511CE9",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "SR",
+      "ssd_sequence": 21,
+      "sequence": 21,
+      "source_step_index": 5,
+      "source_location": "功能设计_spec.md:LOGI-EVT-01",
+      "from_node": "sr-UCG-003-UC002",
+      "to_node": "system",
+      "message": "返回 LOGI-EVT-01 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "accepted",
+        "eventId"
+      ],
+      "phase": 80,
+      "abstract_api_id": "LOGI-EVT-01",
+      "service_id": "sr-UCG-003-UC002",
+      "reply_to_message_id": "MSG-A4053267A4",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": "",
+      "source_locations": [
+        "功能设计_spec.md:LOGI-EVT-01"
+      ]
+    },
+    {
+      "message_id": "MSG-F04FBF9D3A",
+      "exchange_id": "EXCH-695BB8444A",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC002",
+      "ssd_id": "SSD-A98FA434BC",
+      "layer": "RR",
+      "ssd_sequence": 22,
+      "sequence": 22,
+      "source_step_index": 5,
+      "source_location": "系统需求_spec.md:273-273",
+      "from_node": "system",
+      "to_node": "actor-1",
+      "message": "系统返回：商城保存最新物流节点并更新物流状态。(SEC-53149cee043d3119:264-265)",
+      "message_kind": "feedback",
+      "explicitness": "inferred",
+      "direction": "outgoing",
+      "request_fields": [],
+      "response_fields": [],
+      "phase": 90,
+      "inference_basis": "由用例成功后置条件补全最终可见反馈。",
+      "parent_exchange_id": "",
+      "reply_to_message_id": "",
+      "source_locations": [
+        "系统需求_spec.md:273-273"
+      ]
+    }
+  ],
+  "dedupe_report": {
+    "input_count": 22,
+    "output_count": 22,
+    "removed_count": 0,
+    "conflicts": []
+  },
+  "source_ssds": {
+    "rr": "SSD-A3C944C3BA",
+    "sr": "SSD-F68701F24E",
+    "ar": "SSD-445B7AD9B3"
+  }
+}

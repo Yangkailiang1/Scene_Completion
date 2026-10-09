@@ -12,7 +12,7 @@
     "nodes": [
       {"node_id": "user", "name": "用户", "kind": "human_actor"},
       {"node_id": "system", "name": "业务系统", "kind": "internal_service", "layer": "RR", "service_type": "unknown"},
-      {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-1", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该 SR API 创建订单并触发订单状态变化", "source_location": "功能设计Delta_spec.md:API-ORDER-CREATE"},
+      {"node_id": "sr-order", "name": "OrderService", "kind": "abstract_service", "layer": "SR", "use_case_id": "UC-1", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该 SR API 创建订单并触发订单状态变化", "source_location": "功能设计_spec.md:API-ORDER-CREATE"},
       {"node_id": "abstract-uc-1", "name": "提交订单抽象服务", "kind": "abstract_service", "layer": "RR", "use_case_id": "UC-1"},
       {"node_id": "order-service", "name": "OrderMicroservice", "kind": "internal_service", "layer": "AR", "service_type": "unknown"},
       {"node_id": "impl-order", "name": "createOrder", "kind": "implementation_api", "layer": "AR"},
@@ -28,7 +28,7 @@
     "scenarios": [{"scenario_id": "UC-1-main", "scenario_type": "main", "anchor_step_index": 0, "steps": [{"step_index": 1, "text": "用户提交订单"}]}, {"scenario_id": "UC-1-1.a", "scenario_type": "requirement_exception", "anchor_step_index": 1, "anchor_label": "1.a", "steps": [{"step_index": 1, "text": "请求参数非法"}] }],
     "architecture": {
       "rr": {"service_id": "rr-service-UC-1", "service_name": "Order", "abstract_api_id": "RR-API-ORDER"},
-      "sr": {"design_use_case_id": "SRUC-UC-1-API-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER-CREATE", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该用例 API 创建订单并触发订单状态变化", "source_location": "功能设计Delta_spec.md:API-ORDER-CREATE"},
+      "sr": {"design_use_case_id": "SRUC-UC-1-API-ORDER", "service_id": "sr-order", "service_name": "OrderService", "abstract_api_id": "API-ORDER-CREATE", "service_type": "resource_mutation", "classification_status": "confirmed", "classification_basis": "该用例 API 创建订单并触发订单状态变化", "source_location": "功能设计_spec.md:API-ORDER-CREATE"},
       "ar": [{"microservice_id": "order-service", "microservice_name": "OrderMicroservice", "implementation_api_id": "createOrder", "implementation_api_node_id": "impl-order", "software_interface": "POST /api/v1/orders", "service_type": "command_write", "classification_status": "inferred", "classification_basis": "实现接口执行订单写入", "source_location": "API.md:createOrder"}]
     }
   }],
@@ -106,3 +106,13 @@ AR 映射缺失时保留 SR 消息，设置 `ar_mapping_status=missing`，并写
   }]
 }
 ```
+
+## 独立生成输入 v2
+
+prepare-generator-model 使用 ecnu-max 读取原始需求/设计章节，并输出语义抽取的 main_flow、scenarios、constraints、dependencies。每个业务步骤、分支、检查及依赖都保留 source_refs（文档、完整标题路径、原始行号）；分支锚点必须映射到 requirement main_flow，不能照搬设计步骤编号。
+
+constraints 保存 name、trigger、source_step_index、check_target_name、scenario_steps、expected_result、recovery、concern_keys、source_refs；合并后补稳定 constraint_id 和实际 check_node_id。多义或复合对象无法准确映射时标记 needs_confirmation，不能绑定邻近组件冒充定位。
+
+dependencies 每条保存 caller_name、target_name、target_kind、operation、direction、source_step_index、request_fields、response_fields、source_refs。target_kind 为 internal_service、external_service、internal_database；direction 为 outgoing 或 incoming。合并后绑定 target_node_id，二级服务调用补 caller_node_id。系统到本用例实现服务属于已有 SR/AR 分派，不生成服务自身依赖。数据表是逻辑资源，不意味着新增部署数据库。明确空列表表示无依赖。
+
+规范模型保存 generator_provenance 的原始输入哈希与批次状态；未完成抽取不得生成正式模型。该输入构建不读取已有场景 C、设计补写结果或 test_spec，不进行候选适用性审查。旧 semantic findings/concern review 协议保留为兼容入口。

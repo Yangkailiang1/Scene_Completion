@@ -24,6 +24,20 @@ def compact(value):
     return value
 
 
+def archived_projection(current, archived):
+    """Check every historical field; newer metric/registry fields are additive.
+
+    Historical source scope remains requirements AND design. It is never
+    relabelled as the requirement-only exception acceptance experiment.
+    """
+    if isinstance(archived, dict):
+        return {key: archived_projection(current[key], value) for key, value in archived.items()}
+    if isinstance(archived, list):
+        assert len(current) == len(archived)
+        return [archived_projection(a, b) for a, b in zip(current, archived)]
+    return current
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", help="optionally regenerate JSON, Markdown and Excel reports")
@@ -62,7 +76,7 @@ def main():
         metrics = compare_scenes(generated, checker, matches)
         archived = read_json(directory / "metrics_summary.json")
         archived.pop("expanded_scenarios")
-        assert compact(metrics) == archived, name + ": metric snapshot differs"
+        assert archived_projection(compact(metrics), archived) == archived, name + ": metric snapshot differs"
         expected = set(metrics["overall"]["recommendation_ids"])
         assert scores["complete"] and len(scores["items"]) == len(expected)
         assert {s["scenario_id"] for s in scores["items"]} == expected

@@ -1,0 +1,87 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-003-UC003",
+  "scenario_id": "main",
+  "name": "查询物流信息",
+  "ssd_id": "SSD-962AD63BA0",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-003-UC003",
+      "label": "LogisticsServiceAdapter",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-L-IF2"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-5A6A1BB74C",
+      "exchange_id": "EXCH-8C4AEC9C3E",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC003",
+      "ssd_id": "SSD-962AD63BA0",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-L-IF2",
+      "from_node": "system",
+      "to_node": "sr-UCG-003-UC003",
+      "message": "调用 API-L-IF2：GET /api/v1/orders/{orderId}/logistics",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "orderId"
+      ],
+      "response_fields": [
+        "shipmentStatus",
+        "trackingEvents[]"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-L-IF2",
+      "service_id": "sr-UCG-003-UC003",
+      "api_method": "GET",
+      "resource_path": "/api/v1/orders/{orderId}/logistics",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-17A4C8783C",
+      "exchange_id": "EXCH-8C4AEC9C3E",
+      "interaction_id": "",
+      "use_case_id": "UCG-003-UC003",
+      "ssd_id": "SSD-962AD63BA0",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-L-IF2",
+      "from_node": "sr-UCG-003-UC003",
+      "to_node": "system",
+      "message": "返回 API-L-IF2 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "shipmentStatus",
+        "trackingEvents[]"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-L-IF2",
+      "service_id": "sr-UCG-003-UC003",
+      "reply_to_message_id": "MSG-5A6A1BB74C",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

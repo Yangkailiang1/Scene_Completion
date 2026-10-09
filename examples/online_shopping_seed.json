@@ -1,0 +1,2981 @@
+{
+  "version": "6",
+  "project": "online_shopping_system",
+  "system_name": "在线商城购物系统",
+  "source": {
+    "path": "系统需求_spec.md",
+    "locations": [
+      {
+        "path": "系统需求_spec.md",
+        "range": "Use case descriptions UCG-001 through UCG-004"
+      },
+      {
+        "path": "功能设计_spec.md",
+        "range": "V5 standardized design call chain and interfaces"
+      }
+    ]
+  },
+  "actors": [
+    "顾客",
+    "商家",
+    "PaymentService",
+    "LogisticsService"
+  ],
+  "entities": [
+    "Product",
+    "SKU",
+    "Cart",
+    "Order",
+    "OrderItem",
+    "Payment",
+    "Shipment",
+    "LogisticsEvent",
+    "Refund",
+    "Category"
+  ],
+  "er_model": {
+    "entities": [
+      {
+        "name": "Product",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "SKU",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Cart",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Order",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "OrderItem",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Payment",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Shipment",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "LogisticsEvent",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Refund",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      },
+      {
+        "name": "Category",
+        "mapping_status": "inferred",
+        "evidence": "Business data object named in the requirements or V5 call-chain contract.",
+        "source_location": "功能设计_spec.md:V5 call chain"
+      }
+    ],
+    "relationships": []
+  },
+  "interfaces": [
+    {
+      "abstract_api_id": "API-S-IF1",
+      "name": "API-S-IF1",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "request_fields": [
+        "keyword",
+        "categoryId",
+        "minPrice",
+        "maxPrice",
+        "sortBy",
+        "page",
+        "pageSize"
+      ],
+      "response_fields": [
+        "page",
+        "pageSize",
+        "total",
+        "items[]"
+      ],
+      "source_location": "功能设计_spec.md:API-S-IF1"
+    },
+    {
+      "abstract_api_id": "API-S-IF2",
+      "name": "API-S-IF2",
+      "method": "GET",
+      "path": "/api/v1/products/{productId}",
+      "request_fields": [
+        "productId",
+        "Authorization"
+      ],
+      "response_fields": [
+        "productId",
+        "name",
+        "description",
+        "images[]",
+        "price",
+        "stockStatus"
+      ],
+      "source_location": "功能设计_spec.md:API-S-IF2"
+    },
+    {
+      "abstract_api_id": "API-C-IF1",
+      "name": "API-C-IF1",
+      "method": "POST",
+      "path": "/api/v1/cart/items",
+      "request_fields": [
+        "productId",
+        "skuId",
+        "quantity"
+      ],
+      "response_fields": [
+        "cartId",
+        "items[]",
+        "totalAmount"
+      ],
+      "source_location": "功能设计_spec.md:API-C-IF1"
+    },
+    {
+      "abstract_api_id": "API-O-IF1",
+      "name": "API-O-IF1",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "request_fields": [
+        "cartId",
+        "addressId",
+        "items[]",
+        "paymentMethod"
+      ],
+      "response_fields": [
+        "orderId",
+        "status",
+        "totalAmount"
+      ],
+      "source_location": "功能设计_spec.md:API-O-IF1"
+    },
+    {
+      "abstract_api_id": "PAYMENT-PAY-01",
+      "name": "PAYMENT-PAY-01",
+      "method": "POST",
+      "path": "/payment/v1/payments",
+      "request_fields": [
+        "orderId",
+        "amount",
+        "paymentMethod",
+        "callbackUrl"
+      ],
+      "response_fields": [
+        "paymentId",
+        "paymentStatus"
+      ],
+      "source_location": "功能设计_spec.md:PAYMENT-PAY-01"
+    },
+    {
+      "abstract_api_id": "API-O-IF2",
+      "name": "API-O-IF2",
+      "method": "GET",
+      "path": "/api/v1/orders/{orderId}",
+      "request_fields": [
+        "orderId",
+        "Authorization"
+      ],
+      "response_fields": [
+        "orderId",
+        "items[]",
+        "paymentStatus",
+        "shipmentStatus"
+      ],
+      "source_location": "功能设计_spec.md:API-O-IF2"
+    },
+    {
+      "abstract_api_id": "API-L-IF1",
+      "name": "API-L-IF1",
+      "method": "POST",
+      "path": "/api/v1/orders/{orderId}/shipments",
+      "request_fields": [
+        "orderId",
+        "carrier",
+        "trackingNo"
+      ],
+      "response_fields": [
+        "shipmentId",
+        "shipmentStatus"
+      ],
+      "source_location": "功能设计_spec.md:API-L-IF1"
+    },
+    {
+      "abstract_api_id": "LOGI-EVT-01",
+      "name": "LOGI-EVT-01",
+      "method": "POST",
+      "path": "/api/v1/logistics/events",
+      "request_fields": [
+        "trackingNo",
+        "status",
+        "eventTime"
+      ],
+      "response_fields": [
+        "accepted",
+        "eventId"
+      ],
+      "source_location": "功能设计_spec.md:LOGI-EVT-01"
+    },
+    {
+      "abstract_api_id": "API-L-IF2",
+      "name": "API-L-IF2",
+      "method": "GET",
+      "path": "/api/v1/orders/{orderId}/logistics",
+      "request_fields": [
+        "orderId"
+      ],
+      "response_fields": [
+        "shipmentStatus",
+        "trackingEvents[]"
+      ],
+      "source_location": "功能设计_spec.md:API-L-IF2"
+    },
+    {
+      "abstract_api_id": "API-R-IF1",
+      "name": "API-R-IF1",
+      "method": "POST",
+      "path": "/api/v1/orders/{orderId}/refunds",
+      "request_fields": [
+        "orderId",
+        "reason",
+        "amount"
+      ],
+      "response_fields": [
+        "refundId",
+        "refundStatus"
+      ],
+      "source_location": "功能设计_spec.md:API-R-IF1"
+    },
+    {
+      "abstract_api_id": "API-M-IF1",
+      "name": "API-M-IF1",
+      "method": "POST",
+      "path": "/api/v1/merchant/products",
+      "request_fields": [
+        "name",
+        "categoryId",
+        "description",
+        "imageUrls[]"
+      ],
+      "response_fields": [
+        "productId",
+        "status"
+      ],
+      "source_location": "功能设计_spec.md:API-M-IF1"
+    },
+    {
+      "abstract_api_id": "API-M-IF2",
+      "name": "API-M-IF2",
+      "method": "PUT",
+      "path": "/api/v1/merchant/products/{productId}",
+      "request_fields": [
+        "productId",
+        "name",
+        "description",
+        "categoryId",
+        "imageUrls[]",
+        "version"
+      ],
+      "response_fields": [
+        "productId",
+        "status",
+        "version"
+      ],
+      "source_location": "功能设计_spec.md:API-M-IF2"
+    },
+    {
+      "abstract_api_id": "API-M-IF3",
+      "name": "API-M-IF3",
+      "method": "PUT",
+      "path": "/api/v1/merchant/products/{productId}/skus",
+      "request_fields": [
+        "productId",
+        "skus[]",
+        "version"
+      ],
+      "response_fields": [
+        "productId",
+        "skus[]",
+        "version"
+      ],
+      "source_location": "功能设计_spec.md:API-M-IF3"
+    },
+    {
+      "abstract_api_id": "API-M-IF4",
+      "name": "API-M-IF4",
+      "method": "POST",
+      "path": "/api/v1/merchant/products/{productId}/publish",
+      "request_fields": [
+        "productId",
+        "version",
+        "publishAt"
+      ],
+      "response_fields": [
+        "productId",
+        "status",
+        "publishedAt",
+        "catalogSyncStatus"
+      ],
+      "source_location": "功能设计_spec.md:API-M-IF4"
+    }
+  ],
+  "system_composition": {
+    "nodes": [
+      {
+        "node_id": "system",
+        "name": "在线商城购物系统",
+        "kind": "internal_service",
+        "layer": "RR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "actor-1",
+        "name": "顾客",
+        "kind": "human_actor",
+        "layer": "RR",
+        "scope": "external"
+      },
+      {
+        "node_id": "actor-2",
+        "name": "商家",
+        "kind": "human_actor",
+        "layer": "RR",
+        "scope": "external"
+      },
+      {
+        "node_id": "actor-3",
+        "name": "PaymentService",
+        "kind": "external_service",
+        "layer": "SR",
+        "scope": "external"
+      },
+      {
+        "node_id": "actor-4",
+        "name": "LogisticsService",
+        "kind": "external_service",
+        "layer": "SR",
+        "scope": "external"
+      },
+      {
+        "node_id": "db-commerce",
+        "name": "CommerceDatabase",
+        "kind": "internal_database",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-001-UC001",
+        "name": "ProductDisplayService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-001-UC001",
+        "service_type": "display_interaction",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-001-UC001 to ProductDisplayService",
+        "source_location": "功能设计_spec.md:API-S-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-001-UC001",
+        "name": "ProductCatalogService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-001-UC001",
+        "name": "listProducts",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-001-UC002",
+        "name": "ProductDisplayService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-001-UC002",
+        "service_type": "display_interaction",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-001-UC002 to ProductDisplayService",
+        "source_location": "功能设计_spec.md:API-S-IF2",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-001-UC002",
+        "name": "ProductCatalogService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-001-UC002",
+        "name": "getProductDetail",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-001-UC003",
+        "name": "CartService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-001-UC003",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-001-UC003 to CartService",
+        "source_location": "功能设计_spec.md:API-C-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-001-UC003",
+        "name": "CartService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-001-UC003",
+        "name": "addCartItem",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-002-UC001",
+        "name": "OrderService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-002-UC001",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-002-UC001 to OrderService",
+        "source_location": "功能设计_spec.md:API-O-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-002-UC001",
+        "name": "OrderService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-002-UC001",
+        "name": "createOrder",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-002-UC002",
+        "name": "PaymentAdapter",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-002-UC002",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-002-UC002 to PaymentAdapter",
+        "source_location": "功能设计_spec.md:PAYMENT-PAY-01",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-002-UC002",
+        "name": "PaymentAdapter",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-002-UC002",
+        "name": "createPayment",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-002-UC003",
+        "name": "OrderService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-002-UC003",
+        "service_type": "query_retrieval",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-002-UC003 to OrderService",
+        "source_location": "功能设计_spec.md:API-O-IF2",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-002-UC003",
+        "name": "OrderService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-002-UC003",
+        "name": "getOrderDetail",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-003-UC001",
+        "name": "LogisticsServiceAdapter",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-003-UC001",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-003-UC001 to LogisticsServiceAdapter",
+        "source_location": "功能设计_spec.md:API-L-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-003-UC001",
+        "name": "OrderService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-003-UC001",
+        "name": "createShipment",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-003-UC002",
+        "name": "LogisticsServiceAdapter",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-003-UC002",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-003-UC002 to LogisticsServiceAdapter",
+        "source_location": "功能设计_spec.md:LOGI-EVT-01",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-003-UC002",
+        "name": "LogisticsServiceAdapter",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-003-UC002",
+        "name": "receiveLogisticsEvent",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-003-UC003",
+        "name": "LogisticsServiceAdapter",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-003-UC003",
+        "service_type": "query_retrieval",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-003-UC003 to LogisticsServiceAdapter",
+        "source_location": "功能设计_spec.md:API-L-IF2",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-003-UC003",
+        "name": "LogisticsServiceAdapter",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-003-UC003",
+        "name": "getOrderLogistics",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-003-UC004",
+        "name": "RefundService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-003-UC004",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-003-UC004 to RefundService",
+        "source_location": "功能设计_spec.md:API-R-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-003-UC004",
+        "name": "RefundService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-003-UC004",
+        "name": "createRefund",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-004-UC001",
+        "name": "MerchantProductService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-004-UC001",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-004-UC001 to MerchantProductService",
+        "source_location": "功能设计_spec.md:API-M-IF1",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-004-UC001",
+        "name": "MerchantProductService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-004-UC001",
+        "name": "createMerchantProduct",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-004-UC002",
+        "name": "MerchantProductService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-004-UC002",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-004-UC002 to MerchantProductService",
+        "source_location": "功能设计_spec.md:API-M-IF2",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-004-UC002",
+        "name": "MerchantProductService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-004-UC002",
+        "name": "updateMerchantProduct",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-004-UC003",
+        "name": "MerchantProductService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-004-UC003",
+        "service_type": "resource_mutation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-004-UC003 to MerchantProductService",
+        "source_location": "功能设计_spec.md:API-M-IF3",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-004-UC003",
+        "name": "MerchantProductService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-004-UC003",
+        "name": "updateSkuInventoryAndPrice",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "sr-UCG-004-UC004",
+        "name": "MerchantProductService",
+        "kind": "abstract_service",
+        "layer": "SR",
+        "use_case_id": "UCG-004-UC004",
+        "service_type": "release_activation",
+        "classification_status": "confirmed",
+        "classification_basis": "V5 call chain maps UCG-004-UC004 to MerchantProductService",
+        "source_location": "功能设计_spec.md:API-M-IF4",
+        "scope": "internal"
+      },
+      {
+        "node_id": "ar-UCG-004-UC004",
+        "name": "MerchantProductService",
+        "kind": "internal_service",
+        "layer": "AR",
+        "service_type": "unknown",
+        "scope": "internal",
+        "classification_status": "needs_confirmation"
+      },
+      {
+        "node_id": "impl-UCG-004-UC004",
+        "name": "publishMerchantProduct",
+        "kind": "implementation_api",
+        "layer": "AR",
+        "scope": "internal"
+      },
+      {
+        "node_id": "SR-RESOURCE-6330FDD3BF",
+        "name": "CommerceDatabase资源服务",
+        "kind": "internal_service",
+        "service_role": "resource_service",
+        "resource_ids": [
+          "db-commerce"
+        ],
+        "layer": "SR",
+        "service_type": "unknown",
+        "classification_status": "inferred",
+        "classification_basis": "根据物理数据库访问关系建立的 SR 逻辑资源服务抽象，不代表独立部署组件",
+        "source_location": "系统需求_spec.md",
+        "mapping_status": "inferred"
+      },
+      {
+        "node_id": "ABSTRACT-6C805EB598",
+        "name": "浏览商品抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-001-UC001",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:85"
+      },
+      {
+        "node_id": "ABSTRACT-09E01262FC",
+        "name": "查看商品详情抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-001-UC002",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:111"
+      },
+      {
+        "node_id": "ABSTRACT-6791F10AB5",
+        "name": "加入购物车抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-001-UC003",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:134"
+      },
+      {
+        "node_id": "ABSTRACT-555954131C",
+        "name": "创建订单抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-002-UC001",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:158"
+      },
+      {
+        "node_id": "ABSTRACT-05A44DEF33",
+        "name": "支付订单抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-002-UC002",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:183"
+      },
+      {
+        "node_id": "ABSTRACT-F29992B401",
+        "name": "查看订单详情抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-002-UC003",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:209"
+      },
+      {
+        "node_id": "ABSTRACT-80E85992E1",
+        "name": "商家发货抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-003-UC001",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:233"
+      },
+      {
+        "node_id": "ABSTRACT-8E6FE8347C",
+        "name": "更新物流信息抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-003-UC002",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:258"
+      },
+      {
+        "node_id": "ABSTRACT-3DD04DF564",
+        "name": "查询物流信息抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-003-UC003",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:282"
+      },
+      {
+        "node_id": "ABSTRACT-F2095B298B",
+        "name": "申请退款抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-003-UC004",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:306"
+      },
+      {
+        "node_id": "ABSTRACT-550445542D",
+        "name": "创建商品抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-004-UC001",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:331"
+      },
+      {
+        "node_id": "ABSTRACT-B3C60656E2",
+        "name": "填写商品信息抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-004-UC002",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:353"
+      },
+      {
+        "node_id": "ABSTRACT-943F5BC74A",
+        "name": "设置库存与价格抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-004-UC003",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:377"
+      },
+      {
+        "node_id": "ABSTRACT-25D3D367D9",
+        "name": "发布商品抽象服务",
+        "kind": "abstract_service",
+        "layer": "RR",
+        "use_case_id": "UCG-004-UC004",
+        "scope": "internal",
+        "classification_status": "inferred",
+        "source_location": "系统需求_spec.md:401"
+      },
+      {
+        "node_id": "FRONTEND-4F837A377C",
+        "name": "顾客端 UI/前端",
+        "kind": "frontend_ui",
+        "layer": "RR",
+        "actor_id": "actor-1",
+        "mapping_status": "inferred",
+        "source_location": "",
+        "use_case_ids": [
+          "UCG-001-UC001",
+          "UCG-001-UC002",
+          "UCG-001-UC003",
+          "UCG-002-UC001",
+          "UCG-002-UC002",
+          "UCG-002-UC003",
+          "UCG-003-UC003",
+          "UCG-003-UC004"
+        ]
+      },
+      {
+        "node_id": "FRONTEND-BD2FB21D80",
+        "name": "商家端 UI/前端",
+        "kind": "frontend_ui",
+        "layer": "RR",
+        "actor_id": "actor-2",
+        "mapping_status": "inferred",
+        "source_location": "",
+        "use_case_ids": [
+          "UCG-003-UC001",
+          "UCG-004-UC001",
+          "UCG-004-UC002",
+          "UCG-004-UC003",
+          "UCG-004-UC004"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "EDGE-2A5F895741",
+        "from_node": "actor-1",
+        "to_node": "FRONTEND-4F837A377C",
+        "relation": "uses_frontend",
+        "use_case_id": "UCG-001-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-E8FA7804C9",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-6C805EB598",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-30605CA8F6",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-09E01262FC",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-18E90F9242",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-6791F10AB5",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-001-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-14C9E8ADDF",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-555954131C",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-7405E5DAA0",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-05A44DEF33",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-3940A627CE",
+        "from_node": "actor-3",
+        "to_node": "ABSTRACT-05A44DEF33",
+        "relation": "external_participates_in",
+        "use_case_id": "UCG-002-UC002",
+        "source_location": "系统需求_spec.md:183"
+      },
+      {
+        "edge_id": "EDGE-24C032DF87",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-F29992B401",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-002-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-5B29CE8EE1",
+        "from_node": "actor-2",
+        "to_node": "FRONTEND-BD2FB21D80",
+        "relation": "uses_frontend",
+        "use_case_id": "UCG-003-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-3300EC0C73",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-80E85992E1",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-92FA32CB82",
+        "from_node": "actor-4",
+        "to_node": "ABSTRACT-80E85992E1",
+        "relation": "external_participates_in",
+        "use_case_id": "UCG-003-UC001",
+        "source_location": "系统需求_spec.md:233"
+      },
+      {
+        "edge_id": "EDGE-047C125424",
+        "from_node": "actor-4",
+        "to_node": "ABSTRACT-8E6FE8347C",
+        "relation": "external_participates_in",
+        "use_case_id": "UCG-003-UC002",
+        "source_location": "系统需求_spec.md:258"
+      },
+      {
+        "edge_id": "EDGE-E7D81BE52D",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-3DD04DF564",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-3A8A5E9AF6",
+        "from_node": "actor-4",
+        "to_node": "ABSTRACT-3DD04DF564",
+        "relation": "external_participates_in",
+        "use_case_id": "UCG-003-UC003",
+        "source_location": "系统需求_spec.md:282"
+      },
+      {
+        "edge_id": "EDGE-F5320A7969",
+        "from_node": "FRONTEND-4F837A377C",
+        "to_node": "ABSTRACT-F2095B298B",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-003-UC004",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-A5C7B1578D",
+        "from_node": "actor-3",
+        "to_node": "ABSTRACT-F2095B298B",
+        "relation": "external_participates_in",
+        "use_case_id": "UCG-003-UC004",
+        "source_location": "系统需求_spec.md:306"
+      },
+      {
+        "edge_id": "EDGE-6C1609869C",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-550445542D",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC001",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-7C259B8EB1",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-B3C60656E2",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC002",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-FCF2920E81",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-943F5BC74A",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC003",
+        "mapping_status": "inferred",
+        "source_location": ""
+      },
+      {
+        "edge_id": "EDGE-F94E69FDEE",
+        "from_node": "FRONTEND-BD2FB21D80",
+        "to_node": "ABSTRACT-25D3D367D9",
+        "relation": "serves_use_case",
+        "use_case_id": "UCG-004-UC004",
+        "mapping_status": "inferred",
+        "source_location": ""
+      }
+    ],
+    "review_items": []
+  },
+  "use_cases": [
+    {
+      "use_case_id": "UCG-001-UC001",
+      "use_case_name": "浏览商品",
+      "actors": [
+        "顾客"
+      ],
+      "preconditions": "在线商城购物系统正常运行。; 商品浏览功能和商品目录服务可用。",
+      "trigger": "顾客进入商品浏览页面，或发起商品搜索、筛选请求。",
+      "postconditions": "系统展示符合当前条件的可售商品列表。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客进入商品浏览页面。",
+          "source_location": "系统需求_spec.md:96"
+        },
+        {
+          "step_index": 2,
+          "text": "系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。",
+          "source_location": "系统需求_spec.md:97"
+        },
+        {
+          "step_index": 3,
+          "text": "顾客输入关键词、选择分类或设置价格、排序条件。",
+          "source_location": "系统需求_spec.md:98"
+        },
+        {
+          "step_index": 4,
+          "text": "系统根据条件查询状态为 ON_SALE 的商品。",
+          "source_location": "系统需求_spec.md:99"
+        },
+        {
+          "step_index": 5,
+          "text": "系统展示符合条件的商品列表和分页信息。",
+          "source_location": "系统需求_spec.md:100"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-001-UC001",
+          "service_name": "浏览商品",
+          "abstract_api_id": "RR-UCG-001-UC001"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-001-UC001-API-S-IF1",
+          "service_id": "sr-UCG-001-UC001",
+          "service_name": "ProductDisplayService",
+          "abstract_api_id": "API-S-IF1",
+          "service_type": "display_interaction",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-001-UC001 to ProductDisplayService",
+          "source_location": "功能设计_spec.md:API-S-IF1",
+          "request_fields": [
+            "keyword",
+            "categoryId",
+            "minPrice",
+            "maxPrice",
+            "sortBy",
+            "page",
+            "pageSize"
+          ],
+          "response_fields": [
+            "page",
+            "pageSize",
+            "total",
+            "items[]"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-001-UC001",
+            "microservice_name": "ProductCatalogService",
+            "implementation_api_id": "listProducts",
+            "implementation_api_node_id": "impl-UCG-001-UC001",
+            "software_interface": "GET /api/v1/products",
+            "method": "GET",
+            "resource_path": "/api/v1/products",
+            "request_fields": [
+              "keyword",
+              "categoryId",
+              "minPrice",
+              "maxPrice",
+              "sortBy",
+              "page",
+              "pageSize"
+            ],
+            "response_fields": [
+              "page",
+              "pageSize",
+              "total",
+              "items[]"
+            ],
+            "service_type": "query_read",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps listProducts to ProductCatalogService",
+            "source_location": "功能设计_spec.md:API-S-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Product records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:85",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-001-UC002",
+      "use_case_name": "查看商品详情",
+      "actors": [
+        "顾客"
+      ],
+      "preconditions": "顾客已进入商品列表。; 目标商品处于可浏览状态。",
+      "trigger": "顾客选择一个商品。",
+      "postconditions": "系统展示目标商品的完整详情。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客点击商品。",
+          "source_location": "系统需求_spec.md:122"
+        },
+        {
+          "step_index": 2,
+          "text": "系统通过商品详情接口 API-S-IF2 查询商品信息。",
+          "source_location": "系统需求_spec.md:123"
+        },
+        {
+          "step_index": 3,
+          "text": "系统获取商品描述、图片、价格和库存状态。",
+          "source_location": "系统需求_spec.md:124"
+        },
+        {
+          "step_index": 4,
+          "text": "系统展示商品详情页面。",
+          "source_location": "系统需求_spec.md:125"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-001-UC002",
+          "service_name": "查看商品详情",
+          "abstract_api_id": "RR-UCG-001-UC002"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-001-UC002-API-S-IF2",
+          "service_id": "sr-UCG-001-UC002",
+          "service_name": "ProductDisplayService",
+          "abstract_api_id": "API-S-IF2",
+          "service_type": "display_interaction",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-001-UC002 to ProductDisplayService",
+          "source_location": "功能设计_spec.md:API-S-IF2",
+          "request_fields": [
+            "productId",
+            "Authorization"
+          ],
+          "response_fields": [
+            "productId",
+            "name",
+            "description",
+            "images[]",
+            "price",
+            "stockStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-001-UC002",
+            "microservice_name": "ProductCatalogService",
+            "implementation_api_id": "getProductDetail",
+            "implementation_api_node_id": "impl-UCG-001-UC002",
+            "software_interface": "GET /api/v1/products/{productId}",
+            "method": "GET",
+            "resource_path": "/api/v1/products/{productId}",
+            "request_fields": [
+              "productId",
+              "Authorization"
+            ],
+            "response_fields": [
+              "productId",
+              "name",
+              "description",
+              "images[]",
+              "price",
+              "stockStatus"
+            ],
+            "service_type": "query_read",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps getProductDetail to ProductCatalogService",
+            "source_location": "功能设计_spec.md:API-S-IF2",
+            "source_step_index": 1,
+            "database_action": "Read or update SKU records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:111",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-001-UC003",
+      "use_case_name": "加入购物车",
+      "actors": [
+        "顾客"
+      ],
+      "preconditions": "顾客已登录。; 商品及所选SKU处于可售状态。",
+      "trigger": "顾客在商品详情页选择SKU和数量并点击“加入购物车”。",
+      "postconditions": "商品及购买数量被保存到顾客购物车。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客选择SKU和购买数量。",
+          "source_location": "系统需求_spec.md:145"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验商品状态、库存和限购规则。",
+          "source_location": "系统需求_spec.md:146"
+        },
+        {
+          "step_index": 3,
+          "text": "系统调用购物车写入接口 API-C-IF1。",
+          "source_location": "系统需求_spec.md:147"
+        },
+        {
+          "step_index": 4,
+          "text": "系统更新购物车商品数量和金额摘要。",
+          "source_location": "系统需求_spec.md:148"
+        },
+        {
+          "step_index": 5,
+          "text": "系统提示“已加入购物车”。",
+          "source_location": "系统需求_spec.md:149"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-001-UC003",
+          "service_name": "加入购物车",
+          "abstract_api_id": "RR-UCG-001-UC003"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-001-UC003-API-C-IF1",
+          "service_id": "sr-UCG-001-UC003",
+          "service_name": "CartService",
+          "abstract_api_id": "API-C-IF1",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-001-UC003 to CartService",
+          "source_location": "功能设计_spec.md:API-C-IF1",
+          "request_fields": [
+            "productId",
+            "skuId",
+            "quantity"
+          ],
+          "response_fields": [
+            "cartId",
+            "items[]",
+            "totalAmount"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-001-UC003",
+            "microservice_name": "CartService",
+            "implementation_api_id": "addCartItem",
+            "implementation_api_node_id": "impl-UCG-001-UC003",
+            "software_interface": "POST /api/v1/cart/items",
+            "method": "POST",
+            "resource_path": "/api/v1/cart/items",
+            "request_fields": [
+              "productId",
+              "skuId",
+              "quantity"
+            ],
+            "response_fields": [
+              "cartId",
+              "items[]",
+              "totalAmount"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps addCartItem to CartService",
+            "source_location": "功能设计_spec.md:API-C-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Cart records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:134",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-002-UC001",
+      "use_case_name": "创建订单",
+      "actors": [
+        "顾客"
+      ],
+      "preconditions": "顾客已登录。; 购物车中存在已选中的有效商品。; 顾客已提供有效收货地址。",
+      "trigger": "顾客在结算页确认提交订单。",
+      "postconditions": "系统生成状态为 WAIT_PAY 的订单并锁定相应库存。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "系统读取顾客选中的购物车商品。",
+          "source_location": "系统需求_spec.md:170"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验价格、库存和促销有效性。",
+          "source_location": "系统需求_spec.md:171"
+        },
+        {
+          "step_index": 3,
+          "text": "顾客确认收货地址和订单金额。",
+          "source_location": "系统需求_spec.md:172"
+        },
+        {
+          "step_index": 4,
+          "text": "系统通过订单创建接口 API-O-IF1 创建订单。",
+          "source_location": "系统需求_spec.md:173"
+        },
+        {
+          "step_index": 5,
+          "text": "系统锁定库存并返回订单编号和待支付金额。",
+          "source_location": "系统需求_spec.md:174"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-002-UC001",
+          "service_name": "创建订单",
+          "abstract_api_id": "RR-UCG-002-UC001"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-002-UC001-API-O-IF1",
+          "service_id": "sr-UCG-002-UC001",
+          "service_name": "OrderService",
+          "abstract_api_id": "API-O-IF1",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-002-UC001 to OrderService",
+          "source_location": "功能设计_spec.md:API-O-IF1",
+          "request_fields": [
+            "cartId",
+            "addressId",
+            "items[]",
+            "paymentMethod"
+          ],
+          "response_fields": [
+            "orderId",
+            "status",
+            "totalAmount"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-002-UC001",
+            "microservice_name": "OrderService",
+            "implementation_api_id": "createOrder",
+            "implementation_api_node_id": "impl-UCG-002-UC001",
+            "software_interface": "POST /api/v1/orders",
+            "method": "POST",
+            "resource_path": "/api/v1/orders",
+            "request_fields": [
+              "cartId",
+              "addressId",
+              "items[]",
+              "paymentMethod"
+            ],
+            "response_fields": [
+              "orderId",
+              "status",
+              "totalAmount"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps createOrder to OrderService",
+            "source_location": "功能设计_spec.md:API-O-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Order records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:158",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-002-UC002",
+      "use_case_name": "支付订单",
+      "actors": [
+        "顾客",
+        "PaymentService"
+      ],
+      "preconditions": "订单状态为 WAIT_PAY。; 订单未超过支付有效期。; PaymentService可用。",
+      "trigger": "顾客选择支付方式并确认支付。",
+      "postconditions": "订单状态更新为 PAID，并记录支付流水。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客发起订单支付。",
+          "source_location": "系统需求_spec.md:195"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验订单状态和应付金额。",
+          "source_location": "系统需求_spec.md:196"
+        },
+        {
+          "step_index": 3,
+          "text": "系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求。",
+          "source_location": "系统需求_spec.md:197"
+        },
+        {
+          "step_index": 4,
+          "text": "PaymentService完成支付并返回成功结果。",
+          "source_location": "系统需求_spec.md:198"
+        },
+        {
+          "step_index": 5,
+          "text": "系统校验支付结果并将订单更新为 PAID。",
+          "source_location": "系统需求_spec.md:199"
+        },
+        {
+          "step_index": 6,
+          "text": "系统向顾客展示支付成功页面。",
+          "source_location": "系统需求_spec.md:200"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-002-UC002",
+          "service_name": "支付订单",
+          "abstract_api_id": "RR-UCG-002-UC002"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-002-UC002-PAYMENT-PAY-01",
+          "service_id": "sr-UCG-002-UC002",
+          "service_name": "PaymentAdapter",
+          "abstract_api_id": "PAYMENT-PAY-01",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-002-UC002 to PaymentAdapter",
+          "source_location": "功能设计_spec.md:PAYMENT-PAY-01",
+          "request_fields": [
+            "orderId",
+            "amount",
+            "paymentMethod",
+            "callbackUrl"
+          ],
+          "response_fields": [
+            "paymentId",
+            "paymentStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-002-UC002",
+            "microservice_name": "PaymentAdapter",
+            "implementation_api_id": "createPayment",
+            "implementation_api_node_id": "impl-UCG-002-UC002",
+            "software_interface": "POST /payment/v1/payments",
+            "method": "POST",
+            "resource_path": "/payment/v1/payments",
+            "request_fields": [
+              "orderId",
+              "amount",
+              "paymentMethod",
+              "callbackUrl"
+            ],
+            "response_fields": [
+              "paymentId",
+              "paymentStatus"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps createPayment to PaymentAdapter",
+            "source_location": "功能设计_spec.md:PAYMENT-PAY-01",
+            "source_step_index": 1,
+            "database_action": "Read or update OrderItem records",
+            "external_dependency_node_id": "actor-3"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:183",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-002-UC003",
+      "use_case_name": "查看订单详情",
+      "actors": [
+        "顾客"
+      ],
+      "preconditions": "顾客已登录。; 订单属于当前顾客。",
+      "trigger": "顾客从订单列表选择一个订单。",
+      "postconditions": "系统展示订单的商品、金额、支付和履约信息。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客提交订单编号。",
+          "source_location": "系统需求_spec.md:220"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验订单归属关系。",
+          "source_location": "系统需求_spec.md:221"
+        },
+        {
+          "step_index": 3,
+          "text": "系统通过订单详情接口 API-O-IF2 查询订单。",
+          "source_location": "系统需求_spec.md:222"
+        },
+        {
+          "step_index": 4,
+          "text": "系统组合订单商品、金额、支付和物流摘要。",
+          "source_location": "系统需求_spec.md:223"
+        },
+        {
+          "step_index": 5,
+          "text": "系统展示订单详情。",
+          "source_location": "系统需求_spec.md:224"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-002-UC003",
+          "service_name": "查看订单详情",
+          "abstract_api_id": "RR-UCG-002-UC003"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-002-UC003-API-O-IF2",
+          "service_id": "sr-UCG-002-UC003",
+          "service_name": "OrderService",
+          "abstract_api_id": "API-O-IF2",
+          "service_type": "query_retrieval",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-002-UC003 to OrderService",
+          "source_location": "功能设计_spec.md:API-O-IF2",
+          "request_fields": [
+            "orderId",
+            "Authorization"
+          ],
+          "response_fields": [
+            "orderId",
+            "items[]",
+            "paymentStatus",
+            "shipmentStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-002-UC003",
+            "microservice_name": "OrderService",
+            "implementation_api_id": "getOrderDetail",
+            "implementation_api_node_id": "impl-UCG-002-UC003",
+            "software_interface": "GET /api/v1/orders/{orderId}",
+            "method": "GET",
+            "resource_path": "/api/v1/orders/{orderId}",
+            "request_fields": [
+              "orderId",
+              "Authorization"
+            ],
+            "response_fields": [
+              "orderId",
+              "items[]",
+              "paymentStatus",
+              "shipmentStatus"
+            ],
+            "service_type": "query_read",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps getOrderDetail to OrderService",
+            "source_location": "功能设计_spec.md:API-O-IF2",
+            "source_step_index": 1,
+            "database_action": "Read or update Payment records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:209",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-003-UC001",
+      "use_case_name": "商家发货",
+      "actors": [
+        "商家",
+        "LogisticsService"
+      ],
+      "preconditions": "商家已登录且拥有订单处理权限。; 订单状态为 PAID。; 商品已完成出库准备。",
+      "trigger": "商家填写承运商和物流单号后确认发货。",
+      "postconditions": "订单状态更新为 SHIPPED，并保存物流单号。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "商家选择待发货订单。",
+          "source_location": "系统需求_spec.md:245"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验订单状态和商家权限。",
+          "source_location": "系统需求_spec.md:246"
+        },
+        {
+          "step_index": 3,
+          "text": "系统调用发货接口 API-L-IF1 创建发货记录。",
+          "source_location": "系统需求_spec.md:247"
+        },
+        {
+          "step_index": 4,
+          "text": "系统向LogisticsService登记物流单。",
+          "source_location": "系统需求_spec.md:248"
+        },
+        {
+          "step_index": 5,
+          "text": "系统保存物流单号并将订单更新为 SHIPPED。",
+          "source_location": "系统需求_spec.md:249"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-003-UC001",
+          "service_name": "商家发货",
+          "abstract_api_id": "RR-UCG-003-UC001"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-003-UC001-API-L-IF1",
+          "service_id": "sr-UCG-003-UC001",
+          "service_name": "LogisticsServiceAdapter",
+          "abstract_api_id": "API-L-IF1",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-003-UC001 to LogisticsServiceAdapter",
+          "source_location": "功能设计_spec.md:API-L-IF1",
+          "request_fields": [
+            "orderId",
+            "carrier",
+            "trackingNo"
+          ],
+          "response_fields": [
+            "shipmentId",
+            "shipmentStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-003-UC001",
+            "microservice_name": "OrderService",
+            "implementation_api_id": "createShipment",
+            "implementation_api_node_id": "impl-UCG-003-UC001",
+            "software_interface": "POST /api/v1/orders/{orderId}/shipments",
+            "method": "POST",
+            "resource_path": "/api/v1/orders/{orderId}/shipments",
+            "request_fields": [
+              "orderId",
+              "carrier",
+              "trackingNo"
+            ],
+            "response_fields": [
+              "shipmentId",
+              "shipmentStatus"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps createShipment to OrderService",
+            "source_location": "功能设计_spec.md:API-L-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Shipment records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:233",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-003-UC002",
+      "use_case_name": "更新物流信息",
+      "actors": [
+        "LogisticsService"
+      ],
+      "preconditions": "商城已登记有效物流单号。; LogisticsService已获得合法调用凭证。",
+      "trigger": "LogisticsService产生新的物流轨迹。",
+      "postconditions": "商城保存最新物流节点并更新物流状态。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+          "source_location": "系统需求_spec.md:269"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验消息签名和物流单号。",
+          "source_location": "系统需求_spec.md:270"
+        },
+        {
+          "step_index": 3,
+          "text": "系统校验物流节点的时间顺序。",
+          "source_location": "系统需求_spec.md:271"
+        },
+        {
+          "step_index": 4,
+          "text": "系统保存新的物流节点。",
+          "source_location": "系统需求_spec.md:272"
+        },
+        {
+          "step_index": 5,
+          "text": "系统更新订单物流摘要。",
+          "source_location": "系统需求_spec.md:273"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-003-UC002",
+          "service_name": "更新物流信息",
+          "abstract_api_id": "RR-UCG-003-UC002"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-003-UC002-LOGI-EVT-01",
+          "service_id": "sr-UCG-003-UC002",
+          "service_name": "LogisticsServiceAdapter",
+          "abstract_api_id": "LOGI-EVT-01",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-003-UC002 to LogisticsServiceAdapter",
+          "source_location": "功能设计_spec.md:LOGI-EVT-01",
+          "request_fields": [
+            "trackingNo",
+            "status",
+            "eventTime"
+          ],
+          "response_fields": [
+            "accepted",
+            "eventId"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-003-UC002",
+            "microservice_name": "LogisticsServiceAdapter",
+            "implementation_api_id": "receiveLogisticsEvent",
+            "implementation_api_node_id": "impl-UCG-003-UC002",
+            "software_interface": "POST /api/v1/logistics/events",
+            "method": "POST",
+            "resource_path": "/api/v1/logistics/events",
+            "request_fields": [
+              "trackingNo",
+              "status",
+              "eventTime"
+            ],
+            "response_fields": [
+              "accepted",
+              "eventId"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps receiveLogisticsEvent to LogisticsServiceAdapter",
+            "source_location": "功能设计_spec.md:LOGI-EVT-01",
+            "source_step_index": 1,
+            "database_action": "Read or update LogisticsEvent records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:258",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-003-UC003",
+      "use_case_name": "查询物流信息",
+      "actors": [
+        "顾客",
+        "LogisticsService"
+      ],
+      "preconditions": "顾客已登录。; 订单属于当前顾客且已发货。",
+      "trigger": "顾客在订单详情页点击“查看物流”。",
+      "postconditions": "系统展示最新物流状态和轨迹。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客发起物流查询。",
+          "source_location": "系统需求_spec.md:293"
+        },
+        {
+          "step_index": 2,
+          "text": "系统通过物流查询接口 API-L-IF2读取本地轨迹。",
+          "source_location": "系统需求_spec.md:294"
+        },
+        {
+          "step_index": 3,
+          "text": "当本地数据过期时，系统调用LogisticsService查询最新轨迹。",
+          "source_location": "系统需求_spec.md:295"
+        },
+        {
+          "step_index": 4,
+          "text": "系统按时间顺序整理物流节点。",
+          "source_location": "系统需求_spec.md:296"
+        },
+        {
+          "step_index": 5,
+          "text": "系统向顾客展示物流信息。",
+          "source_location": "系统需求_spec.md:297"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-003-UC003",
+          "service_name": "查询物流信息",
+          "abstract_api_id": "RR-UCG-003-UC003"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-003-UC003-API-L-IF2",
+          "service_id": "sr-UCG-003-UC003",
+          "service_name": "LogisticsServiceAdapter",
+          "abstract_api_id": "API-L-IF2",
+          "service_type": "query_retrieval",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-003-UC003 to LogisticsServiceAdapter",
+          "source_location": "功能设计_spec.md:API-L-IF2",
+          "request_fields": [
+            "orderId"
+          ],
+          "response_fields": [
+            "shipmentStatus",
+            "trackingEvents[]"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-003-UC003",
+            "microservice_name": "LogisticsServiceAdapter",
+            "implementation_api_id": "getOrderLogistics",
+            "implementation_api_node_id": "impl-UCG-003-UC003",
+            "software_interface": "GET /api/v1/orders/{orderId}/logistics",
+            "method": "GET",
+            "resource_path": "/api/v1/orders/{orderId}/logistics",
+            "request_fields": [
+              "orderId"
+            ],
+            "response_fields": [
+              "shipmentStatus",
+              "trackingEvents[]"
+            ],
+            "service_type": "query_read",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps getOrderLogistics to LogisticsServiceAdapter",
+            "source_location": "功能设计_spec.md:API-L-IF2",
+            "source_step_index": 1,
+            "database_action": "Read or update Refund records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:282",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-003-UC004",
+      "use_case_name": "申请退款",
+      "actors": [
+        "顾客",
+        "PaymentService"
+      ],
+      "preconditions": "顾客已登录。; 订单属于当前顾客且已支付。; 订单满足退款时限和状态规则。",
+      "trigger": "顾客在订单详情页选择退款原因并提交。",
+      "postconditions": "系统生成退款申请并返回申请编号。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "顾客选择退款商品、数量和原因。",
+          "source_location": "系统需求_spec.md:318"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验订单和可退款金额。",
+          "source_location": "系统需求_spec.md:319"
+        },
+        {
+          "step_index": 3,
+          "text": "系统通过退款申请接口 API-R-IF1 创建退款单。",
+          "source_location": "系统需求_spec.md:320"
+        },
+        {
+          "step_index": 4,
+          "text": "系统向PaymentService提交退款请求。",
+          "source_location": "系统需求_spec.md:321"
+        },
+        {
+          "step_index": 5,
+          "text": "系统保存退款流水并展示处理状态。",
+          "source_location": "系统需求_spec.md:322"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-003-UC004",
+          "service_name": "申请退款",
+          "abstract_api_id": "RR-UCG-003-UC004"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-003-UC004-API-R-IF1",
+          "service_id": "sr-UCG-003-UC004",
+          "service_name": "RefundService",
+          "abstract_api_id": "API-R-IF1",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-003-UC004 to RefundService",
+          "source_location": "功能设计_spec.md:API-R-IF1",
+          "request_fields": [
+            "orderId",
+            "reason",
+            "amount"
+          ],
+          "response_fields": [
+            "refundId",
+            "refundStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-003-UC004",
+            "microservice_name": "RefundService",
+            "implementation_api_id": "createRefund",
+            "implementation_api_node_id": "impl-UCG-003-UC004",
+            "software_interface": "POST /api/v1/orders/{orderId}/refunds",
+            "method": "POST",
+            "resource_path": "/api/v1/orders/{orderId}/refunds",
+            "request_fields": [
+              "orderId",
+              "reason",
+              "amount"
+            ],
+            "response_fields": [
+              "refundId",
+              "refundStatus"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps createRefund to RefundService",
+            "source_location": "功能设计_spec.md:API-R-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Category records",
+            "external_dependency_node_id": "actor-3"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:306",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-004-UC001",
+      "use_case_name": "创建商品",
+      "actors": [
+        "商家"
+      ],
+      "preconditions": "商家已登录并通过经营资质审核。; 商家拥有商品管理权限。",
+      "trigger": "商家在商品管理页面点击“创建商品”。",
+      "postconditions": "系统创建状态为 DRAFT 的商品并返回商品编号。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "商家发起商品创建。",
+          "source_location": "系统需求_spec.md:342"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验商家身份和权限。",
+          "source_location": "系统需求_spec.md:343"
+        },
+        {
+          "step_index": 3,
+          "text": "系统调用商品创建接口 API-M-IF1。",
+          "source_location": "系统需求_spec.md:344"
+        },
+        {
+          "step_index": 4,
+          "text": "系统生成商品编号并创建空白草稿。",
+          "source_location": "系统需求_spec.md:345"
+        },
+        {
+          "step_index": 5,
+          "text": "系统进入商品信息编辑页面。",
+          "source_location": "系统需求_spec.md:346"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-004-UC001",
+          "service_name": "创建商品",
+          "abstract_api_id": "RR-UCG-004-UC001"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-004-UC001-API-M-IF1",
+          "service_id": "sr-UCG-004-UC001",
+          "service_name": "MerchantProductService",
+          "abstract_api_id": "API-M-IF1",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-004-UC001 to MerchantProductService",
+          "source_location": "功能设计_spec.md:API-M-IF1",
+          "request_fields": [
+            "name",
+            "categoryId",
+            "description",
+            "imageUrls[]"
+          ],
+          "response_fields": [
+            "productId",
+            "status"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-004-UC001",
+            "microservice_name": "MerchantProductService",
+            "implementation_api_id": "createMerchantProduct",
+            "implementation_api_node_id": "impl-UCG-004-UC001",
+            "software_interface": "POST /api/v1/merchant/products",
+            "method": "POST",
+            "resource_path": "/api/v1/merchant/products",
+            "request_fields": [
+              "name",
+              "categoryId",
+              "description",
+              "imageUrls[]"
+            ],
+            "response_fields": [
+              "productId",
+              "status"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps createMerchantProduct to MerchantProductService",
+            "source_location": "功能设计_spec.md:API-M-IF1",
+            "source_step_index": 1,
+            "database_action": "Read or update Category records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:331",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-004-UC002",
+      "use_case_name": "填写商品信息",
+      "actors": [
+        "商家"
+      ],
+      "preconditions": "商品草稿存在且属于当前商家。; 商家拥有编辑权限。",
+      "trigger": "商家编辑商品基本资料并保存。",
+      "postconditions": "系统保存商品名称、描述、分类和图片。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "商家填写商品名称和描述。",
+          "source_location": "系统需求_spec.md:364"
+        },
+        {
+          "step_index": 2,
+          "text": "商家选择有效商品分类并上传图片。",
+          "source_location": "系统需求_spec.md:365"
+        },
+        {
+          "step_index": 3,
+          "text": "系统校验必填字段、文本长度和图片格式。",
+          "source_location": "系统需求_spec.md:366"
+        },
+        {
+          "step_index": 4,
+          "text": "系统调用商品信息维护接口 API-M-IF2 保存资料。",
+          "source_location": "系统需求_spec.md:367"
+        },
+        {
+          "step_index": 5,
+          "text": "系统提示保存成功。",
+          "source_location": "系统需求_spec.md:368"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-004-UC002",
+          "service_name": "填写商品信息",
+          "abstract_api_id": "RR-UCG-004-UC002"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-004-UC002-API-M-IF2",
+          "service_id": "sr-UCG-004-UC002",
+          "service_name": "MerchantProductService",
+          "abstract_api_id": "API-M-IF2",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-004-UC002 to MerchantProductService",
+          "source_location": "功能设计_spec.md:API-M-IF2",
+          "request_fields": [
+            "productId",
+            "name",
+            "description",
+            "categoryId",
+            "imageUrls[]",
+            "version"
+          ],
+          "response_fields": [
+            "productId",
+            "status",
+            "version"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-004-UC002",
+            "microservice_name": "MerchantProductService",
+            "implementation_api_id": "updateMerchantProduct",
+            "implementation_api_node_id": "impl-UCG-004-UC002",
+            "software_interface": "PUT /api/v1/merchant/products/{productId}",
+            "method": "PUT",
+            "resource_path": "/api/v1/merchant/products/{productId}",
+            "request_fields": [
+              "productId",
+              "name",
+              "description",
+              "categoryId",
+              "imageUrls[]",
+              "version"
+            ],
+            "response_fields": [
+              "productId",
+              "status",
+              "version"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps updateMerchantProduct to MerchantProductService",
+            "source_location": "功能设计_spec.md:API-M-IF2",
+            "source_step_index": 1,
+            "database_action": "Read or update Category records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:353",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-004-UC003",
+      "use_case_name": "设置库存与价格",
+      "actors": [
+        "商家"
+      ],
+      "preconditions": "商品草稿存在。; 商品已定义至少一个SKU。",
+      "trigger": "商家在商品编辑页提交库存和价格。",
+      "postconditions": "系统保存每个SKU的库存和销售价格。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "商家为每个SKU输入库存数量。",
+          "source_location": "系统需求_spec.md:388"
+        },
+        {
+          "step_index": 2,
+          "text": "商家设置销售价格和可选原价。",
+          "source_location": "系统需求_spec.md:389"
+        },
+        {
+          "step_index": 3,
+          "text": "系统校验库存、价格和SKU唯一性。",
+          "source_location": "系统需求_spec.md:390"
+        },
+        {
+          "step_index": 4,
+          "text": "系统调用库存价格维护接口 API-M-IF3。",
+          "source_location": "系统需求_spec.md:391"
+        },
+        {
+          "step_index": 5,
+          "text": "系统保存设置并返回最新版本号。",
+          "source_location": "系统需求_spec.md:392"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-004-UC003",
+          "service_name": "设置库存与价格",
+          "abstract_api_id": "RR-UCG-004-UC003"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-004-UC003-API-M-IF3",
+          "service_id": "sr-UCG-004-UC003",
+          "service_name": "MerchantProductService",
+          "abstract_api_id": "API-M-IF3",
+          "service_type": "resource_mutation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-004-UC003 to MerchantProductService",
+          "source_location": "功能设计_spec.md:API-M-IF3",
+          "request_fields": [
+            "productId",
+            "skus[]",
+            "version"
+          ],
+          "response_fields": [
+            "productId",
+            "skus[]",
+            "version"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-004-UC003",
+            "microservice_name": "MerchantProductService",
+            "implementation_api_id": "updateSkuInventoryAndPrice",
+            "implementation_api_node_id": "impl-UCG-004-UC003",
+            "software_interface": "PUT /api/v1/merchant/products/{productId}/skus",
+            "method": "PUT",
+            "resource_path": "/api/v1/merchant/products/{productId}/skus",
+            "request_fields": [
+              "productId",
+              "skus[]",
+              "version"
+            ],
+            "response_fields": [
+              "productId",
+              "skus[]",
+              "version"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps updateSkuInventoryAndPrice to MerchantProductService",
+            "source_location": "功能设计_spec.md:API-M-IF3",
+            "source_step_index": 1,
+            "database_action": "Read or update Category records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:377",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    },
+    {
+      "use_case_id": "UCG-004-UC004",
+      "use_case_name": "发布商品",
+      "actors": [
+        "商家"
+      ],
+      "preconditions": "商品处于 DRAFT 状态。; 商品基本资料、SKU、库存和价格均已填写。; 商家经营资质有效。",
+      "trigger": "商家点击“发布商品”。",
+      "postconditions": "商品状态更新为 ON_SALE，并可被顾客查询。",
+      "main_flow": [
+        {
+          "step_index": 1,
+          "text": "商家提交商品发布。",
+          "source_location": "系统需求_spec.md:413"
+        },
+        {
+          "step_index": 2,
+          "text": "系统校验资料完整性、类目规则、库存和价格。",
+          "source_location": "系统需求_spec.md:414"
+        },
+        {
+          "step_index": 3,
+          "text": "系统调用商品发布接口 API-M-IF4。",
+          "source_location": "系统需求_spec.md:415"
+        },
+        {
+          "step_index": 4,
+          "text": "系统将商品状态更新为 ON_SALE。",
+          "source_location": "系统需求_spec.md:416"
+        },
+        {
+          "step_index": 5,
+          "text": "系统通知商品目录服务刷新可售商品索引。",
+          "source_location": "系统需求_spec.md:417"
+        },
+        {
+          "step_index": 6,
+          "text": "系统提示发布成功。",
+          "source_location": "系统需求_spec.md:418"
+        }
+      ],
+      "architecture": {
+        "rr": {
+          "service_id": "rr-UCG-004-UC004",
+          "service_name": "发布商品",
+          "abstract_api_id": "RR-UCG-004-UC004"
+        },
+        "sr": {
+          "design_use_case_id": "UCG-004-UC004-API-M-IF4",
+          "service_id": "sr-UCG-004-UC004",
+          "service_name": "MerchantProductService",
+          "abstract_api_id": "API-M-IF4",
+          "service_type": "release_activation",
+          "classification_status": "confirmed",
+          "classification_basis": "V5 call chain maps UCG-004-UC004 to MerchantProductService",
+          "source_location": "功能设计_spec.md:API-M-IF4",
+          "request_fields": [
+            "productId",
+            "version",
+            "publishAt"
+          ],
+          "response_fields": [
+            "productId",
+            "status",
+            "publishedAt",
+            "catalogSyncStatus"
+          ]
+        },
+        "ar": [
+          {
+            "microservice_id": "ar-UCG-004-UC004",
+            "microservice_name": "MerchantProductService",
+            "implementation_api_id": "publishMerchantProduct",
+            "implementation_api_node_id": "impl-UCG-004-UC004",
+            "software_interface": "POST /api/v1/merchant/products/{productId}/publish",
+            "method": "POST",
+            "resource_path": "/api/v1/merchant/products/{productId}/publish",
+            "request_fields": [
+              "productId",
+              "version",
+              "publishAt"
+            ],
+            "response_fields": [
+              "productId",
+              "status",
+              "publishedAt",
+              "catalogSyncStatus"
+            ],
+            "service_type": "command_write",
+            "classification_status": "inferred",
+            "classification_basis": "V5 call chain maps publishMerchantProduct to MerchantProductService",
+            "source_location": "功能设计_spec.md:API-M-IF4",
+            "source_step_index": 1,
+            "database_action": "Read or update Category records"
+          }
+        ]
+      },
+      "source_location": "系统需求_spec.md:401",
+      "alternative_flow": [],
+      "extension_flows": [],
+      "trigger_inferred": false
+    }
+  ],
+  "interactions": [
+    {
+      "interaction_id": "INT-UCG-001-UC001",
+      "use_case_id": "UCG-001-UC001",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客进入商品浏览页面。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:85"
+    },
+    {
+      "interaction_id": "INT-UCG-001-UC002",
+      "use_case_id": "UCG-001-UC002",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客点击商品。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:111"
+    },
+    {
+      "interaction_id": "INT-UCG-001-UC003",
+      "use_case_id": "UCG-001-UC003",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客选择SKU和购买数量。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:134"
+    },
+    {
+      "interaction_id": "INT-UCG-002-UC001",
+      "use_case_id": "UCG-002-UC001",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "系统读取顾客选中的购物车商品。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:158"
+    },
+    {
+      "interaction_id": "INT-UCG-002-UC002",
+      "use_case_id": "UCG-002-UC002",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客发起订单支付。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:183"
+    },
+    {
+      "interaction_id": "INT-UCG-002-UC003",
+      "use_case_id": "UCG-002-UC003",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客提交订单编号。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:209"
+    },
+    {
+      "interaction_id": "INT-UCG-003-UC001",
+      "use_case_id": "UCG-003-UC001",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "商家选择待发货订单。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:233"
+    },
+    {
+      "interaction_id": "INT-UCG-003-UC002",
+      "use_case_id": "UCG-003-UC002",
+      "from_node": "actor-4",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:258"
+    },
+    {
+      "interaction_id": "INT-UCG-003-UC003",
+      "use_case_id": "UCG-003-UC003",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客发起物流查询。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:282"
+    },
+    {
+      "interaction_id": "INT-UCG-003-UC004",
+      "use_case_id": "UCG-003-UC004",
+      "from_node": "actor-1",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "顾客选择退款商品、数量和原因。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:306"
+    },
+    {
+      "interaction_id": "INT-UCG-004-UC001",
+      "use_case_id": "UCG-004-UC001",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "商家发起商品创建。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:331"
+    },
+    {
+      "interaction_id": "INT-UCG-004-UC002",
+      "use_case_id": "UCG-004-UC002",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "商家填写商品名称和描述。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:353"
+    },
+    {
+      "interaction_id": "INT-UCG-004-UC003",
+      "use_case_id": "UCG-004-UC003",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "商家为每个SKU输入库存数量。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:377"
+    },
+    {
+      "interaction_id": "INT-UCG-004-UC004",
+      "use_case_id": "UCG-004-UC004",
+      "from_node": "actor-2",
+      "to_node": "system",
+      "direction": "incoming",
+      "message": "商家提交商品发布。",
+      "layer": "RR",
+      "sequence": 1,
+      "source_step_index": 1,
+      "source_location": "系统需求_spec.md:401"
+    }
+  ],
+  "use_case_entity_operations": [
+    {
+      "operation_id": "CRUD-001-UCG-001-UC001-Product-R",
+      "use_case_id": "UCG-001-UC001",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 4,
+      "evidence": "Search ON_SALE products through the product catalog API.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-002-UCG-001-UC002-Product-R",
+      "use_case_id": "UCG-001-UC002",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 3,
+      "evidence": "Retrieve product detail including description, price, and stock status.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-003-UCG-001-UC003-Product-R",
+      "use_case_id": "UCG-001-UC003",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate product state, inventory, and purchase limits.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-004-UCG-001-UC003-Cart-C",
+      "use_case_id": "UCG-001-UC003",
+      "entity": "Cart",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Call the cart write API to save the selected product and quantity.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-001-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-005-UCG-002-UC001-Cart-R",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Cart",
+      "operation": "R",
+      "source_step_index": 1,
+      "evidence": "Read selected cart items before order creation.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-006-UCG-002-UC001-Product-R",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Product",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate price, inventory, and promotion.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-007-UCG-002-UC001-Order-C",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "Order",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Create a WAIT_PAY order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-008-UCG-002-UC001-SKU-U",
+      "use_case_id": "UCG-002-UC001",
+      "entity": "SKU",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Lock inventory for the order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-009-UCG-002-UC002-Order-U",
+      "use_case_id": "UCG-002-UC002",
+      "entity": "Order",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update order state to PAID after a successful payment.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-010-UCG-002-UC002-Payment-C",
+      "use_case_id": "UCG-002-UC002",
+      "entity": "Payment",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a payment request and record the payment flow.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-011-UCG-002-UC003-Order-R",
+      "use_case_id": "UCG-002-UC003",
+      "entity": "Order",
+      "operation": "R",
+      "source_step_index": 3,
+      "evidence": "Query order details and compose order data.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-002-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-012-UCG-003-UC001-Shipment-C",
+      "use_case_id": "UCG-003-UC001",
+      "entity": "Shipment",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a shipment record for the order.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-013-UCG-003-UC001-Order-U",
+      "use_case_id": "UCG-003-UC001",
+      "entity": "Order",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update order state to SHIPPED.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-014-UCG-003-UC002-LogisticsEvent-C",
+      "use_case_id": "UCG-003-UC002",
+      "entity": "LogisticsEvent",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Save a new logistics event.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-015-UCG-003-UC002-Shipment-U",
+      "use_case_id": "UCG-003-UC002",
+      "entity": "Shipment",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Update logistics summary from the new event.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-016-UCG-003-UC003-Shipment-R",
+      "use_case_id": "UCG-003-UC003",
+      "entity": "Shipment",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Read the local shipment trace.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-017-UCG-003-UC003-LogisticsEvent-R",
+      "use_case_id": "UCG-003-UC003",
+      "entity": "LogisticsEvent",
+      "operation": "R",
+      "source_step_index": 4,
+      "evidence": "Read and order logistics events by timestamp.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-018-UCG-003-UC004-Order-R",
+      "use_case_id": "UCG-003-UC004",
+      "entity": "Order",
+      "operation": "R",
+      "source_step_index": 2,
+      "evidence": "Validate order and refundable amount.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-019-UCG-003-UC004-Refund-C",
+      "use_case_id": "UCG-003-UC004",
+      "entity": "Refund",
+      "operation": "C",
+      "source_step_index": 3,
+      "evidence": "Create a refund request.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-003-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-020-UCG-004-UC001-Product-C",
+      "use_case_id": "UCG-004-UC001",
+      "entity": "Product",
+      "operation": "C",
+      "source_step_index": 4,
+      "evidence": "Create a DRAFT product.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC001",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-021-UCG-004-UC002-Product-U",
+      "use_case_id": "UCG-004-UC002",
+      "entity": "Product",
+      "operation": "U",
+      "source_step_index": 4,
+      "evidence": "Save product name, description, category, and images.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC002",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-022-UCG-004-UC003-SKU-U",
+      "use_case_id": "UCG-004-UC003",
+      "entity": "SKU",
+      "operation": "U",
+      "source_step_index": 5,
+      "evidence": "Save inventory and sales price for each SKU.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC003",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    },
+    {
+      "operation_id": "CRUD-023-UCG-004-UC004-Product-U",
+      "use_case_id": "UCG-004-UC004",
+      "entity": "Product",
+      "operation": "U",
+      "source_step_index": 4,
+      "evidence": "Change product state to ON_SALE after publication checks.",
+      "source_location": "功能设计_spec.md:V5 call chain; UCG-004-UC004",
+      "mapping_status": "inferred",
+      "depends_on_operations": []
+    }
+  ],
+  "review_items": [],
+  "resource_service_mappings": [
+    {
+      "resource_service_id": "SR-RESOURCE-6330FDD3BF",
+      "resource_id": "db-commerce",
+      "physical_layer": "AR",
+      "logical_layer": "SR",
+      "mapping_status": "inferred",
+      "source_location": ""
+    }
+  ],
+  "frontend_mappings": [
+    {
+      "actor_id": "actor-1",
+      "frontend_id": "FRONTEND-4F837A377C",
+      "use_case_ids": [
+        "UCG-001-UC001",
+        "UCG-001-UC002",
+        "UCG-001-UC003",
+        "UCG-002-UC001",
+        "UCG-002-UC002",
+        "UCG-002-UC003",
+        "UCG-003-UC003",
+        "UCG-003-UC004"
+      ],
+      "mapping_status": "inferred",
+      "source_location": "",
+      "basis": "按各 Use Case 的 Actor 关联生成独立前端边界；待具体客户端架构确认"
+    },
+    {
+      "actor_id": "actor-2",
+      "frontend_id": "FRONTEND-BD2FB21D80",
+      "use_case_ids": [
+        "UCG-003-UC001",
+        "UCG-004-UC001",
+        "UCG-004-UC002",
+        "UCG-004-UC003",
+        "UCG-004-UC004"
+      ],
+      "mapping_status": "inferred",
+      "source_location": "",
+      "basis": "按各 Use Case 的 Actor 关联生成独立前端边界；待具体客户端架构确认"
+    }
+  ],
+  "supported_devices": [],
+  "seed_purpose": "Existing identity/architecture hints only; prepare-generator-model reads original documents to rebuild all flows, branches and constraints."
+}

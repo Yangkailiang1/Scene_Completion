@@ -1,18 +1,33 @@
 # Scene Completion
 
-当前主流程采用三个角色：**生成器 → 检查器 → 推荐器**。生成器按现有模型、SSD 与关注点方法生成全部场景候选，不经过 LLM 适用性审查；检查器独立抽取原始需求和设计用例，再批量比较；推荐器为未匹配候选给出具体补充章节、证据和推荐评分。
+当前主流程采用三个角色：**生成器 → 检查器 → 推荐器**。生成器按现有模型、SSD 与关注点方法生成全部场景候选，不经过 LLM 适用性审查；检查器独立抽取原始需求用例，再批量比较；推荐器为未匹配候选给出具体补充章节、证据和推荐评分。
 
 ## 三角色职责与结果
 
 | 角色 | 输入与职责 | 主要输出 |
 |---|---|---|
 | 生成器 | 规范模型、融合 SSD；保留明确场景及全部路由候选 | generated_scenarios.json |
-| 检查器 | 独立读需求/设计用例；随后比较 G/C | existing_scenarios.json、scenario_matches.json、metrics.json |
+| 检查器 | 独立只读需求用例；随后比较 G/C | existing_scenarios.json、scenario_matches.json、metrics.json |
 | 推荐器 | 生成器有而检查器没有的场景；评分、定位章节 | recommendations.json、report.md、scene_assessment.xlsx |
 
 三个角色说明位于 [.cac/agents](.cac/agents/scene-agent.md)。新 Skills 为 scene-generate、scene-check、scene-recommend，完整批次及字段协议见[三角色协议](.cac/skills/scene-check/references/three_roles.md)。
 
-章节记录包含原始文档、完整标题路径、行号、用例和步骤。报告分别显示证据章节与建议补充章节，需求或设计缺少关联时明确标记。候选的未知响应、恢复和数值限制均标记待需求确认。
+章节记录包含原始文档、完整标题路径、行号、用例和步骤。报告分别显示证据章节与建议补充章节；检查器只读需求时，补充建议定位需求，设计章节作为相关证据单列，不能宣称设计也缺失该异常。缺少定位时明确标记。候选的未知响应、恢复和数值限制均标记待需求确认。
+
+## 在线商城购物系统验收结果
+
+以同一组原始需求异常 C=37 比较，异常漏报率由优化前 **2/37（5.41%）** 降至 **0/37（0%）**。生成器保留全部 947 个场景：14 主成功、43 可选、76 明确异常及 814 个关注点推导候选。生成输入、分类、匹配和推荐使用实际 ecnu-max 批次；全部初始接受关系经过 gpt-6-luna / max 独立复核，完整回归与同版本续跑另有验收记录。
+
+关注点推导单独覆盖 **31/37**，明确异常保留覆盖 **37/37**，贡献可重叠。分类体系能表达这 37 条异常，但推导尚缺 6 条；139 条来源约束中 118 条检查位置尚待精确 SSD 挂载。总体达标不能解释成关注点自动推导或实际检查已经全部完成。
+
+新增有文档依据的业务组件为 CategoryService，支付、物流、数据库及内部服务调用改为多依赖建模。详细原因、具体缺口、建议检查位置和分类差异见[优化诊断](examples/online_shopping_demo/optimization_review.md)、[完整报告](examples/online_shopping_demo/report.md)及[工作簿](examples/online_shopping_demo/scene_assessment.xlsx)。工作簿保留类别编码，在其右侧增加中文“关注点说明”。
+
+~~~bash
+python examples/verify_online_shopping.py
+python examples/verify_online_shopping.py --output-dir examples/results/replayed_online
+~~~
+
+离线复验无需密钥，使用随仓库归档的原始章节、批次、模型、SSD 和复核证据；不依赖首次运行的本机临时目录。历史需求与设计共同抽取的 97 个 C 不作为此次前后比较分母。
 
 ## 新流程运行
 
@@ -20,38 +35,57 @@
 
 ~~~bash
 python .cac/tools/scene_completion.py scene-pipeline \
-  --model examples/terminal_cloud_model.json \
-  --spec-document 终端云例子/系统需求Delta_spec.md \
-  --spec-document 终端云例子/功能设计Delta_spec.md \
+  --model examples/online_shopping_model.json \
+  --requirement-document 在线商城购物系统/系统需求_spec.md \
+  --design-document 在线商城购物系统/功能设计_spec.md \
   --output-dir examples/results/agent
 ~~~
+
+生成输入可由修改后的 Skill 与 ecnu-max 独立构建；只向模型提供原始章节、用例身份、架构提示和分类定义，不提供 C、旧场景或参考测试集：
+
+~~~bash
+python .cac/tools/scene_completion.py prepare-generator-model \
+  --base-model examples/online_shopping_seed.json \
+  --requirement-document 在线商城购物系统/系统需求_spec.md \
+  --design-document 在线商城购物系统/功能设计_spec.md \
+  --agent-mode external --output-dir examples/results/prepared
+~~~
+
+随后将 scene-pipeline 的 --model 替换为 examples/results/prepared/scene_model.json，并加 --agent-mode external 执行完整批次；生成器保留全部候选，语义复核仅判断 G/C 匹配。完成后运行 `evaluate-generator --output-dir examples/results/agent` 校验需求专用异常分母、全部阶段、推荐集合和严格小于 5% 的门槛。验收还从原模型重新生成 G、独立应用来源分类证明并重算匹配与推荐，拒绝手工删改场景或旧批次。每轮输入/Skill 哈希和批次状态随结果保留。
 
 默认匹配/推荐后端均为 agent，默认准备 packet 并等待子 Agent。按 run_manifest.json 的等待阶段分配最多三个子 Agent，再重跑原命令推进；完整交付以 complete=true 为准，准备成功的退出码 0 不表示分析已完成。
 
 ~~~bash
 python .cac/tools/scene_completion.py run-agent-batches \
   --stage-dir examples/results/agent/batches/checker \
-  --sources-index examples/results/agent/sources_index.json \
+  --sources-index examples/results/agent/checker_sources_index.json \
   --worker-index 0 --worker-count 3 --env-file .env
 ~~~
 
-三个子 Agent 分别使用 worker-index 0、1、2；进入 matching 或 recommendation 阶段后替换 stage-dir。此命令把各子 Agent 分工的批次提交给配置的 ECNU 语义模型。匹配先检查完整交叉集合，再以每组最多八对的小包复核提案：逐字引用两端触发条件，由 LLM 判断 full/partial/unmatched，保存复核依据；字符串只校验引用归属，不判定等价。直接填写的匹配提案也须运行 worker 通过复核。--agent-mode external 可自动调度至多三个语义 worker。
+三个子 Agent 分别使用 worker-index 0、1、2；进入 matching 或 recommendation 阶段后替换 stage-dir，并将 sources-index 改为包含需求和设计的 sources_index.json。此命令把各子 Agent 分工的批次提交给配置的 ECNU 语义模型。匹配按每包一个 C、最多八个同用例 G 检查完整交叉集合，逐对保存完整/部分/未匹配判断，再复核接受提案：逐字引用两端触发条件，由 LLM 判断 full/partial/unmatched，保存复核依据；字符串只校验引用归属，不判定等价。直接填写的匹配提案也须运行 worker 通过复核。--agent-mode external 可自动调度至多三个语义 worker。
 
 匹配与推荐可分别切换 --match-backend embedding、--recommend-backend embedding。
 使用 --checker-input 可复用同一原始文档版本下的完整独立抽取结果。Embedding 完整阈值默认 0.85，部分阈值默认 0.70，均可配置、未经过人工校准。
 
-需要由当前子 Agent 再复核匹配时，使用 prepare-matching-review 导出全部已接受关系，让子 Agent 独立填写逐对语义判断，再用 apply-matching-review 应用。工具要求全量覆盖、原文引句和输入哈希一致；重跑流水线后重新计算指标与待推荐集合。本次演示已由 gpt-6-luna / max 完成这种全量复核，原始判断与应用记录随演示提交。
+需要由当前子 Agent 再复核匹配时，使用 prepare-matching-review 导出全部已接受关系，让子 Agent 独立填写逐对语义判断，再用 apply-matching-review 应用。工具要求全量覆盖、原文引句和输入哈希一致；重跑流水线后重新计算指标与待推荐集合。历史 three_agent_demo 已保存 gpt-6-luna / max 的全量复核记录；本轮验收结果另行保存。
+
+分类有疑点时，运行 `prepare-checker-taxonomy --output-dir examples/results/agent`，再对 batches/checker-taxonomy 执行 worker，sources-index 使用 checker_sources_index.json。此复核只读取原始需求和固定异常行为，不读取 G 或原分类；只修订标签并记录证据，场景 ID、内容和分母保持固定。原命令续跑自动应用完整分类复核，缺批次或版本过期时不能发布正式结果。
+每个分类提案另由独立语义复核逐项验证定义和触发机制，保留支持/否定判断、原提案和来源；工具据支持判断汇总标签，不通过调整分类改变匹配关系。
+生成端标签可用 `prepare-generator-taxonomy --output-dir <output>` 独立核实；其 worker 只接收生成端已保留的明确分支/来源约束、原始需求设计与定义，sources-index 使用 sources_index.json。检查器内容和原标签均不输入，全部场景 ID、行为、数量固定；泛化候选沿用注册表标签。此步骤校验关注点归类，不评估候选适用性。完整结果自动应用，等待/过期批次阻止正式发布。
+本轮正式验收要求完成生成端和检查端两类独立分类证明，以及 gpt-6-luna / max 对全部接受关系的复核；恢复比较产生的接受关系也须复核。工具逐项核对归档决定与实际计分证明，并检查批次记录中的实际 ecnu-max 模型，不能仅凭运行摘要通过验收。先完成匹配复核，再运行推荐，避免匹配集合改变后重复评分。
 
 配置示例为 [three_roles.config.example.json](three_roles.config.example.json)。本地 .env 支持 ECNU_MAX_MODEL、ECNU_MAX_API_KEY、ECNU_MAX_BASE_URL、ECNU_EMBEDDING_TEXT、ECNU_RERANK；密钥不提交，不写入结果。
 
 ## 指标与推荐分数
 
-- 漏报率 = 已有集合 C 中没有 full/partial 匹配的场景数 / C 场景总数。
+- 正式异常漏报率 = 原始需求已有异常 C 中未被全部生成异常 Gₑ 完整/部分覆盖的场景数 / C 异常总数；必须严格小于 5%，空分母不能宣告达标。总场景指标另行保留。
 - 当前已有完整率 = 生成集合 G 中至少有一个 full/partial 匹配的场景数 / G 场景总数。
 - 具体关注点、大类、主成功、可选及未分类异常分别统计；每项带分子/分母、场景与章节。
 - 多标签在各相关分类分别计入，分类内与总指标各自去重；分类数不可直接相加。零分母为 null。
 - 部分匹配计重合，但单列缺少的行为，不进入未匹配推荐集合。
 - 推荐评分 = 0.7 × 支持度 + 0.3 × 缺失度，保留全部候选与分项；它不是校准的正确概率。
+
+明确异常和关注点推导异常分别统计覆盖贡献，报告逐条列出需求异常对应的组件、调用边、候选、缺口原因与建议。工作簿“指标”表在“类别”右侧提供中文“关注点说明”，保留原分类编码。
 
 显式异常的生成端保留输入标签，并用本地词汇补充；检查端独立按统一分类体系标注。报告展示分类覆盖率及差异：未分类异常进入总指标和未分类桶，不能借用另一端标签提升分类完整率。匹配集合变化时，仅复用候选内容、证据和 rerank 配置完全一致的已有评分。
 
@@ -281,7 +315,7 @@ flowchart TD
 
 影响值 `yes`/`no` 表示已有判断；`待需求确认` 表示证据不足，不代表已经认定会发生超时异常。
 
-## 旧审核流程终端云演示结果示例
+## 旧审核流程在线商城购物系统演示结果示例
 
 旧审核流程演示结果中，关注点矩阵有 965 条审核记录：103 条 `applicable`、275 条 `not_applicable`、587 条 `needs_requirement`。经原子异常展开和重复异常合并后，异常预测为 138 条；场景清单共 157 条，包括 14 个主成功、5 个可选、37 个需求明确异常和 101 个关注点推导异常。此处数量是该演示数据的结果，不是工具的固定目标。
 
@@ -300,21 +334,21 @@ python .cac/tools/scene_completion.py assemble --help
 
 ### 参考测试场景抽取与匹配评估
 
-`终端云例子/test_spec.md` 是依据设计用例编写的参考测试集，不等同于组装产物中的生成场景。先抽取并校验：
+`在线商城购物系统/test_spec.md` 是依据设计用例编写的参考测试集，不等同于组装产物中的生成场景。先抽取并校验：
 
 ```bash
 python .cac/tools/scene_completion.py extract-test-scenarios \
-  --input 终端云例子/test_spec.md \
-  --output 终端云例子/reference_test_scenarios.json
+  --input 在线商城购物系统/test_spec.md \
+  --output 在线商城购物系统/reference_test_scenarios.json
 python .cac/tools/scene_completion.py validate-test-scenarios \
-  --input 终端云例子/reference_test_scenarios.json
+  --input 在线商城购物系统/reference_test_scenarios.json
 ```
 
 Agent 根据行为证据创建 `matches.json`，每条链接含测试场景 ID、生成场景 ID、`full|partial|unmatched` 和依据。工具校验匹配并输出指标：
 
 ```bash
 python .cac/tools/scene_completion.py score-scenario-matches \
-  --reference 终端云例子/reference_test_scenarios.json \
+  --reference 在线商城购物系统/reference_test_scenarios.json \
   --generated <assembled>/test_scenarios.json \
   --matches matches.json --output scenario_match_report.json
 ```

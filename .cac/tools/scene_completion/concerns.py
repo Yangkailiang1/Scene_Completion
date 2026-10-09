@@ -37,6 +37,10 @@ def _add(key: str, label: str, group: str, description: str, *, draft: bool = Fa
 
 
 _add("common.timeout", "超时关注点", "common", "延时是否影响需求满足、后续行为执行或系统与环境协调")
+_add("service.dependency.availability", "内部依赖可用性", "service_dependency",
+     "已声明的内部业务服务调用失败或不可用，导致依赖操作无法完成")
+_add("service.workflow.interruption", "业务流程取消与中止", "service_workflow",
+     "参与者取消或中止已发起的业务流程，需检查终止状态与已发生副作用")
 for key, label, desc in [
     ("authentication", "身份认证", "无凭证、Token 无效或过期"),
     ("authorization", "权限控制", "水平越权或垂直越权"),
@@ -176,7 +180,7 @@ ACTIVE_CONCERN_KEYS = {
     or key in {"human.authentication", "human.authorization"}
     or key.startswith(("api.data.", "external_service.", "external_database.", "external_llm.", "internal_database.", "service.", "service_relation."))
 }
-CONCERN_REGISTRY_VERSION = "sr-focused-1"
+CONCERN_REGISTRY_VERSION = "sr-evidence-2"
 ANALYSIS_LAYERS = {"SR", "AR"}
 
 
@@ -348,6 +352,16 @@ def _candidate_specs(
         if source_node.get("kind") == "external_llm":
             add("external_llm.access_permission", subject="source_node", node_id=from_id)
 
+    # Physical service calls are evidence of a logical SR dependency. A service
+    # pair must have a real exchange; merely sharing a UC does not create one.
+    if ("SR" in analysis_layers and exchange_layer == "AR" and
+            interaction.get("dependency_node_id") and interaction.get("explicitness") == "explicit"):
+        if target_node.get("kind") == "internal_service" and from_id != to_id:
+            add("service.dependency.availability", subject="target_node", node_id=to_id, layer="SR")
+        if source_node.get("kind") in {"internal_service", "implementation_api"} and target_node.get("kind") == "internal_service" and from_id != to_id:
+            for key in keys_by_prefix.get("service_relation", []):
+                add(key, subject="relation", node_id="", direction="call", layer="SR")
+
     # AR access messages are implementation evidence for the logical SR
     # resource service. Keep the physical AR endpoints in trace fields while
     # assigning the concern to its SR facade.
@@ -450,7 +464,7 @@ def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, An
         if not isinstance(raw, dict):
             raise ValidationFailure([f"fused SSD message {index} must be an object"])
         exchange_id = raw.get("exchange_id") or stable_id("EXCH", raw.get("use_case_id"), raw.get("ssd_sequence", index))
-        if raw.get("interaction_id") in known or str(value.get("version", "3")) in {"4", "5", "6", "7", "8"}:
+        if raw.get("interaction_id") in known or str(value.get("version", "3")) in {"4", "5", "6", "7", "8", "9"}:
             grouped.setdefault(exchange_id, []).append(dict(raw))
     result = []
     for exchange_id, members in grouped.items():
@@ -471,7 +485,7 @@ def _fused_exchanges(model: dict[str, Any], fused_ssd: Any) -> list[dict[str, An
     return result
 
 
-def _manifest_fused_ssds(ssd_manifest: Any) -> list[dict[str, Any]]:
+def _manifest_fused_ssds(ssd_manifest: Any, artifact_loader=None) -> list[dict[str, Any]]:
     if not ssd_manifest:
         return []
     entries = ssd_manifest.get("use_cases", []) if isinstance(ssd_manifest, dict) else []
@@ -481,11 +495,12 @@ def _manifest_fused_ssds(ssd_manifest: Any) -> list[dict[str, Any]]:
         path = artifact.get("json") if isinstance(artifact, dict) else ""
         if path:
             from pathlib import Path
-            result.append(__import__("json").loads(Path(path).read_text(encoding="utf-8")))
+            result.append(artifact_loader(path) if artifact_loader else
+                          __import__("json").loads(Path(path).read_text(encoding="utf-8")))
     return result
 
 
-def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manifest: Any = None, analysis_layers: str | set[str] = "SR") -> dict[str, Any]:
+def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manifest: Any = None, analysis_layers: str | set[str] = "SR", artifact_loader=None) -> dict[str, Any]:
     report = validate_scene_model(model)
     if not report["valid"]:
         raise ValidationFailure(report["errors"])
@@ -495,7 +510,7 @@ def plan_concern_matrix(model: dict[str, Any], fused_ssd: Any = None, ssd_manife
         raise ValidationFailure(["analysis_layers must contain SR and/or AR"])
     routing = _routing_context(normalized)
     items = []
-    fused_values = ([fused_ssd] if fused_ssd else []) + _manifest_fused_ssds(ssd_manifest)
+    fused_values = ([fused_ssd] if fused_ssd else []) + _manifest_fused_ssds(ssd_manifest, artifact_loader)
     interactions: list[dict[str, Any]] = []
     for value in fused_values:
         interactions.extend(_fused_exchanges(normalized, value))

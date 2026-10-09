@@ -1,0 +1,84 @@
+{
+  "complete": true,
+  "same_version": true,
+  "network_requests": 0,
+  "tool_versions": {
+    "generator_model.py": "35d4b8ed0e50cabf91d8ce5cc073e6a8c222d27c1dbc2fcbef7b3af93127abb0",
+    "generator.py": "6255e6c22f9a18cb8fe3dce6770f1ac4f2443fd25436821db3f093013acb92a8",
+    "ssd.py": "3c99c59d8ee6c9ed37964d460c2c902a33fd2aa4a70f4e8bc520422db93b553f",
+    "concerns.py": "5b11b289745d2caeb218d602e19a531b4983bfbaf8c805bb2619b6f167db79fc",
+    "three_roles.py": "8067c9945ee735b8611a1f227109396fcefee581a150edac7bcc32af3bad7d5c",
+    "matching_audit.py": "b5f47d8e2a0e37e47f5c79d3eda9f63271481590cdee53c93ede4472caf98ad2",
+    "comparison.py": "b14ed084274ddde850fc448868897b90a101a57273e8717ecb7f6a5fcdc91bf7",
+    "semantic_backend.py": "02b1e4b39e21514d7518f1dcedad67d7c4d8bc3479a19e61e42bdcc81c94b494",
+    "role_reports.py": "3cfc6f0f6233907e0e8d0a9191210e467754f67077c2b944e2eb61f7859d3e3e",
+    "placements.py": "0af34287c6eb3fa29d591dac047be18d6f190a39b31adfefed7fba23f7b19afe",
+    "role_cli.py": "d1e1948463ffcf2cdcfe0bcd88b4777e9739115de7d05a1a134c8de655547ca2",
+    "coverage_diagnostics.py": "1a07a7ec0dfe46e61ea2bf8fc6440c588705deedd42ed844b7cf5bb0a21d87ed",
+    "checker_taxonomy.py": "3b515432ca89f541b169983352a7315fc246cee46810d50a6debb458be05ca87",
+    "sources.py": "af91e2e357a51e361e859b06dc468f6883c03c01375fe29ae78ca39a6875611f",
+    "schemas.py": "3bf6272b3168c9d802851f11a802f0e69839687baf4f35a369c7bfffc70f0b58",
+    "assembly.py": "84024b6bb528fb37718ce146f37f5a283217a42f206304e576e6378fcf1756bd",
+    "support_audit.py": "a36ea1c86cf2ad331b635bdeb9bc3c7386fbb7a3aa718c15cb86bcb67510a69b",
+    "taxonomy_audit.py": "595682e890123a84b44a3babf40aa53111cbccaff35efa1ca4bede29884e20d9",
+    "knowledge.py": "f449070c622de7b86e313b957dac7a820ba26aa9872c1a1e027f8122b0aebc64",
+    "scene_completion.py": "ea370265fa5d7102202659036e241a0cfc13e276355accfacc43875b46c1ba00"
+  },
+  "before": {
+    "scene_model": "9bc507cd633fdf5d551ebdd20aecae235e3f3b253b088531ca4a8c08cfccfcbf",
+    "generated_scenarios": "29f7d99607a9b3bb479db397f96833136e6d9cf846f0516f9ad80ec4d2191336",
+    "existing_scenarios": "6a4980a337b5335958f7617d0b51eb439888828b9164eab67df9271bfc5b9aac",
+    "scenario_matches": "bdd14564e44c85ec5e4c65320381a6b1c2a5c996528b238494332877c5f7f8ef",
+    "metrics": "35b10d34ac3cd52608ec6c40d531daee07118d0c20d487dd31a4b1fa0b5ebbb0",
+    "recommendations": "d7bbf97d5a1a47a2a1251b774cc8eae2f2edd868cba6f5d549f960538d467f68"
+  },
+  "after": {
+    "scene_model": "9bc507cd633fdf5d551ebdd20aecae235e3f3b253b088531ca4a8c08cfccfcbf",
+    "generated_scenarios": "29f7d99607a9b3bb479db397f96833136e6d9cf846f0516f9ad80ec4d2191336",
+    "existing_scenarios": "6a4980a337b5335958f7617d0b51eb439888828b9164eab67df9271bfc5b9aac",
+    "scenario_matches": "bdd14564e44c85ec5e4c65320381a6b1c2a5c996528b238494332877c5f7f8ef",
+    "metrics": "35b10d34ac3cd52608ec6c40d531daee07118d0c20d487dd31a4b1fa0b5ebbb0",
+    "recommendations": "d7bbf97d5a1a47a2a1251b774cc8eae2f2edd868cba6f5d549f960538d467f68"
+  },
+  "cached_stages": {
+    "checker": {
+      "complete": true,
+      "cached_batches": 14
+    },
+    "generator-taxonomy": {
+      "complete": true,
+      "cached_batches": 14
+    },
+    "checker-taxonomy": {
+      "complete": true,
+      "cached_batches": 14
+    },
+    "matching": {
+      "complete": true,
+      "cached_batches": 499
+    },
+    "recommendation": {
+      "complete": true,
+      "cached_batches": 103
+    }
+  },
+  "generator_preparation_batches": 14,
+  "evaluation": {
+    "complete": true,
+    "acceptance": {
+      "metric": "exception_overall.miss_rate",
+      "threshold": 0.05,
+      "operator": "<",
+      "matching_complete": true,
+      "denominator": 37,
+      "rate": 0.0,
+      "passed": true
+    },
+    "generator_count": 947,
+    "checker_exception_count": 37,
+    "explicit_covered": 37,
+    "concern_covered": 31,
+    "input_hash": "c41ac7e47a241e128714ff6d6ba4f1b368533fd08467944c9f70ce1c802ad8e8",
+    "checker_source_hash": "16571f2e08a73a1683a5f8895e425ff0fb00b3b495ebb250c8bfb65946651055"
+  }
+}

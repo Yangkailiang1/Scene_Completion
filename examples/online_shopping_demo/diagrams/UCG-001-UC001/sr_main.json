@@ -1,0 +1,97 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-001-UC001",
+  "scenario_id": "main",
+  "name": "浏览商品",
+  "ssd_id": "SSD-FB8C09576D",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-001-UC001",
+      "label": "ProductDisplayService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-S-IF1"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-44BF21D473",
+      "exchange_id": "EXCH-ED4C0A89A0",
+      "interaction_id": "",
+      "use_case_id": "UCG-001-UC001",
+      "ssd_id": "SSD-FB8C09576D",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-S-IF1",
+      "from_node": "system",
+      "to_node": "sr-UCG-001-UC001",
+      "message": "调用 API-S-IF1：GET /api/v1/products",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "keyword",
+        "categoryId",
+        "minPrice",
+        "maxPrice",
+        "sortBy",
+        "page",
+        "pageSize"
+      ],
+      "response_fields": [
+        "page",
+        "pageSize",
+        "total",
+        "items[]"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-S-IF1",
+      "service_id": "sr-UCG-001-UC001",
+      "api_method": "GET",
+      "resource_path": "/api/v1/products",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-139C6C836E",
+      "exchange_id": "EXCH-ED4C0A89A0",
+      "interaction_id": "",
+      "use_case_id": "UCG-001-UC001",
+      "ssd_id": "SSD-FB8C09576D",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-S-IF1",
+      "from_node": "sr-UCG-001-UC001",
+      "to_node": "system",
+      "message": "返回 API-S-IF1 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "page",
+        "pageSize",
+        "total",
+        "items[]"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-S-IF1",
+      "service_id": "sr-UCG-001-UC001",
+      "reply_to_message_id": "MSG-44BF21D473",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

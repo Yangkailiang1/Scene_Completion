@@ -1,0 +1,18 @@
+{
+  "complete": true,
+  "acceptance": {
+    "metric": "exception_overall.miss_rate",
+    "threshold": 0.05,
+    "operator": "<",
+    "matching_complete": true,
+    "denominator": 37,
+    "rate": 0.0,
+    "passed": true
+  },
+  "generator_count": 947,
+  "checker_exception_count": 37,
+  "explicit_covered": 37,
+  "concern_covered": 31,
+  "input_hash": "c41ac7e47a241e128714ff6d6ba4f1b368533fd08467944c9f70ce1c802ad8e8",
+  "checker_source_hash": "16571f2e08a73a1683a5f8895e425ff0fb00b3b495ebb250c8bfb65946651055"
+}

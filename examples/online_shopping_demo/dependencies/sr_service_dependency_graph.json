@@ -1,0 +1,111 @@
+{
+  "version": "1",
+  "project": "online_shopping_system",
+  "analysis_layer": "SR",
+  "nodes": [
+    {
+      "service_id": "sr-UCG-001-UC001",
+      "use_case_id": "UCG-001-UC001",
+      "name": "ProductDisplayService",
+      "abstract_api_id": "API-S-IF1",
+      "service_type": "display_interaction"
+    },
+    {
+      "service_id": "sr-UCG-001-UC002",
+      "use_case_id": "UCG-001-UC002",
+      "name": "ProductDisplayService",
+      "abstract_api_id": "API-S-IF2",
+      "service_type": "display_interaction"
+    },
+    {
+      "service_id": "sr-UCG-001-UC003",
+      "use_case_id": "UCG-001-UC003",
+      "name": "CartService",
+      "abstract_api_id": "API-C-IF1",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-002-UC001",
+      "use_case_id": "UCG-002-UC001",
+      "name": "OrderService",
+      "abstract_api_id": "API-O-IF1",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-002-UC002",
+      "use_case_id": "UCG-002-UC002",
+      "name": "PaymentAdapter",
+      "abstract_api_id": "PAYMENT-PAY-01",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-002-UC003",
+      "use_case_id": "UCG-002-UC003",
+      "name": "OrderService",
+      "abstract_api_id": "API-O-IF2",
+      "service_type": "query_retrieval"
+    },
+    {
+      "service_id": "sr-UCG-003-UC001",
+      "use_case_id": "UCG-003-UC001",
+      "name": "LogisticsServiceAdapter",
+      "abstract_api_id": "API-L-IF1",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-003-UC002",
+      "use_case_id": "UCG-003-UC002",
+      "name": "LogisticsServiceAdapter",
+      "abstract_api_id": "LOGI-EVT-01",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-003-UC003",
+      "use_case_id": "UCG-003-UC003",
+      "name": "LogisticsServiceAdapter",
+      "abstract_api_id": "API-L-IF2",
+      "service_type": "query_retrieval"
+    },
+    {
+      "service_id": "sr-UCG-003-UC004",
+      "use_case_id": "UCG-003-UC004",
+      "name": "RefundService",
+      "abstract_api_id": "API-R-IF1",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-004-UC001",
+      "use_case_id": "UCG-004-UC001",
+      "name": "MerchantProductService",
+      "abstract_api_id": "API-M-IF1",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-004-UC002",
+      "use_case_id": "UCG-004-UC002",
+      "name": "MerchantProductService",
+      "abstract_api_id": "API-M-IF2",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-004-UC003",
+      "use_case_id": "UCG-004-UC003",
+      "name": "MerchantProductService",
+      "abstract_api_id": "API-M-IF3",
+      "service_type": "resource_mutation"
+    },
+    {
+      "service_id": "sr-UCG-004-UC004",
+      "use_case_id": "UCG-004-UC004",
+      "name": "MerchantProductService",
+      "abstract_api_id": "API-M-IF4",
+      "service_type": "release_activation"
+    }
+  ],
+  "edges": [],
+  "review_items": [],
+  "semantics": {
+    "shared_ar_reuse": "仅实现复用，不构成业务依赖",
+    "non_call_relations": "由模型中的需求/设计证据表达，不补造 SSD 消息"
+  }
+}

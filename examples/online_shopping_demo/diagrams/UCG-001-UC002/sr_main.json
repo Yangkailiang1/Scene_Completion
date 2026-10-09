@@ -1,0 +1,96 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-001-UC002",
+  "scenario_id": "main",
+  "name": "查看商品详情",
+  "ssd_id": "SSD-1EBA4824CC",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-001-UC002",
+      "label": "ProductDisplayService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-S-IF2"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-1EEEB7ECFF",
+      "exchange_id": "EXCH-72B79A0231",
+      "interaction_id": "",
+      "use_case_id": "UCG-001-UC002",
+      "ssd_id": "SSD-1EBA4824CC",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-S-IF2",
+      "from_node": "system",
+      "to_node": "sr-UCG-001-UC002",
+      "message": "调用 API-S-IF2：GET /api/v1/products/{productId}",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "productId",
+        "Authorization"
+      ],
+      "response_fields": [
+        "productId",
+        "name",
+        "description",
+        "images[]",
+        "price",
+        "stockStatus"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-S-IF2",
+      "service_id": "sr-UCG-001-UC002",
+      "api_method": "GET",
+      "resource_path": "/api/v1/products/{productId}",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-03FF5E545E",
+      "exchange_id": "EXCH-72B79A0231",
+      "interaction_id": "",
+      "use_case_id": "UCG-001-UC002",
+      "ssd_id": "SSD-1EBA4824CC",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 2,
+      "source_location": "功能设计_spec.md:API-S-IF2",
+      "from_node": "sr-UCG-001-UC002",
+      "to_node": "system",
+      "message": "返回 API-S-IF2 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "productId",
+        "name",
+        "description",
+        "images[]",
+        "price",
+        "stockStatus"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-S-IF2",
+      "service_id": "sr-UCG-001-UC002",
+      "reply_to_message_id": "MSG-1EEEB7ECFF",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

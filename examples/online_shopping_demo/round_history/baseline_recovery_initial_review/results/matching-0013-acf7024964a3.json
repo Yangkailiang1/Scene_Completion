@@ -1,0 +1,78 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-f5a9fce6189033287f2b"
+  ],
+  "checked_generated_ids": [
+    "GEN-0FD03C3336",
+    "GEN-9ABCCE26E8",
+    "GEN-A1DA416D3D",
+    "GEN-D2C1E8AA68",
+    "GEN-F4DDB5757B",
+    "GEN-095279A263",
+    "GEN-D0CCAFB1EE",
+    "GEN-67A9C8BE47"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-0FD03C3336",
+      "status": "unmatched",
+      "evidence": "Checker failure is an external LogisticsService query failure in the track-query flow; generated failure is a database connection loss when operating on 'Refund records', a different operation and resource. No shared trigger, operation or outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-9ABCCE26E8",
+      "status": "unmatched",
+      "evidence": "Generated concerns concurrent update conflicts/lost updates on Refund records; checker concerns external logistics service call failure. Different failure mechanism, resource and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-A1DA416D3D",
+      "status": "unmatched",
+      "evidence": "Generated concerns field-legality validation errors on Refund records writes; checker concerns an external service transport/query failure. No aligned trigger or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D2C1E8AA68",
+      "status": "unmatched",
+      "evidence": "Generated concerns idempotency of repeated requests on Refund records; checker concerns external logistics query failure with stale-data fallback. Different mechanism and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-F4DDB5757B",
+      "status": "unmatched",
+      "evidence": "Generated concerns write failure/transaction rollback on Refund records; checker concerns external LogisticsService query failure and fallback display of last synced data. Different resource and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-095279A263",
+      "status": "unmatched",
+      "evidence": "Generated concerns slow large-table join timeout, an internal DB performance failure; checker concerns external service query failure. Different failure source and expected result.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-D0CCAFB1EE",
+      "status": "unmatched",
+      "evidence": "Generated concerns referential integrity/cascade deletion on Refund records; checker concerns a failed external logistics query with fallback data display. No shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-67A9C8BE47",
+      "status": "unmatched",
+      "evidence": "Generated concerns missing required fields on Refund records; checker concerns an external logistics service failure with stale-data fallback. No semantic alignment in trigger, operation or outcome.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0013-acf7024964a3",
+  "input_hash": "acf7024964a3fbb3cc271fde7375add872db313eac337ef575b1e92e98e58c20",
+  "model": "ecnu-max"
+}

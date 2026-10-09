@@ -1,0 +1,30 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-f5a9fce6189033287f2b"
+  ],
+  "checked_generated_ids": [
+    "GEN-74E776479F",
+    "GEN-15AF457EE1"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-74E776479F",
+      "status": "unmatched",
+      "evidence": "Checker exception: external LogisticsService query failure while fetching latest logistics trace, with defined fallback (show last successful sync data with update timestamp). Generated exception: nonexistent-resource accessing 'Read or update Refund records' when querying/modifying/deleting absent resources. Different affected operation (external logistics query vs Refund record CRUD), different failure mechanism (external service failure vs missing resource), different expected result (fallback data display vs undefined '待需求确认'). No shared core behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-15AF457EE1",
+      "status": "unmatched",
+      "evidence": "Checker exception: external LogisticsService query failure with fallback display of last synced data. Generated exception: uniqueness/duplicate-key conflict on 'Read or update Refund records'. Different affected resource/operation (Refund record uniqueness vs external logistics trace retrieval), different failure mechanism, different expected result. Only the broad context '物流查询' prefix is shared, which is not sufficient.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0014-175d3c090cee",
+  "input_hash": "175d3c090ceee5dd1af18fc41cc6b1f987f7809e0d525a795dd538bdfdbef1a2",
+  "model": "ecnu-max"
+}

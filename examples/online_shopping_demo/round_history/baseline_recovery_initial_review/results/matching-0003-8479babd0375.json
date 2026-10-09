@@ -1,0 +1,217 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-69c91d08774029d46b73"
+  ],
+  "checked_generated_ids": [
+    "GEN-FF96158501",
+    "GEN-C20ED2EB65",
+    "GEN-8C71A5B82F",
+    "GEN-4A0AD69249",
+    "GEN-4574A3F4FC",
+    "GEN-A88E7FFCD9",
+    "GEN-8A0E57C3C5",
+    "GEN-682E1135B1"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-FF96158501",
+      "status": "unmatched",
+      "evidence": "Checker handles duplicate order submission detected at checkout confirmation, resolving via idempotency key lookup. Generated candidate covers database unavailability (connection failure/database down) when reading or updating order records. The failure mechanism, trigger and expected response are entirely different; sharing only the create-order context is insufficient.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-C20ED2EB65",
+      "status": "partial",
+      "evidence": "Both concern repeated order-creation conflicts in the shared 创建订单 flow. Checker's duplicate submission returning the already-created order shares the core duplicate-operation condition with generated candidate's concurrent update conflict / last-write-wins. However the generated trigger is a generic concurrent DB write conflict, not an assessment-system duplicate business request, and its response is 待需求确认 rather than idempotency-key-based order retrieval.",
+      "missing_behavior": [
+        "Specific trigger is '顾客在结算页确认提交订单时系统检测到重复提交' (duplicate business request), not generic concurrent update conflict",
+        "Expected result: return the already-created order via idempotency identifier, not '待需求确认'",
+        "Recovery path and explicit idempotency key handling are undefined"
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-8C71A5B82F",
+      "status": "unmatched",
+      "evidence": "Generated candidate addresses field legality (type errors, illegal characters, over-length) on order record access. Checker addresses duplicate submission with idempotent order return. No shared trigger, operation detail or expected behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-4A0AD69249",
+      "status": "partial",
+      "evidence": "Generated candidate's 幂等性 concern (重复请求导致重复操作异常 on Read or update Order records) is the same idempotency notion as the checker's duplicate-submission scenario. Both center on repeated requests causing a duplicate operation. But the generated scenario is resource-generic (Order records read/update), has no checkout-confirmation trigger, no idempotency identifier, and its response/recovery remain 待需求确认 instead of returning the already-created order.",
+      "missing_behavior": [
+        "Concrete trigger '顾客在结算页确认提交订单'",
+        "Explicit expected result/recovery: return already-created order via idempotency identifier",
+        "Defined system response instead of '待需求确认'"
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-4574A3F4FC",
+      "status": "unmatched",
+      "evidence": "Generated candidate concerns write failure/transaction rollback on Order records. Checker concerns duplicate submission returning existing order via idempotency. Different failure mechanism and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-A88E7FFCD9",
+      "status": "unmatched",
+      "evidence": "Generated candidate covers large-table join query timeout on order records. Checker covers duplicate order submission. No shared condition, operation or outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-8A0E57C3C5",
+      "status": "unmatched",
+      "evidence": "Generated candidate addresses cascade-delete failure / residual child objects on Order records. Checker addresses duplicate submission idempotency. Unrelated failure conditions and results.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-682E1135B1",
+      "status": "unmatched",
+      "evidence": "Generated candidate concerns missing required fields on Order records. Checker concerns duplicate submission with idempotent order return. No shared trigger or behavior.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0003-8479babd0375",
+  "input_hash": "8479babd0375ebd9eb8cb5a7084d13c6eacc83e36fa5cb03a151aea0cb3f7ff8",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-C20ED2EB65",
+      "status": "partial",
+      "evidence": "Both represent repeated order-creation conflicts in the shared 创建订单 main flow. Generated candidate's concurrent update conflict / last-write-wins aligns at the abstract level with duplicate-order-operation handling, but its trigger is a generic concurrency conflict rather than a duplicate checkout submission, and no idempotent order-return response is defined.",
+      "missing_behavior": [
+        "Trigger must be '顾客在结算页确认提交订单' with duplicate-submission detection",
+        "Expected result/recovery must be returning the already-created order via idempotency identifier",
+        "Currently unspecified ('待需求确认') response is missing"
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-4A0AD69249",
+      "status": "partial",
+      "evidence": "Generated candidate's 幂等性 concern (repeated requests causing duplicate-operation exception on Order records) semantically corresponds to the checker's duplicate-submission idempotency concern. Shared core behavior: repeated request guarding against duplicate order operation. Gaps: no checkout-confirmation trigger, no idempotency key, and undefined expected/recovery response.",
+      "missing_behavior": [
+        "Concrete checkout-confirmation duplicate-submission trigger",
+        "Expected result: idempotency-identifier-based retrieval of the already-created order",
+        "Defined recovery behavior rather than '待需求确认'"
+      ]
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "0c71a00dfd80defed66b3f03315fb65f2738b0a1daa4592f3922682ebe64632b",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-69c91d08774029d46b73",
+        "generated_scenario_id": "GEN-4A0AD69249",
+        "status": "partial",
+        "evidence": "Both triggers concern duplicate/repeated submission causing duplicated operations — generated '重复请求导致重复操作异常' aligns with checker's duplicate submission detected at order confirmation (same affecting entity: Order submission). Shared operation context of reading/updating Order records is consistent with order creation idempotency handling. However generated response is undefined (异常响应及恢复方式待需求确认) rather than the checker's concrete outcome of returning the already-created order via idempotency key; expected outcome is not shared. No contradictory constraints. Per contract, unknown response cannot be full, so partial.",
+        "missing_behavior": [
+          "缺少依据幂等标识返回已创建订单的具体行为",
+          "异常响应与恢复方式未定义",
+          "期望结果待需求确认，未与重复提交下返回已有订单的结果对齐"
+        ],
+        "trigger_quotes": {
+          "checker": "顾客在结算页确认提交订单时，系统检测到重复提交",
+          "generated": "执行「Read or update Order records」时：重复请求导致重复操作异常"
+        }
+      }
+    ],
+    "decisions": [
+      {
+        "review_id": "matching-0003-8479babd0375:0",
+        "status": "unmatched",
+        "same_specific_trigger": false,
+        "shared_core_behavior": false,
+        "same_expected_outcome": false,
+        "compatible_constraints": true,
+        "generated_trigger_quote": "执行「Read or update Order records」时：重复请求导致重复操作异常",
+        "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "evidence": "生成侧描述在读取或更新 Order records 时重复请求导致重复操作异常；checker 描述的是结算页重复提交后按幂等标识返回既有订单。前者未指定结算提交这一业务操作，也未说明异常处理，不能仅凭都涉及订单与重复请求认定为同一触发或核心行为。前置条件一致，未见明确约束冲突。",
+        "missing_behavior": [
+          "生成侧没有明确重复的结算订单提交这一触发或其响应；checker 的既有订单返回结果无法补足生成侧的操作与失败机制差异。"
+        ],
+        "pair_index": 0
+      }
+    ],
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "provider": "native_subagent",
+    "review_input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+    "prior_verification": {
+      "version": "grounded-pair-v2",
+      "pairs_hash": "34a911309d2196d876bf291cf7e0b0285854a980e9a6d48b37e36548e58b3e8a",
+      "proposed_matches": [
+        {
+          "checker_scenario_id": "CHK-69c91d08774029d46b73",
+          "generated_scenario_id": "GEN-C20ED2EB65",
+          "status": "partial",
+          "evidence": "Both concern repeated order-creation conflicts in the shared 创建订单 flow. Checker's duplicate submission returning the already-created order shares the core duplicate-operation condition with generated candidate's concurrent update conflict / last-write-wins. However the generated trigger is a generic concurrent DB write conflict, not an assessment-system duplicate business request, and its response is 待需求确认 rather than idempotency-key-based order retrieval.",
+          "missing_behavior": [
+            "Specific trigger is '顾客在结算页确认提交订单时系统检测到重复提交' (duplicate business request), not generic concurrent update conflict",
+            "Expected result: return the already-created order via idempotency identifier, not '待需求确认'",
+            "Recovery path and explicit idempotency key handling are undefined"
+          ]
+        },
+        {
+          "checker_scenario_id": "CHK-69c91d08774029d46b73",
+          "generated_scenario_id": "GEN-4A0AD69249",
+          "status": "partial",
+          "evidence": "Generated candidate's 幂等性 concern (重复请求导致重复操作异常 on Read or update Order records) is the same idempotency notion as the checker's duplicate-submission scenario. Both center on repeated requests causing a duplicate operation. But the generated scenario is resource-generic (Order records read/update), has no checkout-confirmation trigger, no idempotency identifier, and its response/recovery remain 待需求确认 instead of returning the already-created order.",
+          "missing_behavior": [
+            "Concrete trigger '顾客在结算页确认提交订单'",
+            "Explicit expected result/recovery: return already-created order via idempotency identifier",
+            "Defined system response instead of '待需求确认'"
+          ]
+        }
+      ],
+      "decisions": [
+        {
+          "pair_index": 0,
+          "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+          "generated_trigger_quote": "执行「Read or update Order records」时：并发更新冲突或后写覆盖前写",
+          "status": "unmatched",
+          "same_specific_trigger": false,
+          "shared_core_behavior": false,
+          "same_expected_outcome": false,
+          "compatible_constraints": true,
+          "evidence": "Checker trigger is duplicate submission detection at order confirm; generated trigger is a concurrency write conflict/lost update during Order record read/update — different failure mechanisms (idempotency duplication vs concurrent write collision). Generated core behavior is undetermined (异常响应及恢复方式待需求确认) and expected result is 待需求确认, so it shares no concrete behavior or outcome with the checker's idempotent-return behavior. 依据规则：不同失败条件不匹配，未知响应不可判 full。",
+          "missing_behavior": [
+            "具体失败机制不同：重复提交检测 vs 并发更新冲突/写覆盖",
+            "缺少按幂等标识返回已创建订单的行为",
+            "生成侧异常响应与恢复方式未定义，期望结果待需求确认"
+          ]
+        },
+        {
+          "pair_index": 1,
+          "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+          "generated_trigger_quote": "执行「Read or update Order records」时：重复请求导致重复操作异常",
+          "status": "partial",
+          "same_specific_trigger": true,
+          "shared_core_behavior": true,
+          "same_expected_outcome": false,
+          "compatible_constraints": true,
+          "evidence": "Both triggers concern duplicate/repeated submission causing duplicated operations — generated '重复请求导致重复操作异常' aligns with checker's duplicate submission detected at order confirmation (same affecting entity: Order submission). Shared operation context of reading/updating Order records is consistent with order creation idempotency handling. However generated response is undefined (异常响应及恢复方式待需求确认) rather than the checker's concrete outcome of returning the already-created order via idempotency key; expected outcome is not shared. No contradictory constraints. Per contract, unknown response cannot be full, so partial.",
+          "missing_behavior": [
+            "缺少依据幂等标识返回已创建订单的具体行为",
+            "异常响应与恢复方式未定义",
+            "期望结果待需求确认，未与重复提交下返回已有订单的结果对齐"
+          ]
+        }
+      ],
+      "model": "ecnu-max",
+      "tile_size": 8
+    }
+  }
+}

@@ -1,0 +1,725 @@
+{
+  "input_hash": "720d29b1a13c1ddd43cc254b3577f27492cde4a9d80ae90728657ba9cd32fb08",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "max",
+  "decisions": [
+    {
+      "review_id": "matching-0344-8b608bf26d1a:0",
+      "checker_trigger_quote": "系统校验订单和可退款金额时，发现超过退款期限。",
+      "generated_trigger_quote": "订单超过退款期限（不在退款有效期内）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在退款校验时发现订单超过退款期限，且生成侧拒绝申请并说明原因，checker 的结果相同。生成侧进一步指定 HTTP 409 与 REFUND_WINDOW_EXPIRED，checker 未给出这两个响应细节。",
+      "missing_behavior": [
+        "checker 未说明 HTTP 409 Conflict 状态码和 REFUND_WINDOW_EXPIRED 错误码。"
+      ]
+    },
+    {
+      "review_id": "matching-0350-deda4afbe551:0",
+      "checker_trigger_quote": "系统校验订单和可退款金额时，发现超过退款期限。",
+      "generated_trigger_quote": "订单已超过退款有效期（不在退款有效期内）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在退款时限校验中发现订单已过期；生成侧要求拒绝并返回 409/REFUND_WINDOW_EXPIRED，checker 要求拒绝并说明原因，核心结果相符。",
+      "missing_behavior": [
+        "checker 未指定生成侧明确给出的 HTTP 409 Conflict 和 REFUND_WINDOW_EXPIRED。"
+      ]
+    },
+    {
+      "review_id": "matching-0352-df72c0a4666d:0",
+      "checker_trigger_quote": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+      "generated_trigger_quote": "申请退款金额（requestedAmount）超过可退款金额",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧均在比较 requestedAmount 与可退款金额时发现申请金额超限，并要求顾客调整退款内容。生成侧还指定 409/REFUND_AMOUNT_EXCEEDED 和响应体中的可退款金额，checker 未写这些接口细节。",
+      "missing_behavior": [
+        "checker 未指定 HTTP 409、REFUND_AMOUNT_EXCEEDED 错误码及响应体中的可退款金额。"
+      ]
+    },
+    {
+      "review_id": "matching-0354-a190e765e263:0",
+      "checker_trigger_quote": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+      "generated_trigger_quote": "执行「调用 API-R-IF1：POST /api/v1/orders/{orderId}/refunds」时：当前业务条件不满足变更要求",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧只说调用退款申请 POST 接口时业务条件不满足，未指出金额超出；checker 明确是 requestedAmount 高于可退款金额。相同退款接口和请求字段不足以证明同一触发或行为，生成侧响应待确认。",
+      "missing_behavior": [
+        "生成侧未明确退款金额超限这一条件；checker 的金额比较与提示无法由通用业务条件推定。"
+      ]
+    },
+    {
+      "review_id": "matching-0358-bb02b8b0f1fc:0",
+      "checker_trigger_quote": "系统校验订单和可退款金额时，发现申请金额超过可退款金额。",
+      "generated_trigger_quote": "requestedAmount > 可退款金额",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "生成侧明确 requestedAmount 大于可退款金额；checker 明确校验申请金额并发现超过可退款金额。两边结果都处理超额退款，checker 说明顾客应调整内容，生成侧给出 409 错误与可退款金额。",
+      "missing_behavior": [
+        "checker 未写 HTTP 409、REFUND_AMOUNT_EXCEEDED 和响应体可退款金额；生成侧也未明确顾客调整提示。"
+      ]
+    },
+    {
+      "review_id": "matching-0360-f5a66f92b36d:0",
+      "checker_trigger_quote": "系统向PaymentService提交退款请求时，PaymentService暂时不可用。",
+      "generated_trigger_quote": "系统向 PaymentService 提交退款请求时 PaymentService 暂时不可用/调用失败",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧触发都是向 PaymentService 提交退款请求时服务暂时不可用；两侧都保存待处理退款单并异步重试。生成侧还规定内部 PENDING 与响应 refundStatus PROCESSING，checker 未给出状态值。",
+      "missing_behavior": [
+        "checker 未说明退款单的 PENDING 状态及响应中的 PROCESSING 状态。"
+      ]
+    },
+    {
+      "review_id": "matching-0368-a7ca74328db8:0",
+      "checker_trigger_quote": "商家在商品管理页面点击\"创建商品\"",
+      "generated_trigger_quote": "商家在商品管理页面点击“创建商品”。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都由商家点击商品创建触发，创建 DRAFT 商品、返回商品编号并进入编辑页；步骤和预置条件一致，生成侧的 HTTP/API 细节与 checker 不冲突。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0377-8b1526b4adb3:0",
+      "checker_trigger_quote": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+      "generated_trigger_quote": "商家资质已失效。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "生成侧分支触发为商家资质失效，分支步骤明确拒绝创建并提示重新认证；checker 在身份和权限校验时发现同一资质失效并给出相同结果。分支 preconditions 待确认，没有明确互斥条件。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0377-8b1526b4adb3:1",
+      "checker_trigger_quote": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+      "generated_trigger_quote": "商家经营资质已失效。",
+      "status": "unmatched",
+      "same_specific_trigger": true,
+      "shared_core_behavior": false,
+      "same_expected_outcome": true,
+      "compatible_constraints": false,
+      "evidence": "两侧触发都写资质失效，且结果都拒绝创建；但生成侧步骤和 use_case_preconditions 又称 MerchantProductService 确认资质有效，checker 明确资质失效，生成侧自身条件与步骤也不一致。",
+      "missing_behavior": [
+        "生成侧出现资质有效的前置条件和校验结果，与失效触发及 checker 的前置条件冲突。"
+      ]
+    },
+    {
+      "review_id": "matching-0384-817a75094d26:0",
+      "checker_trigger_quote": "系统校验商家身份和权限时发现商家资质已失效（步骤 2.a）",
+      "generated_trigger_quote": "商家经营资质已失效（qualification_status 非有效）。",
+      "status": "unmatched",
+      "same_specific_trigger": true,
+      "shared_core_behavior": false,
+      "same_expected_outcome": true,
+      "compatible_constraints": false,
+      "evidence": "触发都指商家资质失效，生成侧也返回 MERCHANT_NOT_QUALIFIED；但生成侧步骤称校验后确认资质有效，且 use_case_preconditions 也要求资质有效，与该触发及 checker 明确的资质失效条件相矛盾。",
+      "missing_behavior": [
+        "生成侧资格校验称资质有效，与资质失效触发及 checker 前置条件不兼容。"
+      ]
+    },
+    {
+      "review_id": "matching-0386-9df69c964184:0",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "重复提交。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都是商家重复提交商品创建请求；系统依据幂等标识返回已有草稿且不重复创建。生成侧和 checker 的业务操作、结果与前置条件相符。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0386-9df69c964184:1",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "idempotencyKey重复。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "生成侧明确在商品创建请求中对重复 idempotencyKey 执行幂等校验并返回已有草稿、不重复创建；checker 明确同一创建请求被重复提交后返回该草稿。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0389-95fd309c8260:0",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：并发变更产生冲突，或重复请求导致重复变更",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧明确在 API-M-IF1 商品创建 POST 中发生并发冲突或重复请求导致重复变更；checker 明确为重复商品创建提交，按幂等标识返回已有草稿。重复创建请求这一分支的操作和核心问题相符，但生成侧响应待确认。",
+      "missing_behavior": [
+        "生成侧将并发冲突与重复请求并列且未定义响应，无法确认其是否按 checker 返回已有草稿并阻止重复创建。"
+      ]
+    },
+    {
+      "review_id": "matching-0389-95fd309c8260:1",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "执行「查询商家经营资质（获取 merchant_id、qualification_status、product_permission）」时：重复请求导致重复操作异常",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧异常发生在查询商家经营资质时的重复操作；checker 异常发生在商品创建 POST 的重复提交及幂等处理。查询资质与创建商品是不同对象操作，且生成侧响应未知。",
+      "missing_behavior": [
+        "checker 未描述资质查询重复操作；生成侧也未说明该查询异常的响应或恢复。"
+      ]
+    },
+    {
+      "review_id": "matching-0391-136267cb409f:0",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "执行「写入商品记录（product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）」时：重复请求导致重复操作异常",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧在商品创建 POST 的流程中明确于写入商品记录时因重复请求触发重复操作异常；checker 明确为重复商品创建提交并按幂等标识返回已有草稿。对象和创建操作相符，但生成侧异常响应待确认。",
+      "missing_behavior": [
+        "生成侧未说明商品记录重复写入异常是否会被处理为返回已有草稿并避免再次创建。"
+      ]
+    },
+    {
+      "review_id": "matching-0393-cd9265c15412:0",
+      "checker_trigger_quote": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+      "generated_trigger_quote": "idempotencyKey重复。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都明确为商品创建请求使用重复 idempotencyKey；MerchantProductService 返回已有草稿且不重复创建。结果及商家权限前置条件相符。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0395-f4ac1b247807:0",
+      "checker_trigger_quote": "商家编辑商品基本资料并保存",
+      "generated_trigger_quote": "商家编辑商品基本资料并保存。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都描述商家编辑商品基本资料并保存，包含名称、描述、分类、图片校验与 API-M-IF2 保存；预期均成功保存资料，checker 还明确提示保存成功。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0405-453678510c9c:0",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "商家选择商品分类时，该分类不存在或已停用。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧触发都是选择不存在或已停用的商品分类，系统检测后要求重新选择；核心处理、结果和草稿编辑权限条件相符。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0405-453678510c9c:1",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "categoryId 不存在或已停用。",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在商品资料保存时发现 categoryId 对应分类不存在或已停用并拒绝该选择；生成侧具体返回 HTTP 400/INVALID_CATEGORY，checker 则提示重新选择分类。",
+      "missing_behavior": [
+        "checker 未明确 HTTP 400 Bad Request 和 INVALID_CATEGORY 错误码。"
+      ]
+    },
+    {
+      "review_id": "matching-0411-e1ce05e3cbdb:0",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "执行「validateCategory → 查询 category 表获取 category_id、status 校验分类有效且未停用」时：被依赖资源不存在或失效",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧具体在 validateCategory 查询 category 表中的 category_id/status 时发现依赖资源不存在或无效；checker 具体在选择分类时发现分类不存在或停用。对象与分类有效性校验一致，但生成侧异常响应待确认。",
+      "missing_behavior": [
+        "生成侧未说明 categoryId 不存在或分类失效时的响应与恢复方式。"
+      ]
+    },
+    {
+      "review_id": "matching-0412-da6dde46f463:0",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "执行「查询 category 表获取 category_id、status，确认分类有效且未停用」时：查询、修改或删除不存在资源",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧限定为查询 category 表校验分类有效性时查询到不存在资源；checker 限定为所选分类不存在或停用。category 表查询到缺失分类这一具体分支相同，生成侧响应未定义。",
+      "missing_behavior": [
+        "生成侧未说明 category 查询发现不存在分类时的响应或恢复方式。"
+      ]
+    },
+    {
+      "review_id": "matching-0413-a15d06d00fbf:0",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "categoryId 不存在或已停用。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧均明确 categoryId 不存在或已停用，MerchantProductService/CategoryService 查询 category 表核验后要求商家重新选择；触发与结果一致。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0413-a15d06d00fbf:1",
+      "checker_trigger_quote": "商家选择商品分类时，该分类不存在或已停用",
+      "generated_trigger_quote": "categoryId 不存在或已停用。",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在 API-M-IF2 保存资料时处理不存在或已停用的 categoryId；checker 要求重新选择，生成侧返回 HTTP 400/INVALID_CATEGORY，语义上都拒绝无效分类。",
+      "missing_behavior": [
+        "checker 未说明 HTTP 400 Bad Request 状态码和 INVALID_CATEGORY 错误码。"
+      ]
+    },
+    {
+      "review_id": "matching-0415-b1fee66131ce:0",
+      "checker_trigger_quote": "商家上传的图片格式或大小不符合要求",
+      "generated_trigger_quote": "图片格式或大小不符合要求。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在商品资料更新时因图片格式或大小不合要求而拒绝对应图片，并显示限制条件；触发和结果相同。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0417-676f79e97b8d:0",
+      "checker_trigger_quote": "商家上传的图片格式或大小不符合要求",
+      "generated_trigger_quote": "imageUrls[] 格式不合法。",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧限定 imageUrls[] 项的 URL 格式不合法；checker 指上传图片本身的文件格式或大小不合要求。数组中 URL 字符串格式与图片文件格式/大小是不同校验对象，生成侧结果待确认。",
+      "missing_behavior": [
+        "checker 未描述 imageUrls[] URL 字符串格式错误；生成侧也未说明该错误的响应。"
+      ]
+    },
+    {
+      "review_id": "matching-0423-c235b3357c50:0",
+      "checker_trigger_quote": "商家上传的图片格式或大小不符合要求",
+      "generated_trigger_quote": "imageUrls[] 中每项 URL 格式不合法或数量超限。",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "生成侧触发是 imageUrls[] 中 URL 格式非法或图片数量超限；checker 触发是上传图片文件格式或大小不合要求。虽两侧都拒绝图片并显示限制，但具体字段和失败条件不同。",
+      "missing_behavior": [
+        "生成侧的 URL 格式/数量校验与 checker 的文件格式/大小校验不是同一触发。"
+      ]
+    },
+    {
+      "review_id": "matching-0423-c235b3357c50:1",
+      "checker_trigger_quote": "商家上传的图片格式或大小不符合要求",
+      "generated_trigger_quote": "imageUrls[] 中每项 URL 格式不合法或数量超限。",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "生成侧在 API-M-IF2 收到 imageUrls[] URL 格式或数量超限时返回 INVALID_IMAGE；checker 在图片文件格式或大小不合要求时拒绝并显示限制。相同接口和图片主题不能证明字段或异常机制相同。",
+      "missing_behavior": [
+        "两侧具体校验条件不同：URL 数组格式/数量与上传文件格式/大小。"
+      ]
+    },
+    {
+      "review_id": "matching-0425-dfc44ab16c51:0",
+      "checker_trigger_quote": "商家暂未完成全部信息并执行保存",
+      "generated_trigger_quote": "商家暂未完成全部信息。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都针对商品资料未填写完整时执行保存草稿；都允许保存草稿并明确不允许发布，触发、处理和结果一致。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0435-05d7545cdbdc:0",
+      "checker_trigger_quote": "商家在商品编辑页提交库存和价格。",
+      "generated_trigger_quote": "商家在商品编辑页提交库存和价格。（系统需求_spec.md:385-386）",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都是商家在商品编辑页提交 SKU 库存和价格，校验后保存每个 SKU 的库存与销售价格。checker 明确返回最新版本号，与生成侧步骤一致。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0443-b8258d1cc8e9:0",
+      "checker_trigger_quote": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "3.a 异常场景：库存为负数。（系统需求_spec.md:394）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在 SKU 库存校验时发现负库存，并拒绝保存且标记错误 SKU；生成侧额外指定 HTTP 400/NEGATIVE_STOCK，checker 未指定协议响应。",
+      "missing_behavior": [
+        "checker 未明确 HTTP 400 Bad Request 与 NEGATIVE_STOCK 错误码。"
+      ]
+    },
+    {
+      "review_id": "matching-0448-3b831d7c456f:0",
+      "checker_trigger_quote": "商家输入的某个SKU库存为负数，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "skus[] 中某项 stock < 0。",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧触发均为某 SKU 的 stock 小于零；生成侧返回 HTTP 400/NEGATIVE_STOCK，checker 明确拒绝保存并标出错误 SKU，核心拒绝结果相符。",
+      "missing_behavior": [
+        "checker 未说明 HTTP 400/NEGATIVE_STOCK；生成侧也未明确标出具体错误 SKU。"
+      ]
+    },
+    {
+      "review_id": "matching-0451-7bcb5c130c24:0",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "3.b 异常场景：销售价格不在允许范围。（系统需求_spec.md:396）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都明确销售价格超出允许范围，并提示商家修正价格；生成侧设计还将 salePrice/originalPrice 非法映射为 HTTP 400/INVALID_PRICE，checker 未写该接口响应。",
+      "missing_behavior": [
+        "checker 未指定 HTTP 400 Bad Request 和 INVALID_PRICE 错误码。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:0",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数据不满足格式规范",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧只说 API-M-IF3 请求数据不符合格式规范，涉及库存、销售价格、原价和 SKU 唯一性；checker 明确销售价格超出允许范围。字段格式错误与特定价格越界不能据共同接口推定为同一异常，生成侧响应待确认。",
+      "missing_behavior": [
+        "生成侧未指出销售价格越界这一具体条件，也未说明异常响应。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:1",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数据不满足格式规范",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧限定为 SKU PUT 数据格式不规范，但没有指定哪一项数据；checker 明确为销售价格超出允许范围。共同的价格校验上下文不能补出生成侧未写的字段和机制。",
+      "missing_behavior": [
+        "生成侧未明确销售价格越界这一触发，异常响应亦待确认。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:2",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：非法字符、不允许字段或非法取值",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧列的是 API-M-IF3 中非法字符、不允许字段或其他非法取值；checker 明确是销售价格超范围。前者没有将非法输入具体限定为价格越界。",
+      "missing_behavior": [
+        "checker 的价格范围错误不能从生成侧通用非法字符/字段/取值条件中确认。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:3",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：非法字符、不允许字段或非法取值",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧仍描述 API-M-IF3 中非法字符、不允许字段或非法取值，未指出销售价格；checker 明确为销售价格超出范围。接口相同不足以证明具体异常相同。",
+      "missing_behavior": [
+        "生成侧没有明确销售价格越界这一失败条件，且响应待确认。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:4",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧在 SKU PUT 中泛指某个数值超范围，步骤同时包含库存数量、销售价格和原价；checker 仅指销售价格超范围。没有证据确定生成侧超范围的是该字段，响应也未知。",
+      "missing_behavior": [
+        "生成侧未确定越界数值字段，不能对应 checker 明确的销售价格越界。"
+      ]
+    },
+    {
+      "review_id": "matching-0452-65c1b3488e45:5",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "该生成记录只指定 SKU PUT 请求中的数值越界，未在库存、销售价格和原价中确定具体字段；checker 的异常明确为销售价格越界。API 与步骤上下文相同不足以确认同一具体触发。",
+      "missing_behavior": [
+        "生成侧未明确越界字段为销售价格，且没有说明响应。"
+      ]
+    },
+    {
+      "review_id": "matching-0459-742a2eb8e984:0",
+      "checker_trigger_quote": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+      "generated_trigger_quote": "4.a 异常场景：商品版本已被其他操作更新。（系统需求_spec.md:398）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在 API-M-IF3 更新 SKU 库存/价格时发现商品版本已被其他操作更新，并提示数据冲突后重新加载。生成侧还规定 409/VERSION_CONFLICT 与最新版本，checker 未给出这些响应细节。",
+      "missing_behavior": [
+        "checker 未指定 HTTP 409、VERSION_CONFLICT 错误码及响应体最新 version。"
+      ]
+    },
+    {
+      "review_id": "matching-0463-fd4f5789fc44:0",
+      "checker_trigger_quote": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+      "generated_trigger_quote": "执行「写入/更新 sku 表（sku_id、product_id、attributes、stock_quantity、sale_price、original_price、updated_at）」时：并发更新冲突或后写覆盖前写",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧异常发生在写入/更新 sku 表时的并发更新或后写覆盖前写；checker 异常发生在更新 product 表前检查到 version 已改变的乐观锁冲突。对象操作点和失败机制不同。",
+      "missing_behavior": [
+        "checker 未描述 sku 表写入冲突/后写覆盖；生成侧未说明该异常响应。"
+      ]
+    },
+    {
+      "review_id": "matching-0465-ed439739ee07:0",
+      "checker_trigger_quote": "系统调用库存价格维护接口 API-M-IF3 时商品版本已被其他操作更新。",
+      "generated_trigger_quote": "请求携带的 version 与 product 表当前 version 不一致（商品版本已被其他操作更新）。",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在 API-M-IF3 更新期间发现商品 version 已被其他操作改变，并提示冲突、要求重新加载。生成侧明确返回 409/VERSION_CONFLICT 和最新 version，checker 未写出接口细节。",
+      "missing_behavior": [
+        "checker 未明确 HTTP 409、VERSION_CONFLICT 错误码和最新 version 响应体。"
+      ]
+    },
+    {
+      "review_id": "matching-0467-a780309c6b3a:0",
+      "checker_trigger_quote": "商家点击“发布商品”并提交商品发布。",
+      "generated_trigger_quote": "商家点击“发布商品”。",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都是商家发布 DRAFT 商品，校验完整资料、类目、库存和价格，更新为 ON_SALE 并刷新目录索引；预期状态与对顾客可见结果一致。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0475-1296122b8cf5:0",
+      "checker_trigger_quote": "商家提交商品发布，但商品资料不完整。",
+      "generated_trigger_quote": "商品资料不完整（如缺少名称、描述、图片或SKU）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧触发都是提交商品发布时资料不完整，均列出缺失信息并阻止发布。生成侧还指定 HTTP 409/PRODUCT_INCOMPLETE 和缺失字段列表，checker 未提供这两个接口细节。",
+      "missing_behavior": [
+        "checker 未指定 HTTP 409、PRODUCT_INCOMPLETE 错误码及响应体缺失字段列表。"
+      ]
+    },
+    {
+      "review_id": "matching-0475-1296122b8cf5:1",
+      "checker_trigger_quote": "商家提交商品发布，但商品资料不完整。",
+      "generated_trigger_quote": "执行「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」时：必填数据缺失或请求体为空",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧具体在 API-M-IF4 发布请求中发现必填数据缺失或请求体为空；checker 具体在提交商品发布时发现商品资料不完整。两侧是同一发布完整性校验分支，但生成侧响应待确认。",
+      "missing_behavior": [
+        "生成侧没有说明缺必填数据时是否列出字段并阻止发布，或返回何种响应。"
+      ]
+    },
+    {
+      "review_id": "matching-0475-1296122b8cf5:2",
+      "checker_trigger_quote": "商家提交商品发布，但商品资料不完整。",
+      "generated_trigger_quote": "执行「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」时：必填数据缺失或请求体为空",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧触发为 API-M-IF4 发布时必填数据缺失或空请求体；checker 触发为提交商品发布但资料不完整。发布操作和缺少必需商品数据的校验一致，生成侧结果待确认。",
+      "missing_behavior": [
+        "生成侧没有定义商品资料不完整时的拒绝行为或缺失字段提示。"
+      ]
+    },
+    {
+      "review_id": "matching-0478-98b0133e8439:0",
+      "checker_trigger_quote": "商家提交商品发布，但商品资料不完整。",
+      "generated_trigger_quote": "执行「调用 API-M-IF4：POST /api/v1/merchant/products/{productId}/publish」时：发布前置条件未满足仍执行发布",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": false,
+      "evidence": "生成侧只泛指发布前置条件未满足，而且明确说仍执行发布；checker 的条件具体为商品资料不完整，并列出缺失信息、阻止发布。生成侧未指明相同触发，且“仍执行发布”与 checker 阻止发布互斥。",
+      "missing_behavior": [
+        "生成侧未指出缺失商品资料这一条件，并描述继续执行发布，与 checker 的阻止发布相冲突。"
+      ]
+    },
+    {
+      "review_id": "matching-0479-aeed33bf76f2:0",
+      "checker_trigger_quote": "商家提交商品发布，但商品资料不完整。",
+      "generated_trigger_quote": "执行「查询 product 表（product_id、merchant_id、status、version）及 category 表（必填属性与发布规则）、sku 表（有效SKU、stock_quantity、sale_price）；更新 product 表 status、published_at、version、updated_at」时：必要字段缺失",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧在发布前查询 product、category、SKU 所需数据时发现必要字段缺失；checker 在提交发布时检测商品资料不完整并阻止发布。对象与完整性检查相符，生成侧响应待确认。",
+      "missing_behavior": [
+        "生成侧没有说明必要字段缺失时如何列出缺项或阻止发布。"
+      ]
+    },
+    {
+      "review_id": "matching-0483-adf8460e2b98:0",
+      "checker_trigger_quote": "商家提交商品发布，但商品内容违反类目规则。",
+      "generated_trigger_quote": "商品内容违反类目规则（如必填属性缺失）",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都是提交商品发布后发现商品内容违反类目规则，并将商品送入人工审核。生成侧额外指定 409/CATEGORY_RULE_VIOLATION 和审核队列，checker 未写接口状态与错误码。",
+      "missing_behavior": [
+        "checker 未指定 HTTP 409、CATEGORY_RULE_VIOLATION 错误码及审核队列细节。"
+      ]
+    },
+    {
+      "review_id": "matching-0489-598f67f54949:0",
+      "checker_trigger_quote": "商家提交商品发布，但商品内容违反类目规则。",
+      "generated_trigger_quote": "商品不满足 category 表中分类的必填属性或发布规则",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧具体查询 category 表的必填属性和发布规则，并确认商品不满足类目要求；checker 具体发现商品内容违反类目规则。对象和规则校验一致，但生成侧 expected_result 待确认。",
+      "missing_behavior": [
+        "生成侧未说明违反类目规则后是送人工审核、拒绝发布或采取其他处理。"
+      ]
+    },
+    {
+      "review_id": "matching-0491-367bfafc7611:0",
+      "checker_trigger_quote": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+      "generated_trigger_quote": "商品目录索引刷新失败",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都在发布时发现可售商品索引刷新失败，并记录待同步任务、自动重试；生成侧还规定 catalogSyncStatus 为 SYNC_PENDING，checker 未写该状态值。",
+      "missing_behavior": [
+        "checker 未明确 catalogSyncStatus 设置为 SYNC_PENDING。"
+      ]
+    },
+    {
+      "review_id": "matching-0496-0e29176130d2:0",
+      "checker_trigger_quote": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+      "generated_trigger_quote": "执行「调用 refreshCatalog 刷新可售索引，传入 productId 和最新商品数据」时：一侧成功、一侧失败或版本不一致",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧在 refreshCatalog 刷新可售索引时描述一侧成功、另一侧失败或版本不一致；checker 明确是商品目录索引刷新失败。两者对应刷新调用失败这一分支，但生成侧未定义处理结果。",
+      "missing_behavior": [
+        "生成侧未说明刷新失败或版本不一致时的补偿、重试或状态处理。"
+      ]
+    },
+    {
+      "review_id": "matching-0496-0e29176130d2:1",
+      "checker_trigger_quote": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+      "generated_trigger_quote": "执行「向 MerchantProductService 返回索引同步结果」时：一侧成功、一侧失败或版本不一致",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "evidence": "生成侧问题发生在向 MerchantProductService 返回索引同步结果时的一侧失败或版本不一致；checker 问题发生在 ProductCatalogService 刷新可售索引本身失败。通知结果返回与刷新操作是不同阶段。",
+      "missing_behavior": [
+        "checker 未描述索引同步结果返回阶段的失败或版本不一致；生成侧响应待确认。"
+      ]
+    },
+    {
+      "review_id": "matching-0498-5a63743bce46:0",
+      "checker_trigger_quote": "系统通知商品目录服务刷新可售商品索引时，商品目录索引刷新失败。",
+      "generated_trigger_quote": "MerchantProductService 调用 ProductCatalogService 刷新可售索引失败",
+      "status": "partial",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "evidence": "两侧都是 MerchantProductService 调用 ProductCatalogService 刷新可售索引失败，记录待同步任务并自动重试，商品保持 ON_SALE。生成侧还明确 catalogSyncStatus 为 SYNC_PENDING，checker 未给出该字段。",
+      "missing_behavior": [
+        "checker 未明确 catalogSyncStatus 为 SYNC_PENDING。"
+      ]
+    }
+  ]
+}

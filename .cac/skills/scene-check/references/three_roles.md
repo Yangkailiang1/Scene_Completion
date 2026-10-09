@@ -45,7 +45,7 @@ full 的 missing_behavior 必须为空。每个有接受链接的批次须携带
 version=grounded-pair-v2、pairs_hash、proposed_matches、decisions、model。
 决策按 pair_index 绑定提案，保存两端完整 trigger 原文、full/partial/unmatched、理由与缺失行为。
 分别返回布尔语义判断 same_specific_trigger、shared_core_behavior、same_expected_outcome、
-compatible_constraints；触发/行为任一为假则 unmatched，四项皆真才可 full，否则 partial。
+compatible_constraints；触发、行为或约束兼容任一为假则 unmatched，四项皆真才可 full，否则 partial。
 最终状态按分项派生，原始标签矛盾时保存 llm_status，不要求模型改写语义判断来通过格式。
 不同失败机制、实体或操作不能只凭同类错误归为 partial。
 worker 将每组最多八对提交给独立的第二轮 LLM 判断；脚本校验引文、完整性与结果一致性。
@@ -66,6 +66,8 @@ model、reasoning_effort。每条 review_id 必须且只能出现一次，并引
 判定量表沿用四项语义判断和缺失行为。应用前校验全部结果和批次内容指纹，
 拒绝遗漏、未知关系、过期输入和伪造引文；不得只手工调整选中的关系。
 保存 native_review.json 和此前复核记录，标明实际复核模型。
+后续 recovery 可以寻找其他具体关系，但不能恢复已被原生复核否决的同一关系；
+新增接受关系也应独立复核。保留每轮输入与决定，防止续跑重新采纳已发现的反例。
 应用后重跑 scene-pipeline，重新汇总指标、候选与推荐；历史结果不能直接当作新结果。
 
 漏报率：没有 full/partial 链接的 C 场景数 / C 总数。
@@ -101,5 +103,28 @@ JSON 为可复现实验与分类指标的完整来源，Excel 不执行文档/�
 metrics.json 仅在匹配和推荐全部完成后发布；失败或等待批次时不保留旧正式指标与报告。
 本地 .scene_cache 忽略 Git；密钥仅来自环境，不进入结果与日志。
 缓存也保存经校验的 rerank 索引/分数；候选评分复用要求候选内容、证据与增强开关的哈希完全一致。
+相同 packet 续跑保留原始结果的模型与完整证明；重分包复用保留每项原执行批次、输入哈希和模型。模型身份缺失或与当前后端不同的推荐评分必须重新执行，不能用当前配置替旧结果补写模型身份。
 worker-status-* 保存每个分片的完成/失败状态；run_manifest 记录模型、输入版本及最终阶段状态。
 run-agent-batches 可重复传 --batch-id，只重试该 worker 分配范围内的指定批次；完整性仍按全部 manifest 计算。
+
+## 需求专用异常验收
+
+本轮显式使用 --requirement-document 与 --design-document。生成器可读两类文档，检查器分包只读 checker_sources_index.json 的 requirement 文档；设计新增异常和参考测试集不进入 C。旧 --spec-document 兼容原来的全输入抽取口径，不能用于本轮验收。
+
+matching 每包一个 C、最多八个同用例 G，decisions 必须覆盖全部笛卡尔场景对（包括 unmatched）；遗漏任一对拒绝整个批次。先独立复核接受关系，再对仍未覆盖的需求异常复核相关比较。完整匹配要求具体触发、行为、结果及约束一致；部分匹配必须共享具体异常条件与核心行为，并指出缺少内容。不同失败机制、对象、操作或明确矛盾不得匹配。
+decisions 是逐对判断的权威记录，tools 据此生成汇总 matches。模型两处汇总文字不同时保留 raw_match_summary，但 ID、状态、覆盖集合必须一致；冲突拒绝，不能通过整理解释文字改变语义状态。
+冗余 matches 汇总省略或为 null 时仍从全部 decisions 构建，并保留原值；缺少任一逐对判断仍拒绝。工具不会从空汇总推断场景已覆盖。
+
+exception_overall 按全部 Gₑ 与需求异常 C 去重计算；generation_contributions 单列明确异常保留、关注点推导和共同贡献。by_concern_exception、by_group_exception 保留异常分类小指标，overall 继续给全部场景指标。严格 miss_rate < 0.05、分母 > 0、全部批次完成，才通过验收。evaluate-generator 重新核对这些输入与保存指标。
+本轮验收要求两端独立分类审计、实际 ecnu-max 批次身份，以及 primary/recovery 全量 gpt-6-luna / max 复核。归档的原生决定必须逐项等于计分证明，恢复前的 ECNU 证明与原始输入也要完整绑定；仅有相同输入哈希不能证明决定一致。
+
+coverage_diagnostics.json 逐条列出需求章节、异常触发、关注点、组件/调用边、生成候选、匹配依据、缺口原因与建议。scene_assessment.xlsx 导出所有类型场景，指标表“关注点说明”紧随“类别”，中文说明与原编码并存。禁止通过删减 C、宽泛匹配或把检查结果直接写入 G 改善指标。
+需求专用检查的推荐目标仅限已评估需求章节；设计章节单列为相关证据，不据此断言设计缺少异常。既有实现组件缺少精确 SSD 交换时，在挂载清单中标记待确认检查位置，不虚构调用关系。
+
+架构与挂载另输出 architecture_changes.json、architecture_calls.svg、concern_placements.md；RR 参与总览和实际依赖调用分别展示。run_manifest 保存工具文件哈希、源版本；生成输入记录实际 Skill 哈希。已知明确矛盾不得转为部分匹配；未知或遗漏细节作为缺失行为列出。
+架构关系的原文证据单独以 architecture_evidence_review.json 全量复核：40 条明示关联与 7 条待确认关联的演示中，图以实线/虚线区分，保留输入绑定和理由。字段/错误码存在不能证明直接调用，原文“系统”执行也不能自动宣称某具名实现服务为调用方；不删除生成候选或改变匹配指标。
+
+需要复核检查器分类时运行 `prepare-checker-taxonomy --output-dir <output>`，再以 checker_sources_index.json 执行该目录下 batches/checker-taxonomy 的 worker。复核仅输入固定 C 的行为、原始需求章节和关注点定义，不读取 G、设计或原标签；不允许改变场景内容、ID 或分母。重跑编排自动应用完整复核，保存分类变化、原因和章节依据。未完成或过期复核会阻止发布正式结果。分类未标注不直接等同于关注点体系无法表达。
+分类提案必须经 requirement-taxonomy-proof-v1 独立复核：每条异常逐字绑定触发条件，每个提案 key 给出 supported 布尔判断及依据；只有 supported=true 的标签进入分类。原提案、全部判断、引用、模型及输入哈希随结果保留。复核允许补充有直接原文依据的遗漏标签，不能推断数据库实现或把内部服务误当第三方；矛盾说明或缺少任一提案标签判断都会阻止完成。
+原始需求参与者/系统边界上下文随分类包提供，可引用该明确提供的行范围；其余未分配章节仍禁止引用。matching_verification_tile_size 默认为 8，可在配置中设为 1—8，用于缩小独立复核包；不改变完整比较集合或匹配量表，证明记录实际分片大小。
+生成器的独立标签复核入口为 prepare-generator-taxonomy，使用 sources_index.json 与 batches/generator-taxonomy。只核实明确分支与来源约束的分类，原始需求/设计可用，C、匹配及原标签不输入。场景不增删、行为与 ID 不变；泛化候选保留其注册表定义。此步骤不判断适用性；标签变化、分项依据及引用保留，缺失或过期证明阻止正式生成阶段完成。

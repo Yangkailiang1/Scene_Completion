@@ -1,0 +1,157 @@
+{
+  "stage": "native-matching-review",
+  "input_hash": "7337677afc4fc437f7ac846336b1709020b2c3a65776256771151802a6f1b97d",
+  "pairs": [
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-F79316E434",
+        "scenario_type": "requirement_exception",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "物流节点时间早于已保存节点（eventTime不合理，早于发货时间或晚于当前时间）。",
+        "scenario_steps": [
+          "系统保留原状态并将异常消息送入审核队列。",
+          "LogisticsServiceAdapter返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_TIME。"
+        ],
+        "expected_result": "保留原状态，异常消息送入审核队列，返回 HTTP 400 Bad Request / INVALID_EVENT_TIME。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。设计细化：在线商城系统正常运行，物流事件接收接口可访问；LogisticsServiceAdapter服务可用；shipment表中存在对应记录；ACT-004持有合法signature。",
+        "use_case_postconditions": "商城保存最新物流节点并更新物流状态。设计细化：写入logistics_event表，并更新shipment表物流状态摘要(last_event_code、last_event_time、last_location、last_updated_at)。"
+      },
+      "checker": {
+        "scenario_id": "CHK-e8fa603f5daa44b41293",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+        "scenario_steps": [
+          "系统校验物流节点的时间顺序。",
+          "发现新物流节点时间早于已保存节点。"
+        ],
+        "expected_result": "系统保留原状态并将异常消息送入审核队列。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0000-d1154c1ac359:0",
+      "batch_id": "matching-0000-d1154c1ac359"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-20AE98A6F0",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "待需求确认：分支条件见触发",
+        "trigger": "eventTime不合理：早于发货时间或晚于当前时间（即时间早于已保存节点）。",
+        "scenario_steps": [
+          "保留原状态并将异常消息送入审核队列",
+          "返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_TIME"
+        ],
+        "expected_result": "返回 HTTP 400 Bad Request / INVALID_EVENT_TIME，保留原状态，异常消息送入审核队列。",
+        "postconditions": null,
+        "use_case_preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。设计细化：在线商城系统正常运行，物流事件接收接口可访问；LogisticsServiceAdapter服务可用；shipment表中存在对应记录；ACT-004持有合法signature。",
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-e8fa603f5daa44b41293",
+        "scenario_type": "requirement_exception",
+        "preconditions": "① 商城已登记有效物流单号。② LogisticsService已获得合法调用凭证。",
+        "trigger": "主成功路径第3步校验物流节点时间顺序时，物流节点时间早于已保存节点。",
+        "scenario_steps": [
+          "系统校验物流节点的时间顺序。",
+          "发现新物流节点时间早于已保存节点。"
+        ],
+        "expected_result": "系统保留原状态并将异常消息送入审核队列。",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0009-d7729873ca2d:0",
+      "batch_id": "matching-0009-d7729873ca2d"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-264951657D",
+        "scenario_type": "alternative",
+        "preconditions": "待需求确认：该分支前置条件未单独描述",
+        "trigger": "idempotencyKey重复",
+        "scenario_steps": [
+          "ACT-002（商家）发送 POST /api/v1/merchant/products 请求到在线商城系统，请求体包含 merchantId、idempotencyKey。",
+          "在线商城系统校验 Authorization Token，确认商家身份。",
+          "在线商城系统校验请求参数：merchantId格式合法、idempotencyKey非空。",
+          "在线商城系统调用MerchantProductService的创建商品能力，传入 merchantId、idempotencyKey。",
+          "MerchantProductService校验商家经营资质（查询 merchant 表，获取 merchant_id、qualification_status、product_permission），确认资质有效且有商品管理权限。",
+          "MerchantProductService按 idempotencyKey 执行幂等校验，确认 idempotencyKey 重复。",
+          "MerchantProductService返回已有商品草稿，不重复创建。"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿。",
+        "postconditions": "待需求确认：该分支后置条件未单独描述",
+        "use_case_preconditions": "['商家已登录并通过经营资质审核。', '商家拥有商品管理权限。', '在线商城系统正常运行，商品创建接口可访问。', 'MerchantProductService服务可用。', 'ACT-002（商家）已登录，经营资质有效，拥有商品管理权限，请求携带合法 Authorization Token。', 'idempotencyKey由客户端生成。']",
+        "use_case_postconditions": "['系统创建状态为 DRAFT 的商品并返回商品编号。']"
+      },
+      "checker": {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限；存在相同幂等标识的先前创建请求",
+        "trigger": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+        "scenario_steps": [
+          "商家重复发起商品创建提交",
+          "系统识别重复提交及幂等标识",
+          "系统根据幂等标识返回已有草稿"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿，不重复创建商品",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0010-b357cbd7eb8a:0",
+      "batch_id": "matching-0010-b357cbd7eb8a"
+    },
+    {
+      "pair_index": 0,
+      "generated": {
+        "scenario_id": "GEN-F15BD6EAA8",
+        "scenario_type": "concern_derived_exception",
+        "preconditions": "['商家已登录并通过经营资质审核。', '商家拥有商品管理权限。', '在线商城系统正常运行，商品创建接口可访问。', 'MerchantProductService服务可用。', 'ACT-002（商家）已登录，经营资质有效，拥有商品管理权限，请求携带合法 Authorization Token。', 'idempotencyKey由客户端生成。']",
+        "trigger": "执行「写入 product 表（字段包括 product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）」时：重复请求导致重复操作异常",
+        "scenario_steps": [
+          "商家发起商品创建。",
+          "系统校验商家身份和权限。",
+          "ACT-002（商家）发送 POST /api/v1/merchant/products 请求到在线商城系统，请求体包含 merchantId、idempotencyKey。",
+          "在线商城系统校验 Authorization Token，确认商家身份，并校验请求参数：merchantId格式合法、idempotencyKey非空。",
+          "在线商城系统调用MerchantProductService的创建商品能力，传入 merchantId、idempotencyKey。",
+          "MerchantProductService校验商家经营资质（查询 merchant 表，获取 merchant_id、qualification_status、product_permission），确认资质有效且有商品管理权限。",
+          "在「写入 product 表（字段包括 product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）」检查：重复请求导致重复操作异常",
+          "异常响应及恢复方式待需求确认"
+        ],
+        "expected_result": "待需求确认：应明确该异常下的系统响应",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "checker": {
+        "scenario_id": "CHK-9827f20c28e4db22a5ed",
+        "scenario_type": "requirement_exception",
+        "preconditions": "商家已登录并通过经营资质审核；商家拥有商品管理权限；存在相同幂等标识的先前创建请求",
+        "trigger": "商家重复提交商品创建请求（异常场景 3.a 重复提交）",
+        "scenario_steps": [
+          "商家重复发起商品创建提交",
+          "系统识别重复提交及幂等标识",
+          "系统根据幂等标识返回已有草稿"
+        ],
+        "expected_result": "系统根据幂等标识返回已有草稿，不重复创建商品",
+        "postconditions": null,
+        "use_case_preconditions": null,
+        "use_case_postconditions": null
+      },
+      "review_id": "matching-0014-e5807f403ec6:0",
+      "batch_id": "matching-0014-e5807f403ec6"
+    }
+  ],
+  "instructions": [
+    "Independently evaluate every pair with the four semantic assessments and exact trigger quotations.",
+    "Require the same specific failure mechanism, resource/entity and operation. A generic question or possible topic overlap is insufficient.",
+    "Consider branch pre/postconditions, core behavior and outcomes. Unknown response prevents full; conflicting outcomes prevent matching.",
+    "Return one decision per review_id, including status, same_specific_trigger, shared_core_behavior, same_expected_outcome, compatible_constraints, evidence and missing_behavior."
+  ]
+}

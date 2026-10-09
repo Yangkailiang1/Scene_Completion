@@ -1,0 +1,78 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-f5a9fce6189033287f2b"
+  ],
+  "checked_generated_ids": [
+    "GEN-F1F4E0081C",
+    "GEN-A509CACD5E",
+    "GEN-28776040F7",
+    "GEN-B13CF70E86",
+    "GEN-CE9511DDF7",
+    "GEN-0CD498E876",
+    "GEN-DB928F534A",
+    "GEN-CB57E74916"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-F1F4E0081C",
+      "status": "unmatched",
+      "evidence": "Checker failure is an external LogisticsService query failure on the main success path step 3 (local data expired) with concrete expected result (show last successfully synced data with update time). Generated scenario is an input data-legality validation failure on API-L-IF2 request parameters (illegal characters/fields/values) with unknown response. Different failure mechanism, different operation, different result.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-A509CACD5E",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-F1F4E0081C: data-legality validation exception on API-L-IF2 with unspecified response, not the external LogisticsService query failure with fallback-to-last-synced-data behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-28776040F7",
+      "status": "unmatched",
+      "evidence": "Generated scenario is a string-length-exceeds-limit validation exception on API-L-IF2 request, response TBD. Checker is external logistics service query failure with concrete degraded-data display. No shared failure condition, operation or outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-B13CF70E86",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-28776040F7: data-length validation failure on API-L-IF2, not external service failure with last-synced-data fallback.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-CE9511DDF7",
+      "status": "unmatched",
+      "evidence": "Generated scenario is numeric-value-out-of-range validation on API-L-IF2, response unspecified. Checker concerns external LogisticsService unavailability during stale-local-data refresh with defined fallback behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-0CD498E876",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-CE9511DDF7: data-range validation failure on API-L-IF2, no alignment with the external service failure condition or its last-synced-data recovery.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-DB928F534A",
+      "status": "unmatched",
+      "evidence": "Generated scenario is payload/file-size-exceeds-limit validation on API-L-IF2 with TBD response; neither the failure mechanism (external service call failure) nor the expected outcome (mark last successful sync time) aligns.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-f5a9fce6189033287f2b",
+      "generated_scenario_id": "GEN-CB57E74916",
+      "status": "unmatched",
+      "evidence": "Duplicate of GEN-DB928F534A: request-body-size validation exception on API-L-IF2, not the LogisticsService external query failure on the success path.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0011-e43313df7d27",
+  "input_hash": "e43313df7d27c51ecf5581283f3bb1978fe8f5bdf109c69fe9df406f4184ca6c",
+  "model": "ecnu-max"
+}

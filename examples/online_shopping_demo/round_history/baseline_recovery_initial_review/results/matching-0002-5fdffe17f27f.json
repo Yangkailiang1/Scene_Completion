@@ -1,0 +1,133 @@
+{
+  "checked_checker_ids": [
+    "CHK-69c91d08774029d46b73"
+  ],
+  "checked_generated_ids": [
+    "GEN-F62525FA8C",
+    "GEN-D218F18258",
+    "GEN-E370ED9096",
+    "GEN-D974AA2834",
+    "GEN-647031FB7B",
+    "GEN-79954A57E0",
+    "GEN-E04C2C6EB0",
+    "GEN-649DB4A161"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-F62525FA8C",
+      "status": "unmatched",
+      "evidence": "Checker addresses duplicate submission of an order (idempotent replay via idempotency identifier returning the existing order). Generated scenario addresses data type mismatch between payload and API definition at POST /api/v1/orders. Different failure mechanism and outcome.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-D218F18258",
+      "status": "unmatched",
+      "evidence": "Rule: incompatible outcomes are not matches. Checker expects duplicate submission to be absorbed and the already-created order returned; generated expects a data-type mismatch exception with undefined response. No shared branch condition beyond the same API call.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-E370ED9096",
+      "status": "unmatched",
+      "evidence": "Generated concerns latency/timeout effects of the HTTP call; checker concerns duplicate submission idempotency. Different concern label, trigger and expected behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-D974AA2834",
+      "status": "unmatched",
+      "evidence": "Checker: repeated submit of an order; generated: missing/invalid/expired token. Distinct failure conditions and outcomes.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-647031FB7B",
+      "status": "unmatched",
+      "evidence": "Checker: duplicate order submission; generated: horizontal/vertical privilege escalation. No shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-79954A57E0",
+      "status": "unmatched",
+      "evidence": "Checker: duplicate submission; generated: unspecified business constraint not satisfied. No concrete shared condition or behavior.",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-E04C2C6EB0",
+      "status": "partial",
+      "evidence": "Both are about the POST /api/v1/orders operation handling a repeated/concurrent order submission: checker's duplicate submission matches generated's 'duplicate request causing duplicate change' portion of the concurrency/idempotency concern. However checker expects the idempotency-identifier mechanism to return the already-created order, whereas generated is a generic concern-derived exception for concurrent conflicts or duplicates and its response/recovery is undetermined ('待需求确认').",
+      "missing_behavior": [
+        "Concrete expected result: system returns the already-created order via the idempotency identifier",
+        "Explicit recovery behavior",
+        "Distinction of concurrency-conflict versus duplicate-submission outcome"
+      ]
+    },
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-649DB4A161",
+      "status": "unmatched",
+      "evidence": "Checker: duplicate submission resolved by idempotent replay. Generated: persistence consistency (operation not reliably persisted or partially successful). Different failure mechanism and outcome.",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0002-5fdffe17f27f",
+  "input_hash": "5fdffe17f27f2010c84427e3c89fe1f4ac4c7af0ecf810c37ea42108952827bb",
+  "model": "ecnu-max",
+  "raw_match_summary": [
+    {
+      "checker_scenario_id": "CHK-69c91d08774029d46b73",
+      "generated_scenario_id": "GEN-E04C2C6EB0",
+      "status": "partial",
+      "evidence": "Both center on POST /api/v1/orders receiving a repeated submission of the order: checker's 'duplicate submission detected' aligns with generated's duplicate-request-causing-duplicate-change failure condition at that same API. Checker defines the outcome (idempotency key returns the existing order); generated leaves response/recovery TBD.",
+      "missing_behavior": [
+        "Idempotency-key-based return of the already-created order as expected result",
+        "Defined recovery/response semantics"
+      ]
+    }
+  ],
+  "summary_basis": "exhaustive_pair_decisions",
+  "semantic_verification": {
+    "version": "grounded-pair-v2",
+    "pairs_hash": "9cc85d316a3d96dd447783eae0b985055da5d2743a7f2daaabd1429553d1f1ff",
+    "proposed_matches": [
+      {
+        "checker_scenario_id": "CHK-69c91d08774029d46b73",
+        "generated_scenario_id": "GEN-E04C2C6EB0",
+        "status": "partial",
+        "evidence": "Both are about the POST /api/v1/orders operation handling a repeated/concurrent order submission: checker's duplicate submission matches generated's 'duplicate request causing duplicate change' portion of the concurrency/idempotency concern. However checker expects the idempotency-identifier mechanism to return the already-created order, whereas generated is a generic concern-derived exception for concurrent conflicts or duplicates and its response/recovery is undetermined ('待需求确认').",
+        "missing_behavior": [
+          "Concrete expected result: system returns the already-created order via the idempotency identifier",
+          "Explicit recovery behavior",
+          "Distinction of concurrency-conflict versus duplicate-submission outcome"
+        ]
+      }
+    ],
+    "decisions": [
+      {
+        "pair_index": 0,
+        "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+        "generated_trigger_quote": "执行「调用 API-O-IF1：POST /api/v1/orders」时：并发变更产生冲突，或重复请求导致重复变更",
+        "status": "unmatched",
+        "same_specific_trigger": false,
+        "shared_core_behavior": false,
+        "same_expected_outcome": false,
+        "compatible_constraints": true,
+        "evidence": "The checker trigger is specifically about duplicate submission (重复提交) detected when confirming an order. The generated trigger covers a broader exception condition at the order API call: concurrent modification conflict OR duplicate request causing duplicate change. The duplicate-request portion overlaps with the checker's duplicate submission, but the generated trigger also includes concurrency conflict, which is a different failure mechanism and entity/operation focus. Therefore the triggers are not the same concrete failure mechanism. Core behavior also differs: the checker specifies the system returns the already-created order using an idempotency key, while the generated side defers the response and recovery to requirement confirmation, so no concrete shared behavior is documented. Expected outcomes therefore do not match. Constraints are not explicitly contradictory because the generated side leaves response unknown, but the missing/incomplete core behavior prevents a partial match from becoming full. Gaps include: no idempotency-key-based response, no return/already-created order behavior, and the concurrency conflict branch is unrelated to duplicate submission.",
+        "missing_behavior": [
+          "Concrete system response for duplicate submission is not specified on the generated side.",
+          "No idempotency-key mechanism or returning the already-created order is described.",
+          "Generated trigger includes concurrent modification conflict, which is a different failure condition from duplicate submission.",
+          "No expected outcome is given beyond '待需求确认'."
+        ],
+        "llm_status": "partial"
+      }
+    ],
+    "model": "ecnu-max",
+    "tile_size": 8
+  }
+}

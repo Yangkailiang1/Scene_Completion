@@ -20,7 +20,7 @@ skills:
 默认使用 scene-pipeline；每个 Skill 只负责自身规则，不相互硬调用。
 
 1. 生成器建立规范模型，校验并生成 RR/SR/AR/fused SSD，保留现有依赖图能力；按关注点路由生成全部候选，不做 LLM 适用性审查。
-2. 检查器独立读原始需求/设计用例，生成已有集合 C；抽取阶段不得读取 G、test_spec 或旧审核结果。
+2. 正式检查器独立只读原始需求用例，生成已有集合 C；抽取阶段不得读取 G、test_spec 或旧审核结果。
 3. 检查器读取 G/C，按完整 packet 分片集合批量语义比较。可委派最多三个子 Agent；pending 或无效结果阻止正式指标。
 4. 工具按完整和部分匹配计算总指标、具体关注点和大类指标。零分母为 null；各分类独立去重。
 5. 推荐器为未匹配 G 场景评分并定位补充章节，保留全量候选。rerank 可选，默认关闭，仅增强推荐。
@@ -33,3 +33,5 @@ skills:
 仅在明确请求旧流程时，使用 scene-review 的关注点适用性审核和 scene-assemble。
 旧流程的 applicable/finding、pending_review、完整审计门保持原义；不能将新候选伪装成已审核项。
 test-scenario-extract 与旧 scenario-match 可选运行，其 full-only 参考覆盖率/代理率不等于新指标。
+
+本轮用 ecnu-max 执行生成 Skill 与语义抽取，prepare-generator-model 保存来源约束和多依赖调用；用 --requirement-document/--design-document 明确输入角色。正式异常漏报率仅比较 Gₑ 与需求异常 C，严格小于5%且分母非空。分别输出明确保留、原文约束实例化及泛化关注点候选贡献；架构/检查缺口不能借用不相关候选覆盖。全部阶段完成后 evaluate-generator，再做同版本续跑与完整回归，通过后提交Git。

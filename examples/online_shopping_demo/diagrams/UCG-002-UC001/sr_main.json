@@ -1,0 +1,92 @@
+{
+  "version": "5",
+  "project": "online_shopping_system",
+  "use_case_id": "UCG-002-UC001",
+  "scenario_id": "main",
+  "name": "创建订单",
+  "ssd_id": "SSD-DD25D84BF5",
+  "layer": "SR",
+  "lifelines": [
+    {
+      "node_id": "system",
+      "label": "在线商城购物系统",
+      "kind": "system",
+      "layer": "RR"
+    },
+    {
+      "node_id": "sr-UCG-002-UC001",
+      "label": "OrderService",
+      "kind": "sr_service",
+      "layer": "SR",
+      "abstract_api_id": "API-O-IF1"
+    }
+  ],
+  "messages": [
+    {
+      "message_id": "MSG-CF193383F9",
+      "exchange_id": "EXCH-B72440858E",
+      "interaction_id": "",
+      "use_case_id": "UCG-002-UC001",
+      "ssd_id": "SSD-DD25D84BF5",
+      "layer": "SR",
+      "ssd_sequence": 1,
+      "sequence": 1,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-O-IF1",
+      "from_node": "system",
+      "to_node": "sr-UCG-002-UC001",
+      "message": "调用 API-O-IF1：POST /api/v1/orders",
+      "message_kind": "request",
+      "explicitness": "explicit",
+      "direction": "internal",
+      "request_fields": [
+        "cartId",
+        "addressId",
+        "items[]",
+        "paymentMethod"
+      ],
+      "response_fields": [
+        "orderId",
+        "status",
+        "totalAmount"
+      ],
+      "phase": 20,
+      "abstract_api_id": "API-O-IF1",
+      "service_id": "sr-UCG-002-UC001",
+      "api_method": "POST",
+      "resource_path": "/api/v1/orders",
+      "parent_exchange_id": "",
+      "reply_to_message_id": ""
+    },
+    {
+      "message_id": "MSG-9A0D57D33B",
+      "exchange_id": "EXCH-B72440858E",
+      "interaction_id": "",
+      "use_case_id": "UCG-002-UC001",
+      "ssd_id": "SSD-DD25D84BF5",
+      "layer": "SR",
+      "ssd_sequence": 2,
+      "sequence": 2,
+      "source_step_index": 4,
+      "source_location": "功能设计_spec.md:API-O-IF1",
+      "from_node": "sr-UCG-002-UC001",
+      "to_node": "system",
+      "message": "返回 API-O-IF1 结果",
+      "message_kind": "response",
+      "explicitness": "inferred",
+      "direction": "internal",
+      "request_fields": [],
+      "response_fields": [
+        "orderId",
+        "status",
+        "totalAmount"
+      ],
+      "phase": 80,
+      "abstract_api_id": "API-O-IF1",
+      "service_id": "sr-UCG-002-UC001",
+      "reply_to_message_id": "MSG-CF193383F9",
+      "inference_basis": "SR 服务逐层汇总 AR 结果后返回系统。",
+      "parent_exchange_id": ""
+    }
+  ]
+}

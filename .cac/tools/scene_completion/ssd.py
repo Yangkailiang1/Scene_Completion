@@ -47,6 +47,121 @@ def _architecture(uc: dict[str, Any]) -> dict[str, Any]:
     return uc.get("architecture") or {}
 
 
+def _component_dependencies(nodes: dict[str, dict[str, Any]], component: dict[str, Any],
+                            default_step: int, default_location: str) -> list[dict[str, Any]]:
+    """Resolve declared dependency IDs, never infer a service from its name.
+
+    Presence of dependencies (including []) suppresses the legacy DB default.
+    target_node_id identifies the peer; for incoming calls it is the source.
+    caller_node_id optionally identifies an evidence-backed local service.
+    """
+    explicit = "dependencies" in component
+    if explicit:
+        dependencies = component["dependencies"]
+        if not isinstance(dependencies, list):
+            raise ValidationFailure(["architecture.ar.dependencies must be a list"])
+    else:
+        target_id = _text(component.get("external_dependency_node_id"))
+        if not target_id:
+            target_id = next((n["node_id"] for n in nodes.values()
+                              if n.get("kind") == "internal_database" and n.get("layer") == "AR"), "")
+        dependencies = [{"target_node_id": target_id,
+                         "operation": component.get("dependency_operation") or component.get("database_action") or "调用依赖处理请求",
+                         "source_step_index": component.get("source_step_index") or default_step,
+                         "source_location": component.get("source_location") or default_location,
+                         "request_fields": component.get("request_fields", []),
+                         "response_fields": component.get("response_fields", []),
+                         "direction": "outgoing"}] if target_id else []
+    resolved = []
+    allowed = {"internal_service", "implementation_api", "abstract_service", "internal_database",
+               "external_service", "external_database", "external_llm", "external_actor"}
+    for index, raw in enumerate(dependencies):
+        prefix = f"architecture.ar.dependencies[{index}]"
+        if not isinstance(raw, dict):
+            raise ValidationFailure([f"{prefix} must be an object"])
+        dependency = copy.deepcopy(raw)
+        target = nodes.get(_text(dependency.get("target_node_id")))
+        if not target or target.get("kind") not in allowed:
+            raise ValidationFailure([f"{prefix} references an unknown or invalid dependency node"])
+        caller = None
+        if "caller_node_id" in dependency:
+            caller = nodes.get(_text(dependency["caller_node_id"]))
+            if not caller or caller.get("kind") not in {"internal_service", "implementation_api", "abstract_service"}:
+                raise ValidationFailure([f"{prefix}.caller_node_id must reference an existing local service or implementation API"])
+        direction = dependency.get("direction")
+        if direction not in {"incoming", "outgoing"}:
+            raise ValidationFailure([f"{prefix}.direction must be incoming or outgoing"])
+        if direction == "incoming" and target.get("kind") in {"internal_database", "external_database"}:
+            raise ValidationFailure([f"{prefix} callback source must be a service or external actor"])
+        operation = _text(dependency.get("operation"))
+        step = dependency.get("source_step_index")
+        if not operation or type(step) is not int or step < 1:
+            raise ValidationFailure([f"{prefix} needs operation and positive source_step_index"])
+        refs = dependency.get("source_refs", [])
+        if not isinstance(refs, list) or any(not isinstance(ref, dict) for ref in refs):
+            raise ValidationFailure([f"{prefix}.source_refs must be a list of references"])
+        for ref in refs:
+            start, end = ref.get("line_start"), ref.get("line_end", ref.get("line_start"))
+            if (not _text(ref.get("document") or ref.get("path")) or type(start) is not int or
+                    type(end) is not int or start < 1 or end < start):
+                raise ValidationFailure([f"{prefix} has an invalid source reference"])
+        location = _text(dependency.get("source_location"))
+        if explicit and not location and not refs:
+            raise ValidationFailure([f"{prefix} needs source_refs or source_location evidence"])
+        if not location and refs:
+            ref = refs[0]
+            location = f"{ref.get('document') or ref.get('path')}:{ref['line_start']}-{ref.get('line_end', ref['line_start'])}"
+        for key in ("request_fields", "response_fields", "failure_conditions"):
+            if not isinstance(dependency.get(key, []), list):
+                raise ValidationFailure([f"{prefix}.{key} must be a list"])
+        layer = dependency.get("layer") or ("SR" if target.get("kind", "").startswith("external_") else "AR")
+        if layer not in {"SR", "AR"}:
+            raise ValidationFailure([f"{prefix}.layer must be SR or AR"])
+        dependency.update({"target": target, "caller": caller, "operation": operation, "source_step_index": step,
+                           "source_location": location, "layer": layer, "legacy_default": not explicit})
+        resolved.append(dependency)
+    return resolved
+
+
+def _dependency_messages(ssd_id: str, uc_id: str, parent: str, owner: str, micro_id: str,
+                         dependency: dict[str, Any], index: int, sequence: int,
+                         execution_step: int) -> list[dict[str, Any]]:
+    peer = dependency["target"]["node_id"]
+    caller = dependency.get("caller")
+    if caller:
+        owner = micro_id = caller["node_id"]
+    incoming = dependency["direction"] == "incoming"
+    external = dependency["target"].get("kind", "").startswith("external_")
+    source, target = (peer, owner) if incoming else (owner, peer)
+    layer = dependency["layer"]
+    exchange = stable_id("EXCH", parent, "dependency", index, peer, dependency["operation"], dependency["direction"])
+    fields = {"parent_exchange_id": parent, "microservice_id": micro_id, "service_id": micro_id,
+              "dependency_node_id": peer, "source_refs": copy.deepcopy(dependency.get("source_refs", [])),
+              "failure_conditions": copy.deepcopy(dependency.get("failure_conditions", [])),
+              "execution_step_index": execution_step, "dependency_direction": dependency["direction"]}
+    if caller:
+        fields["caller_node_id"] = owner
+    request = _message(ssd_id=ssd_id, use_case_id=uc_id, layer=layer, sequence=sequence,
+                       exchange_id=exchange, source_step_index=dependency["source_step_index"],
+                       source_location=dependency["source_location"], source=source, target=target,
+                       text=dependency["operation"], kind="event" if incoming else "internal_call", phase=40,
+                       direction="incoming" if incoming else ("outgoing" if external else "internal"),
+                       request_fields=copy.deepcopy(dependency.get("request_fields", [])),
+                       response_fields=copy.deepcopy(dependency.get("response_fields", [])),
+                       explicit=not dependency["legacy_default"], **fields)
+    if dependency["legacy_default"]:
+        request["inference_basis"] = "旧架构模型缺少 dependencies，保留已指定依赖或内部数据库默认兼容。"
+    response = _message(ssd_id=ssd_id, use_case_id=uc_id, layer=layer, sequence=sequence+1,
+                        exchange_id=exchange, source_step_index=dependency["source_step_index"],
+                        source_location=dependency["source_location"], source=target, target=source,
+                        text=f"返回：{dependency['operation']} 处理结果", kind="response" if incoming else "internal_return", phase=50,
+                        direction="outgoing" if incoming else ("incoming" if external else "internal"),
+                        response_fields=copy.deepcopy(dependency.get("response_fields", [])),
+                        reply_to_message_id=request["message_id"], explicit=False,
+                        inference_basis="有来源的依赖调用补齐返回箭头，未规定的结果需需求确认。", **fields)
+    return [request, response]
+
+
 def _actor_node(model: dict[str, Any], actor: str) -> dict[str, Any] | None:
     return _node_by_name(model, actor, {"human_actor", "external_actor", "external_service"})
 
@@ -256,7 +371,6 @@ def _ar_messages(model: dict[str, Any], uc: dict[str, Any], ssd_id: str) -> list
     default_step = int(primary.get("source_step_index", 1) or 1)
     result: list[dict[str, Any]] = []
     sequence = 1
-    dbs = [node for node in nodes.values() if node.get("kind") == "internal_database" and node.get("layer") == "AR"]
     for index, component in enumerate(arch.get("ar") or [], 1):
         micro_id = _text(component.get("microservice_id"))
         impl_id = _text(component.get("implementation_api_node_id") or component.get("implementation_api_id"))
@@ -279,19 +393,13 @@ def _ar_messages(model: dict[str, Any], uc: dict[str, Any], ssd_id: str) -> list
                         interaction_id=interaction_id, implementation_api_id=component.get("implementation_api_id", ""), service_id=micro_id,
                         reply_to_message_id=req1["message_id"])
         result.append(req2); sequence += 1
-        if dbs:
-            db = dbs[0]
-            db_ex = stable_id("EXCH", ex, "db")
-            db_req = _message(ssd_id=ssd_id, use_case_id=uc["use_case_id"], layer="AR", sequence=sequence, exchange_id=db_ex,
-                              source_step_index=step, source_location=location, source=micro_id, target=db["node_id"],
-                              text=component.get("database_action", "查询或写入内部数据库"), kind="internal_call", phase=40,
-                              interaction_id=interaction_id, service_id=micro_id, entity_attribute=component.get("entity_attribute", ""))
-            result.append(db_req); sequence += 1
-            db_resp = _message(ssd_id=ssd_id, use_case_id=uc["use_case_id"], layer="AR", sequence=sequence, exchange_id=db_ex,
-                               source_step_index=step, source_location=location, source=db["node_id"], target=micro_id,
-                               text="返回数据库处理结果", kind="internal_return", phase=50, interaction_id=interaction_id,
-                               reply_to_message_id=db_req["message_id"], explicit=False, inference_basis="AR 微服务需要接收内部数据库处理结果。")
-            result.append(db_resp); sequence += 1
+        for dependency_index, dependency in enumerate(_component_dependencies(nodes, component, step, location)):
+            messages = _dependency_messages(ssd_id, uc["use_case_id"], micro_ex, micro_id, micro_id,
+                                             dependency, dependency_index, sequence, step)
+            for message in messages:
+                message["interaction_id"] = interaction_id
+                message["entity_attribute"] = component.get("entity_attribute", "")
+            result.extend(messages); sequence += 2
         ret = _message(ssd_id=ssd_id, use_case_id=uc["use_case_id"], layer="AR", sequence=sequence, exchange_id=micro_ex,
                        source_step_index=step, source_location=location, source=micro_id, target=impl_id,
                        text=f"返回 {component.get('implementation_api_id', '实现接口')} 结果", kind="internal_return", phase=60,
@@ -316,11 +424,17 @@ def _fuse(rr: dict[str, Any], sr: dict[str, Any], ar: dict[str, Any]) -> dict[st
             item["original_ssd_id"] = item.get("ssd_id", "")
             item["ssd_id"] = fused_id
             all_messages.append(item)
-    all_messages.sort(key=lambda item: (int(item.get("source_step_index", 0) or 0), int(item.get("phase", 99)), int(item.get("sequence", 0))))
+    all_messages.sort(key=lambda item: (int(item.get("execution_step_index", item.get("source_step_index", 0)) or 0), int(item.get("phase", 99)), int(item.get("sequence", 0))))
+    old_to_new = {}
     for index, item in enumerate(all_messages, 1):
+        old_id = item.get("message_id")
         item["ssd_sequence"] = index
         item["sequence"] = index
         item["message_id"] = stable_id("MSG", fused_id, item.get("exchange_id"), item.get("message_kind"), index, item.get("from_node"), item.get("to_node"))
+        old_to_new[old_id] = item["message_id"]
+    for item in all_messages:
+        if item.get("reply_to_message_id") in old_to_new:
+            item["reply_to_message_id"] = old_to_new[item["reply_to_message_id"]]
     return {"version": "4", "ssd_id": fused_id, "layer": "fused", "project": rr.get("project", ""),
             "use_case_id": rr.get("use_case_id"), "scenario_id": rr.get("scenario_id", "main"),
             "name": rr.get("name", ""), "messages": all_messages,
@@ -593,9 +707,8 @@ def _v5_chain(model: dict[str, Any], uc: dict[str, Any], ssd_id: str) -> tuple[d
     seq_sr += 1; sr_messages.append(sr_req); request_by_exchange[primary_ex] = sr_req
     sr_lifelines.append({"node_id": sr_id, "label": sr_arch.get("service_name", sr_id), "kind": "sr_service", "layer": "SR", "abstract_api_id": api_id})
 
-    # AR uses one line for ImplementationAPI + microservice.  It may call an
-    # internal database or an SR external dependency, then returns in reverse.
-    last_ar_target = sr_id
+    # AR uses one line for ImplementationAPI + microservice. All explicitly
+    # declared internal/external dependencies retain their peer ID and evidence.
     for index, component in enumerate(components, 1):
         impl = _text(component.get("implementation_api_node_id") or component.get("implementation_api_id"))
         micro = _text(component.get("microservice_id"))
@@ -613,20 +726,20 @@ def _v5_chain(model: dict[str, Any], uc: dict[str, Any], ssd_id: str) -> tuple[d
         step = call_step; loc = component.get("source_location", call_location)
         req = _v5_message(ssd_id+"-AR", uc["use_case_id"], seq_ar, ex, step, loc, sr_id, impl, f"调用 {component.get('implementation_api_id', impl)}：{component.get('method', '')} {component.get('resource_path', '')}".strip(), "internal_call", "AR", 30, parent_exchange_id=primary_ex, implementation_api_id=component.get("implementation_api_id", ""), microservice_id=micro, service_id=micro, api_method=component.get("method", ""), resource_path=component.get("resource_path", ""), request_fields=copy.deepcopy(component.get("request_fields", [])), direction="internal")
         seq_ar += 1; ar_messages.append(req)
-        db = next((n for n in nodes.values() if n.get("kind") == "internal_database" and n.get("layer") == "AR"), None)
-        dep = next((n for n in nodes.values() if n.get("kind") in {"external_service", "external_database", "external_llm"} and n.get("name", "").lower().replace("service", "") in micro.lower()), None)
-        target = db or dep
-        nested_req = None
-        nested_resp = None
-        if target:
-            target_layer = "SR" if target.get("kind") in {"external_service", "external_database", "external_llm"} else "AR"
-            nested_ex = stable_id("EXCH", ex, "dependency")
-            nested_req = _v5_message(ssd_id+"-"+target_layer, uc["use_case_id"], seq_ar, nested_ex, step, loc, impl, target["node_id"], component.get("database_action", "调用依赖处理请求"), "internal_call", target_layer, 40, parent_exchange_id=ex, microservice_id=micro, service_id=micro, entity_attribute=component.get("entity_attribute", ""), direction="internal")
-            seq_ar += 1
-            nested_resp = _v5_message(ssd_id+"-"+target_layer, uc["use_case_id"], seq_ar, nested_ex, step, loc, target["node_id"], impl, "返回依赖处理结果", "internal_return", target_layer, 50, parent_exchange_id=ex, reply_to_message_id=nested_req["message_id"], explicit=False, inference_basis="同步调用需要逐层返回。", direction="internal")
-            seq_ar += 1; ar_messages.extend([nested_req, nested_resp])
-            if not any(item.get("node_id") == target["node_id"] for item in fused_lifelines):
-                fused_lifelines.append({"node_id": target["node_id"], "label": target.get("name", target["node_id"]), "kind": target.get("kind"), "layer": target_layer})
+        for dependency_index, dependency in enumerate(_component_dependencies(nodes, component, step, loc)):
+            target = dependency["target"]
+            target_layer = dependency["layer"]
+            messages = _dependency_messages(ssd_id+"-"+target_layer, uc["use_case_id"], ex, impl, micro,
+                                             dependency, dependency_index, seq_ar, step)
+            for message in messages:
+                message["entity_attribute"] = component.get("entity_attribute", "")
+            seq_ar += 2; ar_messages.extend(messages)
+            if not any(item.get("node_id") == target["node_id"] for item in ar_lifelines):
+                ar_lifelines.append({"node_id": target["node_id"], "label": target.get("name", target["node_id"]), "kind": target.get("kind"), "layer": target_layer})
+            caller = dependency.get("caller")
+            if caller and not any(item.get("node_id") == caller["node_id"] for item in ar_lifelines):
+                ar_lifelines.append({"node_id": caller["node_id"], "label": caller.get("name", caller["node_id"]),
+                                     "kind": caller.get("kind"), "layer": caller.get("layer", "AR")})
         ret = _v5_message(ssd_id+"-AR", uc["use_case_id"], seq_ar, ex, step, loc, impl, sr_id, f"返回 {component.get('implementation_api_id', '实现接口')} 结果", "internal_return", "AR", 60, parent_exchange_id=primary_ex, reply_to_message_id=req["message_id"], explicit=False, implementation_api_id=component.get("implementation_api_id", ""), microservice_id=micro, service_id=micro, direction="internal")
         seq_ar += 1; ar_messages.append(ret)
     sr_resp = _v5_message(ssd_id+"-SR", uc["use_case_id"], seq_sr, primary_ex, call_step, call_location, sr_id, system_id, f"返回 {api_id} 结果", "response", "SR", 80, abstract_api_id=api_id, service_id=sr_id, response_fields=copy.deepcopy(interface.get("response_fields", sr_arch.get("response_fields", []))), reply_to_message_id=sr_req["message_id"], explicit=False, inference_basis="SR 服务逐层汇总 AR 结果后返回系统。", direction="internal")
@@ -644,7 +757,7 @@ def _v5_resequence(ssd: dict[str, Any]) -> dict[str, Any]:
     item = copy.deepcopy(ssd)
     # parent chain is visualized in call order: RR, SR request, AR calls,
     # nested dependencies, returns, SR response, RR feedback.
-    msgs = sorted(item.get("messages", []), key=lambda m: (int(m.get("source_step_index", 0) or 0), int(m.get("phase", 99)), int(m.get("sequence", 0))))
+    msgs = sorted(item.get("messages", []), key=lambda m: (int(m.get("execution_step_index", m.get("source_step_index", 0)) or 0), int(m.get("phase", 99)), int(m.get("sequence", 0))))
     old_to_new = {}
     for i, message in enumerate(msgs, 1):
         old = message.get("message_id")
@@ -723,7 +836,7 @@ def _v6_dedupe_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, 
 
 
 def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = None) -> dict[str, Any]:
-    if str(model.get("version")) not in {"5", "6", "8"}:
+    if str(model.get("version")) not in {"5", "6", "8", "9"}:
         return _v4_generate_ssd_bundle(model, use_case_id, api_map)
     normalized = validate_scene_model(model, raise_on_error=True)["normalized_model"]
     uc = use_case_map(normalized).get(use_case_id)
@@ -736,7 +849,7 @@ def generate_ssd_bundle(model: dict[str, Any], use_case_id: str, api_map: Any = 
 
 
 def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise_on_error: bool = False) -> dict[str, Any]:
-    if str(ssd.get("version", "")) not in {"5", "6", "8"}:
+    if str(ssd.get("version", "")) not in {"5", "6", "8", "9"}:
         return _v4_validate_ssd(ssd, model, raise_on_error)
     errors: list[str] = []
     if ssd.get("layer") not in {"RR", "SR", "AR", "fused"}:
@@ -773,7 +886,7 @@ def validate_ssd(ssd: dict[str, Any], model: dict[str, Any] | None = None, raise
 
 
 def write_ssd_bundle(bundle: dict[str, Any], model: dict[str, Any], output_dir: str | Path, plantuml_jar: str | Path | None = None, render: bool = False) -> dict[str, Any]:
-    if str(bundle.get("version")) not in {"5", "6", "8"}:
+    if str(bundle.get("version")) not in {"5", "6", "8", "9"}:
         return _v4_write_ssd_bundle(bundle, model, output_dir, plantuml_jar, render)
     output = Path(output_dir).expanduser().resolve() / bundle["use_case_id"]; output.mkdir(parents=True, exist_ok=True)
     paths = {}

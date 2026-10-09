@@ -1,0 +1,30 @@
+{
+  "type": "json_object",
+  "checked_checker_ids": [
+    "CHK-e334d924b044c0587e7b"
+  ],
+  "checked_generated_ids": [
+    "GEN-667D2D9853",
+    "GEN-61B6E05B7A"
+  ],
+  "decisions": [
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-667D2D9853",
+      "status": "unmatched",
+      "evidence": "Checker 处理的是 PaymentService 重复发送支付结果通知（幂等性）场景；生成场景处理的是对 OrderItem 资源执行读/写/删时资源不存在（存在性）场景。触发条件不同（重复通知 vs 资源缺失），受影响资源不同（支付通知 vs OrderItem），预期结果不同（幂等不重复更新 vs 待确认）。无共享的具体条件或行为。",
+      "missing_behavior": []
+    },
+    {
+      "checker_scenario_id": "CHK-e334d924b044c0587e7b",
+      "generated_scenario_id": "GEN-61B6E05B7A",
+      "status": "unmatched",
+      "evidence": "Checker 是支付结果重复通知的幂等处理；生成场景是 OrderItem 唯一性约束冲突（名称重复/唯一键冲突）。触发条件不同（重复支付通知 vs 唯一键冲突），受影响资源与操作不同，预期结果不同（幂等不重复更新 vs 待确认）。仅共享用例上下文前缀，不构成语义匹配。",
+      "missing_behavior": []
+    }
+  ],
+  "matches": [],
+  "batch_id": "matching-0009-f2121d411498",
+  "input_hash": "f2121d411498b62332c002f3fea9c7d003997da0a76bf9a6c3b3d894ce6128fe",
+  "model": "ecnu-max"
+}

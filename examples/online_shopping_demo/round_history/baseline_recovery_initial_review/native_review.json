@@ -1,0 +1,113 @@
+{
+  "input_hash": "a2ebeea4bdfa967fed84cf410b9e5f992956487425b8ff26020aa38b665c782b",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "max",
+  "decisions": [
+    {
+      "review_id": "matching-0000-5d209463b1ff:0",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "重复提交。",
+      "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+      "evidence": "生成侧在结算流程中明确通过订单创建接口处理，并按幂等标识返回已创建订单；checker 明确在结算页检测重复提交并返回已创建订单。触发、核心处理与 expected_result 一致，约束没有冲突。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0003-8479babd0375:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "执行「Read or update Order records」时：重复请求导致重复操作异常",
+      "checker_trigger_quote": "顾客在结算页确认提交订单时，系统检测到重复提交",
+      "evidence": "生成侧描述在读取或更新 Order records 时重复请求导致重复操作异常；checker 描述的是结算页重复提交后按幂等标识返回既有订单。前者未指定结算提交这一业务操作，也未说明异常处理，不能仅凭都涉及订单与重复请求认定为同一触发或核心行为。前置条件一致，未见明确约束冲突。",
+      "missing_behavior": [
+        "生成侧没有明确重复的结算订单提交这一触发或其响应；checker 的既有订单返回结果无法补足生成侧的操作与失败机制差异。"
+      ]
+    },
+    {
+      "review_id": "matching-0005-b08e6a7e8ac8:0",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "支付结果重复通知。",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "evidence": "两侧触发均为支付结果重复通知，expected_result 均明确系统幂等处理且不重复更新订单。checker 省略支付成功与订单更新的前序步骤，但重复通知的核心处理和结果明确一致，前置条件没有冲突。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0007-3aaf528c1223:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "执行「调用 PAYMENT-PAY-01：POST /payment/v1/payments」时：并发变更产生冲突，或重复请求导致重复变更",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "evidence": "生成侧触发于调用 PAYMENT-PAY-01 POST 支付请求时的并发冲突或重复请求；checker 触发于 PaymentService 发来的重复支付结果通知。一个是请求调用中的重复变更问题，另一个是支付结果通知重复，操作阶段和失败机制不同。生成侧响应未知；前置条件没有明确冲突。",
+      "missing_behavior": [
+        "checker 未覆盖支付 API 请求调用期间的并发冲突或重复请求；生成侧也未定义该 API 异常的响应与恢复。"
+      ]
+    },
+    {
+      "review_id": "matching-0008-73a93a0aa998:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "执行「Read or update OrderItem records」时：重复请求导致重复操作异常",
+      "checker_trigger_quote": "5.a 异常场景：支付结果重复通知。",
+      "evidence": "生成侧对象是 OrderItem records，触发为重复请求导致重复操作异常；checker 对象和触发分别是订单支付结果通知以及 PaymentService 重复发送该结果。对象与操作阶段不同，支付用例前置条件相同不足以证明行为相同。生成侧响应未定义，未发现前置约束冲突。",
+      "missing_behavior": [
+        "checker 未描述 OrderItem records 重复请求异常；生成侧未说明该异常的响应或恢复方式。"
+      ]
+    },
+    {
+      "review_id": "matching-0015-9400c1d5f184:0",
+      "status": "full",
+      "same_specific_trigger": true,
+      "shared_core_behavior": true,
+      "same_expected_outcome": true,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "销售价格不在允许范围。",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "evidence": "两侧都明确是 SKU 销售价格超出允许范围，且步骤与 expected_result 均为提示商家修正价格。前置条件一致，checker 没有给出相反的校验或处理行为。",
+      "missing_behavior": []
+    },
+    {
+      "review_id": "matching-0016-7a27e80b01c7:0",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "evidence": "生成侧说明 SKU PUT 请求中的某个数值超出范围，步骤涉及库存数量、销售价格和可选原价，并未指出具体越界字段；checker 明确指定销售价格越界。API 与 SKU 范围相同不能确定两侧是同一个字段触发，生成侧响应也待确认。前置条件一致。",
+      "missing_behavior": [
+        "生成侧没有指明超范围的是库存、销售价格、原价或其他数值字段，也没有说明该异常的响应，因此不能确认与 checker 的销售价格修正提示对应。"
+      ]
+    },
+    {
+      "review_id": "matching-0016-7a27e80b01c7:1",
+      "status": "unmatched",
+      "same_specific_trigger": false,
+      "shared_core_behavior": false,
+      "same_expected_outcome": false,
+      "compatible_constraints": true,
+      "generated_trigger_quote": "执行「调用 API-M-IF3：PUT /api/v1/merchant/products/{productId}/skus」时：数值超出允许范围",
+      "checker_trigger_quote": "商家设置的销售价格不在允许范围内，系统在路径第③步校验时发现。",
+      "evidence": "该生成侧记录同样只将异常定位为 SKU PUT 请求中的数值超范围；其列出的输入包含库存、销售价格和可选原价，未将异常限定到销售价格。checker 则具体限定为销售价格校验，不能依据同一 API 或步骤上下文推定字段相同。生成侧响应待确认，前置条件一致。",
+      "missing_behavior": [
+        "生成侧未确定超范围的具体字段，也未给出异常响应；checker 的销售价格越界及修正提示无法由生成侧记录证实。"
+      ]
+    }
+  ]
+}
