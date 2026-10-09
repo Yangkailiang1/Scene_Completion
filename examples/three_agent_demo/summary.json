@@ -1,0 +1,151 @@
+{
+  "schema_version": "demo-v1",
+  "generated_count": 472,
+  "checker_count": 97,
+  "source_input_hash": "967e9f44dd0f751a706db68649e0b49a8a6d5baf17c00f81be6d3b1f2936b517",
+  "checker_provenance": "Independent requirement/design extraction, frozen across backends; historical opaque IDs retained.",
+  "review": {
+    "model": "gpt-6-luna",
+    "reasoning_effort": "max",
+    "matching_verification_version": "grounded-pair-v2",
+    "support_verification_version": "support-scale-v1",
+    "native_reviewed_pair_count": 60,
+    "native_full": 3,
+    "native_partial": 45,
+    "native_rejected": 12,
+    "native_input_hash": "6f88d11a1ffd5b45824df7ded5dd1f48c52f09a5f0c130082b708526b3573ee4"
+  },
+  "experiments": {
+    "agent": {
+      "complete": true,
+      "miss_rate": {
+        "numerator": 54,
+        "denominator": 97,
+        "rate": 0.5567010309278351
+      },
+      "existing_completeness": {
+        "numerator": 47,
+        "denominator": 472,
+        "rate": 0.09957627118644068
+      },
+      "match_count": 48,
+      "full_links": 3,
+      "partial_links": 45,
+      "recommendation_count": 425,
+      "rerank": false,
+      "thresholds": null
+    },
+    "embedding_default": {
+      "complete": true,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 97,
+        "rate": 0.0
+      },
+      "existing_completeness": {
+        "numerator": 472,
+        "denominator": 472,
+        "rate": 1.0
+      },
+      "match_count": 3269,
+      "full_links": 629,
+      "partial_links": 2640,
+      "recommendation_count": 0,
+      "rerank": false,
+      "thresholds": {
+        "full": 0.85,
+        "partial": 0.7,
+        "calibrated": false
+      }
+    },
+    "embedding_sensitivity": {
+      "complete": true,
+      "miss_rate": {
+        "numerator": 18,
+        "denominator": 97,
+        "rate": 0.18556701030927836
+      },
+      "existing_completeness": {
+        "numerator": 347,
+        "denominator": 472,
+        "rate": 0.7351694915254238
+      },
+      "match_count": 629,
+      "full_links": 6,
+      "partial_links": 623,
+      "recommendation_count": 125,
+      "rerank": false,
+      "thresholds": {
+        "full": 0.95,
+        "partial": 0.85,
+        "calibrated": false
+      }
+    },
+    "embedding_sensitivity_rerank": {
+      "complete": true,
+      "miss_rate": {
+        "numerator": 18,
+        "denominator": 97,
+        "rate": 0.18556701030927836
+      },
+      "existing_completeness": {
+        "numerator": 347,
+        "denominator": 472,
+        "rate": 0.7351694915254238
+      },
+      "match_count": 629,
+      "full_links": 6,
+      "partial_links": 623,
+      "recommendation_count": 125,
+      "rerank": true,
+      "thresholds": {
+        "full": 0.95,
+        "partial": 0.85,
+        "calibrated": false
+      }
+    }
+  },
+  "classification_limit": "Generator glossary labels 3/37 explicit exceptions; 34 enter overall/unclassified. Checker labels 72/76 independently.",
+  "rerank_comparison": {
+    "candidate_count": 125,
+    "matches_identical": true,
+    "metrics_identical": true,
+    "candidate_ids_identical": true,
+    "rank_changed_count": 124,
+    "top_evidence_chapter_changed_count": 83,
+    "top_evidence_fragment_changed_count": 110,
+    "historical_first_pass_seconds": {
+      "base": 67.83891679998487,
+      "rerank": 477.26708719995804
+    },
+    "cached_final_replay_seconds": {
+      "base": 3.0477818998042494,
+      "rerank": 2.676120199961588
+    },
+    "timing_note": "First pass reused warmed embedding vectors; final replay also reused rerank cache. Network/cache conditions differ; times are not a controlled speed benchmark.",
+    "top10_base": [
+      "GEN-77AB459B56",
+      "GEN-7C9FD22D69",
+      "GEN-1A962C9C31",
+      "GEN-49681DEB1C",
+      "GEN-4414FB106B",
+      "GEN-F9C097B077",
+      "GEN-1C6EAA0529",
+      "GEN-D974AA2834",
+      "GEN-9021C050C2",
+      "GEN-0BA303A669"
+    ],
+    "top10_rerank": [
+      "GEN-1C6EAA0529",
+      "GEN-9021C050C2",
+      "GEN-0BA303A669",
+      "GEN-066A77A957",
+      "GEN-6A6E0E793F",
+      "GEN-291A7E5B95",
+      "GEN-5C5A3FF406",
+      "GEN-649DB4A161",
+      "GEN-4718D4278A",
+      "GEN-D2C1E8AA68"
+    ]
+  }
+}

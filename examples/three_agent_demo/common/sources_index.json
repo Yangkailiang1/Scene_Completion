@@ -1,0 +1,2899 @@
+{
+  "schema_version": "three-agent-v1",
+  "documents": [
+    {
+      "document": "系统需求Delta_spec.md",
+      "format": "md",
+      "content_hash": "30edf9bae07639ced7e6bbbf8150bb533d12e982cb98244fc11ee29abcee5656",
+      "line_count": 425,
+      "text": "# 需求[RR-DELTA-001]描述\n\n> 本文档为仿真数据，所有名称、编号、接口和业务数据均为虚构。\n\n## 价值\n\n为顾客提供完整的在线购物能力，为商家提供商品发布与履约能力，并通过支付、物流服务完成交易闭环。\n\n## 术语/缩写\n\n| 术语/缩写 | 含义 |\n| --- | --- |\n| RR | 系统需求编号 |\n| UCG | 用例组 |\n| UC | 用例 |\n| SKU | 最小库存单位 |\n| ProductBrowse | 商品浏览模块 |\n| PaymentService | 第三方支付服务 |\n| LogisticsService | 第三方物流服务 |\n\n## 系统上下文\n\n### 目标系统\n\n| 系统名称 | 系统边界说明 |\n| --- | --- |\n| Delta在线商城系统 | 系统负责商品浏览、购物车、订单、商家商品管理、支付协调和物流信息展示；第三方支付扣款及实际物流运输不属于本系统边界。 |\n\n### 周边交互方清单\n\n| 编号 | 外部系统名称 | 类型 | 交互接口类型 | 交互接口主要功能 |\n| --- | --- | --- | --- | --- |\n| ACT-001 | 顾客 | 人 | UI/API | 浏览商品、加入购物车、创建和支付订单、查看订单与物流、申请退款 |\n| ACT-002 | 商家 | 人 | UI/API | 创建商品、维护商品信息、设置库存与价格、发布商品、处理发货 |\n| ACT-003 | PaymentService | 服务 | API/协议 | 创建支付、返回支付结果、执行退款 |\n| ACT-004 | LogisticsService | 服务 | API/SDK | 创建物流单、更新和查询物流轨迹 |\n\n## 需求描述\n\n| 编号 | 名称 | 描述 | Who | Where | When | Why | What | How |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| RR-DELTA-001 | 在线商城交易能力 | 建设覆盖商品浏览、下单支付、履约售后和商家上架的在线交易平台。 | 顾客、商家、PaymentService、LogisticsService | 商城网页端、移动端及服务端 | 顾客购物或商家经营时 | 形成可追踪、可支付、可履约的在线交易闭环 | 提供商品、订单、支付、物流、退款和商品管理能力 | 通过商城UI、内部API以及第三方支付和物流接口协同完成 |\n\n# 场景用例分析\n\n### 场景划分\n\n#### UCG-001：商品浏览与选购用例组\n\n顾客浏览商品、查看商品详情，并将选中的商品加入购物车。\n\n#### UCG-002：订单处理用例组\n\n顾客根据购物车创建订单、完成支付并查看订单详情。\n\n#### UCG-003：商品管理与售后服务用例组\n\n商家完成订单发货，顾客或外部服务更新、查询物流并处理退款。\n\n#### UCG-004：商家上架用例组\n\n商家创建商品、填写商品资料、设置库存与价格并发布商品。\n\n## 用例清单\n\n| 变更类型 | 优先级 | 用例编号 | 用例名称 | 用例目的 | 用例描述 |\n| --- | --- | --- | --- | --- | --- |\n| 修改 | 高 | UCG-001-UC001 | 浏览商品 | 帮助顾客发现可售商品 | 顾客通过关键词、分类、价格和排序条件浏览商品列表 |\n| 新增 | 高 | UCG-001-UC002 | 查看商品详情 | 展示商品完整购买信息 | 顾客查看指定商品的描述、图片、价格和库存状态 |\n| 修改 | 高 | UCG-001-UC003 | 加入购物车 | 保存顾客的购买选择 | 顾客选择SKU和数量后将商品加入购物车 |\n| 修改 | 高 | UCG-002-UC001 | 创建订单 | 将购物车内容转化为待支付订单 | 顾客确认收货信息和商品后创建订单 |\n| 修改 | 高 | UCG-002-UC002 | 支付订单 | 完成订单资金支付 | 顾客选择支付方式并由PaymentService完成支付 |\n| 新增 | 中 | UCG-002-UC003 | 查看订单详情 | 展示订单当前状态 | 顾客查看订单商品、金额、支付和履约信息 |\n| 新增 | 高 | UCG-003-UC001 | 商家发货 | 启动订单履约 | 商家为已支付订单填写物流信息并确认发货 |\n| 新增 | 高 | UCG-003-UC002 | 更新物流信息 | 保持物流状态同步 | LogisticsService向商城更新物流节点 |\n| 修改 | 中 | UCG-003-UC003 | 查询物流信息 | 向顾客展示物流轨迹 | 顾客查询已发货订单的最新物流信息 |\n| 修改 | 高 | UCG-003-UC004 | 申请退款 | 支持交易售后处理 | 顾客对满足退款条件的订单提交退款申请 |\n| 新增 | 高 | UCG-004-UC001 | 创建商品 | 建立待编辑商品记录 | 商家创建商品草稿并获得商品编号 |\n| 新增 | 高 | UCG-004-UC002 | 填写商品信息 | 完善商品展示资料 | 商家维护名称、描述、分类和图片 |\n| 修改 | 高 | UCG-004-UC003 | 设置库存与价格 | 建立可交易SKU信息 | 商家为商品SKU设置库存和销售价格 |\n| 修改 | 高 | UCG-004-UC004 | 发布商品 | 使商品可被顾客浏览 | 商家提交商品发布并由系统完成校验 |\n\n## 用例详细说明\n\n### UCG-001-UC001：浏览商品\n\n1. Actor：顾客\n2. 前置条件：\n   ① Delta在线商城系统正常运行。\n   ② 商品浏览功能和商品目录服务可用。\n3. 后置条件（成功保证）：\n   系统展示符合当前条件的可售商品列表。\n4. 触发事件：\n   顾客进入商品浏览页面，或发起商品搜索、筛选请求。\n5. 主成功路径：\n   ① 顾客进入商品浏览页面。\n   ② 系统通过商品浏览接口 API-S-IF1 展示当前可浏览的商品列表。\n   ③ 顾客输入关键词、选择分类或设置价格、排序条件。\n   ④ 系统根据条件查询状态为 ON_SALE 的商品。\n   ⑤ 系统展示符合条件的商品列表和分页信息。\n6. 扩展路径：\n   3.a 可选场景：顾客未设置搜索或筛选条件。\n   → 系统按默认规则展示商品。\n   4.a 异常场景：未查询到符合条件的商品。\n   → 系统返回空列表并提示“暂无符合条件的商品”。\n   4.b 异常场景：查询参数非法。\n   → 系统提示顾客修正查询条件。\n   4.c 异常场景：商品目录服务超时。\n   → 系统提示“商品加载失败，请稍后重试”。\n\n### UCG-001-UC002：查看商品详情\n\n1. Actor：顾客\n2. 前置条件：\n   ① 顾客已进入商品列表。\n   ② 目标商品处于可浏览状态。\n3. 后置条件（成功保证）：\n   系统展示目标商品的完整详情。\n4. 触发事件：\n   顾客选择一个商品。\n5. 主成功路径：\n   ① 顾客点击商品。\n   ② 系统通过商品详情接口 API-S-IF2 查询商品信息。\n   ③ 系统获取商品描述、图片、价格和库存状态。\n   ④ 系统展示商品详情页面。\n6. 扩展路径：\n   2.a 异常场景：商品不存在。\n   → 系统提示“商品不存在”并返回商品列表。\n   2.b 异常场景：商品已下架。\n   → 系统提示“商品已下架”且禁止购买。\n   3.a 异常场景：部分非关键展示信息缺失。\n   → 系统展示已有信息并隐藏缺失区域。\n\n### UCG-001-UC003：加入购物车\n\n1. Actor：顾客\n2. 前置条件：\n   ① 顾客已登录。\n   ② 商品及所选SKU处于可售状态。\n3. 后置条件（成功保证）：\n   商品及购买数量被保存到顾客购物车。\n4. 触发事件：\n   顾客在商品详情页选择SKU和数量并点击“加入购物车”。\n5. 主成功路径：\n   ① 顾客选择SKU和购买数量。\n   ② 系统校验商品状态、库存和限购规则。\n   ③ 系统调用购物车写入接口 API-C-IF1。\n   ④ 系统更新购物车商品数量和金额摘要。\n   ⑤ 系统提示“已加入购物车”。\n6. 扩展路径：\n   2.a 异常场景：库存不足。\n   → 系统提示当前可购买数量。\n   2.b 异常场景：商品已下架。\n   → 系统拒绝加入购物车。\n   3.a 可选场景：购物车中已存在相同SKU。\n   → 系统累加数量，但不得超过库存和限购上限。\n\n### UCG-002-UC001：创建订单\n\n1. Actor：顾客\n2. 前置条件：\n   ① 顾客已登录。\n   ② 购物车中存在已选中的有效商品。\n   ③ 顾客已提供有效收货地址。\n3. 后置条件（成功保证）：\n   系统生成状态为 WAIT_PAY 的订单并锁定相应库存。\n4. 触发事件：\n   顾客在结算页确认提交订单。\n5. 主成功路径：\n   ① 系统读取顾客选中的购物车商品。\n   ② 系统校验价格、库存和促销有效性。\n   ③ 顾客确认收货地址和订单金额。\n   ④ 系统通过订单创建接口 API-O-IF1 创建订单。\n   ⑤ 系统锁定库存并返回订单编号和待支付金额。\n6. 扩展路径：\n   2.a 异常场景：商品价格已变化。\n   → 系统展示最新价格并要求顾客重新确认。\n   2.b 异常场景：库存不足。\n   → 系统标记缺货商品并阻止订单创建。\n   4.a 异常场景：重复提交。\n   → 系统根据幂等标识返回已创建的订单。\n\n### UCG-002-UC002：支付订单\n\n1. Actor：顾客、PaymentService\n2. 前置条件：\n   ① 订单状态为 WAIT_PAY。\n   ② 订单未超过支付有效期。\n   ③ PaymentService可用。\n3. 后置条件（成功保证）：\n   订单状态更新为 PAID，并记录支付流水。\n4. 触发事件：\n   顾客选择支付方式并确认支付。\n5. 主成功路径：\n   ① 顾客发起订单支付。\n   ② 系统校验订单状态和应付金额。\n   ③ 系统通过支付协议 PAYMENT-PAY-01 向PaymentService创建支付请求。\n   ④ PaymentService完成支付并返回成功结果。\n   ⑤ 系统校验支付结果并将订单更新为 PAID。\n   ⑥ 系统向顾客展示支付成功页面。\n6. 扩展路径：\n   3.a 异常场景：PaymentService不可用。\n   → 系统保留待支付状态并提示稍后重试。\n   4.a 异常场景：顾客取消支付。\n   → 系统返回订单详情，订单保持 WAIT_PAY。\n   5.a 异常场景：支付结果重复通知。\n   → 系统进行幂等处理，不重复更新订单。\n\n### UCG-002-UC003：查看订单详情\n\n1. Actor：顾客\n2. 前置条件：\n   ① 顾客已登录。\n   ② 订单属于当前顾客。\n3. 后置条件（成功保证）：\n   系统展示订单的商品、金额、支付和履约信息。\n4. 触发事件：\n   顾客从订单列表选择一个订单。\n5. 主成功路径：\n   ① 顾客提交订单编号。\n   ② 系统校验订单归属关系。\n   ③ 系统通过订单详情接口 API-O-IF2 查询订单。\n   ④ 系统组合订单商品、金额、支付和物流摘要。\n   ⑤ 系统展示订单详情。\n6. 扩展路径：\n   2.a 异常场景：订单不属于当前顾客。\n   → 系统拒绝访问并记录安全事件。\n   3.a 异常场景：订单不存在。\n   → 系统提示“订单不存在”。\n   4.a 可选场景：订单尚未发货。\n   → 系统不展示物流轨迹。\n\n### UCG-003-UC001：商家发货\n\n1. Actor：商家、LogisticsService\n2. 前置条件：\n   ① 商家已登录且拥有订单处理权限。\n   ② 订单状态为 PAID。\n   ③ 商品已完成出库准备。\n3. 后置条件（成功保证）：\n   订单状态更新为 SHIPPED，并保存物流单号。\n4. 触发事件：\n   商家填写承运商和物流单号后确认发货。\n5. 主成功路径：\n   ① 商家选择待发货订单。\n   ② 系统校验订单状态和商家权限。\n   ③ 系统调用发货接口 API-L-IF1 创建发货记录。\n   ④ 系统向LogisticsService登记物流单。\n   ⑤ 系统保存物流单号并将订单更新为 SHIPPED。\n6. 扩展路径：\n   2.a 异常场景：订单状态不是 PAID。\n   → 系统拒绝发货。\n   3.a 异常场景：物流单号格式错误。\n   → 系统提示商家修正。\n   4.a 异常场景：LogisticsService暂时不可用。\n   → 系统保留待同步记录并进入重试队列。\n\n### UCG-003-UC002：更新物流信息\n\n1. Actor：LogisticsService\n2. 前置条件：\n   ① 商城已登记有效物流单号。\n   ② LogisticsService已获得合法调用凭证。\n3. 后置条件（成功保证）：\n   商城保存最新物流节点并更新物流状态。\n4. 触发事件：\n   LogisticsService产生新的物流轨迹。\n5. 主成功路径：\n   ① LogisticsService通过物流事件协议 LOGI-EVT-01推送轨迹。\n   ② 系统校验消息签名和物流单号。\n   ③ 系统校验物流节点的时间顺序。\n   ④ 系统保存新的物流节点。\n   ⑤ 系统更新订单物流摘要。\n6. 扩展路径：\n   2.a 异常场景：签名校验失败。\n   → 系统拒绝消息并记录安全告警。\n   3.a 异常场景：收到重复物流节点。\n   → 系统进行幂等处理。\n   3.b 异常场景：物流节点时间早于已保存节点。\n   → 系统保留原状态并将异常消息送入审核队列。\n\n### UCG-003-UC003：查询物流信息\n\n1. Actor：顾客、LogisticsService\n2. 前置条件：\n   ① 顾客已登录。\n   ② 订单属于当前顾客且已发货。\n3. 后置条件（成功保证）：\n   系统展示最新物流状态和轨迹。\n4. 触发事件：\n   顾客在订单详情页点击“查看物流”。\n5. 主成功路径：\n   ① 顾客发起物流查询。\n   ② 系统通过物流查询接口 API-L-IF2读取本地轨迹。\n   ③ 当本地数据过期时，系统调用LogisticsService查询最新轨迹。\n   ④ 系统按时间顺序整理物流节点。\n   ⑤ 系统向顾客展示物流信息。\n6. 扩展路径：\n   2.a 异常场景：订单尚未发货。\n   → 系统提示“商家尚未发货”。\n   3.a 异常场景：外部物流服务查询失败。\n   → 系统展示最近一次成功同步的数据并标记更新时间。\n   4.a 可选场景：物流已签收。\n   → 系统展示签收时间和签收状态。\n\n### UCG-003-UC004：申请退款\n\n1. Actor：顾客、PaymentService\n2. 前置条件：\n   ① 顾客已登录。\n   ② 订单属于当前顾客且已支付。\n   ③ 订单满足退款时限和状态规则。\n3. 后置条件（成功保证）：\n   系统生成退款申请并返回申请编号。\n4. 触发事件：\n   顾客在订单详情页选择退款原因并提交。\n5. 主成功路径：\n   ① 顾客选择退款商品、数量和原因。\n   ② 系统校验订单和可退款金额。\n   ③ 系统通过退款申请接口 API-R-IF1 创建退款单。\n   ④ 系统向PaymentService提交退款请求。\n   ⑤ 系统保存退款流水并展示处理状态。\n6. 扩展路径：\n   2.a 异常场景：超过退款期限。\n   → 系统拒绝申请并说明原因。\n   2.b 异常场景：申请金额超过可退款金额。\n   → 系统提示顾客调整退款内容。\n   4.a 异常场景：PaymentService暂时不可用。\n   → 系统保存待处理退款单并异步重试。\n\n### UCG-004-UC001：创建商品\n\n1. Actor：商家\n2. 前置条件：\n   ① 商家已登录并通过经营资质审核。\n   ② 商家拥有商品管理权限。\n3. 后置条件（成功保证）：\n   系统创建状态为 DRAFT 的商品并返回商品编号。\n4. 触发事件：\n   商家在商品管理页面点击“创建商品”。\n5. 主成功路径：\n   ① 商家发起商品创建。\n   ② 系统校验商家身份和权限。\n   ③ 系统调用商品创建接口 API-M-IF1。\n   ④ 系统生成商品编号并创建空白草稿。\n   ⑤ 系统进入商品信息编辑页面。\n6. 扩展路径：\n   2.a 异常场景：商家资质已失效。\n   → 系统拒绝创建并提示重新认证。\n   3.a 异常场景：重复提交。\n   → 系统根据幂等标识返回已有草稿。\n\n### UCG-004-UC002：填写商品信息\n\n1. Actor：商家\n2. 前置条件：\n   ① 商品草稿存在且属于当前商家。\n   ② 商家拥有编辑权限。\n3. 后置条件（成功保证）：\n   系统保存商品名称、描述、分类和图片。\n4. 触发事件：\n   商家编辑商品基本资料并保存。\n5. 主成功路径：\n   ① 商家填写商品名称和描述。\n   ② 商家选择有效商品分类并上传图片。\n   ③ 系统校验必填字段、文本长度和图片格式。\n   ④ 系统调用商品信息维护接口 API-M-IF2 保存资料。\n   ⑤ 系统提示保存成功。\n6. 扩展路径：\n   2.a 异常场景：分类不存在或已停用。\n   → 系统要求商家重新选择分类。\n   3.a 异常场景：图片格式或大小不符合要求。\n   → 系统拒绝对应图片并显示限制条件。\n   4.a 可选场景：商家暂未完成全部信息。\n   → 系统允许保存草稿，但不允许发布。\n\n### UCG-004-UC003：设置库存与价格\n\n1. Actor：商家\n2. 前置条件：\n   ① 商品草稿存在。\n   ② 商品已定义至少一个SKU。\n3. 后置条件（成功保证）：\n   系统保存每个SKU的库存和销售价格。\n4. 触发事件：\n   商家在商品编辑页提交库存和价格。\n5. 主成功路径：\n   ① 商家为每个SKU输入库存数量。\n   ② 商家设置销售价格和可选原价。\n   ③ 系统校验库存、价格和SKU唯一性。\n   ④ 系统调用库存价格维护接口 API-M-IF3。\n   ⑤ 系统保存设置并返回最新版本号。\n6. 扩展路径：\n   3.a 异常场景：库存为负数。\n   → 系统拒绝保存并标记错误SKU。\n   3.b 异常场景：销售价格不在允许范围。\n   → 系统提示商家修正价格。\n   4.a 异常场景：商品版本已被其他操作更新。\n   → 系统提示数据冲突并要求重新加载。\n\n### UCG-004-UC004：发布商品\n\n1. Actor：商家\n2. 前置条件：\n   ① 商品处于 DRAFT 状态。\n   ② 商品基本资料、SKU、库存和价格均已填写。\n   ③ 商家经营资质有效。\n3. 后置条件（成功保证）：\n   商品状态更新为 ON_SALE，并可被顾客查询。\n4. 触发事件：\n   商家点击“发布商品”。\n5. 主成功路径：\n   ① 商家提交商品发布。\n   ② 系统校验资料完整性、类目规则、库存和价格。\n   ③ 系统调用商品发布接口 API-M-IF4。\n   ④ 系统将商品状态更新为 ON_SALE。\n   ⑤ 系统通知商品目录服务刷新可售商品索引。\n   ⑥ 系统提示发布成功。\n6. 扩展路径：\n   2.a 异常场景：商品资料不完整。\n   → 系统列出缺失信息并阻止发布。\n   2.b 异常场景：商品内容违反类目规则。\n   → 系统将商品送入人工审核。\n   5.a 异常场景：商品目录索引刷新失败。\n   → 系统记录待同步任务并自动重试。\n",
+      "chapters": [
+        {
+          "chapter_id": "SEC-7df0a7bd3d689717",
+          "document": "系统需求Delta_spec.md",
+          "level": 1,
+          "title": "需求[RR-DELTA-001]描述",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述"
+          ],
+          "line_start": 1,
+          "line_end": 43
+        },
+        {
+          "chapter_id": "SEC-a5e1049a21687324",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "价值",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "价值"
+          ],
+          "line_start": 5,
+          "line_end": 8
+        },
+        {
+          "chapter_id": "SEC-50fa16526109d4a5",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "术语/缩写",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "术语/缩写"
+          ],
+          "line_start": 9,
+          "line_end": 20
+        },
+        {
+          "chapter_id": "SEC-2a65c09981074e09",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "系统上下文",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "系统上下文"
+          ],
+          "line_start": 21,
+          "line_end": 37
+        },
+        {
+          "chapter_id": "SEC-97baf402520dc95a",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "目标系统",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "系统上下文",
+            "目标系统"
+          ],
+          "line_start": 23,
+          "line_end": 28
+        },
+        {
+          "chapter_id": "SEC-c41bb8ea019183ad",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "周边交互方清单",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "系统上下文",
+            "周边交互方清单"
+          ],
+          "line_start": 29,
+          "line_end": 37
+        },
+        {
+          "chapter_id": "SEC-6f0aa57e16d05777",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "需求描述",
+          "heading_path": [
+            "需求[RR-DELTA-001]描述",
+            "需求描述"
+          ],
+          "line_start": 38,
+          "line_end": 43
+        },
+        {
+          "chapter_id": "SEC-a7086c821d2c9886",
+          "document": "系统需求Delta_spec.md",
+          "level": 1,
+          "title": "场景用例分析",
+          "heading_path": [
+            "场景用例分析"
+          ],
+          "line_start": 44,
+          "line_end": 425
+        },
+        {
+          "chapter_id": "SEC-54bfd8324a4a8bb6",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "场景划分",
+          "heading_path": [
+            "场景用例分析",
+            "场景划分"
+          ],
+          "line_start": 46,
+          "line_end": 63
+        },
+        {
+          "chapter_id": "SEC-f93a8b789aabbd59",
+          "document": "系统需求Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001：商品浏览与选购用例组",
+          "heading_path": [
+            "场景用例分析",
+            "场景划分",
+            "UCG-001：商品浏览与选购用例组"
+          ],
+          "line_start": 48,
+          "line_end": 51
+        },
+        {
+          "chapter_id": "SEC-4018d75bc158dc11",
+          "document": "系统需求Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002：订单处理用例组",
+          "heading_path": [
+            "场景用例分析",
+            "场景划分",
+            "UCG-002：订单处理用例组"
+          ],
+          "line_start": 52,
+          "line_end": 55
+        },
+        {
+          "chapter_id": "SEC-d253b098f3588f92",
+          "document": "系统需求Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003：商品管理与售后服务用例组",
+          "heading_path": [
+            "场景用例分析",
+            "场景划分",
+            "UCG-003：商品管理与售后服务用例组"
+          ],
+          "line_start": 56,
+          "line_end": 59
+        },
+        {
+          "chapter_id": "SEC-008d1ece34947412",
+          "document": "系统需求Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004：商家上架用例组",
+          "heading_path": [
+            "场景用例分析",
+            "场景划分",
+            "UCG-004：商家上架用例组"
+          ],
+          "line_start": 60,
+          "line_end": 63
+        },
+        {
+          "chapter_id": "SEC-0e372dd33627c3c4",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "用例清单",
+          "heading_path": [
+            "场景用例分析",
+            "用例清单"
+          ],
+          "line_start": 64,
+          "line_end": 82
+        },
+        {
+          "chapter_id": "SEC-72aa27edbf114233",
+          "document": "系统需求Delta_spec.md",
+          "level": 2,
+          "title": "用例详细说明",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明"
+          ],
+          "line_start": 83,
+          "line_end": 425
+        },
+        {
+          "chapter_id": "SEC-d8de9e8019963cfd",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-001-UC001：浏览商品",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 85,
+          "line_end": 110
+        },
+        {
+          "chapter_id": "SEC-d87b6fc4aa075547",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-001-UC002：查看商品详情",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 111,
+          "line_end": 133
+        },
+        {
+          "chapter_id": "SEC-91be0513825c9e02",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-001-UC003：加入购物车",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 134,
+          "line_end": 157
+        },
+        {
+          "chapter_id": "SEC-6057c8d146805f7e",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-002-UC001：创建订单",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 158,
+          "line_end": 182
+        },
+        {
+          "chapter_id": "SEC-e48c675a5c9c23eb",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-002-UC002：支付订单",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 183,
+          "line_end": 208
+        },
+        {
+          "chapter_id": "SEC-3928ea1a3c72dfab",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-002-UC003：查看订单详情",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 209,
+          "line_end": 232
+        },
+        {
+          "chapter_id": "SEC-27b48f95bfaa41a4",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-003-UC001：商家发货",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 233,
+          "line_end": 257
+        },
+        {
+          "chapter_id": "SEC-64248f98618b6b6c",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-003-UC002：更新物流信息",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 258,
+          "line_end": 281
+        },
+        {
+          "chapter_id": "SEC-e0f5b9edf7e27c5f",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-003-UC003：查询物流信息",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 282,
+          "line_end": 305
+        },
+        {
+          "chapter_id": "SEC-21e706e7b86c3427",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-003-UC004：申请退款",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 306,
+          "line_end": 330
+        },
+        {
+          "chapter_id": "SEC-74d8efb23e10ad3b",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-004-UC001：创建商品",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 331,
+          "line_end": 352
+        },
+        {
+          "chapter_id": "SEC-5a18e2b9d4ca8b13",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-004-UC002：填写商品信息",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 353,
+          "line_end": 376
+        },
+        {
+          "chapter_id": "SEC-2f8b893ec5d9e0d1",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-004-UC003：设置库存与价格",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 377,
+          "line_end": 400
+        },
+        {
+          "chapter_id": "SEC-58f15467d41b1fd0",
+          "document": "系统需求Delta_spec.md",
+          "level": 3,
+          "title": "UCG-004-UC004：发布商品",
+          "heading_path": [
+            "场景用例分析",
+            "用例详细说明",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 401,
+          "line_end": 425
+        }
+      ]
+    },
+    {
+      "document": "功能设计Delta_spec.md",
+      "format": "md",
+      "content_hash": "2417f25002cc3de9a678dca3c276f464d3c9751c84015b637f2c04bee95963b1",
+      "line_count": 1242,
+      "text": "# Delta 功能设计文档\n\n> 本文档为仿真数据，所有名称、编号、路径和业务数据均为虚构。\n\n## SR设计：在线交易平台核心业务模块\n\n### 基本信息\n\n| SR编号 | SR名称 | SR描述 | 关联架构元素 | 关联资源对象 |\n| --- | --- | --- | --- | --- |\n| SR-DELTA-042 | 在线交易核心能力增强 | 支持商品浏览、购物车、订单、支付、物流、退款和商家商品管理，并完善异常响应。 | ProductBrowse、CartService、OrderService、PaymentAdapter、LogisticsService、RefundService、MerchantProductService、ProductCatalogService、CategoryService | Product、ProductCategory、Cart、Order、Payment、Shipment、Refund、SKU |\n\n#### API接口变更点分析\n\n| 序号 | 变更类型 | 接口名称 | 方法 | 资源路径 | 影响范围 |\n| --- | --- | --- | --- | --- | --- |\n| 1 | 修改 | 商品列表查询API | GET | /api/v1/products | ACT-001（顾客）、在线商城系统、ProductCatalogService |\n| 2 | 新增 | 商品详情查询API | GET | /api/v1/products/{productId} | ACT-001（顾客）、在线商城系统、ProductCatalogService |\n| 3 | 修改 | 加入购物车API | POST | /api/v1/cart/items | ACT-001（顾客）、在线商城系统、CartService、ProductCatalogService |\n| 4 | 修改 | 创建订单API | POST | /api/v1/orders | ACT-001（顾客）、在线商城系统、OrderService、ProductCatalogService |\n| 5 | 修改 | 订单支付接口 | POST | /payment/v1/payments | ACT-001（顾客）、在线商城系统、ACT-003（PaymentService） |\n| 6 | 新增 | 订单详情查询API | GET | /api/v1/orders/{orderId} | ACT-001（顾客）、在线商城系统、OrderService |\n| 7 | 新增 | 商家发货API | POST | /api/v1/orders/{orderId}/shipments | ACT-002（商家）、在线商城系统、ACT-004（LogisticsService） |\n| 8 | 新增 | 物流事件接收接口 | POST | /api/v1/logistics/events | ACT-004（LogisticsService）、在线商城系统、OrderService |\n| 9 | 修改 | 物流信息查询API | GET | /api/v1/orders/{orderId}/logistics | ACT-001（顾客）、在线商城系统、ACT-004（LogisticsService） |\n| 10 | 修改 | 退款申请API | POST | /api/v1/refunds | ACT-001（顾客）、在线商城系统、ACT-003（PaymentService） |\n| 11 | 新增 | 商品创建API | POST | /api/v1/merchant/products | ACT-002（商家）、在线商城系统、MerchantProductService |\n| 12 | 新增 | 商品信息维护API | PUT | /api/v1/merchant/products/{productId} | ACT-002（商家）、在线商城系统、MerchantProductService、CategoryService |\n| 13 | 修改 | 库存价格维护API | PUT | /api/v1/merchant/products/{productId}/skus | ACT-002（商家）、在线商城系统、MerchantProductService |\n| 14 | 修改 | 商品发布API | POST | /api/v1/merchant/products/{productId}/publish | ACT-002（商家）、在线商城系统、MerchantProductService、ProductCatalogService |\n\n#### 变更详情\n\n##### 1. 商品列表查询API\n\n- API编号：API-S-IF1\n- 变更类型：修改\n- 所属服务：ProductBrowse\n- 方法：GET\n- 资源路径：/api/v1/products\n- 影响范围：ACT-001（顾客）、在线商城系统、ProductCatalogService\n\n###### 变更前\n\n- 接口版本：V0（API-S-IF1的变更前版本）\n- 方法/路径：GET /api/v1/products\n- 请求体：无\n- 查询参数：keyword、page、pageSize\n- 成功响应：productId、name、price\n- 错误响应：INVALID_QUERY\n\n###### 变更后\n\n- 请求体：无\n- 查询参数：\n  - keyword：商品关键词，可选；若存在，应满足关键词格式约束。\n  - categoryId：分类编号，可选；若存在，应为有效且未失效的分类。\n  - minPrice、maxPrice：价格区间，可选，minPrice 大于等于 0，maxPrice 大于等于 minPrice。\n  - sortBy：排序方式，可选值为 DEFAULT、PRICE_ASC、PRICE_DESC、SALES_DESC。\n  - page：页码，从 1 开始。\n  - pageSize：每页数量，取值为 1 至 100。\n- 成功响应：\n\n    {\n      \"code\": \"OK\",\n      \"data\": {\n        \"items\": [\n          {\n            \"productId\": \"P10001\",\n            \"name\": \"仿真商品A\",\n            \"coverImage\": \"https://example.invalid/images/P10001-cover.png\",\n            \"price\": 199.00,\n            \"originalPrice\": 229.00,\n            \"stockStatus\": \"IN_STOCK\",\n            \"salesCount\": 120\n          }\n        ],\n        \"total\": 1,\n        \"page\": 1,\n        \"pageSize\": 20\n      }\n    }\n\n- 错误响应：\n  - HTTP 400，错误码 INVALID_QUERY_PARAM：查询参数不合法。\n  - HTTP 400，错误码 INVALID_CATEGORY：分类不存在或已停用。\n  - HTTP 504，错误码 PRODUCT_SERVICE_TIMEOUT：商品目录服务查询超时。\n  - HTTP 503，错误码 PRODUCT_SERVICE_UNAVAILABLE：商品目录服务不可用。\n\n##### 2. 商品详情查询API\n\n- API编号：API-S-IF2\n- 变更类型：新增\n- 所属服务：ProductBrowse\n- 方法：GET\n- 资源路径：/api/v1/products/{productId}\n- 影响范围：ACT-001（顾客）、在线商城系统、ProductCatalogService\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：无\n- 路径参数：\n  - productId：商品唯一编号，必填。\n- 成功响应：\n\n    {\n      \"code\": \"OK\",\n      \"data\": {\n        \"productId\": \"P10001\",\n        \"name\": \"仿真商品A\",\n        \"description\": \"仿真商品描述\",\n        \"price\": 199.00,\n        \"stockStatus\": \"IN_STOCK\",\n        \"images\": [\"https://example.invalid/images/P10001-1.png\"]\n      }\n    }\n\n- 错误响应：\n  - HTTP 400，错误码 INVALID_PRODUCT_ID：商品编号格式错误。\n  - HTTP 404，错误码 PRODUCT_NOT_FOUND：商品不存在。\n  - HTTP 410，错误码 PRODUCT_OFF_SHELF：商品已下架。\n\n##### 3. 加入购物车API\n\n- API编号：API-C-IF1\n- 变更类型：修改\n- 所属服务：CartService\n- 方法：POST\n- 资源路径：/api/v1/cart/items\n\n###### 变更前\n\n- 请求体：skuId、quantity。\n- 成功响应：cartItemId、quantity。\n- 错误响应：OUT_OF_STOCK。\n\n###### 变更后\n\n- 请求体：productId、skuId、quantity、idempotencyKey。\n- 成功响应：cartItemId、quantity、cartItemCount、amountSummary。\n- 错误响应：INVALID_QUANTITY、OUT_OF_STOCK、PRODUCT_OFF_SHELF、PURCHASE_LIMIT_EXCEEDED。\n\n##### 4. 创建订单API\n\n- API编号：API-O-IF1\n- 变更类型：修改\n- 所属服务：OrderService\n- 方法：POST\n- 资源路径：/api/v1/orders\n\n###### 变更前\n\n- 请求体：cartItemIds、addressId。\n- 成功响应：orderId。\n- 错误响应：ORDER_CREATE_FAILED。\n\n###### 变更后\n\n- 请求体：cartItemIds、addressId、couponId、idempotencyKey、confirmedAmount。\n- 成功响应：orderId、orderStatus、payableAmount、expireAt。\n- 错误响应：PRICE_CHANGED、OUT_OF_STOCK、INVALID_ADDRESS、DUPLICATE_SUBMISSION。\n\n##### 5. 订单支付接口\n\n- API编号：PAYMENT-PAY-01\n- 变更类型：修改\n- 所属服务：PaymentAdapter\n- 方法：POST\n- 资源路径：/payment/v1/payments\n\n###### 变更前\n\n- 请求体：orderId、amount。\n- 成功响应：paymentId、status。\n- 错误响应：PAYMENT_FAILED。\n\n###### 变更后\n\n- 请求体：orderId、amount、paymentMethod、notifyUrl、idempotencyKey。\n- 成功响应：paymentId、paymentStatus、paidAt、providerTradeNo。\n- 错误响应：ORDER_STATUS_INVALID、AMOUNT_MISMATCH、PAYMENT_SERVICE_UNAVAILABLE、PAYMENT_CANCELLED。\n\n##### 6. 订单详情查询API\n\n- API编号：API-O-IF2\n- 变更类型：新增\n- 所属服务：OrderService\n- 方法：GET\n- 资源路径：/api/v1/orders/{orderId}\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：无；路径参数为orderId。\n- 成功响应：orderId、status、items[]、amountSummary、paymentSummary、shipmentSummary。\n- 错误响应：ORDER_NOT_FOUND、ORDER_ACCESS_DENIED。\n\n##### 7. 商家发货API\n\n- API编号：API-L-IF1\n- 变更类型：新增\n- 所属服务：OrderService\n- 方法：POST\n- 资源路径：/api/v1/orders/{orderId}/shipments\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：carrierCode、trackingNumber、shippedItems[]。\n- 成功响应：shipmentId、orderStatus、trackingNumber。\n- 错误响应：ORDER_STATUS_INVALID、INVALID_TRACKING_NUMBER、LOGISTICS_SERVICE_UNAVAILABLE。\n\n##### 8. 物流事件接收接口\n\n- API编号：LOGI-EVT-01\n- 变更类型：新增\n- 所属服务：LogisticsServiceAdapter\n- 方法：POST\n- 资源路径：/api/v1/logistics/events\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：eventId、trackingNumber、eventCode、eventTime、location、signature。\n- 成功响应：accepted、duplicate。\n- 错误响应：INVALID_SIGNATURE、TRACKING_NUMBER_NOT_FOUND、INVALID_EVENT_TIME。\n\n##### 9. 物流信息查询API\n\n- API编号：API-L-IF2\n- 变更类型：修改\n- 所属服务：LogisticsServiceAdapter\n- 方法：GET\n- 资源路径：/api/v1/orders/{orderId}/logistics\n\n###### 变更前\n\n- 请求体：无；路径参数为orderId。\n- 成功响应：trackingNumber、status。\n- 错误响应：LOGISTICS_NOT_FOUND。\n\n###### 变更后\n\n- 请求体：无；路径参数为orderId。\n- 成功响应：trackingNumber、status、events[]、lastUpdatedAt、dataSource。\n- 错误响应：ORDER_NOT_SHIPPED、LOGISTICS_NOT_FOUND、LOGISTICS_SERVICE_UNAVAILABLE。\n\n##### 10. 退款申请API\n\n- API编号：API-R-IF1\n- 变更类型：修改\n- 所属服务：RefundService\n- 方法：POST\n- 资源路径：/api/v1/refunds\n\n###### 变更前\n\n- 请求体：orderId、reason。\n- 成功响应：refundId、status。\n- 错误响应：REFUND_FAILED。\n\n###### 变更后\n\n- 请求体：orderId、items[]、reasonCode、reasonDescription、requestedAmount。\n- 成功响应：refundId、refundStatus、acceptedAmount。\n- 错误响应：REFUND_WINDOW_EXPIRED、REFUND_AMOUNT_EXCEEDED、ORDER_STATUS_INVALID、PAYMENT_SERVICE_UNAVAILABLE。\n\n##### 11. 商品创建API\n\n- API编号：API-M-IF1\n- 变更类型：新增\n- 所属服务：MerchantProductService\n- 方法：POST\n- 资源路径：/api/v1/merchant/products\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：merchantId、idempotencyKey。\n- 成功响应：productId、status、version。\n- 错误响应：MERCHANT_NOT_QUALIFIED、PERMISSION_DENIED、DUPLICATE_SUBMISSION。\n\n##### 12. 商品信息维护API\n\n- API编号：API-M-IF2\n- 变更类型：新增\n- 所属服务：MerchantProductService\n- 方法：PUT\n- 资源路径：/api/v1/merchant/products/{productId}\n\n###### 变更前\n\n无。\n\n###### 变更后\n\n- 请求体：name、description、categoryId、imageUrls[]、version。\n- 成功响应：productId、status、version、updatedAt。\n- 错误响应：PRODUCT_NOT_FOUND、INVALID_CATEGORY、INVALID_IMAGE、VERSION_CONFLICT。\n\n##### 13. 库存价格维护API\n\n- API编号：API-M-IF3\n- 变更类型：修改\n- 所属服务：MerchantProductService\n- 方法：PUT\n- 资源路径：/api/v1/merchant/products/{productId}/skus\n\n###### 变更前\n\n- 请求体：skuId、stock、price。\n- 成功响应：skuId、version。\n- 错误响应：INVALID_SKU_DATA。\n\n###### 变更后\n\n- 请求体：skus[]；每项包含skuId、attributes、stock、salePrice、originalPrice，以及商品version。\n- 成功响应：productId、skus[]、version。\n- 错误响应：NEGATIVE_STOCK、INVALID_PRICE、DUPLICATE_SKU、VERSION_CONFLICT。\n\n##### 14. 商品发布API\n\n- API编号：API-M-IF4\n- 变更类型：修改\n- 所属服务：MerchantProductService\n- 方法：POST\n- 资源路径：/api/v1/merchant/products/{productId}/publish\n\n###### 变更前\n\n- 请求体：无。\n- 成功响应：productId、status。\n- 错误响应：PUBLISH_FAILED。\n\n###### 变更后\n\n- 请求体：version、publishAt。\n- 成功响应：productId、status、publishedAt、catalogSyncStatus。\n- 错误响应：PRODUCT_INCOMPLETE、CATEGORY_RULE_VIOLATION、INVALID_PRODUCT_STATUS、VERSION_CONFLICT。\n\n### 设计用例\n\n#### UCG-001-UC001-API-S-IF1 浏览商品\n\n- 关联API：API-S-IF1\n- 主要参与者：ACT-001（顾客）、ProductCatalogService\n- 方法/路径：GET /api/v1/products\n- 关键请求参数：keyword、categoryId、minPrice、maxPrice、sortBy、page、pageSize\n- 关键响应：items[]、total、page、pageSize\n\n#### UCG-001-UC002-API-S-IF2 查看商品详情\n\n- 关联API：API-S-IF2\n- 主要参与者：ACT-001（顾客）、ProductCatalogService\n- 方法/路径：GET /api/v1/products/{productId}\n- 关键请求参数：productId\n- 关键响应：productId、name、description、price、stockStatus、images[]\n\n#### UCG-001-UC003-API-C-IF1 加入购物车\n\n- 关联API：API-C-IF1\n- 主要参与者：ACT-001（顾客）、CartService、ProductCatalogService\n- 方法/路径：POST /api/v1/cart/items\n- 关键请求参数：productId、skuId、quantity、idempotencyKey\n- 关键响应：cartItemId、quantity、cartItemCount、amountSummary\n\n#### UCG-002-UC001-API-O-IF1 创建订单\n\n- 关联API：API-O-IF1\n- 主要参与者：ACT-001（顾客）、OrderService、ProductCatalogService\n- 方法/路径：POST /api/v1/orders\n- 关键请求参数：cartItemIds、addressId、couponId、idempotencyKey、confirmedAmount\n- 关键响应：orderId、orderStatus、payableAmount、expireAt\n\n#### UCG-002-UC002-PAYMENT-PAY-01 支付订单\n\n- 关联API：PAYMENT-PAY-01\n- 主要参与者：ACT-001（顾客）、ACT-003（PaymentService）、PaymentAdapter\n- 方法/路径：POST /payment/v1/payments\n- 关键请求参数：orderId、amount、paymentMethod、idempotencyKey\n- 关键响应：paymentId、paymentStatus、paidAt、providerTradeNo\n\n#### UCG-002-UC003-API-O-IF2 查看订单详情\n\n- 关联API：API-O-IF2\n- 主要参与者：ACT-001（顾客）、OrderService\n- 方法/路径：GET /api/v1/orders/{orderId}\n- 关键请求参数：orderId\n- 关键响应：orderId、status、items[]、amountSummary、paymentSummary、shipmentSummary\n\n#### UCG-003-UC001-API-L-IF1 商家发货\n\n- 关联API：API-L-IF1\n- 主要参与者：ACT-002（商家）、ACT-004（LogisticsService）、OrderService\n- 方法/路径：POST /api/v1/orders/{orderId}/shipments\n- 关键请求参数：orderId、carrierCode、trackingNumber、shippedItems[]\n- 关键响应：shipmentId、orderStatus、trackingNumber\n\n#### UCG-003-UC002-LOGI-EVT-01 更新物流信息\n\n- 关联API：LOGI-EVT-01\n- 主要参与者：ACT-004（LogisticsService）、LogisticsServiceAdapter\n- 方法/路径：POST /api/v1/logistics/events\n- 关键请求参数：eventId、trackingNumber、eventCode、eventTime、location、signature\n- 关键响应：accepted、duplicate\n\n#### UCG-003-UC003-API-L-IF2 查询物流信息\n\n- 关联API：API-L-IF2\n- 主要参与者：ACT-001（顾客）、ACT-004（LogisticsService）、LogisticsServiceAdapter\n- 方法/路径：GET /api/v1/orders/{orderId}/logistics\n- 关键请求参数：orderId\n- 关键响应：trackingNumber、status、events[]、lastUpdatedAt、dataSource\n\n#### UCG-003-UC004-API-R-IF1 申请退款\n\n- 关联API：API-R-IF1\n- 主要参与者：ACT-001（顾客）、ACT-003（PaymentService）、RefundService\n- 方法/路径：POST /api/v1/refunds\n- 关键请求参数：orderId、items[]、reasonCode、reasonDescription、requestedAmount\n- 关键响应：refundId、refundStatus、acceptedAmount\n\n#### UCG-004-UC001-API-M-IF1 创建商品\n\n- 关联API：API-M-IF1\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 方法/路径：POST /api/v1/merchant/products\n- 关键请求参数：merchantId、idempotencyKey\n- 关键响应：productId、status、version\n\n#### UCG-004-UC002-API-M-IF2 填写商品信息\n\n- 关联API：API-M-IF2\n- 主要参与者：ACT-002（商家）、MerchantProductService、CategoryService\n- 方法/路径：PUT /api/v1/merchant/products/{productId}\n- 关键请求参数：productId、name、description、categoryId、imageUrls[]、version\n- 关键响应：productId、status、version、updatedAt\n\n#### UCG-004-UC003-API-M-IF3 设置库存与价格\n\n- 关联API：API-M-IF3\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 方法/路径：PUT /api/v1/merchant/products/{productId}/skus\n- 关键请求参数：productId、skus[]、version\n- 关键响应：productId、skus[]、version\n\n#### UCG-004-UC004-API-M-IF4 发布商品\n\n- 关联API：API-M-IF4\n- 主要参与者：ACT-002（商家）、MerchantProductService、ProductCatalogService\n- 方法/路径：POST /api/v1/merchant/products/{productId}/publish\n- 关键请求参数：productId、version、publishAt\n- 关键响应：productId、status、publishedAt、catalogSyncStatus\n\n### 设计用例详情\n\n#### UCG-001-UC001-API-S-IF1 浏览商品\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-001-UC001-API-S-IF1 |\n| 用例名称 | 浏览商品 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-S-IF1 |\n| 方法/路径 | GET /api/v1/products |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、ProductCatalogService\n- 次要参与者：无\n\n##### 前置条件\n\n- 在线商城系统正常运行，商品浏览接口可访问。\n- ProductCatalogService服务可用，商品目录中存在状态为 ON_SALE 的商品。\n- ACT-001可匿名访问；若已登录，则请求可携带合法 Authorization Token。\n- 查询参数 keyword、categoryId、minPrice、maxPrice、sortBy、page、pageSize 若存在，应满足接口约束。\n\n##### 基本流程\n\n1. ACT-001发送 GET /api/v1/products 请求到在线商城系统，可携带查询参数 keyword、categoryId、minPrice、maxPrice、sortBy、page、pageSize。\n2. 在线商城系统校验查询参数，其中 page>=1、1<=pageSize<=100、minPrice>=0、maxPrice>=minPrice，并校验 categoryId 是否有效。\n3. 在线商城系统调用ProductCatalogService的商品检索能力，传入查询条件并补充status=ON_SALE。\n4. ProductCatalogService根据请求条件查询 product 表，涉及字段包括 product_id、product_name、category_id、cover_image_url、sale_price、original_price、stock_quantity、sales_count、status、merchant_id、updated_at。\n5. ProductCatalogService向在线商城系统返回 HTTP 200，响应体包含 page、pageSize、total、products[]；每个商品包含 productId、productName、categoryId、coverImageUrl、salePrice、originalPrice、stockQuantity、salesCount、status。\n6. 在线商城系统过滤内部字段，将结果转换为前端展示结构，并向ACT-001返回 HTTP 200，响应体包含 page、pageSize、total、items[]；每个商品包含 productId、name、coverImage、price、originalPrice、stockStatus、salesCount。\n\n##### 备选流程\n\n- A1：查询参数非法，例如 minPrice>maxPrice、page<1 或 sortBy 不在允许范围内，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_QUERY_PARAM。\n- A2：categoryId 不存在或已失效，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_CATEGORY。\n- A3：ProductCatalogService未查询到符合条件的商品，返回 HTTP 200，其中 total=0、products=[]，在线商城系统向ACT-001展示“暂无符合条件的商品”。\n- A4：ProductCatalogService查询超时，在线商城系统返回 HTTP 504 Gateway Timeout，错误码 PRODUCT_SERVICE_TIMEOUT。\n- A5：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。\n- A6：查询期间商品状态被商家修改为 OFF_SALE 或库存变为 0，在线商城系统在返回结果前过滤失效商品，仅返回当前有效商品。\n- A7：商品必要字段缺失，例如 product_name、sale_price 或 cover_image_url 为空，在线商城系统采用缺省值展示或过滤异常商品。\n\n#### UCG-001-UC002-API-S-IF2 查看商品详情\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-001-UC002-API-S-IF2 |\n| 用例名称 | 查看商品详情 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-S-IF2 |\n| 方法/路径 | GET /api/v1/products/{productId} |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、ProductCatalogService\n- 次要参与者：无\n\n##### 前置条件\n\n- 在线商城系统正常运行，商品详情接口可访问。\n- ProductCatalogService服务可用，商品目录中存在可查询商品。\n- ACT-001可匿名访问；若已登录，则请求可携带合法 Authorization Token。\n\n##### 基本流程\n\n1. ACT-001发送 GET /api/v1/products/{productId} 请求到在线商城系统。\n2. 在线商城系统校验 productId 的格式，并保留合法 Authorization Token 和请求上下文。\n3. 在线商城系统调用ProductCatalogService的商品详情读取能力，并传入productId。\n4. ProductCatalogService根据 productId 查询 product 表，获取 product_id、product_name、description、image_urls、sale_price、original_price、stock_quantity、sales_count、status、merchant_id、updated_at。\n5. ProductCatalogService向在线商城系统返回 HTTP 200 和商品详情数据。\n6. 在线商城系统过滤内部字段并转换为前端结构，向ACT-001返回 HTTP 200；响应包含 productId、name、description、images[]、price、originalPrice、stockStatus、salesCount。\n\n##### 备选流程\n\n- A1：productId 格式错误，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_PRODUCT_ID。\n- A2：ProductCatalogService未查询到目标商品，在线商城系统返回 HTTP 404 Not Found，错误码 PRODUCT_NOT_FOUND。\n- A3：目标商品状态为 OFF_SALE，在线商城系统返回 HTTP 410 Gone，错误码 PRODUCT_OFF_SHELF。\n- A4：ProductCatalogService查询超时，在线商城系统返回 HTTP 504 Gateway Timeout，错误码 PRODUCT_SERVICE_TIMEOUT。\n- A5：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。\n- A6：description、image_urls 等非关键展示字段缺失，在线商城系统返回已有字段并隐藏或采用缺省值处理缺失区域。\n\n#### UCG-001-UC003-API-C-IF1 加入购物车\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-001-UC003-API-C-IF1 |\n| 用例名称 | 加入购物车 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-C-IF1 |\n| 方法/路径 | POST /api/v1/cart/items |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、CartService\n- 次要参与者：ProductCatalogService\n\n##### 前置条件\n\n- 在线商城系统正常运行，加入购物车接口可访问。\n- CartService和ProductCatalogService服务可用。\n- ACT-001已登录，请求携带合法 Authorization Token。\n- 目标商品状态为 ON_SALE，目标SKU库存充足且有效。\n- quantity满足约束（quantity>=1）和限购规则。\n\n##### 基本流程\n\n1. ACT-001发送 POST /api/v1/cart/items 请求到在线商城系统，请求体包含 productId、skuId、quantity、idempotencyKey。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验请求参数：productId和skuId格式合法、quantity>=1、idempotencyKey非空。\n4. 在线商城系统调用ProductCatalogService的商品与SKU校验能力，传入 productId 和 skuId。\n5. ProductCatalogService查询 product 表和 sku 表，获取 product_id、product_name、status、stock_quantity、sale_price、original_price、limit_per_order，并返回校验结果。\n6. 在线商城系统确认商品状态为 ON_SALE，并校验库存（stock_quantity >= quantity）和限购规则（quantity <= limit_per_order）。\n7. 在线商城系统调用CartService的加入购物车能力，传入顾客ID、productId、skuId、quantity、idempotencyKey。\n8. CartService按 idempotencyKey 执行幂等校验；若同一SKU已存在于购物车，则累加数量并校验累加后不超限购上限。\n9. CartService写入 cart_item 表（字段包括 cart_item_id、customer_id、product_id、sku_id、quantity、unit_price、created_at、updated_at），并计算购物车商品总数和金额汇总。\n10. CartService向在线商城系统返回 HTTP 200，响应体包含 cartItemId、quantity、cartItemCount、amountSummary。\n11. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 cartItemId、quantity、cartItemCount、amountSummary。\n\n##### 备选流程\n\n- A1：quantity不合法（例如 quantity<1），在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_QUANTITY。\n- A2：商品状态为 OFF_SALE，在线商城系统返回 HTTP 410 Gone，错误码 PRODUCT_OFF_SHELF。\n- A3：SKU库存不足，在线商城系统返回 HTTP 409 Conflict，错误码 OUT_OF_STOCK，响应体包含当前可购买数量。\n- A4：相同SKU已存在购物车中，CartService累加数量；若累加后超出限购上限，返回 HTTP 409 Conflict，错误码 PURCHASE_LIMIT_EXCEEDED。\n- A5：idempotencyKey重复，CartService返回已有购物车条目，不重复写入。\n- A6：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。\n\n#### UCG-002-UC001-API-O-IF1 创建订单\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-002-UC001-API-O-IF1 |\n| 用例名称 | 创建订单 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-O-IF1 |\n| 方法/路径 | POST /api/v1/orders |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、OrderService\n- 次要参与者：ProductCatalogService\n\n##### 前置条件\n\n- 在线商城系统正常运行，创建订单接口可访问。\n- OrderService和ProductCatalogService服务可用。\n- ACT-001已登录，购物车中存在已选中的有效商品条目。\n- 收货地址有效且属于当前顾客。\n- 商品价格与库存可校验，confirmedAmount与当前价格一致。\n- idempotencyKey由客户端生成。\n\n##### 基本流程\n\n1. ACT-001发送 POST /api/v1/orders 请求到在线商城系统，请求体包含 cartItemIds、addressId、couponId、idempotencyKey、confirmedAmount。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验请求参数：cartItemIds非空、addressId格式合法、confirmedAmount>=0、idempotencyKey非空。\n4. 在线商城系统调用CartService，读取 cart_item 表中 cartItemIds 对应的购物车条目，获取 product_id、sku_id、quantity、unit_price。\n5. 在线商城系统调用ProductCatalogService的价格与库存校验能力，传入各商品的 productId、skuId、quantity。\n6. ProductCatalogService查询 product 表和 sku 表，获取 sale_price、stock_quantity、status，并返回校验结果。\n7. 在线商城系统校验：商品状态为 ON_SALE、库存充足、confirmedAmount与当前价格一致；若携带 couponId，校验优惠券有效性及适用范围。\n8. 在线商城系统校验收货地址，查询 address 表获取 recipient_name、phone、province、city、district、detail_address。\n9. 在线商城系统调用OrderService的创建订单能力，传入顾客ID、商品列表、地址信息、优惠券、confirmedAmount、idempotencyKey。\n10. OrderService按 idempotencyKey 执行幂等校验，创建订单并锁定库存，写入 order 表（字段包括 order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、expire_at、created_at）和 order_item 表（字段包括 order_item_id、order_id、product_id、sku_id、quantity、unit_price、subtotal）。\n11. OrderService向在线商城系统返回 HTTP 200，响应体包含 orderId、orderStatus（WAIT_PAY）、payableAmount、expireAt。\n12. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 orderId、orderStatus、payableAmount、expireAt。\n\n##### 备选流程\n\n- A1：商品价格与 confirmedAmount 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 PRICE_CHANGED，响应体包含最新价格。\n- A2：商品库存不足，在线商城系统返回 HTTP 409 Conflict，错误码 OUT_OF_STOCK，响应体包含不足商品及当前库存。\n- A3：收货地址无效或不属于当前顾客，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_ADDRESS。\n- A4：idempotencyKey重复，OrderService返回已有订单，不重复创建。\n- A5：购物车商品为空，在线商城系统返回 HTTP 400 Bad Request，错误码 CART_EMPTY。\n- A6：ProductCatalogService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PRODUCT_SERVICE_UNAVAILABLE。\n\n#### UCG-002-UC002-PAYMENT-PAY-01 支付订单\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-002-UC002-PAYMENT-PAY-01 |\n| 用例名称 | 支付订单 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | PAYMENT-PAY-01 |\n| 方法/路径 | POST /payment/v1/payments |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、ACT-003（PaymentService）\n- 次要参与者：PaymentAdapter、OrderService\n\n##### 前置条件\n\n- 在线商城系统正常运行，订单支付接口可访问。\n- PaymentAdapter服务可用，ACT-003（PaymentService）服务可用。\n- 订单状态为 WAIT_PAY 且未超过支付有效期（expireAt）。\n- ACT-001已登录，请求携带合法 Authorization Token。\n- idempotencyKey由客户端生成。\n\n##### 基本流程\n\n1. ACT-001发送 POST /payment/v1/payments 请求到在线商城系统，请求体包含 orderId、amount、paymentMethod、notifyUrl、idempotencyKey。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验请求参数：orderId格式合法、amount>=0、paymentMethod合法、notifyUrl非空、idempotencyKey非空。\n4. 在线商城系统调用OrderService查询 order 表，获取 order_id、customer_id、status、payable_amount、expire_at，校验订单状态为 WAIT_PAY、未过期、金额一致。\n5. 在线商城系统调用PaymentAdapter的创建支付能力，传入 orderId、amount、paymentMethod、notifyUrl、idempotencyKey。\n6. PaymentAdapter向ACT-003（PaymentService）发起支付请求，传入 orderId、amount、paymentMethod、notifyUrl。\n7. PaymentService处理支付并向PaymentAdapter返回支付结果。\n8. PaymentAdapter写入 payment 表（字段包括 payment_id、order_id、amount、payment_method、provider_trade_no、status、paid_at、created_at），并向在线商城系统返回 HTTP 200，响应体包含 paymentId、paymentStatus、paidAt、providerTradeNo。\n9. 在线商城系统更新 order 表中订单状态为 PAID，记录支付流水。\n10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 paymentId、paymentStatus、paidAt、providerTradeNo。\n\n##### 备选流程\n\n- A1：订单状态不是 WAIT_PAY，在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。\n- A2：支付金额与订单应付金额不一致，在线商城系统返回 HTTP 400 Bad Request，错误码 AMOUNT_MISMATCH。\n- A3：PaymentService不可用或超时，在线商城系统返回 HTTP 503 Service Unavailable，错误码 PAYMENT_SERVICE_UNAVAILABLE，订单保持 WAIT_PAY 状态。\n- A4：顾客取消支付，PaymentService返回取消状态，在线商城系统返回 HTTP 200，错误码 PAYMENT_CANCELLED，订单保持 WAIT_PAY。\n- A5：idempotencyKey重复，PaymentAdapter返回已有支付结果，不重复处理。\n- A6：支付回调通知到达时，在线商城系统按 paymentId 幂等处理，不重复更新订单状态。\n\n#### UCG-002-UC003-API-O-IF2 查看订单详情\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-002-UC003-API-O-IF2 |\n| 用例名称 | 查看订单详情 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-O-IF2 |\n| 方法/路径 | GET /api/v1/orders/{orderId} |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、OrderService\n- 次要参与者：无\n\n##### 前置条件\n\n- 在线商城系统正常运行，订单详情查询接口可访问。\n- OrderService服务可用。\n- ACT-001已登录，请求携带合法 Authorization Token。\n- 目标订单存在且属于当前顾客。\n\n##### 基本流程\n\n1. ACT-001发送 GET /api/v1/orders/{orderId} 请求到在线商城系统。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验 orderId 格式合法。\n4. 在线商城系统调用OrderService的订单详情查询能力，传入 orderId 和顾客ID。\n5. OrderService查询 order 表，获取 order_id、customer_id、status、total_amount、payable_amount、coupon_id、address_snapshot、created_at、updated_at。\n6. OrderService查询 order_item 表，获取各商品条目的 order_item_id、product_id、sku_id、quantity、unit_price、subtotal。\n7. OrderService查询 payment 表，获取 payment_id、payment_method、provider_trade_no、payment_status、paid_at。\n8. OrderService查询 shipment 表，获取 shipment_id、carrier_code、tracking_number、shipment_status、shipped_at（若已发货）。\n9. OrderService组合商品、金额、支付和履约信息，向在线商城系统返回 HTTP 200，响应体包含 orderId、status、items[]、amountSummary、paymentSummary、shipmentSummary。\n10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含订单详情。\n\n##### 备选流程\n\n- A1：orderId 格式错误，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_ORDER_ID。\n- A2：订单不属于当前顾客，在线商城系统返回 HTTP 403 Forbidden，错误码 ORDER_ACCESS_DENIED。\n- A3：订单不存在，在线商城系统返回 HTTP 404 Not Found，错误码 ORDER_NOT_FOUND。\n- A4：订单未发货，shipmentSummary 中物流字段为空，不展示物流轨迹。\n- A5：OrderService查询超时，在线商城系统返回 HTTP 504 Gateway Timeout，错误码 ORDER_SERVICE_TIMEOUT。\n\n#### UCG-003-UC001-API-L-IF1 商家发货\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-003-UC001-API-L-IF1 |\n| 用例名称 | 商家发货 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-L-IF1 |\n| 方法/路径 | POST /api/v1/orders/{orderId}/shipments |\n\n##### 参与者\n\n- 主要参与者：ACT-002（商家）、ACT-004（LogisticsService）\n- 次要参与者：OrderService\n\n##### 前置条件\n\n- 在线商城系统正常运行，商家发货接口可访问。\n- OrderService服务可用，ACT-004（LogisticsService）服务可用。\n- 商家已登录，具有订单处理权限，请求携带合法 Authorization Token。\n- 订单状态为 PAID，且商品已完成出库准备。\n\n##### 基本流程\n\n1. ACT-002（商家）发送 POST /api/v1/orders/{orderId}/shipments 请求到在线商城系统，请求体包含 orderId、carrierCode、trackingNumber、shippedItems[]。\n2. 在线商城系统校验 Authorization Token，确认商家身份和订单处理权限。\n3. 在线商城系统校验请求参数：orderId格式合法、carrierCode合法、trackingNumber非空、shippedItems[]非空。\n4. 在线商城系统调用OrderService查询 order 表，获取 order_id、merchant_id、status，校验订单状态为 PAID 且属于当前商家。\n5. 在线商城系统调用OrderService的创建发货能力，传入 orderId、carrierCode、trackingNumber、shippedItems[]。\n6. OrderService校验 trackingNumber 格式（如长度、字符集、承运商编码规则）。\n7. OrderService写入 shipment 表（字段包括 shipment_id、order_id、carrier_code、tracking_number、shipped_items、status、shipped_at、created_at、updated_at）。\n8. OrderService更新 order 表中订单状态为 SHIPPED。\n9. OrderService向ACT-004（LogisticsService）登记物流单号，传入 trackingNumber、carrierCode、orderId。\n10. OrderService向在线商城系统返回 HTTP 200，响应体包含 shipmentId、orderStatus（SHIPPED）、trackingNumber。\n11. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 shipmentId、orderStatus、trackingNumber。\n\n##### 备选流程\n\n- A1：订单状态不是 PAID，在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。\n- A2：trackingNumber 格式不合法，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_TRACKING_NUMBER。\n- A3：ACT-004（LogisticsService）不可用，OrderService保存待同步任务，订单状态仍更新为 SHIPPED，物流单号登记异步重试。\n- A4：shippedItems[] 中的商品不属于该订单，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_SHIPPED_ITEMS。\n- A5：商家无订单处理权限，在线商城系统返回 HTTP 403 Forbidden，错误码 PERMISSION_DENIED。\n\n#### UCG-003-UC002-LOGI-EVT-01 更新物流信息\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-003-UC002-LOGI-EVT-01 |\n| 用例名称 | 更新物流信息 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | LOGI-EVT-01 |\n| 方法/路径 | POST /api/v1/logistics/events |\n\n##### 参与者\n\n- 主要参与者：ACT-004（LogisticsService）、LogisticsServiceAdapter\n- 次要参与者：OrderService\n\n##### 前置条件\n\n- 在线商城系统正常运行，物流事件接收接口可访问。\n- LogisticsServiceAdapter服务可用。\n- 商城已登记有效物流单号（shipment 表中存在对应记录）。\n- ACT-004（LogisticsService）持有合法调用凭证（signature）。\n\n##### 基本流程\n\n1. ACT-004（LogisticsService）发送 POST /api/v1/logistics/events 请求到在线商城系统，请求体包含 eventId、trackingNumber、eventCode、eventTime、location、signature。\n2. LogisticsServiceAdapter校验 signature 的合法性，确认请求来源为授权的LogisticsService。\n3. LogisticsServiceAdapter校验 trackingNumber 是否在 shipment 表中存在，查询 shipment 表获取 shipment_id、order_id、carrier_code。\n4. LogisticsServiceAdapter校验 eventTime 的合理性（不早于发货时间、不晚于当前时间）。\n5. LogisticsServiceAdapter按 eventId 执行幂等校验，查询 logistics_event 表是否已存在相同 eventId。\n6. LogisticsServiceAdapter写入 logistics_event 表（字段包括 event_id、tracking_number、event_code、event_time、location、shipment_id、order_id、created_at）。\n7. LogisticsServiceAdapter更新 shipment 表中的物流状态摘要（last_event_code、last_event_time、last_location、last_updated_at）。\n8. LogisticsServiceAdapter向在线商城系统返回 HTTP 200，响应体包含 accepted=true、duplicate=false。\n9. 在线商城系统向ACT-004返回 HTTP 200，响应体包含 accepted、duplicate。\n\n##### 备选流程\n\n- A1：signature 校验失败，LogisticsServiceAdapter返回 HTTP 401 Unauthorized，错误码 INVALID_SIGNATURE，并记录安全告警日志。\n- A2：trackingNumber 在 shipment 表中不存在，LogisticsServiceAdapter返回 HTTP 404 Not Found，错误码 TRACKING_NUMBER_NOT_FOUND。\n- A3：eventTime 不合理（早于发货时间或晚于当前时间），LogisticsServiceAdapter返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_TIME。\n- A4：eventId 已存在，LogisticsServiceAdapter返回 HTTP 200，响应体包含 accepted=true、duplicate=true，不重复写入。\n- A5：signature 校验通过但 eventCode 非法（不在允许的事件编码范围内），LogisticsServiceAdapter返回 HTTP 400 Bad Request，错误码 INVALID_EVENT_CODE。\n\n#### UCG-003-UC003-API-L-IF2 查询物流信息\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-003-UC003-API-L-IF2 |\n| 用例名称 | 查询物流信息 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-L-IF2 |\n| 方法/路径 | GET /api/v1/orders/{orderId}/logistics |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、ACT-004（LogisticsService）\n- 次要参与者：LogisticsServiceAdapter\n\n##### 前置条件\n\n- 在线商城系统正常运行，物流信息查询接口可访问。\n- LogisticsServiceAdapter服务可用。\n- ACT-001已登录，请求携带合法 Authorization Token。\n- 订单属于当前顾客且已发货（订单状态为 SHIPPED 或更后状态）。\n\n##### 基本流程\n\n1. ACT-001发送 GET /api/v1/orders/{orderId}/logistics 请求到在线商城系统。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验 orderId 格式合法。\n4. 在线商城系统调用OrderService查询 order 表，校验订单属于当前顾客且状态为 SHIPPED 或之后。\n5. 在线商城系统调用LogisticsServiceAdapter的物流查询能力，传入 orderId。\n6. LogisticsServiceAdapter查询 shipment 表，获取 shipment_id、carrier_code、tracking_number、status、shipped_at。\n7. LogisticsServiceAdapter查询 logistics_event 表，获取该物流单的所有事件节点（event_code、event_time、location），按 event_time 排序。\n8. LogisticsServiceAdapter判断本地数据是否过期（last_updated_at 距当前时间超过阈值）；若过期，调用ACT-004（LogisticsService）查询最新物流轨迹。\n9. LogisticsServiceAdapter向在线商城系统返回 HTTP 200，响应体包含 trackingNumber、status、events[]、lastUpdatedAt、dataSource。\n10. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 trackingNumber、status、events[]、lastUpdatedAt、dataSource。\n\n##### 备选流程\n\n- A1：订单未发货（状态为 WAIT_PAY 或 PAID），在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_NOT_SHIPPED。\n- A2：本地物流数据不存在，在线商城系统返回 HTTP 404 Not Found，错误码 LOGISTICS_NOT_FOUND。\n- A3：ACT-004（LogisticsService）查询失败或超时，LogisticsServiceAdapter返回本地最近一次同步数据，dataSource 标记为 CACHE，并包含 lastUpdatedAt。\n- A4：物流已签收，events[] 中包含签收节点，status 为 DELIVERED，响应包含签收时间。\n- A5：LogisticsServiceAdapter服务不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 LOGISTICS_SERVICE_UNAVAILABLE。\n\n#### UCG-003-UC004-API-R-IF1 申请退款\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-003-UC004-API-R-IF1 |\n| 用例名称 | 申请退款 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-R-IF1 |\n| 方法/路径 | POST /api/v1/refunds |\n\n##### 参与者\n\n- 主要参与者：ACT-001（顾客）、ACT-003（PaymentService）\n- 次要参与者：RefundService\n\n##### 前置条件\n\n- 在线商城系统正常运行，退款申请接口可访问。\n- RefundService服务可用，ACT-003（PaymentService）服务可用。\n- ACT-001已登录，订单属于当前顾客且已支付（订单状态为 PAID 或 SHIPPED）。\n- 订单满足退款时限（在退款有效期内）和状态规则。\n- idempotencyKey由客户端生成。\n\n##### 基本流程\n\n1. ACT-001发送 POST /api/v1/refunds 请求到在线商城系统，请求体包含 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey。\n2. 在线商城系统校验 Authorization Token，确认顾客身份。\n3. 在线商城系统校验请求参数：orderId格式合法、items[]非空、reasonCode合法、requestedAmount>=0、idempotencyKey非空。\n4. 在线商城系统调用OrderService查询 order 表和 order_item 表，校验订单属于当前顾客、状态满足退款条件、计算可退款金额。\n5. 在线商城系统调用RefundService的退款申请能力，传入 orderId、items[]、reasonCode、reasonDescription、requestedAmount、idempotencyKey。\n6. RefundService按 idempotencyKey 执行幂等校验。\n7. RefundService校验退款时限（是否在退款有效期内）和退款金额（requestedAmount <= 可退款金额）。\n8. RefundService写入 refund 表（字段包括 refund_id、order_id、customer_id、items_snapshot、reason_code、reason_description、requested_amount、accepted_amount、status、created_at、updated_at）。\n9. RefundService向ACT-003（PaymentService）提交退款请求，传入 refund_id、payment_id、accepted_amount。\n10. PaymentService处理退款并向RefundService返回退款结果。\n11. RefundService更新 refund 表中退款状态，并向在线商城系统返回 HTTP 200，响应体包含 refundId、refundStatus、acceptedAmount。\n12. 在线商城系统向ACT-001返回 HTTP 200，响应体包含 refundId、refundStatus、acceptedAmount。\n\n##### 备选流程\n\n- A1：超过退款有效期，在线商城系统返回 HTTP 409 Conflict，错误码 REFUND_WINDOW_EXPIRED。\n- A2：退款金额超过可退款金额，在线商城系统返回 HTTP 409 Conflict，错误码 REFUND_AMOUNT_EXCEEDED，响应体包含可退款金额。\n- A3：订单状态不满足退款条件（例如已退款或已取消），在线商城系统返回 HTTP 409 Conflict，错误码 ORDER_STATUS_INVALID。\n- A4：ACT-003（PaymentService）不可用，RefundService保留退款单为 PENDING 状态，异步重试提交退款请求，响应体 refundStatus 为 PROCESSING。\n- A5：idempotencyKey重复，RefundService返回已有退款单，不重复创建。\n\n#### UCG-004-UC001-API-M-IF1 创建商品\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-004-UC001-API-M-IF1 |\n| 用例名称 | 创建商品 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-M-IF1 |\n| 方法/路径 | POST /api/v1/merchant/products |\n\n##### 参与者\n\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 次要参与者：无\n\n##### 前置条件\n\n- 在线商城系统正常运行，商品创建接口可访问。\n- MerchantProductService服务可用。\n- ACT-002（商家）已登录，经营资质有效，拥有商品管理权限，请求携带合法 Authorization Token。\n- idempotencyKey由客户端生成。\n\n##### 基本流程\n\n1. ACT-002（商家）发送 POST /api/v1/merchant/products 请求到在线商城系统，请求体包含 merchantId、idempotencyKey。\n2. 在线商城系统校验 Authorization Token，确认商家身份。\n3. 在线商城系统校验请求参数：merchantId格式合法、idempotencyKey非空。\n4. 在线商城系统调用MerchantProductService的创建商品能力，传入 merchantId、idempotencyKey。\n5. MerchantProductService校验商家经营资质（查询 merchant 表，获取 merchant_id、qualification_status、product_permission），确认资质有效且有商品管理权限。\n6. MerchantProductService按 idempotencyKey 执行幂等校验。\n7. MerchantProductService生成 productId 和初始 version，写入 product 表（字段包括 product_id、merchant_id、name、description、category_id、status（DRAFT）、version、created_at、updated_at）。\n8. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（DRAFT）、version。\n9. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、version。\n\n##### 备选流程\n\n- A1：商家经营资质已失效，在线商城系统返回 HTTP 403 Forbidden，错误码 MERCHANT_NOT_QUALIFIED。\n- A2：商家无商品管理权限，在线商城系统返回 HTTP 403 Forbidden，错误码 PERMISSION_DENIED。\n- A3：idempotencyKey重复，MerchantProductService返回已有商品草稿，不重复创建。\n- A4：MerchantProductService不可用，在线商城系统返回 HTTP 503 Service Unavailable，错误码 MERCHANT_SERVICE_UNAVAILABLE。\n\n#### UCG-004-UC002-API-M-IF2 填写商品信息\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-004-UC002-API-M-IF2 |\n| 用例名称 | 填写商品信息 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-M-IF2 |\n| 方法/路径 | PUT /api/v1/merchant/products/{productId} |\n\n##### 参与者\n\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 次要参与者：CategoryService\n\n##### 前置条件\n\n- 在线商城系统正常运行，商品信息维护接口可访问。\n- MerchantProductService和CategoryService服务可用。\n- 商品草稿存在且属于当前商家（product 表中 status 为 DRAFT）。\n- 商家拥有编辑权限，请求携带合法 Authorization Token。\n\n##### 基本流程\n\n1. ACT-002（商家）发送 PUT /api/v1/merchant/products/{productId} 请求到在线商城系统，请求体包含 name、description、categoryId、imageUrls[]、version。\n2. 在线商城系统校验 Authorization Token，确认商家身份。\n3. 在线商城系统校验请求参数：name非空且长度合法、description长度合法、categoryId格式合法、imageUrls[]格式合法、version非空。\n4. 在线商城系统调用MerchantProductService的商品信息维护能力，传入 productId、name、description、categoryId、imageUrls[]、version。\n5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。\n6. MerchantProductService调用CategoryService校验 categoryId，查询 category 表获取 category_id、status，确认分类有效且未停用。\n7. MerchantProductService校验图片格式和数量约束（imageUrls[] 中每项URL格式合法、数量在允许范围内）。\n8. MerchantProductService更新 product 表（字段包括 name、description、category_id、image_urls、version（+1）、updated_at）。\n9. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（DRAFT）、version（新版本号）、updatedAt。\n10. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、version、updatedAt。\n\n##### 备选流程\n\n- A1：商品不存在，在线商城系统返回 HTTP 404 Not Found，错误码 PRODUCT_NOT_FOUND。\n- A2：categoryId 不存在或已停用，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_CATEGORY。\n- A3：图片URL格式不合法或数量超限，在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_IMAGE。\n- A4：version 不一致（商品已被其他操作修改），在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version，要求商家重新加载。\n- A5：商品状态不是 DRAFT（已发布），在线商城系统返回 HTTP 409 Conflict，错误码 INVALID_PRODUCT_STATUS。\n\n#### UCG-004-UC003-API-M-IF3 设置库存与价格\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-004-UC003-API-M-IF3 |\n| 用例名称 | 设置库存与价格 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-M-IF3 |\n| 方法/路径 | PUT /api/v1/merchant/products/{productId}/skus |\n\n##### 参与者\n\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 次要参与者：无\n\n##### 前置条件\n\n- 在线商城系统正常运行，库存价格维护接口可访问。\n- MerchantProductService服务可用。\n- 商品草稿存在且至少定义一个SKU，属于当前商家。\n- 商家拥有编辑权限，请求携带合法 Authorization Token。\n\n##### 基本流程\n\n1. ACT-002（商家）发送 PUT /api/v1/merchant/products/{productId}/skus 请求到在线商城系统，请求体包含 skus[]（每项含 skuId、attributes、stock、salePrice、originalPrice）和商品 version。\n2. 在线商城系统校验 Authorization Token，确认商家身份。\n3. 在线商城系统校验请求参数：skus[]非空、每项 skuId 格式合法、stock>=0、salePrice>=0、originalPrice>=0、version非空。\n4. 在线商城系统调用MerchantProductService的库存与价格维护能力，传入 productId、skus[]、version。\n5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。\n6. MerchantProductService校验 SKU 数据：stock 不为负数、salePrice 合法、originalPrice 合法、skuId 无重复。\n7. MerchantProductService写入/更新 sku 表（字段包括 sku_id、product_id、attributes、stock_quantity、sale_price、original_price、updated_at）。\n8. MerchantProductService更新 product 表中 version（+1）和 updated_at。\n9. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、skus[]、version（新版本号）。\n10. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、skus[]、version。\n\n##### 备选流程\n\n- A1：stock 为负数，在线商城系统返回 HTTP 400 Bad Request，错误码 NEGATIVE_STOCK。\n- A2：salePrice 或 originalPrice 不合法（例如为负数或格式错误），在线商城系统返回 HTTP 400 Bad Request，错误码 INVALID_PRICE。\n- A3：skus[] 中存在重复的 skuId，在线商城系统返回 HTTP 409 Conflict，错误码 DUPLICATE_SKU。\n- A4：version 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version。\n- A5：商品不存在，在线商城系统返回 HTTP 404 Not Found，错误码 PRODUCT_NOT_FOUND。\n\n#### UCG-004-UC004-API-M-IF4 发布商品\n\n##### 基本信息\n\n| 项目 | 内容 |\n| --- | --- |\n| 用例编号 | UCG-004-UC004-API-M-IF4 |\n| 用例名称 | 发布商品 |\n| 关联SR | SR-DELTA-042 |\n| 关联API | API-M-IF4 |\n| 方法/路径 | POST /api/v1/merchant/products/{productId}/publish |\n\n##### 参与者\n\n- 主要参与者：ACT-002（商家）、MerchantProductService\n- 次要参与者：ProductCatalogService\n\n##### 前置条件\n\n- 在线商城系统正常运行，商品发布接口可访问。\n- MerchantProductService和ProductCatalogService服务可用。\n- 商品处于 DRAFT 状态，且资料（名称、描述、分类、图片）、SKU、库存和价格完整。\n- 商家经营资质有效，请求携带合法 Authorization Token。\n\n##### 基本流程\n\n1. ACT-002（商家）发送 POST /api/v1/merchant/products/{productId}/publish 请求到在线商城系统，请求体包含 version、publishAt。\n2. 在线商城系统校验 Authorization Token，确认商家身份。\n3. 在线商城系统校验请求参数：version非空、publishAt格式合法。\n4. 在线商城系统调用MerchantProductService的商品发布能力，传入 productId、version、publishAt。\n5. MerchantProductService查询 product 表，获取 product_id、merchant_id、status、version，校验商品属于当前商家、状态为 DRAFT、version 一致（乐观锁）。\n6. MerchantProductService校验商品资料完整性：name、description、category_id、image_urls 非空，sku 表中存在至少一个有效SKU且 stock_quantity>0、sale_price>0。\n7. MerchantProductService校验类目规则：查询 category 表获取分类的必填属性和发布规则，确认商品满足类目要求。\n8. MerchantProductService更新 product 表中 status 为 ON_SALE、published_at、version（+1）、updated_at。\n9. MerchantProductService调用ProductCatalogService刷新可售索引，传入 productId 和最新商品数据。\n10. ProductCatalogService更新商品检索索引，向MerchantProductService返回同步结果。\n11. MerchantProductService向在线商城系统返回 HTTP 200，响应体包含 productId、status（ON_SALE）、publishedAt、catalogSyncStatus。\n12. 在线商城系统向ACT-002返回 HTTP 200，响应体包含 productId、status、publishedAt、catalogSyncStatus。\n\n##### 备选流程\n\n- A1：商品资料不完整（如缺少名称、描述、图片或SKU），在线商城系统返回 HTTP 409 Conflict，错误码 PRODUCT_INCOMPLETE，响应体包含缺失字段列表。\n- A2：商品不满足类目发布规则（如必填属性缺失），在线商城系统返回 HTTP 409 Conflict，错误码 CATEGORY_RULE_VIOLATION，商品进入审核队列。\n- A3：商品状态不是 DRAFT（如已发布或已删除），在线商城系统返回 HTTP 409 Conflict，错误码 INVALID_PRODUCT_STATUS。\n- A4：version 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version。\n- A5：ProductCatalogService同步失败，MerchantProductService记录待同步任务并自动重试，catalogSyncStatus 为 SYNC_PENDING，商品状态仍更新为 ON_SALE。\n\n### V5标准化设计用例调用链（抽取权威章节）\n\n本节将每个 RR 用例对应的 SR 设计用例、Abstract API、AR 软件实现接口和微服务调用关系显式化。前文版本化内容保留作为原始设计证据；本节用于 V5 语义抽取和 SSD 生成。\n\n统一调用链：系统接收 RR 业务动作 → SR Service/Abstract API → ImplementationAPI/AR 微服务 → 内部数据库或外部服务 → 逐层返回 SR → 系统向 Actor 返回业务结果。顾客/商家到系统的消息不携带 HTTP 细节。\n\n#### UCG-001-UC001：浏览商品\n\n- 关联 SR 用例/API：`UCG-001-UC001-API-S-IF1` / `API-S-IF1` / `ProductDisplayService`\n- SR 接口：`GET /api/v1/products`；请求：`keyword, categoryId, minPrice, maxPrice, sortBy, page, pageSize`；返回：`page, pageSize, total, items[]`；错误：`INVALID_QUERY_PARAM, INVALID_CATEGORY, PRODUCT_SERVICE_TIMEOUT, PRODUCT_SERVICE_UNAVAILABLE`\n- AR 调用：`listProducts` → `ProductCatalogService` → 查询 `product` 表（已由 API.md 确认）；结果逐层返回并转换为商品列表。\n\n#### UCG-001-UC002：查看商品详情\n\n- 关联 SR 用例/API：`UCG-001-UC002-API-S-IF2` / `API-S-IF2` / `ProductDisplayService`\n- SR 接口：`GET /api/v1/products/{productId}`；请求：`productId, Authorization`；返回：`productId, name, description, images[], price, stockStatus`；错误：`INVALID_PRODUCT_ID, PRODUCT_NOT_FOUND, PRODUCT_OFF_SHELF`\n- AR 调用：`getProductDetail` → `ProductCatalogService` → 查询 `product` 表；映射为 inferred，逐层返回。\n\n#### UCG-001-UC003：加入购物车\n\n- 关联 SR 用例/API：`UCG-001-UC003-API-C-IF1` / `API-C-IF1` / `CartService`\n- SR 接口：`POST /api/v1/cart/items`；请求：`productId, skuId, quantity`；返回：`cartId, items[], totalAmount`；错误：`PRODUCT_NOT_FOUND, STOCK_NOT_ENOUGH, CART_ITEM_DUPLICATE`\n- AR 调用：`addCartItem` → `CartService`，并调用 `getProductDetail` → `ProductCatalogService` 校验商品和库存；映射为 inferred。\n\n#### UCG-002-UC001：创建订单\n\n- 关联 SR 用例/API：`UCG-002-UC001-API-O-IF1` / `API-O-IF1` / `OrderService`\n- SR 接口：`POST /api/v1/orders`；请求：`cartId, addressId, items[], paymentMethod`；返回：`orderId, status, totalAmount`；错误：`CART_EMPTY, STOCK_NOT_ENOUGH, PRICE_CHANGED`\n- AR 调用：`createOrder` → `OrderService`，调用 `validatePriceStock` → `ProductCatalogService`，写入订单数据；映射为 inferred。\n\n#### UCG-002-UC002：支付订单\n\n- 关联 SR 用例/API：`UCG-002-UC002-PAYMENT-PAY-01` / `PAYMENT-PAY-01` / `PaymentAdapter`\n- SR 接口：`POST /payment/v1/payments`；请求：`orderId, amount, paymentMethod, callbackUrl`；返回：`paymentId, paymentStatus`；错误：`PAYMENT_INVALID, PAYMENT_TIMEOUT, PAYMENT_FAILED`\n- AR 调用：`createPayment` → `PaymentAdapter` → 外部 `PaymentService`，接收支付结果回调；映射为 inferred。\n\n#### UCG-002-UC003：查看订单详情\n\n- 关联 SR 用例/API：`UCG-002-UC003-API-O-IF2` / `API-O-IF2` / `OrderService`\n- SR 接口：`GET /api/v1/orders/{orderId}`；请求：`orderId, Authorization`；返回：`orderId, items[], paymentStatus, shipmentStatus`；错误：`ORDER_NOT_FOUND, FORBIDDEN`\n- AR 调用：`getOrderDetail` → `OrderService` → 查询订单数据；映射为 inferred。\n\n#### UCG-003-UC001：商家发货\n\n- 关联 SR 用例/API：`UCG-003-UC001-API-L-IF1` / `API-L-IF1` / `LogisticsServiceAdapter`\n- SR 接口：`POST /api/v1/orders/{orderId}/shipments`；请求：`orderId, carrier, trackingNo`；返回：`shipmentId, shipmentStatus`；错误：`ORDER_STATE_INVALID, LOGISTICS_SERVICE_UNAVAILABLE`\n- AR 调用：`createShipment` → `OrderService`，再调用外部 `LogisticsService`；映射为 inferred。\n\n#### UCG-003-UC002：更新物流信息\n\n- 关联 SR 用例/API：`UCG-003-UC002-LOGI-EVT-01` / `LOGI-EVT-01` / `LogisticsServiceAdapter`\n- SR 接口：`POST /api/v1/logistics/events`；请求：`trackingNo, status, eventTime`；返回：`accepted, eventId`；错误：`INVALID_EVENT, DUPLICATE_EVENT`\n- AR 调用：`receiveLogisticsEvent` → `LogisticsServiceAdapter` → 更新订单/物流数据；映射为 inferred。\n\n#### UCG-003-UC003：查询物流信息\n\n- 关联 SR 用例/API：`UCG-003-UC003-API-L-IF2` / `API-L-IF2` / `LogisticsServiceAdapter`\n- SR 接口：`GET /api/v1/orders/{orderId}/logistics`；请求：`orderId`；返回：`shipmentStatus, trackingEvents[]`；错误：`ORDER_NOT_FOUND, LOGISTICS_SERVICE_TIMEOUT`\n- AR 调用：`getOrderLogistics` → `LogisticsServiceAdapter` → 外部 `LogisticsService`；映射为 inferred。\n\n#### UCG-003-UC004：申请退款\n\n- 关联 SR 用例/API：`UCG-003-UC004-API-R-IF1` / `API-R-IF1` / `RefundService`\n- SR 接口：`POST /api/v1/orders/{orderId}/refunds`；请求：`orderId, reason, amount`；返回：`refundId, refundStatus`；错误：`REFUND_NOT_ALLOWED, PAYMENT_SERVICE_UNAVAILABLE`\n- AR 调用：`createRefund` → `RefundService` → 外部 `PaymentService`；映射为 inferred。\n\n#### UCG-004-UC001：创建商品\n\n- 关联 SR 用例/API：`UCG-004-UC001-API-M-IF1` / `API-M-IF1` / `MerchantProductService`\n- SR 接口：`POST /api/v1/merchant/products`；请求：`name, categoryId, description, imageUrls[]`；返回：`productId, status`；错误：`INVALID_PRODUCT, CATEGORY_NOT_FOUND`\n- AR 调用：`createMerchantProduct` → `MerchantProductService` → 写入商品数据；映射为 inferred。\n\n#### UCG-004-UC002：填写商品信息\n\n- 关联 SR 用例/API：`UCG-004-UC002-API-M-IF2` / `API-M-IF2` / `MerchantProductService`\n- SR 接口：`PUT /api/v1/merchant/products/{productId}`；请求：`productId, name, description, categoryId, imageUrls[], version`；返回：`productId, status, version`；错误：`PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, VERSION_CONFLICT`\n- AR 调用：`updateMerchantProduct` → `MerchantProductService`，调用 `validateCategory` → `CategoryService`；映射为 inferred。\n\n#### UCG-004-UC003：设置库存与价格\n\n- 关联 SR 用例/API：`UCG-004-UC003-API-M-IF3` / `API-M-IF3` / `MerchantProductService`\n- SR 接口：`PUT /api/v1/merchant/products/{productId}/skus`；请求：`productId, skus[], version`；返回：`productId, skus[], version`；错误：`SKU_INVALID, PRICE_INVALID, VERSION_CONFLICT`\n- AR 调用：`updateSkuInventoryAndPrice` → `MerchantProductService` → 写入 SKU/库存/价格数据；映射为 inferred。\n\n#### UCG-004-UC004：发布商品\n\n- 关联 SR 用例/API：`UCG-004-UC004-API-M-IF4` / `API-M-IF4` / `MerchantProductService`\n- SR 接口：`POST /api/v1/merchant/products/{productId}/publish`；请求：`productId, version, publishAt`；返回：`productId, status, publishedAt, catalogSyncStatus`；错误：`PRODUCT_INCOMPLETE, CATEGORY_RULE_VIOLATION, CATALOG_SYNC_FAILED`\n- AR 调用：`publishMerchantProduct` → `MerchantProductService`，调用 `refreshCatalog` → `ProductCatalogService`；映射为 inferred。\n\n### 关联实现接口OpenAPI文件\n\n#### AR： ProductBrowse 商品浏览模块\n\n软件实现接口1：listProducts 商品列表查询API\n\n软件实现接口2：getProductDetail 商品详情查询API\n\n#### AR： CartService 购物车服务\n\n软件实现接口1：addCartItem 加入购物车API\n\n#### AR： OrderService 订单服务\n\n软件实现接口1：createOrder 创建订单API\n\n软件实现接口2：getOrderDetail 订单详情查询API\n\n软件实现接口3：createShipment 商家发货API\n\n#### AR： PaymentAdapter 支付适配服务\n\n软件实现接口1：createPayment 订单支付接口\n\n#### AR： LogisticsServiceAdapter 物流适配服务\n\n软件实现接口1：receiveLogisticsEvent 物流事件接收接口\n\n软件实现接口2：getOrderLogistics 物流信息查询API\n\n#### AR： RefundService 退款服务\n\n软件实现接口1：createRefund 退款申请API\n\n#### AR： MerchantProductService 商家商品服务\n\n软件实现接口1：createMerchantProduct 商品创建API\n\n软件实现接口2：updateMerchantProduct 商品信息维护API\n\n软件实现接口3：updateSkuInventoryAndPrice 库存价格维护API\n\n软件实现接口4：publishMerchantProduct 商品发布API\n",
+      "chapters": [
+        {
+          "chapter_id": "SEC-bdb189bd1875ab03",
+          "document": "功能设计Delta_spec.md",
+          "level": 1,
+          "title": "Delta 功能设计文档",
+          "heading_path": [
+            "Delta 功能设计文档"
+          ],
+          "line_start": 1,
+          "line_end": 1242
+        },
+        {
+          "chapter_id": "SEC-3b88f2030fc6482d",
+          "document": "功能设计Delta_spec.md",
+          "level": 2,
+          "title": "SR设计：在线交易平台核心业务模块",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块"
+          ],
+          "line_start": 5,
+          "line_end": 1242
+        },
+        {
+          "chapter_id": "SEC-13e73d2413cd834e",
+          "document": "功能设计Delta_spec.md",
+          "level": 3,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息"
+          ],
+          "line_start": 7,
+          "line_end": 356
+        },
+        {
+          "chapter_id": "SEC-a76c5ce10771a36f",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "API接口变更点分析",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "API接口变更点分析"
+          ],
+          "line_start": 13,
+          "line_end": 31
+        },
+        {
+          "chapter_id": "SEC-cf3ee0c1c327aa16",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "变更详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情"
+          ],
+          "line_start": 32,
+          "line_end": 356
+        },
+        {
+          "chapter_id": "SEC-111b81bbea7e5d6c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "1. 商品列表查询API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "1. 商品列表查询API"
+          ],
+          "line_start": 34,
+          "line_end": 89
+        },
+        {
+          "chapter_id": "SEC-3576302e1bd59924",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "1. 商品列表查询API",
+            "变更前"
+          ],
+          "line_start": 43,
+          "line_end": 51
+        },
+        {
+          "chapter_id": "SEC-359215400abdaba3",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "1. 商品列表查询API",
+            "变更后"
+          ],
+          "line_start": 52,
+          "line_end": 89
+        },
+        {
+          "chapter_id": "SEC-86b6a386259864e5",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "2. 商品详情查询API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "2. 商品详情查询API"
+          ],
+          "line_start": 90,
+          "line_end": 126
+        },
+        {
+          "chapter_id": "SEC-3b52a7b32bb6a408",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "2. 商品详情查询API",
+            "变更前"
+          ],
+          "line_start": 99,
+          "line_end": 102
+        },
+        {
+          "chapter_id": "SEC-940fb8f1b954783a",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "2. 商品详情查询API",
+            "变更后"
+          ],
+          "line_start": 103,
+          "line_end": 126
+        },
+        {
+          "chapter_id": "SEC-04352dce3bf94e2a",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "3. 加入购物车API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "3. 加入购物车API"
+          ],
+          "line_start": 127,
+          "line_end": 146
+        },
+        {
+          "chapter_id": "SEC-64ced782d9cb7389",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "3. 加入购物车API",
+            "变更前"
+          ],
+          "line_start": 135,
+          "line_end": 140
+        },
+        {
+          "chapter_id": "SEC-f027175665ecfc46",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "3. 加入购物车API",
+            "变更后"
+          ],
+          "line_start": 141,
+          "line_end": 146
+        },
+        {
+          "chapter_id": "SEC-abc9c02fef8754ee",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "4. 创建订单API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "4. 创建订单API"
+          ],
+          "line_start": 147,
+          "line_end": 166
+        },
+        {
+          "chapter_id": "SEC-526d44bda9a32d5d",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "4. 创建订单API",
+            "变更前"
+          ],
+          "line_start": 155,
+          "line_end": 160
+        },
+        {
+          "chapter_id": "SEC-cd3f61461bf8260f",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "4. 创建订单API",
+            "变更后"
+          ],
+          "line_start": 161,
+          "line_end": 166
+        },
+        {
+          "chapter_id": "SEC-f013098758a96a79",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "5. 订单支付接口",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "5. 订单支付接口"
+          ],
+          "line_start": 167,
+          "line_end": 186
+        },
+        {
+          "chapter_id": "SEC-5cf8fbaa42e3707c",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "5. 订单支付接口",
+            "变更前"
+          ],
+          "line_start": 175,
+          "line_end": 180
+        },
+        {
+          "chapter_id": "SEC-b55a1e9f47691fd2",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "5. 订单支付接口",
+            "变更后"
+          ],
+          "line_start": 181,
+          "line_end": 186
+        },
+        {
+          "chapter_id": "SEC-20c7ce6c4a9727b9",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "6. 订单详情查询API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "6. 订单详情查询API"
+          ],
+          "line_start": 187,
+          "line_end": 204
+        },
+        {
+          "chapter_id": "SEC-052ea9ff91f46ae3",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "6. 订单详情查询API",
+            "变更前"
+          ],
+          "line_start": 195,
+          "line_end": 198
+        },
+        {
+          "chapter_id": "SEC-ce0f0b3e91a61860",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "6. 订单详情查询API",
+            "变更后"
+          ],
+          "line_start": 199,
+          "line_end": 204
+        },
+        {
+          "chapter_id": "SEC-093eb4f1028e6b0e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "7. 商家发货API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "7. 商家发货API"
+          ],
+          "line_start": 205,
+          "line_end": 222
+        },
+        {
+          "chapter_id": "SEC-00865fecbcb576f1",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "7. 商家发货API",
+            "变更前"
+          ],
+          "line_start": 213,
+          "line_end": 216
+        },
+        {
+          "chapter_id": "SEC-77b2500840efb27c",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "7. 商家发货API",
+            "变更后"
+          ],
+          "line_start": 217,
+          "line_end": 222
+        },
+        {
+          "chapter_id": "SEC-1740706b2fad2779",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "8. 物流事件接收接口",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "8. 物流事件接收接口"
+          ],
+          "line_start": 223,
+          "line_end": 240
+        },
+        {
+          "chapter_id": "SEC-23c8cc1adae8f6fd",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "8. 物流事件接收接口",
+            "变更前"
+          ],
+          "line_start": 231,
+          "line_end": 234
+        },
+        {
+          "chapter_id": "SEC-b32437354f7672c1",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "8. 物流事件接收接口",
+            "变更后"
+          ],
+          "line_start": 235,
+          "line_end": 240
+        },
+        {
+          "chapter_id": "SEC-0b75529fc1d87e5d",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "9. 物流信息查询API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "9. 物流信息查询API"
+          ],
+          "line_start": 241,
+          "line_end": 260
+        },
+        {
+          "chapter_id": "SEC-2ebfe337e4b79357",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "9. 物流信息查询API",
+            "变更前"
+          ],
+          "line_start": 249,
+          "line_end": 254
+        },
+        {
+          "chapter_id": "SEC-8e4f771c23bda7cb",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "9. 物流信息查询API",
+            "变更后"
+          ],
+          "line_start": 255,
+          "line_end": 260
+        },
+        {
+          "chapter_id": "SEC-20067c17ea82fe0c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "10. 退款申请API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "10. 退款申请API"
+          ],
+          "line_start": 261,
+          "line_end": 280
+        },
+        {
+          "chapter_id": "SEC-3d7764e0d4c6a34d",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "10. 退款申请API",
+            "变更前"
+          ],
+          "line_start": 269,
+          "line_end": 274
+        },
+        {
+          "chapter_id": "SEC-8c0a15a634684575",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "10. 退款申请API",
+            "变更后"
+          ],
+          "line_start": 275,
+          "line_end": 280
+        },
+        {
+          "chapter_id": "SEC-0914b7ed0218e760",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "11. 商品创建API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "11. 商品创建API"
+          ],
+          "line_start": 281,
+          "line_end": 298
+        },
+        {
+          "chapter_id": "SEC-d2f957e001cc140b",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "11. 商品创建API",
+            "变更前"
+          ],
+          "line_start": 289,
+          "line_end": 292
+        },
+        {
+          "chapter_id": "SEC-e25d43f8b354f2b0",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "11. 商品创建API",
+            "变更后"
+          ],
+          "line_start": 293,
+          "line_end": 298
+        },
+        {
+          "chapter_id": "SEC-702891f2c194c1d9",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "12. 商品信息维护API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "12. 商品信息维护API"
+          ],
+          "line_start": 299,
+          "line_end": 316
+        },
+        {
+          "chapter_id": "SEC-d9522a3f16c1ee9d",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "12. 商品信息维护API",
+            "变更前"
+          ],
+          "line_start": 307,
+          "line_end": 310
+        },
+        {
+          "chapter_id": "SEC-1d68d727b12767fc",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "12. 商品信息维护API",
+            "变更后"
+          ],
+          "line_start": 311,
+          "line_end": 316
+        },
+        {
+          "chapter_id": "SEC-cc2cd6ee0dd811d0",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "13. 库存价格维护API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "13. 库存价格维护API"
+          ],
+          "line_start": 317,
+          "line_end": 336
+        },
+        {
+          "chapter_id": "SEC-6edd5c447419ba07",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "13. 库存价格维护API",
+            "变更前"
+          ],
+          "line_start": 325,
+          "line_end": 330
+        },
+        {
+          "chapter_id": "SEC-54d2f97427d9467a",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "13. 库存价格维护API",
+            "变更后"
+          ],
+          "line_start": 331,
+          "line_end": 336
+        },
+        {
+          "chapter_id": "SEC-cd18e150073e8508",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "14. 商品发布API",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "14. 商品发布API"
+          ],
+          "line_start": 337,
+          "line_end": 356
+        },
+        {
+          "chapter_id": "SEC-cbda7e3dbaf8cd4a",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更前",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "14. 商品发布API",
+            "变更前"
+          ],
+          "line_start": 345,
+          "line_end": 350
+        },
+        {
+          "chapter_id": "SEC-b1fa1590a95f0cb5",
+          "document": "功能设计Delta_spec.md",
+          "level": 6,
+          "title": "变更后",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "基本信息",
+            "变更详情",
+            "14. 商品发布API",
+            "变更后"
+          ],
+          "line_start": 351,
+          "line_end": 356
+        },
+        {
+          "chapter_id": "SEC-330d9d0d831e6c53",
+          "document": "功能设计Delta_spec.md",
+          "level": 3,
+          "title": "设计用例",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例"
+          ],
+          "line_start": 357,
+          "line_end": 470
+        },
+        {
+          "chapter_id": "SEC-f78c8fcb95897cb1",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC001-API-S-IF1 浏览商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-001-UC001-API-S-IF1 浏览商品"
+          ],
+          "line_start": 359,
+          "line_end": 366
+        },
+        {
+          "chapter_id": "SEC-2e63d0957f2ac383",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC002-API-S-IF2 查看商品详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-001-UC002-API-S-IF2 查看商品详情"
+          ],
+          "line_start": 367,
+          "line_end": 374
+        },
+        {
+          "chapter_id": "SEC-ba76648aa7fc9bd8",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC003-API-C-IF1 加入购物车",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-001-UC003-API-C-IF1 加入购物车"
+          ],
+          "line_start": 375,
+          "line_end": 382
+        },
+        {
+          "chapter_id": "SEC-0480b1c8ad3970f6",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC001-API-O-IF1 创建订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-002-UC001-API-O-IF1 创建订单"
+          ],
+          "line_start": 383,
+          "line_end": 390
+        },
+        {
+          "chapter_id": "SEC-ef70b7e01b0439ed",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单"
+          ],
+          "line_start": 391,
+          "line_end": 398
+        },
+        {
+          "chapter_id": "SEC-43346ab54ffe80e2",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC003-API-O-IF2 查看订单详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-002-UC003-API-O-IF2 查看订单详情"
+          ],
+          "line_start": 399,
+          "line_end": 406
+        },
+        {
+          "chapter_id": "SEC-9a39ac584323d9fb",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC001-API-L-IF1 商家发货",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-003-UC001-API-L-IF1 商家发货"
+          ],
+          "line_start": 407,
+          "line_end": 414
+        },
+        {
+          "chapter_id": "SEC-22cb12d631e0e467",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息"
+          ],
+          "line_start": 415,
+          "line_end": 422
+        },
+        {
+          "chapter_id": "SEC-5fd3705aac49a21d",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC003-API-L-IF2 查询物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-003-UC003-API-L-IF2 查询物流信息"
+          ],
+          "line_start": 423,
+          "line_end": 430
+        },
+        {
+          "chapter_id": "SEC-a9df4d60fa294908",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC004-API-R-IF1 申请退款",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-003-UC004-API-R-IF1 申请退款"
+          ],
+          "line_start": 431,
+          "line_end": 438
+        },
+        {
+          "chapter_id": "SEC-2c429f679eabcf47",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC001-API-M-IF1 创建商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-004-UC001-API-M-IF1 创建商品"
+          ],
+          "line_start": 439,
+          "line_end": 446
+        },
+        {
+          "chapter_id": "SEC-884f40e0cd3948bc",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC002-API-M-IF2 填写商品信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-004-UC002-API-M-IF2 填写商品信息"
+          ],
+          "line_start": 447,
+          "line_end": 454
+        },
+        {
+          "chapter_id": "SEC-4c9780eb83740fe9",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC003-API-M-IF3 设置库存与价格",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格"
+          ],
+          "line_start": 455,
+          "line_end": 462
+        },
+        {
+          "chapter_id": "SEC-46a3519ac18e5407",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC004-API-M-IF4 发布商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例",
+            "UCG-004-UC004-API-M-IF4 发布商品"
+          ],
+          "line_start": 463,
+          "line_end": 470
+        },
+        {
+          "chapter_id": "SEC-b7ad500dacc215b4",
+          "document": "功能设计Delta_spec.md",
+          "level": 3,
+          "title": "设计用例详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情"
+          ],
+          "line_start": 471,
+          "line_end": 1109
+        },
+        {
+          "chapter_id": "SEC-b6305004da83e6ad",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC001-API-S-IF1 浏览商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品"
+          ],
+          "line_start": 473,
+          "line_end": 515
+        },
+        {
+          "chapter_id": "SEC-942ad1c898afc27c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "基本信息"
+          ],
+          "line_start": 475,
+          "line_end": 484
+        },
+        {
+          "chapter_id": "SEC-734175f3f2cc9b70",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "参与者"
+          ],
+          "line_start": 485,
+          "line_end": 489
+        },
+        {
+          "chapter_id": "SEC-d8668cded92d4ad6",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "前置条件"
+          ],
+          "line_start": 490,
+          "line_end": 496
+        },
+        {
+          "chapter_id": "SEC-4e2ea8bee16d53bb",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "基本流程"
+          ],
+          "line_start": 497,
+          "line_end": 505
+        },
+        {
+          "chapter_id": "SEC-0a3c48f0cb641802",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC001-API-S-IF1 浏览商品",
+            "备选流程"
+          ],
+          "line_start": 506,
+          "line_end": 515
+        },
+        {
+          "chapter_id": "SEC-1289302fb32ae89b",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC002-API-S-IF2 查看商品详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情"
+          ],
+          "line_start": 516,
+          "line_end": 556
+        },
+        {
+          "chapter_id": "SEC-6dbe4aea503725a0",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "基本信息"
+          ],
+          "line_start": 518,
+          "line_end": 527
+        },
+        {
+          "chapter_id": "SEC-0e3920fc84bdb405",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "参与者"
+          ],
+          "line_start": 528,
+          "line_end": 532
+        },
+        {
+          "chapter_id": "SEC-f3440d3985cfd2d1",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "前置条件"
+          ],
+          "line_start": 533,
+          "line_end": 538
+        },
+        {
+          "chapter_id": "SEC-878ebe1cddf2d9f2",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "基本流程"
+          ],
+          "line_start": 539,
+          "line_end": 547
+        },
+        {
+          "chapter_id": "SEC-610f7ea1a0c24a48",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC002-API-S-IF2 查看商品详情",
+            "备选流程"
+          ],
+          "line_start": 548,
+          "line_end": 556
+        },
+        {
+          "chapter_id": "SEC-c0c72630b0eaca83",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC003-API-C-IF1 加入购物车",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车"
+          ],
+          "line_start": 557,
+          "line_end": 604
+        },
+        {
+          "chapter_id": "SEC-a729773351dd895d",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本信息"
+          ],
+          "line_start": 559,
+          "line_end": 568
+        },
+        {
+          "chapter_id": "SEC-1b2a564df8a09ddf",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "参与者"
+          ],
+          "line_start": 569,
+          "line_end": 573
+        },
+        {
+          "chapter_id": "SEC-d6c8ae48e4271078",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "前置条件"
+          ],
+          "line_start": 574,
+          "line_end": 581
+        },
+        {
+          "chapter_id": "SEC-0ff5004db9824554",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "基本流程"
+          ],
+          "line_start": 582,
+          "line_end": 595
+        },
+        {
+          "chapter_id": "SEC-272e55cac4a436b6",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-001-UC003-API-C-IF1 加入购物车",
+            "备选流程"
+          ],
+          "line_start": 596,
+          "line_end": 604
+        },
+        {
+          "chapter_id": "SEC-43e7b5b4e88ec759",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC001-API-O-IF1 创建订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单"
+          ],
+          "line_start": 605,
+          "line_end": 654
+        },
+        {
+          "chapter_id": "SEC-b72b242bff62702e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本信息"
+          ],
+          "line_start": 607,
+          "line_end": 616
+        },
+        {
+          "chapter_id": "SEC-991d1b375ddbeb57",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "参与者"
+          ],
+          "line_start": 617,
+          "line_end": 621
+        },
+        {
+          "chapter_id": "SEC-e07cd7ddc130c0d7",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "前置条件"
+          ],
+          "line_start": 622,
+          "line_end": 630
+        },
+        {
+          "chapter_id": "SEC-da35dfcb8abed867",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "基本流程"
+          ],
+          "line_start": 631,
+          "line_end": 645
+        },
+        {
+          "chapter_id": "SEC-ad9752670460ddf2",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC001-API-O-IF1 创建订单",
+            "备选流程"
+          ],
+          "line_start": 646,
+          "line_end": 654
+        },
+        {
+          "chapter_id": "SEC-7e30d08380265641",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单"
+          ],
+          "line_start": 655,
+          "line_end": 701
+        },
+        {
+          "chapter_id": "SEC-ea14e317f540e74d",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本信息"
+          ],
+          "line_start": 657,
+          "line_end": 666
+        },
+        {
+          "chapter_id": "SEC-0e449eb6438c982c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "参与者"
+          ],
+          "line_start": 667,
+          "line_end": 671
+        },
+        {
+          "chapter_id": "SEC-855b6a3757f7818b",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "前置条件"
+          ],
+          "line_start": 672,
+          "line_end": 679
+        },
+        {
+          "chapter_id": "SEC-b2d15f456d630ce4",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "基本流程"
+          ],
+          "line_start": 680,
+          "line_end": 692
+        },
+        {
+          "chapter_id": "SEC-3957416b040362fc",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC002-PAYMENT-PAY-01 支付订单",
+            "备选流程"
+          ],
+          "line_start": 693,
+          "line_end": 701
+        },
+        {
+          "chapter_id": "SEC-aa7171e153c33615",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC003-API-O-IF2 查看订单详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情"
+          ],
+          "line_start": 702,
+          "line_end": 746
+        },
+        {
+          "chapter_id": "SEC-f7b8063c683b802f",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本信息"
+          ],
+          "line_start": 704,
+          "line_end": 713
+        },
+        {
+          "chapter_id": "SEC-47a380965cb7c616",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "参与者"
+          ],
+          "line_start": 714,
+          "line_end": 718
+        },
+        {
+          "chapter_id": "SEC-2027f4b603f7678a",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "前置条件"
+          ],
+          "line_start": 719,
+          "line_end": 725
+        },
+        {
+          "chapter_id": "SEC-419274d9db51b50e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "基本流程"
+          ],
+          "line_start": 726,
+          "line_end": 738
+        },
+        {
+          "chapter_id": "SEC-af896be18b5ccf6e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-002-UC003-API-O-IF2 查看订单详情",
+            "备选流程"
+          ],
+          "line_start": 739,
+          "line_end": 746
+        },
+        {
+          "chapter_id": "SEC-1b4c980b5e198754",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC001-API-L-IF1 商家发货",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货"
+          ],
+          "line_start": 747,
+          "line_end": 792
+        },
+        {
+          "chapter_id": "SEC-b78f381516a02f7d",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "基本信息"
+          ],
+          "line_start": 749,
+          "line_end": 758
+        },
+        {
+          "chapter_id": "SEC-62b5e312b6033ec8",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "参与者"
+          ],
+          "line_start": 759,
+          "line_end": 763
+        },
+        {
+          "chapter_id": "SEC-413afa6792614b44",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "前置条件"
+          ],
+          "line_start": 764,
+          "line_end": 770
+        },
+        {
+          "chapter_id": "SEC-b2099ae01ca99b4e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "基本流程"
+          ],
+          "line_start": 771,
+          "line_end": 784
+        },
+        {
+          "chapter_id": "SEC-d22d167b382c86c3",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC001-API-L-IF1 商家发货",
+            "备选流程"
+          ],
+          "line_start": 785,
+          "line_end": 792
+        },
+        {
+          "chapter_id": "SEC-9a95df6ee25b0144",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息"
+          ],
+          "line_start": 793,
+          "line_end": 836
+        },
+        {
+          "chapter_id": "SEC-124efa5deee7eda0",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本信息"
+          ],
+          "line_start": 795,
+          "line_end": 804
+        },
+        {
+          "chapter_id": "SEC-115fe87a3a6b8ff5",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "参与者"
+          ],
+          "line_start": 805,
+          "line_end": 809
+        },
+        {
+          "chapter_id": "SEC-bb0499e66dd6ac2c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "前置条件"
+          ],
+          "line_start": 810,
+          "line_end": 816
+        },
+        {
+          "chapter_id": "SEC-ec2b46bd96a7126a",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "基本流程"
+          ],
+          "line_start": 817,
+          "line_end": 828
+        },
+        {
+          "chapter_id": "SEC-484be2b54d8dd92d",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC002-LOGI-EVT-01 更新物流信息",
+            "备选流程"
+          ],
+          "line_start": 829,
+          "line_end": 836
+        },
+        {
+          "chapter_id": "SEC-72533c4ef2e3dded",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC003-API-L-IF2 查询物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息"
+          ],
+          "line_start": 837,
+          "line_end": 881
+        },
+        {
+          "chapter_id": "SEC-e7cfd0df7fd3804c",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本信息"
+          ],
+          "line_start": 839,
+          "line_end": 848
+        },
+        {
+          "chapter_id": "SEC-5828c949e0366ba6",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "参与者"
+          ],
+          "line_start": 849,
+          "line_end": 853
+        },
+        {
+          "chapter_id": "SEC-27dece90a2056338",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "前置条件"
+          ],
+          "line_start": 854,
+          "line_end": 860
+        },
+        {
+          "chapter_id": "SEC-9c9b856c5f2fe7e3",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "基本流程"
+          ],
+          "line_start": 861,
+          "line_end": 873
+        },
+        {
+          "chapter_id": "SEC-1355d04b3ac935e4",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC003-API-L-IF2 查询物流信息",
+            "备选流程"
+          ],
+          "line_start": 874,
+          "line_end": 881
+        },
+        {
+          "chapter_id": "SEC-a6ef553e5333ef8e",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC004-API-R-IF1 申请退款",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款"
+          ],
+          "line_start": 882,
+          "line_end": 929
+        },
+        {
+          "chapter_id": "SEC-48e08006f7a20d7b",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本信息"
+          ],
+          "line_start": 884,
+          "line_end": 893
+        },
+        {
+          "chapter_id": "SEC-8912cfde197f03db",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "参与者"
+          ],
+          "line_start": 894,
+          "line_end": 898
+        },
+        {
+          "chapter_id": "SEC-843cfe8675f28e85",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "前置条件"
+          ],
+          "line_start": 899,
+          "line_end": 906
+        },
+        {
+          "chapter_id": "SEC-35b8ddf4dce2c823",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "基本流程"
+          ],
+          "line_start": 907,
+          "line_end": 921
+        },
+        {
+          "chapter_id": "SEC-2cf3c9de40fa0269",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-003-UC004-API-R-IF1 申请退款",
+            "备选流程"
+          ],
+          "line_start": 922,
+          "line_end": 929
+        },
+        {
+          "chapter_id": "SEC-400daf0c2ab6bae8",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC001-API-M-IF1 创建商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品"
+          ],
+          "line_start": 930,
+          "line_end": 972
+        },
+        {
+          "chapter_id": "SEC-37bf664894f21016",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "基本信息"
+          ],
+          "line_start": 932,
+          "line_end": 941
+        },
+        {
+          "chapter_id": "SEC-070ee3fc157f0a89",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "参与者"
+          ],
+          "line_start": 942,
+          "line_end": 946
+        },
+        {
+          "chapter_id": "SEC-73221b3f4a724a6f",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "前置条件"
+          ],
+          "line_start": 947,
+          "line_end": 953
+        },
+        {
+          "chapter_id": "SEC-59621ba1dec7744b",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "基本流程"
+          ],
+          "line_start": 954,
+          "line_end": 965
+        },
+        {
+          "chapter_id": "SEC-9a3e343bbee3218e",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC001-API-M-IF1 创建商品",
+            "备选流程"
+          ],
+          "line_start": 966,
+          "line_end": 972
+        },
+        {
+          "chapter_id": "SEC-41b7eeeae00fe21b",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC002-API-M-IF2 填写商品信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息"
+          ],
+          "line_start": 973,
+          "line_end": 1017
+        },
+        {
+          "chapter_id": "SEC-c5ecec03e4383689",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本信息"
+          ],
+          "line_start": 975,
+          "line_end": 984
+        },
+        {
+          "chapter_id": "SEC-dee5f3b0b63760ca",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "参与者"
+          ],
+          "line_start": 985,
+          "line_end": 989
+        },
+        {
+          "chapter_id": "SEC-863efc39eb7a4850",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "前置条件"
+          ],
+          "line_start": 990,
+          "line_end": 996
+        },
+        {
+          "chapter_id": "SEC-1dd74a378b70a1b0",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "基本流程"
+          ],
+          "line_start": 997,
+          "line_end": 1009
+        },
+        {
+          "chapter_id": "SEC-7b0a9a5f2835ffcc",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC002-API-M-IF2 填写商品信息",
+            "备选流程"
+          ],
+          "line_start": 1010,
+          "line_end": 1017
+        },
+        {
+          "chapter_id": "SEC-3ddd19b6a5cf95c0",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC003-API-M-IF3 设置库存与价格",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格"
+          ],
+          "line_start": 1018,
+          "line_end": 1062
+        },
+        {
+          "chapter_id": "SEC-3eb1621b18009970",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本信息"
+          ],
+          "line_start": 1020,
+          "line_end": 1029
+        },
+        {
+          "chapter_id": "SEC-106125b6f059f4c0",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "参与者"
+          ],
+          "line_start": 1030,
+          "line_end": 1034
+        },
+        {
+          "chapter_id": "SEC-af83b18439ec2615",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "前置条件"
+          ],
+          "line_start": 1035,
+          "line_end": 1041
+        },
+        {
+          "chapter_id": "SEC-57853ccf6af9d8f7",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "基本流程"
+          ],
+          "line_start": 1042,
+          "line_end": 1054
+        },
+        {
+          "chapter_id": "SEC-c92b161a8bccebee",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC003-API-M-IF3 设置库存与价格",
+            "备选流程"
+          ],
+          "line_start": 1055,
+          "line_end": 1062
+        },
+        {
+          "chapter_id": "SEC-e4406e13e299904e",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC004-API-M-IF4 发布商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品"
+          ],
+          "line_start": 1063,
+          "line_end": 1109
+        },
+        {
+          "chapter_id": "SEC-8297a8ff43e59b52",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本信息"
+          ],
+          "line_start": 1065,
+          "line_end": 1074
+        },
+        {
+          "chapter_id": "SEC-f656ae96d7153733",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "参与者",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "参与者"
+          ],
+          "line_start": 1075,
+          "line_end": 1079
+        },
+        {
+          "chapter_id": "SEC-f408bd6a8da0a22a",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "前置条件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "前置条件"
+          ],
+          "line_start": 1080,
+          "line_end": 1086
+        },
+        {
+          "chapter_id": "SEC-6095f03f16fa7f88",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "基本流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "基本流程"
+          ],
+          "line_start": 1087,
+          "line_end": 1101
+        },
+        {
+          "chapter_id": "SEC-cf3d323cd82750cd",
+          "document": "功能设计Delta_spec.md",
+          "level": 5,
+          "title": "备选流程",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "设计用例详情",
+            "UCG-004-UC004-API-M-IF4 发布商品",
+            "备选流程"
+          ],
+          "line_start": 1102,
+          "line_end": 1109
+        },
+        {
+          "chapter_id": "SEC-6923573518b58efc",
+          "document": "功能设计Delta_spec.md",
+          "level": 3,
+          "title": "V5标准化设计用例调用链（抽取权威章节）",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）"
+          ],
+          "line_start": 1110,
+          "line_end": 1199
+        },
+        {
+          "chapter_id": "SEC-6b7649a283cff2db",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC001：浏览商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC001：浏览商品"
+          ],
+          "line_start": 1116,
+          "line_end": 1121
+        },
+        {
+          "chapter_id": "SEC-6957d89715e238eb",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC002：查看商品详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC002：查看商品详情"
+          ],
+          "line_start": 1122,
+          "line_end": 1127
+        },
+        {
+          "chapter_id": "SEC-ab4f920a43bbe52a",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-001-UC003：加入购物车",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-001-UC003：加入购物车"
+          ],
+          "line_start": 1128,
+          "line_end": 1133
+        },
+        {
+          "chapter_id": "SEC-ca1f7bf3daf37749",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC001：创建订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC001：创建订单"
+          ],
+          "line_start": 1134,
+          "line_end": 1139
+        },
+        {
+          "chapter_id": "SEC-3d9adc0c8ea4152f",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC002：支付订单",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC002：支付订单"
+          ],
+          "line_start": 1140,
+          "line_end": 1145
+        },
+        {
+          "chapter_id": "SEC-f98d0608218eccd9",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-002-UC003：查看订单详情",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-002-UC003：查看订单详情"
+          ],
+          "line_start": 1146,
+          "line_end": 1151
+        },
+        {
+          "chapter_id": "SEC-fa1169c4feb578ea",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC001：商家发货",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC001：商家发货"
+          ],
+          "line_start": 1152,
+          "line_end": 1157
+        },
+        {
+          "chapter_id": "SEC-88d000ecc5b81f18",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC002：更新物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC002：更新物流信息"
+          ],
+          "line_start": 1158,
+          "line_end": 1163
+        },
+        {
+          "chapter_id": "SEC-db0020ac1c0792e8",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC003：查询物流信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC003：查询物流信息"
+          ],
+          "line_start": 1164,
+          "line_end": 1169
+        },
+        {
+          "chapter_id": "SEC-6043263382ffbbed",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-003-UC004：申请退款",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-003-UC004：申请退款"
+          ],
+          "line_start": 1170,
+          "line_end": 1175
+        },
+        {
+          "chapter_id": "SEC-c26df53fae749c43",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC001：创建商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC001：创建商品"
+          ],
+          "line_start": 1176,
+          "line_end": 1181
+        },
+        {
+          "chapter_id": "SEC-e313f93717ad933c",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC002：填写商品信息",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC002：填写商品信息"
+          ],
+          "line_start": 1182,
+          "line_end": 1187
+        },
+        {
+          "chapter_id": "SEC-b53a6c822addc363",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC003：设置库存与价格",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC003：设置库存与价格"
+          ],
+          "line_start": 1188,
+          "line_end": 1193
+        },
+        {
+          "chapter_id": "SEC-dea7f0484cb8c289",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "UCG-004-UC004：发布商品",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "V5标准化设计用例调用链（抽取权威章节）",
+            "UCG-004-UC004：发布商品"
+          ],
+          "line_start": 1194,
+          "line_end": 1199
+        },
+        {
+          "chapter_id": "SEC-20a30fbd27901dec",
+          "document": "功能设计Delta_spec.md",
+          "level": 3,
+          "title": "关联实现接口OpenAPI文件",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件"
+          ],
+          "line_start": 1200,
+          "line_end": 1242
+        },
+        {
+          "chapter_id": "SEC-527a0514dcfc9b07",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： ProductBrowse 商品浏览模块",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： ProductBrowse 商品浏览模块"
+          ],
+          "line_start": 1202,
+          "line_end": 1207
+        },
+        {
+          "chapter_id": "SEC-843fc1d2f69b937b",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： CartService 购物车服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： CartService 购物车服务"
+          ],
+          "line_start": 1208,
+          "line_end": 1211
+        },
+        {
+          "chapter_id": "SEC-a0efe7b41ccd5ebf",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： OrderService 订单服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： OrderService 订单服务"
+          ],
+          "line_start": 1212,
+          "line_end": 1219
+        },
+        {
+          "chapter_id": "SEC-9a18d550dde4adc9",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： PaymentAdapter 支付适配服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： PaymentAdapter 支付适配服务"
+          ],
+          "line_start": 1220,
+          "line_end": 1223
+        },
+        {
+          "chapter_id": "SEC-8543787cb110ed38",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： LogisticsServiceAdapter 物流适配服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： LogisticsServiceAdapter 物流适配服务"
+          ],
+          "line_start": 1224,
+          "line_end": 1229
+        },
+        {
+          "chapter_id": "SEC-01c9138d95e789bd",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： RefundService 退款服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： RefundService 退款服务"
+          ],
+          "line_start": 1230,
+          "line_end": 1233
+        },
+        {
+          "chapter_id": "SEC-2a7f6118eaa28e92",
+          "document": "功能设计Delta_spec.md",
+          "level": 4,
+          "title": "AR： MerchantProductService 商家商品服务",
+          "heading_path": [
+            "Delta 功能设计文档",
+            "SR设计：在线交易平台核心业务模块",
+            "关联实现接口OpenAPI文件",
+            "AR： MerchantProductService 商家商品服务"
+          ],
+          "line_start": 1234,
+          "line_end": 1242
+        }
+      ]
+    }
+  ]
+}

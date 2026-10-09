@@ -1,0 +1,14 @@
+{
+  "schema_version": "three-agent-v1",
+  "complete": true,
+  "backend": "embedding",
+  "rerank": false,
+  "weights": {
+    "support": 0.7,
+    "missing": 0.3
+  },
+  "input_hash": "d429030c1b756212676b4ab94ac1e1f08904a46c4c5b2f19a0a4fa88f6774cbf",
+  "recommendation_count": 0,
+  "items": [],
+  "archive_note": "Baseline evidence text is in common/sources_index.json; evidence_refs locate cited lines. Rerank retains all shortlisted fragments/scores."
+}

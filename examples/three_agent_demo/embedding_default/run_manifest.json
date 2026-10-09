@@ -1,0 +1,66 @@
+{
+  "schema_version": "three-agent-v1",
+  "complete": true,
+  "stages": {
+    "generator": {
+      "status": "complete",
+      "count": 472,
+      "llm_review_used": false
+    },
+    "checker": {
+      "status": "complete",
+      "count": 97
+    },
+    "matching": {
+      "status": "complete",
+      "links": 3269
+    },
+    "recommendation": {
+      "status": "complete",
+      "count": 0
+    },
+    "export": {
+      "status": "complete"
+    }
+  },
+  "match_backend": "embedding",
+  "recommend_backend": "embedding",
+  "agent_mode": "packets",
+  "rerank": false,
+  "thresholds": {
+    "full": 0.85,
+    "partial": 0.7,
+    "calibrated": false
+  },
+  "models": {
+    "agent": "ecnu-max",
+    "embedding": "ecnu-embedding-small"
+  },
+  "input_hash": "967e9f44dd0f751a706db68649e0b49a8a6d5baf17c00f81be6d3b1f2936b517",
+  "source_versions": [
+    {
+      "document": "系统需求Delta_spec.md",
+      "hash": "30edf9bae07639ced7e6bbbf8150bb533d12e982cb98244fc11ee29abcee5656"
+    },
+    {
+      "document": "功能设计Delta_spec.md",
+      "hash": "2417f25002cc3de9a678dca3c276f464d3c9751c84015b637f2c04bee95963b1"
+    }
+  ],
+  "dependencies": {
+    "crud_edges": 14,
+    "use_case_edges": 0,
+    "service_edges": 0
+  },
+  "elapsed_seconds": 17.296085599809885,
+  "artifacts": {
+    "report": "report.md",
+    "workbook": "scene_assessment.xlsx"
+  },
+  "dataset_files": {
+    "generator": "../common/generated_scenarios.json",
+    "checker": "../common/existing_scenarios.json",
+    "sources": "../common/sources_index.json"
+  },
+  "snapshot_note": "Common generator retains original SSD artifact paths as provenance. Regenerate diagrams with scene-pipeline on a new checkout."
+}

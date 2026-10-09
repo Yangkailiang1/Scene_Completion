@@ -1,0 +1,659 @@
+{
+  "schema_version": "three-agent-v1",
+  "complete": true,
+  "backend": "agent",
+  "input_hash": "d429030c1b756212676b4ab94ac1e1f08904a46c4c5b2f19a0a4fa88f6774cbf",
+  "batch_status": {
+    "stage": "matching",
+    "complete": true,
+    "batch_count": 28,
+    "pending": [],
+    "errors": {},
+    "input_hash": "3586201fa93fb4351ef3c6c34cacad2ae716223a0b44aadbec06f74dd96ca871"
+  },
+  "verification_models": [
+    "ecnu-max",
+    "gpt-6-luna"
+  ],
+  "matches": [
+    {
+      "checker_scenario_id": "CHK-4a140a6abf63a298d41d",
+      "generated_scenario_id": "GEN-A7BEC826FF",
+      "status": "full",
+      "evidence": "两端触发条件均为顾客未设置搜索/筛选条件；都要求按默认规则展示商品列表。生成场景的用例上下文也保留正常浏览前提，没有与此分支冲突的分支约束。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "顾客未设置搜索或筛选条件",
+        "generated": "顾客未设置搜索或筛选条件。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-462f39e4d7b711d9762d",
+      "generated_scenario_id": "GEN-4E8410AA60",
+      "status": "partial",
+      "evidence": "两端都在商品浏览查询无匹配时返回空列表并提示暂无符合条件商品；检查器明确限定只查询 ON_SALE 商品，生成器触发条件没有保留该状态限定。",
+      "missing_behavior": [
+        "生成器应明确本场景的查询集合限定为状态 ON_SALE。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统根据条件查询状态为 ON_SALE 的商品时未查询到符合条件的商品",
+        "generated": "未查询到符合条件的商品。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-ef03a7912ff59e5f9845",
+      "generated_scenario_id": "GEN-142B3FD0A4",
+      "status": "partial",
+      "evidence": "同为 GET /products 的非法查询参数校验；生成器明确覆盖非法取值这一子类，可对应检查器列出的 min/max、page、sortBy 等非法值，但没有具体列出约束且响应待确认。",
+      "missing_behavior": [
+        "逐项保留 minPrice>maxPrice、page<1、sortBy 白名单、pageSize范围、minPrice非负等触发条件。",
+        "检查器要求提示修正查询条件；生成器的异常响应仍待确认。"
+      ],
+      "trigger_quotes": {
+        "checker": "查询参数非法，例如 minPrice>maxPrice、page<1 或 sortBy 不在允许范围内（或 pageSize 超出 1<=pageSize<=100、minPrice<0 等接口约束不满足）",
+        "generated": "执行「调用 API-S-IF1：GET /api/v1/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-723f2f5b18ccca1aa280",
+      "generated_scenario_id": "GEN-651DCB33AE",
+      "status": "partial",
+      "evidence": "两端均由顾客从商品列表选择目标商品并展示完整详情；生成器没有复述检查器要求的 HTTP 200 和响应字段清单。",
+      "missing_behavior": [
+        "明确 HTTP 200 以及 productId、name、description、images、价格、库存状态和销量等响应字段。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客选择一个商品（点击商品）",
+        "generated": "顾客选择一个商品。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c0602c57e38b4c86d277",
+      "generated_scenario_id": "GEN-AE1C0334D2",
+      "status": "partial",
+      "evidence": "API-S-IF2 的路径变量是 productId；检查器的 productId 格式错误与生成器在同一路径调用中的数据格式不符合，指向同一参数格式校验，但生成器没有定义失败响应。",
+      "missing_behavior": [
+        "明确返回 HTTP 400 Bad Request 和错误码 INVALID_PRODUCT_ID。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的 productId 格式错误（不符合格式规范）",
+        "generated": "执行「调用 API-S-IF2：GET /api/v1/products/{productId}」时：数据不满足格式规范"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c0602c57e38b4c86d277",
+      "generated_scenario_id": "GEN-765120790D",
+      "status": "partial",
+      "evidence": "同为 GET /products/{productId} 的参数校验；生成器列出的非法取值可覆盖格式错误的 productId，但它也包含不允许字段等更广泛情形，且未明确失败响应。",
+      "missing_behavior": [
+        "将触发条件收窄并绑定到 productId 格式错误。",
+        "明确 HTTP 400 和 INVALID_PRODUCT_ID。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的 productId 格式错误（不符合格式规范）",
+        "generated": "执行「调用 API-S-IF2：GET /api/v1/products/{productId}」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-dbdb241c78cfd3dd4523",
+      "generated_scenario_id": "GEN-6ABDFABD2C",
+      "status": "partial",
+      "evidence": "两端都是顾客选择商品后查询不到目标商品，均提示商品不存在并返回商品列表；生成器未包含检查器的 404 响应细节。",
+      "missing_behavior": [
+        "补充 HTTP 404 Not Found 和错误码 PRODUCT_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客选择商品后，ProductCatalogService 未查询到目标商品（商品不存在）",
+        "generated": "商品不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2e6002a6916c1cf742e8",
+      "generated_scenario_id": "GEN-E80F0305D0",
+      "status": "partial",
+      "evidence": "两端均指目标商品已下架并提示已下架、禁止购买；生成器未包含检查器规定的 HTTP 410 和错误码。",
+      "missing_behavior": [
+        "补充 HTTP 410 Gone 和 PRODUCT_OFF_SHELF。"
+      ],
+      "trigger_quotes": {
+        "checker": "目标商品状态为 OFF_SALE（商品已下架）",
+        "generated": "商品已下架。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-33f1bcdad44751fd6f70",
+      "generated_scenario_id": "GEN-F7D7301370",
+      "status": "partial",
+      "evidence": "两端都是详情页选择 SKU/数量后加入购物车，且都保存购物项；生成器未覆盖检查器要求的 HTTP 200 响应字段。",
+      "missing_behavior": [
+        "补充 cartItemId、quantity、cartItemCount、amountSummary 及 HTTP 200。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客在商品详情页选择SKU和购买数量并点击“加入购物车”",
+        "generated": "顾客在商品详情页选择SKU和数量并点击“加入购物车”。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-4a352df1236c99304736",
+      "generated_scenario_id": "GEN-49C77EEBE5",
+      "status": "partial",
+      "evidence": "均在加入购物车时因库存不足而拒绝/提示当前可购买数量；生成器缺少检查器明确的数量比较、409 和错误码。",
+      "missing_behavior": [
+        "明确 stock_quantity < quantity 的判定。",
+        "补充 HTTP 409、OUT_OF_STOCK 及当前可购买数量响应体。"
+      ],
+      "trigger_quotes": {
+        "checker": "校验时SKU库存不足（stock_quantity < quantity）",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-37bb2a5379e510c7dd2d",
+      "generated_scenario_id": "GEN-4581F93AAA",
+      "status": "partial",
+      "evidence": "均为加入购物车时商品已下架，拒绝加入；生成器未覆盖 HTTP 状态码和错误码。",
+      "missing_behavior": [
+        "补充 HTTP 410 Gone 和 PRODUCT_OFF_SHELF。"
+      ],
+      "trigger_quotes": {
+        "checker": "校验时商品状态为 OFF_SALE（已下架）",
+        "generated": "商品已下架。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-e951f76a761ef8f161ed",
+      "generated_scenario_id": "GEN-61CC4C1495",
+      "status": "partial",
+      "evidence": "两端均处理购物车已存在同一 SKU 的数量累加，并受库存和限购上限约束；生成器未覆盖接口返回字段。",
+      "missing_behavior": [
+        "补充 HTTP 200、cartItemId、累加后的 quantity、cartItemCount 和 amountSummary。"
+      ],
+      "trigger_quotes": {
+        "checker": "购物车中已存在相同SKU，系统需累加数量",
+        "generated": "购物车中已存在相同SKU。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-b6e4acfd9edfa6b8494b",
+      "generated_scenario_id": "GEN-49C77EEBE5",
+      "status": "partial",
+      "evidence": "检查器聚合列举商品不存在、库存不足、重复购物项三种 SR 错误；生成器仅覆盖其中明确存在的“库存不足”分支，并提示可购买数量，不能代表另外两种分支。",
+      "missing_behavior": [
+        "此配对只覆盖库存不足子分支；商品不存在和购物车条目重复需分别核对。",
+        "对齐 STOCK_NOT_ENOUGH 与生成器提示当前可购买数量的响应定义。"
+      ],
+      "trigger_quotes": {
+        "checker": "SR接口声明的错误场景：商品不存在、库存不足或购物车条目重复",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-61efa0586abc16381114",
+      "generated_scenario_id": "GEN-C8A9312AFA",
+      "status": "partial",
+      "evidence": "两端均为结算确认提交订单并生成 WAIT_PAY 订单、锁定库存；生成器省略接口响应字段与 HTTP 状态。",
+      "missing_behavior": [
+        "补充 HTTP 200、orderId、orderStatus、payableAmount 和 expireAt。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客在结算页确认提交订单（POST /api/v1/orders，请求体包含 cartItemIds、addressId、couponId、idempotencyKey、confirmedAmount）",
+        "generated": "顾客在结算页确认提交订单。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-81f1f8a4b88787b52967",
+      "generated_scenario_id": "GEN-8D90BBB6CA",
+      "status": "partial",
+      "evidence": "均因商品价格变化/confirmedAmount 与当前价不一致，展示新价格并要求重新确认；生成器没有响应状态、错误码或最新价格字段。",
+      "missing_behavior": [
+        "明确 confirmedAmount 与当前价格不一致的校验。",
+        "补充 HTTP 409、PRICE_CHANGED 及最新价格响应体。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品价格已变化，confirmedAmount与当前价格不一致",
+        "generated": "商品价格已变化。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-19666234a3786e63908f",
+      "generated_scenario_id": "GEN-7C9D158555",
+      "status": "partial",
+      "evidence": "均为订单创建时库存不足，标记缺货商品并阻止创建；生成器缺少 ProductCatalogService 数量判定及 API 响应细节。",
+      "missing_behavior": [
+        "明确 stock_quantity 不满足请求 quantity 的条件。",
+        "补充 HTTP 409、OUT_OF_STOCK、缺货商品及当前库存信息。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品库存不足（ProductCatalogService返回stock_quantity不满足请求quantity）",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-545c47406a75022d945a",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "两端都是相同幂等标识的订单重复提交，均返回已创建订单且不重复创建；触发、实体、操作和结果一致。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "顾客重复提交订单（相同idempotencyKey的POST /api/v1/orders请求）",
+        "generated": "重复提交。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-bb6c915e3b07e026a36a",
+      "generated_scenario_id": "GEN-69F1AC0A02",
+      "status": "partial",
+      "evidence": "两端均由顾客确认支付并使订单变为 PAID、记录支付流水；生成器遗漏检查器规定的支付成功页面，且未描述同一支付请求的接口响应。",
+      "missing_behavior": [
+        "补充向顾客展示支付成功页面及支付接口收到的请求上下文。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客选择支付方式并确认支付，在线商城系统收到 POST /payment/v1/payments 请求。",
+        "generated": "顾客选择支付方式并确认支付。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2a0e1fe1af96c01903bd",
+      "generated_scenario_id": "GEN-901FF2D9C6",
+      "status": "partial",
+      "evidence": "两端都是顾客从订单列表选择本人订单并查看商品、金额、支付和履约信息；生成器未列出 HTTP 200 和响应结构字段。",
+      "missing_behavior": [
+        "补充 HTTP 200 及 orderId、status、items、amountSummary、paymentSummary、shipmentSummary。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客从订单列表选择一个订单并提交订单编号（GET /api/v1/orders/{orderId}）",
+        "generated": "顾客从订单列表选择一个订单。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-944fb29222ba7668e96b",
+      "generated_scenario_id": "GEN-801F8EF3B7",
+      "status": "partial",
+      "evidence": "两端都是目标订单不属于当前顾客，均拒绝访问并记录安全事件；生成器遗漏 403 和 ORDER_ACCESS_DENIED。",
+      "missing_behavior": [
+        "补充 HTTP 403 Forbidden 和 ORDER_ACCESS_DENIED。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统校验订单归属关系时发现订单不属于当前顾客",
+        "generated": "订单不属于当前顾客。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-84ee2b6e1b4fc96e9faa",
+      "generated_scenario_id": "GEN-2970C4053A",
+      "status": "partial",
+      "evidence": "均为订单详情查询未找到目标订单，并提示订单不存在；生成器遗漏 404 响应细节。",
+      "missing_behavior": [
+        "补充 HTTP 404 Not Found 和 ORDER_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统通过订单详情接口 API-O-IF2 查询订单时未找到目标订单",
+        "generated": "订单不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c0237b15933e095fd3e3",
+      "generated_scenario_id": "GEN-8D66DC286D",
+      "status": "partial",
+      "evidence": "均为商家为已支付且备货完成的订单填写承运商/物流单号并确认发货，订单变为 SHIPPED 且保存物流单号；生成器未覆盖物流登记和接口回执。",
+      "missing_behavior": [
+        "补充 shipment 记录创建并向 LogisticsService 登记。",
+        "补充 HTTP 200、shipmentId、orderStatus 和 trackingNumber。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家选择待发货订单，填写承运商和物流单号后确认发货。",
+        "generated": "商家填写承运商和物流单号后确认发货。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-dbf0e948531ce6ad332d",
+      "generated_scenario_id": "GEN-D966960BCA",
+      "status": "partial",
+      "evidence": "两端触发均为发货时订单状态不是 PAID，生成器也拒绝发货；检查器明确订单不更新、409 和 ORDER_STATUS_INVALID。生成器分支自身前置条件待确认；用例中的 PAID 是成功路径上下文，不视作该异常分支的条件。",
+      "missing_behavior": [
+        "补充订单状态不更新、HTTP 409 和 ORDER_STATUS_INVALID。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家对待发货订单发起发货请求，系统校验订单状态发现不是 PAID。",
+        "generated": "订单状态不是 PAID。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-1743557bce9b7fc30c6b",
+      "generated_scenario_id": "GEN-AB2FC6BAC5",
+      "status": "partial",
+      "evidence": "两端均为物流单号格式错误并提示商家修正；生成器未明确无发货记录副作用和 HTTP 错误信息。",
+      "missing_behavior": [
+        "明确不创建发货记录。",
+        "补充 HTTP 400 和 INVALID_TRACKING_NUMBER。"
+      ],
+      "trigger_quotes": {
+        "checker": "提交的 trackingNumber 不满足格式规范（如长度、字符集、承运商编码规则）。",
+        "generated": "物流单号格式错误。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-58270c542d0f127448ae",
+      "generated_scenario_id": "GEN-D0DF305D5F",
+      "status": "partial",
+      "evidence": "均为发货时 LogisticsService 暂不可用/登记调用失败，并保留待同步记录进入重试；生成器未明确订单仍为 SHIPPED、异步登记及错误码。",
+      "missing_behavior": [
+        "明确订单状态仍更新为 SHIPPED，物流登记异步重试。",
+        "补充 LOGISTICS_SERVICE_UNAVAILABLE。"
+      ],
+      "trigger_quotes": {
+        "checker": "OrderService 向 LogisticsService 登记物流单号时调用失败。",
+        "generated": "LogisticsService暂时不可用。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c54cbf06c953c63c7c9d",
+      "generated_scenario_id": "GEN-4574710C63",
+      "status": "partial",
+      "evidence": "两端都是 LogisticsService 推送新轨迹后保存最新物流节点并更新物流状态；生成器未包含检查器的 duplicate 标记、accepted 回执及订单物流摘要。",
+      "missing_behavior": [
+        "补充更新订单物流摘要。",
+        "补充 accepted=true、duplicate=false 等协议回执。"
+      ],
+      "trigger_quotes": {
+        "checker": "LogisticsService 产生新的物流轨迹并通过物流事件协议 LOGI-EVT-01 推送轨迹（POST /api/v1/logistics/events）",
+        "generated": "LogisticsService产生新的物流轨迹。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-8a80a7b9fe059e83d163",
+      "generated_scenario_id": "GEN-8FC1C0C244",
+      "status": "partial",
+      "evidence": "两端均因签名校验失败拒绝物流消息并记录安全告警；生成器遗漏 HTTP 401 和 INVALID_SIGNATURE。",
+      "missing_behavior": [
+        "补充 HTTP 401 Unauthorized 和 INVALID_SIGNATURE。"
+      ],
+      "trigger_quotes": {
+        "checker": "LogisticsServiceAdapter 校验 signature 时发现签名非法，签名校验失败",
+        "generated": "签名校验失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-4ed26b74fbdc98ac82c0",
+      "generated_scenario_id": "GEN-A62997BDE7",
+      "status": "partial",
+      "evidence": "两端均由顾客在本人已发货订单详情查看最新物流状态和轨迹；生成器遗漏 HTTP 200 与结构字段。",
+      "missing_behavior": [
+        "补充 trackingNumber、status、events、lastUpdatedAt、dataSource 和 HTTP 200。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客在订单详情页点击“查看物流”，发起 GET /api/v1/orders/{orderId}/logistics 请求",
+        "generated": "顾客在订单详情页点击“查看物流”。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-318dfa302f240d5d9923",
+      "generated_scenario_id": "GEN-A88F0A1919",
+      "status": "partial",
+      "evidence": "两端均因订单尚未发货而提示商家尚未发货；生成器遗漏冲突响应状态码和错误码。",
+      "missing_behavior": [
+        "补充 HTTP 409 Conflict 和 ORDER_NOT_SHIPPED。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客发起物流查询时系统校验发现订单尚未发货",
+        "generated": "订单尚未发货。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-8ef7fa52c5238e92ef51",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "partial",
+      "evidence": "两端均在外部物流查询失败时向顾客展示最近一次成功同步的数据；检查器还明确包含超时，并要求标记 CACHE、更新时间字段。",
+      "missing_behavior": [
+        "明确外部查询超时也触发此分支。",
+        "补充 dataSource=CACHE 和 lastUpdatedAt。"
+      ],
+      "trigger_quotes": {
+        "checker": "ACT-004（LogisticsService）外部查询失败或超时",
+        "generated": "外部物流服务查询失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-230844760854191af35e",
+      "generated_scenario_id": "GEN-4EF83574B5",
+      "status": "partial",
+      "evidence": "两端都在物流已签收时展示签收时间与签收状态；生成器没有保留 DELIVERED 状态、签收事件数组与响应字段。",
+      "missing_behavior": [
+        "补充 status=DELIVERED、events[] 中的签收节点及签收时间字段。"
+      ],
+      "trigger_quotes": {
+        "checker": "查询物流信息时物流状态为已签收",
+        "generated": "物流已签收。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-ad6aad03fa47c475fd5e",
+      "generated_scenario_id": "GEN-3631596A4F",
+      "status": "partial",
+      "evidence": "两端都是顾客提交退款申请并生成退款单；检查器要求选择退款商品与数量，生成器只明确选择原因后提交，未保证退款对象与数量被选择。",
+      "missing_behavior": [
+        "明确选择退款商品和数量。",
+        "补充 refundId、refundStatus 和 acceptedAmount。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客在订单详情页选择退款商品、数量和原因并提交（POST /api/v1/refunds）",
+        "generated": "顾客在订单详情页选择退款原因并提交。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-cd220172f1b8358bdef0",
+      "generated_scenario_id": "GEN-AAB2A9E971",
+      "status": "partial",
+      "evidence": "两端都是有资质且有权限的商家发起创建商品，创建 DRAFT 并返回商品编号；生成器遗漏 HTTP 响应字段。",
+      "missing_behavior": [
+        "补充 HTTP 200、productId、status 和 version。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家在商品管理页面点击“创建商品”，发送 POST /api/v1/merchant/products 请求。",
+        "generated": "商家在商品管理页面点击“创建商品”。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-12bdaf49c4649869fb74",
+      "generated_scenario_id": "GEN-CB7E648FCA",
+      "status": "partial",
+      "evidence": "两端都是商品创建时商家经营资质失效，均拒绝创建并要求重新认证；生成器异常分支前置条件待确认，用例的有效资质条件是成功路径上下文，不视作异常分支前提。",
+      "missing_behavior": [
+        "补充 HTTP 403 Forbidden 和 MERCHANT_NOT_QUALIFIED。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家发起商品创建，系统校验商家经营资质时发现资质已失效。",
+        "generated": "商家资质已失效。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-3DECF2A84B",
+      "status": "partial",
+      "evidence": "检查器明确包含创建请求中的商品数据非法子分支；生成器同一商品创建 API 的非法字符、不允许字段或非法取值与该子分支相交，但不能覆盖“类目不存在”，且响应待确认。",
+      "missing_behavior": [
+        "明确生成器覆盖的具体商品字段/非法值。",
+        "单独保留 CATEGORY_NOT_FOUND 分支并定义错误响应。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-649EF2E24D",
+      "status": "partial",
+      "evidence": "生成器在同一商品创建 API 明确提出商品数据不符合格式规范，与检查器列出的商品数据非法子分支相符；它未涵盖类目不存在，且响应待确认。",
+      "missing_behavior": [
+        "明确违反格式规范的商品字段和检查结果。",
+        "单独覆盖类目不存在及 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据不满足格式规范"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-A127905E8C",
+      "status": "partial",
+      "evidence": "同一商品创建请求的非法字段/字符/取值触发，与检查器明确列出的商品数据非法子分支相符；不能代表类目不存在分支，生成器没有响应定义。",
+      "missing_behavior": [
+        "明确具体字段与非法值如何拒绝。",
+        "单独定义 CATEGORY_NOT_FOUND 分支。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-43BC03AE67",
+      "status": "partial",
+      "evidence": "生成器指出商品创建请求字段类型与接口定义不符，是检查器商品数据非法子分支的具体形式；但不能覆盖类目不存在，且响应待确认。",
+      "missing_behavior": [
+        "明确涉及的商品字段及 INVALID_PRODUCT 响应。",
+        "单独覆盖 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据类型与接口定义不符"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-3AC0D7033E",
+      "status": "partial",
+      "evidence": "生成器指出同一商品创建请求的字段类型错误，属于检查器“商品数据非法”子分支；没有覆盖类目不存在，也没有定义错误响应。",
+      "missing_behavior": [
+        "明确涉及字段及 INVALID_PRODUCT 响应。",
+        "单独覆盖 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据类型与接口定义不符"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2a0ada7b478be136a80d",
+      "generated_scenario_id": "GEN-7602561DAB",
+      "status": "partial",
+      "evidence": "两端均为商家编辑属于自己的 DRAFT 商品基本资料并保存名称/描述/分类/图片；生成器没有保留版本递增、持久化和响应字段。",
+      "missing_behavior": [
+        "明确 product.version 递增及持久化结果。",
+        "补充 HTTP 200、productId、status、version、updatedAt。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家编辑商品基本资料（名称、描述、分类、图片）并发起保存请求 PUT /api/v1/merchant/products/{productId}。",
+        "generated": "商家编辑商品基本资料并保存。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-72eb2cd30962cedcccee",
+      "generated_scenario_id": "GEN-322D316A51",
+      "status": "full",
+      "evidence": "两端均在商品信息未完成时允许保存草稿但禁止发布；结果都保持 DRAFT，触发和允许/禁止行为一致。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "主成功路径第 4 步保存商品资料时，商家暂未完成全部信息。",
+        "generated": "商家暂未完成全部信息。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2153b1d6618c25ec8da4",
+      "generated_scenario_id": "GEN-BB13252D3D",
+      "status": "partial",
+      "evidence": "两端都是商家提交 SKU 库存与价格并保存；生成器未覆盖检查器要求的最新版本号及具体请求字段。",
+      "missing_behavior": [
+        "补充返回最新 version，并明确 skus[]、skuId、stock、salePrice/originalPrice 等字段。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家在商品编辑页提交库存和价格，发送 PUT /api/v1/merchant/products/{productId}/skus 请求，请求体包含 skus[]（每项含 skuId、attributes、stock、salePrice、originalPrice）和商品 version。",
+        "generated": "商家在商品编辑页提交库存和价格。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-1984e090dc09d0197e36",
+      "generated_scenario_id": "GEN-0BB9E4A934",
+      "status": "partial",
+      "evidence": "两端均因提交负库存而拒绝保存并标记错误 SKU；生成器遗漏 HTTP 400 和 NEGATIVE_STOCK。",
+      "missing_behavior": [
+        "补充 HTTP 400 Bad Request 和 NEGATIVE_STOCK。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家提交的库存数量为负数（stock<0）。",
+        "generated": "库存为负数。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-cb391f063c913ad11fb2",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "partial",
+      "evidence": "两端均因销售价格不在允许范围而提示修正；生成器遗漏 HTTP 400 和 INVALID_PRICE。",
+      "missing_behavior": [
+        "明确负数/格式错误及 originalPrice 等范围覆盖。",
+        "补充 HTTP 400 和 INVALID_PRICE。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家提交的销售价格不在允许范围（例如为负数或格式错误），设计文档同时覆盖salePrice或originalPrice不合法。",
+        "generated": "销售价格不在允许范围。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-462143f05fc7600e5345",
+      "generated_scenario_id": "GEN-D39A1BF21C",
+      "status": "partial",
+      "evidence": "两端均因商品被他处更新造成版本冲突，要求重新加载；生成器遗漏 409、VERSION_CONFLICT 和最新版本。",
+      "missing_behavior": [
+        "补充 HTTP 409、VERSION_CONFLICT 及最新 version。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品版本已被其他操作更新，提交的version与当前版本不一致（乐观锁冲突）。",
+        "generated": "商品版本已被其他操作更新。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-f8a9252e43df41aec6cd",
+      "generated_scenario_id": "GEN-97A70117ED",
+      "status": "partial",
+      "evidence": "两端均由商家发布资料完整且资质有效的 DRAFT 商品，使商品进入 ON_SALE 并可查询；生成器遗漏成功提示、发布时间、目录同步状态和 HTTP 响应。",
+      "missing_behavior": [
+        "补充发布成功提示及 HTTP 200。",
+        "补充 publishedAt、catalogSyncStatus 和响应字段。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家点击“发布商品”并提交商品发布请求（POST /api/v1/merchant/products/{productId}/publish，请求体包含 version、publishAt）",
+        "generated": "商家点击“发布商品”。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-ca9712500b46cea1e16a",
+      "generated_scenario_id": "GEN-0A397765C8",
+      "status": "partial",
+      "evidence": "两端都是资料不完整时阻止发布并列出缺失信息；生成器未明确商品保持 DRAFT、409 和 PRODUCT_INCOMPLETE。",
+      "missing_behavior": [
+        "明确发布被阻止后商品仍保持 DRAFT。",
+        "补充 HTTP 409、PRODUCT_INCOMPLETE 及缺失字段列表。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品资料不完整（如缺少名称、描述、图片或SKU）",
+        "generated": "商品资料不完整。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-b245099b769bfcb02fa1",
+      "generated_scenario_id": "GEN-0580C339C6",
+      "status": "partial",
+      "evidence": "两端都是商品不满足类目规则时送入人工审核；生成器未包含检查器规定的 HTTP 409 和 CATEGORY_RULE_VIOLATION。",
+      "missing_behavior": [
+        "补充 HTTP 409 Conflict 和 CATEGORY_RULE_VIOLATION。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品内容不满足类目发布规则（如必填属性缺失）",
+        "generated": "商品内容违反类目规则。"
+      }
+    }
+  ]
+}

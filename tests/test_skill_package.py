@@ -7,6 +7,7 @@ SKILLS_ROOT = REPOSITORY_ROOT / ".cac" / "skills"
 SKILL_NAMES = {
     "scene-extract", "scene-ssd", "scene-review", "scene-assemble",
     "dependency-graph", "test-scenario-extract", "scenario-match",
+    "scene-generate", "scene-check", "scene-recommend",
 }
 
 

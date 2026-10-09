@@ -1,5 +1,74 @@
 # Scene Completion
 
+当前主流程采用三个角色：**生成器 → 检查器 → 推荐器**。生成器按现有模型、SSD 与关注点方法生成全部场景候选，不经过 LLM 适用性审查；检查器独立抽取原始需求和设计用例，再批量比较；推荐器为未匹配候选给出具体补充章节、证据和推荐评分。
+
+## 三角色职责与结果
+
+| 角色 | 输入与职责 | 主要输出 |
+|---|---|---|
+| 生成器 | 规范模型、融合 SSD；保留明确场景及全部路由候选 | generated_scenarios.json |
+| 检查器 | 独立读需求/设计用例；随后比较 G/C | existing_scenarios.json、scenario_matches.json、metrics.json |
+| 推荐器 | 生成器有而检查器没有的场景；评分、定位章节 | recommendations.json、report.md、scene_assessment.xlsx |
+
+三个角色说明位于 [.cac/agents](.cac/agents/scene-agent.md)。新 Skills 为 scene-generate、scene-check、scene-recommend，完整批次及字段协议见[三角色协议](.cac/skills/scene-check/references/three_roles.md)。
+
+章节记录包含原始文档、完整标题路径、行号、用例和步骤。报告分别显示证据章节与建议补充章节，需求或设计缺少关联时明确标记。候选的未知响应、恢复和数值限制均标记待需求确认。
+
+## 新流程运行
+
+安装依赖后，使用随仓库提交的示例规范模型；模型构建仍复用 scene-extract/scene-ssd 能力。
+
+~~~bash
+python .cac/tools/scene_completion.py scene-pipeline \
+  --model examples/terminal_cloud_model.json \
+  --spec-document 终端云例子/系统需求Delta_spec.md \
+  --spec-document 终端云例子/功能设计Delta_spec.md \
+  --output-dir examples/results/agent
+~~~
+
+默认匹配/推荐后端均为 agent，默认准备 packet 并等待子 Agent。按 run_manifest.json 的等待阶段分配最多三个子 Agent，再重跑原命令推进；完整交付以 complete=true 为准，准备成功的退出码 0 不表示分析已完成。
+
+~~~bash
+python .cac/tools/scene_completion.py run-agent-batches \
+  --stage-dir examples/results/agent/batches/checker \
+  --sources-index examples/results/agent/sources_index.json \
+  --worker-index 0 --worker-count 3 --env-file .env
+~~~
+
+三个子 Agent 分别使用 worker-index 0、1、2；进入 matching 或 recommendation 阶段后替换 stage-dir。此命令把各子 Agent 分工的批次提交给配置的 ECNU 语义模型。匹配先检查完整交叉集合，再以每组最多八对的小包复核提案：逐字引用两端触发条件，由 LLM 判断 full/partial/unmatched，保存复核依据；字符串只校验引用归属，不判定等价。直接填写的匹配提案也须运行 worker 通过复核。--agent-mode external 可自动调度至多三个语义 worker。
+
+匹配与推荐可分别切换 --match-backend embedding、--recommend-backend embedding。
+使用 --checker-input 可复用同一原始文档版本下的完整独立抽取结果。Embedding 完整阈值默认 0.85，部分阈值默认 0.70，均可配置、未经过人工校准。
+
+需要由当前子 Agent 再复核匹配时，使用 prepare-matching-review 导出全部已接受关系，让子 Agent 独立填写逐对语义判断，再用 apply-matching-review 应用。工具要求全量覆盖、原文引句和输入哈希一致；重跑流水线后重新计算指标与待推荐集合。本次演示已由 gpt-6-luna / max 完成这种全量复核，原始判断与应用记录随演示提交。
+
+配置示例为 [three_roles.config.example.json](three_roles.config.example.json)。本地 .env 支持 ECNU_MAX_MODEL、ECNU_MAX_API_KEY、ECNU_MAX_BASE_URL、ECNU_EMBEDDING_TEXT、ECNU_RERANK；密钥不提交，不写入结果。
+
+## 指标与推荐分数
+
+- 漏报率 = 已有集合 C 中没有 full/partial 匹配的场景数 / C 场景总数。
+- 当前已有完整率 = 生成集合 G 中至少有一个 full/partial 匹配的场景数 / G 场景总数。
+- 具体关注点、大类、主成功、可选及未分类异常分别统计；每项带分子/分母、场景与章节。
+- 多标签在各相关分类分别计入，分类内与总指标各自去重；分类数不可直接相加。零分母为 null。
+- 部分匹配计重合，但单列缺少的行为，不进入未匹配推荐集合。
+- 推荐评分 = 0.7 × 支持度 + 0.3 × 缺失度，保留全部候选与分项；它不是校准的正确概率。
+
+显式异常的生成端保留输入标签，并用本地词汇补充；检查端独立按统一分类体系标注。报告展示分类覆盖率及差异：未分类异常进入总指标和未分类桶，不能借用另一端标签提升分类完整率。匹配集合变化时，仅复用候选内容、证据和 rerank 配置完全一致的已有评分。
+
+分支前后置条件未单独明确时标记待确认；用例主成功条件只保留为上下文。匹配复核要求触发机制、影响实体和操作一致，再分别判断核心行为、结果及约束。Agent 推荐的高支持度另核实明确约束与原文引句：只有接口背景时支持度上限 0.5，保留初始分数与调整依据。
+
+## 可选 Rerank 增强
+
+--rerank 默认关闭，仅增强推荐器。先用 embedding 从关联用例章节召回最多 20 段证据，再由 ECNU_RERANK 精排。Agent 阅读排序证据后评分；embedding 推荐以最高 rerank 相关度替换证据相关度代理。
+
+匹配、指标与候选集合不受该开关影响。保存原始分数和引用；相关性高不证明异常合理。请求失败或批次不完整时标记未完成，不静默换后端。
+
+示例运行记录、分类指标和 rerank 对照见 [examples/README.md](examples/README.md)。验证命令为 python -m pytest -q。
+
+## 兼容旧审核流程
+
+以下说明针对旧 scene-review → scene-assemble 流程；旧审计门和 full-only 测试匹配指标保持兼容，与上述新指标分别命名。
+
 Scene Completion 将需求与设计文档转化为可追溯的系统模型、RR/SR/AR 交互 SSD、关注点审核矩阵、异常预测和完整场景清单。工具以 Python 脚本完成确定性校验、路由、去重和导出；语义抽取、证据判断和异常描述由 Agent/LLM 完成。
 
 职责单一的 Skills 位于 `.cac/skills/<skill-name>/SKILL.md`，流水线由 `.cac/agents/scene-agent.md` 编排；共享 CLI 和 Python 包位于 `.cac/tools/`。各 Skill 只描述自身输入、输出和规则，不相互调用。依赖可通过 `python -m pip install -r requirements.txt` 安装。
@@ -212,9 +281,9 @@ flowchart TD
 
 影响值 `yes`/`no` 表示已有判断；`待需求确认` 表示证据不足，不代表已经认定会发生超时异常。
 
-## 当前终端云演示结果示例
+## 旧审核流程终端云演示结果示例
 
-最新演示结果中，关注点矩阵有 965 条审核记录：103 条 `applicable`、275 条 `not_applicable`、587 条 `needs_requirement`。经原子异常展开和重复异常合并后，异常预测为 138 条；场景清单共 157 条，包括 14 个主成功、5 个可选、37 个需求明确异常和 101 个关注点推导异常。此处数量是该演示数据的结果，不是工具的固定目标。
+旧审核流程演示结果中，关注点矩阵有 965 条审核记录：103 条 `applicable`、275 条 `not_applicable`、587 条 `needs_requirement`。经原子异常展开和重复异常合并后，异常预测为 138 条；场景清单共 157 条，包括 14 个主成功、5 个可选、37 个需求明确异常和 101 个关注点推导异常。此处数量是该演示数据的结果，不是工具的固定目标。
 
 ## 命令入口
 

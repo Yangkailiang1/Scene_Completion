@@ -342,6 +342,7 @@ def test_v7_matrix_workbook_has_real_exchange_uc_and_timeout_only_tab():
         matrix_headers = [matrix_sheet.cell(3, col).value for col in range(1, matrix_sheet.max_column + 1)]
         message_col = matrix_headers.index("交互消息/依赖证据") + 1
         assert all(matrix_sheet.cell(row, message_col).value for row in range(4, matrix_sheet.max_row + 1))
+        workbook.close()
 
 
 def test_v7_source_scenarios_survive_version_six_and_get_exception_predictions():

@@ -27,6 +27,7 @@ from scene_completion.overview import build_system_composition_semantics
 from scene_completion.review import load_ecnu_env_file, review_concerns
 from scene_completion.metrics import attach_metrics_to_run_manifest, metrics_dir_from_argv, write_stage_metric
 from scene_completion.assessment import build_crud_dependency_graph, extract_reference_test_scenarios, extract_reference_test_scenarios_from_json, score_scenario_matches
+from scene_completion.role_cli import register_commands, run_pipeline, run_worker, run_matching_review
 
 
 def _read_json(path: str):
@@ -42,6 +43,7 @@ def _write_json(path: str, value) -> None:
 def _main_impl(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Portable Scene Completion tools")
     sub = parser.add_subparsers(dest="command", required=True)
+    register_commands(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
     extract.add_argument("--output", required=True)
@@ -144,6 +146,11 @@ def _main_impl(argv=None) -> int:
 
     args = parser.parse_args(argv)
     try:
+        if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review"}:
+            result, code = (run_pipeline(args) if args.command == "scene-pipeline" else
+                            run_worker(args) if args.command == "run-agent-batches" else run_matching_review(args))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
         if args.command == "extract":
             result = extract_document(args.input)
             _write_json(args.output, result)

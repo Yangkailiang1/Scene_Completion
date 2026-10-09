@@ -65,5 +65,5 @@ def extract_document(path: str | Path) -> dict:
         result = _pdf_text(source)
     else:
         raise ValueError("unsupported document format; use .md, .markdown, .txt, .docx, or .pdf")
-    result["text"] = re.sub(r"\n{3,}", "\n\n", result["text"]).strip()
+    # Keep original blank lines: downstream chapter citations use these line numbers.
     return result

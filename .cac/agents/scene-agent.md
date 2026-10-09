@@ -1,6 +1,6 @@
 ---
 name: scene-agent
-description: 按阶段门编排 Scene Completion Skills，并在审核或校验失败时回退到相应阶段。
+description: 编排生成器、检查器和推荐器，并保留旧审核流程的兼容入口。
 skills:
   - scene-extract
   - scene-ssd
@@ -9,17 +9,27 @@ skills:
   - scene-assemble
   - test-scenario-extract
   - scenario-match
+  - scene-generate
+  - scene-check
+  - scene-recommend
 ---
 
-# Scene Agent 编排规则
+# 三角色编排入口
 
-每个 Skill 只执行自身职责；本 Agent 负责阶段顺序、交接、回退和最终验收。
+本入口编排三个角色，分别见 scene-generator.md、scene-checker.md、scene-recommender.md。
+默认使用 scene-pipeline；每个 Skill 只负责自身规则，不相互硬调用。
 
-1. **抽取**：调用 `scene-extract` 从系统需求、设计和接口材料建立 `scene_model.json`。模型校验未通过时回到抽取并修正；不得继续。
-2. **交互与依赖**：模型通过后，调用 `scene-ssd` 生成并校验所有 RR/SR/AR/fused SSD；失败则回到相应用例的 SSD 建模。调用 `dependency-graph` 从 CRUD 证据单独生成数据依赖 JSON、DOT 和四元组；CRUD 缺证据时回到抽取补充或保留待确认，不将其混入 SSD 调用依赖。
-3. **关注点审核**：调用 `scene-review` 聚合完整 SSD 候选并审核。若出现 pending、证据/ finding 校验错误或覆盖缺失，留在审核阶段补审；不得跳过严格审计。
-4. **组装**：只有模型、全量 SSD、依赖产物和关注点严格审计全部通过时调用 `scene-assemble`。图、工作簿、JSON、PNG 或追溯校验失败则修复对应输入/产物并重组装。
-5. **测试集抽取（可选支线）**：当 `test_spec.md` 存在时调用 `test-scenario-extract`，生成并校验 `reference_test_scenarios.json`。缺文件时跳过并注明，不阻塞常规场景组装。
-6. **匹配评估（门控）**：只有参考测试 JSON 校验通过且生成场景目录中的 `test_scenarios.json` 与清单一致时，才调用 `scenario-match`。Agent 先给出带证据的匹配关系，再由工具验证 ID 并计算指标。任一输入校验失败时回到对应抽取/组装阶段，不生成正式指标。
+1. 生成器建立规范模型，校验并生成 RR/SR/AR/fused SSD，保留现有依赖图能力；按关注点路由生成全部候选，不做 LLM 适用性审查。
+2. 检查器独立读原始需求/设计用例，生成已有集合 C；抽取阶段不得读取 G、test_spec 或旧审核结果。
+3. 检查器读取 G/C，按完整 packet 分片集合批量语义比较。可委派最多三个子 Agent；pending 或无效结果阻止正式指标。
+4. 工具按完整和部分匹配计算总指标、具体关注点和大类指标。零分母为 null；各分类独立去重。
+5. 推荐器为未匹配 G 场景评分并定位补充章节，保留全量候选。rerank 可选，默认关闭，仅增强推荐。
+6. 导出 JSON、报告及工作簿，记录输入版本、模型/阈值、批次状态和置信度分项。最终交付必须 complete=true。
 
-最终交付记录输入版本、各阶段状态、回退次数、产物路径及覆盖率、自动采纳代理率的分子/分母。指标不可用时明确标记未计算，不得填零冒充结果。
+各阶段失败回退到该阶段修复，禁止把未完成批次当未匹配或用另一后端静默替代。
+
+## 旧审核流程兼容
+
+仅在明确请求旧流程时，使用 scene-review 的关注点适用性审核和 scene-assemble。
+旧流程的 applicable/finding、pending_review、完整审计门保持原义；不能将新候选伪装成已审核项。
+test-scenario-extract 与旧 scenario-match 可选运行，其 full-only 参考覆盖率/代理率不等于新指标。

@@ -8,21 +8,19 @@ downloaded or required at runtime.
 from __future__ import annotations
 
 import shutil
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
 
 def find_svg_converter() -> str | None:
-    for name in ("rsvg-convert", "magick", "convert", "sips", "inkscape"):
-        path = shutil.which(name)
-        if path:
-            return path
-    return None
+    return next(iter(_available_converters()), None)
 
 
 def _available_converters() -> list[str]:
-    return [path for name in ("rsvg-convert", "sips", "magick", "convert", "inkscape") if (path := shutil.which(name))]
+    names = ("rsvg-convert", "sips", "magick", "inkscape") if os.name == "nt" else ("rsvg-convert", "sips", "magick", "convert", "inkscape")
+    return [path for name in names if (path := shutil.which(name))]
 
 
 def convert_svg_to_png(svg_path: str | Path, png_path: str | Path, *, require: bool = False) -> dict[str, Any]:
@@ -39,7 +37,7 @@ def convert_svg_to_png(svg_path: str | Path, png_path: str | Path, *, require: b
 
     failures = []
     for converter in converters:
-        name = Path(converter).name
+        name = Path(converter).stem.lower()
         if name == "rsvg-convert":
             command = [converter, "-f", "png", "-o", str(target), str(source)]
         elif name == "sips":

@@ -177,7 +177,7 @@ class SceneCompletionV2Tests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             manifest = render_diagrams(model, diagram_spec(model), Path(tmp) / "diagrams")
             self.assertEqual(manifest["status"], "rendered")
-            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition", "system_composition_dependencies", "interaction_concern"})
+            self.assertEqual({item["kind"] for item in manifest["artifacts"]}, {"system_composition", "system_composition_dependencies", "interaction_concern", "crud_dependency_graph"})
             self.assertTrue(Path(manifest["manifest"]).exists())
 
     def test_system_composition_rejects_arrows_and_accepts_lines(self):
@@ -356,6 +356,8 @@ class SceneCompletionV2Tests(unittest.TestCase):
             self.assertIn("分类状态", ar_headers)
             workbook = load_workbook(paths["scenario_workbook"], read_only=True)
             self.assertEqual(workbook.sheetnames, ["场景清单", "关注点矩阵", "超时判断"])
+            workbook.close()
+            mapping.close()
 
     def test_v3_complete_scenarios_and_actor_separation(self):
         model = sample_model()

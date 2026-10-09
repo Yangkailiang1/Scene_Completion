@@ -1,0 +1,3731 @@
+{
+  "schema_version": "three-agent-v1",
+  "complete": true,
+  "input_hash": "d429030c1b756212676b4ab94ac1e1f08904a46c4c5b2f19a0a4fa88f6774cbf",
+  "match_backend": "agent",
+  "accepted_statuses": [
+    "full",
+    "partial"
+  ],
+  "overall": {
+    "checker_count": 97,
+    "generated_count": 472,
+    "miss_rate": {
+      "numerator": 54,
+      "denominator": 97,
+      "rate": 0.5567010309278351
+    },
+    "existing_completeness": {
+      "numerator": 47,
+      "denominator": 472,
+      "rate": 0.09957627118644068
+    },
+    "full_checker_ids": [
+      "CHK-4a140a6abf63a298d41d",
+      "CHK-545c47406a75022d945a",
+      "CHK-72eb2cd30962cedcccee"
+    ],
+    "partial_checker_ids": [
+      "CHK-12bdaf49c4649869fb74",
+      "CHK-14189c81e2ad187ebe05",
+      "CHK-1743557bce9b7fc30c6b",
+      "CHK-19666234a3786e63908f",
+      "CHK-1984e090dc09d0197e36",
+      "CHK-2153b1d6618c25ec8da4",
+      "CHK-230844760854191af35e",
+      "CHK-2a0ada7b478be136a80d",
+      "CHK-2a0e1fe1af96c01903bd",
+      "CHK-2e6002a6916c1cf742e8",
+      "CHK-318dfa302f240d5d9923",
+      "CHK-33f1bcdad44751fd6f70",
+      "CHK-37bb2a5379e510c7dd2d",
+      "CHK-462143f05fc7600e5345",
+      "CHK-462f39e4d7b711d9762d",
+      "CHK-4a352df1236c99304736",
+      "CHK-4ed26b74fbdc98ac82c0",
+      "CHK-58270c542d0f127448ae",
+      "CHK-61efa0586abc16381114",
+      "CHK-723f2f5b18ccca1aa280",
+      "CHK-81f1f8a4b88787b52967",
+      "CHK-84ee2b6e1b4fc96e9faa",
+      "CHK-8a80a7b9fe059e83d163",
+      "CHK-8ef7fa52c5238e92ef51",
+      "CHK-944fb29222ba7668e96b",
+      "CHK-ad6aad03fa47c475fd5e",
+      "CHK-b245099b769bfcb02fa1",
+      "CHK-b6e4acfd9edfa6b8494b",
+      "CHK-bb6c915e3b07e026a36a",
+      "CHK-c0237b15933e095fd3e3",
+      "CHK-c0602c57e38b4c86d277",
+      "CHK-c54cbf06c953c63c7c9d",
+      "CHK-ca9712500b46cea1e16a",
+      "CHK-cb391f063c913ad11fb2",
+      "CHK-cd220172f1b8358bdef0",
+      "CHK-dbdb241c78cfd3dd4523",
+      "CHK-dbf0e948531ce6ad332d",
+      "CHK-e951f76a761ef8f161ed",
+      "CHK-ef03a7912ff59e5f9845",
+      "CHK-f8a9252e43df41aec6cd"
+    ],
+    "partial_only_checker_ids": [
+      "CHK-12bdaf49c4649869fb74",
+      "CHK-14189c81e2ad187ebe05",
+      "CHK-1743557bce9b7fc30c6b",
+      "CHK-19666234a3786e63908f",
+      "CHK-1984e090dc09d0197e36",
+      "CHK-2153b1d6618c25ec8da4",
+      "CHK-230844760854191af35e",
+      "CHK-2a0ada7b478be136a80d",
+      "CHK-2a0e1fe1af96c01903bd",
+      "CHK-2e6002a6916c1cf742e8",
+      "CHK-318dfa302f240d5d9923",
+      "CHK-33f1bcdad44751fd6f70",
+      "CHK-37bb2a5379e510c7dd2d",
+      "CHK-462143f05fc7600e5345",
+      "CHK-462f39e4d7b711d9762d",
+      "CHK-4a352df1236c99304736",
+      "CHK-4ed26b74fbdc98ac82c0",
+      "CHK-58270c542d0f127448ae",
+      "CHK-61efa0586abc16381114",
+      "CHK-723f2f5b18ccca1aa280",
+      "CHK-81f1f8a4b88787b52967",
+      "CHK-84ee2b6e1b4fc96e9faa",
+      "CHK-8a80a7b9fe059e83d163",
+      "CHK-8ef7fa52c5238e92ef51",
+      "CHK-944fb29222ba7668e96b",
+      "CHK-ad6aad03fa47c475fd5e",
+      "CHK-b245099b769bfcb02fa1",
+      "CHK-b6e4acfd9edfa6b8494b",
+      "CHK-bb6c915e3b07e026a36a",
+      "CHK-c0237b15933e095fd3e3",
+      "CHK-c0602c57e38b4c86d277",
+      "CHK-c54cbf06c953c63c7c9d",
+      "CHK-ca9712500b46cea1e16a",
+      "CHK-cb391f063c913ad11fb2",
+      "CHK-cd220172f1b8358bdef0",
+      "CHK-dbdb241c78cfd3dd4523",
+      "CHK-dbf0e948531ce6ad332d",
+      "CHK-e951f76a761ef8f161ed",
+      "CHK-ef03a7912ff59e5f9845",
+      "CHK-f8a9252e43df41aec6cd"
+    ],
+    "missing_checker_ids": [
+      "CHK-02aff36aecb68c044b67",
+      "CHK-181d0bed34d736c416a8",
+      "CHK-1a0bab617efb744e651a",
+      "CHK-1db9dc94c376ebb44ead",
+      "CHK-22182443284cac31365b",
+      "CHK-3374884c60d737e3819f",
+      "CHK-3396a4c7f663c0245fd6",
+      "CHK-34b174cde6b7291fa1ef",
+      "CHK-3814b7488cac8d6dbfae",
+      "CHK-3d6e42c38f9c955123a1",
+      "CHK-400ec85f51ae814325c5",
+      "CHK-408aa00b83f2b1f16899",
+      "CHK-49d0fd8a7b02c8eb15da",
+      "CHK-5073a9a7be40e20a067f",
+      "CHK-565edced39d2e5bca003",
+      "CHK-5f4a963f70cbdfd6c580",
+      "CHK-64701605d36308902bc3",
+      "CHK-71490921e52f1f10aa97",
+      "CHK-758d31d1647732af6ed5",
+      "CHK-7659c518930d34514ef3",
+      "CHK-765d10533c4bd2bc4f9e",
+      "CHK-777cb47e30ea9fa81fa8",
+      "CHK-798be5d677963fe5cc1f",
+      "CHK-7bc136c6e74f4d811f6c",
+      "CHK-7f7d740673100d1eecb1",
+      "CHK-8441c6a972093a3b55d2",
+      "CHK-903dbb576e28d2358f49",
+      "CHK-961a6aceb1e32a8565f0",
+      "CHK-98f19675fc52a1b65b4b",
+      "CHK-9d505743da1052cee407",
+      "CHK-a39da7598fe2018c4a9d",
+      "CHK-a869c37581099b729c9a",
+      "CHK-b127aa3162f66058e2fc",
+      "CHK-b28ebd69df6bb24e11fc",
+      "CHK-b80d4031de1c9557f147",
+      "CHK-b831d91adde18bcf91eb",
+      "CHK-bc2e4d3da049e9d74ced",
+      "CHK-c3c3b00b09d2323548a9",
+      "CHK-ca73433b0e4c5508040d",
+      "CHK-cd7720d75dcdd50ee230",
+      "CHK-cf2143c59461871e04af",
+      "CHK-d1745e6f53c0fb74c9d1",
+      "CHK-d1f102d7a2a5adc1f771",
+      "CHK-db6deedddaa171e1ac54",
+      "CHK-dc033d67ed6d7fea7386",
+      "CHK-dea130c386fca4bb806d",
+      "CHK-e2f9c3d0949cf37f9472",
+      "CHK-e56f84568d20c22ad13a",
+      "CHK-e5d6373797f199d4819f",
+      "CHK-e70fa35f741a7cd05bf2",
+      "CHK-ee6f4a5782147c29ae53",
+      "CHK-eec92d2501ba3f586f26",
+      "CHK-f4cabf884c9f40ae55b4",
+      "CHK-f79a83f1653a04673461"
+    ],
+    "recommendation_ids": [
+      "GEN-00614820AF",
+      "GEN-028787EB7C",
+      "GEN-02F1D20F6A",
+      "GEN-0310D69FD9",
+      "GEN-0347D25708",
+      "GEN-03B4583D2B",
+      "GEN-04EED632EB",
+      "GEN-06071A4EE9",
+      "GEN-0614F4A82F",
+      "GEN-062B16EA89",
+      "GEN-06613888BB",
+      "GEN-066A77A957",
+      "GEN-073716B04B",
+      "GEN-0807CDC1A9",
+      "GEN-0858C2EEC3",
+      "GEN-0895BB4597",
+      "GEN-095279A263",
+      "GEN-0A2E0D655B",
+      "GEN-0B3F37F4F7",
+      "GEN-0BA303A669",
+      "GEN-0C08B9C8B0",
+      "GEN-0C3FC4D752",
+      "GEN-0CD498E876",
+      "GEN-0D0F69097F",
+      "GEN-0D6A8FCABC",
+      "GEN-0DC4B9EF25",
+      "GEN-0E90856B11",
+      "GEN-0F5CDC9B52",
+      "GEN-0FD03C3336",
+      "GEN-1004A63E78",
+      "GEN-104F862031",
+      "GEN-112683E654",
+      "GEN-11AD7119BB",
+      "GEN-11EBD529FC",
+      "GEN-1220FCB729",
+      "GEN-12234CEEE9",
+      "GEN-125159DDD8",
+      "GEN-128A74F22C",
+      "GEN-12E1480B79",
+      "GEN-13471D5938",
+      "GEN-13A4A7D15D",
+      "GEN-142515D67A",
+      "GEN-14AE26863A",
+      "GEN-14ED2234B4",
+      "GEN-15180B7015",
+      "GEN-1559FF16D9",
+      "GEN-15AF457EE1",
+      "GEN-163A286332",
+      "GEN-16B0E40326",
+      "GEN-17344844ED",
+      "GEN-183BAFCCC3",
+      "GEN-18C3B8EFEE",
+      "GEN-195E413858",
+      "GEN-19ACAEF207",
+      "GEN-1A962C9C31",
+      "GEN-1AB235AB66",
+      "GEN-1B1F5BBC08",
+      "GEN-1BE6AA7D6A",
+      "GEN-1C629C3CB6",
+      "GEN-1C6EAA0529",
+      "GEN-1C8A4E5F0F",
+      "GEN-1CDB8E4FC1",
+      "GEN-1D0A74161A",
+      "GEN-1D827B9553",
+      "GEN-1DA816CEB6",
+      "GEN-1E556985DB",
+      "GEN-1EDCB9AB04",
+      "GEN-1FA6FE0CC3",
+      "GEN-1FE69D9E91",
+      "GEN-20599B6077",
+      "GEN-20C05FFEED",
+      "GEN-216F7CA856",
+      "GEN-217F34CBEA",
+      "GEN-21A9B22C8E",
+      "GEN-22CFCD08BE",
+      "GEN-233718120A",
+      "GEN-242695AE04",
+      "GEN-24C22B75A5",
+      "GEN-24E83907B6",
+      "GEN-24F6E7D2F4",
+      "GEN-252DEF68FD",
+      "GEN-255C6B4A40",
+      "GEN-2621CFFA34",
+      "GEN-265E452FD4",
+      "GEN-280CF8A581",
+      "GEN-28776040F7",
+      "GEN-291A7E5B95",
+      "GEN-2940C9864A",
+      "GEN-294B4AEFC2",
+      "GEN-2B48907944",
+      "GEN-2C16B99ABA",
+      "GEN-2C2A29EE38",
+      "GEN-2C31540106",
+      "GEN-2CF44AD1EB",
+      "GEN-2D2E542386",
+      "GEN-2E4C702771",
+      "GEN-2F24462982",
+      "GEN-2FD927932E",
+      "GEN-2FF8201A3B",
+      "GEN-300C1C77E1",
+      "GEN-3164C18FFD",
+      "GEN-31BDD2014D",
+      "GEN-31CB207F4B",
+      "GEN-3200C77527",
+      "GEN-320E803230",
+      "GEN-32EB226631",
+      "GEN-33151E5505",
+      "GEN-33994B884D",
+      "GEN-33DC8BF192",
+      "GEN-344F0C6370",
+      "GEN-34CFF8E551",
+      "GEN-35F76CD15C",
+      "GEN-388FDB168B",
+      "GEN-39D15BC889",
+      "GEN-3B8A3A3EA4",
+      "GEN-3C19AB2A05",
+      "GEN-3F756E8C43",
+      "GEN-40BF014705",
+      "GEN-42223EA7E3",
+      "GEN-42433AC82F",
+      "GEN-43DE8E309C",
+      "GEN-4414FB106B",
+      "GEN-44FFAC49C0",
+      "GEN-4525B6D283",
+      "GEN-4574A3F4FC",
+      "GEN-46C69DAB74",
+      "GEN-4718D4278A",
+      "GEN-473A451238",
+      "GEN-49681DEB1C",
+      "GEN-49DCEB94D7",
+      "GEN-4A0A79A8E4",
+      "GEN-4A0AD69249",
+      "GEN-4AC6310AC6",
+      "GEN-4AF6F65876",
+      "GEN-4BE5721D79",
+      "GEN-4C19B60846",
+      "GEN-4CD12AA7C3",
+      "GEN-4D71771701",
+      "GEN-4D900C8F7C",
+      "GEN-4DDBC09059",
+      "GEN-50CF959F96",
+      "GEN-5106A0576E",
+      "GEN-51A024EF4D",
+      "GEN-51FE655D68",
+      "GEN-5215C5FEB6",
+      "GEN-524CEF92E6",
+      "GEN-527E3DBA70",
+      "GEN-533C8BD9C0",
+      "GEN-5406886B89",
+      "GEN-54259CC79E",
+      "GEN-5472ADDF19",
+      "GEN-54D7CBE58D",
+      "GEN-54EF0D36E9",
+      "GEN-555AEF11B9",
+      "GEN-5563DF48D0",
+      "GEN-56601C9482",
+      "GEN-56C59B41F1",
+      "GEN-578E0E5F05",
+      "GEN-58B011C3BF",
+      "GEN-5928D0E6F9",
+      "GEN-5A2E65117E",
+      "GEN-5C083761AD",
+      "GEN-5C220A24AF",
+      "GEN-5C5A3FF406",
+      "GEN-5F310AFEA0",
+      "GEN-5F40FFAA47",
+      "GEN-5F6DB81748",
+      "GEN-5F9827876B",
+      "GEN-5FA4F82032",
+      "GEN-5FF97FFAE7",
+      "GEN-61B6E05B7A",
+      "GEN-62024FBD12",
+      "GEN-6281AAC9B1",
+      "GEN-647031FB7B",
+      "GEN-649DB4A161",
+      "GEN-64CDB603C5",
+      "GEN-667D2D9853",
+      "GEN-67053C4136",
+      "GEN-6791B05920",
+      "GEN-6799F1828B",
+      "GEN-67A9C8BE47",
+      "GEN-67D9769AD5",
+      "GEN-67FC2CF80A",
+      "GEN-682E1135B1",
+      "GEN-6898B2BE77",
+      "GEN-6948F60E61",
+      "GEN-6A05A922D8",
+      "GEN-6A6E0E793F",
+      "GEN-6A8823FAD3",
+      "GEN-6B2E228FF9",
+      "GEN-6B5F2B8438",
+      "GEN-6E23D85EF3",
+      "GEN-6EBA9383BA",
+      "GEN-6F443B1F6B",
+      "GEN-6F8D33F3F4",
+      "GEN-70E1A2766D",
+      "GEN-72F0043513",
+      "GEN-735BA3590A",
+      "GEN-735FF66A37",
+      "GEN-741ABFDB7C",
+      "GEN-7462BA37EE",
+      "GEN-74E776479F",
+      "GEN-758A23C15F",
+      "GEN-758EFD5D32",
+      "GEN-764C8A64DC",
+      "GEN-77AB459B56",
+      "GEN-78FD0E9E7F",
+      "GEN-793EC23E15",
+      "GEN-79954A57E0",
+      "GEN-7B00E90BB9",
+      "GEN-7B0CC087C9",
+      "GEN-7B805E063F",
+      "GEN-7B845CE134",
+      "GEN-7C6D5AB474",
+      "GEN-7C9FD22D69",
+      "GEN-7CC14B6B29",
+      "GEN-7DBFAC465E",
+      "GEN-80245B2409",
+      "GEN-802AF95D0E",
+      "GEN-80BBDBE2D7",
+      "GEN-80F0F4DF70",
+      "GEN-814CDDDEB8",
+      "GEN-8374E4EDBB",
+      "GEN-84AE56AE64",
+      "GEN-8543765468",
+      "GEN-854696338A",
+      "GEN-8550F18DDF",
+      "GEN-855CA96E87",
+      "GEN-8686269E46",
+      "GEN-86C6EC9A26",
+      "GEN-86F51A9577",
+      "GEN-8784F26EA7",
+      "GEN-87D772DB5C",
+      "GEN-88352D1CC0",
+      "GEN-889514E9A1",
+      "GEN-8904B87C4B",
+      "GEN-8A0E57C3C5",
+      "GEN-8A97BD7401",
+      "GEN-8AAF665D97",
+      "GEN-8ABE773E72",
+      "GEN-8C1871BEFC",
+      "GEN-8C71A5B82F",
+      "GEN-8D10EB9190",
+      "GEN-8D4F17F2CF",
+      "GEN-8E48196DDC",
+      "GEN-8F8B8BC748",
+      "GEN-9021C050C2",
+      "GEN-910ED085EA",
+      "GEN-91773F88F3",
+      "GEN-9365063340",
+      "GEN-938797536D",
+      "GEN-9392088419",
+      "GEN-9416B7F8ED",
+      "GEN-943C97A7EC",
+      "GEN-964A3CB67B",
+      "GEN-96BBA11BB2",
+      "GEN-9736014C36",
+      "GEN-97BD90F9BA",
+      "GEN-983554CCFF",
+      "GEN-98E2F204CD",
+      "GEN-98F6281E82",
+      "GEN-995F875E0B",
+      "GEN-9ABCCE26E8",
+      "GEN-9B94AA0425",
+      "GEN-9CD781DEB4",
+      "GEN-9DAF9DCBEA",
+      "GEN-9E219D4020",
+      "GEN-9E5F0AAB79",
+      "GEN-9F1AB24665",
+      "GEN-9F3192BC84",
+      "GEN-9F571B285A",
+      "GEN-9F61BDCA50",
+      "GEN-9F8F199760",
+      "GEN-9FA15340C5",
+      "GEN-9FC5EFBC18",
+      "GEN-9FCFD67BBA",
+      "GEN-A00696170B",
+      "GEN-A063226993",
+      "GEN-A07569096B",
+      "GEN-A1AD07D988",
+      "GEN-A1D8671D23",
+      "GEN-A1DA416D3D",
+      "GEN-A384331BF8",
+      "GEN-A3E4E8A897",
+      "GEN-A4AC0C5125",
+      "GEN-A509CACD5E",
+      "GEN-A5B180D24F",
+      "GEN-A668DB9101",
+      "GEN-A80786BF86",
+      "GEN-A88E7FFCD9",
+      "GEN-A94A4EE310",
+      "GEN-AD63DADCFA",
+      "GEN-AFDBE39B08",
+      "GEN-B0214B43DC",
+      "GEN-B13CF70E86",
+      "GEN-B15CF36573",
+      "GEN-B1BBA0BBD4",
+      "GEN-B2A9ED0EF8",
+      "GEN-B2A9FBC71E",
+      "GEN-B334B476D1",
+      "GEN-B3B8DFC01C",
+      "GEN-B3BCB44D21",
+      "GEN-B419A69125",
+      "GEN-B41AD72017",
+      "GEN-B461A3A569",
+      "GEN-B68A400EE4",
+      "GEN-B6BC7C72B1",
+      "GEN-B8096B8140",
+      "GEN-B8AF03CF55",
+      "GEN-B8B9049E64",
+      "GEN-BA08DD9531",
+      "GEN-BA750716F6",
+      "GEN-BCC3E27560",
+      "GEN-BDCCA13EFF",
+      "GEN-BDFE7023D6",
+      "GEN-BE0AD4D45C",
+      "GEN-BEF9B3427E",
+      "GEN-BF1265D365",
+      "GEN-BFA4B43762",
+      "GEN-C0C19268A8",
+      "GEN-C0F5765232",
+      "GEN-C20ED2EB65",
+      "GEN-C2170B9421",
+      "GEN-C31A3EE6A4",
+      "GEN-C3CF4C0FC2",
+      "GEN-C4D9F57F38",
+      "GEN-C4F606A5C7",
+      "GEN-C52071CA71",
+      "GEN-C582C81F8D",
+      "GEN-C5D6D1ECB7",
+      "GEN-C661DBEB6B",
+      "GEN-C679E18DAD",
+      "GEN-C76431EE89",
+      "GEN-C768757F0D",
+      "GEN-C787E26252",
+      "GEN-C7D76AAAF5",
+      "GEN-C9AD1AE5AC",
+      "GEN-CAAE9F9578",
+      "GEN-CAF11D090A",
+      "GEN-CB57E74916",
+      "GEN-CC191D6F91",
+      "GEN-CC2857D09A",
+      "GEN-CD6D491158",
+      "GEN-CDEB6D42D0",
+      "GEN-CE3954E6FA",
+      "GEN-CE7541AED7",
+      "GEN-CE9511DDF7",
+      "GEN-D08A883689",
+      "GEN-D0CCAFB1EE",
+      "GEN-D11418A07C",
+      "GEN-D1432E6F2C",
+      "GEN-D218F18258",
+      "GEN-D21F3CFFEA",
+      "GEN-D2A6BC0297",
+      "GEN-D2C1E8AA68",
+      "GEN-D39E225B32",
+      "GEN-D4B995F12C",
+      "GEN-D560AD285F",
+      "GEN-D61C6F7248",
+      "GEN-D629BFE7E0",
+      "GEN-D6967BBE26",
+      "GEN-D6D180C693",
+      "GEN-D6EF57EBF5",
+      "GEN-D7CA59C975",
+      "GEN-D91177F57F",
+      "GEN-D974AA2834",
+      "GEN-DA6C881968",
+      "GEN-DA7E800AAD",
+      "GEN-DAA8D90358",
+      "GEN-DB2FFF029B",
+      "GEN-DB80CDDFA5",
+      "GEN-DB928F534A",
+      "GEN-DBEBED3C54",
+      "GEN-DCA7585256",
+      "GEN-DD2C95D9C5",
+      "GEN-DDF5AD355C",
+      "GEN-DE83CDF2DA",
+      "GEN-DED59764CC",
+      "GEN-E04C2C6EB0",
+      "GEN-E370ED9096",
+      "GEN-E3D63F9584",
+      "GEN-E4BF289003",
+      "GEN-E4EBEAB4E2",
+      "GEN-E5CA74E988",
+      "GEN-E637EE2685",
+      "GEN-E715FF2075",
+      "GEN-E78C46C637",
+      "GEN-E8BEE00CCC",
+      "GEN-EB5F2E6E15",
+      "GEN-EB77A47FDE",
+      "GEN-ECC73CF0E9",
+      "GEN-ECEBB52E63",
+      "GEN-ECFFB1D2C3",
+      "GEN-ED793ACC41",
+      "GEN-EDB6A97EF5",
+      "GEN-EE977E6747",
+      "GEN-EEE3F596EA",
+      "GEN-F0064F1F05",
+      "GEN-F0B79B061E",
+      "GEN-F1F4E0081C",
+      "GEN-F25B4A4775",
+      "GEN-F3E9616DBE",
+      "GEN-F42DC5134C",
+      "GEN-F4717691CF",
+      "GEN-F4C6A9A661",
+      "GEN-F4DDB5757B",
+      "GEN-F56ADD8C97",
+      "GEN-F5B53E7B83",
+      "GEN-F5BAC8C3F4",
+      "GEN-F62525FA8C",
+      "GEN-F628F02B48",
+      "GEN-F66EEEE418",
+      "GEN-F6A6B19570",
+      "GEN-F6B6716AB1",
+      "GEN-F7B2AD9B71",
+      "GEN-F872707739",
+      "GEN-F9C097B077",
+      "GEN-FA900161EC",
+      "GEN-FC09184269",
+      "GEN-FD8C23DF6E",
+      "GEN-FDDCAAFE7E",
+      "GEN-FE41FAD06A",
+      "GEN-FF204E7272",
+      "GEN-FF96158501",
+      "GEN-FFF4ABBA38"
+    ]
+  },
+  "by_concern": {
+    "api.data.completeness": {
+      "label": "数据完整性",
+      "checker_count": 5,
+      "generated_count": 28,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-3814b7488cac8d6dbfae",
+        "CHK-7659c518930d34514ef3",
+        "CHK-8441c6a972093a3b55d2",
+        "CHK-ca9712500b46cea1e16a",
+        "CHK-db6deedddaa171e1ac54"
+      ],
+      "recommendation_ids": [
+        "GEN-03B4583D2B",
+        "GEN-0B3F37F4F7",
+        "GEN-13471D5938",
+        "GEN-14AE26863A",
+        "GEN-24F6E7D2F4",
+        "GEN-252DEF68FD",
+        "GEN-291A7E5B95",
+        "GEN-2F24462982",
+        "GEN-32EB226631",
+        "GEN-54EF0D36E9",
+        "GEN-5C5A3FF406",
+        "GEN-67053C4136",
+        "GEN-6A8823FAD3",
+        "GEN-6B2E228FF9",
+        "GEN-70E1A2766D",
+        "GEN-802AF95D0E",
+        "GEN-8374E4EDBB",
+        "GEN-854696338A",
+        "GEN-964A3CB67B",
+        "GEN-A384331BF8",
+        "GEN-B8096B8140",
+        "GEN-BCC3E27560",
+        "GEN-C52071CA71",
+        "GEN-C76431EE89",
+        "GEN-C9AD1AE5AC",
+        "GEN-EB77A47FDE",
+        "GEN-FD8C23DF6E",
+        "GEN-FF204E7272"
+      ]
+    },
+    "api.data.format": {
+      "label": "数据格式",
+      "checker_count": 5,
+      "generated_count": 29,
+      "miss_rate": {
+        "numerator": 3,
+        "denominator": 5,
+        "rate": 0.6
+      },
+      "existing_completeness": {
+        "numerator": 2,
+        "denominator": 29,
+        "rate": 0.06896551724137931
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-c0602c57e38b4c86d277"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-c0602c57e38b4c86d277"
+      ],
+      "missing_checker_ids": [
+        "CHK-71490921e52f1f10aa97",
+        "CHK-7659c518930d34514ef3",
+        "CHK-903dbb576e28d2358f49"
+      ],
+      "recommendation_ids": [
+        "GEN-0614F4A82F",
+        "GEN-1220FCB729",
+        "GEN-183BAFCCC3",
+        "GEN-1C629C3CB6",
+        "GEN-2C31540106",
+        "GEN-2CF44AD1EB",
+        "GEN-2D2E542386",
+        "GEN-2FF8201A3B",
+        "GEN-34CFF8E551",
+        "GEN-3F756E8C43",
+        "GEN-5F6DB81748",
+        "GEN-5FA4F82032",
+        "GEN-649EF2E24D",
+        "GEN-67FC2CF80A",
+        "GEN-86C6EC9A26",
+        "GEN-889514E9A1",
+        "GEN-97BD90F9BA",
+        "GEN-9E5F0AAB79",
+        "GEN-B461A3A569",
+        "GEN-C31A3EE6A4",
+        "GEN-C582C81F8D",
+        "GEN-C768757F0D",
+        "GEN-D629BFE7E0",
+        "GEN-D6967BBE26",
+        "GEN-DA7E800AAD",
+        "GEN-E78C46C637",
+        "GEN-FC09184269"
+      ]
+    },
+    "api.data.legality": {
+      "label": "数据合法性",
+      "checker_count": 12,
+      "generated_count": 28,
+      "miss_rate": {
+        "numerator": 9,
+        "denominator": 12,
+        "rate": 0.75
+      },
+      "existing_completeness": {
+        "numerator": 4,
+        "denominator": 28,
+        "rate": 0.14285714285714285
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-c0602c57e38b4c86d277",
+        "CHK-ef03a7912ff59e5f9845"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-c0602c57e38b4c86d277",
+        "CHK-ef03a7912ff59e5f9845"
+      ],
+      "missing_checker_ids": [
+        "CHK-1db9dc94c376ebb44ead",
+        "CHK-3374884c60d737e3819f",
+        "CHK-71490921e52f1f10aa97",
+        "CHK-7659c518930d34514ef3",
+        "CHK-903dbb576e28d2358f49",
+        "CHK-9d505743da1052cee407",
+        "CHK-bc2e4d3da049e9d74ced",
+        "CHK-c3c3b00b09d2323548a9",
+        "CHK-cb391f063c913ad11fb2"
+      ],
+      "recommendation_ids": [
+        "GEN-1AB235AB66",
+        "GEN-2E4C702771",
+        "GEN-3164C18FFD",
+        "GEN-51A024EF4D",
+        "GEN-5563DF48D0",
+        "GEN-6898B2BE77",
+        "GEN-6948F60E61",
+        "GEN-793EC23E15",
+        "GEN-80BBDBE2D7",
+        "GEN-855CA96E87",
+        "GEN-8686269E46",
+        "GEN-9DAF9DCBEA",
+        "GEN-A509CACD5E",
+        "GEN-B15CF36573",
+        "GEN-C5D6D1ECB7",
+        "GEN-CAF11D090A",
+        "GEN-CE3954E6FA",
+        "GEN-D4B995F12C",
+        "GEN-D6D180C693",
+        "GEN-DDF5AD355C",
+        "GEN-DE83CDF2DA",
+        "GEN-F1F4E0081C",
+        "GEN-F25B4A4775",
+        "GEN-F872707739"
+      ]
+    },
+    "api.data.length": {
+      "label": "数据长度",
+      "checker_count": 0,
+      "generated_count": 28,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-04EED632EB",
+        "GEN-0D0F69097F",
+        "GEN-1004A63E78",
+        "GEN-12234CEEE9",
+        "GEN-128A74F22C",
+        "GEN-1A962C9C31",
+        "GEN-1CDB8E4FC1",
+        "GEN-1D827B9553",
+        "GEN-28776040F7",
+        "GEN-2B48907944",
+        "GEN-31BDD2014D",
+        "GEN-320E803230",
+        "GEN-33DC8BF192",
+        "GEN-49681DEB1C",
+        "GEN-4BE5721D79",
+        "GEN-578E0E5F05",
+        "GEN-67D9769AD5",
+        "GEN-77AB459B56",
+        "GEN-78FD0E9E7F",
+        "GEN-7C9FD22D69",
+        "GEN-9736014C36",
+        "GEN-9F3192BC84",
+        "GEN-9F571B285A",
+        "GEN-B13CF70E86",
+        "GEN-D560AD285F",
+        "GEN-F0064F1F05",
+        "GEN-F42DC5134C",
+        "GEN-FDDCAAFE7E"
+      ]
+    },
+    "api.data.range": {
+      "label": "数据范围",
+      "checker_count": 6,
+      "generated_count": 29,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 6,
+        "rate": 0.8333333333333334
+      },
+      "existing_completeness": {
+        "numerator": 1,
+        "denominator": 29,
+        "rate": 0.034482758620689655
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-cb391f063c913ad11fb2"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-cb391f063c913ad11fb2"
+      ],
+      "missing_checker_ids": [
+        "CHK-1984e090dc09d0197e36",
+        "CHK-3374884c60d737e3819f",
+        "CHK-903dbb576e28d2358f49",
+        "CHK-9d505743da1052cee407",
+        "CHK-ef03a7912ff59e5f9845"
+      ],
+      "recommendation_ids": [
+        "GEN-0CD498E876",
+        "GEN-104F862031",
+        "GEN-125159DDD8",
+        "GEN-14ED2234B4",
+        "GEN-1C8A4E5F0F",
+        "GEN-20C05FFEED",
+        "GEN-4414FB106B",
+        "GEN-4D900C8F7C",
+        "GEN-5406886B89",
+        "GEN-5A2E65117E",
+        "GEN-6799F1828B",
+        "GEN-7462BA37EE",
+        "GEN-814CDDDEB8",
+        "GEN-8550F18DDF",
+        "GEN-8A97BD7401",
+        "GEN-8ABE773E72",
+        "GEN-8D4F17F2CF",
+        "GEN-910ED085EA",
+        "GEN-9FA15340C5",
+        "GEN-9FC5EFBC18",
+        "GEN-A5B180D24F",
+        "GEN-CE7541AED7",
+        "GEN-CE9511DDF7",
+        "GEN-D61C6F7248",
+        "GEN-DCA7585256",
+        "GEN-E4EBEAB4E2",
+        "GEN-F4717691CF",
+        "GEN-F9C097B077"
+      ]
+    },
+    "api.data.size": {
+      "label": "数据大小",
+      "checker_count": 1,
+      "generated_count": 28,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-903dbb576e28d2358f49"
+      ],
+      "recommendation_ids": [
+        "GEN-073716B04B",
+        "GEN-0C3FC4D752",
+        "GEN-0E90856B11",
+        "GEN-11EBD529FC",
+        "GEN-13A4A7D15D",
+        "GEN-142515D67A",
+        "GEN-1E556985DB",
+        "GEN-1FA6FE0CC3",
+        "GEN-233718120A",
+        "GEN-24C22B75A5",
+        "GEN-280CF8A581",
+        "GEN-344F0C6370",
+        "GEN-49DCEB94D7",
+        "GEN-4AC6310AC6",
+        "GEN-51FE655D68",
+        "GEN-7DBFAC465E",
+        "GEN-8904B87C4B",
+        "GEN-98E2F204CD",
+        "GEN-98F6281E82",
+        "GEN-9F61BDCA50",
+        "GEN-BF1265D365",
+        "GEN-CB57E74916",
+        "GEN-DB2FFF029B",
+        "GEN-DB928F534A",
+        "GEN-E8BEE00CCC",
+        "GEN-EB5F2E6E15",
+        "GEN-EE977E6747",
+        "GEN-F56ADD8C97"
+      ]
+    },
+    "api.data.type": {
+      "label": "数据类型",
+      "checker_count": 0,
+      "generated_count": 28,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 28,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-00614820AF",
+        "GEN-0DC4B9EF25",
+        "GEN-11AD7119BB",
+        "GEN-18C3B8EFEE",
+        "GEN-1EDCB9AB04",
+        "GEN-1FE69D9E91",
+        "GEN-20599B6077",
+        "GEN-33151E5505",
+        "GEN-3AC0D7033E",
+        "GEN-43BC03AE67",
+        "GEN-4AF6F65876",
+        "GEN-4C19B60846",
+        "GEN-527E3DBA70",
+        "GEN-5C220A24AF",
+        "GEN-7B0CC087C9",
+        "GEN-7CC14B6B29",
+        "GEN-86F51A9577",
+        "GEN-B8B9049E64",
+        "GEN-BDCCA13EFF",
+        "GEN-C0C19268A8",
+        "GEN-C0F5765232",
+        "GEN-D218F18258",
+        "GEN-D91177F57F",
+        "GEN-DBEBED3C54",
+        "GEN-E4BF289003",
+        "GEN-F4C6A9A661",
+        "GEN-F62525FA8C",
+        "GEN-F6A6B19570"
+      ]
+    },
+    "common.timeout": {
+      "label": "超时关注点",
+      "checker_count": 5,
+      "generated_count": 15,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 15,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-49d0fd8a7b02c8eb15da",
+        "CHK-8ef7fa52c5238e92ef51",
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc",
+        "CHK-e56f84568d20c22ad13a"
+      ],
+      "recommendation_ids": [
+        "GEN-028787EB7C",
+        "GEN-0A2E0D655B",
+        "GEN-17344844ED",
+        "GEN-1C6EAA0529",
+        "GEN-35F76CD15C",
+        "GEN-44FFAC49C0",
+        "GEN-58B011C3BF",
+        "GEN-6F8D33F3F4",
+        "GEN-91773F88F3",
+        "GEN-983554CCFF",
+        "GEN-A00696170B",
+        "GEN-A94A4EE310",
+        "GEN-D08A883689",
+        "GEN-D1432E6F2C",
+        "GEN-E370ED9096"
+      ]
+    },
+    "external_database.availability": {
+      "label": "数据库服务可用性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_database.query_performance": {
+      "label": "查询性能",
+      "checker_count": 2,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc"
+      ],
+      "recommendation_ids": []
+    },
+    "external_llm.access_permission": {
+      "label": "访问权限",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.availability": {
+      "label": "外部模型可用性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.contract": {
+      "label": "外部接口契约",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.quality.context_completeness": {
+      "label": "上下文完整性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.quality.instruction_following": {
+      "label": "指令遵循",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.quality.output_stability": {
+      "label": "输出稳定性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.quality.prompt_security": {
+      "label": "提示词安全",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm.quality.semantic_correctness": {
+      "label": "语义正确性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_service.availability": {
+      "label": "外部服务可用性",
+      "checker_count": 15,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 15,
+        "denominator": 15,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-3396a4c7f663c0245fd6",
+        "CHK-408aa00b83f2b1f16899",
+        "CHK-49d0fd8a7b02c8eb15da",
+        "CHK-5073a9a7be40e20a067f",
+        "CHK-565edced39d2e5bca003",
+        "CHK-58270c542d0f127448ae",
+        "CHK-798be5d677963fe5cc1f",
+        "CHK-8ef7fa52c5238e92ef51",
+        "CHK-a39da7598fe2018c4a9d",
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc",
+        "CHK-d1f102d7a2a5adc1f771",
+        "CHK-e56f84568d20c22ad13a",
+        "CHK-ee6f4a5782147c29ae53",
+        "CHK-eec92d2501ba3f586f26"
+      ],
+      "recommendation_ids": []
+    },
+    "external_service.contract": {
+      "label": "外部接口契约",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_service.identity": {
+      "label": "调用方身份",
+      "checker_count": 1,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-8a80a7b9fe059e83d163"
+      ],
+      "recommendation_ids": []
+    },
+    "external_service.permission": {
+      "label": "调用权限",
+      "checker_count": 4,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 4,
+        "denominator": 4,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-64701605d36308902bc3",
+        "CHK-8a80a7b9fe059e83d163",
+        "CHK-d1745e6f53c0fb74c9d1"
+      ],
+      "recommendation_ids": []
+    },
+    "human.authentication": {
+      "label": "身份认证",
+      "checker_count": 0,
+      "generated_count": 13,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 13,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-0C08B9C8B0",
+        "GEN-1559FF16D9",
+        "GEN-1BE6AA7D6A",
+        "GEN-2940C9864A",
+        "GEN-5F40FFAA47",
+        "GEN-5FF97FFAE7",
+        "GEN-6281AAC9B1",
+        "GEN-6791B05920",
+        "GEN-8543765468",
+        "GEN-BA08DD9531",
+        "GEN-C7D76AAAF5",
+        "GEN-D21F3CFFEA",
+        "GEN-D974AA2834"
+      ]
+    },
+    "human.authorization": {
+      "label": "权限控制",
+      "checker_count": 5,
+      "generated_count": 13,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 13,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-64701605d36308902bc3",
+        "CHK-944fb29222ba7668e96b",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-d1745e6f53c0fb74c9d1"
+      ],
+      "recommendation_ids": [
+        "GEN-16B0E40326",
+        "GEN-4DDBC09059",
+        "GEN-647031FB7B",
+        "GEN-6A6E0E793F",
+        "GEN-741ABFDB7C",
+        "GEN-84AE56AE64",
+        "GEN-87D772DB5C",
+        "GEN-96BBA11BB2",
+        "GEN-9E219D4020",
+        "GEN-B419A69125",
+        "GEN-BA750716F6",
+        "GEN-DB80CDDFA5",
+        "GEN-F628F02B48"
+      ]
+    },
+    "internal_database.availability": {
+      "label": "数据库可用性",
+      "checker_count": 1,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-798be5d677963fe5cc1f"
+      ],
+      "recommendation_ids": [
+        "GEN-0FD03C3336",
+        "GEN-242695AE04",
+        "GEN-4CD12AA7C3",
+        "GEN-50CF959F96",
+        "GEN-5472ADDF19",
+        "GEN-5F310AFEA0",
+        "GEN-8E48196DDC",
+        "GEN-8F8B8BC748",
+        "GEN-9416B7F8ED",
+        "GEN-A1AD07D988",
+        "GEN-AFDBE39B08",
+        "GEN-B2A9ED0EF8",
+        "GEN-CD6D491158",
+        "GEN-FF96158501"
+      ]
+    },
+    "internal_database.concurrency_consistency": {
+      "label": "并发一致性",
+      "checker_count": 5,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-462143f05fc7600e5345",
+        "CHK-758d31d1647732af6ed5",
+        "CHK-b28ebd69df6bb24e11fc",
+        "CHK-e70fa35f741a7cd05bf2",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": [
+        "GEN-0807CDC1A9",
+        "GEN-1D0A74161A",
+        "GEN-555AEF11B9",
+        "GEN-6B5F2B8438",
+        "GEN-72F0043513",
+        "GEN-758EFD5D32",
+        "GEN-943C97A7EC",
+        "GEN-9ABCCE26E8",
+        "GEN-C20ED2EB65",
+        "GEN-C2170B9421",
+        "GEN-C4F606A5C7",
+        "GEN-CAAE9F9578",
+        "GEN-D39E225B32",
+        "GEN-F6B6716AB1"
+      ]
+    },
+    "internal_database.field_validity": {
+      "label": "字段合法性",
+      "checker_count": 2,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-dea130c386fca4bb806d"
+      ],
+      "recommendation_ids": [
+        "GEN-1B1F5BBC08",
+        "GEN-2621CFFA34",
+        "GEN-2FD927932E",
+        "GEN-3200C77527",
+        "GEN-388FDB168B",
+        "GEN-43DE8E309C",
+        "GEN-4525B6D283",
+        "GEN-54259CC79E",
+        "GEN-8AAF665D97",
+        "GEN-8C71A5B82F",
+        "GEN-A1DA416D3D",
+        "GEN-F0B79B061E",
+        "GEN-F7B2AD9B71",
+        "GEN-FE41FAD06A"
+      ]
+    },
+    "internal_database.idempotency": {
+      "label": "幂等性",
+      "checker_count": 5,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-545c47406a75022d945a",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-777cb47e30ea9fa81fa8",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-e5d6373797f199d4819f"
+      ],
+      "recommendation_ids": [
+        "GEN-02F1D20F6A",
+        "GEN-0F5CDC9B52",
+        "GEN-3B8A3A3EA4",
+        "GEN-42433AC82F",
+        "GEN-46C69DAB74",
+        "GEN-4718D4278A",
+        "GEN-4A0AD69249",
+        "GEN-54D7CBE58D",
+        "GEN-7B845CE134",
+        "GEN-A668DB9101",
+        "GEN-B8AF03CF55",
+        "GEN-D2A6BC0297",
+        "GEN-D2C1E8AA68",
+        "GEN-DD2C95D9C5"
+      ]
+    },
+    "internal_database.persistence": {
+      "label": "持久化能力",
+      "checker_count": 0,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-0347D25708",
+        "GEN-0D6A8FCABC",
+        "GEN-300C1C77E1",
+        "GEN-42223EA7E3",
+        "GEN-4574A3F4FC",
+        "GEN-56601C9482",
+        "GEN-5F9827876B",
+        "GEN-6E23D85EF3",
+        "GEN-80245B2409",
+        "GEN-9365063340",
+        "GEN-B334B476D1",
+        "GEN-EDB6A97EF5",
+        "GEN-F3E9616DBE",
+        "GEN-F4DDB5757B"
+      ]
+    },
+    "internal_database.query_performance": {
+      "label": "查询性能",
+      "checker_count": 1,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-e56f84568d20c22ad13a"
+      ],
+      "recommendation_ids": [
+        "GEN-095279A263",
+        "GEN-2C2A29EE38",
+        "GEN-62024FBD12",
+        "GEN-6EBA9383BA",
+        "GEN-7C6D5AB474",
+        "GEN-8D10EB9190",
+        "GEN-938797536D",
+        "GEN-A88E7FFCD9",
+        "GEN-C4D9F57F38",
+        "GEN-C787E26252",
+        "GEN-D11418A07C",
+        "GEN-D7CA59C975",
+        "GEN-E715FF2075",
+        "GEN-ECEBB52E63"
+      ]
+    },
+    "internal_database.referential_consistency": {
+      "label": "关联一致性",
+      "checker_count": 2,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-3d6e42c38f9c955123a1"
+      ],
+      "recommendation_ids": [
+        "GEN-1DA816CEB6",
+        "GEN-5106A0576E",
+        "GEN-5215C5FEB6",
+        "GEN-764C8A64DC",
+        "GEN-80F0F4DF70",
+        "GEN-8A0E57C3C5",
+        "GEN-8C1871BEFC",
+        "GEN-A063226993",
+        "GEN-A3E4E8A897",
+        "GEN-B68A400EE4",
+        "GEN-D0CCAFB1EE",
+        "GEN-DA6C881968",
+        "GEN-E3D63F9584",
+        "GEN-F66EEEE418"
+      ]
+    },
+    "internal_database.required_field_completeness": {
+      "label": "必填字段完整性",
+      "checker_count": 3,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-3814b7488cac8d6dbfae",
+        "CHK-8441c6a972093a3b55d2",
+        "CHK-ca9712500b46cea1e16a"
+      ],
+      "recommendation_ids": [
+        "GEN-06613888BB",
+        "GEN-22CFCD08BE",
+        "GEN-31CB207F4B",
+        "GEN-33994B884D",
+        "GEN-533C8BD9C0",
+        "GEN-67A9C8BE47",
+        "GEN-682E1135B1",
+        "GEN-6F443B1F6B",
+        "GEN-A07569096B",
+        "GEN-B1BBA0BBD4",
+        "GEN-BDFE7023D6",
+        "GEN-BEF9B3427E",
+        "GEN-C3CF4C0FC2",
+        "GEN-FA900161EC"
+      ]
+    },
+    "internal_database.resource_existence": {
+      "label": "资源存在性",
+      "checker_count": 6,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 6,
+        "denominator": 6,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-181d0bed34d736c416a8",
+        "CHK-84ee2b6e1b4fc96e9faa",
+        "CHK-98f19675fc52a1b65b4b",
+        "CHK-b80d4031de1c9557f147",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-dbdb241c78cfd3dd4523"
+      ],
+      "recommendation_ids": [
+        "GEN-163A286332",
+        "GEN-195E413858",
+        "GEN-217F34CBEA",
+        "GEN-24E83907B6",
+        "GEN-265E452FD4",
+        "GEN-667D2D9853",
+        "GEN-74E776479F",
+        "GEN-758A23C15F",
+        "GEN-9B94AA0425",
+        "GEN-A1D8671D23",
+        "GEN-B2A9FBC71E",
+        "GEN-B3B8DFC01C",
+        "GEN-C679E18DAD",
+        "GEN-ECC73CF0E9"
+      ]
+    },
+    "internal_database.uniqueness": {
+      "label": "唯一性约束",
+      "checker_count": 1,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 14,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-c3c3b00b09d2323548a9"
+      ],
+      "recommendation_ids": [
+        "GEN-15AF457EE1",
+        "GEN-19ACAEF207",
+        "GEN-216F7CA856",
+        "GEN-56C59B41F1",
+        "GEN-5928D0E6F9",
+        "GEN-61B6E05B7A",
+        "GEN-735BA3590A",
+        "GEN-7B00E90BB9",
+        "GEN-9F8F199760",
+        "GEN-B0214B43DC",
+        "GEN-BE0AD4D45C",
+        "GEN-C661DBEB6B",
+        "GEN-DED59764CC",
+        "GEN-EEE3F596EA"
+      ]
+    },
+    "service.analysis_generation.execution_deadline": {
+      "label": "执行时限",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service.analysis_generation.resource_consumption": {
+      "label": "资源消耗",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service.analysis_generation.result_correctness": {
+      "label": "处理正确性",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service.display_interaction.display_correctness": {
+      "label": "显示正确性",
+      "checker_count": 1,
+      "generated_count": 2,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-8441c6a972093a3b55d2"
+      ],
+      "recommendation_ids": [
+        "GEN-9F1AB24665",
+        "GEN-E637EE2685"
+      ]
+    },
+    "service.display_interaction.render_performance": {
+      "label": "渲染性能",
+      "checker_count": 0,
+      "generated_count": 2,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-4A0A79A8E4",
+        "GEN-735FF66A37"
+      ]
+    },
+    "service.query_retrieval.data_visibility": {
+      "label": "数据可见性",
+      "checker_count": 1,
+      "generated_count": 2,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-944fb29222ba7668e96b"
+      ],
+      "recommendation_ids": [
+        "GEN-CC2857D09A",
+        "GEN-F5B53E7B83"
+      ]
+    },
+    "service.query_retrieval.resource_existence": {
+      "label": "资源存在性",
+      "checker_count": 9,
+      "generated_count": 2,
+      "miss_rate": {
+        "numerator": 9,
+        "denominator": 9,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-181d0bed34d736c416a8",
+        "CHK-2e6002a6916c1cf742e8",
+        "CHK-462f39e4d7b711d9762d",
+        "CHK-84ee2b6e1b4fc96e9faa",
+        "CHK-98f19675fc52a1b65b4b",
+        "CHK-b80d4031de1c9557f147",
+        "CHK-b831d91adde18bcf91eb",
+        "CHK-dbdb241c78cfd3dd4523"
+      ],
+      "recommendation_ids": [
+        "GEN-AD63DADCFA",
+        "GEN-D6EF57EBF5"
+      ]
+    },
+    "service.query_retrieval.result_correctness": {
+      "label": "结果正确性",
+      "checker_count": 0,
+      "generated_count": 2,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-B3BCB44D21",
+        "GEN-F5BAC8C3F4"
+      ]
+    },
+    "service.release_activation.failure_recovery": {
+      "label": "失败恢复",
+      "checker_count": 0,
+      "generated_count": 1,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 1,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-524CEF92E6"
+      ]
+    },
+    "service.release_activation.prerequisite": {
+      "label": "发布前置条件",
+      "checker_count": 1,
+      "generated_count": 1,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 1,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-f79a83f1653a04673461"
+      ],
+      "recommendation_ids": [
+        "GEN-062B16EA89"
+      ]
+    },
+    "service.release_activation.result_consistency": {
+      "label": "发布结果一致性",
+      "checker_count": 1,
+      "generated_count": 1,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 1,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-d1f102d7a2a5adc1f771"
+      ],
+      "recommendation_ids": [
+        "GEN-255C6B4A40"
+      ]
+    },
+    "service.resource_mutation.business_constraint": {
+      "label": "业务约束",
+      "checker_count": 21,
+      "generated_count": 9,
+      "miss_rate": {
+        "numerator": 21,
+        "denominator": 21,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 9,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-19666234a3786e63908f",
+        "CHK-1984e090dc09d0197e36",
+        "CHK-1a0bab617efb744e651a",
+        "CHK-22182443284cac31365b",
+        "CHK-2e6002a6916c1cf742e8",
+        "CHK-318dfa302f240d5d9923",
+        "CHK-3d6e42c38f9c955123a1",
+        "CHK-400ec85f51ae814325c5",
+        "CHK-64701605d36308902bc3",
+        "CHK-765d10533c4bd2bc4f9e",
+        "CHK-81f1f8a4b88787b52967",
+        "CHK-b245099b769bfcb02fa1",
+        "CHK-b28ebd69df6bb24e11fc",
+        "CHK-cb391f063c913ad11fb2",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-cf2143c59461871e04af",
+        "CHK-db6deedddaa171e1ac54",
+        "CHK-dbf0e948531ce6ad332d",
+        "CHK-dea130c386fca4bb806d",
+        "CHK-e2f9c3d0949cf37f9472"
+      ],
+      "recommendation_ids": [
+        "GEN-06071A4EE9",
+        "GEN-294B4AEFC2",
+        "GEN-4D71771701",
+        "GEN-5C083761AD",
+        "GEN-79954A57E0",
+        "GEN-B41AD72017",
+        "GEN-B6BC7C72B1",
+        "GEN-BFA4B43762",
+        "GEN-ECFFB1D2C3"
+      ]
+    },
+    "service.resource_mutation.concurrency_idempotency": {
+      "label": "并发与幂等性",
+      "checker_count": 8,
+      "generated_count": 9,
+      "miss_rate": {
+        "numerator": 8,
+        "denominator": 8,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 9,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-462143f05fc7600e5345",
+        "CHK-545c47406a75022d945a",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-777cb47e30ea9fa81fa8",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-e5d6373797f199d4819f",
+        "CHK-e70fa35f741a7cd05bf2",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": [
+        "GEN-066A77A957",
+        "GEN-0BA303A669",
+        "GEN-112683E654",
+        "GEN-39D15BC889",
+        "GEN-8784F26EA7",
+        "GEN-9392088419",
+        "GEN-995F875E0B",
+        "GEN-E04C2C6EB0",
+        "GEN-ED793ACC41"
+      ]
+    },
+    "service.resource_mutation.persistence_consistency": {
+      "label": "持久化一致性",
+      "checker_count": 0,
+      "generated_count": 9,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 9,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": [
+        "GEN-0858C2EEC3",
+        "GEN-0895BB4597",
+        "GEN-12E1480B79",
+        "GEN-15180B7015",
+        "GEN-649DB4A161",
+        "GEN-6A05A922D8",
+        "GEN-9021C050C2",
+        "GEN-A4AC0C5125",
+        "GEN-CC191D6F91"
+      ]
+    },
+    "service_relation.call_order": {
+      "label": "调用顺序",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service_relation.cascade_operation": {
+      "label": "级联操作",
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service_relation.concurrency_consistency": {
+      "label": "并发一致性",
+      "checker_count": 3,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-462143f05fc7600e5345",
+        "CHK-758d31d1647732af6ed5",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": []
+    },
+    "service_relation.cross_service_consistency": {
+      "label": "跨服务数据一致性",
+      "checker_count": 6,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 6,
+        "denominator": 6,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-19666234a3786e63908f",
+        "CHK-58270c542d0f127448ae",
+        "CHK-81f1f8a4b88787b52967",
+        "CHK-a39da7598fe2018c4a9d",
+        "CHK-d1f102d7a2a5adc1f771",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": []
+    },
+    "service_relation.dependency_consistency": {
+      "label": "依赖一致性",
+      "checker_count": 6,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 6,
+        "denominator": 6,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-181d0bed34d736c416a8",
+        "CHK-1db9dc94c376ebb44ead",
+        "CHK-34b174cde6b7291fa1ef",
+        "CHK-3d6e42c38f9c955123a1",
+        "CHK-5073a9a7be40e20a067f",
+        "CHK-ee6f4a5782147c29ae53"
+      ],
+      "recommendation_ids": []
+    },
+    "service_relation.idempotency": {
+      "label": "幂等性",
+      "checker_count": 4,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 4,
+        "denominator": 4,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-545c47406a75022d945a",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-e5d6373797f199d4819f"
+      ],
+      "recommendation_ids": []
+    }
+  },
+  "by_group": {
+    "api_data": {
+      "checker_count": 18,
+      "generated_count": 198,
+      "miss_rate": {
+        "numerator": 13,
+        "denominator": 18,
+        "rate": 0.7222222222222222
+      },
+      "existing_completeness": {
+        "numerator": 10,
+        "denominator": 198,
+        "rate": 0.050505050505050504
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-c0602c57e38b4c86d277",
+        "CHK-cb391f063c913ad11fb2",
+        "CHK-ef03a7912ff59e5f9845"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-c0602c57e38b4c86d277",
+        "CHK-cb391f063c913ad11fb2",
+        "CHK-ef03a7912ff59e5f9845"
+      ],
+      "missing_checker_ids": [
+        "CHK-1984e090dc09d0197e36",
+        "CHK-1db9dc94c376ebb44ead",
+        "CHK-3374884c60d737e3819f",
+        "CHK-3814b7488cac8d6dbfae",
+        "CHK-71490921e52f1f10aa97",
+        "CHK-7659c518930d34514ef3",
+        "CHK-8441c6a972093a3b55d2",
+        "CHK-903dbb576e28d2358f49",
+        "CHK-9d505743da1052cee407",
+        "CHK-bc2e4d3da049e9d74ced",
+        "CHK-c3c3b00b09d2323548a9",
+        "CHK-ca9712500b46cea1e16a",
+        "CHK-db6deedddaa171e1ac54"
+      ],
+      "recommendation_ids": [
+        "GEN-00614820AF",
+        "GEN-03B4583D2B",
+        "GEN-04EED632EB",
+        "GEN-0614F4A82F",
+        "GEN-073716B04B",
+        "GEN-0B3F37F4F7",
+        "GEN-0C3FC4D752",
+        "GEN-0CD498E876",
+        "GEN-0D0F69097F",
+        "GEN-0DC4B9EF25",
+        "GEN-0E90856B11",
+        "GEN-1004A63E78",
+        "GEN-104F862031",
+        "GEN-11AD7119BB",
+        "GEN-11EBD529FC",
+        "GEN-1220FCB729",
+        "GEN-12234CEEE9",
+        "GEN-125159DDD8",
+        "GEN-128A74F22C",
+        "GEN-13471D5938",
+        "GEN-13A4A7D15D",
+        "GEN-142515D67A",
+        "GEN-14AE26863A",
+        "GEN-14ED2234B4",
+        "GEN-183BAFCCC3",
+        "GEN-18C3B8EFEE",
+        "GEN-1A962C9C31",
+        "GEN-1AB235AB66",
+        "GEN-1C629C3CB6",
+        "GEN-1C8A4E5F0F",
+        "GEN-1CDB8E4FC1",
+        "GEN-1D827B9553",
+        "GEN-1E556985DB",
+        "GEN-1EDCB9AB04",
+        "GEN-1FA6FE0CC3",
+        "GEN-1FE69D9E91",
+        "GEN-20599B6077",
+        "GEN-20C05FFEED",
+        "GEN-233718120A",
+        "GEN-24C22B75A5",
+        "GEN-24F6E7D2F4",
+        "GEN-252DEF68FD",
+        "GEN-280CF8A581",
+        "GEN-28776040F7",
+        "GEN-291A7E5B95",
+        "GEN-2B48907944",
+        "GEN-2C31540106",
+        "GEN-2CF44AD1EB",
+        "GEN-2D2E542386",
+        "GEN-2E4C702771",
+        "GEN-2F24462982",
+        "GEN-2FF8201A3B",
+        "GEN-3164C18FFD",
+        "GEN-31BDD2014D",
+        "GEN-320E803230",
+        "GEN-32EB226631",
+        "GEN-33151E5505",
+        "GEN-33DC8BF192",
+        "GEN-344F0C6370",
+        "GEN-34CFF8E551",
+        "GEN-3F756E8C43",
+        "GEN-4414FB106B",
+        "GEN-49681DEB1C",
+        "GEN-49DCEB94D7",
+        "GEN-4AC6310AC6",
+        "GEN-4AF6F65876",
+        "GEN-4BE5721D79",
+        "GEN-4C19B60846",
+        "GEN-4D900C8F7C",
+        "GEN-51A024EF4D",
+        "GEN-51FE655D68",
+        "GEN-527E3DBA70",
+        "GEN-5406886B89",
+        "GEN-54EF0D36E9",
+        "GEN-5563DF48D0",
+        "GEN-578E0E5F05",
+        "GEN-5A2E65117E",
+        "GEN-5C220A24AF",
+        "GEN-5C5A3FF406",
+        "GEN-5F6DB81748",
+        "GEN-5FA4F82032",
+        "GEN-67053C4136",
+        "GEN-6799F1828B",
+        "GEN-67D9769AD5",
+        "GEN-67FC2CF80A",
+        "GEN-6898B2BE77",
+        "GEN-6948F60E61",
+        "GEN-6A8823FAD3",
+        "GEN-6B2E228FF9",
+        "GEN-70E1A2766D",
+        "GEN-7462BA37EE",
+        "GEN-77AB459B56",
+        "GEN-78FD0E9E7F",
+        "GEN-793EC23E15",
+        "GEN-7B0CC087C9",
+        "GEN-7C9FD22D69",
+        "GEN-7CC14B6B29",
+        "GEN-7DBFAC465E",
+        "GEN-802AF95D0E",
+        "GEN-80BBDBE2D7",
+        "GEN-814CDDDEB8",
+        "GEN-8374E4EDBB",
+        "GEN-854696338A",
+        "GEN-8550F18DDF",
+        "GEN-855CA96E87",
+        "GEN-8686269E46",
+        "GEN-86C6EC9A26",
+        "GEN-86F51A9577",
+        "GEN-889514E9A1",
+        "GEN-8904B87C4B",
+        "GEN-8A97BD7401",
+        "GEN-8ABE773E72",
+        "GEN-8D4F17F2CF",
+        "GEN-910ED085EA",
+        "GEN-964A3CB67B",
+        "GEN-9736014C36",
+        "GEN-97BD90F9BA",
+        "GEN-98E2F204CD",
+        "GEN-98F6281E82",
+        "GEN-9DAF9DCBEA",
+        "GEN-9E5F0AAB79",
+        "GEN-9F3192BC84",
+        "GEN-9F571B285A",
+        "GEN-9F61BDCA50",
+        "GEN-9FA15340C5",
+        "GEN-9FC5EFBC18",
+        "GEN-A384331BF8",
+        "GEN-A509CACD5E",
+        "GEN-A5B180D24F",
+        "GEN-B13CF70E86",
+        "GEN-B15CF36573",
+        "GEN-B461A3A569",
+        "GEN-B8096B8140",
+        "GEN-B8B9049E64",
+        "GEN-BCC3E27560",
+        "GEN-BDCCA13EFF",
+        "GEN-BF1265D365",
+        "GEN-C0C19268A8",
+        "GEN-C0F5765232",
+        "GEN-C31A3EE6A4",
+        "GEN-C52071CA71",
+        "GEN-C582C81F8D",
+        "GEN-C5D6D1ECB7",
+        "GEN-C76431EE89",
+        "GEN-C768757F0D",
+        "GEN-C9AD1AE5AC",
+        "GEN-CAF11D090A",
+        "GEN-CB57E74916",
+        "GEN-CE3954E6FA",
+        "GEN-CE7541AED7",
+        "GEN-CE9511DDF7",
+        "GEN-D218F18258",
+        "GEN-D4B995F12C",
+        "GEN-D560AD285F",
+        "GEN-D61C6F7248",
+        "GEN-D629BFE7E0",
+        "GEN-D6967BBE26",
+        "GEN-D6D180C693",
+        "GEN-D91177F57F",
+        "GEN-DA7E800AAD",
+        "GEN-DB2FFF029B",
+        "GEN-DB928F534A",
+        "GEN-DBEBED3C54",
+        "GEN-DCA7585256",
+        "GEN-DDF5AD355C",
+        "GEN-DE83CDF2DA",
+        "GEN-E4BF289003",
+        "GEN-E4EBEAB4E2",
+        "GEN-E78C46C637",
+        "GEN-E8BEE00CCC",
+        "GEN-EB5F2E6E15",
+        "GEN-EB77A47FDE",
+        "GEN-EE977E6747",
+        "GEN-F0064F1F05",
+        "GEN-F1F4E0081C",
+        "GEN-F25B4A4775",
+        "GEN-F42DC5134C",
+        "GEN-F4717691CF",
+        "GEN-F4C6A9A661",
+        "GEN-F56ADD8C97",
+        "GEN-F62525FA8C",
+        "GEN-F6A6B19570",
+        "GEN-F872707739",
+        "GEN-F9C097B077",
+        "GEN-FC09184269",
+        "GEN-FD8C23DF6E",
+        "GEN-FDDCAAFE7E",
+        "GEN-FF204E7272"
+      ]
+    },
+    "common": {
+      "checker_count": 5,
+      "generated_count": 15,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 15,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-49d0fd8a7b02c8eb15da",
+        "CHK-8ef7fa52c5238e92ef51",
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc",
+        "CHK-e56f84568d20c22ad13a"
+      ],
+      "recommendation_ids": [
+        "GEN-028787EB7C",
+        "GEN-0A2E0D655B",
+        "GEN-17344844ED",
+        "GEN-1C6EAA0529",
+        "GEN-35F76CD15C",
+        "GEN-44FFAC49C0",
+        "GEN-58B011C3BF",
+        "GEN-6F8D33F3F4",
+        "GEN-91773F88F3",
+        "GEN-983554CCFF",
+        "GEN-A00696170B",
+        "GEN-A94A4EE310",
+        "GEN-D08A883689",
+        "GEN-D1432E6F2C",
+        "GEN-E370ED9096"
+      ]
+    },
+    "external_database": {
+      "checker_count": 2,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc"
+      ],
+      "recommendation_ids": []
+    },
+    "external_llm": {
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_llm_quality": {
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "external_service": {
+      "checker_count": 19,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 19,
+        "denominator": 19,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-3396a4c7f663c0245fd6",
+        "CHK-408aa00b83f2b1f16899",
+        "CHK-49d0fd8a7b02c8eb15da",
+        "CHK-5073a9a7be40e20a067f",
+        "CHK-565edced39d2e5bca003",
+        "CHK-58270c542d0f127448ae",
+        "CHK-64701605d36308902bc3",
+        "CHK-798be5d677963fe5cc1f",
+        "CHK-8a80a7b9fe059e83d163",
+        "CHK-8ef7fa52c5238e92ef51",
+        "CHK-a39da7598fe2018c4a9d",
+        "CHK-a869c37581099b729c9a",
+        "CHK-b127aa3162f66058e2fc",
+        "CHK-d1745e6f53c0fb74c9d1",
+        "CHK-d1f102d7a2a5adc1f771",
+        "CHK-e56f84568d20c22ad13a",
+        "CHK-ee6f4a5782147c29ae53",
+        "CHK-eec92d2501ba3f586f26"
+      ],
+      "recommendation_ids": []
+    },
+    "human": {
+      "checker_count": 5,
+      "generated_count": 26,
+      "miss_rate": {
+        "numerator": 5,
+        "denominator": 5,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 26,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-64701605d36308902bc3",
+        "CHK-944fb29222ba7668e96b",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-d1745e6f53c0fb74c9d1"
+      ],
+      "recommendation_ids": [
+        "GEN-0C08B9C8B0",
+        "GEN-1559FF16D9",
+        "GEN-16B0E40326",
+        "GEN-1BE6AA7D6A",
+        "GEN-2940C9864A",
+        "GEN-4DDBC09059",
+        "GEN-5F40FFAA47",
+        "GEN-5FF97FFAE7",
+        "GEN-6281AAC9B1",
+        "GEN-647031FB7B",
+        "GEN-6791B05920",
+        "GEN-6A6E0E793F",
+        "GEN-741ABFDB7C",
+        "GEN-84AE56AE64",
+        "GEN-8543765468",
+        "GEN-87D772DB5C",
+        "GEN-96BBA11BB2",
+        "GEN-9E219D4020",
+        "GEN-B419A69125",
+        "GEN-BA08DD9531",
+        "GEN-BA750716F6",
+        "GEN-C7D76AAAF5",
+        "GEN-D21F3CFFEA",
+        "GEN-D974AA2834",
+        "GEN-DB80CDDFA5",
+        "GEN-F628F02B48"
+      ]
+    },
+    "internal_database": {
+      "checker_count": 26,
+      "generated_count": 140,
+      "miss_rate": {
+        "numerator": 26,
+        "denominator": 26,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 140,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-1743557bce9b7fc30c6b",
+        "CHK-181d0bed34d736c416a8",
+        "CHK-3814b7488cac8d6dbfae",
+        "CHK-3d6e42c38f9c955123a1",
+        "CHK-462143f05fc7600e5345",
+        "CHK-545c47406a75022d945a",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-758d31d1647732af6ed5",
+        "CHK-777cb47e30ea9fa81fa8",
+        "CHK-798be5d677963fe5cc1f",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-8441c6a972093a3b55d2",
+        "CHK-84ee2b6e1b4fc96e9faa",
+        "CHK-98f19675fc52a1b65b4b",
+        "CHK-b28ebd69df6bb24e11fc",
+        "CHK-b80d4031de1c9557f147",
+        "CHK-c3c3b00b09d2323548a9",
+        "CHK-ca9712500b46cea1e16a",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-dbdb241c78cfd3dd4523",
+        "CHK-dea130c386fca4bb806d",
+        "CHK-e56f84568d20c22ad13a",
+        "CHK-e5d6373797f199d4819f",
+        "CHK-e70fa35f741a7cd05bf2",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": [
+        "GEN-02F1D20F6A",
+        "GEN-0347D25708",
+        "GEN-06613888BB",
+        "GEN-0807CDC1A9",
+        "GEN-095279A263",
+        "GEN-0D6A8FCABC",
+        "GEN-0F5CDC9B52",
+        "GEN-0FD03C3336",
+        "GEN-15AF457EE1",
+        "GEN-163A286332",
+        "GEN-195E413858",
+        "GEN-19ACAEF207",
+        "GEN-1B1F5BBC08",
+        "GEN-1D0A74161A",
+        "GEN-1DA816CEB6",
+        "GEN-216F7CA856",
+        "GEN-217F34CBEA",
+        "GEN-22CFCD08BE",
+        "GEN-242695AE04",
+        "GEN-24E83907B6",
+        "GEN-2621CFFA34",
+        "GEN-265E452FD4",
+        "GEN-2C2A29EE38",
+        "GEN-2FD927932E",
+        "GEN-300C1C77E1",
+        "GEN-31CB207F4B",
+        "GEN-3200C77527",
+        "GEN-33994B884D",
+        "GEN-388FDB168B",
+        "GEN-3B8A3A3EA4",
+        "GEN-42223EA7E3",
+        "GEN-42433AC82F",
+        "GEN-43DE8E309C",
+        "GEN-4525B6D283",
+        "GEN-4574A3F4FC",
+        "GEN-46C69DAB74",
+        "GEN-4718D4278A",
+        "GEN-4A0AD69249",
+        "GEN-4CD12AA7C3",
+        "GEN-50CF959F96",
+        "GEN-5106A0576E",
+        "GEN-5215C5FEB6",
+        "GEN-533C8BD9C0",
+        "GEN-54259CC79E",
+        "GEN-5472ADDF19",
+        "GEN-54D7CBE58D",
+        "GEN-555AEF11B9",
+        "GEN-56601C9482",
+        "GEN-56C59B41F1",
+        "GEN-5928D0E6F9",
+        "GEN-5F310AFEA0",
+        "GEN-5F9827876B",
+        "GEN-61B6E05B7A",
+        "GEN-62024FBD12",
+        "GEN-667D2D9853",
+        "GEN-67A9C8BE47",
+        "GEN-682E1135B1",
+        "GEN-6B5F2B8438",
+        "GEN-6E23D85EF3",
+        "GEN-6EBA9383BA",
+        "GEN-6F443B1F6B",
+        "GEN-72F0043513",
+        "GEN-735BA3590A",
+        "GEN-74E776479F",
+        "GEN-758A23C15F",
+        "GEN-758EFD5D32",
+        "GEN-764C8A64DC",
+        "GEN-7B00E90BB9",
+        "GEN-7B845CE134",
+        "GEN-7C6D5AB474",
+        "GEN-80245B2409",
+        "GEN-80F0F4DF70",
+        "GEN-8A0E57C3C5",
+        "GEN-8AAF665D97",
+        "GEN-8C1871BEFC",
+        "GEN-8C71A5B82F",
+        "GEN-8D10EB9190",
+        "GEN-8E48196DDC",
+        "GEN-8F8B8BC748",
+        "GEN-9365063340",
+        "GEN-938797536D",
+        "GEN-9416B7F8ED",
+        "GEN-943C97A7EC",
+        "GEN-9ABCCE26E8",
+        "GEN-9B94AA0425",
+        "GEN-9F8F199760",
+        "GEN-A063226993",
+        "GEN-A07569096B",
+        "GEN-A1AD07D988",
+        "GEN-A1D8671D23",
+        "GEN-A1DA416D3D",
+        "GEN-A3E4E8A897",
+        "GEN-A668DB9101",
+        "GEN-A88E7FFCD9",
+        "GEN-AFDBE39B08",
+        "GEN-B0214B43DC",
+        "GEN-B1BBA0BBD4",
+        "GEN-B2A9ED0EF8",
+        "GEN-B2A9FBC71E",
+        "GEN-B334B476D1",
+        "GEN-B3B8DFC01C",
+        "GEN-B68A400EE4",
+        "GEN-B8AF03CF55",
+        "GEN-BDFE7023D6",
+        "GEN-BE0AD4D45C",
+        "GEN-BEF9B3427E",
+        "GEN-C20ED2EB65",
+        "GEN-C2170B9421",
+        "GEN-C3CF4C0FC2",
+        "GEN-C4D9F57F38",
+        "GEN-C4F606A5C7",
+        "GEN-C661DBEB6B",
+        "GEN-C679E18DAD",
+        "GEN-C787E26252",
+        "GEN-CAAE9F9578",
+        "GEN-CD6D491158",
+        "GEN-D0CCAFB1EE",
+        "GEN-D11418A07C",
+        "GEN-D2A6BC0297",
+        "GEN-D2C1E8AA68",
+        "GEN-D39E225B32",
+        "GEN-D7CA59C975",
+        "GEN-DA6C881968",
+        "GEN-DD2C95D9C5",
+        "GEN-DED59764CC",
+        "GEN-E3D63F9584",
+        "GEN-E715FF2075",
+        "GEN-ECC73CF0E9",
+        "GEN-ECEBB52E63",
+        "GEN-EDB6A97EF5",
+        "GEN-EEE3F596EA",
+        "GEN-F0B79B061E",
+        "GEN-F3E9616DBE",
+        "GEN-F4DDB5757B",
+        "GEN-F66EEEE418",
+        "GEN-F6B6716AB1",
+        "GEN-F7B2AD9B71",
+        "GEN-FA900161EC",
+        "GEN-FE41FAD06A",
+        "GEN-FF96158501"
+      ]
+    },
+    "service_analysis_generation": {
+      "checker_count": 0,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [],
+      "recommendation_ids": []
+    },
+    "service_display_interaction": {
+      "checker_count": 1,
+      "generated_count": 4,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 1,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 4,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-8441c6a972093a3b55d2"
+      ],
+      "recommendation_ids": [
+        "GEN-4A0A79A8E4",
+        "GEN-735FF66A37",
+        "GEN-9F1AB24665",
+        "GEN-E637EE2685"
+      ]
+    },
+    "service_query_retrieval": {
+      "checker_count": 10,
+      "generated_count": 6,
+      "miss_rate": {
+        "numerator": 10,
+        "denominator": 10,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 6,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-14189c81e2ad187ebe05",
+        "CHK-181d0bed34d736c416a8",
+        "CHK-2e6002a6916c1cf742e8",
+        "CHK-462f39e4d7b711d9762d",
+        "CHK-84ee2b6e1b4fc96e9faa",
+        "CHK-944fb29222ba7668e96b",
+        "CHK-98f19675fc52a1b65b4b",
+        "CHK-b80d4031de1c9557f147",
+        "CHK-b831d91adde18bcf91eb",
+        "CHK-dbdb241c78cfd3dd4523"
+      ],
+      "recommendation_ids": [
+        "GEN-AD63DADCFA",
+        "GEN-B3BCB44D21",
+        "GEN-CC2857D09A",
+        "GEN-D6EF57EBF5",
+        "GEN-F5B53E7B83",
+        "GEN-F5BAC8C3F4"
+      ]
+    },
+    "service_relation": {
+      "checker_count": 18,
+      "generated_count": 0,
+      "miss_rate": {
+        "numerator": 18,
+        "denominator": 18,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 0,
+        "rate": null
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-181d0bed34d736c416a8",
+        "CHK-19666234a3786e63908f",
+        "CHK-1db9dc94c376ebb44ead",
+        "CHK-34b174cde6b7291fa1ef",
+        "CHK-3d6e42c38f9c955123a1",
+        "CHK-462143f05fc7600e5345",
+        "CHK-5073a9a7be40e20a067f",
+        "CHK-545c47406a75022d945a",
+        "CHK-58270c542d0f127448ae",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-758d31d1647732af6ed5",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-81f1f8a4b88787b52967",
+        "CHK-a39da7598fe2018c4a9d",
+        "CHK-d1f102d7a2a5adc1f771",
+        "CHK-e5d6373797f199d4819f",
+        "CHK-ee6f4a5782147c29ae53",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": []
+    },
+    "service_release_activation": {
+      "checker_count": 2,
+      "generated_count": 3,
+      "miss_rate": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 3,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-d1f102d7a2a5adc1f771",
+        "CHK-f79a83f1653a04673461"
+      ],
+      "recommendation_ids": [
+        "GEN-062B16EA89",
+        "GEN-255C6B4A40",
+        "GEN-524CEF92E6"
+      ]
+    },
+    "service_resource_mutation": {
+      "checker_count": 29,
+      "generated_count": 27,
+      "miss_rate": {
+        "numerator": 29,
+        "denominator": 29,
+        "rate": 1.0
+      },
+      "existing_completeness": {
+        "numerator": 0,
+        "denominator": 27,
+        "rate": 0.0
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [],
+      "partial_only_checker_ids": [],
+      "missing_checker_ids": [
+        "CHK-12bdaf49c4649869fb74",
+        "CHK-19666234a3786e63908f",
+        "CHK-1984e090dc09d0197e36",
+        "CHK-1a0bab617efb744e651a",
+        "CHK-22182443284cac31365b",
+        "CHK-2e6002a6916c1cf742e8",
+        "CHK-318dfa302f240d5d9923",
+        "CHK-3d6e42c38f9c955123a1",
+        "CHK-400ec85f51ae814325c5",
+        "CHK-462143f05fc7600e5345",
+        "CHK-545c47406a75022d945a",
+        "CHK-5f4a963f70cbdfd6c580",
+        "CHK-64701605d36308902bc3",
+        "CHK-765d10533c4bd2bc4f9e",
+        "CHK-777cb47e30ea9fa81fa8",
+        "CHK-7bc136c6e74f4d811f6c",
+        "CHK-81f1f8a4b88787b52967",
+        "CHK-b245099b769bfcb02fa1",
+        "CHK-b28ebd69df6bb24e11fc",
+        "CHK-cb391f063c913ad11fb2",
+        "CHK-cd7720d75dcdd50ee230",
+        "CHK-cf2143c59461871e04af",
+        "CHK-db6deedddaa171e1ac54",
+        "CHK-dbf0e948531ce6ad332d",
+        "CHK-dea130c386fca4bb806d",
+        "CHK-e2f9c3d0949cf37f9472",
+        "CHK-e5d6373797f199d4819f",
+        "CHK-e70fa35f741a7cd05bf2",
+        "CHK-f4cabf884c9f40ae55b4"
+      ],
+      "recommendation_ids": [
+        "GEN-06071A4EE9",
+        "GEN-066A77A957",
+        "GEN-0858C2EEC3",
+        "GEN-0895BB4597",
+        "GEN-0BA303A669",
+        "GEN-112683E654",
+        "GEN-12E1480B79",
+        "GEN-15180B7015",
+        "GEN-294B4AEFC2",
+        "GEN-39D15BC889",
+        "GEN-4D71771701",
+        "GEN-5C083761AD",
+        "GEN-649DB4A161",
+        "GEN-6A05A922D8",
+        "GEN-79954A57E0",
+        "GEN-8784F26EA7",
+        "GEN-9021C050C2",
+        "GEN-9392088419",
+        "GEN-995F875E0B",
+        "GEN-A4AC0C5125",
+        "GEN-B41AD72017",
+        "GEN-B6BC7C72B1",
+        "GEN-BFA4B43762",
+        "GEN-CC191D6F91",
+        "GEN-E04C2C6EB0",
+        "GEN-ECFFB1D2C3",
+        "GEN-ED793ACC41"
+      ]
+    }
+  },
+  "special_categories": {
+    "main_success": {
+      "checker_count": 14,
+      "generated_count": 14,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 14,
+        "rate": 0.07142857142857142
+      },
+      "existing_completeness": {
+        "numerator": 13,
+        "denominator": 14,
+        "rate": 0.9285714285714286
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-2153b1d6618c25ec8da4",
+        "CHK-2a0ada7b478be136a80d",
+        "CHK-2a0e1fe1af96c01903bd",
+        "CHK-33f1bcdad44751fd6f70",
+        "CHK-4ed26b74fbdc98ac82c0",
+        "CHK-61efa0586abc16381114",
+        "CHK-723f2f5b18ccca1aa280",
+        "CHK-ad6aad03fa47c475fd5e",
+        "CHK-bb6c915e3b07e026a36a",
+        "CHK-c0237b15933e095fd3e3",
+        "CHK-c54cbf06c953c63c7c9d",
+        "CHK-cd220172f1b8358bdef0",
+        "CHK-f8a9252e43df41aec6cd"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-2153b1d6618c25ec8da4",
+        "CHK-2a0ada7b478be136a80d",
+        "CHK-2a0e1fe1af96c01903bd",
+        "CHK-33f1bcdad44751fd6f70",
+        "CHK-4ed26b74fbdc98ac82c0",
+        "CHK-61efa0586abc16381114",
+        "CHK-723f2f5b18ccca1aa280",
+        "CHK-ad6aad03fa47c475fd5e",
+        "CHK-bb6c915e3b07e026a36a",
+        "CHK-c0237b15933e095fd3e3",
+        "CHK-c54cbf06c953c63c7c9d",
+        "CHK-cd220172f1b8358bdef0",
+        "CHK-f8a9252e43df41aec6cd"
+      ],
+      "missing_checker_ids": [
+        "CHK-ca73433b0e4c5508040d"
+      ],
+      "recommendation_ids": [
+        "GEN-2C16B99ABA"
+      ]
+    },
+    "alternative": {
+      "checker_count": 7,
+      "generated_count": 5,
+      "miss_rate": {
+        "numerator": 3,
+        "denominator": 7,
+        "rate": 0.42857142857142855
+      },
+      "existing_completeness": {
+        "numerator": 4,
+        "denominator": 5,
+        "rate": 0.8
+      },
+      "full_checker_ids": [
+        "CHK-4a140a6abf63a298d41d",
+        "CHK-72eb2cd30962cedcccee"
+      ],
+      "partial_checker_ids": [
+        "CHK-230844760854191af35e",
+        "CHK-e951f76a761ef8f161ed"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-230844760854191af35e",
+        "CHK-e951f76a761ef8f161ed"
+      ],
+      "missing_checker_ids": [
+        "CHK-02aff36aecb68c044b67",
+        "CHK-7f7d740673100d1eecb1",
+        "CHK-961a6aceb1e32a8565f0"
+      ],
+      "recommendation_ids": [
+        "GEN-FFF4ABBA38"
+      ]
+    },
+    "unclassified_exception": {
+      "checker_count": 4,
+      "generated_count": 34,
+      "miss_rate": {
+        "numerator": 1,
+        "denominator": 4,
+        "rate": 0.25
+      },
+      "existing_completeness": {
+        "numerator": 2,
+        "denominator": 34,
+        "rate": 0.058823529411764705
+      },
+      "full_checker_ids": [],
+      "partial_checker_ids": [
+        "CHK-37bb2a5379e510c7dd2d",
+        "CHK-4a352df1236c99304736",
+        "CHK-b6e4acfd9edfa6b8494b"
+      ],
+      "partial_only_checker_ids": [
+        "CHK-37bb2a5379e510c7dd2d",
+        "CHK-4a352df1236c99304736",
+        "CHK-b6e4acfd9edfa6b8494b"
+      ],
+      "missing_checker_ids": [
+        "CHK-dc033d67ed6d7fea7386"
+      ],
+      "recommendation_ids": [
+        "GEN-0310D69FD9",
+        "GEN-0580C339C6",
+        "GEN-0A397765C8",
+        "GEN-0BB9E4A934",
+        "GEN-21A9B22C8E",
+        "GEN-2970C4053A",
+        "GEN-3C19AB2A05",
+        "GEN-40BF014705",
+        "GEN-473A451238",
+        "GEN-4E8410AA60",
+        "GEN-64CDB603C5",
+        "GEN-6ABDFABD2C",
+        "GEN-7B805E063F",
+        "GEN-7C9D158555",
+        "GEN-801F8EF3B7",
+        "GEN-88352D1CC0",
+        "GEN-8D90BBB6CA",
+        "GEN-8FC1C0C244",
+        "GEN-9CD781DEB4",
+        "GEN-9FCFD67BBA",
+        "GEN-A01F9F0DBB",
+        "GEN-A80786BF86",
+        "GEN-A88F0A1919",
+        "GEN-CB7E648FCA",
+        "GEN-CDEB6D42D0",
+        "GEN-D0DF305D5F",
+        "GEN-D29B34D82A",
+        "GEN-D39A1BF21C",
+        "GEN-D966960BCA",
+        "GEN-DAA8D90358",
+        "GEN-E5CA74E988",
+        "GEN-E80F0305D0"
+      ]
+    }
+  },
+  "classification_discrepancies": [
+    {
+      "checker_scenario_id": "CHK-462f39e4d7b711d9762d",
+      "generated_scenario_id": "GEN-4E8410AA60",
+      "status": "partial",
+      "evidence": "两端都在商品浏览查询无匹配时返回空列表并提示暂无符合条件商品；检查器明确限定只查询 ON_SALE 商品，生成器触发条件没有保留该状态限定。",
+      "missing_behavior": [
+        "生成器应明确本场景的查询集合限定为状态 ON_SALE。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统根据条件查询状态为 ON_SALE 的商品时未查询到符合条件的商品",
+        "generated": "未查询到符合条件的商品。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-ef03a7912ff59e5f9845",
+      "generated_scenario_id": "GEN-142B3FD0A4",
+      "status": "partial",
+      "evidence": "同为 GET /products 的非法查询参数校验；生成器明确覆盖非法取值这一子类，可对应检查器列出的 min/max、page、sortBy 等非法值，但没有具体列出约束且响应待确认。",
+      "missing_behavior": [
+        "逐项保留 minPrice>maxPrice、page<1、sortBy 白名单、pageSize范围、minPrice非负等触发条件。",
+        "检查器要求提示修正查询条件；生成器的异常响应仍待确认。"
+      ],
+      "trigger_quotes": {
+        "checker": "查询参数非法，例如 minPrice>maxPrice、page<1 或 sortBy 不在允许范围内（或 pageSize 超出 1<=pageSize<=100、minPrice<0 等接口约束不满足）",
+        "generated": "执行「调用 API-S-IF1：GET /api/v1/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c0602c57e38b4c86d277",
+      "generated_scenario_id": "GEN-AE1C0334D2",
+      "status": "partial",
+      "evidence": "API-S-IF2 的路径变量是 productId；检查器的 productId 格式错误与生成器在同一路径调用中的数据格式不符合，指向同一参数格式校验，但生成器没有定义失败响应。",
+      "missing_behavior": [
+        "明确返回 HTTP 400 Bad Request 和错误码 INVALID_PRODUCT_ID。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的 productId 格式错误（不符合格式规范）",
+        "generated": "执行「调用 API-S-IF2：GET /api/v1/products/{productId}」时：数据不满足格式规范"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-c0602c57e38b4c86d277",
+      "generated_scenario_id": "GEN-765120790D",
+      "status": "partial",
+      "evidence": "同为 GET /products/{productId} 的参数校验；生成器列出的非法取值可覆盖格式错误的 productId，但它也包含不允许字段等更广泛情形，且未明确失败响应。",
+      "missing_behavior": [
+        "将触发条件收窄并绑定到 productId 格式错误。",
+        "明确 HTTP 400 和 INVALID_PRODUCT_ID。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的 productId 格式错误（不符合格式规范）",
+        "generated": "执行「调用 API-S-IF2：GET /api/v1/products/{productId}」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-dbdb241c78cfd3dd4523",
+      "generated_scenario_id": "GEN-6ABDFABD2C",
+      "status": "partial",
+      "evidence": "两端都是顾客选择商品后查询不到目标商品，均提示商品不存在并返回商品列表；生成器未包含检查器的 404 响应细节。",
+      "missing_behavior": [
+        "补充 HTTP 404 Not Found 和错误码 PRODUCT_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客选择商品后，ProductCatalogService 未查询到目标商品（商品不存在）",
+        "generated": "商品不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-2e6002a6916c1cf742e8",
+      "generated_scenario_id": "GEN-E80F0305D0",
+      "status": "partial",
+      "evidence": "两端均指目标商品已下架并提示已下架、禁止购买；生成器未包含检查器规定的 HTTP 410 和错误码。",
+      "missing_behavior": [
+        "补充 HTTP 410 Gone 和 PRODUCT_OFF_SHELF。"
+      ],
+      "trigger_quotes": {
+        "checker": "目标商品状态为 OFF_SALE（商品已下架）",
+        "generated": "商品已下架。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-81f1f8a4b88787b52967",
+      "generated_scenario_id": "GEN-8D90BBB6CA",
+      "status": "partial",
+      "evidence": "均因商品价格变化/confirmedAmount 与当前价不一致，展示新价格并要求重新确认；生成器没有响应状态、错误码或最新价格字段。",
+      "missing_behavior": [
+        "明确 confirmedAmount 与当前价格不一致的校验。",
+        "补充 HTTP 409、PRICE_CHANGED 及最新价格响应体。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品价格已变化，confirmedAmount与当前价格不一致",
+        "generated": "商品价格已变化。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-19666234a3786e63908f",
+      "generated_scenario_id": "GEN-7C9D158555",
+      "status": "partial",
+      "evidence": "均为订单创建时库存不足，标记缺货商品并阻止创建；生成器缺少 ProductCatalogService 数量判定及 API 响应细节。",
+      "missing_behavior": [
+        "明确 stock_quantity 不满足请求 quantity 的条件。",
+        "补充 HTTP 409、OUT_OF_STOCK、缺货商品及当前库存信息。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品库存不足（ProductCatalogService返回stock_quantity不满足请求quantity）",
+        "generated": "库存不足。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-545c47406a75022d945a",
+      "generated_scenario_id": "GEN-A01F9F0DBB",
+      "status": "full",
+      "evidence": "两端都是相同幂等标识的订单重复提交，均返回已创建订单且不重复创建；触发、实体、操作和结果一致。",
+      "missing_behavior": [],
+      "trigger_quotes": {
+        "checker": "顾客重复提交订单（相同idempotencyKey的POST /api/v1/orders请求）",
+        "generated": "重复提交。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-944fb29222ba7668e96b",
+      "generated_scenario_id": "GEN-801F8EF3B7",
+      "status": "partial",
+      "evidence": "两端都是目标订单不属于当前顾客，均拒绝访问并记录安全事件；生成器遗漏 403 和 ORDER_ACCESS_DENIED。",
+      "missing_behavior": [
+        "补充 HTTP 403 Forbidden 和 ORDER_ACCESS_DENIED。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统校验订单归属关系时发现订单不属于当前顾客",
+        "generated": "订单不属于当前顾客。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-84ee2b6e1b4fc96e9faa",
+      "generated_scenario_id": "GEN-2970C4053A",
+      "status": "partial",
+      "evidence": "均为订单详情查询未找到目标订单，并提示订单不存在；生成器遗漏 404 响应细节。",
+      "missing_behavior": [
+        "补充 HTTP 404 Not Found 和 ORDER_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "系统通过订单详情接口 API-O-IF2 查询订单时未找到目标订单",
+        "generated": "订单不存在。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-dbf0e948531ce6ad332d",
+      "generated_scenario_id": "GEN-D966960BCA",
+      "status": "partial",
+      "evidence": "两端触发均为发货时订单状态不是 PAID，生成器也拒绝发货；检查器明确订单不更新、409 和 ORDER_STATUS_INVALID。生成器分支自身前置条件待确认；用例中的 PAID 是成功路径上下文，不视作该异常分支的条件。",
+      "missing_behavior": [
+        "补充订单状态不更新、HTTP 409 和 ORDER_STATUS_INVALID。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家对待发货订单发起发货请求，系统校验订单状态发现不是 PAID。",
+        "generated": "订单状态不是 PAID。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-1743557bce9b7fc30c6b",
+      "generated_scenario_id": "GEN-AB2FC6BAC5",
+      "status": "partial",
+      "evidence": "两端均为物流单号格式错误并提示商家修正；生成器未明确无发货记录副作用和 HTTP 错误信息。",
+      "missing_behavior": [
+        "明确不创建发货记录。",
+        "补充 HTTP 400 和 INVALID_TRACKING_NUMBER。"
+      ],
+      "trigger_quotes": {
+        "checker": "提交的 trackingNumber 不满足格式规范（如长度、字符集、承运商编码规则）。",
+        "generated": "物流单号格式错误。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-58270c542d0f127448ae",
+      "generated_scenario_id": "GEN-D0DF305D5F",
+      "status": "partial",
+      "evidence": "均为发货时 LogisticsService 暂不可用/登记调用失败，并保留待同步记录进入重试；生成器未明确订单仍为 SHIPPED、异步登记及错误码。",
+      "missing_behavior": [
+        "明确订单状态仍更新为 SHIPPED，物流登记异步重试。",
+        "补充 LOGISTICS_SERVICE_UNAVAILABLE。"
+      ],
+      "trigger_quotes": {
+        "checker": "OrderService 向 LogisticsService 登记物流单号时调用失败。",
+        "generated": "LogisticsService暂时不可用。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-8a80a7b9fe059e83d163",
+      "generated_scenario_id": "GEN-8FC1C0C244",
+      "status": "partial",
+      "evidence": "两端均因签名校验失败拒绝物流消息并记录安全告警；生成器遗漏 HTTP 401 和 INVALID_SIGNATURE。",
+      "missing_behavior": [
+        "补充 HTTP 401 Unauthorized 和 INVALID_SIGNATURE。"
+      ],
+      "trigger_quotes": {
+        "checker": "LogisticsServiceAdapter 校验 signature 时发现签名非法，签名校验失败",
+        "generated": "签名校验失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-318dfa302f240d5d9923",
+      "generated_scenario_id": "GEN-A88F0A1919",
+      "status": "partial",
+      "evidence": "两端均因订单尚未发货而提示商家尚未发货；生成器遗漏冲突响应状态码和错误码。",
+      "missing_behavior": [
+        "补充 HTTP 409 Conflict 和 ORDER_NOT_SHIPPED。"
+      ],
+      "trigger_quotes": {
+        "checker": "顾客发起物流查询时系统校验发现订单尚未发货",
+        "generated": "订单尚未发货。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-8ef7fa52c5238e92ef51",
+      "generated_scenario_id": "GEN-D29B34D82A",
+      "status": "partial",
+      "evidence": "两端均在外部物流查询失败时向顾客展示最近一次成功同步的数据；检查器还明确包含超时，并要求标记 CACHE、更新时间字段。",
+      "missing_behavior": [
+        "明确外部查询超时也触发此分支。",
+        "补充 dataSource=CACHE 和 lastUpdatedAt。"
+      ],
+      "trigger_quotes": {
+        "checker": "ACT-004（LogisticsService）外部查询失败或超时",
+        "generated": "外部物流服务查询失败。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-12bdaf49c4649869fb74",
+      "generated_scenario_id": "GEN-CB7E648FCA",
+      "status": "partial",
+      "evidence": "两端都是商品创建时商家经营资质失效，均拒绝创建并要求重新认证；生成器异常分支前置条件待确认，用例的有效资质条件是成功路径上下文，不视作异常分支前提。",
+      "missing_behavior": [
+        "补充 HTTP 403 Forbidden 和 MERCHANT_NOT_QUALIFIED。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家发起商品创建，系统校验商家经营资质时发现资质已失效。",
+        "generated": "商家资质已失效。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-3DECF2A84B",
+      "status": "partial",
+      "evidence": "检查器明确包含创建请求中的商品数据非法子分支；生成器同一商品创建 API 的非法字符、不允许字段或非法取值与该子分支相交，但不能覆盖“类目不存在”，且响应待确认。",
+      "missing_behavior": [
+        "明确生成器覆盖的具体商品字段/非法值。",
+        "单独保留 CATEGORY_NOT_FOUND 分支并定义错误响应。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-649EF2E24D",
+      "status": "partial",
+      "evidence": "生成器在同一商品创建 API 明确提出商品数据不符合格式规范，与检查器列出的商品数据非法子分支相符；它未涵盖类目不存在，且响应待确认。",
+      "missing_behavior": [
+        "明确违反格式规范的商品字段和检查结果。",
+        "单独覆盖类目不存在及 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据不满足格式规范"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-A127905E8C",
+      "status": "partial",
+      "evidence": "同一商品创建请求的非法字段/字符/取值触发，与检查器明确列出的商品数据非法子分支相符；不能代表类目不存在分支，生成器没有响应定义。",
+      "missing_behavior": [
+        "明确具体字段与非法值如何拒绝。",
+        "单独定义 CATEGORY_NOT_FOUND 分支。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：非法字符、不允许字段或非法取值"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-43BC03AE67",
+      "status": "partial",
+      "evidence": "生成器指出商品创建请求字段类型与接口定义不符，是检查器商品数据非法子分支的具体形式；但不能覆盖类目不存在，且响应待确认。",
+      "missing_behavior": [
+        "明确涉及的商品字段及 INVALID_PRODUCT 响应。",
+        "单独覆盖 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据类型与接口定义不符"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-14189c81e2ad187ebe05",
+      "generated_scenario_id": "GEN-3AC0D7033E",
+      "status": "partial",
+      "evidence": "生成器指出同一商品创建请求的字段类型错误，属于检查器“商品数据非法”子分支；没有覆盖类目不存在，也没有定义错误响应。",
+      "missing_behavior": [
+        "明确涉及字段及 INVALID_PRODUCT 响应。",
+        "单独覆盖 CATEGORY_NOT_FOUND。"
+      ],
+      "trigger_quotes": {
+        "checker": "请求中的商品数据非法（name、categoryId、description、imageUrls[]）或类目不存在。",
+        "generated": "执行「调用 API-M-IF1：POST /api/v1/merchant/products」时：数据类型与接口定义不符"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-1984e090dc09d0197e36",
+      "generated_scenario_id": "GEN-0BB9E4A934",
+      "status": "partial",
+      "evidence": "两端均因提交负库存而拒绝保存并标记错误 SKU；生成器遗漏 HTTP 400 和 NEGATIVE_STOCK。",
+      "missing_behavior": [
+        "补充 HTTP 400 Bad Request 和 NEGATIVE_STOCK。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家提交的库存数量为负数（stock<0）。",
+        "generated": "库存为负数。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-cb391f063c913ad11fb2",
+      "generated_scenario_id": "GEN-1673D36091",
+      "status": "partial",
+      "evidence": "两端均因销售价格不在允许范围而提示修正；生成器遗漏 HTTP 400 和 INVALID_PRICE。",
+      "missing_behavior": [
+        "明确负数/格式错误及 originalPrice 等范围覆盖。",
+        "补充 HTTP 400 和 INVALID_PRICE。"
+      ],
+      "trigger_quotes": {
+        "checker": "商家提交的销售价格不在允许范围（例如为负数或格式错误），设计文档同时覆盖salePrice或originalPrice不合法。",
+        "generated": "销售价格不在允许范围。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-462143f05fc7600e5345",
+      "generated_scenario_id": "GEN-D39A1BF21C",
+      "status": "partial",
+      "evidence": "两端均因商品被他处更新造成版本冲突，要求重新加载；生成器遗漏 409、VERSION_CONFLICT 和最新版本。",
+      "missing_behavior": [
+        "补充 HTTP 409、VERSION_CONFLICT 及最新 version。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品版本已被其他操作更新，提交的version与当前版本不一致（乐观锁冲突）。",
+        "generated": "商品版本已被其他操作更新。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-ca9712500b46cea1e16a",
+      "generated_scenario_id": "GEN-0A397765C8",
+      "status": "partial",
+      "evidence": "两端都是资料不完整时阻止发布并列出缺失信息；生成器未明确商品保持 DRAFT、409 和 PRODUCT_INCOMPLETE。",
+      "missing_behavior": [
+        "明确发布被阻止后商品仍保持 DRAFT。",
+        "补充 HTTP 409、PRODUCT_INCOMPLETE 及缺失字段列表。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品资料不完整（如缺少名称、描述、图片或SKU）",
+        "generated": "商品资料不完整。"
+      }
+    },
+    {
+      "checker_scenario_id": "CHK-b245099b769bfcb02fa1",
+      "generated_scenario_id": "GEN-0580C339C6",
+      "status": "partial",
+      "evidence": "两端都是商品不满足类目规则时送入人工审核；生成器未包含检查器规定的 HTTP 409 和 CATEGORY_RULE_VIOLATION。",
+      "missing_behavior": [
+        "补充 HTTP 409 Conflict 和 CATEGORY_RULE_VIOLATION。"
+      ],
+      "trigger_quotes": {
+        "checker": "商品内容不满足类目发布规则（如必填属性缺失）",
+        "generated": "商品内容违反类目规则。"
+      }
+    }
+  ],
+  "classification_coverage": {
+    "generator": {
+      "explicit_exception_count": 37,
+      "classified_count": 3,
+      "unclassified_ids": [
+        "GEN-0310D69FD9",
+        "GEN-0580C339C6",
+        "GEN-0A397765C8",
+        "GEN-0BB9E4A934",
+        "GEN-21A9B22C8E",
+        "GEN-2970C4053A",
+        "GEN-3C19AB2A05",
+        "GEN-40BF014705",
+        "GEN-4581F93AAA",
+        "GEN-473A451238",
+        "GEN-49C77EEBE5",
+        "GEN-4E8410AA60",
+        "GEN-64CDB603C5",
+        "GEN-6ABDFABD2C",
+        "GEN-7B805E063F",
+        "GEN-7C9D158555",
+        "GEN-801F8EF3B7",
+        "GEN-88352D1CC0",
+        "GEN-8D90BBB6CA",
+        "GEN-8FC1C0C244",
+        "GEN-9CD781DEB4",
+        "GEN-9FCFD67BBA",
+        "GEN-A01F9F0DBB",
+        "GEN-A80786BF86",
+        "GEN-A88F0A1919",
+        "GEN-CB7E648FCA",
+        "GEN-CDEB6D42D0",
+        "GEN-D0DF305D5F",
+        "GEN-D29B34D82A",
+        "GEN-D39A1BF21C",
+        "GEN-D966960BCA",
+        "GEN-DAA8D90358",
+        "GEN-E5CA74E988",
+        "GEN-E80F0305D0"
+      ]
+    },
+    "checker": {
+      "explicit_exception_count": 76,
+      "classified_count": 72,
+      "unclassified_ids": [
+        "CHK-37bb2a5379e510c7dd2d",
+        "CHK-4a352df1236c99304736",
+        "CHK-b6e4acfd9edfa6b8494b",
+        "CHK-dc033d67ed6d7fea7386"
+      ]
+    }
+  },
+  "note": "分类内分别去重，分类数不可相加；部分匹配计重合，置信度不是概率。",
+  "expanded_scenarios": "../common/generated_scenarios.json and ../common/existing_scenarios.json"
+}

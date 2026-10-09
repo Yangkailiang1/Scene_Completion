@@ -19,8 +19,9 @@ from .schemas import ValidationFailure, validate_scene_model
 
 
 def load_ecnu_env_file(path: str | Path) -> list[str]:
-    """Load only the documented ECNU_MAX_* keys from a simple .env file."""
-    allowed = {"ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL"}
+    """Load documented ECNU model settings without logging credentials."""
+    allowed = {"ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL",
+               "ECNU_EMBEDDING_TEXT", "ECNU_EMBEDDING_VL", "ECNU_RERANK", "ECNU_RERANK_VL"}
     loaded = []
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         text = line.strip()

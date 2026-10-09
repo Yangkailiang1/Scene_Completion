@@ -1,0 +1,10 @@
+{
+  "base_url": "${ECNU_MAX_BASE_URL}",
+  "api_key_env": "ECNU_MAX_API_KEY",
+  "agent_model": "${ECNU_MAX_MODEL}",
+  "embedding_model": "${ECNU_EMBEDDING_TEXT}",
+  "rerank_model": "${ECNU_RERANK}",
+  "timeout_seconds": 120,
+  "max_retries": 2,
+  "max_tokens": 12000
+}
