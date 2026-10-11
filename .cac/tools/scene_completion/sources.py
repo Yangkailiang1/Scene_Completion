@@ -85,11 +85,11 @@ def validate_refs(refs: list, index: dict, allowed: list[dict] | None = None) ->
     validated = []
     for ref in refs:
         if not isinstance(ref, dict):
-            raise ValueError("invalid citation")
+            raise ValueError("invalid citation: source_refs requires objects with document, integer line_start and line_end; bare numbers/strings are forbidden")
         doc = next((d for d in index["documents"] if d["document"] == ref.get("document")), None)
         start, end = ref.get("line_start"), ref.get("line_end")
         if not doc or type(start) is not int or type(end) is not int or not 1 <= start <= end <= doc["line_count"]:
-            raise ValueError("invalid source citation range")
+            raise ValueError(f"invalid source citation range: document={ref.get('document')!r}, line_start={start!r}, line_end={end!r}; use exact assigned filename and integer lines")
         candidates = [c for c in doc["chapters"] if c["line_start"] <= start <= end <= c["line_end"]]
         if not candidates:
             raise ValueError("citation has no containing chapter")

@@ -67,12 +67,25 @@ def register_commands(sub):
     pipeline.add_argument("--spec-document", action="append", help="legacy: all documents also feed checker")
     pipeline.add_argument("--requirement-document", action="append")
     pipeline.add_argument("--design-document", action="append")
+    pipeline.add_argument("--rr-spec-document", action="append", help="RR original spec; IR aliases RR")
+    pipeline.add_argument("--sr-spec-document", action="append", help="SR original spec; AR is reference only")
+    pipeline.add_argument("--test-spec-document", action="append", help="independent full test spec; no RR/SR partition")
+    pipeline.add_argument("--protocol", choices=("rr-sr-ssd-identification-v1", "legacy"), default="rr-sr-ssd-identification-v1")
+    pipeline.add_argument("--architecture-approval", help="source-bound user-approved architecture proposals")
     pipeline.add_argument("--output-dir", required=True)
+    pipeline.add_argument('--use-case-id', action='append', help='explicit representative assessment scope; full successful model/checker extraction remains reusable')
+    pipeline.add_argument('--exchange-local-id', action='append',
+        help='representative interaction-chain test only; include its RR ancestor; default analyzes every exchange')
+    pipeline.add_argument('--comparison-verification', choices=('all', 'final-review'), default='all',
+        help='all reruns every comparison independently; final-review uses the final independent effect review without a duplicate bulk comparison')
+    pipeline.add_argument('--source-quality-gate', choices=('strict', 'structural'), default='strict',
+        help='structural is representative workflow validation only: preserve source audit findings, enforce actual SSD origins/anchors without repeatedly improving the sample')
     pipeline.add_argument("--ssd-manifest")
     pipeline.add_argument("--analysis-layers", default="SR")
     pipeline.add_argument("--match-backend", choices=("agent", "embedding"), default="agent")
     pipeline.add_argument("--recommend-backend", choices=("agent", "embedding"), default="agent")
     pipeline.add_argument("--agent-mode", choices=("packets", "external"), default="packets")
+    pipeline.add_argument('--agent-runtime', choices=('ecnu', 'luna-subprocess'), help='actual semantic execution runtime; defaults to config or ecnu')
     pipeline.add_argument("--checker-input", help="reuse complete independent checker JSON with identical sources")
     pipeline.add_argument("--full-threshold", type=float, default=.85)
     pipeline.add_argument("--partial-threshold", type=float, default=.70)
@@ -85,6 +98,7 @@ def register_commands(sub):
     worker.add_argument("--worker-index", type=int, default=0)
     worker.add_argument("--worker-count", type=int, default=1)
     worker.add_argument("--batch-id", action="append", help="only retry these assigned manifest batch IDs")
+    worker.add_argument('--agent-runtime', choices=('ecnu', 'luna-subprocess'))
     worker.add_argument("--env-file", default=".env")
     worker.add_argument("--config")
     prep = sub.add_parser("prepare-generator-model", help="independently extract cited generator constraints and dependencies")
@@ -97,6 +111,44 @@ def register_commands(sub):
     prep.add_argument("--config")
     evaluation = sub.add_parser("evaluate-generator", help="recompute exception acceptance and verify completed source-bound run")
     evaluation.add_argument("--output-dir", required=True)
+    audit = sub.add_parser("check-interaction-run", help="check each partial/complete RR/SR run and write machine-readable blockers")
+    audit.add_argument("--output-dir", required=True)
+    audit.add_argument("--rr-spec-document", action="append")
+    audit.add_argument("--sr-spec-document", action="append")
+    validation = sub.add_parser('validate-interaction-run', help='execute full regression and cache-only same-version resume with verifiable artifacts')
+    validation.add_argument('--output-dir', required=True)
+    materials = sub.add_parser('prepare-interaction-review', help='bind actual effect-review materials to complete run artifacts')
+    materials.add_argument('--output-dir', required=True)
+    snapshot = sub.add_parser('export-interaction-snapshot', help='export validated results without credentials or model execution caches')
+    snapshot.add_argument('--output-dir', required=True)
+    snapshot.add_argument('--snapshot-file', required=True)
+    rebuild = sub.add_parser('rebuild-interaction-snapshot', help='rebuild metrics and reports offline, without a new execution acceptance claim')
+    rebuild.add_argument('--snapshot-file', required=True)
+    rebuild.add_argument('--output-dir', required=True)
+    repair = sub.add_parser("repair-checker-source-audit", help="re-extract rejected C drafts from original source, preserving audit evidence")
+    repair.add_argument("--output-dir", required=True)
+    repair.add_argument("--env-file", default=".env")
+    repair.add_argument("--config")
+    repair.add_argument('--historical-audit-manifest', help='preserved complete audit containing a known unresolved source defect')
+    repair.add_argument('--checker-batch-id', action='append', help='explicit rejected checker batch from that historical audit; never rewrites C manually')
+    origin_repair = sub.add_parser('repair-generator-model-origins', help='re-extract unsupported normal SSD origins from original source')
+    origin_repair.add_argument('--output-dir', required=True)
+    origin_repair.add_argument('--env-file', default='.env')
+    origin_repair.add_argument('--config')
+    origin_repair.add_argument('--source-review-file', help='current source-only normal-model review; never accepts final effect metrics as repair input')
+    origin_repair.add_argument('--source-finding-id', action='append', help='explicit current source-only defect to re-extract from original packet')
+    diagnostic = sub.add_parser('diagnose-generator-model', help='explain rejected normal SSD roles; no scenario or graph edits')
+    diagnostic.add_argument('--output-dir', required=True)
+    diagnostic.add_argument('--prepare-retry', action='store_true', help='record source-only diagnostic feedback for a subsequent model worker')
+    source_diagnostic = sub.add_parser('diagnose-normal-source-audit', help='explain invalid source-audit evidence without replacing semantic decisions')
+    source_diagnostic.add_argument('--output-dir', required=True)
+    source_diagnostic.add_argument('--prepare-retry', action='store_true', help='record literal original-source retry hints after the worker finishes')
+    source_retry = sub.add_parser('retry-normal-source-audit', help='rejudge selected verified source-audit errors with ecnu-max, without changing the model')
+    source_retry.add_argument('--output-dir', required=True)
+    source_retry.add_argument('--source-review-file', required=True)
+    source_retry.add_argument('--source-finding-id', action='append', required=True)
+    source_retry.add_argument('--env-file', default='.env')
+    source_retry.add_argument('--config')
     for command in ("prepare-checker-taxonomy", "prepare-generator-taxonomy"):
         taxonomy_audit = sub.add_parser(command, help="classify source-backed conditions without changing scenes")
         taxonomy_audit.add_argument("--output-dir", required=True, help="existing pipeline output directory")
@@ -116,9 +168,17 @@ def run_matching_review(args):
 
 
 def _client(args, root):
+    config = read_json(args.config) if args.config else {}
+    runtime = getattr(args, 'agent_runtime', None) or config.get('agent_runtime', 'ecnu')
+    if runtime == 'luna-subprocess':
+        from .luna_subprocess import LunaSubprocessClient
+        config.setdefault('native_run_dir', str(Path(root) / 'native-runs'))
+        config.setdefault('allowed_cached_models', ['ecnu-max', 'gpt-6-luna'])
+        return LunaSubprocessClient(config)
+    if runtime != 'ecnu':
+        raise ValueError('unknown semantic execution runtime')
     if args.env_file:
         load_ecnu_env_file(args.env_file)
-    config = read_json(args.config) if args.config else {}
     config.setdefault("cache_dir", str(root / ".scene_cache"))
     return SemanticClient(config)
 
@@ -130,6 +190,24 @@ def run_worker(args):
     validators = {"checker": checker_validator(index), "matching": matching_validator,
                   "recommendation": recommendation_validator(index), "generator-model": model_packet_validator(index),
                   "checker-taxonomy": taxonomy_validator(index), "generator-taxonomy": taxonomy_validator(index)}
+    if stage.startswith("interaction-"):
+        from . import interaction_batches as interaction
+        from .interaction_audit import checker_audit_validator
+        from .interaction_model_audit import model_audit_validator
+        from .interaction_participants import participant_validator
+        from .interaction_equivalence import equivalence_validator
+        validators.update({"interaction-model": interaction.model_validator(index),
+            'interaction-model-audit': model_audit_validator(index),
+            'interaction-participants': participant_validator(index),
+            'interaction-equivalence': equivalence_validator,
+            "interaction-checker": interaction.checker_validator(index),
+            "interaction-checker-audit": checker_audit_validator(index),
+            "interaction-generation": interaction.generation_validator(index),
+            "interaction-matching": interaction.pair_validator,
+            "interaction-verification": interaction.pair_validator,
+            "interaction-adoption": interaction.pair_validator,
+            "interaction-test-conditions": interaction.test_validator(index),
+            "interaction-recommendation": interaction.recommendation_validator(index)})
     client = _client(args, root.parent.parent)
     if stage in {"checker-taxonomy", "generator-taxonomy"}: client.config["taxonomy_sources_index"] = index
     result = run_agent_packets(root, client, validators[stage],
@@ -194,6 +272,27 @@ def run_prepare_model(args):
 def run_evaluate(args):
     root = Path(args.output_dir)
     manifest = read_json(root / "run_manifest.json")
+    if manifest.get("protocol") == "rr-sr-ssd-identification-v1":
+        from .interaction_replay import evaluate
+        manifest.update(accepted=False, formal_metrics=False)
+        write_json(root / 'run_manifest.json', manifest)
+        for name in ("acceptance.json", "assessment_status.json", "scene_assessment.xlsx", "report.md"):
+            (root / name).unlink(missing_ok=True)
+        result = evaluate(root)
+        write_json(root / "acceptance.json", result)
+        manifest.update(accepted=result['accepted'], formal_metrics=result['accepted'])
+        write_json(root / 'run_manifest.json', manifest)
+        from .interaction_reports import export
+        from .interaction_scope import select_cases, selected_use_case_ids
+        checked = select_cases(read_json(root / "existing_scenarios.json")["scenarios"], selected_use_case_ids(root))
+        export(root, read_json(root / "generated_scenarios.json")["scenarios"],
+            checked,
+            read_json(root / "scenario_matches.json")["pairs"], read_json(root / "metrics.json"),
+            read_json(root / "recommendations.json")["items"], read_json(root / "adoption.json"),
+            read_json(root / "coverage_diagnosis.json"), read_json(root / "concern_mounts.json"), acceptance_status=result)
+        from .interaction_audit import run_check
+        run_check(args)
+        return result, 0 if result["accepted"] else 2
     required = {"generator", "checker", "matching", "recommendation", "export"}
     if (not manifest.get("complete") or not required <= set(manifest.get("stages", {}))
             or any(manifest["stages"][name].get("status") != "complete" for name in required)):
@@ -282,6 +381,14 @@ def run_evaluate(args):
 
 
 def run_pipeline(args):
+    if getattr(args, "protocol", "legacy") != "legacy":
+        from .interaction_cli import run
+        from .interaction_audit import run_check
+        try:
+            return run(args)
+        finally:
+            if (Path(args.output_dir) / 'run_manifest.json').exists():
+                run_check(args)
     root = Path(args.output_dir).resolve()
     root.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()

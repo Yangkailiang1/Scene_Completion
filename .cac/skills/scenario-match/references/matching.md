@@ -1,5 +1,7 @@
 # 匹配关系与指标格式
 
+以下仅描述历史 `score-scenario-matches` 兼容入口，不用于当前 RR/SR 协议。当前原文覆盖和推荐采纳都在完整逐对语义比较后执行一一分配，口径见上级 SKILL.md 和 scene-check/references/rr_sr_protocol.md。
+
 Agent 提交 `{ "matches": [...] }`，每条关系包含 `test_scenario_id`、`generated_scenario_id`、`match_status`（`full`/`partial`/`unmatched`）和非空 `evidence`。多对多允许；完全重复关系拒绝。所有 ID 必须存在。
 
 - 测试场景覆盖率 = 至少有一条 `full` 关系的不同参考测试场景数 / 参考测试场景总数。

@@ -43,7 +43,7 @@
 ###### 变更前
 
 - 接口版本：V0（API-S-IF1的变更前版本）
-- 方法/路径：GET /api/v1/products
+- 商城入口方法/路径：GET /api/v1/products（调用方→商城入口；不是 ProductCatalogService 被调用接口的路径）
 - 请求体：无
 - 查询参数：keyword、page、pageSize
 - 成功响应：productId、name、price
@@ -498,7 +498,7 @@
 
 1. ACT-001发送 GET /api/v1/products 请求到在线商城系统，可携带查询参数 keyword、categoryId、minPrice、maxPrice、sortBy、page、pageSize。
 2. 在线商城系统校验查询参数，其中 page>=1、1<=pageSize<=100、minPrice>=0、maxPrice>=minPrice，并校验 categoryId 是否有效。
-3. 在线商城系统调用ProductCatalogService的商品检索能力，传入查询条件并补充status=ON_SALE。
+3. 在线商城系统向 ProductCatalogService 发送 POST /catalog/v1/products/search 请求，请求体写入 keyword、categoryId、priceRange.min、priceRange.max、sortBy、page、pageSize，并补充 status=ON_SALE。此被调用接口与第1步的商城入口 GET /api/v1/products 位于不同的调用边；路径依据用户提供并确认的 SR 示例。
 4. ProductCatalogService根据请求条件查询 product 表，涉及字段包括 product_id、product_name、category_id、cover_image_url、sale_price、original_price、stock_quantity、sales_count、status、merchant_id、updated_at。
 5. ProductCatalogService向在线商城系统返回 HTTP 200，响应体包含 page、pageSize、total、products[]；每个商品包含 productId、productName、categoryId、coverImageUrl、salePrice、originalPrice、stockQuantity、salesCount、status。
 6. 在线商城系统过滤内部字段，将结果转换为前端展示结构，并向ACT-001返回 HTTP 200，响应体包含 page、pageSize、total、items[]；每个商品包含 productId、name、coverImage、price、originalPrice、stockStatus、salesCount。
@@ -1107,17 +1107,28 @@
 - A4：version 不一致，在线商城系统返回 HTTP 409 Conflict，错误码 VERSION_CONFLICT，响应体包含最新version。
 - A5：ProductCatalogService同步失败，MerchantProductService记录待同步任务并自动重试，catalogSyncStatus 为 SYNC_PENDING，商品状态仍更新为 ON_SALE。
 
-### V5标准化设计用例调用链（抽取权威章节）
+### 已确认的 RR/SR 层级修订（2026-10-10）
 
-本节将每个 RR 用例对应的 SR 设计用例、Abstract API、AR 软件实现接口和微服务调用关系显式化。前文版本化内容保留作为原始设计证据；本节用于 V5 语义抽取和 SSD 生成。
+一个 RR 可拆成多个 SR，每个 SR 可拆成多个 AR，每个 AR 可对应多个软件实现接口；只记录有原文依据的拆分项。用例拆分与消息调用关系分别建模。具体 SR 用例正文优先于下节历史 V5 映射；其他组件/调用边新增仍逐项确认。
 
-统一调用链：系统接收 RR 业务动作 → SR Service/Abstract API → ImplementationAPI/AR 微服务 → 内部数据库或外部服务 → 逐层返回 SR → 系统向 Actor 返回业务结果。顾客/商家到系统的消息不携带 HTTP 细节。
+#### UCG-001-UC001：浏览商品（已确认层级映射）
+
+- SR 用例仍为 `UCG-001-UC001-API-S-IF1`。其中包含商品浏览入口 `GET /api/v1/products` 和 `ProductCatalogService` 的 `POST /catalog/v1/products/search` 调用，不因为存在两个接口就编造第二个 SR 用例。
+- 按正文记录商城 UI/接收边界 → 商品浏览入口 → ProductCatalogService 的明确 SR 接口；来源为上述详细用例步骤。该服务的 SR 接口角色与同名组件的 AR 内部实现区分，不把底层内部调用全部提升到 SR。
+- 下节的历史别名不能替代正文组件名称。未明确的 AR 拆分/实现接口留待补充，不虚构接口或组件。
+
+### V5标准化设计用例调用链（历史映射，非抽取权威章节）
+
+本节保留此前 V5 的映射记录，仅用于历史追溯。当前 SR 层级和调用关系以具体 SR 用例正文及确认后的修订为依据；本节与正文冲突时不得覆盖正文或自动提升/降级组件。2026-10-10 经用户确认修正本声明与下述浏览商品映射，其他新增组件、调用边仍需逐项确认。
+
+分解关系：一个 RR 用例可以分解为多个 SR 用例，一个 SR 用例可以分解为多个 AR 单元，一个 AR 单元可以对应多个软件实现接口。当前条目恰好一一对应只是实例，不是数量限制；没有原文证据时不新增拆分项。消息嵌套与用例分解分别记录，保留顺序和逐层返回。顾客/商家到 UI 的 RR 消息不携带 HTTP 细节；SR 分析边界到服务接口及明确的 SR 服务间交互。AR 内部实现仅供追溯，不参与异常生成。内外数据库均以 SR 资源服务生命线参与有依据的交互，保留物理资源映射，不虚构 HTTP 路径。
 
 #### UCG-001-UC001：浏览商品
 
-- 关联 SR 用例/API：`UCG-001-UC001-API-S-IF1` / `API-S-IF1` / `ProductDisplayService`
+- 关联 SR 用例/API：`UCG-001-UC001-API-S-IF1` / `API-S-IF1`；商品浏览入口和 `ProductCatalogService` 的明确 SR 接口分别依正文记录，不使用历史 `ProductDisplayService` 名称替代正文调用对象。
 - SR 接口：`GET /api/v1/products`；请求：`keyword, categoryId, minPrice, maxPrice, sortBy, page, pageSize`；返回：`page, pageSize, total, items[]`；错误：`INVALID_QUERY_PARAM, INVALID_CATEGORY, PRODUCT_SERVICE_TIMEOUT, PRODUCT_SERVICE_UNAVAILABLE`
-- AR 调用：`listProducts` → `ProductCatalogService` → 查询 `product` 表（已由 API.md 确认）；结果逐层返回并转换为商品列表。
+- SR 调用：商城 UI/接收边界 → 商品浏览接口 `GET /api/v1/products` → `ProductCatalogService` 的 `POST /catalog/v1/products/search` 接口（见本用例详细正文）；逐层返回商品列表。SR 接口角色与同名组件的 AR 内部实现分开记录。
+- 历史 AR 映射：`listProducts`、`ProductCatalogService` 内部查询 `product` 表的实现记录仅作追溯；未明确的 AR 拆分和实现接口保持待确认，不能据此额外生成 SR 调用。
 
 #### UCG-001-UC002：查看商品详情
 

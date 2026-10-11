@@ -1,5 +1,7 @@
 # 在线商城购物系统实验与历史记录
 
+当前实验协议是 `rr-sr-ssd-identification-v1`，评估规则为 `rr-sr-one-to-one-workflow-v5`。用户已撤回5%门槛，改为可迁移方法流程验证。最新[代表交互链快照](agent_workflow_smoke/README.md)可无模型调用重建全部指标、图和Excel；默认Skills/tools仍全量处理。下面所有97/76/37条分母及0%结果均为历史，不能用于本轮验收。新协议分别抽取RR、SR原子异常，异常全部沿真实SSD关注点挂载产生，不保留明确异常/约束旁路；覆盖及测试采纳均一一匹配。
+
 terminal_cloud_model.json 是改名前的历史规范模型快照。历史输入现已迁入“在线商城购物系统”目录，原始文件名和输入文本保留在历史 sources_index.json 中。生成器使用现有模型、SSD 和关注点路由，得到 472 个 G：14 主成功、5 可选、37 明确异常、416 未经过适用性审查的候选。
 
 检查器独立读取两份原始用例，得到 97 个 C；不读取 G、旧审核结果或 test_spec。为公平比较，各实验冻结同一个检查集合，并保留首次抽取的场景 ID。新抽取的稳定 ID 已加入前置条件和步骤；历史 ID 在快照中作为不透明标识使用。
@@ -53,7 +55,7 @@ python examples/verify_demo.py --output-dir examples/results/replayed
 
 本轮使用 online_shopping_seed.json 独立构建生成输入，再通过 --requirement-document / --design-document 明确文档角色。检查器只读需求，固定 37 条已有异常；正式结果通过全部逐对批次、推荐、续跑和回归后才发布。具体命令见仓库 README。所有主成功、可选、异常均保留导出；原始约束实例化与泛化候选贡献分开统计。
 
-## 本轮需求专用验收
+## 历史需求专用验收
 
 [online_shopping_demo](online_shopping_demo/README.md) 保存实际 ecnu-max 的完整批次及原生 gpt-6-luna / max 复核。固定 C=37 下，旧生成器漏报 2/37（5.41%），优化后 0/37（0%）；全部 G=947，待推荐 824 项，低分候选仍全部展示。
 

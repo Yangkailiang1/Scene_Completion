@@ -1,5 +1,7 @@
 # SR 主关注点注册表与路由
 
+本页为历史 `sr-evidence-2` 审查注册表，适用于兼容旧入口；不是当前 RR/SR 纯 SSD 三角色的注册表或挂载依据。当前全部57项必备关注点由 interaction_protocol.baseline() 导出，RR职责和SR分别分析。主动取消支付属于普通可选，不计异常，也不因 cancellable 自动挂载历史中断项；历史示例不能覆盖已确认的业务口径。
+
 Tools 中的结构化 CONCERN_DEFINITIONS 是候选 key、标签、主体、证据类型和活跃状态的唯一来源；本目录中的单项 Markdown 只补充适用/排除规则和例子。新矩阵记录 registry_version 与 analysis_layers，旧注册表矩阵必须重新规划。
 当前注册表 sr-evidence-2，共 56 个活跃关注点；新增内部依赖可用性、业务流程取消与中止两项。三角色生成器保留未审查候选；本目录的适用/排除规则不构成新流程的候选删除门。
 
@@ -36,7 +38,7 @@ Tools 中的结构化 CONCERN_DEFINITIONS 是候选 key、标签、主体、证�
 - 目标资源不存在 → service.query_retrieval.resource_existence。
 - API 字段缺失或格式/范围错误 → 相应 api.data.*；不创建泛化“参数有效性”。
 - 内部业务服务不可用 → service.dependency.availability；第三方支付/物流不可用 → external_service.availability；数据库不可用 → 对应数据库关注点，不能用单一数据库依赖替代其他调用。
-- 取消支付或流程中止 → service.workflow.interruption；不与服务故障合并，不执行取消后的互斥成功步骤。
+- 历史取消/中止检查 → service.workflow.interruption；主动取消不是当前协议的异常，不能据此新增 RR 异常候选。兼容分支也不得执行取消后的互斥成功步骤。
 - 资源变更的一次候选可以有多个原子 finding，例如重复请求与并发冲突；标签采用“并发与幂等性”关注点体系。
 - 超时三个影响维度仅用于 common.timeout；缺证据时留空/待需求确认，不写 unknown 冒充已判断。
 - pending_review 是唯一的新候选初始状态。applicable 必须有 finding；not_applicable 必须有排除依据；needs_requirement 必须说明缺少的证据。

@@ -1,6 +1,86 @@
 # Scene Completion
 
-当前主流程采用三个角色：**生成器 → 检查器 → 推荐器**。生成器按现有模型、SSD 与关注点方法生成全部场景候选，不经过 LLM 适用性审查；检查器独立抽取原始需求用例，再批量比较；推荐器为未匹配候选给出具体补充章节、证据和推荐评分。
+当前默认协议为 **RR/SR SSD 异常识别**（`rr-sr-ssd-identification-v1`，IR=RR）。此前 C=37、0% 的验收采用了明确异常保留及原文约束直接生成，**不符合本轮纯 SSD 关注点生成要求，不能作为本轮达标证明**。本轮已按用户批准完成[单条代表交互链的方法流程验收](examples/agent_workflow_smoke/README.md)：546项回归、164批零模型调用续跑、离线重建及Luna/max独立审查通过；不代表全项目覆盖或样例输入质量达标。
+
+生成器只通过“原始正常/可选流程 → 架构 → RR/SR 融合 SSD → 关注点挂载 → 授权模型具体化”生成异常。默认ecnu-max；用户授权后可改用本地gpt-6-luna子进程，批量high、最终独立审查max。每条异常必须引用真实同层消息及挂载，禁止原文异常/约束旁路；不做 LLM 适用性审查。正常与可选场景仍导出，但不进入异常匹配、指标或推荐。
+
+检查器独立读取原始 RR、SR，分别抽取原子异常 C_RR/C_SR，不读取生成结果或测试。匹配只判断异常对象、操作、机制、必要条件，响应与恢复不参与。推荐器只接收各层未匹配异常，全部展示，以 `0.7×支持度+0.3×缺失度` 排序。
+
+用户已确认：检查器的泛指异常分支可结合同一操作的明确契约展开，纯前置条件不算异常。分别保存异常分支及契约引用，按字段/机制拆成原子条件；原文明示空结果、重复请求或状态变化即使被正确处理仍保留。
+
+本轮以 **可迁移的 Skills/tools 全流程验证** 为目标，用户已撤销漏报率≤5%门槛。RR、SR指标如实报告、空分母null。系统spec、设计spec同层分别一一匹配；逐对完整/部分只是资格证据，每个C/G只占用一条计数关系，竞争关系另列。推荐沿真实RR/SR映射按同一交互实际原因的具体异常语义去重（保留各层关注点标签）；测试不分RR/SR，独立按交互、单一因果关注点拆分，允许明确标记的框架推导原因。全量逐对判断后一一采纳，分母为去重推荐单元数；明示与推导测试贡献分列。当前方法见 [scene-assess Skill](.cac/skills/scene-assess/SKILL.md)。
+
+节省额度的代表验证可在 `scene-pipeline` 增加 `--use-case-id <原用例ID>`（可重复）及 `--comparison-verification final-review`：保留完整原文、已成功正常模型包和已独立核实的原始检查器基线，只对明确选择的用例完成后续流程，最终独立审查仍执行。本次仅测试一组真实交互链时，还可指定重复的 `--exchange-local-id <本地交换ID>`，必须包含实际RR/SR和全部父调用；链上全部有效挂载保留，原始C分母不删减。默认不指定范围时仍全量处理。报告标明局部范围，不冒充整个用例或全项目结果；成功批次直接续用，不因样例指标反复生成。旧检查器保留原始Skill/模型身份，源文、实际抽取规则或分类改变仍禁止复用。跨层推荐去重按最多16个独立语义对分包，保留全部可比较关系，避免每个关系都启动一次进程。Embedding/rerank暂缓。
+
+按用户要求停止样例细节优化时，可显式使用 `--source-quality-gate structural`：仍真实完成来源检查并原样导出质量发现，但不把它们改判通过或反复重抽。此模式只验证代表范围的方法流程，真实SSD来源/锚点、挂载、批次和执行证据仍必须有效。默认strict模式仍要求来源质量通过。
+
+内部/外部数据库均包装为真实 SSD 生命线上的 SR 资源服务，保留物理资源映射。AR 底层微服务仅作追溯。必须保留用户规定的全部关注点，包含设备适配性、五项 LLM 质量、六项服务关系、七项数据与十项内部数据库关注点。新的其他组件、调用边或关注点先给出原文依据和影响供用户确认。
+
+关注点按正常 SSD 交换的 operation_kinds 和有来源的 data_relations 确定性挂载。全部定义保留，读交互不继承服务其他流程的写能力；未证实的缓存、统计写、事务、联查等实现不能成为异常机制。生成候选按字段原子化，RR 人机交互不改写为 HTTP 请求体；未知限制或处理只记待确认。该路由不作 LLM 适用性审查，也不按测试结果删除候选。
+
+生成前的来源检查双向核对数据：既查已提取字段是否有本层证据，也从原文逐行独立盘点传输数据，防止空字段列表掩盖漏抽。明确绑定的返回契约可支持返回数据，内部成功状态不能自动变成响应字段；前后置条件不能创造调用。来源审计未过时推迟参与者分析，检查器仍独立运行。每轮用 [检查工具说明](docs/rr_sr_tools_checks.md) 中的 `check-interaction-run` 保存可追溯缺口，未完成或阻断不视为漏报。
+
+来源检查同时独立盘点数据库操作，核对真实调用方到资源服务的交换，不能用入口调用业务服务或实现说明替代。架构声明没有正向调用依据时不补造交互。审计输出引用或字段映射无效可用 `diagnose-normal-source-audit` 定位，worker结束后加 `--prepare-retry` 保存原句提示再续跑；工具不代填语义判断或通过结论。
+
+正常原文明示查询但未列返回结构时，允许记录逻辑查询结果，必须标记“查询语义推导、协议结构待确认”。[逻辑查询结果协议](docs/rr_sr_logical_query_data_policy.md) 定义 `derived_response_data` 的引句、来源与独立核验；禁止借此虚构 JSON 成员、类型、布尔校验结果、限制或新调用。SSD JSON 与图同时保留推导标记，旧结果不自动升级为新协议。
+
+原文明示执行服务未进入模型时，资源审计保留其字面名称、空组件ID和空交换列表，由tools报告调用方缺失；不能让公开入口冒充该服务。五类职责使用[统一定义及正反例](.cac/skills/scene-extract/references/service_classification.md)，文件全文进入正常抽取与来源审计输入。普通参数校验不自动成为分析生成，任意外呼不自动成为发布生效。
+
+用例模型支持 **RR→多个 SR→多个 AR→多个软件实现接口**，独立保存原文编号、父级和引用；消息嵌套另行校验。当前样例的一一对应不是工具限制。拆分图输出为 use_case_decomposition.json/mmd，AR 和实现单元仅供追溯。已确认的设计修正见 [修正记录](docs/rr_sr_design_correction_proposal.md)。
+
+~~~bash
+python .cac/tools/scene_completion.py scene-pipeline \
+  --model examples/online_shopping_seed.json \
+  --rr-spec-document 在线商城购物系统/系统需求_spec.md \
+  --sr-spec-document 在线商城购物系统/功能设计_spec.md \
+  --test-spec-document 在线商城购物系统/test_spec.md \
+  --agent-mode external --output-dir examples/results/rr_sr_round_01
+~~~
+
+`--requirement-document`、`--design-document` 兼容映射 RR/SR。本次交付按用户确认只验收 Agent 流程，embedding／rerank 暂缓；新协议使用 agent 后端、rerank 关闭，历史功能仍可通过 `--protocol legacy` 重建。最多三个模型请求并发；批次可续跑，模型/来源/工具/Skill 版本进入哈希，不完整或过期结果阻止验收。
+
+本地Luna执行使用`--agent-runtime luna-subprocess --config luna.config.example.json`，依赖已登录的Codex CLI。每个子进程限定gpt-6-luna/high或max，只读、临时会话，输入仅为对应语义包；原始输出、事件、线程、退出状态及哈希进入运行证据。工具核验这些文件及保存结果，禁止用模型自行声称的身份代替执行记录。可续用明确授权且版本有效的历史ECNU批次或Luna/max批次，保持历史真实配置；CLI未报告底层路由模型时保持空值。额度错误停止重试并将后续未运行包标记deferred，不能视为完整或未匹配。
+
+示例设置`native_transport=http`以减少连接重试，只使用本地登录与默认OpenAI认证地址；`auto`保留CLI默认连接方式。工具只接受固定的这两种命令，禁止通过此选项改写模型、认证地址或只读设置。[配置字段说明](https://learn.chatgpt.com/docs/config-file/config-reference)
+
+后续只优化生成器时，使用 `--checker-input <首轮目录>/existing_scenarios.json` 固定 C。首轮须保存逐条原文核实记录 `baseline_review.json`（passed、reviewer、source_hash、baseline_hash、execution_evidence_hash、source_audit_hash、unresolved_findings）。工具校验原始文档、分类体系、独立抽取代码指纹及指令、完整 ecnu-max 批次及 C 不变，复制独立执行证明供离线复验；不会宣称导入结果是新模型执行。原文或抽取规则变化须建立有修订依据的新基线。
+冻结前还必须完成只读原文/C 的 `interaction-checker-audit`，核验正常流程误算异常、原子条件、操作绑定、引用及遗漏。审查结果不读 G 或测试，不作生成器适用性筛选；问题草稿由 `repair-checker-source-audit` 保留原始结果与完整依据并让模型从原包重抽，不能静默改分母。
+
+同一草稿的已知来源问题仍需修复；新版审计的通过不能抹掉旧问题。工具支持指定本轮保存的完整历史审计和被拒绝包进行来源重抽，校验实际执行证明及当前草稿内容哈希，随后必须重新审计。接口与限制见 [每轮 tools 检查接口](docs/rr_sr_tools_checks.md)。
+
+每轮编排结束自动保存 `run_checks.json/md`，也可用 `check-interaction-run --output-dir <round-dir> --rr-spec-document <rr.md> --sr-spec-document <sr.md>` 检查部分结果及原文变化。pending/blocked 不能当正式指标或验收；完整结果还须离线重建。迁移规则、检查范围、修复及缓存版本说明见 [每轮 tools 检查接口](docs/rr_sr_tools_checks.md)。
+
+生成前另执行正常模型来源和逐步完整性检查（`model_origin_checks.json`、`interaction-model-audit`），防止漏建调用、返回误作请求及异常混入普通可选场景；只审查原文到正常模型的抽取，不读取C/G/测试或筛除异常候选。`repair-generator-model-origins`保留原始依据并从原文重抽。指定源文发现时只重抽所选用例，其余问题继续阻断验收；实际复核指出审计本身错误时，用`retry-normal-source-audit`重审原包并验证模型未变，不能借审计错误改写模型。表名别名只能依据被引用的字面物理资源标识复用，保留命名空间、来源和内外属性。跨项目测试使用不同用例编号、服务名和字段，不能靠商城专用条件提高方法指标。
+
+来源检查还逐条审阅已绑定的正向合法契约，提供其原始条款，拒绝把异常分支反写为生成约束；本地校验不能画成双方相同的SR交互。已实际核实的正常模型问题可通过`--source-review-file`及明确的`--source-finding-id`驱动原包重抽，工具核验当前模型/原文/批次及逐字引句；重抽后的全量来源审计仍须完成并通过。
+
+结构抽取失败时，`diagnose-generator-model --output-dir <round-dir>`输出具体角色、交互和父调用错误；worker结束后可加`--prepare-retry`记录来源绑定的重试反馈。该工具不改写图或场景，不将结构候选父调用当作业务事实。原文明示异常标签不能被成功响应改成普通可选，所有正常来源审查引句必须是单行连续原文。
+
+示例配置显式开启 ecnu-max 高强度思考，降低多层交互抽取中的歧义，依据[平台思考模式接口](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。批次记录请求模型、思考设置与服务端返回的模型标识；ecnu-max 是平台入口名，服务端底层标识单独保存，不混用。未返回服务端标识时明确记录验证上限；执行证据哈希参与离线复验。
+
+需要确认时输出 `architecture_proposals.md/json`，暂停依赖该模型改动的生成，继续独立检查器。正常完成后输出 JSON、章节诊断、架构/依赖 Mermaid、RR/SR/融合 SSD Mermaid及SVG，以及 `scene_assessment.xlsx`。`ssd_diagram_files.json`保留原始用例ID与安全文件名映射。“指标”中的“类别”右侧保留中文“关注点说明”。`complete=true` 仅表示流程完成；方法流程验收另要求全量回归、同版本续跑、离线重建及 `gpt-6-luna/max` 效果复核。
+
+验收前工作簿“评估状态”和 Markdown 明确标记阶段性指标。只有 evaluate-generator 完成全部验证后，才输出与当前结果哈希绑定的验收通过状态；重新运行会移除过期验收标记。
+完整轮次使用 validate-interaction-run 实际执行全量回归及禁止新模型调用的缓存续跑，保存日志、JUnit、输入/结果前后哈希和重建指标。prepare-interaction-review 绑定实效审查材料，实际 gpt-6-luna/max 原始审查也进入验收依据。check-interaction-run 区分 structurally_valid 与 formally_accepted，不能仅靠结构完整或人工布尔标记宣告达标。各角色实际 Skill 文本进入语义包和输入哈希。
+
+新规则见 [RR/SR 协议](.cac/skills/scene-check/references/rr_sr_protocol.md)和[多级输入规范](.cac/skills/scene-extract/references/rr_sr_input_schema.md)。配置使用 [rr_sr.config.example.json](rr_sr.config.example.json)，`.env`、密钥和缓存不提交。
+
+五类功能服务关注点挂SR真实服务；RR建立有本层正向业务证据和实际SR展开映射的逻辑业务服务角色，不新增部署或复制异常。生成前 [参与者补全 Skill](.cac/skills/scene-participants/SKILL.md) 对照原始架构、用例Actor与真实正常调用；漏写时补全模型参与者，只有架构成员却无本用例调用证据时列待确认。原文修改、新组件或调用边仍需确认。主动取消支付已按用户确认修正为可选，cancellable不自动挂异常关注点。当前范围版本rr-sr-one-to-one-workflow-v5。
+
+## 不调用模型的指标与报告重建
+
+`export-interaction-snapshot --output-dir <完整运行目录> --snapshot-file <snapshot.json>` 在核验完整真实运行后，只导出可复现的模型、SSD、异常、全部配对决定及质量诊断，不包含密钥、私人配置、失败记录或执行缓存。随后可在另一目录运行：
+
+```bash
+python .cac/tools/scene_completion.py rebuild-interaction-snapshot \
+  --snapshot-file <snapshot.json> --output-dir <重建目录>
+```
+
+重建重新检查SSD/挂载、全部原文与测试比较集合、一一分配和指标哈希，并输出Markdown、图和Excel，不调用模型。它不是新的模型执行验收：完整执行身份、回归、零网络续跑和最终审查证明保留在原运行目录，不能用公开结果快照代替。
+
+## 历史三角色流程（仅兼容重建）
+
+**以下直到“兼容旧审核流程”的内容均为历史 v1 协议说明，运行历史 scene-pipeline 命令必须增加 `--protocol legacy`。其分母、生成路径、响应匹配和采纳口径不用于新协议。**
 
 ## 三角色职责与结果
 
@@ -14,7 +94,7 @@
 
 章节记录包含原始文档、完整标题路径、行号、用例和步骤。报告分别显示证据章节与建议补充章节；检查器只读需求时，补充建议定位需求，设计章节作为相关证据单列，不能宣称设计也缺失该异常。缺少定位时明确标记。候选的未知响应、恢复和数值限制均标记待需求确认。
 
-## 在线商城购物系统验收结果
+## 历史在线商城购物系统验收结果
 
 以同一组原始需求异常 C=37 比较，异常漏报率由优化前 **2/37（5.41%）** 降至 **0/37（0%）**。生成器保留全部 947 个场景：14 主成功、43 可选、76 明确异常及 814 个关注点推导候选。生成输入、分类、匹配和推荐使用实际 ecnu-max 批次；全部初始接受关系经过 gpt-6-luna / max 独立复核，完整回归与同版本续跑另有验收记录。
 
@@ -29,7 +109,7 @@ python examples/verify_online_shopping.py --output-dir examples/results/replayed
 
 离线复验无需密钥，使用随仓库归档的原始章节、批次、模型、SSD 和复核证据；不依赖首次运行的本机临时目录。历史需求与设计共同抽取的 97 个 C 不作为此次前后比较分母。
 
-## 新流程运行
+## 历史 v1 流程运行
 
 安装依赖后，使用随仓库提交的示例规范模型；模型构建仍复用 scene-extract/scene-ssd 能力。
 
@@ -51,7 +131,7 @@ python .cac/tools/scene_completion.py prepare-generator-model \
   --agent-mode external --output-dir examples/results/prepared
 ~~~
 
-随后将 scene-pipeline 的 --model 替换为 examples/results/prepared/scene_model.json，并加 --agent-mode external 执行完整批次；生成器保留全部候选，语义复核仅判断 G/C 匹配。完成后运行 `evaluate-generator --output-dir examples/results/agent` 校验需求专用异常分母、全部阶段、推荐集合和严格小于 5% 的门槛。验收还从原模型重新生成 G、独立应用来源分类证明并重算匹配与推荐，拒绝手工删改场景或旧批次。每轮输入/Skill 哈希和批次状态随结果保留。
+随后将 scene-pipeline 的 --model 替换为 examples/results/prepared/scene_model.json，并加 --agent-mode external 执行完整批次；生成器保留全部候选，语义复核仅判断 G/C 匹配。完成后运行 `evaluate-generator --output-dir examples/results/agent` 校验异常分母、全部阶段、推荐集合和实际复验记录；当前RR/SR协议不设漏报率门槛。离线复验只从保存的真实SSD与批次证据重建指标，不重新调用模型生成G；拒绝手工删改场景或过期批次。每轮输入/Skill 哈希和批次状态随结果保留。
 
 默认匹配/推荐后端均为 agent，默认准备 packet 并等待子 Agent。按 run_manifest.json 的等待阶段分配最多三个子 Agent，再重跑原命令推进；完整交付以 complete=true 为准，准备成功的退出码 0 不表示分析已完成。
 
@@ -76,9 +156,9 @@ python .cac/tools/scene_completion.py run-agent-batches \
 
 配置示例为 [three_roles.config.example.json](three_roles.config.example.json)。本地 .env 支持 ECNU_MAX_MODEL、ECNU_MAX_API_KEY、ECNU_MAX_BASE_URL、ECNU_EMBEDDING_TEXT、ECNU_RERANK；密钥不提交，不写入结果。
 
-## 指标与推荐分数
+## 历史 v1 指标与推荐分数
 
-- 正式异常漏报率 = 原始需求已有异常 C 中未被全部生成异常 Gₑ 完整/部分覆盖的场景数 / C 异常总数；必须严格小于 5%，空分母不能宣告达标。总场景指标另行保留。
+- 异常漏报率 = 原始需求已有异常 C 中未被生成异常 Gₑ 完整/部分一一覆盖的场景数 / C 异常总数；指标如实报告、不设置通过阈值，空分母null。总场景指标另行保留。旧兼容入口的历史验收记录不作为当前协议结果。
 - 当前已有完整率 = 生成集合 G 中至少有一个 full/partial 匹配的场景数 / G 场景总数。
 - 具体关注点、大类、主成功、可选及未分类异常分别统计；每项带分子/分母、场景与章节。
 - 多标签在各相关分类分别计入，分类内与总指标各自去重；分类数不可直接相加。零分母为 null。
@@ -91,7 +171,7 @@ python .cac/tools/scene_completion.py run-agent-batches \
 
 分支前后置条件未单独明确时标记待确认；用例主成功条件只保留为上下文。匹配复核要求触发机制、影响实体和操作一致，再分别判断核心行为、结果及约束。Agent 推荐的高支持度另核实明确约束与原文引句：只有接口背景时支持度上限 0.5，保留初始分数与调整依据。
 
-## 可选 Rerank 增强
+## 历史 v1 可选 Rerank 增强
 
 --rerank 默认关闭，仅增强推荐器。先用 embedding 从关联用例章节召回最多 20 段证据，再由 ECNU_RERANK 精排。Agent 阅读排序证据后评分；embedding 推荐以最高 rerank 相关度替换证据相关度代理。
 
@@ -363,3 +443,5 @@ python .cac/tools/scene_completion.py build-crud-dependency-graph \
 ```
 
 输出四份文件：`crud_dependency_graph.json`（结构化边及追溯缘由）、`crud_dependency_graph.dot`（Graphviz `digraph`）、`crud_dependency_edges.md`（每对用例一行的合并依赖边清单）和 `crud_dependency_four_tuples.md`（每个实体及源操作各列一条缘由）。同一实体上的 R/U/D 用例指向创建该实体的 C 用例；一对用例只保留一条边，标签按 `R->C,U->C,D->C` 顺序合并，实体来源列在边上。箭头表示源用例依赖目标用例，不代表交互调用顺序。完整规则见 [依赖图算法参考](.cac/skills/dependency-graph/references/crud-dependency-algorithm.md)。
+
+用户进一步确认：同一实际原因跨RR/SR只有关注点编码/分析视角不同，仍合并一个推荐因果单元并保留全部原始关注点标签；不同实际原因才拆分。测试每个拆分单元有一个因果关注点，匹配按具体原因，不能以标签相等替代机制判断，也不能仅因标签不同拒绝同一原因。

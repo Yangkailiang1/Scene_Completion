@@ -1,5 +1,7 @@
 # RR/SR/AR 分类输入协议
 
+> 历史 V6 兼容输入；当前 RR/SR 纯 SSD 生成使用 rr_sr_input_schema.md。下面单对象 SR 映射、自动补服务和原文异常字段不构成当前方法的输入规则。
+
 `scene_model.json` 至少包含：
 
 ```json

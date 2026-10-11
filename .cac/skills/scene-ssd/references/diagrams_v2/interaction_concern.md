@@ -1,5 +1,7 @@
 # V5 RR/SR/AR 融合 SSD 与关注点
 
+> 历史兼容协议，仅用于重建 V5 结果。当前 rr-sr-ssd-identification-v1 不采用下面的一 RR 一服务限制、适用性筛选、AR 异常或 needs_requirement 候选删除规则；当前规则见 ../../SKILL.md 与 ../../../scene-extract/references/rr_sr_input_schema.md。
+
 不再把一张汇总交互图作为主要用例图。每个 RR 用例的主成功流程分别生成 RR SSD、SR SSD、AR SSD 和融合 SSD；关注点分析以融合 SSD 的标准化请求—响应交换为输入。
 
 - RR SSD 只表达 Actor、系统和抽象服务之间的业务交互。

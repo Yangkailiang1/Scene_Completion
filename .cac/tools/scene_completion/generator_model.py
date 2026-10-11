@@ -13,7 +13,8 @@ from .sources import fingerprint, use_case_sections, validate_refs
 
 def generator_model_packets(base, index, directory):
     payloads = []
-    skill = (Path(__file__).resolve().parents[2] / "skills" / "scene-generate" / "SKILL.md").read_text(encoding="utf-8")
+    # Frozen historical contract: new RR/SR runs use interaction_batches instead.
+    skill = (Path(__file__).resolve().parents[2] / "skills" / "scene-generate" / "references" / "legacy_v1.md").read_text(encoding="utf-8")
     for uc in base["use_cases"]:
         sections = use_case_sections(index, uc["use_case_id"])
         if not sections:
@@ -139,7 +140,7 @@ def merge_generator_model(base, index, directory):
                                     "method": "independent-source-constraints", "batch_status": status,
                                     "baseline_node_ids": [n["node_id"] for n in base["system_composition"]["nodes"]],
                                     "skill_hash": fingerprint((Path(__file__).resolve().parents[2] / "skills" /
-                                        "scene-generate" / "SKILL.md").read_text(encoding="utf-8"))}
+                                        "scene-generate" / "references" / "legacy_v1.md").read_text(encoding="utf-8"))}
     nodes = model["system_composition"]["nodes"]
     system = next(n for n in nodes if n["node_id"] == "system")
     system["name"] = model["system_name"]

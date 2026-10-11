@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "purpose": "Summary of the accepted representative workflow, not a substitute for native execution evidence.",
+  "result_hash": "530220ceff3745d91e2127fa5162f850bbb698c714a250b048efb0bc7fc422e6",
+  "accepted_representative_workflow": true,
+  "evaluation_scope": {
+    "kind": "representative",
+    "use_case_ids": [
+      "UCG-004-UC001"
+    ],
+    "full_source_use_case_count": 14,
+    "exchange_local_ids": [
+      "rr1",
+      "sr1"
+    ],
+    "granularity": "interaction_chain",
+    "original_case_denominators_retained": true
+  },
+  "source_quality_gate": "structural",
+  "source_quality_passed": false,
+  "miss_rates": {
+    "RR": 1.0,
+    "SR": 0.75,
+    "combined": 0.8333333333333334
+  },
+  "miss_rate_threshold": null,
+  "junit_counts": {
+    "tests": 546,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "resumed_batches": 164,
+  "resume_network_calls": 0,
+  "independent_review_model": "gpt-6-luna",
+  "independent_review_reasoning_effort": "max",
+  "independent_review_areas": 12
+}

@@ -146,6 +146,52 @@ def _main_impl(argv=None) -> int:
 
     args = parser.parse_args(argv)
     try:
+        if args.command in {"check-interaction-run", "repair-checker-source-audit"}:
+            from scene_completion.interaction_audit import run_check, run_repair
+            if args.command == 'check-interaction-run':
+                result, code = run_check(args)
+            else:
+                try:
+                    result, code = run_repair(args)
+                finally:
+                    run_check(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command == 'diagnose-generator-model':
+            from scene_completion.interaction_model_diagnostics import run_model_diagnostics
+            result, code = run_model_diagnostics(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command == 'diagnose-normal-source-audit':
+            from scene_completion.interaction_source_diagnostics import run_source_audit_diagnostics
+            result, code = run_source_audit_diagnostics(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command == 'retry-normal-source-audit':
+            from scene_completion.interaction_source_diagnostics import run_source_audit_retry
+            result, code = run_source_audit_retry(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command == 'repair-generator-model-origins':
+            from scene_completion.interaction_origins import run_model_repair
+            from scene_completion.interaction_audit import run_check
+            try:
+                result, code = run_model_repair(args)
+            finally:
+                run_check(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command in {'validate-interaction-run', 'prepare-interaction-review'}:
+            from scene_completion.interaction_evidence import run_validation, run_prepare_review
+            result, code = run_validation(args) if args.command == 'validate-interaction-run' else run_prepare_review(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        elif args.command in {'export-interaction-snapshot', 'rebuild-interaction-snapshot'}:
+            from scene_completion.interaction_snapshot import export_snapshot, rebuild_snapshot
+            result = (export_snapshot(args.output_dir, args.snapshot_file) if args.command == 'export-interaction-snapshot'
+                else rebuild_snapshot(args.snapshot_file, args.output_dir))
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
         if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review", "prepare-generator-model", "evaluate-generator", "prepare-checker-taxonomy", "prepare-generator-taxonomy"}:
             result, code = (run_pipeline(args) if args.command == "scene-pipeline" else
                             run_worker(args) if args.command == "run-agent-batches" else
