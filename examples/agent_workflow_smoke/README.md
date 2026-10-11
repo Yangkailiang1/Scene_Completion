@@ -1,30 +1,19 @@
-# Agent 代表交互链流程快照
+# Agent流程快照重建
 
-用户批准只验证创建商品 `UCG-004-UC001` 的一组真实RR→SR交互 `rr1、sr1`，生产Skills/tools默认仍全量。这是局部流程验证，不是整个用例或商城的覆盖验收。用户已撤回漏报率5%门槛；输入来源审查的质量问题原样保留，不以高覆盖为目标修改样例。
+`snapshot.json`用于验证离线结果重建。它包含原始来源索引、正常模型、SSD、关注点挂载、场景、完整比较决定及质量诊断，不包含密钥、私人配置或模型执行缓存。
 
-本次复用已成功的正常模型与独立检查器，链上34个有效挂载全部生成，后续比较、推荐、跨层实际原因去重、独立测试条件拆分、一一采纳与导出均跑通。实际批量模型为Luna/high，历史独立检查器的ECNU执行身份保留。最终Luna/max独立审查12项领域通过，工具已接受本次代表链方法流程；[审查报告](effect_review.md)保留样例语义、来源质量和范围限制。
-
-| 项目 | 局部结果 |
-| --- | ---: |
-| 正常场景 / 异常场景 | 2 / 49 |
-| RR异常 / SR异常 | 16 / 33 |
-| 原文异常分母RR / SR | 2 / 4 |
-| 识别漏报RR / SR | 2/2 / 3/4 |
-| 未匹配生成异常 / 跨层去重推荐单元 | 48 / 47 |
-| 测试采纳 | 2/47（4.26%） |
-
-原文分母保留整个选定用例的异常，不因只选交互链而删减。全项目独立基线仍RR38、SR85；它们不是这次局部指标的分母。正常和可选场景不参与异常匹配。来源质量警告不等于异常漏报。
-
-合计漏报率为5/6＝83.33%，当前spec异常完整率为1/49＝2.04%；其中唯一匹配为SR的商品管理权限异常，属于部分匹配。RR完整率0/16＝0%，SR完整率1/33＝3.03%。很多分类只有1条已有异常，未匹配即100%；同一异常的多个关注点及大类会重复展示，不能累加各行作为总漏报数。具体说明见[当前版本交付与指标解释](../../docs/current_delivery_status.md)。
-
-`snapshot.json`只包含可复现结果、源文索引、模型、SSD、挂载、完整比较决定及质量发现，不包含密钥、私人配置、失败记录或模型执行缓存。
+在项目根目录安装依赖后运行：
 
 ```bash
-python .cac/tools/scene_completion.py rebuild-interaction-snapshot \
-  --snapshot-file examples/agent_workflow_smoke/snapshot.json \
-  --output-dir examples/results/agent_workflow_smoke
+python .cac/tools/scene_completion.py rebuild-interaction-snapshot --snapshot-file examples/agent_workflow_smoke/snapshot.json --output-dir examples/results/agent_workflow_smoke
 ```
 
-该命令不调用模型，会重新检查真实SSD/挂载、全部比较集合、一一分配和指标，再生成JSON、Markdown、图和`scene_assessment.xlsx`，其中“类别”右侧保留中文“关注点说明”。重建结果明确标为离线报告，不冒充新模型执行或新的验收。报告及Excel在输出目录中生成，无需提交派生文件。
+程序重新核实SSD、挂载、全部配对决定和一一分配，重建指标及结果哈希，并输出JSON、Markdown、图和 `scene_assessment.xlsx`。结果按快照中的业务和交互范围标记；离线重建不调用模型，不产生新的执行验收。
 
-原运行完整回归546项通过，164批同版本续跑无需新模型调用。[验证摘要](verification_summary.json)保存验收结果、测试数量及零网络调用记录；[原始审查](effect_review_raw.json)和[审查绑定](effect_review.json)保留真实结论。重建核验的结果哈希为 `530220ceff3745d91e2127fa5162f850bbb698c714a250b048efb0bc7fc422e6`。完整执行证据保留在本地运行目录；公开快照和摘要不能替代它们，也不能用来在新执行中直接设定验收通过。
+如需从其他完整运行导出快照：
+
+```bash
+python .cac/tools/scene_completion.py export-interaction-snapshot --output-dir <run-dir> --snapshot-file <snapshot.json>
+```
+
+实际运行和执行证明检查见[项目README](../../README.md)及[tools接口](../../docs/rr_sr_tools_checks.md)。
