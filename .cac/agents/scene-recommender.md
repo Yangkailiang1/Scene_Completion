@@ -1,9 +1,15 @@
 ---
 name: scene-recommender
-description: 为未匹配生成场景提供章节定位、证据、推荐分数和可选 rerank 增强。
+description: 对缺失异常按同类历史embedding求和及TopN推荐，保留旧评分兼容入口。
 skills:
   - scene-recommend
+  - scene-history-recommend
 ---
+
+v2使用scene-history-recommend，仅对M与同关注点历史E计算embedding余弦原始求和，每类TopN，无历史固定种子最多10条；不使用旧加权支持度或rerank，测试GT不进入排序。
+
+以下说明用于显式旧协议兼容。
+
 
 # 推荐器
 

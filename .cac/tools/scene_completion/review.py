@@ -74,6 +74,50 @@ def _content_from_response(value: dict[str, Any]) -> str:
     return text
 
 
+def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int) -> dict[str, Any]:
+    request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=request_body,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    last_error = "request failed"
+    diagnostic = None
+    retry_delay = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                value = json.loads(response.read().decode("utf-8"))
+                if isinstance(value, dict):
+                    value["_scene_completion_metrics"] = {"transport_attempts": attempt + 1}
+                return value
+        except urllib.error.HTTPError as exc:
+            last_error = f"HTTP {exc.code}"
+            # Inspect only for a classified limit; never persist or display an
+            # untrusted server body, which may echo credentials or input text.
+            try:
+                error_body=exc.read(8192).decode('utf8',errors='replace').casefold()
+            except OSError:error_body=''
+            exhausted=any(term in error_body for term in ('insufficient_quota','quota_exhausted','credits','billing_limit','额度不足','余额不足'))
+            diagnostic={'http_status':exc.code,'failure_category':'quota_exhausted' if exhausted else
+                ('rate_limited' if exc.code==429 else 'transport_error')}
+            try:retry_delay=max(1,min(60,float(exc.headers.get('Retry-After','0'))))
+            except (ValueError,TypeError,AttributeError):retry_delay=None
+            if retry_delay is not None:diagnostic['retry_after_seconds']=retry_delay
+            if exhausted:break
+            if exc.code < 500 and exc.code != 429:
+                break
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_error = type(exc).__name__
+        if attempt < retries:
+            time.sleep(retry_delay or min(2 ** attempt, 8))
+    # Never include URL credentials, request headers, or server response body.
+    error=RuntimeError(f"ECNU-Max chat completion failed ({last_error})")
+    if diagnostic is not None:error.response_diagnostic=diagnostic
+    raise error
+
+
 def _post_chat_completions(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int) -> dict[str, Any]:
     request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(

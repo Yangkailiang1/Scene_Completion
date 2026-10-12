@@ -9,7 +9,7 @@ import os
 import threading
 from pathlib import Path
 
-from .review import _content_from_response, _post_chat_completions, _resolve_env_reference
+from .review import _content_from_response, _post_chat_completions_diagnostic as _post_chat_completions, _resolve_env_reference
 from .sources import fingerprint
 
 
@@ -260,11 +260,12 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
         target = root / "results" / f"{bid}.json"
         cached = None
         if target.exists():
+            existing = None
             try:
                 existing = read_json(target)
                 if existing.get("input_hash") == packet["input_hash"] and existing.get("batch_id") == bid:
                     different_model = False
-                    if packet['stage'].startswith('interaction-'):
+                    if packet['stage'].startswith(('interaction-', 'gap-')):
                         different_model = existing.get('model') != client.model('agent')
                         allowed = getattr(client, 'config', {}).get('allowed_cached_models', [client.model('agent')])
                         if existing.get('model') not in allowed:
@@ -272,11 +273,14 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                         if different_model or existing.get('model') == 'gpt-6-luna':
                             from .interaction_execution_identity import validate_result_execution
                             validate_result_execution(existing, result_path=target)
-                    if packet["stage"].startswith("interaction-") and not existing.get("baseline_execution"):
+                    if packet["stage"].startswith(("interaction-", "gap-")) and not existing.get("baseline_execution"):
                         evidence = existing.get("execution_model_evidence", {})
                         config = getattr(client, "config", {})
-                        authorized_native_effort = existing.get('model') == 'gpt-6-luna' and evidence.get('reasoning_effort') in config.get('allowed_cached_reasoning_efforts', [config.get('reasoning_effort')])
-                        if (not different_model and not authorized_native_effort and (evidence.get("requested_model") != client.model("agent") or evidence.get("thinking") != bool(config.get("thinking")) or
+                        authorized_cached_effort = (existing.get('model') in config.get('allowed_cached_models', [client.model('agent')])
+                            and 'allowed_cached_reasoning_efforts' in config
+                            and evidence.get('reasoning_effort') in config['allowed_cached_reasoning_efforts']
+                            and evidence.get('requested_model') == existing.get('model'))
+                        if (not different_model and not authorized_cached_effort and (evidence.get("requested_model") != client.model("agent") or evidence.get("thinking") != bool(config.get("thinking")) or
                                 evidence.get("reasoning_effort") != (config.get("reasoning_effort", "high") if config.get("thinking") else None))):
                             raise ValueError("request model/thinking configuration changed; cache cannot be reused")
                     validator(packet, existing)
@@ -286,14 +290,18 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                         cached = existing
                     if packet["stage"] not in {"matching", "recommendation", "checker-taxonomy", "generator-taxonomy"}:
                         return {"batch_id": bid, "status": "cached"}
-            except (ValueError, KeyError, TypeError):
-                pass
+            except (ValueError, KeyError, TypeError) as exc:
+                if packet['stage'].startswith('gap-') and isinstance(existing, dict):
+                    # A newly strengthened guard must retain the actual former
+                    # execution before any fresh semantic judgment replaces it.
+                    write_json(root / 'attempts' / f'{bid}-cache-{fingerprint(existing)[:12]}.json',
+                        {'result': existing, 'validation_error': str(exc), 'cached_result_revalidation': True})
         last_error = None
         previous_output = None
         source_audit_feedback = None
         model_origin_feedback = None
         attempts = 2
-        if packet["stage"].startswith("interaction-"):
+        if packet["stage"].startswith(("interaction-", "gap-")):
             attempts = getattr(client, "config", {}).get("semantic_max_attempts", 4)
             if type(attempts) is not int or not 1 <= attempts <= 6:
                 raise ValueError("semantic_max_attempts must be 1..6")
@@ -305,21 +313,21 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 # and semantic validation; never promote labels or partial JSON.
                 rejection_boundary = max((i for i, record in enumerate(records)
                     if record.get('model_origin_feedback') or record.get('source_only_review_feedback')
-                    or record.get('source_audit')), default=-1)
+                      or record.get('source_audit') or record.get('cached_result_revalidation')), default=-1)
                 # Explicit source rejection requires a fresh execution. A valid
                 # transport proof cannot revive the rejected semantic output or
                 # an earlier attempt when the rejudge command clears its cache.
                 for record in reversed(records[rejection_boundary + 1:]):
-                    if packet['stage'] not in {'interaction-model', 'interaction-model-audit'}:
+                    if packet['stage'] not in {'interaction-model', 'interaction-model-audit'} and not packet['stage'].startswith(('gap-normalize-','gap-ambiguity-')):
                         # Other roles may require subsequent independent proof.
                         # Their normal stage chain must run without this shortcut.
                         break
                     recovered = record.get('result')
-                    if not isinstance(recovered, dict) or recovered.get('model') != 'gpt-6-luna':
+                    if not isinstance(recovered, dict) or (recovered.get('model') != 'gpt-6-luna' and not packet['stage'].startswith(('gap-normalize-','gap-ambiguity-'))):
                         continue
                     if recovered.get('batch_id') != bid or recovered.get('input_hash') != packet['input_hash']:
                         continue
-                    if 'gpt-6-luna' not in getattr(client, 'config', {}).get('allowed_cached_models', [client.model('agent')]):
+                    if recovered['model'] not in getattr(client, 'config', {}).get('allowed_cached_models', [client.model('agent')]):
                         continue
                     try:
                         from .interaction_execution_identity import validate_result_execution
@@ -333,6 +341,12 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 structured = [r for r in records if isinstance(r.get("result"), dict)]
                 if structured:
                     previous_output = structured[-1]["result"]
+                    if packet['stage'].startswith('gap-'):
+                        # Recompute diagnostic text against the current validator;
+                        # keep the failed execution immutable and never promote it.
+                        try:validator(packet,copy.deepcopy(previous_output))
+                        except (ValueError,KeyError,TypeError) as exc:
+                            last_error=(type(exc).__name__+': '+str(exc))[:1200]
                 if packet["stage"] == "interaction-checker":
                     audits = [r["source_audit"] for r in records if isinstance(r.get("source_audit"), dict)]
                     if audits:
@@ -347,13 +361,16 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
             attempt_result = None
             try:
                 retry_packet = dict(packet)
+                if packet['stage'].startswith('gap-ambiguity-'):
+                    from .concern_gap_comparison import format_hint
+                    retry_packet['validation_format_hint'] = format_hint()
                 if source_audit_feedback is not None:
                     retry_packet["source_audit_feedback"] = source_audit_feedback
                 if model_origin_feedback is not None:
                     retry_packet['model_origin_feedback'] = model_origin_feedback
                 if last_error:
                     retry_packet["validation_feedback"] = last_error
-                    if packet["stage"].startswith("interaction-") and previous_output is not None and source_audit_feedback is None:
+                    if packet["stage"].startswith(("interaction-", "gap-")) and previous_output is not None and source_audit_feedback is None:
                         retry_packet["previous_output"] = previous_output
                         retry_packet["repair_instruction"] = "Repair this previous structured output against the original packet and precise validation feedback. Preserve source-backed normal-flow semantics. Do not introduce checker/test content or an alternate exception-generation path. Return only the corrected output contract."
                 result = dict(cached) if cached is not None else client.agent(retry_packet)
@@ -361,6 +378,8 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 result.update({"batch_id": bid, "input_hash": packet["input_hash"]})
                 if cached is None:
                     result["model"] = client.model("agent")
+                    if packet['stage'].startswith('gap-ambiguity-') and result['model'] != 'gpt-6-luna':
+                        result.setdefault('execution_model_evidence', {})['format_hint_hash'] = fingerprint(retry_packet['validation_format_hint'])
                     if packet["stage"] == "matching":
                         from .three_roles import normalize_matching_summary
                         result = normalize_matching_summary(packet, result)
@@ -385,15 +404,15 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 write_json(target, result)
                 return {"batch_id": bid, "status": "cached" if cached is not None else "complete"}
             except (ValueError, KeyError, TypeError, RuntimeError) as exc:
-                last_error = type(exc).__name__ + ": " + str(exc)[:1200 if packet["stage"].startswith("interaction-") else 180]
+                last_error = type(exc).__name__ + ": " + str(exc)[:1200 if packet["stage"].startswith(("interaction-", "gap-")) else 180]
                 previous_output = attempt_result
-                if packet["stage"].startswith("interaction-") and attempt_result is not None:
+                if packet["stage"].startswith(("interaction-", "gap-")) and attempt_result is not None:
                     # Invalid semantic outputs are audit evidence, never completed
                     # batches. Retain them so model/graph failures are diagnosable.
                     write_json(root / "attempts" / f"{bid}-{fingerprint(attempt_result)[:12]}.json",
                         {"result": attempt_result, "validation_error": str(exc), "attempt": attempt_index + 1})
                 diagnostic = getattr(exc, "response_diagnostic", None)
-                if packet["stage"].startswith("interaction-") and diagnostic is not None:
+                if packet["stage"].startswith(("interaction-", "gap-")) and diagnostic is not None:
                     write_json(root / "attempts" / f"{bid}-response-{fingerprint(diagnostic)[:12]}.json",
                         {"result": None, "response_diagnostic": diagnostic, "validation_error": str(exc), "attempt": attempt_index + 1})
                 if isinstance(diagnostic, dict) and diagnostic.get('failure_category') == 'quota_exhausted':

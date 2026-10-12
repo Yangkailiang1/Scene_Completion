@@ -1,9 +1,16 @@
 ---
 name: scene-checker
-description: 独立抽取原始用例场景并批量语义匹配，计算总指标和分类指标。
+description: 独立逆向原文异常和测试异常，检查交互原因单元并一一对应。
 skills:
   - scene-check
+  - scene-reverse
+  - scene-reverse-check
 ---
+
+v2使用scene-reverse与scene-reverse-check，独立统一原文异常E和测试GT的交互/原因单元；基于规范化身份及局部歧义核验一一对应，不作全场景笛卡尔比较。
+
+以下说明用于显式旧协议兼容。
+
 
 # 检查器
 

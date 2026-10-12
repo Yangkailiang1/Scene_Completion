@@ -70,7 +70,11 @@ def register_commands(sub):
     pipeline.add_argument("--rr-spec-document", action="append", help="RR original spec; IR aliases RR")
     pipeline.add_argument("--sr-spec-document", action="append", help="SR original spec; AR is reference only")
     pipeline.add_argument("--test-spec-document", action="append", help="independent full test spec; no RR/SR partition")
-    pipeline.add_argument("--protocol", choices=("rr-sr-ssd-identification-v1", "legacy"), default="rr-sr-ssd-identification-v1")
+    pipeline.add_argument("--protocol", choices=("rr-sr-concern-gap-v2", "rr-sr-ssd-identification-v1", "legacy"), default="rr-sr-concern-gap-v2")
+    pipeline.add_argument('--ar-spec-document', action='append', help='optional separate AR trace material; never an exception analysis layer')
+    pipeline.add_argument('--reuse-run', help='reuse byte-identical successful source/model packets from another run')
+    pipeline.add_argument('--recommendation-seed', type=int, default=42, help='deterministic no-history category sampling seed')
+    pipeline.add_argument('--embedding-config', help='optional separate ECNU embedding endpoint/model configuration')
     pipeline.add_argument("--architecture-approval", help="source-bound user-approved architecture proposals")
     pipeline.add_argument("--output-dir", required=True)
     pipeline.add_argument('--use-case-id', action='append', help='explicit representative assessment scope; full successful model/checker extraction remains reusable')
@@ -111,6 +115,17 @@ def register_commands(sub):
     prep.add_argument("--config")
     evaluation = sub.add_parser("evaluate-generator", help="recompute exception acceptance and verify completed source-bound run")
     evaluation.add_argument("--output-dir", required=True)
+    gap_repair = sub.add_parser('repair-gap-generation', help='repair only source-rejected G scenes from their existing SSD mounts; never consumes E or GT')
+    gap_repair.add_argument('--output-dir', required=True)
+    gap_repair.add_argument('--unit-id', action='append')
+    gap_repair.add_argument('--env-file', default='.env')
+    gap_repair.add_argument('--config')
+    inverse_repair = sub.add_parser('repair-gap-reverse', help='repair source-rejected inverse units within the same independent collection')
+    inverse_repair.add_argument('--output-dir', required=True)
+    inverse_repair.add_argument('--collection', choices=('G','E','T'), required=True)
+    inverse_repair.add_argument('--unit-id', action='append')
+    inverse_repair.add_argument('--env-file', default='.env')
+    inverse_repair.add_argument('--config')
     audit = sub.add_parser("check-interaction-run", help="check each partial/complete RR/SR run and write machine-readable blockers")
     audit.add_argument("--output-dir", required=True)
     audit.add_argument("--rr-spec-document", action="append")
@@ -187,6 +202,24 @@ def run_worker(args):
     index = read_json(args.sources_index)
     root = Path(args.stage_dir)
     stage = read_json(root / "manifest.json")["stage"]
+    if stage.startswith('gap-'):
+        from . import concern_gap_batches as gap
+        if stage.startswith('gap-normalize-'):validator=__import__('scene_completion.concern_gap_normalize_diagnostics',fromlist=['validator']).validator(index)
+        elif stage.startswith('gap-reverse-check-'):validator=__import__('scene_completion.concern_gap_repair',fromlist=['reverse_validator']).reverse_validator
+        elif stage=='gap-generation-repair':validator=__import__('scene_completion.concern_gap_repair',fromlist=['repair_validator']).repair_validator(index)
+        elif stage=='gap-reverse-confirm-G':validator=__import__('scene_completion.concern_gap_review_confirm',fromlist=['validator']).validator
+        elif stage.startswith('gap-dedup-'):validator=__import__('scene_completion.concern_gap_dedup',fromlist=['validator']).validator
+        elif stage.startswith('gap-normalization-repair-'):validator=__import__('scene_completion.concern_gap_normalize_diagnostics',fromlist=['validator']).validator(index)
+        elif stage.startswith('gap-ambiguity-'):validator=__import__('scene_completion.concern_gap_comparison',fromlist=['validator']).validator
+        elif stage=='gap-generation':validator=gap.generation_validator(index)
+        elif stage=='gap-test-extract':validator=__import__('scene_completion.interaction_batches',fromlist=['test_validator']).test_validator(index)
+        elif stage=='gap-graph-check':validator=gap.graph_validator(index)
+        elif stage=='gap-features':validator=gap.feature_validator(index)
+        elif stage=='gap-ar-trace':validator=gap.ar_validator(index)
+        else:raise ValueError('unknown v2 semantic stage')
+        client=_client(args,root.parent.parent)
+        result=run_agent_packets(root,client,validator,worker_index=args.worker_index,worker_count=args.worker_count,batch_ids=args.batch_id)
+        return result,0 if result['complete'] else 2
     validators = {"checker": checker_validator(index), "matching": matching_validator,
                   "recommendation": recommendation_validator(index), "generator-model": model_packet_validator(index),
                   "checker-taxonomy": taxonomy_validator(index), "generator-taxonomy": taxonomy_validator(index)}
@@ -272,6 +305,10 @@ def run_prepare_model(args):
 def run_evaluate(args):
     root = Path(args.output_dir)
     manifest = read_json(root / "run_manifest.json")
+    if manifest.get('protocol') == 'rr-sr-concern-gap-v2':
+        from .concern_gap_replay import evaluate
+        result=evaluate(root)
+        return result,0 if result['accepted'] else 2
     if manifest.get("protocol") == "rr-sr-ssd-identification-v1":
         from .interaction_replay import evaluate
         manifest.update(accepted=False, formal_metrics=False)
@@ -381,6 +418,12 @@ def run_evaluate(args):
 
 
 def run_pipeline(args):
+    if getattr(args,'protocol',None)=='rr-sr-concern-gap-v2':
+        from .concern_gap_cli import run
+        from .concern_gap_replay import check
+        try:return run(args)
+        finally:
+            if (Path(args.output_dir)/'run_manifest.json').exists():check(args.output_dir)
     if getattr(args, "protocol", "legacy") != "legacy":
         from .interaction_cli import run
         from .interaction_audit import run_check

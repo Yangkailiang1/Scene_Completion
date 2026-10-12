@@ -14,9 +14,19 @@ skills:
   - scene-recommend
   - scene-participants
   - scene-assess
+  - scene-concern-gap
+  - scene-model-check
+  - scene-feature-infer
+  - scene-reverse
+  - scene-reverse-check
+  - scene-history-recommend
 ---
 
 # 三角色编排入口
+
+默认协议为rr-sr-concern-gap-v2：scene-model-check分别检查SSD和组成图，scene-feature-infer推理正向对象特性，scene-concern-gap挂载并生成异常，scene-reverse与scene-reverse-check独立统一已有异常及测试GT，scene-history-recommend按同类历史embedding求和推荐。AR仅架构追溯。四项指标及一一关系以scene-concern-gap/references/protocol.md为准。默认全量，可选择完整代表用例；每阶段tools检查、版本续跑和最终独立审查仍必需。
+
+以下为显式rr-sr-ssd-identification-v1与legacy兼容职责，不用于v2历史排序和指标。
 
 本入口编排三个角色，分别见 scene-generator.md、scene-checker.md、scene-recommender.md。
 默认使用 scene-pipeline；每个 Skill 只负责自身规则，不相互硬调用。

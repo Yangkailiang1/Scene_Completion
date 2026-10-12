@@ -149,7 +149,11 @@ def _main_impl(argv=None) -> int:
         if args.command in {"check-interaction-run", "repair-checker-source-audit"}:
             from scene_completion.interaction_audit import run_check, run_repair
             if args.command == 'check-interaction-run':
-                result, code = run_check(args)
+                manifest_path=Path(args.output_dir)/'run_manifest.json'
+                if manifest_path.exists() and _read_json(str(manifest_path)).get('protocol')=='rr-sr-concern-gap-v2':
+                    from scene_completion.concern_gap_replay import check
+                    result,code=check(args.output_dir)
+                else:result, code = run_check(args)
             else:
                 try:
                     result, code = run_repair(args)
@@ -183,15 +187,32 @@ def _main_impl(argv=None) -> int:
             return code
         elif args.command in {'validate-interaction-run', 'prepare-interaction-review'}:
             from scene_completion.interaction_evidence import run_validation, run_prepare_review
-            result, code = run_validation(args) if args.command == 'validate-interaction-run' else run_prepare_review(args)
+            if _read_json(str(Path(args.output_dir)/'run_manifest.json')).get('protocol')=='rr-sr-concern-gap-v2':
+                from scene_completion.concern_gap_replay import validate,prepare_review
+                result,code=validate(args.output_dir) if args.command=='validate-interaction-run' else prepare_review(args.output_dir)
+            else:result, code = run_validation(args) if args.command == 'validate-interaction-run' else run_prepare_review(args)
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return code
         elif args.command in {'export-interaction-snapshot', 'rebuild-interaction-snapshot'}:
-            from scene_completion.interaction_snapshot import export_snapshot, rebuild_snapshot
+            kind=_read_json(str(Path(args.output_dir)/'run_manifest.json')).get('protocol') if args.command=='export-interaction-snapshot' else _read_json(args.snapshot_file).get('protocol')
+            if kind=='rr-sr-concern-gap-v2':
+                from scene_completion.concern_gap_replay import export_snapshot,rebuild_snapshot
+            else:
+                from scene_completion.interaction_snapshot import export_snapshot, rebuild_snapshot
             result = (export_snapshot(args.output_dir, args.snapshot_file) if args.command == 'export-interaction-snapshot'
                 else rebuild_snapshot(args.snapshot_file, args.output_dir))
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0
+        if args.command == 'repair-gap-generation':
+            from scene_completion.concern_gap_repair import run
+            result,code=run(args)
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+            return code
+        if args.command == 'repair-gap-reverse':
+            from scene_completion.concern_gap_inverse_repair import run
+            result,code=run(args)
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+            return code
         if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review", "prepare-generator-model", "evaluate-generator", "prepare-checker-taxonomy", "prepare-generator-taxonomy"}:
             result, code = (run_pipeline(args) if args.command == "scene-pipeline" else
                             run_worker(args) if args.command == "run-agent-batches" else

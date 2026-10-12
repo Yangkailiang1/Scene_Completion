@@ -109,8 +109,13 @@ def test_online_shopping_reference_test_spec_covers_14_use_cases_and_7_ar_groups
     assert len(scenarios) == 89
     assert {item["scenario_type"] for item in scenarios} == {"normal", "exception", "optional"}
     assert sum(item["scenario_type"] == "normal" for item in scenarios) == 14
-    assert sum(item["scenario_type"] == "optional" for item in scenarios) == 19
-    assert sum(item["scenario_type"] == "exception" for item in scenarios) == 56
+    assert sum(item["scenario_type"] == "optional" for item in scenarios) == 12
+    assert sum(item["scenario_type"] == "exception" for item in scenarios) == 63
+    replay_ids = {"TEST-AR02-UC003-O01", "TEST-AR03-UC001-O01", "TEST-AR04-UC002-O02",
+                  "TEST-AR04-UC002-O03", "TEST-AR05-UC002-O01", "TEST-AR06-UC004-O02",
+                  "TEST-AR07-UC001-O01"}
+    assert {item["test_scenario_id"] for item in scenarios
+            if item["scenario_type"] == "exception"} >= replay_ids
     use_cases = {token for item in scenarios for token in re.findall(r"UCG-\d{3}-UC\d{3}", item["requirements"])}
     ar_groups = {token for item in scenarios for token in re.findall(r"AR-\d{2}", item["requirements"])}
     assert len(use_cases) == 14

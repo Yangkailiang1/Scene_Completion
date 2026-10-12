@@ -2,7 +2,7 @@
 
 本文依据《功能设计Delta_spec.md》的“设计用例详情”和“V5标准化设计用例调用链”整理。`AR-01` 至 `AR-07` 是本文件为场景分组生成的临时编号，不是原始规格中的 AR 需求编号；关联 AR 字段同时列出设计文档中的真实实现模块/API。仅整理文档明确的基本流程和备选流程，不补造未描述的业务分支。
 
-类型约定：`正常`覆盖基本流程；产生有效业务结果的幂等重放、缓存降级、异步受理或明确成功替代结果归`可选`；校验失败、拒绝、不可用、超时或资源冲突归`异常`。来源定位均为 `功能设计Delta_spec.md` 的行号，行号用于当前版本，文档变更后应重新核验。
+类型约定：`正常`覆盖基本流程；缓存降级、异步受理或明确成功替代结果归`可选`；幂等重放、重复请求／回调／事件、校验失败、拒绝、不可用、超时或资源冲突归`异常`。幂等重复以重复触发识别，正确重放处理仍保留为预期结果。来源定位均为 `功能设计Delta_spec.md` 的行号，行号用于当前版本，文档变更后应重新核验。
 
 ## AR-01：ProductBrowse 商品浏览模块
 
@@ -37,7 +37,7 @@
 | TEST-AR02-UC003-A02 | 商品已下架 | 异常 | 顾客已登录，商品记录存在 | 商品状态为 OFF_SALE | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证不可购买状态处理 | HTTP 410，PRODUCT_OFF_SHELF | 功能设计Delta_spec.md:596-603，A2 |
 | TEST-AR02-UC003-A03 | SKU库存不足 | 异常 | 顾客已登录，SKU 有效 | 请求数量超过库存 | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证库存约束 | HTTP 409，OUT_OF_STOCK，并返回可购买数量 | 功能设计Delta_spec.md:596-603，A3 |
 | TEST-AR02-UC003-A04 | 累加后超过限购 | 异常 | 同一 SKU 已在购物车 | 再次添加后数量超过限购上限 | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证购物车累计限购 | HTTP 409，PURCHASE_LIMIT_EXCEEDED | 功能设计Delta_spec.md:596-603，A4 |
-| TEST-AR02-UC003-O01 | 幂等键重复提交 | 可选 | 同一请求已成功处理 | 使用相同 idempotencyKey 重试 | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证幂等重放 | 返回已有购物车条目，不重复写入 | 功能设计Delta_spec.md:596-603，A5 |
+| TEST-AR02-UC003-O01 | 幂等键重复提交 | 异常 | 同一请求已成功处理 | 使用相同 idempotencyKey 重试 | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证幂等重放 | 返回已有购物车条目，不重复写入 | 功能设计Delta_spec.md:596-603，A5 |
 | TEST-AR02-UC003-A05 | 商品目录服务不可用 | 异常 | 顾客已登录 | ProductCatalogService 不可用 | AR-02/addCartItem；API-C-IF1；UCG-001-UC003 | 验证依赖失败处理 | HTTP 503，PRODUCT_SERVICE_UNAVAILABLE | 功能设计Delta_spec.md:596-603，A6 |
 
 ## AR-03：OrderService 订单服务
@@ -50,7 +50,7 @@
 | TEST-AR03-UC001-A01 | 商品价格已变化 | 异常 | 订单请求包含确认金额 | 商品价格与 confirmedAmount 不一致 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证价格一致性检查 | HTTP 409，PRICE_CHANGED，返回最新价格 | 功能设计Delta_spec.md:646-653，A1 |
 | TEST-AR03-UC001-A02 | 商品库存不足 | 异常 | 购物车含待购商品 | 下单时库存不足 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证下单库存校验 | HTTP 409，OUT_OF_STOCK，返回商品及当前库存 | 功能设计Delta_spec.md:646-653，A2 |
 | TEST-AR03-UC001-A03 | 收货地址无效 | 异常 | 顾客已登录 | 地址无效或不属于当前顾客 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证地址归属和有效性 | HTTP 400，INVALID_ADDRESS | 功能设计Delta_spec.md:646-653，A3 |
-| TEST-AR03-UC001-O01 | 创建订单幂等重放 | 可选 | 相同幂等键已创建订单 | 使用相同 idempotencyKey 重试 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证订单幂等 | 返回已有订单，不重复创建 | 功能设计Delta_spec.md:646-653，A4 |
+| TEST-AR03-UC001-O01 | 创建订单幂等重放 | 异常 | 相同幂等键已创建订单 | 使用相同 idempotencyKey 重试 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证订单幂等 | 返回已有订单，不重复创建 | 功能设计Delta_spec.md:646-653，A4 |
 | TEST-AR03-UC001-A04 | 购物车为空 | 异常 | 顾客已登录 | 提交空购物车订单 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证空订单拒绝 | HTTP 400，CART_EMPTY | 功能设计Delta_spec.md:646-653，A5 |
 | TEST-AR03-UC001-A05 | 商品目录服务不可用 | 异常 | 创建订单请求有效 | ProductCatalogService 不可用 | AR-03/createOrder；API-O-IF1；UCG-002-UC001 | 验证下游失败处理 | HTTP 503，PRODUCT_SERVICE_UNAVAILABLE | 功能设计Delta_spec.md:646-653，A6 |
 | TEST-AR03-UC003-N01 | 查看订单详情 | 正常 | 顾客已登录且订单存在 | 顾客查询自己的订单 | AR-03/getOrderDetail；API-O-IF2；UCG-002-UC003 | 验证订单读取和权限范围 | 返回订单、商品、支付及物流状态 | 功能设计Delta_spec.md:704-738，基本流程 |
@@ -77,8 +77,8 @@
 | TEST-AR04-UC002-A02 | 支付金额不匹配 | 异常 | 订单存在且有应付金额 | 请求金额与订单应付金额不同 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证金额一致性 | HTTP 400，AMOUNT_MISMATCH | 功能设计Delta_spec.md:693-700，A2 |
 | TEST-AR04-UC002-A03 | 支付服务不可用或超时 | 异常 | 订单状态 WAIT_PAY | PaymentService 不可用或超时 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证支付失败时订单保护 | HTTP 503，PAYMENT_SERVICE_UNAVAILABLE，订单保持 WAIT_PAY | 功能设计Delta_spec.md:693-700，A3 |
 | TEST-AR04-UC002-O01 | 顾客取消支付 | 可选 | 订单状态 WAIT_PAY | 顾客在支付过程中取消 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证取消结果处理 | HTTP 200，PAYMENT_CANCELLED，订单保持 WAIT_PAY | 功能设计Delta_spec.md:693-700，A4 |
-| TEST-AR04-UC002-O02 | 支付请求幂等重放 | 可选 | 相同幂等键已处理 | 顾客重复提交支付请求 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证支付幂等 | 返回已有支付结果，不重复处理 | 功能设计Delta_spec.md:693-700，A5 |
-| TEST-AR04-UC002-O03 | 重复支付回调 | 可选 | paymentId 对应回调已处理 | 相同支付回调再次到达 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证回调幂等 | 不重复更新订单状态 | 功能设计Delta_spec.md:693-700，A6 |
+| TEST-AR04-UC002-O02 | 支付请求幂等重放 | 异常 | 相同幂等键已处理 | 顾客重复提交支付请求 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证支付幂等 | 返回已有支付结果，不重复处理 | 功能设计Delta_spec.md:693-700，A5 |
+| TEST-AR04-UC002-O03 | 重复支付回调 | 异常 | paymentId 对应回调已处理 | 相同支付回调再次到达 | AR-04/createPayment；PAYMENT-PAY-01；UCG-002-UC002 | 验证回调幂等 | 不重复更新订单状态 | 功能设计Delta_spec.md:693-700，A6 |
 
 ## AR-05：LogisticsServiceAdapter 物流适配服务
 
@@ -90,7 +90,7 @@
 | TEST-AR05-UC002-A01 | 物流事件签名无效 | 异常 | 回调接口可达 | signature 校验失败 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证回调身份认证 | HTTP 401，INVALID_SIGNATURE，并记录安全告警 | 功能设计Delta_spec.md:829-835，A1 |
 | TEST-AR05-UC002-A02 | 物流单号不存在 | 异常 | 回调签名有效 | trackingNumber 不在 shipment 表中 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证物流资源存在性 | HTTP 404，TRACKING_NUMBER_NOT_FOUND | 功能设计Delta_spec.md:829-835，A2 |
 | TEST-AR05-UC002-A03 | 物流事件时间非法 | 异常 | 物流单存在 | eventTime 早于发货时间或晚于当前时间 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证事件时间约束 | HTTP 400，INVALID_EVENT_TIME | 功能设计Delta_spec.md:829-835，A3 |
-| TEST-AR05-UC002-O01 | 重复物流事件 | 可选 | eventId 已处理 | 同一 eventId 再次到达 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证事件幂等 | HTTP 200，accepted=true、duplicate=true，不重复写入 | 功能设计Delta_spec.md:829-835，A4 |
+| TEST-AR05-UC002-O01 | 重复物流事件 | 异常 | eventId 已处理 | 同一 eventId 再次到达 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证事件幂等 | HTTP 200，accepted=true、duplicate=true，不重复写入 | 功能设计Delta_spec.md:829-835，A4 |
 | TEST-AR05-UC002-A04 | 物流事件编码非法 | 异常 | signature 校验通过 | eventCode 不在允许范围 | AR-05/receiveLogisticsEvent；LOGI-EVT-01；UCG-003-UC002 | 验证事件契约约束 | HTTP 400，INVALID_EVENT_CODE | 功能设计Delta_spec.md:829-835，A5 |
 | TEST-AR05-UC003-N01 | 查询订单物流 | 正常 | 订单存在，物流信息可查询 | 顾客查询订单物流 | AR-05/getOrderLogistics；API-L-IF2；UCG-003-UC003 | 验证物流状态和轨迹查询 | 返回 shipmentStatus 与 trackingEvents | 功能设计Delta_spec.md:839-873，基本流程 |
 | TEST-AR05-UC003-A01 | 订单尚未发货 | 异常 | 订单状态 WAIT_PAY 或 PAID | 顾客请求物流信息 | AR-05/getOrderLogistics；API-L-IF2；UCG-003-UC003 | 验证未发货状态处理 | HTTP 409，ORDER_NOT_SHIPPED | 功能设计Delta_spec.md:874-880，A1 |
@@ -110,7 +110,7 @@
 | TEST-AR06-UC004-A02 | 退款金额超过可退金额 | 异常 | 订单存在可退金额 | 申请金额大于可退金额 | AR-06/createRefund；API-R-IF1；UCG-003-UC004 | 验证退款金额上限 | HTTP 409，REFUND_AMOUNT_EXCEEDED，并返回可退款金额 | 功能设计Delta_spec.md:922-928，A2 |
 | TEST-AR06-UC004-A03 | 订单状态不支持退款 | 异常 | 订单存在 | 订单已退款或已取消等不满足条件 | AR-06/createRefund；API-R-IF1；UCG-003-UC004 | 验证退款状态约束 | HTTP 409，ORDER_STATUS_INVALID | 功能设计Delta_spec.md:922-928，A3 |
 | TEST-AR06-UC004-O01 | 支付服务不可用时异步重试 | 可选 | 退款请求合法 | PaymentService 不可用 | AR-06/createRefund；API-R-IF1；UCG-003-UC004 | 验证异步补偿受理 | 退款单为 PENDING，异步重试，响应 refundStatus=PROCESSING | 功能设计Delta_spec.md:922-928，A4 |
-| TEST-AR06-UC004-O02 | 退款请求幂等重放 | 可选 | 相同幂等键已创建退款单 | 重复提交退款申请 | AR-06/createRefund；API-R-IF1；UCG-003-UC004 | 验证退款幂等 | 返回已有退款单，不重复创建 | 功能设计Delta_spec.md:922-928，A5 |
+| TEST-AR06-UC004-O02 | 退款请求幂等重放 | 异常 | 相同幂等键已创建退款单 | 重复提交退款申请 | AR-06/createRefund；API-R-IF1；UCG-003-UC004 | 验证退款幂等 | 返回已有退款单，不重复创建 | 功能设计Delta_spec.md:922-928，A5 |
 
 ## AR-07：MerchantProductService 商家商品服务
 
@@ -121,7 +121,7 @@
 | TEST-AR07-UC001-N01 | 创建商品草稿 | 正常 | 商家登录且具备商品管理资格 | 商家提交商品名称、类目、描述和图片 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证商品草稿创建 | 返回 productId 和草稿状态 | 功能设计Delta_spec.md:932-965，基本流程 |
 | TEST-AR07-UC001-A01 | 商家资质失效 | 异常 | 商家已登录 | 商家提交商品创建请求但资质失效 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证经营资质门禁 | HTTP 403，MERCHANT_NOT_QUALIFIED | 功能设计Delta_spec.md:966-971，A1 |
 | TEST-AR07-UC001-A02 | 商家无商品管理权限 | 异常 | 商家已登录 | 无权限商家请求创建商品 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证权限控制 | HTTP 403，PERMISSION_DENIED | 功能设计Delta_spec.md:966-971，A2 |
-| TEST-AR07-UC001-O01 | 商品创建幂等重放 | 可选 | 同一幂等键已创建草稿 | 重复提交商品创建 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证商品创建幂等 | 返回已有商品草稿，不重复创建 | 功能设计Delta_spec.md:966-971，A3 |
+| TEST-AR07-UC001-O01 | 商品创建幂等重放 | 异常 | 同一幂等键已创建草稿 | 重复提交商品创建 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证商品创建幂等 | 返回已有商品草稿，不重复创建 | 功能设计Delta_spec.md:966-971，A3 |
 | TEST-AR07-UC001-A03 | 商家商品服务不可用 | 异常 | 商品创建请求合法 | MerchantProductService 不可用 | AR-07/createMerchantProduct；API-M-IF1；UCG-004-UC001 | 验证服务不可用处理 | HTTP 503，MERCHANT_SERVICE_UNAVAILABLE | 功能设计Delta_spec.md:966-971，A4 |
 | TEST-AR07-UC002-N01 | 更新商品信息 | 正常 | 商品草稿存在，商家有权限 | 商家提交商品字段和版本号 | AR-07/updateMerchantProduct；API-M-IF2；UCG-004-UC002 | 验证商品资料更新和版本控制 | 更新成功并返回最新状态及版本 | 功能设计Delta_spec.md:975-1009，基本流程 |
 | TEST-AR07-UC002-A01 | 商品不存在 | 异常 | 商家已认证 | 更新不存在的 productId | AR-07/updateMerchantProduct；API-M-IF2；UCG-004-UC002 | 验证商品资源存在性 | HTTP 404，PRODUCT_NOT_FOUND | 功能设计Delta_spec.md:1010-1016，A1 |

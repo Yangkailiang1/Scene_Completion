@@ -6,7 +6,15 @@ skills:
   - scene-ssd
   - dependency-graph
   - scene-generate
+  - scene-model-check
+  - scene-feature-infer
+  - scene-concern-gap
 ---
+
+v2使用scene-model-check、scene-feature-infer和scene-concern-gap；图检查后按真实RR/SR交互特性挂载并生成异常，AR仅追溯，原文已有异常不追加G。
+
+以下说明用于显式旧协议兼容。
+
 
 # 生成器
 
