@@ -26,6 +26,7 @@ from .svg_renderer import render_system_composition_svg
 from .overview import build_system_composition_semantics
 from .placements import export_placements, annotate_composition_evidence
 from .checker_taxonomy import taxonomy_packets, taxonomy_validator
+from .model_configuration import config_overrides, model_name, referenced_env_keys
 
 
 def tool_versions():
@@ -34,22 +35,22 @@ def tool_versions():
             ("generator_model.py", "generator.py", "ssd.py", "concerns.py", "three_roles.py",
              "matching_audit.py", "comparison.py", "semantic_backend.py", "role_reports.py", "placements.py",
              "role_cli.py", "coverage_diagnostics.py", "checker_taxonomy.py", "sources.py", "schemas.py",
-             "assembly.py", "support_audit.py", "taxonomy_audit.py", "knowledge.py")}
+             "assembly.py", "support_audit.py", "taxonomy_audit.py", "knowledge.py", "model_configuration.py")}
     versions["scene_completion.py"] = hashlib.sha256((directory.parent / "scene_completion.py").read_bytes()).hexdigest()
     return versions
 
 
-def validate_execution_models(directory, expected="ecnu-max"):
+def validate_execution_models(directory, expected):
     """Check actual batch identities, including pre-native semantic proofs."""
     root = Path(directory)
     for batch in read_json(root / "manifest.json")["batches"]:
         result = read_json(root / "results" / (batch["batch_id"] + ".json"))
         if result.get("model") != expected:
-            raise ValueError("actual batch model differs from formal ecnu-max execution")
+            raise ValueError("actual batch model differs from configured execution model")
         for execution in result.get("source_executions", []):
             if (execution.get("model") != expected or not execution.get("scenario_id") or
                     not execution.get("batch_id") or not execution.get("input_hash")):
-                raise ValueError("reused score execution differs from formal ecnu-max provenance")
+                raise ValueError("reused score execution differs from configured model provenance")
         fields = ("semantic_verification", "support_verification", "classification_verification")
         proofs = [record.get(field) for record in [result, *result.get("items", [])] for field in fields]
         for proof in proofs:
@@ -74,7 +75,7 @@ def register_commands(sub):
     pipeline.add_argument('--ar-spec-document', action='append', help='optional separate AR trace material; never an exception analysis layer')
     pipeline.add_argument('--reuse-run', help='reuse byte-identical successful source/model packets from another run')
     pipeline.add_argument('--recommendation-seed', type=int, default=42, help='deterministic no-history category sampling seed')
-    pipeline.add_argument('--embedding-config', help='optional separate ECNU embedding endpoint/model configuration')
+    pipeline.add_argument('--embedding-config', help='optional separate OpenAI-compatible embedding endpoint/model configuration')
     pipeline.add_argument("--architecture-approval", help="source-bound user-approved architecture proposals")
     pipeline.add_argument("--output-dir", required=True)
     pipeline.add_argument('--use-case-id', action='append', help='explicit representative assessment scope; full successful model/checker extraction remains reusable')
@@ -89,7 +90,7 @@ def register_commands(sub):
     pipeline.add_argument("--match-backend", choices=("agent", "embedding"), default="agent")
     pipeline.add_argument("--recommend-backend", choices=("agent", "embedding"), default="agent")
     pipeline.add_argument("--agent-mode", choices=("packets", "external"), default="packets")
-    pipeline.add_argument('--agent-runtime', choices=('ecnu', 'luna-subprocess'), help='actual semantic execution runtime; defaults to config or ecnu')
+    pipeline.add_argument('--agent-runtime', choices=('ecnu', 'openai-compatible', 'luna-subprocess'), help='actual semantic execution runtime; defaults to config or ecnu')
     pipeline.add_argument("--checker-input", help="reuse complete independent checker JSON with identical sources")
     pipeline.add_argument("--full-threshold", type=float, default=.85)
     pipeline.add_argument("--partial-threshold", type=float, default=.70)
@@ -102,7 +103,7 @@ def register_commands(sub):
     worker.add_argument("--worker-index", type=int, default=0)
     worker.add_argument("--worker-count", type=int, default=1)
     worker.add_argument("--batch-id", action="append", help="only retry these assigned manifest batch IDs")
-    worker.add_argument('--agent-runtime', choices=('ecnu', 'luna-subprocess'))
+    worker.add_argument('--agent-runtime', choices=('ecnu', 'openai-compatible', 'luna-subprocess'))
     worker.add_argument("--env-file", default=".env")
     worker.add_argument("--config")
     prep = sub.add_parser("prepare-generator-model", help="independently extract cited generator constraints and dependencies")
@@ -158,7 +159,7 @@ def register_commands(sub):
     source_diagnostic = sub.add_parser('diagnose-normal-source-audit', help='explain invalid source-audit evidence without replacing semantic decisions')
     source_diagnostic.add_argument('--output-dir', required=True)
     source_diagnostic.add_argument('--prepare-retry', action='store_true', help='record literal original-source retry hints after the worker finishes')
-    source_retry = sub.add_parser('retry-normal-source-audit', help='rejudge selected verified source-audit errors with ecnu-max, without changing the model')
+    source_retry = sub.add_parser('retry-normal-source-audit', help='rejudge selected source-audit errors with the configured semantic model, without changing the scenario model')
     source_retry.add_argument('--output-dir', required=True)
     source_retry.add_argument('--source-review-file', required=True)
     source_retry.add_argument('--source-finding-id', action='append', required=True)
@@ -171,6 +172,10 @@ def register_commands(sub):
         command = sub.add_parser(name, help="prepare/apply a complete native subagent semantic review")
         command.add_argument("--stage-dir", required=True)
         command.add_argument("--review-file", required=True)
+    for parser in sub.choices.values():
+        if any(action.dest == 'config' for action in parser._actions):
+            parser.add_argument('--agent-model', help='semantic batch model ID; overrides config and environment')
+            parser.add_argument('--embedding-model', help='embedding model ID; overrides config and environment')
 
 
 def run_matching_review(args):
@@ -183,17 +188,16 @@ def run_matching_review(args):
 
 
 def _client(args, root):
-    config = read_json(args.config) if args.config else {}
+    config = config_overrides(read_json(args.config) if args.config else {}, args)
+    if args.env_file:
+        load_ecnu_env_file(args.env_file, extra_keys=referenced_env_keys(config))
     runtime = getattr(args, 'agent_runtime', None) or config.get('agent_runtime', 'ecnu')
     if runtime == 'luna-subprocess':
         from .luna_subprocess import LunaSubprocessClient
         config.setdefault('native_run_dir', str(Path(root) / 'native-runs'))
-        config.setdefault('allowed_cached_models', ['ecnu-max', 'gpt-6-luna'])
         return LunaSubprocessClient(config)
-    if runtime != 'ecnu':
+    if runtime not in {'ecnu', 'openai-compatible'}:
         raise ValueError('unknown semantic execution runtime')
-    if args.env_file:
-        load_ecnu_env_file(args.env_file)
     config.setdefault("cache_dir", str(root / ".scene_cache"))
     return SemanticClient(config)
 
@@ -340,8 +344,9 @@ def run_evaluate(args):
     if checker["source_hash"] != fingerprint(checker_index) or any(d.get("role") != "requirement" for d in checker_index["documents"]):
         raise ValueError("acceptance checker must be bound exclusively to requirement documents")
     index = read_json(root / "sources_index.json")
-    if matches.get("backend") != "agent" or manifest.get("models", {}).get("agent") != "ecnu-max":
-        raise ValueError("formal acceptance requires ecnu-max semantic matching")
+    expected_model = model_name(manifest.get("models", {}).get("agent"))
+    if matches.get("backend") != "agent":
+        raise ValueError("formal acceptance requires configured agent semantic matching")
     # The frozen independent C may predate model-identity recording. Re-extracting
     # it just to fill metadata would change the agreed before/after denominator.
     for stage in ("generator-taxonomy", "checker-taxonomy", "matching",
@@ -349,7 +354,7 @@ def run_evaluate(args):
         directory = root / "batches" / stage
         if not (directory / "manifest.json").exists():
             raise ValueError("formal acceptance requires completed independent classification and semantic batches")
-        validate_execution_models(directory)
+        validate_execution_models(directory, expected_model)
     if generated.get("llm_review_used") is not False:
         raise ValueError("generator acceptance forbids applicability filtering")
     model = read_json(root / "scene_model.json")
@@ -387,7 +392,7 @@ def run_evaluate(args):
                                   root / "batches" / "matching-recovery")
         if not recovered["complete"]:
             raise ValueError("uncovered exceptions need complete independent recovery comparison")
-        validate_execution_models(root / "batches" / "matching-recovery")
+        validate_execution_models(root / "batches" / "matching-recovery", expected_model)
         validate_native_review_binding(root / "batches" / "matching-recovery")
         from .matching_audit import exclude_native_rejections
         proven_links.update({(m["checker_scenario_id"], m["generated_scenario_id"]): m

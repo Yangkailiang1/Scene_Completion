@@ -207,7 +207,9 @@ def test_native_proof_sidecars_copy_and_validate_without_retagging_result(tmp_pa
     ("ecnu-max", {}, True),
     ("gpt-6-luna", {"thinking": True, "reasoning_effort": "max"}, True),
     ("gpt-6-luna", {"thinking": False, "reasoning_effort": "max"}, False),
-    ("other", {}, False),
+    ("qwen38-27b-vl", {}, True),
+    ("other", {}, True),
+    ("", {}, False),
 ])
 def test_repair_client_preflight_is_explicit(model, config, valid):
     class Client:

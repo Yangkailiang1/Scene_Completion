@@ -301,28 +301,28 @@ def test_formal_model_identity_checks_actual_batches_and_prior_proofs(tmp_path):
     target = tmp_path / "results" / "B.json"
     write_json(target, {"model": "other-model"})
     with pytest.raises(ValueError, match="actual batch model"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
     result = {"model": "ecnu-max", "semantic_verification": {
         "model": "gpt-6-luna", "provider": "native_subagent",
         "prior_verification": {"model": "other-model"}}}
     write_json(target, result)
     with pytest.raises(ValueError, match="actual verification model"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
     write_json(target, {"model": "ecnu-max", "items": [{"support_verification": {"model": "other-model"}}]})
     with pytest.raises(ValueError, match="actual verification model"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
     write_json(target, {"model": "ecnu-max", "items": [{"support_verification": {}}]})
     with pytest.raises(ValueError, match="actual verification model"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
     write_json(target, {"model": "ecnu-max", "source_executions": [{"model": "other-model"}]})
     with pytest.raises(ValueError, match="reused score execution"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
     result["semantic_verification"]["prior_verification"]["model"] = "ecnu-max"
     write_json(target, result)
-    validate_execution_models(tmp_path)
+    validate_execution_models(tmp_path, expected="ecnu-max")
     write_json(target, {"model": "ecnu-max", "classification_verification": {"model": "other-model"}})
     with pytest.raises(ValueError, match="actual verification model"):
-        validate_execution_models(tmp_path)
+        validate_execution_models(tmp_path, expected="ecnu-max")
 
 
 def test_stale_generator_source_cannot_publish_previous_formal_metrics(tmp_path):

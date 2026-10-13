@@ -15,6 +15,7 @@ from .interaction_execution_identity import validate_result_execution, copy_exec
 from .semantic_backend import read_json, write_json, collect_packets, run_agent_packets
 from .sources import fingerprint,index_sources
 from .concern_gap_inverse_repair import ledger as inverse_ledger
+from .model_configuration import config_overrides, referenced_env_keys
 
 
 def copy_compatible(folder,reuse):
@@ -55,13 +56,14 @@ def run(args):
     client=_client(args,root);client.config['max_concurrency']=min(3,int(client.config.get('max_concurrency',3)))
     from .review import load_ecnu_env_file
     from .semantic_backend import SemanticClient
-    if getattr(args,'env_file',None):load_ecnu_env_file(args.env_file)
     embedding_path=getattr(args,'embedding_config',None) or getattr(args,'config',None)
-    embedding_config=read_json(embedding_path) if embedding_path else {}
+    embedding_config=config_overrides(read_json(embedding_path) if embedding_path else {}, args)
+    if getattr(args,'env_file',None):load_ecnu_env_file(args.env_file, extra_keys=referenced_env_keys(embedding_config))
     embedding_config['cache_dir']=str(root/'.embedding_cache')
     embedding_client=SemanticClient(embedding_config)
-    if args.agent_mode=='external' and client.model('agent') not in {'ecnu-max','gpt-6-luna'}:
-        raise ValueError('authorized ECNU or Luna model required')
+    if args.agent_mode=='external':
+        from .interaction_execution_identity import validate_client_execution_model
+        validate_client_execution_model(client)
     reuse=getattr(args,'reuse_run',None)
     manifest={'protocol':PROTOCOL,'policy':POLICY,'complete':False,'accepted':False,
         'source_hash':fingerprint(index),'base_hash':fingerprint(base),'versions':b.versions(),

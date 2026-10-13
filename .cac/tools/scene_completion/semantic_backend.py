@@ -1,4 +1,4 @@
-"""Batch ECNU embeddings/rerank and validated, resumable Agent work packets."""
+"""Configured API embeddings/rerank and validated, resumable Agent work packets."""
 from __future__ import annotations
 
 import concurrent.futures
@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .review import _content_from_response, _post_chat_completions_diagnostic as _post_chat_completions, _resolve_env_reference
 from .sources import fingerprint
+from .model_configuration import configured_model, native_result
 
 
 def write_json(path: str | Path, value) -> None:
@@ -29,20 +30,16 @@ class SemanticClient:
     def __init__(self, config: dict | None = None, transport=None):
         self.config = config or {}
         self.transport = transport or _post_chat_completions
-        self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
-        self.api_key = os.environ.get(self.config.get("api_key_env", "ECNU_MAX_API_KEY"), "")
+        self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
+        self.api_key = os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self._vectors = {}
 
     def model(self, kind: str) -> str:
-        env = {"agent": "ECNU_MAX_MODEL", "embedding": "ECNU_EMBEDDING_TEXT", "rerank": "ECNU_RERANK"}[kind]
-        model = _resolve_env_reference(self.config.get(kind + "_model") or os.environ.get(env, ""))
-        if not model:
-            raise ValueError(f"missing model configuration: {env}")
-        return model
+        return configured_model(self.config, kind)
 
     def post(self, endpoint: str, body: dict) -> dict:
         if not self.base_url.startswith(("https://", "http://")) or not self.api_key:
-            raise ValueError("ECNU endpoint or API key is not configured")
+            raise ValueError("OpenAI-compatible endpoint or API key is not configured")
         return self.transport(self.base_url + endpoint, self.api_key, body,
                               float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
 
@@ -51,7 +48,7 @@ class SemanticClient:
             return []
         model = self.model("embedding")
         cache_dir = Path(self.config["cache_dir"]) if self.config.get("cache_dir") else None
-        hashes = [fingerprint([model, text]) for text in texts]
+        hashes = [fingerprint([self.base_url, model, text]) for text in texts]
         for key in set(hashes):
             if cache_dir and key not in self._vectors and (cache_dir / f"{key}.json").exists():
                 self._vectors[key] = read_json(cache_dir / f"{key}.json")
@@ -59,7 +56,7 @@ class SemanticClient:
         if missing:
             computed = self._embed_uncached(missing)
             for text, vector in zip(missing, computed):
-                key = fingerprint([model, text])
+                key = fingerprint([self.base_url, model, text])
                 self._vectors[key] = vector
                 if cache_dir:
                     write_json(cache_dir / f"{key}.json", vector)
@@ -169,6 +166,7 @@ class SemanticClient:
             raise
         result["execution_model_evidence"] = {"requested_model": body["model"], "provider_model": response.get("model"),
             "thinking": bool(self.config.get("thinking")), "reasoning_effort": body.get("reasoning_effort"),
+            "api_endpoint_hash": fingerprint(self.base_url),
             "verification_limit": "Request model is recorded; provider routing is observable only when response model metadata is supplied."}
         return result
 
@@ -270,12 +268,14 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                         allowed = getattr(client, 'config', {}).get('allowed_cached_models', [client.model('agent')])
                         if existing.get('model') not in allowed:
                             raise ValueError('new protocol cache needs an explicitly authorized actual model identity')
-                        if different_model or existing.get('model') == 'gpt-6-luna':
+                        if different_model or native_result(existing):
                             from .interaction_execution_identity import validate_result_execution
                             validate_result_execution(existing, result_path=target)
                     if packet["stage"].startswith(("interaction-", "gap-")) and not existing.get("baseline_execution"):
                         evidence = existing.get("execution_model_evidence", {})
                         config = getattr(client, "config", {})
+                        if evidence.get('api_endpoint_hash') and hasattr(client, 'base_url') and evidence['api_endpoint_hash'] != fingerprint(client.base_url):
+                            raise ValueError('API endpoint changed; cache cannot be reused')
                         authorized_cached_effort = (existing.get('model') in config.get('allowed_cached_models', [client.model('agent')])
                             and 'allowed_cached_reasoning_efforts' in config
                             and evidence.get('reasoning_effort') in config['allowed_cached_reasoning_efforts']
@@ -323,11 +323,13 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                         # Their normal stage chain must run without this shortcut.
                         break
                     recovered = record.get('result')
-                    if not isinstance(recovered, dict) or (recovered.get('model') != 'gpt-6-luna' and not packet['stage'].startswith(('gap-normalize-','gap-ambiguity-'))):
+                    if not isinstance(recovered, dict) or (not native_result(recovered) and not packet['stage'].startswith(('gap-normalize-','gap-ambiguity-'))):
                         continue
                     if recovered.get('batch_id') != bid or recovered.get('input_hash') != packet['input_hash']:
                         continue
                     if recovered['model'] not in getattr(client, 'config', {}).get('allowed_cached_models', [client.model('agent')]):
+                        continue
+                    if recovered.get('execution_model_evidence', {}).get('api_endpoint_hash') and hasattr(client, 'base_url') and recovered['execution_model_evidence']['api_endpoint_hash'] != fingerprint(client.base_url):
                         continue
                     try:
                         from .interaction_execution_identity import validate_result_execution
@@ -378,18 +380,18 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 result.update({"batch_id": bid, "input_hash": packet["input_hash"]})
                 if cached is None:
                     result["model"] = client.model("agent")
-                    if packet['stage'].startswith('gap-ambiguity-') and result['model'] != 'gpt-6-luna':
+                    if packet['stage'].startswith('gap-ambiguity-') and not native_result(result):
                         result.setdefault('execution_model_evidence', {})['format_hint_hash'] = fingerprint(retry_packet['validation_format_hint'])
                     if packet["stage"] == "matching":
                         from .three_roles import normalize_matching_summary
                         result = normalize_matching_summary(packet, result)
                 attempt_result = result
-                if result.get('model') == 'gpt-6-luna':
+                if native_result(result):
                     from .interaction_execution_identity import validate_result_execution
                     validate_result_execution(result, result_path=target)
                 # Native proof binds the original CLI JSON. Validators may add
                 # normalized source references; keep those changes in memory.
-                validator(packet, copy.deepcopy(result) if result.get('model') == 'gpt-6-luna' else result)
+                validator(packet, copy.deepcopy(result) if native_result(result) else result)
                 if packet["stage"] == "matching":
                     from .matching_audit import verify_matching
                     result = verify_matching(packet, result, client)

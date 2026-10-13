@@ -18,10 +18,14 @@ from .knowledge import load_concern
 from .schemas import ValidationFailure, validate_scene_model
 
 
-def load_ecnu_env_file(path: str | Path) -> list[str]:
-    """Load documented ECNU model settings without logging credentials."""
+def load_ecnu_env_file(path: str | Path, extra_keys=()) -> list[str]:
+    """Load documented and explicitly referenced model settings without logging credentials."""
     allowed = {"ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL",
                "ECNU_EMBEDDING_TEXT", "ECNU_EMBEDDING_VL", "ECNU_RERANK", "ECNU_RERANK_VL"}
+    allowed.update({'SCENE_API_BASE_URL', 'SCENE_API_KEY', 'SCENE_AGENT_MODEL', 'SCENE_EMBEDDING_MODEL',
+                    'SCENE_RERANK_MODEL', 'SCENE_EMBEDDING_BASE_URL', 'SCENE_EMBEDDING_API_KEY'})
+    allowed.update(key for key in extra_keys if isinstance(key, str) and re.fullmatch(r'[A-Z][A-Z0-9_]*', key)
+                   and key not in {'HOME', 'CODEX_HOME', 'PATH', 'PYTHONPATH', 'SHELL', 'USERPROFILE'})
     loaded = []
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         text = line.strip()

@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from .model_configuration import configured_model, model_name
 
 
 MODEL = "gpt-6-luna"
@@ -19,14 +20,14 @@ _SESSION_EVENT_TYPES = {"thread.started", "session.started", "session.metadata"}
 _SECRET_ENV_MARKERS = ("API_KEY", "APIKEY", "ACCESS_KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "PRIVATE_KEY")
 
 
-def native_argv_tail(output_path: str, *, ignore_user_config=True, transport='auto', reasoning_effort=REASONING_EFFORT, output_schema_path=None) -> list[str]:
-    """Only a fixed transport alias may vary; auth endpoint and model stay fixed."""
+def native_argv_tail(output_path: str, *, ignore_user_config=True, transport='auto', reasoning_effort=REASONING_EFFORT, output_schema_path=None, model=MODEL) -> list[str]:
+    """Use the configured model; auth transport and process boundaries stay fixed."""
     if transport not in {'auto', 'http'}:
         raise ValueError('native_transport must be auto or http')
     if reasoning_effort not in {'high', 'max'}:
         raise ValueError('native reasoning_effort must be high or max')
     argv = ['exec'] + (['--ignore-user-config'] if ignore_user_config else [])
-    argv += ['-m', MODEL, '-c', f'model_reasoning_effort={reasoning_effort}']
+    argv += ['-m', model_name(model), '-c', f'model_reasoning_effort={reasoning_effort}']
     if transport == 'http':
         argv += ['-c', 'model_provider="openai-http"', '-c',
             'model_providers.openai-http={name="OpenAI HTTP",requires_openai_auth=true,wire_api="responses",supports_websockets=false}']
@@ -84,8 +85,7 @@ class LunaSubprocessClient:
 
     def __init__(self, config: dict | None = None, runner=None):
         self.config = dict(config or {})
-        if self.config.get("agent_model", MODEL) != MODEL:
-            raise ValueError(f"LunaSubprocessClient is pinned to {MODEL}")
+        selected_model = configured_model(self.config, 'agent', default=MODEL) if ('agent_model' in self.config or os.environ.get('SCENE_AGENT_MODEL')) else MODEL
         if self.config.get("thinking", True) is not True:
             raise ValueError("LunaSubprocessClient requires thinking=true")
         if self.config.get("reasoning_effort", REASONING_EFFORT) not in {'high', 'max'}:
@@ -98,7 +98,8 @@ class LunaSubprocessClient:
             raise ValueError('native_structured_audit must be a boolean')
 
         self.config.update({
-            "agent_model": MODEL,
+            "agent_model": selected_model,
+            "agent_runtime": 'luna-subprocess',
             "thinking": True,
             "reasoning_effort": self.config.get('reasoning_effort', REASONING_EFFORT),
             "max_concurrency": self.config.get("max_concurrency", 3),
@@ -117,7 +118,7 @@ class LunaSubprocessClient:
     def model(self, kind: str) -> str:
         if kind != "agent":
             raise ValueError("LunaSubprocessClient only provides kind='agent'")
-        return MODEL
+        return self.config['agent_model']
 
     @staticmethod
     def _prompt(packet: dict) -> str:
@@ -170,7 +171,7 @@ class LunaSubprocessClient:
             raise FileNotFoundError(f"Codex CLI executable not found: {requested}")
         return [str(Path(executable).resolve())] + native_argv_tail(str(output_path),
             transport=self.config.get('native_transport', 'auto'), reasoning_effort=self.config['reasoning_effort'],
-            output_schema_path=str(schema_path) if schema_path else None)
+            output_schema_path=str(schema_path) if schema_path else None, model=self.model('agent'))
 
     @staticmethod
     def _child_environment() -> dict[str, str]:
@@ -390,13 +391,13 @@ class LunaSubprocessClient:
                                      stdout, stderr, exit_code, events, output)
         result["execution_model_evidence"] = {
             "provider": "native_subprocess",
-            "requested_model": MODEL,
+            "requested_model": self.model('agent'),
             "provider_model": native["observed_model"],
             "thinking": True,
             "reasoning_effort": self.config['reasoning_effort'],
             "native_execution": native,
             "verification_limit": (
-                "The CLI command pins gpt-6-luna and the recorded reasoning effort; routed provider model "
+                "The CLI command pins the configured model and recorded reasoning effort; routed provider model "
                 "identity is recorded only when session metadata or events explicitly report it."
             ),
         }

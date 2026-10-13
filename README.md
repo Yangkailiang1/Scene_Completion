@@ -44,9 +44,15 @@ python -m pip install pytest
 | `--ar-spec-document` | 可选独立AR材料，可重复指定；仅架构追溯，不分析AR交互 |
 | `--output-dir` | 当前运行目录，保存状态、批次、执行记录及输出 |
 
-默认使用Agent抽取、检查和语义核验，推荐使用历史embedding排序。ECNU配置参考 [rr_sr.config.example.json](rr_sr.config.example.json)，在本地 `.env` 或环境变量中设置 `ECNU_MAX_BASE_URL`、`ECNU_MAX_API_KEY` 和 `ECNU_MAX_MODEL`，以及文本embedding模型 `ECNU_EMBEDDING_TEXT`；生成/检查模型使用 `ecnu-max`。不提交密钥及运行缓存。
+默认使用Agent抽取、检查和语义核验，推荐使用历史embedding排序。模型名由配置决定，批量入口、修复、执行证明及验收不限定为固定模型列表。可选择`ecnu-max`、`qwen38-27b-vl`或端点实际提供的其他模型；Luna原生子进程也按配置选择模型。模型请求名和接口返回的提供方名称分别记录，不静默换模型。
 
-也可使用本地Luna子进程：先完成Codex CLI安装和登录，配置参考 [luna.config.example.json](luna.config.example.json)，增加 `--agent-runtime luna-subprocess`。示例批量使用 `gpt-6-luna/high`，独立效果审查使用 `gpt-6-luna/max`；实际身份保存在执行记录中。Luna只处理语义包，历史推荐仍调用ECNU embedding；可用 `--embedding-config <config.json>`提供独立embedding地址/密钥环境变量/模型配置。
+通用配置参考 [model.config.example.json](model.config.example.json)：在本地`.env`或环境变量设置`SCENE_API_BASE_URL`、`SCENE_API_KEY`、`SCENE_AGENT_MODEL`及`SCENE_EMBEDDING_MODEL`。模型选择优先级为命令行覆盖 → 配置文件中的模型名/环境变量引用 → `SCENE_*_MODEL` → 兼容的ECNU环境变量。ECNU示例 [rr_sr.config.example.json](rr_sr.config.example.json)继续支持`ECNU_MAX_BASE_URL`、`ECNU_MAX_API_KEY`、`ECNU_MAX_MODEL`及`ECNU_EMBEDDING_TEXT`。不提交密钥及运行缓存。
+
+也可使用本地Luna子进程：先完成Codex CLI安装和登录，配置参考 [luna.config.example.json](luna.config.example.json)，增加 `--agent-runtime luna-subprocess`。示例批量使用 `gpt-6-luna/high`，独立效果审查使用 `gpt-6-luna/max`；实际身份保存在执行记录中。Luna子进程只处理语义包，历史推荐调用配置的embedding API；可用 `--embedding-config <config.json>`提供独立embedding地址/密钥环境变量/模型配置。
+
+Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.example.json)，使用你指定的`qwen38-27b-vl`。该示例沿用ECNU地址与密钥环境变量，也可修改为其他提供方。批量命令可直接增加`--agent-model qwen38-27b-vl --embedding-model <向量模型ID>`；pipeline、worker和修复命令均支持模型覆盖。`--agent-runtime openai-compatible`是通用API入口，原`ecnu`名称保留兼容；Qwen使用API入口，Luna子进程只能调用本地CLI实际支持的模型。
+
+embedding也可使用 [embedding.config.example.json](embedding.config.example.json)，独立设置`SCENE_EMBEDDING_BASE_URL`、`SCENE_EMBEDDING_API_KEY`和`SCENE_EMBEDDING_MODEL`，通过`--embedding-config`加载；`--embedding-model`优先于该文件。向量缓存按端点、模型和文本隔离；改换模型或端点会计算对应向量。旧向量缓存不迁移成新模型结果。
 
 ## 运行全流程
 

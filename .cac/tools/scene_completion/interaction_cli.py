@@ -202,7 +202,7 @@ def run(args):
         'source_quality_gate':quality_gate,
         "complete": False, "accepted": False,
         "source_hash": fingerprint(index), "tool_versions": versions(), "stages": {},
-        "model": "ecnu-max", "max_concurrency": 3, "rerank": args.rerank}
+        "max_concurrency": 3, "rerank": args.rerank}
     if selected_exchanges:
         manifest['evaluation_scope'].update(exchange_local_ids=selected_exchanges,
             granularity='interaction_chain', original_case_denominators_retained=True)
@@ -222,8 +222,9 @@ def run(args):
     if manifest['execution_runtime'] == 'luna-subprocess':
         manifest['execution_config']['native_transport'] = client.config.get('native_transport', 'auto')
         manifest['execution_config']['native_structured_audit'] = client.config.get('native_structured_audit', False)
-    if args.agent_mode == "external" and client.model("agent") not in {'ecnu-max', 'gpt-6-luna'}:
-        raise ValueError("this experiment requires an authorized ecnu-max or Luna execution runtime")
+    if args.agent_mode == "external":
+        from .interaction_execution_identity import validate_client_execution_model
+        validate_client_execution_model(client)
     # Expose the actual input/runtime before a long first batch starts. A
     # partial running experiment must be inspectable without claiming results.
     write_json(root / "run_manifest.json", manifest)

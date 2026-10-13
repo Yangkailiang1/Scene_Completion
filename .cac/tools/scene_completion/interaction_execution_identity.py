@@ -11,23 +11,21 @@ import json
 import re
 from pathlib import Path
 import shutil
+from .model_configuration import model_name, native_result
 
 
-SUPPORTED_EXECUTION_MODELS = frozenset({"ecnu-max", "gpt-6-luna"})
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _TRANSPORT_FIELDS = {"batch_id", "input_hash", "model", "execution_model_evidence", "baseline_execution"}
 
 
 def validate_client_execution_model(client) -> str:
-    """Return a supported request model and reject unsupported repair clients.
+    """Return a configured request model and check native runtime requirements.
 
     This is a preflight guard only. Completed Luna outputs still need the
     stronger result-side native subprocess evidence checked below.
     """
-    model = client.model("agent")
-    if model not in SUPPORTED_EXECUTION_MODELS:
-        raise ValueError("extraction/review client must use ecnu-max or native gpt-6-luna")
-    if model == "gpt-6-luna":
+    model = model_name(client.model("agent"))
+    if model == "gpt-6-luna" or getattr(client, 'config', {}).get('agent_runtime') == 'luna-subprocess':
         config = getattr(client, "config", {}) or {}
         if config.get("thinking") is not True or config.get("reasoning_effort") not in {'high', 'max'}:
             raise ValueError("native gpt-6-luna execution requires thinking=true and reasoning_effort=high or max")
@@ -119,7 +117,7 @@ def _check_luna_result(result: dict, proof: dict, result_path=None) -> dict:
     evidence = result.get("execution_model_evidence")
     if not isinstance(evidence, dict) or evidence.get("provider") != "native_subprocess":
         raise ValueError("gpt-6-luna result lacks native subprocess execution evidence")
-    if (evidence.get("requested_model") != "gpt-6-luna" or evidence.get("thinking") is not True
+    if (evidence.get("requested_model") != result['model'] or evidence.get("thinking") is not True
             or evidence.get("reasoning_effort") not in {'high', 'max'}):
         raise ValueError("native Luna request identity or reasoning configuration differs")
     if not isinstance(evidence.get("verification_limit"), str) or not evidence["verification_limit"].strip():
@@ -147,7 +145,7 @@ def _check_luna_result(result: dict, proof: dict, result_path=None) -> dict:
     output_arg = argv[output_arg_index]
     from .luna_subprocess import native_argv_tail
     pinned_argvs = [native_argv_tail(output_path, ignore_user_config=ignore, transport=transport,
-        reasoning_effort=evidence['reasoning_effort'], output_schema_path=native.get('schema_path'))
+        reasoning_effort=evidence['reasoning_effort'], output_schema_path=native.get('schema_path'), model=result['model'])
         for ignore in (False, True) for transport in ('auto', 'http')]
     if argv[1:] not in pinned_argvs or output_arg != output_path:
         raise ValueError("native Luna argv does not pin the expected model, effort, read-only mode and output file")
@@ -184,7 +182,7 @@ def _check_luna_result(result: dict, proof: dict, result_path=None) -> dict:
         batch_id, input_hash = result.get("batch_id"), result.get("input_hash")
     else:
         if (not isinstance(baseline_execution, dict)
-                or baseline_execution.get("model") != "gpt-6-luna"
+                or baseline_execution.get("model") != result['model']
                 or not isinstance(baseline_execution.get("batch_id"), str)
                 or not baseline_execution.get("batch_id")
                 or not isinstance(baseline_execution.get("input_hash"), str)
@@ -257,7 +255,7 @@ def _check_luna_result(result: dict, proof: dict, result_path=None) -> dict:
     for key in ("started_at", "completed_at"):
         if not isinstance(native.get(key), str) or not native[key].strip():
             raise ValueError("native Luna proof lacks process timestamps")
-    return {"model": "gpt-6-luna", "proof_kind": "native_subprocess", "run_id": run_id,
+    return {"model": result['model'], "proof_kind": "native_subprocess", "run_id": run_id,
         "thread_id": thread_id, "batch_id": batch_id, "input_hash": input_hash,
         "execution_evidence_hash": hashlib.sha256(json.dumps(evidence, ensure_ascii=False,
             sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()}
@@ -266,23 +264,22 @@ def _check_luna_result(result: dict, proof: dict, result_path=None) -> dict:
 def validate_result_execution(result: dict, *, result_path=None, expected_models=None) -> dict:
     """Validate a completed result's actual execution identity.
 
-    ECNU results retain the original protocol's request proof so frozen C and
-    historical source evidence remain valid. Luna can pass only with the
+    API results retain request-model evidence so frozen C and historical source
+    evidence remain valid. Native models can pass only with the
     checked subprocess record and original sidecar files.
     """
     if not isinstance(result, dict):
         raise ValueError("model result is not an object")
-    model = result.get("model")
-    allowed = SUPPORTED_EXECUTION_MODELS if expected_models is None else frozenset(expected_models)
-    if model not in allowed or model not in SUPPORTED_EXECUTION_MODELS:
+    model = model_name(result.get("model"))
+    if expected_models is not None and model not in expected_models:
         raise ValueError("model result does not use an explicitly allowed extraction model")
     evidence = result.get("execution_model_evidence")
     if not isinstance(evidence, dict) or evidence.get("requested_model") != model:
         raise ValueError("model result lacks matching actual request evidence")
-    if model == "ecnu-max":
+    if not native_result(result):
         # Preserve the established ECNU proof semantics for already frozen
         # source/C artifacts; provider_model is not an alias for the request.
-        return {"model": model, "proof_kind": "legacy_ecnu_request", "execution_evidence_hash":
+        return {"model": model, "proof_kind": "legacy_ecnu_request" if model == 'ecnu-max' else 'openai_compatible_request', "execution_evidence_hash":
             hashlib.sha256(json.dumps(evidence, ensure_ascii=False, sort_keys=True,
                 separators=(",", ":")).encode("utf-8")).hexdigest()}
     proof = _check_luna_result(result, evidence, result_path)
@@ -296,7 +293,7 @@ def validate_execution_client(client) -> str:
 
 def copy_execution_sidecars(result: dict, source_result_path, destination_result_path) -> list[Path]:
     """Copy native proof files into another batch snapshot without retagging results."""
-    if result.get("model") != "gpt-6-luna":
+    if not native_result(result):
         return []
     source_result_path = Path(source_result_path).resolve()
     destination_result_path = Path(destination_result_path).resolve()

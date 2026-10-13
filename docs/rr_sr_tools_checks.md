@@ -22,6 +22,10 @@ python .cac/tools/scene_completion.py run-agent-batches --stage-dir <run-dir>/ba
 
 使用 `--worker-index`、`--worker-count`分配worker，`--batch-id`可重复指定待执行包。测试阶段使用对应的 `test_sources_index.json`。同一阶段worker运行时不要修复或重写其输入。
 
+批量、抽取与修复入口均支持`--agent-model <ID>`、`--embedding-model <ID>`，优先于配置文件及环境变量。语义API允许配置`qwen38-27b-vl`及其他服务端提供的模型名；`openai-compatible`与旧`ecnu`使用同一兼容接口。Luna子进程的模型名也由配置决定，实际命令、输出和事件仍须验证。最终独立效果审查仍使用既定Luna/max，与批量模型选择独立。
+
+模型切换不重标旧结果；默认只复用当前模型的缓存。确需复用历史实际模型时，在配置明确列出`allowed_cached_models`，保留原执行身份。新API批次记录端点指纹，端点改变时重新执行；向量按端点/模型/文本隔离。输入/工具版本变化仍阻止旧结果冒充当前正式验收。
+
 ## 来源诊断与修复
 
 v2图检查、特性推理、生成及G/E/T逆向检查分别保存语义包；只有同一通道的材料进入输入。正常模型修复不接受E或测试GT作为依据。已有异常的来源抽取与逆向检查是独立阶段。

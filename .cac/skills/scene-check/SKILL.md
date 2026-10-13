@@ -12,7 +12,7 @@ description: 独立从原始需求用例抽取已有场景，批量语义匹配�
 分页中 page 与 pageSize 的异常分别记录。用户已确认：泛指异常分支可以结合同一操作的明确契约展开，纯前置条件不算。例如“查询参数非法，例如……”允许结合该查询的 pageSize 上限具体化，但只有正常 pageSize 约束、没有异常分支时不能生成 C。每条保存 extraction_basis（explicit_named 或 generic_failure_contract）、failure_source_refs 和 contract_source_refs；契约展开必须同时引用异常分支与明确契约，不虚构字段、数值或另一接口的规则。公共入口 minPrice/maxPrice 与下游 priceRange.min/max 保持各自对象。
 首次核实后冻结 C 与输入版本；修改分母必须有原文依据及变更记录，历史 37 条不用于本轮验收。
 冻结前执行 interaction-checker-audit：只读原文与独立 C，逐条检查异常依据、原子条件、操作绑定、引用及遗漏，不读 G 或测试。正常校验、参数清单、纯前置、普通可选流程不能冒充异常分支；成功处理的原文异常仍保留。全部审查批次完整且无问题后才允许冻结。审查不是生成器的适用性筛选。
-有问题时使用 repair-checker-source-audit 保留错误草稿和完整审查依据，让 ecnu-max 对原始包重新抽取，再完整重审；tools 不手工改写或静默删减 C。冻结后的基线禁止原地修补，须建立有原文记录的新版本。
+有问题时使用 repair-checker-source-audit 保留错误草稿和完整审查依据，让当前配置的批量语义模型对原始包重新抽取，再完整重审；tools 不手工改写或静默删减 C。冻结后的基线禁止原地修补，须建立有原文记录的新版本。
 工具同时校验异常分支和契约属于实际层级用例。引用独立接口章节时，operation_binding 保存原文接口标识及本用例正常调用引用，并验证外部契约确属该接口；同一个业务包中出现另一 SR 不能作为授权。
 
 默认 Agent packet 模式，可开最多三个子 Agent。按 packet 合同返回全部已检查 ID；
