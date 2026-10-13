@@ -107,6 +107,10 @@ def stage_specs(root):
 def proof_files(root):
     root=Path(root);names=['sources_index.json','generator_base_identity.json','scene_model.json','historical_ssd.json',
         'model_authorization.json','result_bundle.json']
+    if read_json(root/'run_manifest.json').get('execution_mode') == 'case-dag':
+        names += ['case_tasks.json'] + [str(p.relative_to(root)) for top in ('cases', 'task_outputs', 'task_history')
+            for p in sorted((root/top).rglob('*')) if p.is_file() and '.embedding_cache' not in p.parts]
+        return {name:file_hash(root/name) for name in names if (root/name).exists()}
     if (root/'ar_sources_index.json').exists():names+=['ar_sources_index.json','ar_trace.json']
     if (root/'generation_repairs.json').exists():
         names+=['generation_repairs.json']+[str(p.relative_to(root)) for p in sorted((root/'repair_evidence').rglob('*')) if p.is_file()]
@@ -125,6 +129,9 @@ def proof_files(root):
 
 def replay(root,cache_resume=False):
     root=Path(root);run=read_json(root/'run_manifest.json')
+    if run.get('execution_mode') == 'case-dag':
+        from .concern_gap_dag_replay import replay as dag_replay
+        return dag_replay(root, cache_resume=cache_resume)
     if not run.get('complete') or run.get('protocol')!=PROTOCOL or run.get('versions')!=b.versions():
         raise ValueError('run incomplete, incompatible or tools changed')
     bundle=read_json(root/'result_bundle.json');result=verify_bundle(bundle)
@@ -203,6 +210,9 @@ def replay(root,cache_resume=False):
 
 def check(root):
     root=Path(root);run=read_json(root/'run_manifest.json')
+    if run.get('execution_mode') == 'case-dag':
+        from .concern_gap_dag_replay import check as dag_check
+        return dag_check(root)
     try:
         result=replay(root)
         record={'structurally_valid':True,'complete':True,'result_hash':result['result_hash'],
@@ -223,6 +233,8 @@ def validation_identity():
 
 def validate(root):
     root=Path(root);initial=replay(root);before=proof_files(root);vid=validation_identity()
+    if not initial['complete']:
+        return initial, 2
     folder=root/'verification';folder.mkdir(exist_ok=True)
     repo=Path(__file__).resolve().parents[3]
     command=[sys.executable,'-m','pytest','-q','--junitxml='+str((folder/'regression.xml').resolve())]
@@ -250,6 +262,8 @@ AREAS=['ssd_only_generation','ar_trace_only','graph_checks','feature_inference',
 
 def prepare_review(root):
     root=Path(root);result=replay(root)
+    if not result['complete']:
+        return result, 2
     materials={'protocol':PROTOCOL,'result_hash':result['result_hash'],'files':proof_files(root),'areas':AREAS}
     write_json(root/'effect_review_materials.json',materials)
     return {'complete':True,'materials_hash':fingerprint(materials),'result_hash':result['result_hash'],'areas':AREAS},0
@@ -286,7 +300,10 @@ def acceptance_reasons(root,result):
 
 def evaluate(root):
     from .concern_gap_reports import export
-    root=Path(root);result=replay(root);reasons=acceptance_reasons(root,result)
+    root=Path(root);result=replay(root)
+    if not result['complete']:
+        return {**result, 'accepted': False}
+    reasons=acceptance_reasons(root,result)
     accepted=not reasons;output={'complete':True,'accepted':accepted,'result_hash':result['result_hash'],'reasons':reasons}
     write_json(root/'acceptance.json',output)
     run=read_json(root/'run_manifest.json');run['accepted']=accepted;write_json(root/'run_manifest.json',run)
@@ -295,7 +312,11 @@ def evaluate(root):
 
 
 def export_snapshot(root,path):
-    result=replay(root);bundle=read_json(Path(root)/'result_bundle.json')
+    result=replay(root)
+    if not result['complete']:
+        from .concern_gap_dag_replay import partial_snapshot
+        return partial_snapshot(root, path)
+    bundle=read_json(Path(root)/'result_bundle.json')
     write_json(path,{'protocol':PROTOCOL,'payload_hash':fingerprint(bundle),'payload':bundle})
     return {'complete':True,'result_hash':result['result_hash']}
 
@@ -304,6 +325,9 @@ def rebuild_snapshot(path,root):
     from .concern_gap_reports import export
     raw=read_json(path);bundle=raw['payload']
     if raw.get('payload_hash')!=fingerprint(bundle):raise ValueError('snapshot payload modified')
+    if raw.get('partial'):
+        from .concern_gap_dag_replay import rebuild_partial
+        return rebuild_partial(bundle, root)
     result=verify_bundle(bundle);export(root,bundle)
     write_json(Path(root)/'assessment_status.json',{'accepted':False,'offline_rebuild':True,'execution_evidence_verified':False})
     return {**result,'execution_evidence_verified':False}

@@ -1,0 +1,163 @@
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
+
+import pytest
+
+from scene_completion.case_dag import Scheduler, Task, TaskRejected, TaskBlocked, CallGate
+from scene_completion.semantic_backend import read_json
+
+
+def test_seventeen_cases_four_progress_while_other_cases_need_repair(tmp_path):
+    scheduler = Scheduler(tmp_path, concurrency=3)
+    reached = set()
+    repairing = threading.Event()
+    def success(deps, record):
+        return {'checked': True}
+    def reject(deps, record):
+        raise TaskRejected({'findings': ['source citation is wrong']})
+    def repair(deps, record):
+        repairing.set()
+        time.sleep(.02)
+        return {'checked': True}
+    for i in range(17):
+        key = str(i)
+        scheduler.add(Task(key + ':extract', key, 'extract', version=1, lane='discovery', execute=success))
+        scheduler.add(Task(key + ':check', key, 'check', (key + ':extract',), version=1,
+            execute=success if i < 4 else reject, repair=repair))
+        scheduler.add(Task(key + ':generate', key, 'generate', (key + ':check',), version=1,
+            execute=lambda d, r, key=key: reached.add(key) or {'generated': key}))
+    assert scheduler.run()['complete']
+    events = scheduler.state['events']
+    first_four = [next(j for j, e in enumerate(events) if e['task'] == f'{i}:generate' and e['event'] == 'passed') for i in range(4)]
+    last_repair = max(j for j, e in enumerate(events) if e['event'] == 'repairing')
+    assert max(first_four) < last_repair
+    assert reached == {str(i) for i in range(17)}
+
+
+def test_repair_budget_survives_resume_and_stops_identical_failure(tmp_path):
+    calls = []
+    def fail(d, r):
+        calls.append(r['rounds'])
+        raise TaskRejected({'findings': ['no supporting source']})
+    for _ in range(3):
+        scheduler = Scheduler(tmp_path)
+        scheduler.add(Task('x', 'uc', 'check', version=1, execute=fail, repair=fail))
+        assert not scheduler.run()['complete']
+    assert calls == [0, 1]
+    assert read_json(tmp_path / 'case_tasks.json')['tasks']['x']['rounds'] == 1
+
+
+def test_different_failures_use_at_most_two_rounds(tmp_path):
+    def fail(d, r):
+        raise TaskRejected({'findings': [f'defect-{r["rounds"]}']})
+    scheduler = Scheduler(tmp_path)
+    scheduler.add(Task('x', 'uc', 'model', version=1, execute=fail, repair=fail))
+    assert not scheduler.run()['complete']
+    assert scheduler.state['tasks']['x']['rounds'] == 2
+    assert scheduler.state['tasks']['x']['status'] == 'budget_exhausted'
+
+
+def test_confirmation_and_component_failure_only_block_real_dependents(tmp_path):
+    scheduler = Scheduler(tmp_path, auto_repair='off')
+    def pending(d, r):
+        raise TaskBlocked('awaiting_confirmation', {'component': 'external payment'})
+    scheduler.add(Task('payment', 'shared', 'component', version=1, execute=pending))
+    scheduler.add(Task('catalog', 'shared', 'component', version=1, execute=lambda d, r: {'passed': True}))
+    scheduler.add(Task('pay', 'payment-uc', 'generate', ('payment',), version=1, execute=lambda d, r: {'G': []}))
+    scheduler.add(Task('browse', 'browse-uc', 'generate', ('catalog',), version=1, execute=lambda d, r: {'G': [1]}))
+    assert not scheduler.run()['complete']
+    assert scheduler.state['tasks']['browse']['status'] == 'passed'
+    assert scheduler.state['tasks']['pay']['status'] != 'passed'
+
+
+def test_local_revision_does_not_repeat_unrelated_successful_calls(tmp_path):
+    calls = Counter()
+    for revision in (1, 2, 2):
+        scheduler = Scheduler(tmp_path)
+        for case in ('a', 'b'):
+            def run(d, r, case=case):
+                calls[case] += 1
+                return {'value': r['input_hash']}
+            scheduler.add(Task(case, case, 'normal', version=revision if case == 'a' else 1, execute=run))
+            scheduler.add(Task(case + '-G', case, 'G', (case,), version=1,
+                execute=lambda d, r, case=case: {'normal': d[case]}))
+        assert scheduler.run()['complete']
+    assert calls == {'a': 2, 'b': 1}
+
+
+def test_global_gate_caps_all_stages_including_embedding_and_quota(tmp_path):
+    gate = CallGate(3)
+    lock = threading.Lock()
+    active = peak = 0
+    def request():
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(.015)
+        with lock:
+            active -= 1
+        return 'done'
+    with ThreadPoolExecutor(max_workers=17) as pool:
+        assert list(pool.map(lambda i: gate.call(request), range(17))) == ['done'] * 17
+    assert peak == 3
+    gate.call(lambda: {'failure_category': 'quota_exhausted'})
+    with pytest.raises(TaskBlocked, match='quota exhausted'):
+        gate.call(request)
+
+
+def test_crash_cannot_reset_reserved_repair_round(tmp_path):
+    from scene_completion.semantic_backend import write_json
+    write_json(tmp_path / 'case_tasks.json', {'schema': 'case-dag-v1', 'events': [],
+        'tasks': {'x': {'case': 'uc', 'stage': 'check', 'status': 'repairing', 'rounds': 2, 'attempts': []}}})
+    scheduler = Scheduler(tmp_path)
+    scheduler.add(Task('x', 'uc', 'check', version=1, execute=lambda d, r: (_ for _ in ()).throw(TaskRejected('failed')),
+        repair=lambda d, r: pytest.fail('repair budget reset')))
+    assert not scheduler.run()['complete']
+    assert scheduler.state['tasks']['x']['rounds'] == 2
+
+
+def test_quota_during_repair_resumes_reserved_round_without_reset_or_extra_round(tmp_path):
+    calls = []
+    exhausted = True
+    def fail(d, r):
+        raise TaskRejected({'findings': ['bad citation']})
+    def repair(d, r):
+        calls.append(r['rounds'])
+        if exhausted:
+            raise TaskBlocked('budget_exhausted', 'external quota exhausted')
+        return {'rechecked': True}
+    for _ in range(2):
+        scheduler = Scheduler(tmp_path)
+        scheduler.add(Task('x', 'uc', 'check', version=1, execute=fail, repair=repair))
+        scheduler.resume_external_budget()
+        result = scheduler.run()
+        exhausted = False
+    assert result['complete'] and calls == [1, 1]
+    assert scheduler.state['tasks']['x']['rounds'] == 1
+
+
+def test_tool_failure_does_not_spend_model_repair_budget(tmp_path):
+    scheduler = Scheduler(tmp_path)
+    scheduler.add(Task('x', 'uc', 'check', version=1,
+        execute=lambda d, r: (_ for _ in ()).throw(OSError('missing local input')),
+        repair=lambda d, r: pytest.fail('tool failure sent to model')))
+    assert not scheduler.run()['complete']
+    assert scheduler.state['tasks']['x']['rounds'] == 0
+
+
+def test_scope_change_retains_inactive_success_and_budget_for_later_resume(tmp_path):
+    calls = Counter()
+    for cases in (('a', 'b'), ('a',), ('a', 'b')):
+        scheduler = Scheduler(tmp_path)
+        for case in cases:
+            def execute(d, r, case=case):
+                calls[case] += 1
+                return {'case': case}
+            scheduler.add(Task(case, case, 'source', version=1, execute=execute))
+        assert scheduler.run()['complete']
+        if cases == ('a',):
+            assert 'b' not in scheduler.state['tasks'] and scheduler.state['inactive_tasks']['b']['status'] == 'passed'
+    assert calls == {'a': 1, 'b': 1}

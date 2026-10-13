@@ -40,6 +40,17 @@ def copy_compatible(folder,reuse):
 
 
 def run(args):
+    config = read_json(args.config) if getattr(args, 'config', None) else {}
+    mode = getattr(args, 'execution_mode', None) or config.get('execution_mode', 'case-dag')
+    if mode not in ('case-dag', 'stage-barrier'):
+        raise ValueError('execution_mode must be case-dag or stage-barrier')
+    if mode == 'case-dag':
+        from .concern_gap_dag import run as run_dag
+        return run_dag(args)
+    return run_stage_barrier(args)
+
+
+def run_stage_barrier(args):
     from .role_cli import _client
     from .concern_gap_reports import export
     from .concern_gap_ranking import rank

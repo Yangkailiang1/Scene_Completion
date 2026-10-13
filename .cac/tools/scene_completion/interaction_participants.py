@@ -37,7 +37,7 @@ def participant_packets(model_directory, index, directory, *, use_case_ids=None)
     from .interaction_model_audit import verify_model_audit
     try:
         audited = {r['use_case_id']: r for r in verify_model_audit(folder.parents[1], index)}
-    except ValueError:
+    except (ValueError, OSError, KeyError):
         audited = {}
     payloads = []
     for batch in read_json(folder / 'manifest.json')['batches']:

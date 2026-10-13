@@ -1,0 +1,16 @@
+{
+  "agent_runtime": "openai-compatible",
+  "base_url": "${SCENE_API_BASE_URL}",
+  "api_key_env": "SCENE_API_KEY",
+  "agent_model": "${SCENE_AGENT_MODEL}",
+  "embedding_model": "${SCENE_EMBEDDING_MODEL}",
+  "execution_mode": "case-dag",
+  "auto_repair": "bounded",
+  "max_repair_rounds": 2,
+  "max_concurrency": 3,
+  "semantic_max_attempts": 1,
+  "thinking": false,
+  "timeout_seconds": 600,
+  "max_retries": 2,
+  "max_tokens": 24000
+}

@@ -146,6 +146,17 @@ def _main_impl(argv=None) -> int:
 
     args = parser.parse_args(argv)
     try:
+        case_repairs = {'repair-generator-model-origins': {'normal', 'graphs', 'participants'},
+            'repair-checker-source-audit': {'E-extract', 'E-audit'},
+            'repair-gap-generation': {'G-generate', 'reverse-G'},
+            'repair-gap-reverse': {'normalize-' + getattr(args, 'collection', ''), 'reverse-' + getattr(args, 'collection', '')}}
+        if args.command in case_repairs:
+            manifest_path = Path(args.output_dir) / 'run_manifest.json'
+            if manifest_path.exists() and _read_json(str(manifest_path)).get('execution_mode') == 'case-dag':
+                from scene_completion.concern_gap_dag import repair_selected
+                result, code = repair_selected(args, case_repairs[args.command])
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+                return code
         if args.command in {"check-interaction-run", "repair-checker-source-audit"}:
             from scene_completion.interaction_audit import run_check, run_repair
             if args.command == 'check-interaction-run':

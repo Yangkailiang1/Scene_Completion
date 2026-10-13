@@ -76,6 +76,11 @@ def register_commands(sub):
     pipeline.add_argument('--reuse-run', help='reuse byte-identical successful source/model packets from another run')
     pipeline.add_argument('--recommendation-seed', type=int, default=42, help='deterministic no-history category sampling seed')
     pipeline.add_argument('--embedding-config', help='optional separate OpenAI-compatible embedding endpoint/model configuration')
+    pipeline.add_argument('--execution-mode', choices=('case-dag', 'stage-barrier'), default=None,
+        help='advance ready use cases immediately; stage-barrier keeps the prior orchestration')
+    pipeline.add_argument('--auto-repair', choices=('bounded', 'off'), default=None, help='default bounded; config may override')
+    pipeline.add_argument('--max-repair-rounds', type=int, choices=(0, 1, 2), default=None,
+        help='persistent per-case per-stage semantic repair budget, at most two')
     pipeline.add_argument("--architecture-approval", help="source-bound user-approved architecture proposals")
     pipeline.add_argument("--output-dir", required=True)
     pipeline.add_argument('--use-case-id', action='append', help='explicit representative assessment scope; full successful model/checker extraction remains reusable')
@@ -119,12 +124,14 @@ def register_commands(sub):
     gap_repair = sub.add_parser('repair-gap-generation', help='repair only source-rejected G scenes from their existing SSD mounts; never consumes E or GT')
     gap_repair.add_argument('--output-dir', required=True)
     gap_repair.add_argument('--unit-id', action='append')
+    gap_repair.add_argument('--use-case-id', action='append', help='DAG case repair selection')
     gap_repair.add_argument('--env-file', default='.env')
     gap_repair.add_argument('--config')
     inverse_repair = sub.add_parser('repair-gap-reverse', help='repair source-rejected inverse units within the same independent collection')
     inverse_repair.add_argument('--output-dir', required=True)
     inverse_repair.add_argument('--collection', choices=('G','E','T'), required=True)
     inverse_repair.add_argument('--unit-id', action='append')
+    inverse_repair.add_argument('--use-case-id', action='append', help='DAG case repair selection')
     inverse_repair.add_argument('--env-file', default='.env')
     inverse_repair.add_argument('--config')
     audit = sub.add_parser("check-interaction-run", help="check each partial/complete RR/SR run and write machine-readable blockers")
@@ -147,12 +154,14 @@ def register_commands(sub):
     repair.add_argument("--config")
     repair.add_argument('--historical-audit-manifest', help='preserved complete audit containing a known unresolved source defect')
     repair.add_argument('--checker-batch-id', action='append', help='explicit rejected checker batch from that historical audit; never rewrites C manually')
+    repair.add_argument('--use-case-id', action='append', help='DAG case repair selection')
     origin_repair = sub.add_parser('repair-generator-model-origins', help='re-extract unsupported normal SSD origins from original source')
     origin_repair.add_argument('--output-dir', required=True)
     origin_repair.add_argument('--env-file', default='.env')
     origin_repair.add_argument('--config')
     origin_repair.add_argument('--source-review-file', help='current source-only normal-model review; never accepts final effect metrics as repair input')
     origin_repair.add_argument('--source-finding-id', action='append', help='explicit current source-only defect to re-extract from original packet')
+    origin_repair.add_argument('--use-case-id', action='append', help='DAG case repair selection')
     diagnostic = sub.add_parser('diagnose-generator-model', help='explain rejected normal SSD roles; no scenario or graph edits')
     diagnostic.add_argument('--output-dir', required=True)
     diagnostic.add_argument('--prepare-retry', action='store_true', help='record source-only diagnostic feedback for a subsequent model worker')
@@ -220,8 +229,11 @@ def run_worker(args):
         elif stage=='gap-graph-check':validator=gap.graph_validator(index)
         elif stage=='gap-features':validator=gap.feature_validator(index)
         elif stage=='gap-ar-trace':validator=gap.ar_validator(index)
+        elif stage=='gap-diagnosis':validator=__import__('scene_completion.concern_gap_dag',fromlist=['diagnosis_validator']).diagnosis_validator
         else:raise ValueError('unknown v2 semantic stage')
         client=_client(args,root.parent.parent)
+        if any((parent/'case_tasks.json').exists() for parent in root.parents):
+            client.config.update(max_concurrency=1, semantic_max_attempts=1)
         result=run_agent_packets(root,client,validator,worker_index=args.worker_index,worker_count=args.worker_count,batch_ids=args.batch_id)
         return result,0 if result['complete'] else 2
     validators = {"checker": checker_validator(index), "matching": matching_validator,

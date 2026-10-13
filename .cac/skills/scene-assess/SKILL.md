@@ -5,6 +5,8 @@ description: 检查RR/SR运行完整性、同层一一覆盖、推荐去重和�
 
 # 方法与实验验收
 
+v2默认按用例依赖推进，编排与两轮修复规则见 [../scene-concern-gap/references/case_execution.md](../scene-concern-gap/references/case_execution.md)。检查每个成功任务的原包、源文、执行身份及依赖哈希；未完成时返回待处理清单，并保留其他用例有效产物。部分报告不发布全项目指标，历史未齐不排名。完整回归、同版本零新增调用续跑和离线重建仍是最终验证要求。
+
 新正常输入采用 `logical-query-results-v1`。正常查询的逻辑返回必须由原文查询语义推导、结构待确认，并带 `derived_response_data` 原文引句/引用。独立来源检查逐原文行区分 explicit/query_semantics；工具检查 read 交换、同层绑定、精确原文、返回字段和独立映射完整性。未核实或越界推导阻止验收，不以该推导虚构协议限制。真实查询未列协议结构本身不构成新增调用。HTTP 状态属于返回描述元数据，不能为了通过检查造 body 字段。职责检查的五类 review universe 是检查选项，不等于实际挂载项。
 
 当前规则为rr-sr-one-to-one-workflow-v5，记录在EVALUATION_POLICY及每轮运行记录中。用户已撤销漏报率≤5%门槛：验证可迁移的完整流程，RR、SR原文异常分别匹配本层生成异常，指标如实报告、空分母null。正常、普通可选、顾客主动取消不进入异常指标。原文纠正须确认并保存旧版本；不能静默剪裁固定C。

@@ -64,11 +64,21 @@ python .cac/tools/scene_completion.py scene-pipeline --model examples/online_sho
 
 Luna运行时改用 `--agent-runtime luna-subprocess --config luna.config.example.json`。`--agent-mode packets`只准备和收集语义包，不主动调用模型。`--requirement-document`、`--design-document`分别兼容映射RR、SR。
 
-首次运行可能因缺少架构确认而暂停，检查 `architecture_proposals.json/md`，确认后用 `--architecture-approval <approval.json>`续跑。补全架构须有原文依据；不为通过检查虚构组件、接口或调用。
+首次运行可能因缺少架构确认而暂停，检查对应 `cases/<稳定ID>/architecture_proposals.json/md`（阶段兼容模式在根目录）。DAG提案给出 `approval_fingerprint`；批准文件的 `proposal_bindings`记录“提案ID → 指纹”，通过 `--architecture-approval <approval.json>`续跑。历史整图批准只在原模型哈希有效时迁移。补全架构须有原文依据；不为通过检查虚构组件、接口或调用。
 
 默认处理全部用例、全部有效挂载。v2始终核验实际SSD/组成图的原文锚点，错误锚点阻断流程；完整性遗漏与未知契约作为质量诊断保留，不能把流程跑通视为源文完整。执行失败及未完成批次不视为未匹配。
 
 ## 续跑与局部运行
+
+v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、组件和参与者检查后立即进入特性推理、挂载和异常生成，其他用例的失败不阻塞它。系统组成检查按实际组件及来源版本复用；确认绑定具体提案和证据，不绑定整张不断扩展的模型。`--execution-mode stage-barrier`保留原阶段编排。
+
+调度配置参考 [case_dag.config.example.json](case_dag.config.example.json)，命令行的编排模式、修复开关及轮数优先于配置；未指定时采用配置及上述默认值。`max_concurrency`在调度器和外部调用层统一限制，DAG内部不再使用嵌套语义重试扩大两轮预算。
+
+`--auto-repair bounded`默认启用，每用例、每阶段最多两轮，`--max-repair-rounds 0|1|2`可降低预算；`--auto-repair off`关闭自动修复。格式或引用错误定向修复；模型问题只重看本通道允许的原文；检查器误判先记录原文复核依据，再执行新检查。原文冲突、证据不足及新组件/调用/关注点进入待确认，不会被改标通过。同样失败且无进展提前停止，续跑不会重置已用预算。网络传输重试独立于语义修复预算。
+
+运行目录中的 `case_tasks.json`记录依赖、版本、执行证明及修复次数，`cases/<稳定目录ID>/case_identity.json`对应原用例编号；局部产物和报告分别保存在各用例目录。`progress.json/md`及`component_checks.json`分别显示用例推进状态和组件检查结果。输入修复只使依赖它的下游结果过期，其他成功用例继续复用。
+
+已有异常通过逆向检查和去重后，立即按同类历史计算并缓存向量。完整历史库就绪前不发布推荐分数、TopN或正式推荐指标；成功用例可先查看生成、已有、匹配及缺失报告。未完成用例不计入漏报分母，局部报告明确标为用例范围。全局并发上限三，包含检查、诊断、修复和embedding调用；额度耗尽后仍可处理已缓存结果。
 
 使用相同输入、配置和输出目录再次执行原命令，即可复用版本有效的成功批次。模型、Skill、规则或相关输入变化使对应结果过期，不能重标旧模型身份。
 
