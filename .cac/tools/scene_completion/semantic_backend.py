@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .review import _content_from_response, _post_chat_completions_diagnostic as _post_chat_completions, _resolve_env_reference
 from .sources import fingerprint
-from .model_configuration import configured_model, native_result
+from .model_configuration import configured_model, native_result, concurrency_limit
 
 
 def write_json(path: str | Path, value) -> None:
@@ -33,6 +33,7 @@ class SemanticClient:
         self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
         self.api_key = os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self._vectors = {}
+        self.config['max_concurrency'] = concurrency_limit(self.config.get('max_concurrency', os.environ.get('SCENE_MAX_CONCURRENCY', '1')))
 
     def model(self, kind: str) -> str:
         return configured_model(self.config, kind)
@@ -40,8 +41,25 @@ class SemanticClient:
     def post(self, endpoint: str, body: dict) -> dict:
         if not self.base_url.startswith(("https://", "http://")) or not self.api_key:
             raise ValueError("OpenAI-compatible endpoint or API key is not configured")
-        return self.transport(self.base_url + endpoint, self.api_key, body,
-                              float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
+        from .model_access import registry, access_category
+        kind = 'embedding' if endpoint == '/embeddings' else 'agent'
+        access = registry(self)
+        if body.get('model'):
+            access.guard(kind, body['model'])
+        try:
+            return self.transport(self.base_url + endpoint, self.api_key, body,
+                                  float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
+        except Exception as exc:
+            category = access_category(exc)
+            if category:
+                access.record(kind, body.get('model', '*'), available=False, category=category)
+                if category == 'authentication_failed':
+                    access.record('endpoint', '*', available=False, category=category)
+                from .model_access import ModelUnavailable
+                blocked = ModelUnavailable(category, body.get('model', '*'))
+                blocked.response_diagnostic.update(getattr(exc, 'response_diagnostic', {}) or {})
+                raise blocked from exc
+            raise
 
     def embeddings(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -200,7 +218,7 @@ def prepare_packets(directory: str | Path, stage: str, payloads: list[dict], ins
         packet["input_hash"] = packet_hash
         write_json(root / "packets" / f"{batch_id}.json", packet)
         batches.append({"batch_id": batch_id, "input_hash": packet_hash})
-    manifest = {"stage": stage, "batches": batches, "max_concurrency": 3,
+    manifest = {"stage": stage, "batches": batches, "max_concurrency": 1,
                 "input_hash": fingerprint(batches)}
     previous_manifest = root / 'manifest.json'
     if previous_manifest.exists():
@@ -247,6 +265,7 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
     manifest = read_json(root / "manifest.json")
     batches = [b for i, b in enumerate(manifest["batches"]) if i % worker_count == worker_index]
     quota_exhausted = threading.Event()
+    stop_reason = ['quota_exhausted']
     if batch_ids is not None:
         if not batch_ids or len(batch_ids) != len(set(batch_ids)) or not set(batch_ids) <= {b["batch_id"] for b in batches}:
             raise ValueError("requested batch IDs must be unique and belong to this worker")
@@ -359,7 +378,7 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                         model_origin_feedback = origins[-1]
         for attempt_index in range(attempts):
             if quota_exhausted.is_set():
-                return {'batch_id': bid, 'status': 'deferred', 'reason': 'quota_exhausted'}
+                return {'batch_id': bid, 'status': 'deferred', 'reason': stop_reason[0]}
             attempt_result = None
             try:
                 retry_packet = dict(packet)
@@ -421,16 +440,22 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                     quota_exhausted.set()
                     return {'batch_id': bid, 'status': 'failed', 'error': last_error,
                         'failure_category': 'quota_exhausted'}
+                from .model_access import access_category
+                category = access_category(exc)
+                if category:
+                    stop_reason[0] = category
+                    quota_exhausted.set()
+                    return {'batch_id': bid, 'status': 'failed', 'error': last_error, 'failure_category': category}
+                if isinstance(diagnostic, dict) and diagnostic.get('failure_category') == 'rate_limited':
+                    return {'batch_id': bid, 'status': 'failed', 'error': last_error, 'failure_category': 'rate_limited'}
         return {"batch_id": bid, "status": "failed", "error": last_error}
 
-    # Sharded child workers run serially; a single standalone worker can use 3 requests.
+    # Sharded child workers run serially; standalone workers use the configured cap.
     suffix = "-" + fingerprint(batch_ids)[:10] if batch_ids else ""
     status_path = root / f"worker-status-{worker_index}-of-{worker_count}{suffix}.json"
     states = []
     write_json(status_path, {"complete": False, "running": True, "batch_count": len(batches), "batches": states})
-    concurrency = getattr(client, "config", {}).get("max_concurrency", 3)
-    if type(concurrency) is not int or not 1 <= concurrency <= 3:
-        raise ValueError("max_concurrency must be 1..3")
+    concurrency = concurrency_limit(getattr(client, "config", {}).get("max_concurrency", 1))
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency if worker_count == 1 else 1) as pool:
         futures = [pool.submit(process, batch) for batch in batches]
         for future in concurrent.futures.as_completed(futures):

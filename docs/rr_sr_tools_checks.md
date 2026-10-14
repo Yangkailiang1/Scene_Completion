@@ -1,5 +1,11 @@
 # 运行检查、续跑与修复接口
 
+## 模型可用性与并发
+
+先用`check-models --config <配置> --output-dir <检查目录>`探测模型，再用`configure-models --checked-report <available_models.json> --config <原配置> --agent-model <通过ID> --max-concurrency 1 --output-config <运行配置>`保存选择。语义候选可重复指定`--candidate-model`；embedding与独立审查分别用`--include-embedding`、`--include-review`检查。端点目录只作候选，不作成功证明。具体入口及独立embedding配置见[模型配置规则](../.cac/skills/scene-concern-gap/references/model_access.md)。
+
+模型、端点、凭证及执行设置的可用性记录保存在本地。拒绝/鉴权失败进入待配置，不消耗语义修复预算；相同配置在有效期内不反复请求。恢复后用`--refresh`重检。`--max-concurrency`优先于配置，默认1；Agent按客户限制调整共享上限，默认DAG限流降并发并保存`concurrency_status.json`。有效成功产物续跑不为可用性检查新增模型调用。
+
 ## 检查当前运行
 
 ```bash
@@ -14,7 +20,7 @@ v2的`run_manifest.json`记录当前阶段及完成状态，各阶段worker状�
 
 v2 默认 `--execution-mode case-dag`；旧阶段编排可显式用 `stage-barrier`。每个用例的正常模型、SSD/组件、参与者、特性、挂载、G和逆向集合各自记录依赖与原执行证明，通过的用例立即向下推进。`case_tasks.json`保存待执行、运行中、通过、修复中、待确认、预算耗尽和过期状态；`progress.json/md`列出未完成用例，`cases/<稳定ID>`保存局部产物和报告。
 
-默认 `--auto-repair bounded --max-repair-rounds 2`，也可 `--auto-repair off`或把上限降到0/1。两轮预算按用例和阶段持久保存；相同失败无进展提前停止。诊断区分格式/引用、模型问题、检查器误判及需用户确认项；定向修复后必须由原校验器和新检查通过。修复只使相关依赖过期。正常/G通道不能读E/GT，E/T各自独立。全局最多三个外部调用，包含修复和embedding；传输重试不增加语义轮数，额度失败保留现场。
+默认 `--auto-repair bounded --max-repair-rounds 2`，也可 `--auto-repair off`或把上限降到0/1。两轮预算按用例和阶段持久保存；相同失败无进展提前停止。诊断区分格式/引用、模型问题、检查器误判及需用户确认项；定向修复后必须由原校验器和新检查通过。修复只使相关依赖过期。正常/G通道不能读E/GT，E/T各自独立。全局外部调用遵守配置的共享并发上限（默认1），包含修复和embedding；传输重试不增加语义轮数，额度失败保留现场。
 
 用例已有异常通过逆向检查、来源审查和去重后先缓存历史向量；全量历史未齐时不计算推荐排序或正式指标。局部Excel/Markdown提供生成/已有/匹配/缺失，但不冒充项目分母。最终检查验证任务依赖哈希、实际原包与结果、集合一一对应和四项公式；旧结果只有来源、规则及执行身份有效才可导入，保留原ID及哈希。
 
@@ -30,7 +36,7 @@ python .cac/tools/scene_completion.py run-agent-batches --stage-dir <run-dir>/ba
 
 使用 `--worker-index`、`--worker-count`分配worker，`--batch-id`可重复指定待执行包。测试阶段使用对应的 `test_sources_index.json`。同一阶段worker运行时不要修复或重写其输入。
 
-批量、抽取与修复入口均支持`--agent-model <ID>`、`--embedding-model <ID>`，优先于配置文件及环境变量。语义API允许配置`qwen38-27b-vl`及其他服务端提供的模型名；`openai-compatible`与旧`ecnu`使用同一兼容接口。Luna子进程的模型名也由配置决定，实际命令、输出和事件仍须验证。最终独立效果审查仍使用既定Luna/max，与批量模型选择独立。
+批量、抽取与修复入口均支持`--agent-model <ID>`、`--embedding-model <ID>`，优先于配置文件及环境变量。语义API允许配置`qwen38-27b-vl`及其他服务端提供的模型名；`openai-compatible`与旧`ecnu`使用同一兼容接口。Luna子进程的模型名也由配置决定，实际命令、输出和事件仍须验证。最终独立效果审查由`review_model`、`review_runtime`及`review_reasoning_effort`配置，与批量模型选择独立。
 
 模型切换不重标旧结果；默认只复用当前模型的缓存。确需复用历史实际模型时，在配置明确列出`allowed_cached_models`，保留原执行身份。新API批次记录端点指纹，端点改变时重新执行；向量按端点/模型/文本隔离。输入/工具版本变化仍阻止旧结果冒充当前正式验收。
 
@@ -77,7 +83,7 @@ python .cac/tools/scene_completion.py prepare-interaction-review --output-dir <r
 
 第一步运行全仓库pytest并保存JUnit、命令、日志和代码/测试版本，再执行禁止模型调用及网络访问的真实缓存续跑，核对全部输入、结果和指标前后相同。
 
-第二步生成 `effect_review_materials.json`，绑定原文、模型、SSD、挂载、G/C、来源检查、比较、推荐、测试及执行批次。由实际 `gpt-6-luna/max`独立审查，保存 `effect_review_raw.json`和 `effect_review.json`；记录材料/结果哈希、真实agent身份、逐领域理由、证据文件及未解决发现。v2审查领域包括纯SSD生成、AR仅追溯、图检查、对象特性、逆向原子条件、异常机制、GT推导、四项分母、历史排序、TopN抽样、一一分配及范围续跑。
+第二步生成 `effect_review_materials.json`，绑定原文、模型、SSD、挂载、G/C、来源检查、比较、推荐、测试及执行批次。由运行清单指定的模型及推理设置独立审查，保存 `effect_review_raw.json`和 `effect_review.json`；记录材料/结果哈希、真实agent身份、逐领域理由、证据文件及未解决发现。v2审查领域包括纯SSD生成、AR仅追溯、图检查、对象特性、逆向原子条件、异常机制、GT推导、四项分母、历史排序、TopN抽样、一一分配及范围续跑。
 
 审查完成后：
 

@@ -215,9 +215,12 @@ def run(args):
     manifest['model'] = client.model('agent')
     manifest['execution_runtime'] = getattr(args, 'agent_runtime', None) or client.config.get('agent_runtime', 'ecnu')
     client.config.setdefault("timeout_seconds", 600)
-    client.config.setdefault("max_concurrency", 3)
+    from .model_configuration import review_policy
+    client.config.setdefault("max_concurrency", 1)
+    manifest['max_concurrency'] = client.config['max_concurrency']
+    manifest['review_policy'] = review_policy({**client.config, 'agent_model': client.model('agent')})
     manifest["execution_config"] = {k: client.config.get(k, default) for k, default in
-        (("timeout_seconds", 600), ("max_retries", 2), ("semantic_max_attempts", 4), ("max_tokens", 12000), ("max_concurrency", 3))}
+        (("timeout_seconds", 600), ("max_retries", 2), ("semantic_max_attempts", 4), ("max_tokens", 12000), ("max_concurrency", 1))}
     manifest["execution_config"].update(thinking=bool(client.config.get("thinking")), reasoning_effort=client.config.get("reasoning_effort") if client.config.get("thinking") else None)
     if manifest['execution_runtime'] == 'luna-subprocess':
         manifest['execution_config']['native_transport'] = client.config.get('native_transport', 'auto')
@@ -419,7 +422,7 @@ def run(args):
         diagnosis = coverage_diagnosis(generated, checked, pairs, metrics, ssd, mounts)
         export(root, generated, checked, pairs, metrics, recommendations, adoption_result, diagnosis, mounts)
         manifest.update({"complete": True, "coverage_threshold_met": metrics["coverage_threshold_met"],
-            "remaining_acceptance_checks": ["offline replay", "full regression", "gpt-6-luna/max effect review"],
+            "remaining_acceptance_checks": ["offline replay", "full regression", "configured independent effect review"],
             "formal_metrics": False, "checker_baseline_hash": fingerprint(checked),
             "generated_set_hash": fingerprint(generated), "comparison_hash": fingerprint(pairs),
             "metric_hash": fingerprint(metrics), 'recommendation_adoption': adoption_result,

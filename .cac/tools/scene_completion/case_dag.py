@@ -10,6 +10,7 @@ from contextlib import contextmanager
 
 from .semantic_backend import read_json, write_json
 from .sources import fingerprint
+from .model_configuration import concurrency_limit
 
 
 @contextmanager
@@ -71,19 +72,47 @@ class Task:
 
 class CallGate:
     """One global permit per actual API/native request, including embedding."""
-    def __init__(self, concurrency=3):
-        self.limit = max(1, min(3, int(concurrency)))
-        self.permits = threading.BoundedSemaphore(self.limit)
+    def __init__(self, concurrency=1, *, adaptive=True, on_change=None):
+        self.limit = concurrency_limit(concurrency)
+        self.effective_limit = self.limit
+        self.active = 0
+        self.condition = threading.Condition()
+        self.adaptive, self.on_change = adaptive, on_change
         self.quota = threading.Event()
 
+    @contextmanager
+    def slot(self):
+        with self.condition:
+            while self.active >= self.effective_limit:
+                self.condition.wait()
+            self.active += 1
+        try:
+            yield
+        finally:
+            with self.condition:
+                self.active -= 1
+                self.condition.notify_all()
+
+    def observe(self, diagnostic):
+        if not self.adaptive or not isinstance(diagnostic, dict) or diagnostic.get('failure_category') != 'rate_limited':
+            return
+        with self.condition:
+            self.effective_limit = max(1, self.effective_limit // 2)
+            self.condition.notify_all()
+        if self.on_change:
+            self.on_change({'configured_max': self.limit, 'effective_max': self.effective_limit, 'reason': 'rate_limited'})
+
     def call(self, function, *args, **kwargs):
-        with self.permits:
+        with self.slot():
             if self.quota.is_set():
                 raise TaskBlocked('budget_exhausted', 'external quota exhausted')
             try:
                 result = function(*args, **kwargs)
             except Exception as exc:
                 diagnostic = getattr(exc, 'response_diagnostic', None)
+                self.observe(diagnostic)
+                if diagnostic and diagnostic.get('configuration_required'):
+                    raise TaskBlocked('awaiting_configuration', diagnostic) from exc
                 if quota_error(str(exc)) or quota_error(str(diagnostic)):
                     self.quota.set()
                     raise TaskBlocked('budget_exhausted', 'external quota exhausted') from exc
@@ -92,6 +121,9 @@ class CallGate:
                 raise
             if quota_error(str(result)):
                 self.quota.set()
+            if isinstance(result, dict):
+                for row in result.get('batches', []):
+                    self.observe(row)
             return result
 
 
@@ -112,14 +144,14 @@ def failure_signature(details):
 
 
 class Scheduler:
-    def __init__(self, root, *, concurrency=3, auto_repair='bounded', max_rounds=2):
+    def __init__(self, root, *, concurrency=1, auto_repair='bounded', max_rounds=2):
         if auto_repair not in ('bounded', 'off') or not 0 <= max_rounds <= 2:
             raise ValueError('automatic repair is bounded to at most two rounds')
         self.root = Path(root)
         self.path = self.root / 'case_tasks.json'
         self.state = read_json(self.path) if self.path.exists() else {'schema': 'case-dag-v1', 'tasks': {}, 'events': []}
         self.tasks = {}
-        self.limit = max(1, min(3, int(concurrency)))
+        self.limit = concurrency_limit(concurrency)
         self.auto_repair, self.max_rounds = auto_repair, max_rounds
         self.cursor = 0
 
@@ -136,6 +168,8 @@ class Scheduler:
         if record['status'] == 'repairing':
             record['status'] = 'rejected'
         elif record['status'] == 'running':
+            record['status'] = 'pending'
+        elif record['status'] == 'awaiting_configuration':
             record['status'] = 'pending'
 
     def save(self):
@@ -265,7 +299,7 @@ class Scheduler:
                         record.pop('failure', None)
                     except TaskBlocked as exc:
                         record.update(status=exc.status, reason=exc.details)
-                        if repairing and exc.status in ('pending', 'budget_exhausted'):
+                        if repairing and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration'):
                             record['reuse_reserved_round'] = True
                         seen.add(task.key)
                     except Exception as exc:

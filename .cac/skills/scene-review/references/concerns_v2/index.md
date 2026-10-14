@@ -3,7 +3,7 @@
 本页为历史 `sr-evidence-2` 审查注册表，适用于兼容旧入口；不是当前 RR/SR 纯 SSD 三角色的注册表或挂载依据。当前全部57项必备关注点由 interaction_protocol.baseline() 导出，RR职责和SR分别分析。主动取消支付属于普通可选，不计异常，也不因 cancellable 自动挂载历史中断项；历史示例不能覆盖已确认的业务口径。
 
 Tools 中的结构化 CONCERN_DEFINITIONS 是候选 key、标签、主体、证据类型和活跃状态的唯一来源；本目录中的单项 Markdown 只补充适用/排除规则和例子。新矩阵记录 registry_version 与 analysis_layers，旧注册表矩阵必须重新规划。
-当前注册表 sr-evidence-2，共 56 个活跃关注点；新增内部依赖可用性、业务流程取消与中止两项。三角色生成器保留未审查候选；本目录的适用/排除规则不构成新流程的候选删除门。
+当前注册表 sr-evidence-2，共 56 个活跃关注点；新增内部依赖可用性、业务流程取消与中止两项。三角色建模器保留未审查候选；本目录的适用/排除规则不构成新流程的候选删除门。
 
 默认 analysis_layers=["SR"]。融合 SSD 用于把 SR 交互和实现证据关联起来，AR 实现消息不自动变成 SR 交互候选。内部数据库由模型中的 inferred SR 资源服务作为逻辑关注主体；物理数据库保持 AR，不伪造实际部署服务或 HTTP 路径。候选分别记录 concern_layer、exchange_layer、candidate_id、端点、消息、请求/响应载荷方向和来源。
 

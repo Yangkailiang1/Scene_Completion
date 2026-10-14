@@ -1,6 +1,6 @@
 # 历史三角色协议（兼容入口）
 
-本文件描述旧协议，仅供旧入口兼容参考。当前 RR/SR Agent 流程以 [rr_sr_protocol.md](rr_sr_protocol.md) 和 [scene-assess](../../scene-assess/SKILL.md) 为准：仅匹配异常条件，不比较响应或恢复；执行一一分配，不采用旧多对多规则；不设漏报率验收阈值。原文明示异常不得作为生成器的旁路。代表流程验证须明确范围，保留原文质量警告。
+本文件描述旧协议，仅供旧入口兼容参考。当前 RR/SR Agent 流程以 [rr_sr_protocol.md](rr_sr_protocol.md) 和 [scene-assess](../../scene-assess/SKILL.md) 为准：仅匹配异常条件，不比较响应或恢复；执行一一分配，不采用旧多对多规则；不设漏报率验收阈值。原文明示异常不得作为建模器的旁路。代表流程验证须明确范围，保留原文质量警告。
 
 ## CLI 与子 Agent
 
@@ -13,11 +13,11 @@ packet 模式依次停在 checker、matching、recommendation 等待阶段。
 子 Agent 可以直接读 packets 并将提案 JSON 保存为 results/<batch_id>.json；
 接受的匹配需执行 worker 完成逐对复核。分别执行 run-agent-batches --stage-dir <目录> --sources-index <索引>
 --worker-index 0|1|2 --worker-count 3 --env-file .env。
-分片 worker 内串行请求，合计最多三个并发；单个独立 worker 最多三个并发。
+分片 worker 内串行请求，合计并发遵守运行配置；单个独立 worker 也遵守该上限，默认1。
 结果须包含原 packet 的 batch_id、input_hash 和 output_contract 规定的字段。
 
 每阶段结果完成后重跑同一 scene-pipeline 命令，工具校验并推进到下一阶段。
---agent-mode external 可在一个进程自动调度最多三个 ECNU 语义 worker。
+--agent-mode external 可在一个进程按运行配置调度语义 worker。
 已有合法结果按 packet 内容哈希复用；未知 ID、缺结果、重复、无依据或伪造引用均拒绝。
 等待阶段退出码为 0，表示批次成功准备，不代表完整交付；必须检查 complete=true。
 外部请求失败或结果无效须修复后续跑，不切换后端冒充成功。
@@ -111,14 +111,14 @@ run-agent-batches 可重复传 --batch-id，只重试该 worker 分配范围内�
 
 ## 需求专用异常验收
 
-本轮显式使用 --requirement-document 与 --design-document。生成器可读两类文档，检查器分包只读 checker_sources_index.json 的 requirement 文档；设计新增异常和参考测试集不进入 C。旧 --spec-document 兼容原来的全输入抽取口径，不能用于本轮验收。
+本轮显式使用 --requirement-document 与 --design-document。建模器可读两类文档，检查器分包只读 checker_sources_index.json 的 requirement 文档；设计新增异常和参考测试集不进入 C。旧 --spec-document 兼容原来的全输入抽取口径，不能用于本轮验收。
 
 matching 每包一个 C、最多八个同用例 G，decisions 必须覆盖全部笛卡尔场景对（包括 unmatched）；遗漏任一对拒绝整个批次。先独立复核接受关系，再对仍未覆盖的需求异常复核相关比较。完整匹配要求具体触发、行为、结果及约束一致；部分匹配必须共享具体异常条件与核心行为，并指出缺少内容。不同失败机制、对象、操作或明确矛盾不得匹配。
 decisions 是逐对判断的权威记录，tools 据此生成汇总 matches。模型两处汇总文字不同时保留 raw_match_summary，但 ID、状态、覆盖集合必须一致；冲突拒绝，不能通过整理解释文字改变语义状态。
 冗余 matches 汇总省略或为 null 时仍从全部 decisions 构建，并保留原值；缺少任一逐对判断仍拒绝。工具不会从空汇总推断场景已覆盖。
 
 exception_overall 按全部 Gₑ 与需求异常 C 去重计算；generation_contributions 单列明确异常保留、关注点推导和共同贡献。by_concern_exception、by_group_exception 保留异常分类小指标，overall 继续给全部场景指标。严格 miss_rate < 0.05、分母 > 0、全部批次完成，才通过验收。evaluate-generator 重新核对这些输入与保存指标。
-本轮验收要求两端独立分类审计、实际 ecnu-max 批次身份，以及 primary/recovery 全量 gpt-6-luna / max 复核。归档的原生决定必须逐项等于计分证明，恢复前的 ECNU 证明与原始输入也要完整绑定；仅有相同输入哈希不能证明决定一致。
+本轮验收要求两端独立分类审计、实际 当前配置的语义模型 批次身份，以及 primary/recovery 全量 配置指定的独立审查模型及推理设置 复核。归档的原生决定必须逐项等于计分证明，恢复前的 ECNU 证明与原始输入也要完整绑定；仅有相同输入哈希不能证明决定一致。
 
 coverage_diagnostics.json 逐条列出需求章节、异常触发、关注点、组件/调用边、生成候选、匹配依据、缺口原因与建议。scene_assessment.xlsx 导出所有类型场景，指标表“关注点说明”紧随“类别”，中文说明与原编码并存。禁止通过删减 C、宽泛匹配或把检查结果直接写入 G 改善指标。
 需求专用检查的推荐目标仅限已评估需求章节；设计章节单列为相关证据，不据此断言设计缺少异常。既有实现组件缺少精确 SSD 交换时，在挂载清单中标记待确认检查位置，不虚构调用关系。
@@ -129,4 +129,4 @@ coverage_diagnostics.json 逐条列出需求章节、异常触发、关注点、
 需要复核检查器分类时运行 `prepare-checker-taxonomy --output-dir <output>`，再以 checker_sources_index.json 执行该目录下 batches/checker-taxonomy 的 worker。复核仅输入固定 C 的行为、原始需求章节和关注点定义，不读取 G、设计或原标签；不允许改变场景内容、ID 或分母。重跑编排自动应用完整复核，保存分类变化、原因和章节依据。未完成或过期复核会阻止发布正式结果。分类未标注不直接等同于关注点体系无法表达。
 分类提案必须经 requirement-taxonomy-proof-v1 独立复核：每条异常逐字绑定触发条件，每个提案 key 给出 supported 布尔判断及依据；只有 supported=true 的标签进入分类。原提案、全部判断、引用、模型及输入哈希随结果保留。复核允许补充有直接原文依据的遗漏标签，不能推断数据库实现或把内部服务误当第三方；矛盾说明或缺少任一提案标签判断都会阻止完成。
 原始需求参与者/系统边界上下文随分类包提供，可引用该明确提供的行范围；其余未分配章节仍禁止引用。matching_verification_tile_size 默认为 8，可在配置中设为 1—8，用于缩小独立复核包；不改变完整比较集合或匹配量表，证明记录实际分片大小。
-生成器的独立标签复核入口为 prepare-generator-taxonomy，使用 sources_index.json 与 batches/generator-taxonomy。只核实明确分支与来源约束的分类，原始需求/设计可用，C、匹配及原标签不输入。场景不增删、行为与 ID 不变；泛化候选保留其注册表定义。此步骤不判断适用性；标签变化、分项依据及引用保留，缺失或过期证明阻止正式生成阶段完成。
+建模器的独立标签复核入口为 prepare-generator-taxonomy，使用 sources_index.json 与 batches/generator-taxonomy。只核实明确分支与来源约束的分类，原始需求/设计可用，C、匹配及原标签不输入。场景不增删、行为与 ID 不变；泛化候选保留其注册表定义。此步骤不判断适用性；标签变化、分项依据及引用保留，缺失或过期证明阻止正式生成阶段完成。

@@ -180,7 +180,12 @@ class Packets:
                         continue
                 except (ValueError, KeyError, TypeError):
                     pass
+                from .model_access import preflight
+                self.gate.call(preflight, self.client)
                 status = self.gate.call(run_agent_packets, folder, self.client, validator, batch_ids=[batch['batch_id']])
+                blocked = [r for r in status.get('batches', []) if r.get('failure_category') in ('model_unavailable','authentication_failed','access_denied')]
+                if blocked:
+                    raise TaskBlocked('awaiting_configuration', blocked)
                 if quota_error(str(status)):
                     raise TaskBlocked('budget_exhausted', 'external quota exhausted')
                 if not status['complete']:
@@ -334,7 +339,13 @@ class Pipeline:
             for u in raw['use_cases']], 'system_composition': {'nodes': raw.get('system_composition', {}).get('nodes', [])}}
         self.selected = {u['use_case_id'] for u in assessment_base(self.base, getattr(args, 'use_case_id', None))['use_cases']}
         self.client = _client(args, self.root)
-        self.gate = CallGate(self.client.config.get('max_concurrency', 3))
+        self.gate = CallGate(self.client.config.get('max_concurrency', 1), adaptive=self.client.config.get('adaptive_concurrency', True),
+            on_change=lambda state: write_json(self.root/'concurrency_status.json', state))
+        previous_limit = self.root/'concurrency_status.json'
+        if previous_limit.exists():
+            old_limit = read_json(previous_limit)
+            if old_limit['configured_max'] == self.gate.limit:
+                self.gate.effective_limit = min(self.gate.limit, old_limit['effective_max'])
         path = getattr(args, 'embedding_config', None) or getattr(args, 'config', None)
         config = config_overrides(read_json(path) if path else {}, args)
         if getattr(args, 'env_file', None):
@@ -343,6 +354,11 @@ class Pipeline:
         self.embedding = SemanticClient(config)
         embedding_post = self.embedding.post
         self.embedding.post = lambda *a, **k: self.gate.call(embedding_post, *a, **k)
+        embedding_vectors = self.embedding.embeddings
+        def checked_vectors(texts):
+            from .model_access import with_embedding_preflight
+            return with_embedding_preflight(self.embedding, texts, embedding_vectors)
+        self.embedding.embeddings = checked_vectors
         self.embedding_lock = __import__('threading').Lock()
         self.packets = Packets(self.root, self.args, self.client, self.gate)
         self.scheduler = Scheduler(self.root, concurrency=self.gate.limit,
@@ -375,6 +391,8 @@ class Pipeline:
             'recommendation_seed': getattr(args, 'recommendation_seed', 42), 'rerank': False,
             'auto_repair': self.scheduler.auto_repair, 'max_repair_rounds': self.scheduler.max_rounds,
             'max_concurrency': self.gate.limit, 'stages': {}}
+        from .model_configuration import review_policy
+        self.manifest['review_policy'] = review_policy(self.client.config)
         for name, value in [('sources_index', self.index), ('test_sources_index', self.test_index),
                 ('generator_base_identity', self.base), ('run_manifest', self.manifest)]:
             write_json(self.root / (name + '.json'), value)
@@ -383,6 +401,16 @@ class Pipeline:
         if self.ar_index['documents']:
             write_json(self.root / 'ar_sources_index.json', self.ar_index)
         self.contexts = {}
+
+    def preflight(self):
+        from .model_configuration import review_policy
+        self.manifest['review_policy'] = review_policy(self.client.config)
+        if self.args.agent_mode != 'external':
+            return
+        # Existing successful stages need no new capability probe. Only check
+        # the backend when an actual external request is about to be needed.
+        # The packet worker and vector stage probe lazily, so a fully cached
+        # resume does not issue new requests solely to test availability.
 
     def key(self, case, stage):
         return case + ':' + stage
@@ -852,6 +880,13 @@ def run_unlocked(args):
     if getattr(args, 'rerank', False) or getattr(args, 'exchange_local_id', None):
         raise ValueError('v2 uses complete use cases and historical embedding without rerank')
     pipeline = Pipeline(args)
+    try:
+        pipeline.preflight()
+    except Exception as exc:
+        reason = getattr(exc, 'response_diagnostic', {}) or {'failure_category': 'probe_failed'}
+        pipeline.manifest.update(pending_stage='model_configuration', configuration_required=reason)
+        write_json(pipeline.root/'run_manifest.json', pipeline.manifest)
+        return {'complete':False, 'pending_stage':'model_configuration','configuration_required':reason}, 2
     pipeline.build()
     summary = pipeline.scheduler.run(pipeline.progress)
     pipeline.progress(pipeline.scheduler)

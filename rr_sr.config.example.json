@@ -10,5 +10,7 @@
   "thinking": true,
   "reasoning_effort": "high",
   "max_tokens": 24000,
-  "max_concurrency": 1
+  "max_concurrency": 1,
+  "model_preflight": "auto",
+  "adaptive_concurrency": true
 }

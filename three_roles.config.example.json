@@ -7,5 +7,8 @@
   "timeout_seconds": 120,
   "max_retries": 2,
   "max_tokens": 12000,
-  "matching_verification_tile_size": 8
+  "matching_verification_tile_size": 8,
+  "max_concurrency": 1,
+  "model_preflight": "auto",
+  "adaptive_concurrency": true
 }

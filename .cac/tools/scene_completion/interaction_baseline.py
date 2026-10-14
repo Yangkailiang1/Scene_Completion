@@ -46,7 +46,7 @@ def record_source_review(root, index):
         'baseline_hash': frozen['baseline_hash'], 'source_hash': fingerprint(index),
         'source_audit_hash': checker_audit_proof_hash(root), 'execution_evidence_hash': fingerprint(evidence),
         'unresolved_findings': [], 'reviewed_batches': len(audited),
-        'note': 'Source baseline audit only; does not replace final gpt-6-luna/max effect review or formal acceptance.'}
+        'note': 'Source baseline audit only; does not replace final configured independent effect review or formal acceptance.'}
     write_json(root / 'baseline_review.json', review)
     return review
 

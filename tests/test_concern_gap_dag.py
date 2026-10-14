@@ -25,7 +25,7 @@ def arguments(tmp_path):
             {'name': '商品服务', 'kind': 'internal_service', 'layer': 'SR'}]}})
     config = tmp_path / 'config.json'
     write_json(config, {'base_url': 'https://fixture.invalid/v1', 'agent_model': 'fixture-model',
-        'embedding_model': 'fixture-vector', 'max_concurrency': 3, 'thinking': False})
+        'embedding_model': 'fixture-vector', 'max_concurrency': 3, 'thinking': False, 'model_preflight': 'off'})
     return SimpleNamespace(model=str(base), rr_spec_document=[str(rr)], sr_spec_document=[str(sr)],
         test_spec_document=[str(test)], config=str(config), env_file=None, output_dir=str(tmp_path / 'run'),
         agent_mode='external', agent_runtime=None, agent_model=None, embedding_model=None,
@@ -129,7 +129,7 @@ def test_history_prefetch_is_independent_cached_and_does_not_rank(tmp_path, monk
         return {'data': [{'index': i, 'embedding': [1., 0.]} for i in range(len(body['input']))]}
     p = dag.Pipeline.__new__(dag.Pipeline)
     p.embedding = SemanticClient({'base_url': 'https://fixture.invalid/v1', 'api_key_env': 'VECTOR_TEST_KEY',
-        'embedding_model': 'vector', 'cache_dir': str(tmp_path)}, transport)
+        'embedding_model': 'vector', 'model_preflight': 'off', 'cache_dir': str(tmp_path)}, transport)
     p.embedding_lock = threading.Lock()
     history = [unit('h1'), unit('h2', 'timeout')]
     output = p.prefetch(history)
@@ -165,7 +165,7 @@ def test_packet_cache_does_not_bypass_changed_dynamic_model(tmp_path):
     from scene_completion.semantic_backend import prepare_packets
     calls = []
     class Client:
-        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1}
+        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1, 'model_preflight': 'off'}
         def model(self, kind):
             return self.config['agent_model']
         def agent(self, packet):
@@ -189,7 +189,7 @@ def test_legacy_packet_import_preserves_original_batch_identity(tmp_path):
     from scene_completion.case_dag import CallGate
     from scene_completion.semantic_backend import prepare_packets
     class Client:
-        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1}
+        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1, 'model_preflight': 'off'}
         def model(self, kind):
             return 'ecnu-max'
         def agent(self, packet):
@@ -216,7 +216,7 @@ def test_targeted_repair_rejects_collateral_change_to_successful_unit(tmp_path):
     from scene_completion.case_dag import CallGate, TaskRejected
     from scene_completion.semantic_backend import prepare_packets
     class Client:
-        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1}
+        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1, 'model_preflight': 'off'}
         repair = False
         def model(self, kind):
             return 'ecnu-max'
@@ -242,7 +242,7 @@ def test_checker_format_failure_repairs_check_output_not_upstream_model(tmp_path
     from scene_completion.case_dag import Scheduler, CallGate
     from scene_completion.semantic_backend import prepare_packets
     class Client:
-        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1}
+        config = {'agent_model': 'ecnu-max', 'thinking': False, 'max_concurrency': 1, 'model_preflight': 'off'}
         def model(self, kind):
             return 'ecnu-max'
         def agent(self, packet):

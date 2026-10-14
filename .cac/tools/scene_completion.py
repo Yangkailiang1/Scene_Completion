@@ -141,11 +141,17 @@ def _main_impl(argv=None) -> int:
     assemble.add_argument("--output-dir", required=True)
     assemble.add_argument("--require-png", action="store_true", help="require all required overview/dependency/SSD PNG artifacts")
 
-    for command_parser in sub.choices.values():
+    for command_parser in dict.fromkeys(sub.choices.values()):
         command_parser.add_argument("--metrics-dir", help="optional per-run directory for privacy-safe stage metrics")
 
     args = parser.parse_args(argv)
+    args.command = {'prepare-modeling-input':'prepare-generator-model', 'evaluate-modeling':'evaluate-generator'}.get(args.command, args.command)
     try:
+        if args.command in ('check-models', 'configure-models'):
+            from scene_completion.model_access import check_models, configure_models
+            result, code = check_models(args) if args.command == 'check-models' else configure_models(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
         case_repairs = {'repair-generator-model-origins': {'normal', 'graphs', 'participants'},
             'repair-checker-source-audit': {'E-extract', 'E-audit'},
             'repair-gap-generation': {'G-generate', 'reverse-G'},

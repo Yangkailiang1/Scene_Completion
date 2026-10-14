@@ -5,10 +5,12 @@
   "model": "${ECNU_MAX_MODEL}",
   "api_key_env": "ECNU_MAX_API_KEY",
   "timeout_seconds": 90,
-  "max_concurrency": 3,
+  "max_concurrency": 1,
   "max_retries": 2,
   "max_validation_retries": 2,
   "temperature": 0,
   "json_mode": true,
-  "resume": true
+  "resume": true,
+  "model_preflight": "auto",
+  "adaptive_concurrency": true
 }

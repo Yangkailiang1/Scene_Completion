@@ -409,7 +409,7 @@ def check_run(directory, current_index=None):
         'acceptance_claimed': bool(run.get('accepted')), 'stages': stages, 'issues': issues,
         'warnings':warnings,
         'normal_model_findings': normal_model_findings(outputs.get('interaction-model-audit', [])),
-        'note': 'Structural and source-audit checks are required; this result alone does not replace coverage thresholds, regression, resume or Luna effect review.'}
+        'note': 'Structural and source-audit checks are required; this result alone does not replace coverage thresholds, regression, resume or configured independent effect review.'}
 
 
 def normal_model_findings(reviews):

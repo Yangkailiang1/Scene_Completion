@@ -119,7 +119,8 @@ def test_crash_cannot_reset_reserved_repair_round(tmp_path):
     assert scheduler.state['tasks']['x']['rounds'] == 2
 
 
-def test_quota_during_repair_resumes_reserved_round_without_reset_or_extra_round(tmp_path):
+@pytest.mark.parametrize('blocked_status', ['budget_exhausted', 'awaiting_configuration'])
+def test_quota_during_repair_resumes_reserved_round_without_reset_or_extra_round(tmp_path, blocked_status):
     calls = []
     exhausted = True
     def fail(d, r):
@@ -127,7 +128,7 @@ def test_quota_during_repair_resumes_reserved_round_without_reset_or_extra_round
     def repair(d, r):
         calls.append(r['rounds'])
         if exhausted:
-            raise TaskBlocked('budget_exhausted', 'external quota exhausted')
+            raise TaskBlocked(blocked_status, 'external quota exhausted')
         return {'rechecked': True}
     for _ in range(2):
         scheduler = Scheduler(tmp_path)

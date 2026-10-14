@@ -20,7 +20,7 @@ def versions():
     root=Path(__file__).parent
     paths=sorted(root.glob('concern_gap*.py'))+sorted(root.glob('interaction_*.py'))
     paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py')]
-    paths += [root/'case_dag.py']
+    paths += [root/'case_dag.py', root/'model_access.py']
     paths += [root.parent/'scene_completion.py']
     values={p.name:fingerprint(p.read_text(encoding='utf8')) for p in paths}
     for name in ('scene-concern-gap','scene-model-check','scene-feature-infer','scene-reverse','scene-reverse-check','scene-history-recommend'):

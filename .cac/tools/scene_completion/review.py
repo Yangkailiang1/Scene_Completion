@@ -23,7 +23,7 @@ def load_ecnu_env_file(path: str | Path, extra_keys=()) -> list[str]:
     allowed = {"ECNU_MAX_MODEL", "ECNU_MAX_API_KEY", "ECNU_MAX_BASE_URL",
                "ECNU_EMBEDDING_TEXT", "ECNU_EMBEDDING_VL", "ECNU_RERANK", "ECNU_RERANK_VL"}
     allowed.update({'SCENE_API_BASE_URL', 'SCENE_API_KEY', 'SCENE_AGENT_MODEL', 'SCENE_EMBEDDING_MODEL',
-                    'SCENE_RERANK_MODEL', 'SCENE_EMBEDDING_BASE_URL', 'SCENE_EMBEDDING_API_KEY'})
+                    'SCENE_RERANK_MODEL', 'SCENE_EMBEDDING_BASE_URL', 'SCENE_EMBEDDING_API_KEY', 'SCENE_REVIEW_MODEL', 'SCENE_MAX_CONCURRENCY'})
     allowed.update(key for key in extra_keys if isinstance(key, str) and re.fullmatch(r'[A-Z][A-Z0-9_]*', key)
                    and key not in {'HOME', 'CODEX_HOME', 'PATH', 'PYTHONPATH', 'SHELL', 'USERPROFILE'})
     loaded = []
@@ -104,8 +104,10 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                 error_body=exc.read(8192).decode('utf8',errors='replace').casefold()
             except OSError:error_body=''
             exhausted=any(term in error_body for term in ('insufficient_quota','quota_exhausted','credits','billing_limit','额度不足','余额不足'))
+            missing_model = exc.code == 400 and any(term in error_body for term in
+                ('model_not_found', 'model_not_supported', 'model not found', 'unsupported model', 'model is not available', '模型不存在', '模型不可用'))
             diagnostic={'http_status':exc.code,'failure_category':'quota_exhausted' if exhausted else
-                ('rate_limited' if exc.code==429 else 'transport_error')}
+                ('model_unavailable' if missing_model else {401:'authentication_failed',403:'access_denied',404:'model_unavailable',429:'rate_limited'}.get(exc.code,'transport_error'))}
             try:retry_delay=max(1,min(60,float(exc.headers.get('Retry-After','0'))))
             except (ValueError,TypeError,AttributeError):retry_delay=None
             if retry_delay is not None:diagnostic['retry_after_seconds']=retry_delay

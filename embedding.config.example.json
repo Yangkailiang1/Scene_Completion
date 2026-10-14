@@ -3,5 +3,8 @@
   "api_key_env": "SCENE_EMBEDDING_API_KEY",
   "embedding_model": "${SCENE_EMBEDDING_MODEL}",
   "timeout_seconds": 120,
-  "max_retries": 2
+  "max_retries": 2,
+  "max_concurrency": 1,
+  "model_preflight": "auto",
+  "adaptive_concurrency": true
 }

@@ -145,7 +145,7 @@ def test_export_columns_numeric_formats_all_scenes_and_diagnostics(tmp_path):
         assert ws.cell(total, headers["关注点说明"]).alignment.wrap_text
         assert wb["生成场景"].max_row - 1 == len(generated["scenarios"])
         assert wb["已有场景"].max_row - 1 == len(checker["scenarios"])
-        assert wb["生成器漏报"].cell(2, 1).value == "C3"
+        assert wb["建模器漏报"].cell(2, 1).value == "C3"
         assert wb["覆盖诊断"].cell(2, 7).value == "uncovered"
         assert wb["覆盖诊断"].cell(2, 9).value == "补充异常行为"
         discrepancy = wb["分类差异"]

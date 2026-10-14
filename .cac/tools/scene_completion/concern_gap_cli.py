@@ -64,7 +64,8 @@ def run_stage_barrier(args):
     base={'use_cases':[{k:u[k] for k in ('use_case_id','use_case_name','architecture','source_use_case_ids') if k in u} for u in base['use_cases']],
         'system_composition':{'nodes':base.get('system_composition',{}).get('nodes',[])}}
     selected=getattr(args,'use_case_id',None);scoped=assessment_base(base,selected)
-    client=_client(args,root);client.config['max_concurrency']=min(3,int(client.config.get('max_concurrency',3)))
+    from .model_configuration import concurrency_limit, review_policy
+    client=_client(args,root);client.config['max_concurrency']=concurrency_limit(client.config.get('max_concurrency',1))
     from .review import load_ecnu_env_file
     from .semantic_backend import SemanticClient
     embedding_path=getattr(args,'embedding_config',None) or getattr(args,'config',None)
@@ -83,6 +84,7 @@ def run_stage_barrier(args):
         'recommendation_seed':getattr(args,'recommendation_seed',42),'rerank':False,
         'embedding_model':embedding_client.model('embedding'),'recommendation_backend':'historical_embedding',
         'source_quality_gate':getattr(args,'source_quality_gate','strict')}
+    manifest['review_policy'] = review_policy({**client.config, 'agent_model': client.model('agent')})
     write_json(root/'sources_index.json',index);write_json(root/'generator_base_identity.json',base)
     write_json(root/'run_manifest.json',manifest)
     for name in ('acceptance.json','assessment_status.json','scene_assessment.xlsx','report.md'):

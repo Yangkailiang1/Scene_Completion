@@ -64,6 +64,24 @@ def validate_execution_models(directory, expected):
 
 def register_commands(sub):
     pipeline = sub.add_parser("scene-pipeline", help="generate, independently check, compare and recommend scenes")
+    models = sub.add_parser('check-models', help='serial model capability probes; no source data required')
+    models.add_argument('--output-dir', required=True)
+    models.add_argument('--config')
+    models.add_argument('--env-file', default='.env')
+    models.add_argument('--embedding-config')
+    models.add_argument('--agent-runtime', choices=('ecnu', 'openai-compatible', 'luna-subprocess'))
+    models.add_argument('--candidate-model', action='append')
+    models.add_argument('--include-embedding', action='store_true')
+    models.add_argument('--include-review', action='store_true')
+    models.add_argument('--refresh', action='store_true')
+    models.add_argument('--discover', action='store_true', help='optionally list provider catalog; listed models still require capability probes')
+    configure = sub.add_parser('configure-models', help='write probed model choices and concurrency configuration')
+    configure.add_argument('--config')
+    configure.add_argument('--env-file', default='.env')
+    configure.add_argument('--checked-report', required=True)
+    configure.add_argument('--output-config', required=True)
+    configure.add_argument('--embedding-config')
+    configure.add_argument('--output-embedding-config')
     pipeline.add_argument("--model", required=True)
     pipeline.add_argument("--spec-document", action="append", help="legacy: all documents also feed checker")
     pipeline.add_argument("--requirement-document", action="append")
@@ -111,7 +129,7 @@ def register_commands(sub):
     worker.add_argument('--agent-runtime', choices=('ecnu', 'openai-compatible', 'luna-subprocess'))
     worker.add_argument("--env-file", default=".env")
     worker.add_argument("--config")
-    prep = sub.add_parser("prepare-generator-model", help="independently extract cited generator constraints and dependencies")
+    prep = sub.add_parser("prepare-generator-model", aliases=['prepare-modeling-input'], help="independently extract cited modeling inputs")
     prep.add_argument("--base-model", required=True)
     prep.add_argument("--requirement-document", action="append", required=True)
     prep.add_argument("--design-document", action="append", default=[])
@@ -119,7 +137,7 @@ def register_commands(sub):
     prep.add_argument("--agent-mode", choices=("packets", "external"), default="packets")
     prep.add_argument("--env-file", default=".env")
     prep.add_argument("--config")
-    evaluation = sub.add_parser("evaluate-generator", help="recompute exception acceptance and verify completed source-bound run")
+    evaluation = sub.add_parser("evaluate-generator", aliases=['evaluate-modeling'], help="verify completed source-bound modeling run")
     evaluation.add_argument("--output-dir", required=True)
     gap_repair = sub.add_parser('repair-gap-generation', help='repair only source-rejected G scenes from their existing SSD mounts; never consumes E or GT')
     gap_repair.add_argument('--output-dir', required=True)
@@ -181,10 +199,12 @@ def register_commands(sub):
         command = sub.add_parser(name, help="prepare/apply a complete native subagent semantic review")
         command.add_argument("--stage-dir", required=True)
         command.add_argument("--review-file", required=True)
-    for parser in sub.choices.values():
+    for parser in dict.fromkeys(sub.choices.values()):
         if any(action.dest == 'config' for action in parser._actions):
             parser.add_argument('--agent-model', help='semantic batch model ID; overrides config and environment')
             parser.add_argument('--embedding-model', help='embedding model ID; overrides config and environment')
+            parser.add_argument('--review-model', help='independent review model ID; overrides config and environment')
+            parser.add_argument('--max-concurrency', type=int, help='shared maximum concurrent requests; default 1')
 
 
 def run_matching_review(args):
@@ -232,6 +252,12 @@ def run_worker(args):
         elif stage=='gap-diagnosis':validator=__import__('scene_completion.concern_gap_dag',fromlist=['diagnosis_validator']).diagnosis_validator
         else:raise ValueError('unknown v2 semantic stage')
         client=_client(args,root.parent.parent)
+        from .model_access import preflight
+        manifest = read_json(root/'manifest.json')
+        selected = [r for i,r in enumerate(manifest['batches']) if i % args.worker_count == args.worker_index
+            and (not args.batch_id or r['batch_id'] in args.batch_id)]
+        if any(not (root/'results'/(r['batch_id']+'.json')).exists() for r in selected):
+            preflight(client)
         if any((parent/'case_tasks.json').exists() for parent in root.parents):
             client.config.update(max_concurrency=1, semantic_max_attempts=1)
         result=run_agent_packets(root,client,validator,worker_index=args.worker_index,worker_count=args.worker_count,batch_ids=args.batch_id)

@@ -5,8 +5,13 @@
   "reasoning_effort": "high",
   "native_transport": "http",
   "native_structured_audit": true,
-  "max_concurrency": 3,
+  "max_concurrency": 1,
   "semantic_max_attempts": 3,
   "timeout_seconds": 600,
-  "allowed_cached_reasoning_efforts": ["high", "max"]
+  "allowed_cached_reasoning_efforts": [
+    "high",
+    "max"
+  ],
+  "model_preflight": "auto",
+  "adaptive_concurrency": true
 }

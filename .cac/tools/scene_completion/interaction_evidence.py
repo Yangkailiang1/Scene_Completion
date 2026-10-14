@@ -219,7 +219,8 @@ def verify_effect_review(root, result):
         if (read_json(root / 'effect_review_materials.json') != materials or review.get('materials_hash') != fingerprint(materials)
                 or review.get('raw_review_hash') != file_hash(root / 'effect_review_raw.json')):
             return False
-        if (review.get('model') != 'gpt-6-luna' or review.get('reasoning_effort') != 'max'
+        from .model_configuration import matches_review_policy
+        if (not matches_review_policy(root, review)
                 or review.get('result_hash') != result['result_hash'] or not review.get('agent_id')
                 or review.get('passed') is not True or review.get('unresolved_findings') != []):
             return False

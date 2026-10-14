@@ -199,7 +199,9 @@ def native_review_packet(directory, results=None):
                 "Return JSON booleans for all four assessments. unmatched if trigger, core behavior or compatible constraints is false; full only if all four are true with no gaps; otherwise partial with concrete missing behavior.",
                 "Return one decision per review_id, including status, same_specific_trigger, shared_core_behavior, same_expected_outcome, compatible_constraints, evidence and missing_behavior.",
             ]
-    contract = {"input_hash": "copy this packet's hash", "model": "gpt-6-luna", "reasoning_effort": "max",
+    from .model_configuration import review_policy_at
+    policy = review_policy_at(root)
+    contract = {"input_hash": "copy this packet's hash", "model": policy['model'], "reasoning_effort": policy['reasoning_effort'],
                 "decisions": [{"review_id": "exact assigned review_id", "checker_trigger_quote": "exact checker.trigger string",
                     "generated_trigger_quote": "exact generated.trigger string", "status": "full|partial|unmatched",
                     "same_specific_trigger": True, "shared_core_behavior": True, "same_expected_outcome": False,
@@ -218,8 +220,10 @@ def validate_native_review_binding(directory, review=None):
         if not (root / "native_review.json").exists():
             raise ValueError("formal acceptance requires complete native matching review")
         review = read_json(root / "native_review.json")
-    if review.get("model") != "gpt-6-luna" or review.get("reasoning_effort") != "max":
-        raise ValueError("formal native review must identify gpt-6-luna / max")
+    from .model_configuration import review_policy_at
+    policy = review_policy_at(root)
+    if review.get("model") != policy['model'] or review.get("reasoning_effort") != policy['reasoning_effort']:
+        raise ValueError("formal review must identify configured model " + policy['model'] + " and reasoning settings")
     raw = review.get("decisions")
     if not isinstance(raw, list):
         raise ValueError("missing native review decisions")

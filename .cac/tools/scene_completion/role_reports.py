@@ -205,7 +205,7 @@ def export_reports(output, generated, checker, matches, metrics, recommendations
                           f"{m['evidence']} 缺少行为：{'；'.join(m.get('missing_behavior', [])) or '无'}"]
     lines += ["", f"## 分类差异（{len(metrics['classification_discrepancies'])} 条）", "",
               "两端标签独立标注；分类重合只计算两端共同归类的关系。以下差异不改变总体行为匹配。",
-              "|已有场景|生成场景|匹配|检查器关注点|生成器关注点|章节|", "|---|---|---|---|---|---|"]
+              "|已有场景|生成场景|匹配|检查器关注点|建模器关注点|章节|", "|---|---|---|---|---|---|"]
     gen_by_id = {s["scenario_id"]: s for s in generated["scenarios"]}
     checker_by_id = {s["scenario_id"]: s for s in checker["scenarios"]}
     discrepancy_rows = []
@@ -220,13 +220,13 @@ def export_reports(output, generated, checker, matches, metrics, recommendations
         lines.append("|" + "|".join(v.replace("|", "\\|").replace("\n", "<br>") for v in values) + "|")
         discrepancy_rows.append([c["scenario_id"], g["scenario_id"], link["status"], c_keys, g_keys,
                                 values[3], values[4], c["trigger"], g["trigger"], c_refs, g_refs, link["evidence"]])
-    lines += ["", "## 生成器漏报", ""]
+    lines += ["", "## 建模器漏报", ""]
     for s in headline["missing_scenarios"]:
         lines += [f"### {s['scenario_id']}：{s['name']}", "", s["trigger"], "",
                   *[ref_text(ref) for ref in s.get("source_refs", [])], ""]
     lines += ["", "## 关注点挂载", "", "|角色|场景ID|关注点说明|节点|边或交换|候选|", "|---|---|---|---|---|---|"]
     attachment_rows = []
-    for role, scenes in (("生成器", generated["scenarios"]), ("检查器", checker["scenarios"])):
+    for role, scenes in (("建模器", generated["scenarios"]), ("检查器", checker["scenarios"])):
         for s in scenes:
             for key in s.get("concern_keys", []) or [""]:
                 description = category_description(key) if key else "未分类（未挂载关注点）"
@@ -297,7 +297,7 @@ def export_reports(output, generated, checker, matches, metrics, recommendations
             lines = max(lines, math.ceil(display_width / width))
         metric_ws.row_dimensions[row[0].row].height = max(32, lines * 15 + 6)
     for title, scenes in (("生成场景", generated["scenarios"]), ("已有场景", checker["scenarios"]),
-                           ("生成器漏报", headline["missing_scenarios"])):
+                           ("建模器漏报", headline["missing_scenarios"])):
         _sheet(wb, title, ["ID", "用例", "类型", "名称", "前置条件", "触发", "步骤", "预期结果", "恢复", "后置条件", "关注点", "证据章节", "补充章节"],
                [[s["scenario_id"], s["use_case_id"], s["scenario_type"], s.get("name"), s.get("preconditions"), s["trigger"],
                  s["scenario_steps"], s["expected_result"], s.get("recovery"), s.get("postconditions"), s.get("concern_keys"),
@@ -309,8 +309,8 @@ def export_reports(output, generated, checker, matches, metrics, recommendations
     _sheet(wb, "匹配关系", ["已有场景", "生成场景", "状态", "依据", "缺少行为"],
            [[m["checker_scenario_id"], m["generated_scenario_id"], m["status"], m["evidence"], m.get("missing_behavior", [])]
             for m in matches["matches"]])
-    _sheet(wb, "分类差异", ["已有场景", "生成场景", "匹配状态", "检查器编码", "生成器编码", "检查器关注点说明",
-                            "生成器关注点说明", "检查器触发", "生成器触发", "需求章节", "生成证据章节", "行为匹配依据"], discrepancy_rows)
+    _sheet(wb, "分类差异", ["已有场景", "生成场景", "匹配状态", "检查器编码", "建模器编码", "检查器关注点说明",
+                            "建模器关注点说明", "检查器触发", "建模器触发", "需求章节", "生成证据章节", "行为匹配依据"], discrepancy_rows)
     for title, status in (("完整匹配", "full"), ("部分匹配", "partial")):
         _sheet(wb, title, ["已有场景", "生成场景", "状态", "依据", "缺少行为"],
                [[m["checker_scenario_id"], m["generated_scenario_id"], m["status"], m["evidence"], m.get("missing_behavior", [])]

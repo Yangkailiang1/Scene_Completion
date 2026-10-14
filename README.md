@@ -5,7 +5,7 @@
 ## 工作流程
 
 1. 读取RR系统需求、SR设计spec及AR材料。IR视为RR；未单独提供AR文件时，从SR文档中的AR描述保留实现追溯。
-2. 语义抽取正常/普通可选流程、系统组成与原文已有异常。两个输出通道独立，已有异常不进入生成器。
+2. 语义抽取正常/普通可选流程、系统组成与原文已有异常。两个输出通道独立，已有异常不进入建模器。
 3. 检查融合SSD和系统组成图，再从SSD构造主成功场景、从正向组成与交互推理对象特性。保留RR请求、SR展开及逐层返回；AR不参与异常挂载，内外数据库封装为SR资源服务。
 4. 根据主成功交互和对象/数据/依赖特性挂载注册关注点，生成原子异常G；不进行异常适用性筛选。
 5. 独立逆向已有异常E和测试异常T，统一到用例、实际交互、关注点、具体原因及必要条件，经过逆向检查器。宽泛异常测试拆成不同因果触发单元，并标记框架推导；正常条目不展开异常。
@@ -13,7 +13,7 @@
 7. M中的每条候选与同关注点的全部唯一历史E做embedding，原始余弦相似度求和。每类少于10条全选，否则选min(N,max(10,ceil(10%×N)))；无历史时固定种子随机取最多10条。跨类选中异常去重形成R，全部M仍在缺失报告中保留。
 8. 以客户测试spec作为临时GT，计算漏报率、生成有效率、推荐采纳率及推荐误报率，分别提供总计、关注点和大类结果；输出JSON、Markdown、Excel及图。
 
-匹配只比较异常对象、操作、机制及必要条件，响应和恢复不参与。测试GT不进入生成器或历史embedding库。正常模型来源检查不是异常候选筛选。
+匹配只比较异常对象、操作、机制及必要条件，响应和恢复不参与。测试GT不进入建模器或历史embedding库。正常模型来源检查不是异常候选筛选。
 
 完整和部分匹配均可参与一一分配及集合交集计数；部分匹配必须识别同一具体原因，并提供缺少的必要条件原句。普通主题相同不算部分匹配，全部逐对决定保留供检查。
 
@@ -48,18 +48,33 @@ python -m pip install pytest
 
 通用配置参考 [model.config.example.json](model.config.example.json)：在本地`.env`或环境变量设置`SCENE_API_BASE_URL`、`SCENE_API_KEY`、`SCENE_AGENT_MODEL`及`SCENE_EMBEDDING_MODEL`。模型选择优先级为命令行覆盖 → 配置文件中的模型名/环境变量引用 → `SCENE_*_MODEL` → 兼容的ECNU环境变量。ECNU示例 [rr_sr.config.example.json](rr_sr.config.example.json)继续支持`ECNU_MAX_BASE_URL`、`ECNU_MAX_API_KEY`、`ECNU_MAX_MODEL`及`ECNU_EMBEDDING_TEXT`。不提交密钥及运行缓存。
 
-也可使用本地Luna子进程：先完成Codex CLI安装和登录，配置参考 [luna.config.example.json](luna.config.example.json)，增加 `--agent-runtime luna-subprocess`。示例批量使用 `gpt-6-luna/high`，独立效果审查使用 `gpt-6-luna/max`；实际身份保存在执行记录中。Luna子进程只处理语义包，历史推荐调用配置的embedding API；可用 `--embedding-config <config.json>`提供独立embedding地址/密钥环境变量/模型配置。
+也可使用本地Luna子进程：先完成Codex CLI安装和登录，配置参考 [luna.config.example.json](luna.config.example.json)，增加 `--agent-runtime luna-subprocess`。模型及推理设置以本地运行配置为准，独立效果审查可用`review_model`、`review_runtime`及`review_reasoning_effort`单独选择；实际身份保存在执行记录中。Luna子进程只处理语义包，历史推荐调用配置的embedding API；可用 `--embedding-config <config.json>`提供独立embedding地址/密钥环境变量/模型配置。
 
 Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.example.json)，使用你指定的`qwen38-27b-vl`。该示例沿用ECNU地址与密钥环境变量，也可修改为其他提供方。批量命令可直接增加`--agent-model qwen38-27b-vl --embedding-model <向量模型ID>`；pipeline、worker和修复命令均支持模型覆盖。`--agent-runtime openai-compatible`是通用API入口，原`ecnu`名称保留兼容；Qwen使用API入口，Luna子进程只能调用本地CLI实际支持的模型。
 
 embedding也可使用 [embedding.config.example.json](embedding.config.example.json)，独立设置`SCENE_EMBEDDING_BASE_URL`、`SCENE_EMBEDDING_API_KEY`和`SCENE_EMBEDDING_MODEL`，通过`--embedding-config`加载；`--embedding-model`优先于该文件。向量缓存按端点、模型和文本隔离；改换模型或端点会计算对应向量。旧向量缓存不迁移成新模型结果。
+
+### 检查可用模型与设置并发
+
+先串行探测当前配置的模型，再选择检查通过的模型写入本地运行配置：
+
+```bash
+python .cac/tools/scene_completion.py check-models --config model.config.example.json --include-embedding --output-dir output/model-check
+python .cac/tools/scene_completion.py configure-models --config model.config.example.json --checked-report output/model-check/available_models.json --agent-model <已通过的模型ID> --max-concurrency 1 --output-config output/runtime.json
+```
+
+`check-models`可重复指定`--candidate-model <ID>`检查其他语义模型，`--discover`可读取端点目录；目录中列出不代表可调用。`--include-review`检查配置的独立审查模型，`--include-embedding --embedding-config <配置>`可检查独立向量端点。`configure-models`支持`--embedding-model`、`--review-model`；独立向量配置通过`--embedding-config`及`--output-embedding-config`另存，流程使用两个输出配置。
+
+所有运行、worker及修复入口支持`--max-concurrency <正整数>`，优先于配置中的`max_concurrency`及环境变量`SCENE_MAX_CONCURRENCY`。默认1；Agent应根据客户限制和限流记录调整共享上限，不能每个用例另设一份并发。默认`adaptive_concurrency=true`，DAG遇限流自动减半至至少1，写入`concurrency_status.json`并在同一上限续跑时复用。成功请求不自动提高并发。
+
+新调用前默认执行`model_preflight=auto`检查；有效成功结果续跑不额外探测。拒绝记录按模型、地址、凭证指纹和执行设置隔离，进入待配置后停止同配置的重复请求，不计入语义修复轮数。默认成功记录900秒、拒绝记录300秒，可用`availability_ttl_seconds`设置；权限或额度已恢复时用`check-models --refresh`重检。不会静默换模型或修改历史执行身份。详细操作见 [模型可用性与并发配置](.cac/skills/scene-concern-gap/references/model_access.md)。
 
 ## 运行全流程
 
 下面以商城输入说明命令；迁移项目时替换种子和原始文档：
 
 ```bash
-python .cac/tools/scene_completion.py scene-pipeline --model examples/online_shopping_seed.json --rr-spec-document 在线商城购物系统/系统需求_spec.md --sr-spec-document 在线商城购物系统/功能设计_spec.md --test-spec-document 在线商城购物系统/test_spec.md --agent-mode external --config rr_sr.config.example.json --output-dir output/run
+python .cac/tools/scene_completion.py scene-pipeline --model examples/online_shopping_seed.json --rr-spec-document 在线商城购物系统/系统需求_spec.md --sr-spec-document 在线商城购物系统/功能设计_spec.md --test-spec-document 在线商城购物系统/test_spec.md --agent-mode external --config output/runtime.json --output-dir output/run
 ```
 
 Luna运行时改用 `--agent-runtime luna-subprocess --config luna.config.example.json`。`--agent-mode packets`只准备和收集语义包，不主动调用模型。`--requirement-document`、`--design-document`分别兼容映射RR、SR。
@@ -78,7 +93,7 @@ v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、
 
 运行目录中的 `case_tasks.json`记录依赖、版本、执行证明及修复次数，`cases/<稳定目录ID>/case_identity.json`对应原用例编号；局部产物和报告分别保存在各用例目录。`progress.json/md`及`component_checks.json`分别显示用例推进状态和组件检查结果。输入修复只使依赖它的下游结果过期，其他成功用例继续复用。
 
-已有异常通过逆向检查和去重后，立即按同类历史计算并缓存向量。完整历史库就绪前不发布推荐分数、TopN或正式推荐指标；成功用例可先查看生成、已有、匹配及缺失报告。未完成用例不计入漏报分母，局部报告明确标为用例范围。全局并发上限三，包含检查、诊断、修复和embedding调用；额度耗尽后仍可处理已缓存结果。
+已有异常通过逆向检查和去重后，立即按同类历史计算并缓存向量。完整历史库就绪前不发布推荐分数、TopN或正式推荐指标；成功用例可先查看生成、已有、匹配及缺失报告。未完成用例不计入漏报分母，局部报告明确标为用例范围。全局并发由`--max-concurrency`或配置控制，默认1，包含检查、诊断、修复和embedding调用；额度耗尽后仍可处理已缓存结果。
 
 使用相同输入、配置和输出目录再次执行原命令，即可复用版本有效的成功批次。模型、Skill、规则或相关输入变化使对应结果过期，不能重标旧模型身份。
 
@@ -103,7 +118,7 @@ python .cac/tools/scene_completion.py prepare-interaction-review --output-dir ou
 完成真实独立效果审查并保存绑定当前材料的原始结论后运行：
 
 ```bash
-python .cac/tools/scene_completion.py evaluate-generator --output-dir output/run
+python .cac/tools/scene_completion.py evaluate-modeling --output-dir output/run
 ```
 
 `check-interaction-run`可检查部分运行，输出 `run_checks.json/md`。`validate-interaction-run`执行完整回归及禁止新模型调用的缓存续跑。流程完成、输入质量和覆盖效果分别报告，不能仅凭 `complete=true`宣告验收。

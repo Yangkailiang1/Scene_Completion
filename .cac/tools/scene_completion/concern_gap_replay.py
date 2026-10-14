@@ -286,10 +286,11 @@ def acceptance_reasons(root,result):
         material={'protocol':PROTOCOL,'result_hash':result['result_hash'],'files':proof_files(root),'areas':AREAS}
         raw=read_json(root/'effect_review_raw.json');meta=read_json(root/'effect_review.json')
         areas=raw['areas']
+        from .model_configuration import matches_review_policy
         if (read_json(root/'effect_review_materials.json')!=material or raw['materials_hash']!=fingerprint(material)
             or meta['materials_hash']!=fingerprint(material) or meta['result_hash']!=result['result_hash']
-            or meta['raw_review_hash']!=file_hash(root/'effect_review_raw.json') or meta['model']!='gpt-6-luna'
-            or meta['reasoning_effort']!='max' or not meta['agent_id'] or meta['passed'] is not True
+            or meta['raw_review_hash']!=file_hash(root/'effect_review_raw.json') or not matches_review_policy(root, meta)
+            or not meta['agent_id'] or meta['passed'] is not True
             or raw['unresolved_findings'] or meta['unresolved_findings'] or len(areas)!=len(AREAS)
             or {a['area'] for a in areas}!=set(AREAS) or not all(a['passed'] is True and a.get('reason')
                 and a.get('evidence_files') and set(a['evidence_files'])<=set(material['files']) for a in areas)):

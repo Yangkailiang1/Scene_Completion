@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from .model_configuration import configured_model, model_name
+from .model_configuration import configured_model, model_name, concurrency_limit
 
 
 MODEL = "gpt-6-luna"
@@ -102,7 +102,7 @@ class LunaSubprocessClient:
             "agent_runtime": 'luna-subprocess',
             "thinking": True,
             "reasoning_effort": self.config.get('reasoning_effort', REASONING_EFFORT),
-            "max_concurrency": self.config.get("max_concurrency", 3),
+            "max_concurrency": self.config.get("max_concurrency", os.environ.get('SCENE_MAX_CONCURRENCY', '1')),
         })
         self.native_run_dir = Path(self.config["native_run_dir"]).expanduser().resolve()
         self.artifact_root = Path(self.config.get("native_run_root", self.native_run_dir.parent)).expanduser().resolve()
@@ -110,9 +110,7 @@ class LunaSubprocessClient:
         self.timeout_seconds = self.config.get("timeout_seconds", 600)
         if type(self.timeout_seconds) not in (int, float) or self.timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be a positive number")
-        concurrency = self.config["max_concurrency"]
-        if type(concurrency) is not int or not 1 <= concurrency <= 3:
-            raise ValueError("max_concurrency must be 1..3")
+        self.config['max_concurrency'] = concurrency_limit(self.config['max_concurrency'])
         self.runner = runner or subprocess.run
 
     def model(self, kind: str) -> str:
@@ -261,9 +259,32 @@ class LunaSubprocessClient:
                     diagnostic.update(failure_category='quota_exhausted', provider_error=detail)
                     message = detail
                     break
+                if 'model' in detail.lower() and any(v in detail.lower() for v in ('not found','does not exist','not available','not supported','no access','not have access')):
+                    diagnostic['failure_category'] = 'model_unavailable'
+                    message = 'configured native model is not accessible'
+                    break
+                if any(v in detail.lower() for v in ('401 unauthorized', '403 forbidden')):
+                    diagnostic['failure_category'] = 'authentication_failed' if '401' in detail else 'access_denied'
+                    message = 'native backend access is denied'
+                    break
         raise NativeExecutionError(message, diagnostic)
 
     def agent(self, packet: dict) -> dict:
+        from .model_access import registry, access_category
+        access = registry(self)
+        access.guard('agent', self.model('agent'))
+        try:
+            return self._agent(packet)
+        except Exception as exc:
+            category = access_category(exc)
+            if category:
+                access.record('agent', self.model('agent'), available=False, category=category)
+                if category == 'authentication_failed':
+                    access.record('endpoint', '*', available=False, category=category)
+                exc.response_diagnostic['configuration_required'] = True
+            raise
+
+    def _agent(self, packet: dict) -> dict:
         run_id = str(uuid.uuid4())
         paths = self._paths(run_id)
         started_at = _utc_now()

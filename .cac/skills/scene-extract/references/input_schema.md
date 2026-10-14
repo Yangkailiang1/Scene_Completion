@@ -111,7 +111,7 @@ AR 映射缺失时保留 SR 消息，设置 `ar_mapping_status=missing`，并写
 
 ## 独立生成输入 v2
 
-prepare-generator-model 使用 ecnu-max 读取原始需求/设计章节，并输出语义抽取的 main_flow、scenarios、constraints、dependencies。每个业务步骤、分支、检查及依赖都保留 source_refs（文档、完整标题路径、原始行号）；分支锚点必须映射到 requirement main_flow，不能照搬设计步骤编号。
+prepare-generator-model 使用 当前配置的语义模型 读取原始需求/设计章节，并输出语义抽取的 main_flow、scenarios、constraints、dependencies。每个业务步骤、分支、检查及依赖都保留 source_refs（文档、完整标题路径、原始行号）；分支锚点必须映射到 requirement main_flow，不能照搬设计步骤编号。
 
 constraints 保存 name、trigger、source_step_index、check_target_name、scenario_steps、expected_result、recovery、concern_keys、source_refs；合并后补稳定 constraint_id 和实际 check_node_id。多义或复合对象无法准确映射时标记 needs_confirmation，不能绑定邻近组件冒充定位。
 
