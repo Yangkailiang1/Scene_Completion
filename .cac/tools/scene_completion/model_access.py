@@ -27,7 +27,8 @@ class AccessRegistry:
     def scope(self):
         return fingerprint([getattr(self.client, 'base_url', self.client.config.get('agent_runtime', 'native')),
             fingerprint(getattr(self.client, 'api_key', 'local-cli-auth')),
-            self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),self.client.config.get('stream',False)])
+            self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),
+            self.client.config.get('thinking_api','legacy'),self.client.config.get('stream',False), self.client.config.get('include_usage',False)])
 
     def key(self, kind, model):
         return fingerprint([self.scope(), kind, model])
@@ -121,7 +122,7 @@ def _probe(client, kind='agent', *, force=False):
                 access.record('endpoint', '*', available=False, category=category)
             raise ModelUnavailable(category, model) from exc
         diagnostic=getattr(exc,'response_diagnostic',{}) or {}
-        if diagnostic.get('failure_category') in ('quota_exhausted','rate_limited'):
+        if diagnostic.get('failure_category') in ('quota_exhausted','rate_limited','budget_exhausted'):
             raise
         # An invalid configuration or nonconforming probe must not be retried
         # separately by every ready use-case stage with the same settings.

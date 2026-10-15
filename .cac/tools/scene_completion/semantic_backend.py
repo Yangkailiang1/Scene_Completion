@@ -34,6 +34,10 @@ class SemanticClient:
         self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
         self.api_key = os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self._vectors = {}
+        self.token_budget = None
+        if self.config.get('token_budget_limit') is not None:
+            from .token_budget import TokenBudget
+            self.token_budget = TokenBudget(self.config)
         self.config['max_concurrency'] = concurrency_limit(self.config.get('max_concurrency', os.environ.get('SCENE_MAX_CONCURRENCY', '1')))
 
     def model(self, kind: str) -> str:
@@ -51,8 +55,21 @@ class SemanticClient:
             from .performance import span, size
             with span(getattr(self, 'profiler', None), 'request', endpoint=endpoint, model=body.get('model'),
                     request_bytes=size(body), request_kind=kind) as timing:
-                response = self.transport(self.base_url + endpoint, self.api_key, body,
-                                      float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
+                budget = self.token_budget if endpoint == '/chat/completions' else None
+                reservation = budget.reserve(body) if budget else None
+                try:
+                    # An unobserved retry may spend the allowance twice. A
+                    # budgeted request therefore has exactly one HTTP attempt.
+                    response = self.transport(self.base_url + endpoint, self.api_key, body,
+                                          float(self.config.get("timeout_seconds", 120)),
+                                          0 if budget else int(self.config.get("max_retries", 2)))
+                except Exception as exc:
+                    if budget:
+                        status = (getattr(exc, 'response_diagnostic', {}) or {}).get('http_status')
+                        budget.settle(reservation, refused=status in (400, 401, 403, 404, 422, 429))
+                    raise
+                if budget:
+                    budget.settle(reservation, usage=response.get('usage'))
                 timing.update(response_bytes=size(response), usage=response.get('usage'),
                     transport_attempts=response.get('_scene_completion_metrics', {}).get('transport_attempts'),
                     stream_metrics={k:v for k,v in response.get('_scene_completion_metrics',{}).items() if k!='transport_attempts'})
@@ -184,15 +201,24 @@ class SemanticClient:
                 error.response_diagnostic={'failure_category':'context_budget_exceeded','configuration_required':True,
                     'estimated_input_tokens_upper_bound':estimated,'output_reserve':body['max_tokens'],'max_context_tokens':context_limit}
                 raise error
+        thinking_api = self.config.get('thinking_api', 'legacy')
+        if thinking_api not in ('legacy', 'enable_thinking'):
+            raise ValueError('thinking_api must be legacy or enable_thinking')
+        if thinking_api == 'enable_thinking':
+            body['enable_thinking'] = bool(self.config.get('thinking'))
         if self.config.get("thinking"):
             effort = self.config.get("reasoning_effort", "high")
             if not isinstance(effort,str) or not effort.strip() or len(effort)>64 or any(c in effort for c in '\r\n\x00'):
                 raise ValueError('reasoning_effort must be a configured provider-supported identifier')
             if self.config.get('supported_reasoning_efforts') and effort not in self.config['supported_reasoning_efforts']:
                 raise ValueError('reasoning_effort is not in configured supported_reasoning_efforts')
-            body.update(thinking={"type": "enabled"}, reasoning_effort=effort)
+            body['reasoning_effort'] = effort
+            if thinking_api == 'legacy':
+                body['thinking'] = {"type": "enabled"}
         if self.config.get('stream'):
             body['stream']=True
+            if self.config.get('include_usage'):
+                body['stream_options'] = {'include_usage': True}
         response = self.post("/chat/completions", body)
         content = _content_from_response(response)
         finish_reason = response.get("choices", [{}])[0].get("finish_reason")
@@ -213,6 +239,7 @@ class SemanticClient:
             raise
         result["execution_model_evidence"] = {"requested_model": body["model"], "provider_model": response.get("model"),
             "thinking": bool(self.config.get("thinking")), "reasoning_effort": body.get("reasoning_effort"),
+            "thinking_api": thinking_api,
             "api_endpoint_hash": fingerprint(self.base_url),
             "verification_limit": "Request model is recorded; provider routing is observable only when response model metadata is supplied."}
         return result

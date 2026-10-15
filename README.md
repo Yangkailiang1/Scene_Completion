@@ -54,6 +54,10 @@ Claude Code 的项目入口见 [CLAUDE.md](CLAUDE.md)，按当前阶段读取 `.
 
 Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.example.json)，使用你指定的`qwen38-27b-vl`。该示例沿用ECNU地址与密钥环境变量，也可修改为其他提供方。批量命令可直接增加`--agent-model qwen38-27b-vl --embedding-model <向量模型ID>`；pipeline、worker和修复命令均支持模型覆盖。`--agent-runtime openai-compatible`是通用API入口，原`ecnu`名称保留兼容；Qwen使用API入口，Luna子进程只能调用本地CLI实际支持的模型。
 
+百炼配置参考 [bailian.config.example.json](bailian.config.example.json)，分别设置`BAILIAN_BASE_URL`、`DASHSCOPE_API_KEY`和`BAILIAN_MODEL`；凭证变量名可通过`api_key_env`修改。`thinking_api=enable_thinking`使用提供方的思考开关，关闭时也显式传false；`reasoning_effort`按提供方支持的档位配置。流式请求可用`include_usage=true`要求返回实际用量。语义和embedding使用不同提供方时，增加`--embedding-config <独立配置>`，不会把语义凭证发送到embedding端点。
+
+需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前为输入UTF-8字节代理及输出上限预留额度，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度并停止后续语义调用；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
+
 华师`ecnu-plus`配置见[ecnu_plus.config.example.json](ecnu_plus.config.example.json)。提供方的思考档位可能随模型不同，使用配置中的实际`reasoning_effort`及可选`supported_reasoning_efforts`，不要直接照搬另一模型。华师plus的`medium`对应界面“高”，支持`low/medium/xhigh`，详见[官方思考模式说明](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。示例按客户容量设置`max_context_tokens=200000`；这是本地限制，不自动套用平台更大的标称上限。发送前保守估算输入与输出预留，超限要求拆包，不截断证据。
 
 长响应可配置`stream=true`使用兼容API的SSE传输，记录首事件延迟并在内存组装最终JSON；只有收到结束标记与完成原因、通过原结构及来源校验后才接受结果。断流或不完整JSON保持待处理，不保存思维链或把部分输出改为通过；未返回用量时仍标为未知。配置示例启用流式传输，实际支持情况通过同设置的模型预检确认。
