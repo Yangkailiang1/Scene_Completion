@@ -20,6 +20,8 @@ REQUIRED_TEST_FIELDS = {
     "来源定位": "source_location",
 }
 TYPE_MAP = {"正常": "normal", "异常": "exception", "可选": "optional", "normal": "normal", "exception": "exception", "optional": "optional"}
+TEST_LABELS={'用例编号':'编号','测试用例编号':'编号','用例名称':'场景名称','测试用例名称':'场景名称',
+    '前提条件':'前置条件','对应需求':'关联需求','需求编号':'关联需求','测试步骤':'测试步骤','执行步骤':'测试步骤','场景类型':'类型'}
 
 
 def extract_reference_test_scenarios(markdown: str) -> dict[str, Any]:
@@ -29,8 +31,9 @@ def extract_reference_test_scenarios(markdown: str) -> dict[str, Any]:
     for line_number, line in enumerate(markdown.splitlines(), 1):
         if line.lstrip().startswith("|"):
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if cells and cells[0].lower() in {"编号", "场景编号", "id"}:
-                table_header = cells
+            normalized=[TEST_LABELS.get(c,c) for c in cells]
+            if ('编号' in normalized and ('场景名称' in normalized or '名称' in normalized)) or (cells and cells[0].lower() in {'场景编号','id'}):
+                table_header = normalized
                 continue
             if "table_header" in locals() and cells and not all(re.fullmatch(r":?-{3,}:?", cell.replace(" ", "")) for cell in cells):
                 if len(cells) == len(table_header) and cells[0] and not cells[0].lower().startswith("编号"):
@@ -42,6 +45,12 @@ def extract_reference_test_scenarios(markdown: str) -> dict[str, Any]:
                                 "requirements": row.get("关联需求", ""), "objective": row.get("测试目标", ""),
                                 "expected_result": row.get("预期结果", ""), "source_location": row.get("来源定位", ""),
                                 "source_heading_line": line_number}
+                    if '测试步骤' in row:
+                        scenario.update(test_steps=row['测试步骤'].replace('<br>','\n'),
+                            trigger=scenario['trigger'] or row['测试步骤'].replace('<br>','\n'),
+                            objective=scenario['objective'] or scenario['name'],
+                            scenario_type=scenario['scenario_type'] or 'unspecified',
+                            source_location=scenario['source_location'] or '测试spec第'+str(line_number)+'行')
                     scenarios.append(scenario)
             continue
         heading = re.match(r"^###\s+([^：:]+)[：:]\s*(.+?)\s*$", line)
@@ -54,14 +63,27 @@ def extract_reference_test_scenarios(markdown: str) -> dict[str, Any]:
             continue
         field = re.match(r"^\s*(?:[-*]\s*)?([^：:]+)[：:]\s*(.*?)\s*$", line)
         if not field:
+            if current.get('test_steps') and line.strip() and not line.lstrip().startswith('#'):
+                if last_field=='test_steps':current['test_steps']+='\n'+line.strip()
             continue
         label, value = field.group(1).strip(), field.group(2).strip()
+        label=TEST_LABELS.get(label,label)
+        if label=='测试步骤' and value:
+            current['test_steps']=value.replace('<br>','\n');last_field='test_steps'
+        if label=='类型':label='场景类型'
         if label in REQUIRED_TEST_FIELDS and value:
             current[REQUIRED_TEST_FIELDS[label]] = value
+            last_field=REQUIRED_TEST_FIELDS[label]
+        elif label!='测试步骤' and current.get('test_steps') and last_field=='test_steps':
+            current['test_steps']+='\n'+line.strip()
     if current:
         scenarios.append(current)
     seen: set[str] = set()
     for index, scenario in enumerate(scenarios, 1):
+        if 'test_steps' in scenario:
+            for key,value in {'trigger':scenario['test_steps'],'objective':scenario.get('name',''),
+                    'scenario_type':'unspecified','source_location':'测试spec第'+str(scenario['source_heading_line'])+'行'}.items():
+                if not scenario.get(key):scenario[key]=value
         scenario_id = scenario.get("test_scenario_id", "")
         if not scenario_id:
             errors.append(f"scenario {index}: missing test_scenario_id")
@@ -99,7 +121,10 @@ def extract_reference_test_scenarios_from_json(value: Any) -> dict[str, Any]:
         for field in ("name", "scenario_type", "preconditions", "trigger", "requirements", "objective", "expected_result", "source_location"):
             if not str(scenario.get(field, "")).strip():
                 errors.append(f"{scenario_id or index}: missing {field}")
-        if scenario.get("scenario_type") not in {"normal", "exception", "optional"}:
+        allowed_types = {"normal", "exception", "optional"}
+        if scenario.get('test_steps'):
+            allowed_types.add('unspecified')
+        if scenario.get("scenario_type") not in allowed_types:
             errors.append(f"{scenario_id or index}: invalid scenario_type")
     return {"schema_version": str(value.get("schema_version", "1.0")), "valid": not errors, "errors": errors, "scenario_count": len(scenarios), "scenarios": scenarios}
 

@@ -16,6 +16,54 @@ from .sources import fingerprint, validate_refs
 from .interaction_execution_identity import validate_result_execution, validate_client_execution_model
 
 
+def source_quote(quote, source):
+    """Resolve presentation-only Markdown indentation, preserving every content character."""
+    if not isinstance(quote, str) or not quote.strip():
+        raise ValueError('source audit evidence must quote the cited original clause')
+    if quote in source:
+        return quote
+    wanted=quote.splitlines();lines=source.splitlines()
+    # Leading indentation is layout, not evidence content. Never normalize
+    # internal whitespace, words, punctuation, order or escaped line breaks.
+    for start in range(len(lines)-len(wanted)+1):
+        original=lines[start:start+len(wanted)]
+        if all(a.lstrip(' \t')==b.lstrip(' \t') for a,b in zip(wanted,original)):
+            return '\n'.join(original)
+    raise ValueError('source audit evidence must quote the cited original clause')
+
+
+def recover_quote_format_attempts(folder, index):
+    """Offline recovery of original audit executions rejected only for quote layout."""
+    import copy
+    root=Path(folder); recovered=[]
+    validate=checker_audit_validator(index)
+    manifest=read_json(root/'manifest.json')
+    if manifest['stage']!='interaction-checker-audit':
+        raise ValueError('quote recovery is restricted to independent source audits')
+    for batch in manifest['batches']:
+        target=root/'results'/(batch['batch_id']+'.json')
+        if target.exists():continue
+        packet=read_json(root/'packets'/target.name)
+        if fingerprint({k:v for k,v in packet.items() if k not in ('batch_id','input_hash')})!=batch['input_hash']:
+            raise ValueError('quote recovery packet changed')
+        for attempt in sorted((root/'attempts').glob(batch['batch_id']+'-*.json'),reverse=True):
+            record=read_json(attempt);raw=record.get('result')
+            if record.get('validation_error')!='source audit evidence must quote the cited original clause' or not isinstance(raw,dict):continue
+            if raw.get('batch_id')!=batch['batch_id'] or raw.get('input_hash')!=batch['input_hash']:continue
+            validate_result_execution(raw,result_path=attempt)
+            try: rows=validate(packet,copy.deepcopy(raw))
+            except (ValueError,KeyError,TypeError):continue
+            if not all(r['passed'] for r in rows):continue
+            target.parent.mkdir(parents=True,exist_ok=True)
+            write_json(target,raw)  # unchanged execution, not a reconstructed model answer
+            recovered.append({'batch_id':batch['batch_id'],'source_attempt':str(attempt.resolve()),
+                'source_attempt_hash':fingerprint(record),'result_hash':fingerprint(raw),
+                'reason':'Only leading line indentation differs; current source audit fully revalidated offline.'})
+            break
+    if recovered:write_json(root/'quote_format_recovery.json',{'recoveries':recovered})
+    return recovered
+
+
 def checker_audit_packets(checker_directory, index, directory):
     from .interaction_origins import line_origins
     folder = Path(checker_directory)
@@ -74,8 +122,10 @@ def checker_audit_validator(index):
                 raise ValueError('source audit decisions must be explicit booleans')
             row['source_refs'] = validate_refs(row.get('source_refs'), index, sections)
             quote = row.get('evidence_quote')
-            if not isinstance(quote, str) or not quote.strip() or quote not in batches.cited_text(row['source_refs'], index):
-                raise ValueError('source audit evidence must quote the cited original clause')
+            row['evidence_quote']=source_quote(quote,batches.cited_text(row['source_refs'], index))
+            if row['evidence_quote']!=quote:
+                row['original_evidence_quote']=quote
+                row['quote_normalization']='leading_line_indentation'
             if not isinstance(row.get('issues'), list) or any(not isinstance(v, str) or not v.strip() for v in row['issues']):
                 raise ValueError('source audit issues must be a list of concrete reasons')
             if all(row[k] for k in flags) and row['issues']:

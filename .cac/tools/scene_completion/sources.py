@@ -44,7 +44,8 @@ def index_document(path: str | Path) -> dict:
         stack.append(chapter)
     return {"document": Path(path).name, "format": document["format"],
             "content_hash": fingerprint(document["text"]), "line_count": len(lines),
-            "text": document["text"], "chapters": chapters}
+            "text": document["text"], "chapters": chapters,
+            **({'locations':document['locations'],'extraction_warnings':document.get('warnings',[])} if document['format']=='xlsx' else {})}
 
 
 def index_sources(paths: list[str]) -> dict:
@@ -100,7 +101,11 @@ def validate_refs(refs: list, index: dict, allowed: list[dict] | None = None) ->
                     cursor = max(cursor, region["line_end"] + 1)
             if cursor <= end:
                 raise ValueError("citation outside assigned source sections")
-        validated.append(chapter_ref(max(candidates, key=lambda c: c["level"]), start, end))
+        normalized=chapter_ref(max(candidates, key=lambda c: c["level"]), start, end)
+        if doc.get('format')=='xlsx':
+            cells=doc['locations'][start-1:end]
+            normalized['worksheet_locations']=[{k:v for k,v in c.items() if k!='text'} for c in cells]
+        validated.append(normalized)
     return validated
 
 

@@ -30,6 +30,29 @@ def test_source_audit_inputs_are_independent_and_bind_exact_c(tmp_path):
     assert packet['input']['source_chapters']
 
 
+def test_quote_indentation_resolves_to_original_without_changing_content():
+    from scene_completion.interaction_audit import source_quote
+    original='   字段异常\n   → 拒绝请求'
+    assert source_quote('    字段异常\n    → 拒绝请求',original)==original
+    for bad in ('字段正常\n→ 拒绝请求','字段异常\\n→ 拒绝请求','字段异常\n→ 接受请求','→ 拒绝请求\n字段异常'):
+        with pytest.raises(ValueError,match='original clause'):source_quote(bad,original)
+
+
+def test_quote_only_recovery_keeps_original_execution_and_rejects_content_changes(tmp_path):
+    from scene_completion.interaction_audit import recover_quote_format_attempts
+    root,index,_,folder,packet,raw=fixture_audit(tmp_path)
+    target=folder/'results'/(packet['batch_id']+'.json');target.unlink()
+    raw['reviews'][0]['evidence_quote']='    异常条件'
+    attempt=folder/'attempts'/(packet['batch_id']+'-old.json')
+    write_json(attempt,{'result':raw,'validation_error':'source audit evidence must quote the cited original clause'})
+    result=recover_quote_format_attempts(folder,index)
+    assert len(result)==1 and read_json(target)==raw
+    assert checker_audit_validator(index)(packet,read_json(target))[0]['passed']
+    target.unlink();raw['reviews'][0]['evidence_quote']='正常条件'
+    write_json(attempt,{'result':raw,'validation_error':'source audit evidence must quote the cited original clause'})
+    assert recover_quote_format_attempts(folder,index)==[] and not target.exists()
+
+
 def test_preserved_rejected_audit_can_repair_exact_draft_after_newer_pass(tmp_path):
     from scene_completion.semantic_backend import prepare_packets
     root, index, _, folder, packet, raw = fixture_audit(tmp_path)

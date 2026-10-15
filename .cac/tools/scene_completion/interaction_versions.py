@@ -13,6 +13,7 @@ def packet_versions(stage):
               ('sources.py', 'document_extract.py', 'schemas.py', 'interaction_hierarchy.py', 'model_configuration.py')}
     common.update(protocol=p.PROTOCOL, taxonomy=fingerprint(p.baseline()),
         transport=fingerprint(inspect.getsource(s.SemanticClient.agent)),
+        semantic_request=fingerprint(inspect.getsource(s.SemanticClient._agent)),
         transport_setup=fingerprint(inspect.getsource(s.SemanticClient.__init__)),
         endpoint_request=fingerprint(inspect.getsource(s.SemanticClient.post)),
         model_resolution=fingerprint(inspect.getsource(s.SemanticClient.model)),

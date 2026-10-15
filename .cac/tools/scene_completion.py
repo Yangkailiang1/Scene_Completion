@@ -43,6 +43,16 @@ def _write_json(path: str, value) -> None:
 def _main_impl(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Portable Scene Completion tools")
     sub = parser.add_subparsers(dest="command", required=True)
+    quote_recheck = sub.add_parser('revalidate-source-audit-format', help='offline recheck of source-audit indentation failures; no new model calls')
+    quote_recheck.add_argument('--output-dir',required=True)
+    quote_recheck.add_argument('--use-case-id',action='append')
+    graph_recheck = sub.add_parser('revalidate-graph-format', help='offline recheck of unique local graph IDs; no new model calls')
+    graph_recheck.add_argument('--output-dir',required=True)
+    graph_recheck.add_argument('--use-case-id',action='append')
+    cache_recheck=sub.add_parser('revalidate-cached-task',help='offline recheck of unchanged semantic inputs under current validators')
+    cache_recheck.add_argument('--output-dir',required=True)
+    cache_recheck.add_argument('--use-case-id',action='append')
+    cache_recheck.add_argument('--stage',required=True)
     register_commands(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
@@ -121,7 +131,7 @@ def _main_impl(argv=None) -> int:
     crud_dep = sub.add_parser("build-crud-dependency-graph", help="derive CRUD lifecycle dependencies and export JSON, DOT, edge list, and four-tuples")
     crud_dep.add_argument("--model", required=True)
     crud_dep.add_argument("--output-dir", required=True)
-    extract_tests = sub.add_parser("extract-test-scenarios", help="extract reference scenarios from test_spec.md")
+    extract_tests = sub.add_parser("extract-test-scenarios", help="extract reference scenarios from Markdown or Excel test spec")
     extract_tests.add_argument("--input", required=True)
     extract_tests.add_argument("--output", required=True)
     validate_tests = sub.add_parser("validate-test-scenarios", help="validate a reference test scenario JSON")
@@ -147,6 +157,11 @@ def _main_impl(argv=None) -> int:
     args = parser.parse_args(argv)
     args.command = {'prepare-modeling-input':'prepare-generator-model', 'evaluate-modeling':'evaluate-generator'}.get(args.command, args.command)
     try:
+        if args.command in ('revalidate-source-audit-format','revalidate-graph-format','revalidate-cached-task'):
+            from scene_completion.audit_quote_recovery import run
+            result, code = run(args)
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+            return code
         if args.command in ('check-models', 'configure-models'):
             from scene_completion.model_access import check_models, configure_models
             result, code = check_models(args) if args.command == 'check-models' else configure_models(args)
@@ -367,7 +382,13 @@ def _main_impl(argv=None) -> int:
             print(json.dumps({"status": "success", "output_dir": str(output), "edge_count": len(graph["edges"]), "reason_count": len(graph["four_tuples"]), "svg": str(svg_path)}, ensure_ascii=False, indent=2))
             return 0
         if args.command == "extract-test-scenarios":
-            report = extract_reference_test_scenarios(Path(args.input).read_text(encoding="utf-8"))
+            document = extract_document(args.input)
+            report = extract_reference_test_scenarios(document['text'])
+            report['source_document'] = {'path': document['path'], 'format': document['format'],
+                'warnings': document.get('warnings', [])}
+            for scenario in report['scenarios']:
+                line = scenario['source_heading_line']
+                scenario['source_positions'] = document['locations'][line-1:line]
             _write_json(args.output, report)
             print(json.dumps({"status": "success" if report["valid"] else "error", "output": str(Path(args.output).resolve()), "scenario_count": report["scenario_count"], "errors": report["errors"]}, ensure_ascii=False, indent=2))
             return 0 if report["valid"] else 2

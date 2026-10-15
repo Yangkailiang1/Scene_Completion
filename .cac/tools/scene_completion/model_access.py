@@ -27,7 +27,7 @@ class AccessRegistry:
     def scope(self):
         return fingerprint([getattr(self.client, 'base_url', self.client.config.get('agent_runtime', 'native')),
             fingerprint(getattr(self.client, 'api_key', 'local-cli-auth')),
-            self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking')])
+            self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),self.client.config.get('stream',False)])
 
     def key(self, kind, model):
         return fingerprint([self.scope(), kind, model])
@@ -76,7 +76,9 @@ def access_category(exc):
 
 def probe(client, kind='agent', *, force=False):
     with _PROBE_LOCK:
-        return _probe(client, kind, force=force)
+        from .performance import span
+        with span(getattr(client,'profiler',None),'probe',stage='model-availability',request_kind=kind):
+            return _probe(client, kind, force=force)
 
 
 def _probe(client, kind='agent', *, force=False):
@@ -118,7 +120,16 @@ def _probe(client, kind='agent', *, force=False):
             if category == 'authentication_failed':
                 access.record('endpoint', '*', available=False, category=category)
             raise ModelUnavailable(category, model) from exc
-        raise
+        diagnostic=getattr(exc,'response_diagnostic',{}) or {}
+        if diagnostic.get('failure_category') in ('quota_exhausted','rate_limited'):
+            raise
+        # An invalid configuration or nonconforming probe must not be retried
+        # separately by every ready use-case stage with the same settings.
+        access.record(kind,model,available=False,category='preflight_failed')
+        blocked=ModelUnavailable('preflight_failed',model)
+        blocked.response_diagnostic.update(cause_category=diagnostic.get('failure_category','probe_format_error'),
+            http_status=diagnostic.get('http_status'))
+        raise blocked from exc
 
 
 def preflight(client, kind='agent'):

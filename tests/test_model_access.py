@@ -52,6 +52,18 @@ def test_denied_model_stops_repeat_requests_until_refresh_or_configuration_chang
     assert not probe(c)['cached'] and len(calls)==4
 
 
+def test_failed_preflight_is_not_repeated_by_every_ready_stage(tmp_path,monkeypatch):
+    calls=[];c=client(tmp_path,monkeypatch,calls)
+    def fail(*args):
+        calls.append('500');error=RuntimeError('HTTP 500')
+        error.response_diagnostic={'http_status':500,'failure_category':'transport_error'};raise error
+    c.transport=fail
+    for _ in range(3):
+        with pytest.raises(ModelUnavailable) as exc:probe(c)
+        assert exc.value.response_diagnostic['configuration_required']
+    assert calls==['500']
+
+
 def test_authentication_failure_blocks_other_models_on_same_endpoint(tmp_path, monkeypatch):
     calls=[]
     c=client(tmp_path,monkeypatch,calls)
@@ -148,8 +160,10 @@ def test_adaptive_concurrency_respects_explicit_cap_and_halves_on_rate_limit():
     gate=CallGate(4,on_change=changes.append)
     gate.call(lambda:{'batches':[{'failure_category':'rate_limited'}]})
     assert gate.limit==4 and gate.effective_limit==2
+    gate.retry_not_before=0
     gate.call(lambda:{'batches':[{'failure_category':'rate_limited'}]})
     assert gate.effective_limit==1 and len(changes)==2
+    gate.retry_not_before=0
     gate.call(lambda:{'complete':True})
     assert gate.effective_limit==1
     disabled=CallGate(2,adaptive=False)

@@ -92,6 +92,8 @@ def register_commands(sub):
     pipeline.add_argument("--protocol", choices=("rr-sr-concern-gap-v2", "rr-sr-ssd-identification-v1", "legacy"), default="rr-sr-concern-gap-v2")
     pipeline.add_argument('--ar-spec-document', action='append', help='optional separate AR trace material; never an exception analysis layer')
     pipeline.add_argument('--reuse-run', help='reuse byte-identical successful source/model packets from another run')
+    pipeline.add_argument('--history-run', help='verified completed v2 run supplying only other cases historical E and compatible vectors')
+    pipeline.add_argument('--profile', action='store_true', help='write separate task/request performance records without changing semantic inputs')
     pipeline.add_argument('--recommendation-seed', type=int, default=42, help='deterministic no-history category sampling seed')
     pipeline.add_argument('--embedding-config', help='optional separate OpenAI-compatible embedding endpoint/model configuration')
     pipeline.add_argument('--execution-mode', choices=('case-dag', 'stage-barrier'), default=None,

@@ -47,6 +47,8 @@ def run(args):
     if mode == 'case-dag':
         from .concern_gap_dag import run as run_dag
         return run_dag(args)
+    if getattr(args,'profile',False) or getattr(args,'history_run',None):
+        raise ValueError('profile and history-run require v2 case-dag execution')
     return run_stage_barrier(args)
 
 

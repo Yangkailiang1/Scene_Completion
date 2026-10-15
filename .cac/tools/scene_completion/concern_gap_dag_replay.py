@@ -86,6 +86,9 @@ def replay(root, cache_resume=False):
             'pending_tasks': [{'key': k, 'case': t['case'], 'stage': t['stage'], 'status': t['status'],
                 'reason': t.get('reason', t.get('failure'))} for k, t in state['tasks'].items() if t['status'] != 'passed']}
     bundle = read_json(root / 'result_bundle.json')
+    if bundle.get('history_import'):
+        from .concern_gap_history import verify_binding
+        verify_binding(bundle['history_import'])
     for collection in ('G', 'E', 'T'):
         selected = set(manifest['scope']['use_case_ids'])
         expected = sorted([u for task in state['tasks'].values() if task['stage'] == 'units-' + collection and task['case'] in selected

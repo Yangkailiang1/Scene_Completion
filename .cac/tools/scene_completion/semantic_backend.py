@@ -7,6 +7,7 @@ import copy
 import math
 import os
 import threading
+from contextvars import copy_context
 from pathlib import Path
 
 from .review import _content_from_response, _post_chat_completions_diagnostic as _post_chat_completions, _resolve_env_reference
@@ -47,8 +48,15 @@ class SemanticClient:
         if body.get('model'):
             access.guard(kind, body['model'])
         try:
-            return self.transport(self.base_url + endpoint, self.api_key, body,
-                                  float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
+            from .performance import span, size
+            with span(getattr(self, 'profiler', None), 'request', endpoint=endpoint, model=body.get('model'),
+                    request_bytes=size(body), request_kind=kind) as timing:
+                response = self.transport(self.base_url + endpoint, self.api_key, body,
+                                      float(self.config.get("timeout_seconds", 120)), int(self.config.get("max_retries", 2)))
+                timing.update(response_bytes=size(response), usage=response.get('usage'),
+                    transport_attempts=response.get('_scene_completion_metrics', {}).get('transport_attempts'),
+                    stream_metrics={k:v for k,v in response.get('_scene_completion_metrics',{}).items() if k!='transport_attempts'})
+                return response
         except Exception as exc:
             category = access_category(exc)
             if category:
@@ -137,6 +145,12 @@ class SemanticClient:
         return sorted(result, key=lambda e: e["rerank_score"], reverse=True)
 
     def agent(self, packet: dict) -> dict:
+        from .performance import span, _context
+        stage = 'model-availability' if packet['stage']=='model-availability' else _context.get().get('stage',packet['stage'])
+        with span(getattr(self, 'profiler', None), 'semantic', packet_stage=packet['stage'], stage=stage, batch_id=packet.get('batch_id')):
+            return self._agent(packet)
+
+    def _agent(self, packet: dict) -> dict:
         prompt = dict(packet)
         if packet["stage"] == "matching":
             prompt["required_coverage_arrays"] = {
@@ -159,11 +173,26 @@ class SemanticClient:
             {"role": "user", "content": json.dumps(prompt, ensure_ascii=False)}],
             "response_format": {"type": "json_object"},
             "max_tokens": int(self.config.get("max_tokens", 12000))}
+        context_limit=self.config.get('max_context_tokens')
+        if context_limit is not None:
+            if type(context_limit) is not int or context_limit<1:raise ValueError('max_context_tokens must be a positive integer')
+            # UTF-8 byte length is a conservative local proxy, not provider
+            # tokenization. Account for output reserve and chat framing.
+            estimated=sum(len(m['content'].encode('utf8'))+256 for m in body['messages'])
+            if estimated+body['max_tokens']>context_limit:
+                error=RuntimeError('packet exceeds configured context budget; split the batch without truncating evidence')
+                error.response_diagnostic={'failure_category':'context_budget_exceeded','configuration_required':True,
+                    'estimated_input_tokens_upper_bound':estimated,'output_reserve':body['max_tokens'],'max_context_tokens':context_limit}
+                raise error
         if self.config.get("thinking"):
             effort = self.config.get("reasoning_effort", "high")
-            if effort not in {"low", "high", "max"}:
-                raise ValueError("ECNU max reasoning_effort must be low/high/max")
+            if not isinstance(effort,str) or not effort.strip() or len(effort)>64 or any(c in effort for c in '\r\n\x00'):
+                raise ValueError('reasoning_effort must be a configured provider-supported identifier')
+            if self.config.get('supported_reasoning_efforts') and effort not in self.config['supported_reasoning_efforts']:
+                raise ValueError('reasoning_effort is not in configured supported_reasoning_efforts')
             body.update(thinking={"type": "enabled"}, reasoning_effort=effort)
+        if self.config.get('stream'):
+            body['stream']=True
         response = self.post("/chat/completions", body)
         content = _content_from_response(response)
         finish_reason = response.get("choices", [{}])[0].get("finish_reason")
@@ -447,7 +476,8 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                     quota_exhausted.set()
                     return {'batch_id': bid, 'status': 'failed', 'error': last_error, 'failure_category': category}
                 if isinstance(diagnostic, dict) and diagnostic.get('failure_category') == 'rate_limited':
-                    return {'batch_id': bid, 'status': 'failed', 'error': last_error, 'failure_category': 'rate_limited'}
+                    return {'batch_id': bid, 'status': 'failed', 'error': last_error, 'failure_category': 'rate_limited',
+                        'retry_after_seconds':diagnostic.get('retry_after_seconds')}
         return {"batch_id": bid, "status": "failed", "error": last_error}
 
     # Sharded child workers run serially; standalone workers use the configured cap.
@@ -457,7 +487,7 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
     write_json(status_path, {"complete": False, "running": True, "batch_count": len(batches), "batches": states})
     concurrency = concurrency_limit(getattr(client, "config", {}).get("max_concurrency", 1))
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency if worker_count == 1 else 1) as pool:
-        futures = [pool.submit(process, batch) for batch in batches]
+        futures = [pool.submit(copy_context().run, process, batch) for batch in batches]
         for future in concurrent.futures.as_completed(futures):
             states.append(future.result())
             write_json(status_path, {"complete": False, "running": True,

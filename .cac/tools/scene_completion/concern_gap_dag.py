@@ -48,17 +48,8 @@ def retain_sidecars(raw, source, destination):
 
 
 def diagnosis_validator(packet, result):
-    if result.get('action') not in ('repair', 'recheck', 'confirm') or not result.get('reason'):
-        raise ValueError('diagnosis requires a permitted action and concrete reason')
-    evidence = str(packet['input']['allowed_inputs'])
-    quotes = result.get('evidence_quotes')
-    if not isinstance(quotes, list) or any(not isinstance(q, str) or not q or q not in evidence for q in quotes):
-        raise ValueError('diagnosis must quote supplied evidence')
-    if result['action'] == 'recheck' and not quotes:
-        raise ValueError('checker misjudgment requires independent original-source evidence')
-    if not isinstance(result.get('targets'), list):
-        raise ValueError('diagnosis must explicitly identify repair targets')
-    return [{k: result[k] for k in ('action', 'reason', 'evidence_quotes', 'targets')}]
+    from .diagnosis import validate
+    return validate(packet,result)
 
 
 def proposal_hash(proposal):
@@ -220,26 +211,59 @@ class Packets:
         return folder
 
     def diagnose(self, case_root, name, target, failure, round_number):
+        from .diagnosis import quote_catalog
         original = read_json(Path(target['folder']) / 'manifest.json')
         packets = [read_json(Path(target['folder']) / 'packets' / (row['batch_id'] + '.json')) for row in original['batches']]
+        errors=set(failure.get('errors',{}))|set(failure.get('pending',[]))
+        rejected={str(r.get(k)) for r in failure.get('findings',[]) if isinstance(r,dict)
+            for k in ('unit_id','scenario_id','id','source_scenario_id') if r.get(k)}
+        scoped=[p for p in packets if p['batch_id'] in errors or contains_id(p['input'],rejected) or
+            ((Path(target['folder'])/'results'/(p['batch_id']+'.json')).exists() and
+                contains_id(read_json(Path(target['folder'])/'results'/(p['batch_id']+'.json')),rejected))]
+        if scoped:packets=scoped
         failed_outputs = []
-        for row in original['batches']:
+        for row in packets:
             attempts = sorted((Path(target['folder']) / 'attempts').glob(row['batch_id'] + '-*.json'))
             if attempts:
                 failed_outputs.append({'batch_id': row['batch_id'], 'preserved_attempt': read_json(attempts[-1])})
         # Only the target's original permitted input channel is supplied.
-        payload = {'stage': name, 'failure': failure, 'allowed_inputs': [p['input'] for p in packets],
+        allowed=[{k:v for k,v in p['input'].items() if k not in ('skill','extraction_skills','execution_versions')} for p in packets]
+        payload = {'stage': name, 'failure': {k:v for k,v in failure.items() if k!='output'}, 'allowed_inputs': allowed,
+            'evidence_catalog':quote_catalog(allowed),
             'round': round_number, 'repair_policy': 'source-only; preserve successful records; never add unconfirmed model items',
             'failed_outputs_from_same_channel': failed_outputs,
             'repair_skill': (Path(__file__).resolve().parents[2] / 'skills/scene-concern-gap/references/case_execution.md').read_text(encoding='utf8')}
-        folder = case_root / 'batches' / (name + '-diagnosis-' + str(round_number))
-        prepare_packets(folder, 'gap-diagnosis', [payload], [
+        instructions=[
             'Diagnose the actual rejection using ONLY these allowed stage inputs. Do not ask for other G/E/T collections.',
             'Choose repair for actual format/citation/structure or model defects; recheck for a checker misjudgment supported by the original source; confirm for source conflicts, insufficient evidence or new components/calls/concerns/spec changes.',
             'Explain exact rejected items and targeted changes; preserve unrelated successful items. Unknown information cannot be invented. Quote supplied original evidence for semantic judgments.',
-        ], {'action': 'repair|recheck|confirm', 'reason': 'source-based diagnosis', 'evidence_quotes': [], 'targets': []})
-        result = self.execute(folder, diagnosis_validator)
-        return result['values'][0], result
+            'Prefer evidence_refs containing supplied DQ IDs; tools resolve their original literal quotes. Do not paraphrase quotes. Direct evidence_quotes must be exact original string fragments, not JSON-escaped representations.',
+        ]
+        contract={'action':'repair|recheck|confirm','reason':'source-based diagnosis','evidence_refs':[],'evidence_quotes':[],'targets':[]}
+        ledger_path=case_root/'diagnosis_format_budget.json'
+        ledger=read_json(ledger_path) if ledger_path.exists() else {}
+        key=fingerprint([payload,self.client.model('agent'),self.client.config.get('reasoning_effort'),self.client.config.get('thinking')])
+        record=ledger.setdefault(key,{'invalid_outputs':0,'feedback':None})
+        limit=self.client.config.get('diagnosis_max_format_attempts',2)
+        if type(limit) is not int or not 1<=limit<=2:raise ValueError('diagnosis_max_format_attempts must be 1 or 2')
+        if record.get('valid_folder'):
+            result=self.execute(Path(record['valid_folder']),diagnosis_validator)
+            return result['values'][0],result
+        while record['invalid_outputs']<limit:
+            attempt=record['invalid_outputs']
+            folder=case_root/'batches'/(name+'-diagnosis-'+str(round_number)+('-format-'+str(attempt) if attempt else ''))
+            data={**payload,**({'diagnosis_format_feedback':record['feedback']} if attempt else {})}
+            prepare_packets(folder,'gap-diagnosis',[data],instructions,contract)
+            try:result=self.execute(folder,diagnosis_validator)
+            except TaskRejected as exc:
+                record.update(invalid_outputs=attempt+1,feedback=exc.details)
+                write_json(ledger_path,ledger)
+            else:
+                record['valid_folder']=str(folder.resolve());write_json(ledger_path,ledger)
+                return result['values'][0],result
+        raise TaskBlocked('diagnosis_blocked',{'failure_category':'diagnosis_protocol','semantic_round_reserved':True,
+            'original_stage':name,'original_failure_preserved':True,'invalid_diagnoses':record['invalid_outputs'],
+            'reason':'bounded diagnosis-format attempts exhausted; original target was not regenerated'})
 
     def repaired(self, case_root, name, target, validator, diagnosis, failure, round_number):
         source = Path(target['folder'])
@@ -325,6 +349,8 @@ class Pipeline:
         from .review import load_ecnu_env_file
         self.args, self.root = copy.copy(args), Path(args.output_dir).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        from .performance import Profiler
+        self.profiler = Profiler(self.root) if getattr(args,'profile',False) else None
         previous_path = self.root / 'run_manifest.json'
         previous = read_json(previous_path) if previous_path.exists() else None
         if previous and previous.get('protocol') != PROTOCOL:
@@ -339,6 +365,7 @@ class Pipeline:
             for u in raw['use_cases']], 'system_composition': {'nodes': raw.get('system_composition', {}).get('nodes', [])}}
         self.selected = {u['use_case_id'] for u in assessment_base(self.base, getattr(args, 'use_case_id', None))['use_cases']}
         self.client = _client(args, self.root)
+        self.client.profiler = self.profiler
         self.gate = CallGate(self.client.config.get('max_concurrency', 1), adaptive=self.client.config.get('adaptive_concurrency', True),
             on_change=lambda state: write_json(self.root/'concurrency_status.json', state))
         previous_limit = self.root/'concurrency_status.json'
@@ -346,12 +373,15 @@ class Pipeline:
             old_limit = read_json(previous_limit)
             if old_limit['configured_max'] == self.gate.limit:
                 self.gate.effective_limit = min(self.gate.limit, old_limit['effective_max'])
+                import time
+                self.gate.retry_not_before=time.monotonic()+max(0.,min(300.,old_limit.get('not_before_unix',0)-time.time()))
         path = getattr(args, 'embedding_config', None) or getattr(args, 'config', None)
         config = config_overrides(read_json(path) if path else {}, args)
         if getattr(args, 'env_file', None):
             load_ecnu_env_file(args.env_file, extra_keys=referenced_env_keys(config))
         config['cache_dir'] = str(self.root / '.embedding_cache')
         self.embedding = SemanticClient(config)
+        self.embedding.profiler = self.profiler
         embedding_post = self.embedding.post
         self.embedding.post = lambda *a, **k: self.gate.call(embedding_post, *a, **k)
         embedding_vectors = self.embedding.embeddings
@@ -361,11 +391,19 @@ class Pipeline:
         self.embedding.embeddings = checked_vectors
         self.embedding_lock = __import__('threading').Lock()
         self.packets = Packets(self.root, self.args, self.client, self.gate)
-        self.scheduler = Scheduler(self.root, concurrency=self.gate.limit,
+        self.scheduler = Scheduler(self.root, concurrency=self.gate.limit, profiler=self.profiler,
             auto_repair=getattr(args, 'auto_repair', None) or self.client.config.get('auto_repair', 'bounded'),
             max_rounds=getattr(args, 'max_repair_rounds', None) if getattr(args, 'max_repair_rounds', None) is not None
                 else self.client.config.get('max_repair_rounds', 2))
         self.scheduler.resume_external_budget()
+        self.history = None
+        if getattr(args,'history_run',None):
+            from .concern_gap_history import load,copy_vectors
+            from .performance import span
+            with span(self.profiler,'history-import',stage='history-import') as timing:
+                self.history=load(args.history_run,self.index,self.selected,[u['use_case_id'] for u in self.base['use_cases']])
+                timing['copied_vectors']=copy_vectors(self.history,self.embedding)
+            write_json(self.root/'history_import.json',self.history['binding'])
         self.test_index = index_sources(getattr(args, 'test_spec_document', None) or [])
         for doc in self.test_index['documents']:
             doc['requirement_layer'] = 'TEST'
@@ -379,6 +417,8 @@ class Pipeline:
         elif reuse and (reuse / 'model_authorization.json').exists():
             self.approval = read_json(reuse / 'model_authorization.json')
         old_model = read_json(reuse / 'scene_model.json') if reuse and (reuse / 'scene_model.json').exists() else None
+        if self.history and not old_model:
+            old_model = self.history['model']
         self.bindings = approval_bindings(self.approval, old_model, self.base)
         self.ar_index = index_sources(getattr(args, 'ar_spec_document', None) or [])
         for doc in self.ar_index['documents']:
@@ -541,6 +581,41 @@ class Pipeline:
                 raise ValueError('cached check is rejected')
         context['validators'][name] = validator
         self.add(case, name, deps, execute, repair=repair, lane=lane, verify=verify)
+        def compatible(inputs,output):
+            # Tool version metadata may change while the actual semantic
+            # payload, instructions and contract stay identical. Revalidate
+            # the original execution with today's validator in that case.
+            from tempfile import TemporaryDirectory
+            original=root/'batches'/name
+            if not (original/'manifest.json').exists():raise ValueError('original packet proof missing')
+            with TemporaryDirectory(prefix='scene-compatible-packets-') as temporary:
+                expected=prepare(inputs,Path(temporary))
+                prior=read_json(original/'manifest.json')
+                if expected['stage']!=prior['stage'] or len(expected['batches'])!=len(prior['batches']):
+                    raise ValueError('semantic batch scope changed')
+                def semantic_packet(packet):
+                    packet=copy.deepcopy(packet)
+                    for field in ('batch_id','input_hash'):packet.pop(field,None)
+                    for field in ('execution_versions','test_parser_version'):packet['input'].pop(field,None)
+                    if name=='graphs':
+                        # Moving already-checked nodes into the shared registry
+                        # is a cache-layout change, not a different graph.
+                        _,ssd=self.graph(case,inputs)
+                        nodes={node['node_id']:node for node in ssd['nodes']}
+                        identities=set(packet['input'].get('component_versions',{}))
+                        if not identities:identities={node['node_id'] for node in packet['input']['nodes']}
+                        if not identities<=set(nodes):raise ValueError('shared graph identity changed')
+                        packet['input']['nodes']=[nodes[key] for key in sorted(identities)]
+                        packet['input'].pop('reused_components',None)
+                        packet['input'].pop('component_versions',None)
+                    return packet
+                for batch,previous in zip(expected['batches'],prior['batches']):
+                    latest=read_json(Path(temporary)/'packets'/(batch['batch_id']+'.json'))
+                    previous=read_json(original/'packets'/(previous['batch_id']+'.json'))
+                    if semantic_packet(latest)!=semantic_packet(previous):
+                        raise ValueError('semantic packet changed')
+            verify(output)
+        self.scheduler.tasks[self.key(case,name)].compatible=compatible
 
     @staticmethod
     def salt(folder, diagnosis, round_number):
@@ -593,6 +668,8 @@ class Pipeline:
             'thinking': self.client.config.get('thinking'), 'endpoint': fingerprint(getattr(self.client, 'base_url', 'native'))}
         for uc in self.base['use_cases']:
             case = uc['use_case_id']
+            if self.history and case not in self.selected:
+                continue
             root = self.root / 'cases' / case_name(case)
             root.mkdir(parents=True, exist_ok=True)
             base = {**self.base, 'use_cases': [uc]}
@@ -826,7 +903,17 @@ class Pipeline:
         raw_history = [u for case in sorted(self.contexts) for u in output(case, 'E-extract')['values']]
         model = merge_model([v for case in sorted(self.selected) for v in output(case, 'normal')['values']],
             assessment_base(self.base, sorted(self.selected)), self.index)
-        full_model = merge_model([v for case in sorted(self.contexts) for v in output(case, 'normal')['values']], self.base, self.index)
+        full_model = merge_model([v for case in sorted(self.contexts) for v in output(case, 'normal')['values']],
+            assessment_base(self.base,sorted(self.contexts)), self.index)
+        if self.history:
+            from .concern_gap_history import verify_binding
+            verify_binding(self.history['binding'])
+            history=sorted(history+self.history['history'],key=lambda u:u['scenario_id'])
+            raw_history+=self.history['source_existing']
+            nodes={n['node_id']:n for n in self.history['model']['nodes']}
+            nodes.update({n['node_id']:n for n in full_model['nodes']})
+            full_model={**full_model,'nodes':list(nodes.values()),'use_cases':full_model['use_cases']+
+                [u for u in self.history['model']['use_cases'] if u['use_case_id'] not in self.selected]}
         bundle = {'protocol': PROTOCOL, 'scope': self.manifest['scope'], 'source_index': self.index,
             'test_source_index': self.test_index, 'model': model, 'ssd': build_ssd(model), 'history': history,
             'source_existing': raw_history, 'ar_trace': [v for case in sorted(self.contexts) for v in
@@ -843,6 +930,11 @@ class Pipeline:
             bundle['source_units'][key] = [r for case in ids for r in output(case, 'normalize-' + key)['values']]
             bundle['dedup'][key] = [r for case in ids for r in output(case, 'dedup-' + key)['values']]
             bundle['reverse_checks'][key] = {'passed': True, 'reviews': [r for case in ids for r in output(case, 'reverse-' + key)['values']]}
+        if self.history:
+            bundle['history_import']=self.history['binding']
+            bundle['source_units']['E']+=self.history['source_units']
+            bundle['dedup']['E']+=self.history['dedup']
+            bundle['reverse_checks']['E']['reviews']+=self.history['reviews']
         bundle['base_source_units'] = bundle['source_units']
         bundle['generation_initial_reviews'] = bundle['reverse_checks']['G']['reviews']
         bundle['generation_confirmed_reviews'] = []
@@ -887,9 +979,13 @@ def run_unlocked(args):
         pipeline.manifest.update(pending_stage='model_configuration', configuration_required=reason)
         write_json(pipeline.root/'run_manifest.json', pipeline.manifest)
         return {'complete':False, 'pending_stage':'model_configuration','configuration_required':reason}, 2
-    pipeline.build()
-    summary = pipeline.scheduler.run(pipeline.progress)
-    pipeline.progress(pipeline.scheduler)
+    try:
+        pipeline.build()
+        summary = pipeline.scheduler.run(pipeline.progress)
+        pipeline.progress(pipeline.scheduler)
+    finally:
+        if pipeline.profiler:
+            pipeline.profiler.finish('complete' if pipeline.manifest.get('complete') else 'pending')
     if not summary['complete']:
         return summary, 2 if args.agent_mode == 'external' else 0
     record = pipeline.scheduler.state['tasks']['@project:historical-ranking']

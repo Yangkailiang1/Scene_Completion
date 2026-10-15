@@ -10,6 +10,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+import http.client
 from pathlib import Path
 from typing import Any, Callable
 
@@ -70,12 +71,24 @@ def _content_from_response(value: dict[str, Any]) -> str:
     try:
         content = value["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
-        raise ValidationFailure(["ECNU-Max response does not match OpenAI chat.completions format"]) from exc
+        raise ValidationFailure(["semantic API response does not match OpenAI chat.completions format"]) from exc
     if isinstance(content, list):
         content = "".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
     text = str(content).strip()
     text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE)
     return text
+
+
+def _retry_after_seconds(headers):
+    """Missing Retry-After uses the caller's cooldown, never a synthetic one second."""
+    raw=headers.get('Retry-After') if headers else None
+    if raw is None:return None
+    try:value=float(raw)
+    except (ValueError,TypeError):
+        from email.utils import parsedate_to_datetime
+        try:value=parsedate_to_datetime(raw).timestamp()-time.time()
+        except (ValueError,TypeError,OverflowError):return None
+    return max(1.,min(300.,value))
 
 
 def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int) -> dict[str, Any]:
@@ -89,14 +102,25 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
     last_error = "request failed"
     diagnostic = None
     retry_delay = None
+    from .performance import _active_profiler
+    observer = _active_profiler.get()
     for attempt in range(retries + 1):
+        attempt_start=time.perf_counter()
+        attempt_status='failed'
+        attempt_code=None
+        if observer:observer.emit('transport_attempt_start','running',attempt=attempt+1)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                value = json.loads(response.read().decode("utf-8"))
+                if body.get('stream') and 'application/json' not in response.headers.get('Content-Type',''):
+                    from .streaming import read_chat_stream
+                    value=read_chat_stream(response,attempt_start,timeout,observer)
+                else:value = json.loads(response.read().decode("utf-8"))
+                attempt_status='complete';attempt_code=getattr(response,'status',None)
                 if isinstance(value, dict):
-                    value["_scene_completion_metrics"] = {"transport_attempts": attempt + 1}
+                    value.setdefault('_scene_completion_metrics',{}).update(transport_attempts=attempt+1)
                 return value
         except urllib.error.HTTPError as exc:
+            attempt_code=exc.code
             last_error = f"HTTP {exc.code}"
             # Inspect only for a classified limit; never persist or display an
             # untrusted server body, which may echo credentials or input text.
@@ -107,20 +131,28 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
             missing_model = exc.code == 400 and any(term in error_body for term in
                 ('model_not_found', 'model_not_supported', 'model not found', 'unsupported model', 'model is not available', '模型不存在', '模型不可用'))
             diagnostic={'http_status':exc.code,'failure_category':'quota_exhausted' if exhausted else
-                ('model_unavailable' if missing_model else {401:'authentication_failed',403:'access_denied',404:'model_unavailable',429:'rate_limited'}.get(exc.code,'transport_error'))}
-            try:retry_delay=max(1,min(60,float(exc.headers.get('Retry-After','0'))))
-            except (ValueError,TypeError,AttributeError):retry_delay=None
+                ('model_unavailable' if missing_model else {401:'authentication_failed',403:'access_denied',404:'model_unavailable',408:'transport_timeout',504:'transport_timeout',429:'rate_limited'}.get(exc.code,'transport_error'))}
+            retry_delay=_retry_after_seconds(exc.headers)
             if retry_delay is not None:diagnostic['retry_after_seconds']=retry_delay
-            if exhausted:break
+            if exhausted or exc.code in (408,504,429):break
             if exc.code < 500 and exc.code != 429:
                 break
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, json.JSONDecodeError) as exc:
             last_error = type(exc).__name__
+            diagnostic={'failure_category':'transport_timeout' if isinstance(exc,TimeoutError) or isinstance(getattr(exc,'reason',None),TimeoutError) else 'connection_failed'}
+            # A disconnected/timeout POST may already have incurred inference.
+            # Preserve pending work instead of blindly posting the same prompt.
+            if not isinstance(exc,json.JSONDecodeError):break
+        finally:
+            if observer:observer.emit('transport_attempt',attempt_status,attempt=attempt+1,http_status=attempt_code,
+                duration_seconds=time.perf_counter()-attempt_start)
         if attempt < retries:
-            time.sleep(retry_delay or min(2 ** attempt, 8))
+            delay=retry_delay or min(2 ** attempt, 8)
+            if observer:observer.emit('transport_backoff',duration_seconds=delay,attempt=attempt+1)
+            time.sleep(delay)
     # Never include URL credentials, request headers, or server response body.
-    error=RuntimeError(f"ECNU-Max chat completion failed ({last_error})")
-    if diagnostic is not None:error.response_diagnostic=diagnostic
+    error=RuntimeError(f"semantic API request failed ({last_error})")
+    error.response_diagnostic={**(diagnostic or {'failure_category':'transport_error'}),'transport_attempts':attempt+1}
     raise error
 
 

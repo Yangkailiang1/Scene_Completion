@@ -1,5 +1,9 @@
 # 运行检查、续跑与修复接口
 
+## 性能测量与历史库
+
+v2默认case-dag支持`--profile`，保存独立的任务、排队、修复、校验及API计时和接口实际用量；各次续跑分会话记录。任务与请求存在嵌套，不能相加作为总耗时。`--history-run <已完成运行>`核验并复用其他用例的E历史库及兼容向量，当前用例的新E替换旧记录；无法核验时不自动重跑全项目。详细口径见[阶段性能测量](../.cac/skills/scene-concern-gap/references/performance.md)。
+
 ## 模型可用性与并发
 
 先用`check-models --config <配置> --output-dir <检查目录>`探测模型，再用`configure-models --checked-report <available_models.json> --config <原配置> --agent-model <通过ID> --max-concurrency 1 --output-config <运行配置>`保存选择。语义候选可重复指定`--candidate-model`；embedding与独立审查分别用`--include-embedding`、`--include-review`检查。端点目录只作候选，不作成功证明。具体入口及独立embedding配置见[模型配置规则](../.cac/skills/scene-concern-gap/references/model_access.md)。

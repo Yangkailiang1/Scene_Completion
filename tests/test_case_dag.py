@@ -9,6 +9,25 @@ from scene_completion.case_dag import Scheduler, Task, TaskRejected, TaskBlocked
 from scene_completion.semantic_backend import read_json
 
 
+def test_compatible_version_reuses_verified_result_without_resetting_rounds(tmp_path):
+    calls=[]
+    first=Scheduler(tmp_path)
+    first.add(Task('a','uc','normal',version=1,execute=lambda d,r:calls.append(1) or {'value':1}))
+    assert first.run()['complete']
+    first.state['tasks']['a']['rounds']=1;first.save()
+    second=Scheduler(tmp_path)
+    def compatible(deps,output):
+        assert deps=={} and output=={'value':1}
+    second.add(Task('a','uc','normal',version=2,execute=lambda d,r:pytest.fail('successful input must be reused'),compatible=compatible))
+    assert second.run()['complete'] and calls==[1]
+    assert second.state['tasks']['a']['rounds']==1
+    assert any(e['event']=='compatible_version_reuse' for e in second.state['events'])
+    third=Scheduler(tmp_path)
+    def reject(deps,output):raise ValueError('semantic inputs differ')
+    third.add(Task('a','uc','normal',version=3,execute=lambda d,r:calls.append(3) or {'value':3},compatible=reject))
+    assert third.run()['complete'] and calls==[1,3]
+
+
 def test_seventeen_cases_four_progress_while_other_cases_need_repair(tmp_path):
     scheduler = Scheduler(tmp_path, concurrency=3)
     reached = set()

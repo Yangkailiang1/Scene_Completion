@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from dataclasses import dataclass, field
 from pathlib import Path
 import threading
+import time
+from contextvars import copy_context
 from contextlib import contextmanager
 
 from .semantic_backend import read_json, write_json
@@ -68,6 +70,7 @@ class Task:
     execute: object = None
     repair: object = None
     verify: object = None
+    compatible: object = None
 
 
 class CallGate:
@@ -79,12 +82,14 @@ class CallGate:
         self.condition = threading.Condition()
         self.adaptive, self.on_change = adaptive, on_change
         self.quota = threading.Event()
+        self.retry_not_before=0.
 
     @contextmanager
     def slot(self):
         with self.condition:
-            while self.active >= self.effective_limit:
-                self.condition.wait()
+            while self.active >= self.effective_limit or time.monotonic()<self.retry_not_before:
+                cooldown=max(0.,self.retry_not_before-time.monotonic())
+                self.condition.wait(timeout=cooldown if cooldown else None)
             self.active += 1
         try:
             yield
@@ -94,13 +99,16 @@ class CallGate:
                 self.condition.notify_all()
 
     def observe(self, diagnostic):
-        if not self.adaptive or not isinstance(diagnostic, dict) or diagnostic.get('failure_category') != 'rate_limited':
+        if not isinstance(diagnostic, dict) or diagnostic.get('failure_category') != 'rate_limited':
             return
         with self.condition:
-            self.effective_limit = max(1, self.effective_limit // 2)
+            if self.adaptive:self.effective_limit = max(1, self.effective_limit // 2)
+            delay=max(1.,min(300.,float(diagnostic.get('retry_after_seconds') or 30)))
+            self.retry_not_before=max(self.retry_not_before,time.monotonic()+delay)
             self.condition.notify_all()
         if self.on_change:
-            self.on_change({'configured_max': self.limit, 'effective_max': self.effective_limit, 'reason': 'rate_limited'})
+            self.on_change({'configured_max': self.limit, 'effective_max': self.effective_limit, 'reason': 'rate_limited',
+                'not_before_unix':time.time()+max(0.,self.retry_not_before-time.monotonic())})
 
     def call(self, function, *args, **kwargs):
         with self.slot():
@@ -144,7 +152,7 @@ def failure_signature(details):
 
 
 class Scheduler:
-    def __init__(self, root, *, concurrency=1, auto_repair='bounded', max_rounds=2):
+    def __init__(self, root, *, concurrency=1, auto_repair='bounded', max_rounds=2, profiler=None):
         if auto_repair not in ('bounded', 'off') or not 0 <= max_rounds <= 2:
             raise ValueError('automatic repair is bounded to at most two rounds')
         self.root = Path(root)
@@ -154,6 +162,8 @@ class Scheduler:
         self.limit = concurrency_limit(concurrency)
         self.auto_repair, self.max_rounds = auto_repair, max_rounds
         self.cursor = 0
+        self.profiler = profiler
+        self.ready_times = {}
 
     def add(self, task):
         if task.key in self.tasks:
@@ -163,13 +173,15 @@ class Scheduler:
             self.state['tasks'][task.key] = self.state['inactive_tasks'].pop(task.key)
         record = self.state['tasks'].setdefault(task.key, {'case': task.case, 'stage': task.stage,
             'status': 'pending', 'rounds': 0, 'attempts': []})
+        if record.get('version')!=task.version and 'previous_version' not in record:
+            record['previous_version']=record.get('version')
         record.update(case=task.case, stage=task.stage, dependencies=list(task.deps), version=task.version)
         # A crash cannot replenish a reserved semantic repair round.
         if record['status'] == 'repairing':
             record['status'] = 'rejected'
         elif record['status'] == 'running':
             record['status'] = 'pending'
-        elif record['status'] == 'awaiting_configuration':
+        elif record['status'] in ('awaiting_configuration','diagnosis_blocked'):
             record['status'] = 'pending'
 
     def save(self):
@@ -204,8 +216,26 @@ class Scheduler:
                 continue
             current = self.input_hash(task)
             if record.get('input_hash') != current:
+                previous=fingerprint({'version':record.get('previous_version'),'dependencies':{
+                    key:self.state['tasks'][key].get('output_hash') for key in task.deps}})
+                if record['status']=='passed' and task.compatible and previous==record.get('input_hash'):
+                    try:
+                        output=read_json(self.root/record['output_file'])
+                        if fingerprint(output)!=record['output_hash']:raise ValueError('task output changed')
+                        deps={key:read_json(self.root/self.state['tasks'][key]['output_file']) for key in task.deps}
+                        task.compatible(deps,output)
+                    except (ValueError,KeyError,OSError,TypeError):pass
+                    else:
+                        self.state['events'].append({'task':task.key,'event':'compatible_version_reuse',
+                            'old_input_hash':record['input_hash'],'input_hash':current,'output_hash':record['output_hash']})
+                        record['input_hash']=current
+                        record.pop('previous_version',None)
+                        self.save()
+                        if self.profiler:self.profiler.emit('cache',case=task.case,stage=task.stage,compatible_version=True)
+                        continue
                 self.invalidate(task.key)
                 record['input_hash'] = current
+                record.pop('previous_version',None)
                 record.pop('failure', None)
             if record['status'] == 'passed':
                 try:
@@ -213,7 +243,10 @@ class Scheduler:
                     if fingerprint(output) != record['output_hash']:
                         raise ValueError('task output changed')
                     if task.verify:
-                        task.verify(output)
+                        from .performance import span
+                        with span(self.profiler,'validation',case=task.case,stage=task.stage,reuse=True):
+                            task.verify(output)
+                    if self.profiler:self.profiler.emit('cache',case=task.case,stage=task.stage)
                 except TaskBlocked as exc:
                     self.invalidate(task.key)
                     record.update(status=exc.status, reason=exc.details)
@@ -224,6 +257,8 @@ class Scheduler:
         queues = {k: deque() for k in ('progress', 'repair', 'discovery')}
         for task in self.tasks.values():
             r = self.state['tasks'][task.key]
+            if self._ready(task) and task.key not in self.ready_times:
+                self.ready_times[task.key]=time.perf_counter()
             if task.key in running or task.key in seen or not self._ready(task):
                 continue
             if getattr(self, 'allowed', None) is not None and task.key not in self.allowed:
@@ -270,7 +305,14 @@ class Scheduler:
                     self.save()
                     deps = {key: read_json(self.root / self.state['tasks'][key]['output_file']) for key in task.deps}
                     function = task.repair if repairing else task.execute
-                    future = pool.submit(function, deps, dict(record))
+                    def timed_execute(function=function, deps=deps, record=dict(record), task=task, repairing=repairing):
+                        from .performance import span
+                        with span(self.profiler, 'task', case=task.case,stage=task.stage,
+                                task_key=task.key,dependencies=list(task.deps),
+                                phase='repair' if repairing else 'execute', round=record['rounds'],
+                                queue_seconds=time.perf_counter()-self.ready_times.pop(task.key,time.perf_counter())):
+                            return function(deps,record)
+                    future = pool.submit(copy_context().run, timed_execute)
                     running[future] = (task, repairing)
                 if not running:
                     break
@@ -292,14 +334,16 @@ class Scheduler:
                             old['input_hash'] = self.input_hash(self.tasks[key])
                         record['input_hash'] = self.input_hash(task)
                         if task.verify:
-                            task.verify(output)
+                            from .performance import span
+                            with span(self.profiler,'validation',case=task.case,stage=task.stage):
+                                task.verify(output)
                         filename = 'task_outputs/' + fingerprint(task.key) + '.json'
                         write_json(self.root / filename, output)
                         record.update(status='passed', output_file=filename, output_hash=fingerprint(output))
                         record.pop('failure', None)
                     except TaskBlocked as exc:
                         record.update(status=exc.status, reason=exc.details)
-                        if repairing and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration'):
+                        if repairing and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
                             record['reuse_reserved_round'] = True
                         seen.add(task.key)
                     except Exception as exc:

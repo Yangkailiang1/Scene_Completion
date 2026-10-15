@@ -52,6 +52,10 @@ python -m pip install pytest
 
 Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.example.json)，使用你指定的`qwen38-27b-vl`。该示例沿用ECNU地址与密钥环境变量，也可修改为其他提供方。批量命令可直接增加`--agent-model qwen38-27b-vl --embedding-model <向量模型ID>`；pipeline、worker和修复命令均支持模型覆盖。`--agent-runtime openai-compatible`是通用API入口，原`ecnu`名称保留兼容；Qwen使用API入口，Luna子进程只能调用本地CLI实际支持的模型。
 
+华师`ecnu-plus`配置见[ecnu_plus.config.example.json](ecnu_plus.config.example.json)。提供方的思考档位可能随模型不同，使用配置中的实际`reasoning_effort`及可选`supported_reasoning_efforts`，不要直接照搬另一模型。华师plus的`medium`对应界面“高”，支持`low/medium/xhigh`，详见[官方思考模式说明](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。示例按客户容量设置`max_context_tokens=200000`；这是本地限制，不自动套用平台更大的标称上限。发送前保守估算输入与输出预留，超限要求拆包，不截断证据。
+
+长响应可配置`stream=true`使用兼容API的SSE传输，记录首事件延迟并在内存组装最终JSON；只有收到结束标记与完成原因、通过原结构及来源校验后才接受结果。断流或不完整JSON保持待处理，不保存思维链或把部分输出改为通过；未返回用量时仍标为未知。配置示例启用流式传输，实际支持情况通过同设置的模型预检确认。
+
 embedding也可使用 [embedding.config.example.json](embedding.config.example.json)，独立设置`SCENE_EMBEDDING_BASE_URL`、`SCENE_EMBEDDING_API_KEY`和`SCENE_EMBEDDING_MODEL`，通过`--embedding-config`加载；`--embedding-model`优先于该文件。向量缓存按端点、模型和文本隔离；改换模型或端点会计算对应向量。旧向量缓存不迁移成新模型结果。
 
 ### 检查可用模型与设置并发
@@ -97,6 +101,26 @@ v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、
 
 使用相同输入、配置和输出目录再次执行原命令，即可复用版本有效的成功批次。模型、Skill、规则或相关输入变化使对应结果过期，不能重标旧模型身份。
 
+### 测量阶段耗时
+
+默认 v2 用例编排支持`--profile`，在运行目录单独保存`performance_events.jsonl`、`performance.json`及`performance.md`。记录任务排队、执行、修复、校验、API耗时、请求/响应字节、实际返回的token用量和传输重试次数；未知用量不按零处理。每次续跑形成独立计时会话，缓存复用单列。任务、请求和校验存在嵌套，不能直接相加作为总墙钟时间；同时提供任务重叠时间和基于实际任务耗时的依赖路径。
+
+测量一个完整用例时，使用新的输出目录并选择`--use-case-id <ID>`。可加`--history-run <已完成v2运行>`仅复用其他用例的历史E及同端点、同模型、同文本向量；当前用例的新E替换旧E。工具先核验原文版本、独立抽取、逆向检查和执行身份，历史不兼容则明确停止，不自动重跑全项目。历史库不进入建模或测试GT；所选用例的旧正常模型、生成异常及测试结果不会由此复用。
+
+计时数据不写入语义包或执行身份；是否启用计时不改变缓存键。只有新目录且未指定语义结果复用才是完整新跑测量；缓存续跑耗时应单独报告。实验性能数据保留本地，具体操作见[阶段性能测量](.cac/skills/scene-concern-gap/references/performance.md)。
+
+429触发共享冷却并降低实际并发；即使并发已为1，也遵守Retry-After，不让其他就绪任务立即继续冲击接口。504、超时和断连保留为传输待处理，不盲目重复提交可能已经开始推理的同一请求。诊断协议有独立的最多两次格式尝试；引用可选择工具给出的逐字引句ID，失败进入`diagnosis_blocked`，保留原失败对象和预留轮次，不通过反复重生成上游来弥补诊断格式错误。
+
+### Excel或Markdown测试spec
+
+`--test-spec-document`可读取Markdown、`.xlsx`或`.xlsm`，多个文件可重复指定。Excel与Markdown共用用例编号、用例名称、前提条件、测试步骤、预期结果、对应需求六类字段；可附场景类型及原始来源。示例见[test_spec.example.xlsx](examples/test_spec.example.xlsx)及[同内容Markdown](examples/test_spec.example.md)。兼容原Markdown的前置条件、关联需求及九列表格。
+
+在全流程命令中将测试参数替换为`--test-spec-document examples/test_spec.example.xlsx --use-case-id UCG-004-UC001`即可使用该Excel示例。不要同时提交同一份测试的不同版本；跨文件同编号且内容完全一致时合并来源，内容冲突则报出编号，避免重复计数或覆盖原文。
+
+没有类型列时不按关键词猜测正常或异常，保留未标注状态交由独立测试抽取；普通正常操作不会展开假设异常。Excel保留工作表、行/单元格和展开文本行号，多行步骤保留。公式字段需先转明确值，旧`.xls`需另存为`.xlsx`；没有测试表的文件或重复编号会明确报错。测试原文仅进入测试GT通道。
+
+可先离线验证客户文件：`extract-test-scenarios --input <测试.xlsx或.md> --output <解析.json>`，再执行`validate-test-scenarios --input <解析.json>`。这两步只检查结构和来源，不调用模型，也不产生测试异常覆盖结论。
+
 - `--checker-input <已核实运行>/existing_scenarios.json`：在来源和抽取规则一致时复用独立检查器基线。
 - `--use-case-id <ID>`：显式选择用例，可重复指定；默认不限制。
 - `--reuse-run <run-dir>`：只复用输入包与实际执行证明一致的成功抽取；旧匹配和评分不作为新版结果。
@@ -104,6 +128,10 @@ v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、
 - `--source-quality-gate`：旧v1协议的额外正常模型来源审查门禁，默认`strict`；`structural`限显式代表范围。v2保留此兼容配置记录，图锚点检查及质量诊断不由该选项切换。
 
 逆向检查发现生成条目本身的原子原因或操作位置错误时，可执行 `repair-gap-generation --output-dir <run-dir> --config <config.json>`，用 `--unit-id <ID>`指定被实际拒绝的单元。修复只读取该生成条目、原关注点挂载及正常SSD证据，保留拒绝执行和替换执行；不使用已有异常或测试GT，不重生成其他成功条目。修复完成后再次执行原流程命令。
+
+来源审查引文只允许校正Markdown行首缩进，保存原始引文及精确原句，正文、标点、顺序和内部空白仍须一致。已有v2运行因这一格式问题停止时，可执行`revalidate-source-audit-format --output-dir <run-dir> --use-case-id <ID>`离线复检：原执行身份和修复计数保留，原校验器通过后才继续，不调用模型或改变语义拒绝结论。其他错误继续使用正常诊断修复入口。
+
+图检查可将原输入中唯一的局部交互编号解析为完整ID，保留原编号；歧义、重复、未知编号或缺项仍会拒绝。旧运行可用`revalidate-graph-format --output-dir <run-dir> --use-case-id <ID>`离线复检。工具版本变化但语义输入、指令及输出契约未变时，成功任务可在当前校验器复核后沿用原执行；共享组件从输入移入检查缓存不构成新交互。需要显式复检过期成功任务时，使用`revalidate-cached-task --output-dir <run-dir> --use-case-id <ID> --stage <阶段>`。这些入口均不调用模型、不重置修复预算；真实输入或语义判断改变则不能复用。
 
 已有异常或测试的逆向定位/拆分被检查器拒绝时，使用 `repair-gap-reverse --output-dir <run-dir> --collection E --unit-id <ID> --config <config.json>`；测试通道改为 `--collection T`。只修复同通道的实际拒绝单元，原始异常记录保持不变，随后重新检查。
 

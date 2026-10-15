@@ -10,6 +10,7 @@ tmp/
 output/
 diagram-output/
 *.xlsx
+!examples/test_spec.example.xlsx
 *.puml
 *.svg
 *.png

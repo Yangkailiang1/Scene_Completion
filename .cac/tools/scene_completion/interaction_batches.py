@@ -657,6 +657,17 @@ def test_packets(base, test_index, directory):
             end = line if doc["text"].splitlines()[line-1].lstrip().startswith("|") else chapter["line_end"]
             ref = validate_refs([{"document": doc["document"], "line_start": line, "line_end": end}], test_index)[0]
             records.append({**raw, "source_refs": [ref]})
+    unique={}
+    for record in records:
+        key=record['test_scenario_id']
+        if key in unique:
+            fields=('name','scenario_type','preconditions','trigger','requirements','objective','expected_result','test_steps')
+            normalize=lambda value:str(value or '').replace('<br>','\n').replace('\r\n','\n').strip()
+            if any(normalize(record.get(field))!=normalize(unique[key].get(field)) for field in fields):
+                raise ValueError('conflicting test definitions across documents for ID: '+key)
+            unique[key]['source_refs'].extend(record['source_refs'])
+        else:unique[key]=record
+    records=list(unique.values())
     payloads = [{"protocol": PROTOCOL, "records": records[i:i+8], "valid_use_case_ids": sorted(valid_ucs),
         'concern_definitions': baseline(), 'granularity': 'interaction_concern_condition',
         'test_condition_skill': role_skill('test-scenario-extract'),
@@ -664,6 +675,7 @@ def test_packets(base, test_index, directory):
         for i in range(0, len(records), 8)]
     return prepare_packets(directory, "interaction-test-conditions", payloads, [
         "Independently extract abnormal conditions from acceptance test records. No generated or checker scenarios are supplied. Tests have no RR/SR partition; preserve actual operation/interface and business requirement identifiers as evidence.",
+        "Records with scenario_type=unspecified have no declared type. Determine whether steps and expected_result explicitly describe an abnormal trigger; do not expand ordinary normal operations into hypothetical failures. test_steps are verbatim source actions, not preclassified abnormal conditions.",
         "Return one item for every test_scenario_id. Normal entries return conditions=[]; ordinary optional success paths also []. Optional entries explicitly describing repeated requests, failures, malformed data or other abnormal triggers may yield conditions, regardless of their original optional label.",
         "Do not infer hypothetical exceptions from a normal operation. Identify concrete abnormal object, operation, mechanism and necessary trigger conditions. Responses/recovery do not determine overlap. Split independent failure mechanisms into atomic conditions.",
         "Align each condition to ONE concrete interaction location and ONE concern_key from concern_definitions. If an abnormal test can arise from multiple causal concerns, split into separate interaction/concern/condition units. Do not clone concern labels on one broad OR. Ordinary normal tests remain empty.",

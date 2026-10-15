@@ -117,6 +117,20 @@ def test_full_dag_packet_flow_final_rebuild_and_zero_call_resume(tmp_path, monke
     assert pipeline.scheduler.run(pipeline.progress)['complete']
     resumed, code = pipeline.aggregate()
     assert resumed['result_hash'] == result['result_hash'] and len(calls) == count
+    # History import is a distinct E-only channel. The selected case still
+    # receives fresh normal/G/E/T packets in its own output directory.
+    from scene_completion.concern_gap_history import load,verify_binding
+    history=load(args.output_dir,pipeline.index,{'UC-1'},['UC-1'])
+    assert history['history']==[] and history['source_units']==[]
+    verify_binding(history['binding'])
+    old_root=args.output_dir
+    args.history_run=old_root;args.output_dir=str(tmp_path/'new-run')
+    pipeline=dag.Pipeline(args);pipeline.build()
+    assert pipeline.scheduler.run(pipeline.progress)['complete']
+    new_result,code=pipeline.aggregate()
+    assert new_result['complete'] and len(calls)>count
+    assert replay(args.output_dir)['complete']
+    assert 'history_import' in read_json(Path(args.output_dir)/'result_bundle.json')
 
 
 def test_history_prefetch_is_independent_cached_and_does_not_rank(tmp_path, monkeypatch):

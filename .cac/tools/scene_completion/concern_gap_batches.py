@@ -20,7 +20,7 @@ def versions():
     root=Path(__file__).parent
     paths=sorted(root.glob('concern_gap*.py'))+sorted(root.glob('interaction_*.py'))
     paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py')]
-    paths += [root/'case_dag.py', root/'model_access.py']
+    paths += [root/'case_dag.py', root/'model_access.py',root/'diagnosis.py']
     paths += [root.parent/'scene_completion.py']
     values={p.name:fingerprint(p.read_text(encoding='utf8')) for p in paths}
     for name in ('scene-concern-gap','scene-model-check','scene-feature-infer','scene-reverse','scene-reverse-check','scene-history-recommend'):
@@ -233,7 +233,16 @@ def graph_validator(index):
     def validate(packet,result):
         expected={e['exchange_id']:'ssd' for e in packet['input']['exchanges']}
         expected.update({n['node_id']:'composition' for n in packet['input']['nodes']})
-        rows=result.get('checks',[])
+        rows=copy.deepcopy(result.get('checks',[]))
+        aliases={}
+        for exchange in packet['input']['exchanges']:
+            if exchange.get('local_id'):
+                aliases.setdefault(exchange['local_id'],[]).append(exchange['exchange_id'])
+        for row in rows:
+            if row.get('kind')=='ssd' and row.get('id') not in expected and len(aliases.get(row.get('id'),[]))==1:
+                row['original_id']=row['id']
+                row['id']=aliases[row['id']][0]
+                row['id_normalization']='unique_supplied_local_exchange_id'
         if len(rows)!=len(expected) or {r.get('id') for r in rows}!=set(expected):
             raise ValueError('graph check must inspect every node and exchange')
         for r in rows:

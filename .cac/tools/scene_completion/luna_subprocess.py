@@ -274,7 +274,14 @@ class LunaSubprocessClient:
         access = registry(self)
         access.guard('agent', self.model('agent'))
         try:
-            return self._agent(packet)
+            from .performance import span,size,_context
+            stage='model-availability' if packet['stage']=='model-availability' else _context.get().get('stage',packet['stage'])
+            with span(getattr(self,'profiler',None),'request',stage=stage,packet_stage=packet['stage'],
+                    batch_id=packet.get('batch_id'),model=self.model('agent'),runtime='native-subprocess',
+                    request_kind='agent',request_bytes=size(packet)) as timing:
+                result=self._agent(packet)
+                timing.update(response_bytes=size(result),usage=None,transport_attempts=None)
+                return result
         except Exception as exc:
             category = access_category(exc)
             if category:
