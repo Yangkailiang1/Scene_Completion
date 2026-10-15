@@ -48,3 +48,17 @@ def test_changed_trial_artifact_is_rejected(tmp_path, monkeypatch):
     write_json(tmp_path / 'output-0.json', {'executions': []})
     with pytest.raises(ValueError, match='changed'):
         inspect_trial(tmp_path, 'candidate')
+
+
+def test_returned_provider_mismatch_prevents_independent_qualification(tmp_path, monkeypatch):
+    fixture(tmp_path, monkeypatch, ['candidate'])
+    write_json(tmp_path/'raw-0.json', {'model':'candidate',
+        'execution_model_evidence':{'provider_model':'different-route'}})
+    result=inspect_trial(tmp_path,'candidate')
+    assert not result['independently_qualified']
+    assert result['returned_provider_models']=={'different-route':1}
+    assert result['provider_model_mismatches']==['different-route']
+    config=tmp_path/'config.json'
+    write_json(config, {'accepted_provider_models':['candidate','different-route']})
+    write_json(tmp_path/'pipeline_arguments.json',{'config':str(config)})
+    assert inspect_trial(tmp_path,'candidate')['independently_qualified']

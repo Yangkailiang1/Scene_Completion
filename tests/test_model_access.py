@@ -32,6 +32,7 @@ def test_probes_are_cached_serialized_and_keep_embedding_capability_separate(tmp
     with ThreadPoolExecutor(max_workers=3) as pool:
         results = list(pool.map(lambda _: probe(c), range(3)))
     assert len(calls) == 1 and all(r['status']=='available' for r in results)
+    assert results[0]['returned_model'] == 'actual-provider-route'
     assert probe(c,'embedding')['kind']=='embedding' and len(calls)==2
     assert probe(c,'embedding')['cached'] and len(calls)==2
     assert 'local-private-key' not in json.dumps(read_json(tmp_path/'model_access.json'))

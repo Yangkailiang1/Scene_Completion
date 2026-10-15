@@ -12,8 +12,14 @@ def inspect_trial(root, candidate, *, verify_delivery=False):
     root = Path(root)
     manifest = read_json(root / 'run_manifest.json')
     state = read_json(root / 'case_tasks.json')
+    args_path = root / 'pipeline_arguments.json'
+    args = read_json(args_path) if args_path.exists() else {}
+    config_path = Path(args['config']) if args.get('config') else None
+    config = read_json(config_path) if config_path and config_path.is_file() else {}
+    accepted_provider_models = config.get('accepted_provider_models', [candidate])
     selected = set(manifest.get('scope', {}).get('use_case_ids', []))
     models, stages, failures = Counter(), [], []
+    returned_models, provider_mismatches, missing_provider_metadata = Counter(), set(), 0
     for key, task in state['tasks'].items():
         if task.get('case') not in selected:
             continue
@@ -33,6 +39,13 @@ def inspect_trial(root, candidate, *, verify_delivery=False):
                 raise ValueError('trial execution lacks actual model identity')
             actual.append(model)
             models[model] += 1
+            returned = raw.get('execution_model_evidence', {}).get('provider_model')
+            if returned:
+                returned_models[returned] += 1
+                if model == candidate and returned not in accepted_provider_models:
+                    provider_mismatches.add(returned)
+            else:
+                missing_provider_metadata += 1
         if actual:
             stages.append({'task': key, 'models': sorted(set(actual)),
                 'batch_repair_rounds': task.get('rounds', 0),
@@ -41,12 +54,10 @@ def inspect_trial(root, candidate, *, verify_delivery=False):
     delivery = inspect_run(root, verify=verify_delivery)
     scope_complete = (manifest.get('scope', {}).get('granularity') == 'complete_use_cases'
         and bool(selected))
-    args_path = root / 'pipeline_arguments.json'
-    args = read_json(args_path) if args_path.exists() else {}
     fresh_scope = not args.get('reuse_run') and not args.get('exchange_local_id')
     alternate = sorted(model for model in models if model != candidate)
     complete = bool(delivery.get('ready_to_deliver')) and scope_complete and not failures
-    independent = complete and bool(models) and not alternate and fresh_scope
+    independent = complete and bool(models) and not alternate and fresh_scope and not provider_mismatches
     repaired = any(row['batch_repair_rounds'] or row['supervisor_rounds'] for row in stages)
     if independent:
         classification = 'candidate_self_repaired' if repaired else 'candidate_first_pass'
@@ -58,7 +69,11 @@ def inspect_trial(root, candidate, *, verify_delivery=False):
         'scope': manifest.get('scope'), 'complete': complete,
         'independently_qualified': independent, 'classification': classification,
         'actual_semantic_models': dict(sorted(models.items())), 'alternate_models': alternate,
+        'returned_provider_models': dict(sorted(returned_models.items())),
+        'provider_model_mismatches': sorted(provider_mismatches),
+        'executions_without_provider_model_metadata': missing_provider_metadata,
         'fresh_complete_scope': fresh_scope and scope_complete, 'stages': stages,
         'pending_tasks': failures, 'delivery': delivery,
         'note': 'Fixed independent review and historical-library imports are external evidence, '
-            'not candidate semantic completion. Stage screening is never whole-workflow qualification.'}
+            'not candidate semantic completion. Stage screening is never whole-workflow qualification. '
+            'Absent provider metadata proves the requested endpoint identity only, not internal routing.'}

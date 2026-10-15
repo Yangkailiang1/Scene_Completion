@@ -25,7 +25,8 @@ def _client_identity(client):
     return fingerprint({'model': client.model('agent'),
         'endpoint_hash': fingerprint(getattr(client, 'base_url', 'native')),
         'thinking': bool(config.get('thinking')), 'reasoning_effort': request_effort(config),
-        'thinking_budget': config.get('thinking_budget')})
+        'thinking_budget': config.get('thinking_budget'),
+        'accepted_provider_models': config.get('accepted_provider_models')})
 
 
 def _supplement_instruction(attempt):
@@ -90,6 +91,12 @@ def _result_matches_client(result, client, result_path):
             or evidence.get('reasoning_effort') != request_effort(client.config)
             or evidence.get('thinking_budget') != expected_budget):
         raise ValueError('saved execution endpoint, model, or thinking identity differs from this candidate')
+    returned = evidence.get('provider_model')
+    accepted = client.config.get('accepted_provider_models', [model])
+    if not isinstance(accepted, list) or not all(isinstance(value, str) and value for value in accepted):
+        raise ValueError('accepted_provider_models must be an explicit nonempty model-name list')
+    if returned and returned not in accepted:
+        raise ValueError('saved provider model differs from the configured candidate or explicit aliases')
     validate_result_execution(result, result_path=result_path)
 
 
@@ -171,6 +178,38 @@ def _ledger_usage(path, ledger_limit):
     return used, unknown
 
 
+def _ledger_rows(path, limit):
+    _ledger_usage(path, limit)
+    return read_json(path)['requests'] if path.exists() else {}
+
+
+def _verify_ledger_history(previous, current):
+    """Reservations may settle downward; known/unknown charges cannot vanish."""
+    for request_id, old in previous.items():
+        new = current.get(request_id)
+        if not isinstance(new, dict):
+            raise _ScreeningBudgetBlocked('token_ledger_request_removed')
+        if any(new.get(key) != old.get(key) for key in ('model', 'reservation', 'started_unix')):
+            raise _ScreeningBudgetBlocked('token_ledger_request_identity_changed')
+        if old.get('status') == 'reserved':
+            if new.get('status') not in ('reserved', 'complete', 'usage_unknown', 'refused'):
+                raise _ScreeningBudgetBlocked('token_ledger_settlement_invalid')
+            status = new.get('status')
+            charged = new.get('charged_tokens')
+            if status == 'reserved' and new != old:
+                raise _ScreeningBudgetBlocked('token_ledger_pending_request_changed')
+            if status != 'reserved':
+                valid_charge = (status == 'complete' and type(charged) is int and charged > 0
+                    and charged == new.get('reported_total_tokens')
+                    or status == 'usage_unknown' and charged == new.get('reservation')
+                    or status == 'refused' and charged == 0)
+                finished = new.get('finished_unix')
+                if not valid_charge or type(finished) not in (int, float) or finished < old.get('started_unix', 0):
+                    raise _ScreeningBudgetBlocked('token_ledger_settlement_invalid')
+        elif new != old:
+            raise _ScreeningBudgetBlocked('token_ledger_settled_request_changed')
+
+
 def _reservation_for_body(body, budget):
     reservation = sum(len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256
         for message in body.get('messages', []))
@@ -193,29 +232,36 @@ class _IncrementalBudgetGuard:
         self.ledger_limit = budget.limit
         self.path_identity = fingerprint(str(self.path))
         used, unknown = _ledger_usage(self.path, self.ledger_limit)
+        current_rows = _ledger_rows(self.path, self.ledger_limit)
         state = report.get('incremental_token_budget')
         if state is None:
             state = {'ledger_identity': self.path_identity, 'ledger_limit': self.ledger_limit,
                 'incremental_limit': limit, 'baseline_used_tokens': used,
-                'last_seen_used_tokens': used, 'unknown_rows_at_baseline': unknown}
+                'last_seen_used_tokens': used, 'unknown_rows_at_baseline': unknown,
+                'baseline_request_ids': sorted(current_rows),
+                'observed_requests': copy.deepcopy(current_rows)}
             report['incremental_token_budget'] = state
         elif (state.get('ledger_identity') != self.path_identity
                 or state.get('ledger_limit') != self.ledger_limit
                 or state.get('incremental_limit') != limit):
             raise _ScreeningBudgetBlocked('screening_budget_identity_changed')
         baseline = state.get('baseline_used_tokens')
-        last_seen = state.get('last_seen_used_tokens', baseline)
-        if type(baseline) is not int or type(last_seen) is not int or used < max(baseline, last_seen):
-            raise _ScreeningBudgetBlocked('token_ledger_usage_decreased_or_baseline_invalid')
+        if type(baseline) is not int or baseline < 0:
+            raise _ScreeningBudgetBlocked('token_ledger_baseline_invalid')
+        if 'observed_requests' not in state:
+            # Legacy aggregate-only reports cannot authenticate arbitrary
+            # settlement changes. A caller must supply a verified migration.
+            raise _ScreeningBudgetBlocked('legacy_budget_history_requires_verified_migration')
+        _verify_ledger_history(state['observed_requests'], current_rows)
         self._baseline = baseline
         self._record(used, unknown)
         self.original_reserve = budget.reserve
 
         def guarded_reserve(body):
             current, unknown_now = _ledger_usage(self.path, self.ledger_limit)
-            self._check_monotonic(current)
+            self._check_history()
             estimate = _reservation_for_body(body, budget)
-            delta = current - self._baseline
+            delta = self._incremental_usage()
             if estimate > self.ledger_limit - current:
                 raise _ScreeningBudgetBlocked('insufficient_remaining_ledger_allowance',
                     remaining=max(0, self.ledger_limit - current), required=estimate)
@@ -229,17 +275,30 @@ class _IncrementalBudgetGuard:
 
         budget.reserve = guarded_reserve
 
-    def _check_monotonic(self, used):
+    def _check_history(self):
         state = self.report['incremental_token_budget']
-        if used < max(self._baseline, state.get('last_seen_used_tokens', self._baseline)):
-            raise _ScreeningBudgetBlocked('token_ledger_usage_decreased')
+        current = _ledger_rows(self.path, self.ledger_limit)
+        _verify_ledger_history(state['observed_requests'], current)
+        return current
+
+    def _incremental_usage(self):
+        state = self.report['incremental_token_budget']
+        rows = self._check_history()
+        baseline_ids = set(state['baseline_request_ids'])
+        # Baseline pending reservations stay outside the new allowance; all
+        # requests admitted during screening count at actual or held usage.
+        return sum(max(row.get('charged_tokens', 0), row.get('reservation', 0))
+            if row['status'] in ('reserved', 'usage_unknown') else row.get('charged_tokens', 0)
+            for key, row in rows.items() if key not in baseline_ids)
 
     def _record(self, used, unknown):
         state = self.report['incremental_token_budget']
-        self._check_monotonic(used)
+        rows = self._check_history()
+        incremental = self._incremental_usage()
         state.update(last_seen_used_tokens=used, unknown_rows=unknown,
-            incremental_used_tokens=used - self._baseline,
-            remaining_incremental_tokens=max(0, self.limit - (used - self._baseline)))
+            observed_requests=copy.deepcopy(rows),
+            incremental_used_tokens=incremental,
+            remaining_incremental_tokens=max(0, self.limit - incremental))
         write_json(self.report_file, self.report)
 
     def refresh(self):
@@ -631,13 +690,19 @@ def run(source, config, output, *, supplements=2, tasks=None,
                 def checked_validator(p, result):
                     view = contract_view(p, result)
                     try:
+                        evidence = result.get('execution_model_evidence', {})
+                        returned = evidence.get('provider_model')
+                        if returned and returned not in client.config.get('accepted_provider_models', [model]):
+                            error = RuntimeError('provider returned a different model; verify an explicit alias before continuing')
+                            error.response_diagnostic = {'failure_category': 'provider_model_mismatch'}
+                            raise error
                         return validator(p, view)
                     except (ValueError, KeyError, TypeError, RuntimeError) as exc:
                         validation_failures.append({'validation_error': str(exc),
                             'raw_output': copy.deepcopy(view)})
                         raise
 
-                with span(profiler, 'task', case='screening', stage=name, phase='execute' if attempt == 0 else 'supplement'):
+                with span(profiler, 'task', case='screening', stage=name, phase='execute' if attempt == 0 else 'repair'):
                     started = time.monotonic()
                     result = run_agent_packets(folder, client, checked_validator)
                     budget_guard.refresh()

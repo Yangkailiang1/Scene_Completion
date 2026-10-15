@@ -1,4 +1,5 @@
 import json
+import copy
 
 import pytest
 
@@ -251,6 +252,7 @@ def test_cached_success_requires_same_endpoint_thinking_and_model_identity(tmp_p
             api_endpoint_hash=benchmark.fingerprint('https://other.invalid/v1')), 'endpoint'),
         (lambda r: r['execution_model_evidence'].update(thinking=True), 'identity'),
         (lambda r: r['execution_model_evidence'].update(reasoning_effort='high'), 'identity'),
+        (lambda r: r['execution_model_evidence'].update(provider_model='other-served-model'), 'provider'),
     ]
     for mutate, message in mutations:
         mismatched = json.loads(json.dumps(execution_result(client, batch)))
@@ -281,6 +283,58 @@ def test_incremental_budget_counts_unknown_usage_and_stops_before_over_cap_call(
     assert blocked.value.response_diagnostic['budget_reason'] == 'screening_incremental_limit'
     ledger = benchmark.read_json(tmp_path / 'ledger.json')
     assert len(ledger['requests']) == 1
+
+
+def test_incremental_budget_allows_normal_settlement_and_preserves_resume_history(tmp_path):
+    client = FakeClient()
+    client.token_budget = TokenBudget({'token_budget_limit': 10_000,
+        'token_budget_ledger': str(tmp_path / 'ledger.json')})
+    report = {}
+    report_file = tmp_path / 'screening.json'
+    guard = benchmark._install_incremental_budget_guard(client, report, report_file, 1_000)
+    request = client.token_budget.reserve({'messages': [], 'max_tokens': 800, 'model': 'candidate'})
+    client.token_budget.settle(request, usage={'total_tokens': 100})
+    guard.refresh()
+    assert report['incremental_token_budget']['incremental_used_tokens'] == 100
+    assert report['incremental_token_budget']['remaining_incremental_tokens'] == 900
+    resumed_client = FakeClient()
+    resumed_client.token_budget = TokenBudget({'token_budget_limit': 10_000,
+        'token_budget_ledger': str(tmp_path / 'ledger.json')})
+    resumed = benchmark.read_json(report_file)
+    resumed_guard = benchmark._install_incremental_budget_guard(resumed_client, resumed, report_file, 1_000)
+    second = resumed_client.token_budget.reserve({'messages': [], 'max_tokens': 500, 'model': 'candidate'})
+    resumed_client.token_budget.settle(second, usage={'total_tokens': 200})
+    resumed_guard.refresh()
+    assert resumed['incremental_token_budget']['incremental_used_tokens'] == 300
+    ledger = benchmark.read_json(tmp_path/'ledger.json')
+    ledger['requests'][request]['charged_tokens'] = 0
+    benchmark.write_json(tmp_path/'ledger.json', ledger)
+    with pytest.raises(benchmark._ScreeningBudgetBlocked, match='allowance') as error:
+        resumed_guard.refresh()
+    assert error.value.response_diagnostic['budget_reason'] == 'token_ledger_settled_request_changed'
+
+
+def test_incremental_budget_rejects_request_deletion_and_unknown_release(tmp_path):
+    client = FakeClient()
+    client.token_budget = TokenBudget({'token_budget_limit': 10_000,
+        'token_budget_ledger': str(tmp_path/'ledger.json'), 'unknown_usage_policy':'reserve_and_continue'})
+    guard = benchmark._install_incremental_budget_guard(client, {}, tmp_path/'screening.json', 1_000)
+    request = client.token_budget.reserve({'messages': [], 'max_tokens': 500})
+    client.token_budget.settle(request, usage=None)
+    guard.refresh()
+    original = benchmark.read_json(tmp_path/'ledger.json')
+    deleted = copy.deepcopy(original)
+    deleted['requests'].pop(request)
+    benchmark.write_json(tmp_path/'ledger.json', deleted)
+    with pytest.raises(benchmark._ScreeningBudgetBlocked) as error:
+        guard.refresh()
+    assert error.value.response_diagnostic['budget_reason'] == 'token_ledger_request_removed'
+    changed = copy.deepcopy(original)
+    changed['requests'][request].update(status='complete', charged_tokens=1, reported_total_tokens=1)
+    benchmark.write_json(tmp_path/'ledger.json', changed)
+    with pytest.raises(benchmark._ScreeningBudgetBlocked) as error:
+        guard.refresh()
+    assert error.value.response_diagnostic['budget_reason'] == 'token_ledger_settled_request_changed'
 
 
 def test_run_reports_incremental_limit_as_budget_blocked_before_preflight_call(tmp_path, monkeypatch):

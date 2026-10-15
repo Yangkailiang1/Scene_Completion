@@ -55,6 +55,9 @@ class AccessRegistry:
             row = {'scope': self.scope(), 'kind': kind, 'model': model, 'status': 'available' if available else 'unavailable',
                 'failure_category': category, 'checked_at': now, 'expires_at': now + int(self.client.config.get('availability_ttl_seconds', 900 if available else 300)),
                 'execution_hash': fingerprint(proof) if proof else None}
+            if isinstance(proof, dict):
+                row.update(returned_model=proof.get('provider_model'),
+                    thinking_control_sent=proof.get('thinking_control_sent'))
             self.records[self.key(kind, model)] = row
             if self.path:
                 write_json(self.path, self.records)
