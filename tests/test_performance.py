@@ -66,6 +66,16 @@ def test_unfinished_session_does_not_report_zero_wall_time(tmp_path):
     assert '未结束' in (tmp_path/'performance.md').read_text(encoding='utf8')
 
 
+def test_interrupted_transport_is_unknown_and_external_wall_estimate_is_labeled(tmp_path):
+    profile=Profiler(tmp_path)
+    profile.emit('transport_attempt_start','running',stage='normal',batch_id='b',attempt=1)
+    profile.emit('session','interrupted',duration_seconds=10.,measurement='external_utc_observation')
+    profile.report()
+    session=read_json(tmp_path/'performance.json')['sessions'][0]
+    assert session['wall_measurement']=='external_utc_observation' and session['unfinished_request_count']==1
+    assert session['request_count']==0 and session['usage']=={}
+
+
 def test_profiling_flag_does_not_enter_packets_or_change_semantic_results(tmp_path,monkeypatch):
     monkeypatch.setenv('PROFILE_KEY','private-secret')
     client=SemanticClient({'agent_model':'fixture','base_url':'https://fixture.invalid/v1','api_key_env':'PROFILE_KEY'},

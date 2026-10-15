@@ -60,6 +60,7 @@ class Profiler:
         sessions = {}
         task_intervals=defaultdict(list)
         graph=defaultdict(dict)
+        open_requests=defaultdict(int)
         for row in rows:
             session = sessions.setdefault(row['session'], {'session': row['session'], 'stages': {}, 'request_count': 0,
                 'request_seconds': 0., 'task_seconds': 0., 'usage': {}, 'unknown_usage_requests': 0,
@@ -67,9 +68,13 @@ class Profiler:
                 'wall_seconds':None, 'status':'incomplete_or_running', 'last_observed_seconds':0.})
             session['last_observed_seconds']=max(session['last_observed_seconds'],row.get('offset_seconds',0.))
             if row['kind']=='session' and row['status']!='start':
-                session.update(wall_seconds=row['duration_seconds'], status=row['status'])
+                session.update(wall_seconds=row['duration_seconds'], status=row['status'],
+                    wall_measurement=row.get('measurement','monotonic'))
             stage = session['stages'].setdefault(row.get('stage', '@setup'), {'task_seconds':0., 'request_seconds':0.,
                 'queue_seconds':0., 'validation_seconds':0., 'requests':0, 'repairs':0, 'cache_hits':0, 'failures':0})
+            request_key=(row['session'],row.get('stage','@setup'),row.get('task_key'),row.get('batch_id'))
+            if row['kind']=='transport_attempt_start' and row.get('attempt')==1:
+                open_requests[request_key]+=1
             if row['kind']=='task':
                 duration=row['duration_seconds']; stage['task_seconds']+=duration;session['task_seconds']+=duration
                 stage['repairs']+=row.get('phase')=='repair'
@@ -81,6 +86,7 @@ class Profiler:
             if row['kind']=='validation':stage['validation_seconds']+=row['duration_seconds']
             if row['kind']=='cache':stage['cache_hits']+=1
             if row['kind']=='request':
+                open_requests[request_key]=max(0,open_requests[request_key]-1)
                 stage['requests']+=1;session['request_count']+=1
                 duration=row['duration_seconds'];stage['request_seconds']+=duration;session['request_seconds']+=duration
                 stage['request_bytes']=stage.get('request_bytes',0)+row.get('request_bytes',0)
@@ -96,6 +102,7 @@ class Profiler:
                     for key,value in usage.items():
                         if type(value) in (int,float):session['usage'][key]=session['usage'].get(key,0)+value
         for sid,session in sessions.items():
+            session['unfinished_request_count']=sum(n for key,n in open_requests.items() if key[0]==sid)
             intervals=sorted(task_intervals[sid]);end=-1.;busy=0.
             for start,stop in intervals:
                 busy+=max(0.,stop-max(start,end));end=max(end,stop)
@@ -121,6 +128,7 @@ class Profiler:
                 else f"未结束（最后记录至 {session['last_observed_seconds']:.2f} 秒）")
             lines += [f"## 运行 {session['session']}", '',
                 f"墙钟时间：{wall}；逻辑请求数：{session['request_count']}；已记录HTTP尝试：{session['reported_http_attempts']}；未返回用量的请求：{session['unknown_usage_requests']}",
+                f"墙钟计时依据：{session.get('wall_measurement','未结束')}；尚未取得完整结束记录的请求：{session['unfinished_request_count']}（耗时及用量未知，不能按零处理）",
                 '', '| 阶段 | 任务秒 | 请求秒 | 排队秒 | 校验秒 | 请求数 | 修复尝试 | 缓存命中 |',
                 '|---|---:|---:|---:|---:|---:|---:|---:|']
             for name,stage in sorted(session['stages'].items(),key=lambda p:-p[1]['task_seconds']):
