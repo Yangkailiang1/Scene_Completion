@@ -91,7 +91,7 @@ def participant_validator(index):
             raise ValueError(f'participant evidence must be an exact original line fragment: '
                 f'{subject}.{stem}_quote={quote!r}; cited {locations}')
         if layer and not any(documents[r['document']]['requirement_layer'] == layer for r in refs):
-            raise ValueError('participant interaction must have own-layer evidence')
+            raise ValueError(f"participant {row.get('component_id') or row.get('participant_name')}.{stem} evidence must have own-layer {layer} evidence; cited " + ', '.join(f"{r['document']}:{r['line_start']}-{r['line_end']} ({documents[r['document']]['requirement_layer']})" for r in refs))
         if positive:
             if not any(quote in documents[r['document']]['text'].splitlines()[n-1]
                 and (normal_model_line_origins(documents[r['document']]['text'])[n] in {'normal', 'trigger', 'ordinary_optional'}
@@ -111,46 +111,53 @@ def participant_validator(index):
             raise ValueError('participant check must inspect every normal component exactly once')
         allowed = data['sections'] + data['architecture_sections']
         completions = []
+        errors=[]
         for row in rows:
-            node = nodes[row['component_id']]
-            status = row.get('status')
-            if status not in {'declared', 'missing_declaration', 'logical_boundary', 'resource', 'implementation_only', 'not_involved'} or not row.get('reason'):
-                raise ValueError('invalid participant status/reason')
-            involved = any(node['component_id'] in {e['from_component_id'], e['to_component_id']}
-                and e['requirement_layer'] == node['layer'] for e in data['normal_model']['exchanges'])
-            if status == 'not_involved' and involved:
-                raise ValueError('a real normal endpoint cannot be hidden as not involved')
-            if status == 'logical_boundary' and not node.get('boundary_role'):
-                raise ValueError('a real service cannot be hidden as a logical boundary')
-            if status == 'implementation_only' and node['layer'] != 'AR':
-                raise ValueError('an RR/SR participant cannot be hidden as implementation only')
-            if status == 'resource' and node['kind'] not in {'internal_database', 'external_database'} and node.get('service_role') != 'resource_service':
-                raise ValueError('a real actor/service cannot be hidden as a physical resource')
-            refs = proof(row, 'role', allowed)
-            if not node.get('boundary_role') and node['name'] not in cited_text(refs, index):
-                raise ValueError('participant role must name its actual original component')
-            audit = data.get('normal_source_audit') or {}
-            own_calls = {e['local_id']: e for e in data['normal_model']['exchanges']
-                if e['requirement_layer'] == node['layer'] and node['component_id'] in {e['from_component_id'], e['to_component_id']}}
-            optional_proofs = [ref for review in audit.get('exchange_reviews', [])
-                if audit.get('passed') and audit.get('model_result_hash') == data['model_result_hash']
-                and review['supported'] and review['local_exchange_id'] in own_calls
-                and own_calls[review['local_exchange_id']].get('path_type') == 'alternative'
-                for ref in review['source_refs']]
-            proof(row, 'interaction', data['sections'], node['layer'] if node['layer'] in {'RR', 'SR'} else None,
-                positive=status == 'missing_declaration', required=status == 'missing_declaration', optional_proofs=optional_proofs)
-            if status == 'missing_declaration':
-                if node['layer'] not in {'RR', 'SR'} or node.get('boundary_role') or node['kind'] in {'internal_database', 'external_database'}:
-                    raise ValueError('logical boundary/resource/AR is not a missing use-case actor')
-                if not any(node['component_id'] in {e['from_component_id'], e['to_component_id']} and e['requirement_layer'] == node['layer'] for e in data['normal_model']['exchanges']):
-                    raise ValueError('actor completion has no modeled own-layer interaction')
-                completions.append({**row, 'participant_name': node['name'], 'requirement_layer': node['layer'],
-                    'model_completion_allowed': True, 'document_edit_requires_confirmation': True})
-            if status == 'declared':
-                renamed = {**row, 'participant_quote': row.get('declared_participant_quote', '')}
-                declared = proof(renamed, 'participant', data['sections'], node['layer'])
-                if node['name'] not in cited_text(declared, index):
-                    raise ValueError('declared participant clause must name the participant')
+            try:
+                node = nodes[row['component_id']]
+                status = row.get('status')
+                if status not in {'declared', 'missing_declaration', 'logical_boundary', 'resource', 'implementation_only', 'not_involved'} or not row.get('reason'):
+                    raise ValueError('invalid participant status/reason')
+                involved = any(node['component_id'] in {e['from_component_id'], e['to_component_id']}
+                    and e['requirement_layer'] == node['layer'] for e in data['normal_model']['exchanges'])
+                if status == 'not_involved' and involved:
+                    raise ValueError('a real normal endpoint cannot be hidden as not involved')
+                if status == 'logical_boundary' and not node.get('boundary_role'):
+                    raise ValueError('a real service cannot be hidden as a logical boundary')
+                if status == 'implementation_only' and node['layer'] != 'AR':
+                    raise ValueError('an RR/SR participant cannot be hidden as implementation only')
+                if status == 'resource' and node['kind'] not in {'internal_database', 'external_database'} and node.get('service_role') != 'resource_service':
+                    raise ValueError('a real actor/service cannot be hidden as a physical resource')
+                refs = proof(row, 'role', allowed)
+                if not node.get('boundary_role') and node['name'] not in cited_text(refs, index):
+                    raise ValueError('participant role must name its actual original component')
+                audit = data.get('normal_source_audit') or {}
+                own_calls = {e['local_id']: e for e in data['normal_model']['exchanges']
+                    if e['requirement_layer'] == node['layer'] and node['component_id'] in {e['from_component_id'], e['to_component_id']}}
+                optional_proofs = [ref for review in audit.get('exchange_reviews', [])
+                    if audit.get('passed') and audit.get('model_result_hash') == data['model_result_hash']
+                    and review['supported'] and review['local_exchange_id'] in own_calls
+                    and own_calls[review['local_exchange_id']].get('path_type') == 'alternative'
+                    for ref in review['source_refs']]
+                proof(row, 'interaction', data['sections'], node['layer'] if node['layer'] in {'RR', 'SR'} else None,
+                    positive=status == 'missing_declaration', required=status == 'missing_declaration', optional_proofs=optional_proofs)
+                if status == 'missing_declaration':
+                    if node['layer'] not in {'RR', 'SR'} or node.get('boundary_role') or node['kind'] in {'internal_database', 'external_database'}:
+                        raise ValueError('logical boundary/resource/AR is not a missing use-case actor')
+                    if not any(node['component_id'] in {e['from_component_id'], e['to_component_id']} and e['requirement_layer'] == node['layer'] for e in data['normal_model']['exchanges']):
+                        raise ValueError('actor completion has no modeled own-layer interaction')
+                    completions.append({**row, 'participant_name': node['name'], 'requirement_layer': node['layer'],
+                        'model_completion_allowed': True, 'document_edit_requires_confirmation': True})
+                if status == 'declared':
+                    renamed = {**row, 'participant_quote': row.get('declared_participant_quote', '')}
+                    declared = proof(renamed, 'participant', data['sections'], node['layer'])
+                    if node['name'] not in cited_text(declared, index):
+                        raise ValueError('declared participant clause must name the participant')
+            except (ValueError,KeyError,TypeError) as exc:
+                errors.append({'component_id':row.get('component_id'),'error':str(exc)})
+        if errors:
+            import json
+            raise ValueError('participant evidence errors: '+json.dumps(errors,ensure_ascii=False))
         missing = result.get('missing_model_calls')
         unresolved = result.get('unresolved_candidates')
         if not isinstance(missing, list) or not isinstance(unresolved, list):

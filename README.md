@@ -133,6 +133,8 @@ v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、
 
 图检查可将原输入中唯一的局部交互编号解析为完整ID，保留原编号；歧义、重复、未知编号或缺项仍会拒绝。旧运行可用`revalidate-graph-format --output-dir <run-dir> --use-case-id <ID>`离线复检。工具版本变化但语义输入、指令及输出契约未变时，成功任务可在当前校验器复核后沿用原执行；共享组件从输入移入检查缓存不构成新交互。需要显式复检过期成功任务时，使用`revalidate-cached-task --output-dir <run-dir> --use-case-id <ID> --stage <阶段>`。这些入口均不调用模型、不重置修复预算；真实输入或语义判断改变则不能复用。
 
+检查工具更新后，可用`refresh-task-diagnostics --output-dir <run-dir> --use-case-id <ID> --stage <阶段>`从原失败执行重新收集具体错误，不调用模型或改判通过。若先前因“相同错误无进展”提前停止，且新诊断确有变化并仍有剩余轮次，可继续原预算；已用满两轮不会重新开放。
+
 已有异常或测试的逆向定位/拆分被检查器拒绝时，使用 `repair-gap-reverse --output-dir <run-dir> --collection E --unit-id <ID> --config <config.json>`；测试通道改为 `--collection T`。只修复同通道的实际拒绝单元，原始异常记录保持不变，随后重新检查。
 
 ## 检查、验证与导出

@@ -53,6 +53,10 @@ def _main_impl(argv=None) -> int:
     cache_recheck.add_argument('--output-dir',required=True)
     cache_recheck.add_argument('--use-case-id',action='append')
     cache_recheck.add_argument('--stage',required=True)
+    diagnostics=sub.add_parser('refresh-task-diagnostics',help='offline refresh of concrete validator errors; preserves the two-round budget')
+    diagnostics.add_argument('--output-dir',required=True)
+    diagnostics.add_argument('--use-case-id',action='append')
+    diagnostics.add_argument('--stage',required=True)
     register_commands(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
@@ -157,6 +161,11 @@ def _main_impl(argv=None) -> int:
     args = parser.parse_args(argv)
     args.command = {'prepare-modeling-input':'prepare-generator-model', 'evaluate-modeling':'evaluate-generator'}.get(args.command, args.command)
     try:
+        if args.command=='refresh-task-diagnostics':
+            from scene_completion.task_diagnostics import run
+            result,code=run(args)
+            print(json.dumps(result,ensure_ascii=False,indent=2))
+            return code
         if args.command in ('revalidate-source-audit-format','revalidate-graph-format','revalidate-cached-task'):
             from scene_completion.audit_quote_recovery import run
             result, code = run(args)

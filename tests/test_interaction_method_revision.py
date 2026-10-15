@@ -85,6 +85,21 @@ def test_actor_completion_has_real_call_but_does_not_authorize_source_edits(tmp_
     assert not {'generated', 'checker', 'test_scenarios'} & packet['input'].keys()
 
 
+def test_participant_errors_identify_every_component_and_exact_evidence_field(tmp_path):
+    index,packet,result=medical_source(tmp_path)
+    packet['input']['normal_model']['components'].append({**packet['input']['normal_model']['components'][0],'component_id':'lab-2'})
+    packet['input']['normal_model']['exchanges'].append({'local_id':'call-lab-2','requirement_layer':'SR','from_component_id':'entry','to_component_id':'lab-2'})
+    result['component_reviews'][0]['interaction_quote']='unquoted call'
+    result['component_reviews'].append({**result['component_reviews'][0],'component_id':'lab-2'})
+    with pytest.raises(ValueError) as raised:participant_validator(index)(packet,result)
+    message=str(raised.value)
+    assert 'lab.interaction_quote' in message and 'lab-2.interaction_quote' in message
+    packet['input']['normal_model']['components'][0]['layer']='RR'
+    result['component_reviews'][0]['interaction_quote']='ConsultAPI sends a specimen request to ExternalLab.'
+    with pytest.raises(ValueError) as raised:participant_validator(index)(packet,result)
+    assert 'lab.interaction evidence must have own-layer RR' in str(raised.value)
+
+
 def test_unlabelled_optional_actor_requires_source_audit_bound_to_its_exchange(tmp_path):
     index, packet, result = medical_source(tmp_path)
     doc = index['documents'][0]
