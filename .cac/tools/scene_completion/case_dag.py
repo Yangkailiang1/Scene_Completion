@@ -215,6 +215,8 @@ class Scheduler:
             if not self._ready(task):
                 continue
             current = self.input_hash(task)
+            if record.get('input_hash')==current:
+                record.pop('previous_version',None)
             if record.get('input_hash') != current:
                 previous=fingerprint({'version':record.get('previous_version'),'dependencies':{
                     key:self.state['tasks'][key].get('output_hash') for key in task.deps}})
@@ -224,7 +226,7 @@ class Scheduler:
                         if fingerprint(output)!=record['output_hash']:raise ValueError('task output changed')
                         deps={key:read_json(self.root/self.state['tasks'][key]['output_file']) for key in task.deps}
                         task.compatible(deps,output)
-                    except (ValueError,KeyError,OSError,TypeError):pass
+                    except (ValueError,KeyError,OSError,TypeError,TaskBlocked):pass
                     else:
                         self.state['events'].append({'task':task.key,'event':'compatible_version_reuse',
                             'old_input_hash':record['input_hash'],'input_hash':current,'output_hash':record['output_hash']})

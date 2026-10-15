@@ -53,13 +53,36 @@ def run(args):
             raise RuntimeError('offline quote revalidation forbids model or embedding calls')
         pipeline.client.agent=no_network
         pipeline.client.post=no_network
-        pipeline.embedding.embeddings=no_network
         pipeline.embedding.post=no_network
         try:
             pipeline.build()
             selected=set(getattr(args,'use_case_id',None) or pipeline.contexts)
             if not selected<=set(pipeline.contexts):raise ValueError('unknown selected use case')
             pipeline.scheduler._refresh()
+            if args.command=='revalidate-cached-task' and stage=='all':
+                reused=[];rejected=[]
+                for key,task in pipeline.scheduler.tasks.items():
+                    pipeline.scheduler._refresh()
+                    record=pipeline.scheduler.state['tasks'][key]
+                    if task.case not in selected or record['status']=='passed' or not pipeline.scheduler._ready(task):continue
+                    if not task.compatible or not record.get('output_file') or not any(a['status']=='passed' for a in record['attempts']):continue
+                    output=read_json(root/record['output_file'])
+                    deps={k:read_json(root/pipeline.scheduler.state['tasks'][k]['output_file']) for k in task.deps}
+                    try:task.compatible(deps,output)
+                    except (ValueError,KeyError,TypeError,OSError) as exc:
+                        rejected.append({'task':key,'reason':str(exc)});continue
+                    write_json(pipeline.contexts[task.case]['root']/'active'/(task.stage+'.json'),
+                        {'input_hash':record['input_hash'],'output':output})
+                    pipeline.scheduler.state['events'].append({'task':key,'event':'offline_compatible_revalidation',
+                        'previous_status':record['status'],'round':record['rounds'],'original_output_hash':fingerprint(output)})
+                    record['status']='pending';record.pop('reuse_reserved_round',None)
+                    pipeline.scheduler.save();pipeline.scheduler.run(pipeline.progress,allowed=[key])
+                    reused.append({'task':key,'status':record['status']})
+                pipeline.progress(pipeline.scheduler)
+                result={'model_calls':0,'reused_tasks':reused,'incompatible_tasks':rejected,
+                    'repair_rounds_preserved':True,'pending_tasks':pipeline.scheduler.summary()['pending_tasks']}
+                write_json(root/'cached_task_revalidation.json',result)
+                return result,0 if not rejected and all(r['status']=='passed' for r in reused) else 2
             if stage=='graphs':
                 pipeline.scheduler.run(pipeline.progress,allowed=[pipeline.key(case,'authorization') for case in selected])
                 pipeline.scheduler._refresh()

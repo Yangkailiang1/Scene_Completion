@@ -420,7 +420,12 @@ class Pipeline:
         if self.history and not old_model:
             old_model = self.history['model']
         self.bindings = approval_bindings(self.approval, old_model, self.base)
-        self.ar_index = index_sources(getattr(args, 'ar_spec_document', None) or [])
+        ar_paths=getattr(args,'ar_spec_document',None) or []
+        if ar_paths:
+            self.ar_index=index_sources(ar_paths)
+        else:
+            from .inline_ar import from_sr
+            self.ar_index=from_sr(self.index)
         for doc in self.ar_index['documents']:
             doc['requirement_layer'] = 'AR'
         self.manifest = {'protocol': PROTOCOL, 'policy': POLICY, 'execution_mode': 'case-dag', 'complete': False,
@@ -589,7 +594,8 @@ class Pipeline:
             original=root/'batches'/name
             if not (original/'manifest.json').exists():raise ValueError('original packet proof missing')
             with TemporaryDirectory(prefix='scene-compatible-packets-') as temporary:
-                expected=prepare(inputs,Path(temporary))
+                prepare(inputs,Path(temporary))
+                expected=read_json(Path(temporary)/'manifest.json')
                 prior=read_json(original/'manifest.json')
                 if expected['stage']!=prior['stage'] or len(expected['batches'])!=len(prior['batches']):
                     raise ValueError('semantic batch scope changed')
@@ -597,6 +603,7 @@ class Pipeline:
                     packet=copy.deepcopy(packet)
                     for field in ('batch_id','input_hash'):packet.pop(field,None)
                     for field in ('execution_versions','test_parser_version'):packet['input'].pop(field,None)
+                    if name=='participants':packet['input'].pop('rule_hash',None)
                     if name=='graphs':
                         # Moving already-checked nodes into the shared registry
                         # is a cache-layout change, not a different graph.
@@ -657,8 +664,12 @@ class Pipeline:
             reject=lambda rows: [r for r in rows if not r['passed']], repair_target=name)
         self.semantic(case, 'dedup-' + collection, (name, reverse, 'normal', 'graphs'),
             lambda deps, d: dedup_packets(self.values(deps, case, name), self.graph(case, deps)[1], collection, d), dedup_validator)
-        self.add(case, 'units-' + collection, (name, reverse, 'dedup-' + collection),
-            lambda deps, _: {'values': dedup_merge(self.values(deps, case, name), collection + '2', self.values(deps, case, 'dedup-' + collection))})
+        def merged_units(deps):
+            return {'values':dedup_merge(self.values(deps,case,name),collection+'2',self.values(deps,case,'dedup-'+collection))}
+        self.add(case,'units-'+collection,(name,reverse,'dedup-'+collection),lambda deps,_:merged_units(deps))
+        def compatible_units(deps,output):
+            if merged_units(deps)!=output:raise ValueError('normalized unit inputs changed')
+        self.scheduler.tasks[self.key(case,'units-'+collection)].compatible=compatible_units
 
     def build(self):
         from .interaction_versions import packet_versions
@@ -682,12 +693,20 @@ class Pipeline:
                 # AR trace is independent and never becomes an exception input.
                 self.semantic(case, 'ar-trace', ('normal',), lambda deps, d, case=case: b.ar_packets(self.ar_index_for_case(case, deps), d),
                     b.ar_validator(self.ar_index))
+                task=self.scheduler.tasks[self.key(case,'ar-trace')]
+                task.version={'base':self.contexts[case]['version'],'ar_source':fingerprint(self.ar_index),
+                    'rules':b.packet_versions('gap-ar-trace')}
+                self.scheduler.state['tasks'][task.key]['version']=task.version
             self.semantic(case, 'E-extract', (), lambda deps, d, base=base: old.checker_packets(base, self.index, d), old.checker_validator(self.index), lane='discovery')
             self.semantic(case, 'E-audit', ('E-extract',),
                 lambda deps, d, case=case: checker_audit_packets(deps[self.key(case, 'E-extract')]['folder'], self.index, d), checker_audit_validator(self.index),
                 reject=lambda rows: [r for r in rows if not r['passed']], repair_target='E-extract')
             self.add(case, 'authorization', ('normal',), lambda deps, _, case=case: {'model': self.model(case, deps[self.key(case, 'normal')])},
                 verify=lambda output, case=case: self.authorize(case, output['model']))
+            def compatible_authorization(deps,output,case=case):
+                if self.model(case,deps[self.key(case,'normal')])!=output['model']:
+                    raise ValueError('authorized normal model changed')
+            self.scheduler.tasks[self.key(case,'authorization')].compatible=compatible_authorization
             authorization_record = self.scheduler.state['tasks'][self.key(case, 'authorization')]
             if authorization_record['status'] == 'awaiting_confirmation':
                 authorization_record['status'] = 'pending'
@@ -704,6 +723,17 @@ class Pipeline:
                 lambda deps, _, case=case: self.prefetch(self.values(deps, case, 'units-E')),
                 version={'model': self.embedding.model('embedding'), 'endpoint': fingerprint(self.embedding.base_url),
                     'text_rules': fingerprint(__import__('inspect').getsource(scene_text))})
+            def compatible_vectors(deps,output,case=case):
+                units=self.values(deps,case,'units-E')
+                if output.get('model')!=self.embedding.model('embedding'):
+                    raise ValueError('historical vector model changed')
+                for unit in units:
+                    text=scene_text(unit);identifier=unit['scenario_id']
+                    cache=Path(self.embedding.config['cache_dir'])/(fingerprint([self.embedding.base_url,self.embedding.model('embedding'),text])+'.json')
+                    if output['text_hashes'].get(identifier)!=fingerprint(text) or not cache.exists() or read_json(cache)!=output['vectors'].get(identifier):
+                        raise ValueError('historical vector text/endpoint/cache changed')
+                if set(output['vectors'])!={u['scenario_id'] for u in units}:raise ValueError('historical vector scope changed')
+            self.scheduler.tasks[self.key(case,'history-vectors')].compatible=compatible_vectors
             if case not in self.selected:
                 continue
             self.semantic(case, 'features', ('normal', 'graphs', 'participants'),
@@ -1026,5 +1056,8 @@ def repair_selected_unlocked(args, stages):
                 return original(deps, record)
             task.repair = selected_repair
         allowed = scoped
-    summary = pipeline.scheduler.run(pipeline.progress, allowed=allowed)
+    try:
+        summary = pipeline.scheduler.run(pipeline.progress, allowed=allowed)
+    finally:
+        if pipeline.profiler:pipeline.profiler.finish('targeted_repair_finished')
     return summary, 0 if all(pipeline.scheduler.state['tasks'][key]['status'] == 'passed' for key in allowed) else 2

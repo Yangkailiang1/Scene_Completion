@@ -11,6 +11,33 @@ from scene_completion.semantic_backend import SemanticClient, read_json, write_j
 from scene_completion.sources import validate_refs, fingerprint
 
 
+def test_unchanged_semantic_inputs_reuse_success_when_producer_returns_no_manifest(tmp_path):
+    from scene_completion.case_dag import Scheduler,CallGate
+    from scene_completion.semantic_backend import prepare_packets
+    calls=[]
+    class Client:
+        config={'agent_model':'fixture','thinking':False,'model_preflight':'off'}
+        def model(self,kind):return 'fixture'
+        def agent(self,packet):
+            calls.append(1)
+            return {'items':[],'execution_model_evidence':{'requested_model':'fixture','thinking':False,'reasoning_effort':None}}
+    client=Client()
+    def setup(version):
+        adapter=dag.Pipeline.__new__(dag.Pipeline)
+        adapter.scheduler=Scheduler(tmp_path)
+        adapter.packets=dag.Packets(tmp_path,SimpleNamespace(agent_mode='external',reuse_run=None),client,CallGate(1))
+        adapter.contexts={'uc':{'root':tmp_path/'case','validators':{},'version':version}}
+        def prepare(deps,folder):
+            prepare_packets(folder,'gap-fixture',[{'original':'same source'}],[],{'items':[]})
+            # Graph-style producers write their manifest without returning it.
+        adapter.semantic('uc','audit',(),prepare,lambda p,r:r['items'])
+        return adapter
+    first=setup(1);assert first.scheduler.run()['complete']
+    before=first.scheduler.state['tasks']['uc:audit']['output_hash']
+    second=setup(2);assert second.scheduler.run()['complete']
+    assert calls==[1] and second.scheduler.state['tasks']['uc:audit']['output_hash']==before
+
+
 def arguments(tmp_path):
     rr = tmp_path / 'rr.md'
     sr = tmp_path / 'sr.md'
