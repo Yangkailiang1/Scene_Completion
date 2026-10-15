@@ -129,7 +129,8 @@ def participant_validator(index):
                 if status == 'resource' and node['kind'] not in {'internal_database', 'external_database'} and node.get('service_role') != 'resource_service':
                     raise ValueError('a real actor/service cannot be hidden as a physical resource')
                 refs = proof(row, 'role', allowed)
-                if not node.get('boundary_role') and node['name'] not in cited_text(refs, index):
+                from .component_names import source_name_supported
+                if not node.get('boundary_role') and not source_name_supported(node,cited_text(refs,index)):
                     raise ValueError('participant role must name its actual original component')
                 audit = data.get('normal_source_audit') or {}
                 own_calls = {e['local_id']: e for e in data['normal_model']['exchanges']

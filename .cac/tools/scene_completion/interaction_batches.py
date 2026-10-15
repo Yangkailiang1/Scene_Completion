@@ -169,6 +169,9 @@ def model_packets(base, index, directory):
 
 def model_validator(index):
     def validate(packet, result):
+        if packet['input'].get('normal_item_patch'):
+            from .normal_item_patch import validate as validate_item_patch
+            return validate_item_patch(packet, result, index)
         from .interaction_query_data import validate_derived_response_sources
         data = copy.deepcopy(result)
         if packet['input'].get('query_data_policy') and data.get('query_data_policy') != packet['input']['query_data_policy']:
@@ -208,7 +211,8 @@ def model_validator(index):
                 raise ValueError("invalid component kind/layer")
             if not set(node.get("service_types", [])) <= set(SERVICE_TYPES):
                 raise ValueError("unknown service category")
-            if not node.get("boundary_role") and node["name"] not in cited_text(node["source_refs"], index):
+            from .component_names import source_name_supported
+            if not node.get("boundary_role") and not source_name_supported(node,cited_text(node["source_refs"], index)):
                 raise ValueError("component name must quote its own original source, not an architecture hint or invented alias: " + node["name"])
         ids = [e.get("local_id") for e in data["exchanges"]]
         if any(not i for i in ids) or len(ids) != len(set(ids)):

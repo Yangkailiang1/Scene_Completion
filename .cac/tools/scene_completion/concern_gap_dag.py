@@ -325,6 +325,7 @@ class Packets:
         payloads, instructions, contract, retained, preserved_by_prior, preserved_models = [], None, None, [], {}, {}
         ordered_slots = []
         generation_patches = False
+        normal_item_patch = False
         rejected_ids = rejection_ids(failure, target) if isinstance(failure, dict) else set()
         allowed_components, allowed_exchanges = set(), set()
         review_folder = failure.get('output', {}).get('folder') if isinstance(failure, dict) else None
@@ -418,6 +419,26 @@ class Packets:
                     payloads.append(patch['payload'])
                     instructions, contract = patch['instructions'], packet['output_contract']
                     continue
+            if original['stage'] == 'interaction-model' and prior_attempt and prior:
+                # Repair a cited hierarchy row without asking the supervisor to
+                # rewrite an otherwise valid normal model. The original raw
+                # execution remains bound to the patch and is checked again.
+                from .normal_item_patch import prepare as prepare_normal_patch
+                try:
+                    validator(packet, contract_view(packet, prior))
+                except ValueError as exc:
+                    patch = prepare_normal_patch(packet, prior,
+                        source / 'packets' / (row['batch_id'] + '.json'),
+                        prior_attempt, str(exc), source_index(self.args))
+                else:
+                    patch = None
+                if patch:
+                    self.cache_identity(prior)
+                    normal_item_patch = True
+                    ordered_slots.append(('new', len(payloads)))
+                    payloads.append(patch['payload'])
+                    instructions, contract = patch['instructions'], patch['contract']
+                    continue
             if prior:
                 try:
                     for value in validator(packet, contract_view(packet, prior)):
@@ -498,8 +519,10 @@ class Packets:
             instructions = [*(instructions or []),
                 'Reassess the actual condition relations, not just output formatting. compatible_conditions means NON-CONTRADICTORY, not complete. Missing checker prerequisites may justify partial with compatible_conditions=true and exact missing evidence. An actual contradiction or different object/operation/cause is unmatched. Never flip flags automatically. For unmatched return only pair IDs, status, and a concrete reason; omit accepted evidence.',
                 'Partial never compensates for different objects or operations. If your semantic judgment is same_object=false or same_operation=false, choose unmatched. A partial needs a concrete missing CHECKER condition; same identity with every checker condition supported is full. Answer EVERY supplied expected pair, including unmatched; never return only the promising match. Tools preserve the other previously validated pairs.']
-        prepare_packets(folder, original['stage'], payloads, [*(instructions or []),
-            'Repair ONLY the actually rejected items, or recheck them from original evidence when diagnosed as a checker error. Preserve all other supplied successful entries. No extra information or new modeling items are authorized. Return the ORIGINAL output contract, with fresh execution proof.'], contract)
+        repair_instructions = list(instructions or [])
+        if not normal_item_patch:
+            repair_instructions.append('Repair ONLY the actually rejected items, or recheck them from original evidence when diagnosed as a checker error. Preserve all other supplied successful entries. No extra information or new modeling items are authorized. Return the ORIGINAL output contract, with fresh execution proof.')
+        prepare_packets(folder, original['stage'], payloads, repair_instructions, contract)
         manifest = read_json(folder / 'manifest.json')
         new_rows = manifest['batches'][:]
         for row, packet, path in retained:

@@ -21,6 +21,10 @@ def packet_versions(stage):
         content_parser=fingerprint(inspect.getsource(review._content_from_response)),
         http_transport=fingerprint(inspect.getsource(review._post_chat_completions)),
         version_rule=fingerprint(inspect.getsource(packet_versions)))
+    if stage in {'interaction-model','interaction-participants'}:
+        common['component_names.py']=fingerprint((root/'component_names.py').read_text(encoding='utf8'))
+    if stage == 'interaction-model':
+        common['normal_item_patch.py']=fingerprint((root/'normal_item_patch.py').read_text(encoding='utf8'))
     groups = {
         'interaction-model': [b.model_packets, b.model_validator, b.source_sections, b.cited_text,
             b.source_identifier_supported, b.bound_contract_refs, p.reject_generation_bypass,
