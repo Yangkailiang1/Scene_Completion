@@ -277,18 +277,29 @@ def feature_validator(index):
         rows=result.get('items',[])
         if len(rows)!=len(expected) or {r.get('exchange_id') for r in rows}!=expected:
             raise ValueError('features must preserve every real exchange')
+        errors=[]
         for r in rows:
-            if not isinstance(r.get('traits'),list):raise ValueError('trait list required')
+            if not isinstance(r.get('traits'),list):
+                errors.append({'exchange_id':r['exchange_id'],'error':'trait list required'});continue
             exchange=next(e for e in packet['input']['exchanges'] if e['exchange_id']==r['exchange_id'])
             operations=[t for t in r['traits'] if t.get('name')=='operation_kinds']
             if len(operations)!=1 or not isinstance(operations[0].get('value'),list) or set(operations[0]['value'])!=set(exchange.get('operation_kinds',[])):
-                raise ValueError('checked positive operation traits must match actual exchange operations')
+                errors.append({'exchange_id':r['exchange_id'],'trait':'operation_kinds',
+                    'error':'checked positive operation traits must match actual exchange operations'})
             for trait in r['traits']:
-                if trait.get('basis') not in {'explicit','inferred'} or not trait.get('rationale') or not trait.get('name'):
-                    raise ValueError('traits need explicit/inferred basis')
-                trait['source_refs']=validate_refs(trait.get('source_refs'),index)
-                if not trait.get('evidence_quote') or trait['evidence_quote'] not in old.cited_text(trait['source_refs'],index):
-                    raise ValueError('trait inference needs cited original positive clause')
+                try:
+                    if trait.get('basis') not in {'explicit','inferred'} or not trait.get('rationale') or not trait.get('name'):
+                        raise ValueError('traits need explicit/inferred basis')
+                    trait['source_refs']=validate_refs(trait.get('source_refs'),index)
+                    if not trait.get('evidence_quote') or trait['evidence_quote'] not in old.cited_text(trait['source_refs'],index):
+                        raise ValueError('trait inference needs cited original positive clause')
+                except (ValueError,KeyError,TypeError) as exc:
+                    errors.append({'exchange_id':r['exchange_id'],'trait':trait.get('name'),
+                        'error':str(exc),'quote':trait.get('evidence_quote'), 'source_refs':trait.get('source_refs',[])})
+        if errors:
+            import json
+            raise ValueError('feature evidence errors; quote exact original fragments with their actual lines. '
+                'Unknown/non-source-backed values belong in pending_details; never invent false guards or cancellable flags: '+json.dumps(errors,ensure_ascii=False))
         return rows
     return validate
 
