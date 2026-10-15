@@ -2,6 +2,11 @@
 from .sources import fingerprint
 
 
+def protocol_key(payload, instructions, contract, execution_identity):
+    """Format budgets bind the full diagnostic protocol and actual executor."""
+    return fingerprint([payload, instructions, contract, execution_identity])
+
+
 def rejection_ids(failure, target):
     """Connect a rejected normalized unit to its own original source record."""
     ids = {str(row[key]) for row in failure.get('findings', []) if isinstance(row, dict)
@@ -70,14 +75,47 @@ def repair_input(payload):
     return result
 
 
-def strings(value):
+def strings(value, *, include_catalog=True):
     if isinstance(value,str):yield value
     elif isinstance(value,list):
-        for item in value:yield from strings(item)
+        for item in value:yield from strings(item, include_catalog=include_catalog)
     elif isinstance(value,dict):
         for key,item in value.items():
             if key not in ('skill','extraction_skills','execution_versions','instructions'):
-                yield from strings(item)
+                if not include_catalog and key in ('evidence_catalog', 'evidence_catalog_format'):
+                    continue
+                yield from strings(item, include_catalog=include_catalog)
+
+
+def scoped_quotes(allowed):
+    """Resolve supplied EV IDs without promoting a catalog into source evidence."""
+    from .evidence_refs import CATALOG_FORMAT
+    originals = list(strings(allowed, include_catalog=False))
+    result = {}
+    def visit(value, inherited_format=None):
+        if isinstance(value, list):
+            shared_formats = {item['shared_stage_context'].get('evidence_catalog_format')
+                for item in value if isinstance(item, dict)
+                and isinstance(item.get('shared_stage_context'), dict)
+                and item['shared_stage_context'].get('evidence_catalog_format')}
+            shared_format = next(iter(shared_formats)) if len(shared_formats) == 1 else inherited_format
+            for item in value:
+                visit(item, shared_format)
+        elif isinstance(value, dict):
+            effective_format = value.get('evidence_catalog_format', inherited_format)
+            if effective_format == CATALOG_FORMAT:
+                for row in value.get('evidence_catalog', []):
+                    if not isinstance(row, dict) or not isinstance(row.get('quote'), str):
+                        continue
+                    expected = 'EV-' + fingerprint({k: row.get(k) for k in ('quote', 'scope', 'ref')})[:16]
+                    if row.get('id') != expected or not row['quote'] or not any(row['quote'] in t for t in originals):
+                        continue
+                    result[expected] = row['quote']
+            for key, item in value.items():
+                if key != 'evidence_catalog':
+                    visit(item, effective_format)
+    visit(allowed)
+    return result
 
 
 def quote_catalog(allowed, limit=40):
@@ -104,6 +142,7 @@ def validate(packet,result):
     if not isinstance(quotes,list):raise ValueError('diagnosis evidence_quotes must be a list')
     quotes=list(quotes)
     catalog={r['id']:r['quote'] for r in packet['input'].get('evidence_catalog',[])}
+    catalog.update(scoped_quotes(packet['input']['allowed_inputs']))
     refs=result.get('evidence_refs',[])
     if not isinstance(refs,list) or any(not isinstance(ref,str) or ref not in catalog for ref in refs):
         raise ValueError('diagnosis evidence_refs must select supplied literal quote IDs')

@@ -52,6 +52,8 @@ def packet_versions(stage):
         'functions':{f.__name__:fingerprint(inspect.getsource(f)) for f in functions}}
     if stage=='gap-generation':
         result['generation_compaction']=fingerprint(Path(__file__).with_name('generation_compaction.py').read_text(encoding='utf8'))
+    if stage=='gap-reverse-check-G':
+        result['review_scope']=fingerprint(Path(__file__).with_name('review_scope.py').read_text(encoding='utf8'))
     return result
 
 
@@ -177,6 +179,9 @@ def review_packets(units,scenes,ssd,directory,collection,index=None):
             'original_evidence':[{'scenario_id':k,'source_ref':r,'text':old.cited_text([r],index)} for k in sorted({u['source_scenario_id'] for u in group}) for r in by_id[k]['source_refs']] if index else [],
             'original_scenarios':[by_id[k] for k in sorted({u['source_scenario_id'] for u in group})],
             'locations':[c for c in locations(ssd) if c['use_case_id'] in ids], 'concern_definitions':baseline()})
+        if collection == 'G':
+            from .review_scope import concern_closure
+            payloads[-1] = concern_closure(payloads[-1], baseline())
     return prepare(directory,'gap-reverse-check-'+collection,payloads,[
         'Independently verify every canonical unit against the supplied ORIGINAL scenario, actual locations and concern definitions. No other G/E/T collection exists here. Return every unit ID once.',
         'Check source support, atomic actual cause, mapping, concern and semantic codes. Same category alone cannot establish a mechanism; generic code failure/invalid cannot collapse distinct causes. Different fields/bounds/time/conditions cannot share a misleading identity. Responses/recovery cannot define identity.',

@@ -190,3 +190,40 @@ def test_failure_prompt_excludes_candidate_artifacts_and_preserves_actual_findin
     original = deepcopy(failure)
     assert failure_view(failure) == {'findings': original['findings']}
     assert failure == original
+def test_diagnosis_budget_key_binds_instructions_contract_and_actual_model():
+    from scene_completion.diagnosis import protocol_key
+    payload = {'allowed_inputs': [{'clause': 'original evidence'}]}
+    instructions = ['diagnose only']
+    contract = {'action': 'repair|recheck|confirm'}
+    execution = {'model': 'batch-a', 'endpoint': 'endpoint-a'}
+    original = protocol_key(payload, instructions, contract, execution)
+    assert original == protocol_key(payload, list(instructions), dict(contract), dict(execution))
+    assert original != protocol_key(payload, ['diagnose only; no repaired rows'], contract, execution)
+    assert original != protocol_key(payload, instructions, {'reason': 'short'}, execution)
+    assert original != protocol_key(payload, instructions, contract, {**execution, 'model': 'batch-b'})
+
+
+def test_diagnosis_accepts_original_scoped_ids_but_not_output_only_or_orphan_catalogs():
+    from scene_completion.evidence_refs import prepare_packet
+    from scene_completion.diagnosis import validate
+    stage = prepare_packet({'stage': 'gap-normalize-G', 'input': {
+        'scenarios': [{'scenario_id': 'G1', 'trigger_condition': 'required product name missing'}]},
+        'instructions': [], 'output_contract': {}})
+    entry = stage['input']['evidence_catalog'][0]
+    packet = {'input': {'allowed_inputs': [stage['input']], 'evidence_catalog': []}}
+    result = {'action': 'repair', 'reason': 'correct the rejected code',
+        'evidence_refs': [entry['id']], 'evidence_quotes': [], 'targets': ['object_code']}
+    assert validate(packet, result)[0]['evidence_quotes'] == [entry['quote']]
+    from scene_completion.diagnosis import share_allowed_inputs
+    shared = share_allowed_inputs([stage['input'], dict(stage['input'], extra='context')])
+    assert validate({'input': {'allowed_inputs': shared}}, result)[0]['evidence_quotes'] == [entry['quote']]
+    with pytest.raises(ValueError):
+        validate({'input': {'allowed_inputs': [{}],
+            'failed_outputs_from_same_channel': [stage['input']]}}, result)
+    orphan = dict(stage['input'], scenarios=[])
+    with pytest.raises(ValueError):
+        validate({'input': {'allowed_inputs': [orphan]}}, result)
+    corrupted = dict(entry, quote='an invented source')
+    with pytest.raises(ValueError):
+        validate({'input': {'allowed_inputs': [dict(stage['input'], evidence_catalog=[corrupted])]}}, result)
+

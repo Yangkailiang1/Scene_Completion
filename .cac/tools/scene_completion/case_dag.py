@@ -198,7 +198,12 @@ class Scheduler:
             record.update(status='budget_exhausted', reason='supervisor execution interrupted; reserved attempt retained')
         elif record['status'] == 'running':
             record['status'] = 'pending'
-        elif record['status'] in ('awaiting_configuration','diagnosis_blocked'):
+        elif record['status'] == 'diagnosis_blocked':
+            # Resume the reserved repair, not the initial extraction. Keeping
+            # rejection status also permits source-bound failure revalidation
+            # when a diagnostic protocol fix changes the task version.
+            record['status'] = 'rejected'
+        elif record['status'] == 'awaiting_configuration':
             record['status'] = 'pending'
 
     def save(self):

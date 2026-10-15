@@ -26,6 +26,20 @@ def _result(folder: Path, batch, *, items=None):
     return raw
 
 
+def test_valid_inverse_check_rejection_is_preserved_instead_of_rerolled(tmp_path):
+    source, destination = tmp_path / 'source', tmp_path / 'destination'
+    stage = 'gap-reverse-check-T'
+    old = prepare_packets(source, stage, [{'value': 1, 'execution_versions': {'v': 1}}],
+        ['check'], {'items': []})
+    raw = _result(source, old['batches'][0], items=[{'passed': False, 'reason': 'real source defect'}])
+    prepare_packets(destination, stage, [{'value': 1, 'execution_versions': {'v': 2}}],
+        ['check'], {'items': []})
+    outcome = reuse_from(source, destination, lambda p, r: r['items'], lambda r: None)
+    assert outcome['reused_batch_ids'] == [old['batches'][0]['batch_id']]
+    copied = read_json(destination / 'results' / (old['batches'][0]['batch_id'] + '.json'))
+    assert copied == raw and copied['items'][0]['passed'] is False
+
+
 def test_reuses_unchanged_packet_and_leaves_only_changed_packet_pending(tmp_path):
     source, destination = tmp_path / "source", tmp_path / "destination"
     old_manifest = _prepare(source, [

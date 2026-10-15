@@ -118,6 +118,21 @@ def run(args):
                 task.compatible_failure(deps, record)
                 folder = Path(rejected_target(context['root'], args.stage, record.get('failure') or {})['folder'])
                 folder.resolve().relative_to(context['root'].resolve())
+                # A format fix can also make the complete original batch
+                # provable. Prefer that full source-bound execution when it
+                # matches today's entire task, rather than binding a partial
+                # repair wrapper as if it were the original semantic input.
+                original = context['root'] / 'batches' / args.stage
+                if task.compatible and original != folder and (original / 'manifest.json').exists():
+                    promote_offline(original, validator, pipeline.packets.cache_identity)
+                    if offline_ready(original, validator, pipeline.packets.cache_identity):
+                        candidate = pipeline.packets.execute(original, validator)
+                        try:
+                            task.compatible(deps, candidate)
+                        except (ValueError, KeyError, TypeError, OSError):
+                            pass
+                        else:
+                            folder = original
                 proofs = promote_offline(folder, validator, pipeline.packets.cache_identity)
                 if not offline_ready(folder, validator, pipeline.packets.cache_identity):
                     # This entry point is documented as offline. A folder that

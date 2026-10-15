@@ -1,15 +1,39 @@
 """Pure format views; original provider results and semantic checks stay intact."""
 from copy import deepcopy
+import re
 
 
 ENVELOPE_METADATA = {'stage', 'collection', 'round', 'batch_id', 'input_hash', 'model',
     'execution_model_evidence', 'baseline_execution'}
 
 
+def _code_case_view(result):
+    """Canonical identifier spelling only; no new object or cause is inferred."""
+    result = deepcopy(result)
+    payload = result.get('output_contract', result)
+    if not isinstance(payload, dict) or not isinstance(payload.get('items'), list):
+        return result
+    for item in payload['items']:
+        if not isinstance(item, dict) or not isinstance(item.get('units'), list):
+            continue
+        for unit in item['units']:
+            if not isinstance(unit, dict):
+                continue
+            for field in ('object_code', 'cause_code'):
+                value = unit.get(field)
+                if not isinstance(value, str) or not re.fullmatch('[A-Za-z][A-Za-z0-9_]*', value):
+                    continue
+                value = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', value)
+                unit[field] = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', value).lower()
+    return result
+
+
 def contract_view(packet, result):
     """Accept only an unambiguous echo envelope, never alternate semantics."""
     if not isinstance(result, dict):
         raise ValueError('response root must be a JSON object')
+    if packet.get('stage', '').startswith('gap-normalize-'):
+        result = _code_case_view(result)
     if packet.get('input', {}).get('evidence_catalog_format') == 'scoped-quotes-v1':
         from .evidence_refs import expand_result
         result = expand_result(packet, result)

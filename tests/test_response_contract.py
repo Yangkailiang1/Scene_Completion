@@ -5,6 +5,25 @@ import pytest
 from scene_completion.response_contract import contract_view, source_id_differences
 
 
+def test_normalization_code_case_is_a_view_without_semantic_or_proof_rewrite():
+    packet = {'stage': 'gap-normalize-G', 'input': {}, 'output_contract': {'items': []}}
+    result = {'items': [{'source_scenario_id': 'G1', 'units': [{
+        'object_code': 'response_productId', 'cause_code': 'invalidType',
+        'condition_codes': ['hasToken'], 'exception_object': 'productId'}]}],
+        'model': 'actual-model', 'input_hash': 'original-hash'}
+    original = deepcopy(result)
+    view = contract_view(packet, result)
+    unit = view['items'][0]['units'][0]
+    assert unit['object_code'] == 'response_product_id' and unit['cause_code'] == 'invalid_type'
+    assert unit['condition_codes'] == ['hasToken'] and unit['exception_object'] == 'productId'
+    assert view['model'] == result['model'] and view['input_hash'] == result['input_hash']
+    assert result == original
+    assert contract_view(dict(packet, stage='gap-generation'), result) == original
+    malformed = deepcopy(result)
+    malformed['items'][0]['units'][0].update(object_code='product-id', cause_code='未知')
+    assert contract_view(packet, malformed) == malformed
+
+
 def packet():
     return {'stage': 'gap-normalize-T', 'input': {'collection': 'T'}, 'output_contract': {'items': []}}
 

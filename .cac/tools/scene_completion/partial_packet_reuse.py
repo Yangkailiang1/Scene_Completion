@@ -27,6 +27,10 @@ def semantic_packet(packet: dict) -> dict:
     value.pop("batch_id", None)
     value.pop("input_hash", None)
     if isinstance(value.get("input"), dict):
+        if value.get('stage') == 'gap-reverse-check-G':
+            from .review_scope import concern_closure
+            from .interaction_protocol import baseline
+            value['input'] = concern_closure(value['input'], baseline())
         if value.get('stage')=='gap-generation':
             from .generation_compaction import decode, INSTRUCTION
             if value['input'].get('generation_compaction'):
@@ -63,6 +67,15 @@ def _contains_explicit_rejection(value) -> bool:
     if isinstance(value, (list, tuple)):
         return any(_contains_explicit_rejection(child) for child in value)
     return False
+
+
+def _rejected_semantic_payload(stage, checked):
+    # A valid inverse-check rejection is a completed checker decision, not a
+    # failed transport/format output. Preserve it so downstream source repair
+    # sees the same defects; never reroll a checker until it says yes.
+    if stage in {'gap-reverse-check-G', 'gap-reverse-check-E', 'gap-reverse-check-T'}:
+        return False
+    return _contains_explicit_rejection(checked)
 
 
 def _check_packet(packet: dict, batch: dict, expected_stage: str) -> None:
@@ -176,7 +189,7 @@ def reuse_from(source_folder, destination_folder, validator, cache_identity):
             validate_result_execution(raw, result_path=src_result)
             cache_identity(raw)
             normalized = validator(source_packet, contract_view(source_packet, raw))
-            if _contains_explicit_rejection(normalized):
+            if _rejected_semantic_payload(source_manifest['stage'], normalized):
                 raise ValueError("current validator returned an explicit rejected/invalid item")
         except (ValueError, KeyError, TypeError, RuntimeError) as exc:
             rejected.append({"batch_id": target_id, "source_batch_id": source_id,
@@ -275,7 +288,7 @@ def reuse(folder, previous, validator, cache_identity):
             validate_result_execution(raw, result_path=result_path)
             cache_identity(raw)
             checked = validator(original, contract_view(original, raw))
-            if _contains_explicit_rejection(checked):
+            if _rejected_semantic_payload(current['stage'], checked):
                 raise ValueError("current validator returned an explicit rejected/invalid item")
         except (ValueError, KeyError, TypeError, RuntimeError):
             continue

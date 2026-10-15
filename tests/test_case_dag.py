@@ -10,6 +10,27 @@ from scene_completion.case_dag import Scheduler, Task, TaskRejected, TaskBlocked
 from scene_completion.semantic_backend import read_json
 
 
+def test_diagnosis_protocol_fix_resumes_reserved_repair_not_initial_call(tmp_path):
+    calls = []
+    def initial(deps, record):
+        calls.append(('initial', record['rounds']))
+        raise TaskRejected({'defect': 'invalid canonical field'})
+    def repair(deps, record):
+        calls.append(('repair', record['rounds']))
+        if len(calls) == 2:
+            raise TaskBlocked('diagnosis_blocked', {'failure_category': 'diagnosis_protocol'})
+        return {'validated': True}
+    first = Scheduler(tmp_path)
+    first.add(Task('a', 'uc', 'normal', version=1, execute=initial, repair=repair))
+    assert not first.run()['complete']
+    second = Scheduler(tmp_path)
+    second.add(Task('a', 'uc', 'normal', version=2, execute=initial, repair=repair,
+        compatible_failure=lambda deps, record: None))
+    assert second.run()['complete']
+    assert calls == [('initial', 0), ('repair', 1), ('repair', 1)]
+    assert second.state['tasks']['a']['rounds'] == 1
+
+
 def test_compatible_version_reuses_verified_result_without_resetting_rounds(tmp_path):
     calls=[]
     first=Scheduler(tmp_path)
