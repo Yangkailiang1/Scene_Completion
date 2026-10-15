@@ -48,6 +48,14 @@ class TokenBudget:
         if not config.get('token_budget_ledger'):
             raise ValueError('token_budget_ledger is required with token_budget_limit')
         self.path = Path(config['token_budget_ledger'])
+        self.unknown_policy = config.get('unknown_usage_policy', 'stop')
+        if self.unknown_policy not in ('stop', 'reserve_and_continue'):
+            raise ValueError('unknown_usage_policy must be stop or reserve_and_continue')
+        self.provider_limit = config.get('provider_token_budget_limit')
+        self.peers = [Path(p) for p in config.get('provider_token_budget_ledgers', [])]
+        self.provider_lock = Path(config.get('provider_token_budget_lock') or str(self.path) + '.provider')
+        if self.provider_limit is not None and (type(self.provider_limit) is not int or self.provider_limit < 1):
+            raise ValueError('provider_token_budget_limit must be a positive integer')
         self.reasoning_reserve = config.get('token_budget_reasoning_reserve', 0)
         if type(self.reasoning_reserve) is not int or self.reasoning_reserve < 0:
             raise ValueError('token_budget_reasoning_reserve must be a nonnegative integer')
@@ -73,14 +81,23 @@ class TokenBudget:
         reservation += int(body['max_tokens'])
         if body.get('enable_thinking') or body.get('thinking'):
             reservation += max(self.reasoning_reserve, int(body.get('thinking_budget', 0)))
-        with _locked(self.path):
+        with _locked(self.provider_lock), _locked(self.path):
             data = self._read()
             rows = list(data['requests'].values())
-            if any(r['status'] == 'usage_unknown' for r in rows):
+            if self.unknown_policy == 'stop' and any(r['status'] == 'usage_unknown' for r in rows):
                 raise TokenBudgetBlocked('unresolved_previous_request')
             used = sum(r.get('charged_tokens', 0) + (r['reservation'] if r['status'] == 'reserved' else 0) for r in rows)
             if used + reservation > self.limit:
                 raise TokenBudgetBlocked('insufficient_remaining_allowance', remaining=self.limit-used, required=reservation)
+            if self.provider_limit is not None:
+                shared = used
+                for path in {p.resolve() for p in self.peers} - {self.path.resolve()}:
+                    if path.exists():
+                        peer = json.loads(path.read_text(encoding='utf8'))
+                        shared += sum(r.get('charged_tokens', 0) + (r['reservation'] if r['status'] == 'reserved' else 0)
+                            for r in peer.get('requests', {}).values())
+                if shared + reservation > self.provider_limit:
+                    raise TokenBudgetBlocked('insufficient_provider_allowance', remaining=self.provider_limit-shared, required=reservation)
             request_id = uuid.uuid4().hex
             data['requests'][request_id] = {'model': body.get('model'), 'status': 'reserved',
                 'reservation': reservation, 'started_unix': time.time()}
@@ -88,7 +105,7 @@ class TokenBudget:
         return request_id
 
     def settle(self, request_id, *, usage=None, refused=False):
-        with _locked(self.path):
+        with _locked(self.provider_lock), _locked(self.path):
             data = self._read(); row = data['requests'][request_id]
             if row['status'] != 'reserved':
                 raise ValueError('token reservation was already settled')

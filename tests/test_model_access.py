@@ -184,6 +184,15 @@ def test_review_follows_declared_policy_and_cli_concurrency_overrides_config(tmp
     assert values['max_concurrency']==1 and values['review_model']=='chosen-review-model'
 
 
+def test_review_runtime_must_match_when_declared(tmp_path):
+    write_json(tmp_path/'run_manifest.json', {'review_policy': {
+        'model': 'configured', 'reasoning_effort': 'high', 'runtime': 'openai-compatible'}})
+    review = {'model': 'configured', 'reasoning_effort': 'high'}
+    assert not matches_review_policy(tmp_path, review)
+    assert not matches_review_policy(tmp_path, {**review, 'runtime': 'luna-subprocess'})
+    assert matches_review_policy(tmp_path, {**review, 'runtime': 'openai-compatible'})
+
+
 def test_active_prompts_do_not_pin_model_names_and_modeler_role_is_primary():
     from pathlib import Path
     root=Path(__file__).resolve().parents[1]/'.cac'

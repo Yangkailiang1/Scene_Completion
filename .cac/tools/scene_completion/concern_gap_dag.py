@@ -250,12 +250,11 @@ class Packets:
         return folder
 
     def diagnose(self, case_root, name, target, failure, round_number):
-        from .diagnosis import quote_catalog
+        from .diagnosis import quote_catalog, rejection_ids, failure_view, focus_input, share_allowed_inputs
         original = read_json(Path(target['folder']) / 'manifest.json')
         packets = [read_json(Path(target['folder']) / 'packets' / (row['batch_id'] + '.json')) for row in original['batches']]
         errors=set(failure.get('errors',{}))|set(failure.get('pending',[]))
-        rejected={str(r.get(k)) for r in failure.get('findings',[]) if isinstance(r,dict)
-            for k in ('unit_id','scenario_id','id','source_scenario_id') if r.get(k)}
+        rejected = rejection_ids(failure, target)
         scoped=[p for p in packets if p['batch_id'] in errors or contains_id(p['input'],rejected) or
             ((Path(target['folder'])/'results'/(p['batch_id']+'.json')).exists() and
                 contains_id(read_json(Path(target['folder'])/'results'/(p['batch_id']+'.json')),rejected))]
@@ -264,14 +263,16 @@ class Packets:
         for row in packets:
             attempts = sorted((Path(target['folder']) / 'attempts').glob(row['batch_id'] + '-*.json'))
             if attempts:
-                failed_outputs.append({'batch_id': row['batch_id'], 'preserved_attempt': read_json(attempts[-1])})
+                history = read_json(attempts[-1])
+                failed_outputs.append({'batch_id': row['batch_id'], 'validation_error': history.get('validation_error'),
+                    'result': history.get('result')})
         # Only the target's original permitted input channel is supplied.
-        allowed=[{k:v for k,v in p['input'].items() if k not in ('skill','extraction_skills','execution_versions')} for p in packets]
-        payload = {'stage': name, 'failure': {k:v for k,v in failure.items() if k!='output'}, 'allowed_inputs': allowed,
+        allowed=share_allowed_inputs([focus_input({k:v for k,v in p['input'].items()
+            if k not in ('skill','extraction_skills','execution_versions')}, rejected) for p in packets])
+        payload = {'stage': name, 'failure': failure_view(failure), 'allowed_inputs': allowed,
             'evidence_catalog':quote_catalog(allowed),
             'round': round_number, 'repair_policy': 'source-only; preserve successful records; never add unconfirmed model items',
-            'failed_outputs_from_same_channel': failed_outputs,
-            'repair_skill': (Path(__file__).resolve().parents[2] / 'skills/scene-concern-gap/references/case_execution.md').read_text(encoding='utf8')}
+            'failed_outputs_from_same_channel': failed_outputs}
         instructions=[
             'Diagnose the actual rejection using ONLY these allowed stage inputs. Do not ask for other G/E/T collections.',
             'Choose repair for actual format/citation/structure or model defects; recheck for a checker misjudgment supported by the original source; confirm for source conflicts, insufficient evidence or new components/calls/concerns/spec changes.',
@@ -288,6 +289,19 @@ class Packets:
         if record.get('valid_folder'):
             result=self.execute(Path(record['valid_folder']),diagnosis_validator)
             return result['values'][0],result
+        if record['invalid_outputs']:
+            # A rejection may have come from the checker rule rather than from
+            # the return itself. Re-admit the preserved original return offline,
+            # under the current rule, instead of paying to regenerate it.
+            from .rejected_task_revalidation import offline_ready,promote_offline
+            for index in range(record['invalid_outputs']):
+                previous=case_root/'batches'/(name+'-diagnosis-'+str(round_number)+('-format-'+str(index) if index else ''))
+                promote_offline(previous,diagnosis_validator,self.cache_identity)
+                if not offline_ready(previous,diagnosis_validator,self.cache_identity):
+                    continue
+                result=self.execute(previous,diagnosis_validator)
+                record['valid_folder']=str(previous.resolve());write_json(ledger_path,ledger)
+                return result['values'][0],result
         while record['invalid_outputs']<limit:
             attempt=record['invalid_outputs']
             folder=case_root/'batches'/(name+'-diagnosis-'+str(round_number)+('-format-'+str(attempt) if attempt else ''))
@@ -305,11 +319,13 @@ class Packets:
             'reason':'bounded diagnosis-format attempts exhausted; original target was not regenerated'})
 
     def repaired(self, case_root, name, target, validator, diagnosis, failure, round_number):
+        from .diagnosis import rejection_ids, failure_view, repair_input
         source = Path(target['folder'])
         original = read_json(source / 'manifest.json')
         payloads, instructions, contract, retained, preserved_by_prior, preserved_models = [], None, None, [], {}, {}
-        rejected_ids = {str(r.get(k)) for r in failure.get('findings', []) if isinstance(r, dict)
-            for k in ('unit_id', 'scenario_id', 'id', 'source_scenario_id') if r.get(k)} if isinstance(failure, dict) else set()
+        ordered_slots = []
+        generation_patches = False
+        rejected_ids = rejection_ids(failure, target) if isinstance(failure, dict) else set()
         allowed_components, allowed_exchanges = set(), set()
         review_folder = failure.get('output', {}).get('folder') if isinstance(failure, dict) else None
         if review_folder and original['stage'] == 'interaction-model':
@@ -326,20 +342,82 @@ class Packets:
             packet = read_json(source / 'packets' / (row['batch_id'] + '.json'))
             path = source / 'results' / (row['batch_id'] + '.json')
             prior = read_json(path) if path.exists() else None
+            prior_attempt = None
+            is_comparison = original['stage'].startswith('gap-ambiguity-')
+            prior_is_current = False
+            if is_comparison and prior is not None:
+                # Results can predate the current pair validator. Reuse one
+                # only after both its execution identity and current contract
+                # still validate; otherwise prefer the latest real semantic
+                # attempt over the worker's synthetic cache-revalidation copy.
+                try:
+                    self.cache_identity(prior)
+                    validator(packet, contract_view(packet, prior))
+                    validate_result_execution(prior, result_path=path)
+                except (ValueError, KeyError, TypeError):
+                    pass
+                else:
+                    prior_is_current = True
             # Failed responses are kept by the semantic worker in attempts.
-            if prior is None:
+            # A cache-revalidation snapshot is useful as a last resort, but
+            # must not shadow an actual semantic attempt from this packet.
+            if is_comparison and (prior is None or not prior_is_current):
+                attempts = sorted((source / 'attempts').glob(row['batch_id'] + '-*.json'))
+                candidates = []
+                for attempt_path in attempts:
+                    attempt = read_json(attempt_path)
+                    candidate = attempt.get('result')
+                    if (not isinstance(candidate, dict)
+                            or candidate.get('batch_id') != row['batch_id']
+                            or candidate.get('input_hash') != row['input_hash']):
+                        continue
+                    try:
+                        validate_result_execution(candidate)
+                        self.cache_identity(candidate)
+                    except (ValueError, KeyError, TypeError):
+                        continue
+                    attempt_number = attempt.get('attempt', -1)
+                    if type(attempt_number) is not int:
+                        attempt_number = -1
+                    candidates.append((bool(attempt.get('cached_result_revalidation')),
+                        attempt_path.stat().st_mtime_ns, attempt_number,
+                        attempt_path.name, attempt_path, candidate))
+                semantic = [candidate for candidate in candidates if not candidate[0]]
+                selected = max(semantic or candidates, default=None,
+                    key=lambda candidate: candidate[:4])
+                if selected is not None:
+                    prior_attempt, prior = selected[4], selected[5]
+            elif prior is None:
                 attempts = sorted((source / 'attempts').glob(row['batch_id'] + '-*.json'))
                 if attempts:
-                    prior = read_json(attempts[-1]).get('result')
+                    prior_attempt = attempts[-1]
+                    prior = read_json(prior_attempt).get('result')
             # Do not regenerate packets that contain no rejected item. For
             # structural failures, the worker's missing/error IDs identify them.
             errors = set(failure.get('errors', {})) | set(failure.get('pending', [])) if isinstance(failure, dict) else set()
             affected = (not rejected_ids and not errors) or row['batch_id'] in errors or contains_id(packet['input'], rejected_ids) or contains_id(prior, rejected_ids)
-            if not affected and path.exists():
+            # Raw G responses do not carry the stable IDs assigned by the
+            # validator. Resolve that identity before deciding to retain a
+            # packet; otherwise a source-level repair silently becomes a no-op.
+            if original['stage'] == 'gap-generation' and rejected_ids and prior:
+                affected = affected or any(value['scenario_id'] in rejected_ids
+                    for value in validator(packet, contract_view(packet, prior)))
+            if not affected and path.exists() and (not is_comparison or prior_is_current):
                 validator(packet, contract_view(packet, prior))
                 validate_result_execution(prior, result_path=path)
                 retained.append((row, packet, path))
+                ordered_slots.append(('retained', row))
                 continue
+            if original['stage'].startswith('gap-ambiguity-') and prior_attempt and prior:
+                from .comparison_patch import build_comparison_patch
+                self.cache_identity(prior)
+                patch = build_comparison_patch(source / 'packets' / (row['batch_id'] + '.json'),
+                    prior_attempt, validator)
+                if patch:
+                    ordered_slots.append(('new', len(payloads)))
+                    payloads.append(patch['payload'])
+                    instructions, contract = patch['instructions'], packet['output_contract']
+                    continue
             if prior:
                 try:
                     for value in validator(packet, contract_view(packet, prior)):
@@ -352,26 +430,93 @@ class Packets:
                             [('components', 'component_id', allowed_components), ('exchanges', 'local_id', allowed_exchanges)]}
                 except (ValueError, KeyError, TypeError):
                     pass
-            payloads.append({**packet['input'], 'bounded_repair': {'diagnosis': diagnosis,
-                'rejection': failure, 'prior_output': prior, 'round': round_number}})
+            repaired_input = repair_input(packet['input'])
+            prior_view = prior
+            if original['stage'].startswith('gap-reverse-check-') and prior and path.exists() and rejected_ids:
+                prior_reviews = validator(packet, contract_view(packet, prior))
+                review_ids = {value['unit_id'] for value in prior_reviews
+                    if not value['passed'] and value['unit_id'] in rejected_ids}
+                if review_ids:
+                    repaired_input['units'] = [unit for unit in packet['input']['units'] if unit['unit_id'] in review_ids]
+                    source_ids = {unit['source_scenario_id'] for unit in repaired_input['units']}
+                    repaired_input['original_scenarios'] = [value for value in packet['input']['original_scenarios']
+                        if value['scenario_id'] in source_ids]
+                    repaired_input['original_evidence'] = [value for value in packet['input'].get('original_evidence', [])
+                        if value['scenario_id'] in source_ids]
+                    repaired_input['review_patch'] = {'rejected_unit_ids': sorted(review_ids),
+                        'prior_execution': {'result_path': str(path.resolve()), 'result_hash': fingerprint(prior),
+                            'packet_path': str((source/'packets'/path.name).resolve()), 'packet_hash': fingerprint(packet)}}
+                    prior_view = [value for value in prior_reviews if value['unit_id'] in review_ids]
+            if original['stage'] == 'gap-generation' and prior and path.exists():
+                validated_prior = validator(packet, contract_view(packet, prior))
+                rejected_sources = [value for value in validated_prior if value['scenario_id'] in rejected_ids]
+                if rejected_sources:
+                    generation_patches = True
+                    mounts = {value['mount_id'] for value in rejected_sources}
+                    repaired_input['mounts'] = [mount for mount in repaired_input['mounts'] if mount['mount_id'] in mounts]
+                    exchanges = {mount['exchange_id'] for mount in repaired_input['mounts']}
+                    repaired_input['exchanges'] = [exchange for exchange in repaired_input['exchanges'] if exchange['exchange_id'] in exchanges]
+                    if repaired_input.get('skill') == repaired_input.get('generator_skill'):
+                        repaired_input.pop('skill', None)
+                    if isinstance(repaired_input.get('checked_features'), list):
+                        repeated_traits = [trait for mount in repaired_input['mounts']
+                            for trait in mount.get('feature_evidence', [])]
+                        repaired_input['checked_features'] = [{**value,
+                            'traits': [trait for trait in value.get('traits', []) if trait not in repeated_traits],
+                            'shared_traits_location': 'mounts[].feature_evidence'}
+                            for value in repaired_input['checked_features'] if value['exchange_id'] in exchanges]
+                    parties = {value[key] for value in repaired_input['exchanges']
+                        for key in ('from_node', 'to_node') if key in value}
+                    if parties and isinstance(repaired_input.get('nodes'), list):
+                        repaired_input['nodes'] = [value for value in repaired_input['nodes'] if value['node_id'] in parties]
+                    repaired_input['directed_patch'] = {'rejected_scenario_ids': [value['scenario_id'] for value in rejected_sources],
+                        'prior_execution': {'result_path': str(path.resolve()), 'result_hash': fingerprint(prior),
+                            'packet_path': str((source/'packets'/path.name).resolve()), 'packet_hash': fingerprint(packet)}}
+                    prior_view = rejected_sources
+            rejection_view = failure_view(failure)
+            if repaired_input.get('directed_patch'):
+                scope = set(repaired_input['directed_patch']['rejected_scenario_ids'])
+                rejection_view = {**rejection_view, 'findings': [finding for finding in rejection_view.get('findings', [])
+                    if finding.get('source_scenario_id') in scope]}
+            ordered_slots.append(('new', len(payloads)))
+            payloads.append({**repaired_input, 'bounded_repair': {'diagnosis': diagnosis,
+                'rejection': rejection_view, 'prior_output': prior_view, 'round': round_number}})
             instructions, contract = packet['instructions'], packet['output_contract']
         folder = case_root / 'batches' / (name + '-repair-' + str(round_number))
+        if generation_patches:
+            contract = {'replacements': [{'source_scenario_id': 'exact rejected scenario ID',
+                'scenarios': [{'name': 'atomic abnormal condition', 'exception_object': 'object',
+                    'operation': 'operation', 'failure_mechanism': 'one actual cause',
+                    'trigger_condition': 'specific abnormal condition', 'necessary_conditions': [],
+                    'source_refs': [], 'pending_details': []}]}]}
+            instructions = [*(instructions or []),
+                'DIRECTED PATCH: Return replacements for every directed_patch.rejected_scenario_ids exactly once; no other scenarios or mount items. Repair the specific abnormal cause using its supplied normal SSD/mount and original evidence only. Tools retain all unrelated proven output verbatim. Keep at least one valid atomic scenario per rejected source and preserve its actual mount.']
+        if original['stage'].startswith('gap-reverse-check-'):
+            instructions = [*(instructions or []),
+                'Recheck only the supplied failed units. Tools merge the previous successful reviews unchanged. object_code/cause_code/condition_codes are open semantic snake_case identities, not a closed enum. Type mismatch and format violation are distinct mechanisms; no invented allowed-code list can reject invalid_type. Unknown legal concrete types remain pending, not a reason to change the actual cause. Keep all decisions source-based; valid source-supported conditions may still be rejected for a real defect.']
+        if original['stage'].startswith('gap-ambiguity-'):
+            instructions = [*(instructions or []),
+                'Reassess the actual condition relations, not just output formatting. compatible_conditions means NON-CONTRADICTORY, not complete. Missing checker prerequisites may justify partial with compatible_conditions=true and exact missing evidence. An actual contradiction or different object/operation/cause is unmatched. Never flip flags automatically. For unmatched return only pair IDs, status, and a concrete reason; omit accepted evidence.',
+                'Partial never compensates for different objects or operations. If your semantic judgment is same_object=false or same_operation=false, choose unmatched. A partial needs a concrete missing CHECKER condition; same identity with every checker condition supported is full. Answer EVERY supplied expected pair, including unmatched; never return only the promising match. Tools preserve the other previously validated pairs.']
         prepare_packets(folder, original['stage'], payloads, [*(instructions or []),
             'Repair ONLY the actually rejected items, or recheck them from original evidence when diagnosed as a checker error. Preserve all other supplied successful entries. No extra information or new modeling items are authorized. Return the ORIGINAL output contract, with fresh execution proof.'], contract)
         manifest = read_json(folder / 'manifest.json')
+        new_rows = manifest['batches'][:]
         for row, packet, path in retained:
-            manifest['batches'].append(row)
             write_json(folder / 'packets' / path.name, packet)
             destination = folder / 'results' / path.name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, destination)
             retain_sidecars(read_json(path), path, destination)
+        manifest['batches'] = [value if kind == 'retained' else new_rows[value] for kind, value in ordered_slots]
         manifest['input_hash'] = fingerprint(manifest['batches'])
         write_json(folder / 'manifest.json', manifest)
         def preserve_successful(packet, result):
             values = validator(packet, result)
             prior = packet['input'].get('bounded_repair', {}).get('prior_output')
-            for original in preserved_by_prior.get(fingerprint(prior), []):
+            prior_hash = (packet['input'].get('directed_patch', {}).get('prior_execution', {}).get('result_hash')
+                or packet['input'].get('review_patch', {}).get('prior_execution', {}).get('result_hash') or fingerprint(prior))
+            for original in preserved_by_prior.get(prior_hash, []):
                 if original not in values:
                     raise ValueError('directed repair changed an unrelated successful scenario/unit')
             for field, originals in preserved_models.get(fingerprint(prior), {}).items():
@@ -492,6 +637,8 @@ class Pipeline:
             'max_concurrency': self.gate.limit, 'stages': {}}
         from .model_configuration import review_policy
         self.manifest['review_policy'] = review_policy(self.client.config)
+        self.manifest['review_execution_required'] = True
+        self.manifest['usage_accounting_policy'] = self.client.config.get('usage_accounting_policy', 'strict')
         for name, value in [('sources_index', self.index), ('test_sources_index', self.test_index),
                 ('generator_base_identity', self.base), ('run_manifest', self.manifest)]:
             write_json(self.root / (name + '.json'), value)
@@ -524,16 +671,43 @@ class Pipeline:
 
     def semantic(self, case, name, deps, prepare, validator, *, reject=None, repair_target=None, lane='progress', transform=None):
         context, root = self.contexts[case], self.contexts[case]['root']
+        def pending_source_correction():
+            if name != 'reverse-G' or not (root / 'repair_rounds').exists():
+                return None
+            generation = self.scheduler.state['tasks'].get(self.key(case, 'G-generate'), {})
+            output_file = generation.get('output_file')
+            if not output_file:
+                return None
+            from .source_candidate_recovery import find_pending_source_correction
+            return find_pending_source_correction(root,
+                read_json(self.scheduler.root / output_file), context['validators'],
+                self.packets.cache_identity, case_prefix=case)
         def execute(inputs, record):
+            pending = pending_source_correction()
+            if pending:
+                # A new verdict on the old source cannot discharge a proven
+                # outstanding source defect. Continue its real repaired candidate.
+                raise TaskRejected(pending['failure'])
             # A successful directed repair is an alternate proven output, not a
             # forged result in the original packet. Reuse only for the same inputs.
             active = root / 'active' / (name + '.json')
             if active.exists():
                 saved = read_json(active)
                 if saved['input_hash'] == record['input_hash']:
-                    output = self.packets.execute(Path(saved['output']['folder']), validator)
+                    verify(saved['output'])
+                    output = saved['output']
                 else:
-                    output = None
+                    try:
+                        compatible(inputs, saved['output'])
+                    except (ValueError, KeyError, OSError, TypeError, TaskBlocked):
+                        output = None
+                    else:
+                        # Deterministic upstream metadata changes can invalidate
+                        # this record without changing its permitted source.
+                        # Keep the proven directed result, including source-
+                        # repair lineage, instead of falling back to the initial
+                        # (possibly superseded) packet output.
+                        output = saved['output']
             else:
                 output = None
             if output is None:
@@ -549,9 +723,48 @@ class Pipeline:
             return output
         def repair_with(packets, inputs, record, *, supervising=False):
             failure = record.get('failure') or {}
+            candidates = failure.get('candidate_replacements', {})
+            source_progress = failure.get('candidate_source_repair')
+            # Recover a pre-migration rejected repair only from its exact latest
+            # journal and complete, validated cached packets. These are still
+            # candidates, never promoted to passed before the failed review.
+            if name == 'reverse-G' and not candidates and record.get('supervisor_rounds', 0) > 1:
+                previous_round = record['supervisor_rounds'] - (1 if supervising else 0)
+                journal_path = root / 'repair_rounds' / (name + '-supervisor-' + str(previous_round) + '.json')
+                generated_folder = root / 'batches' / ('G-generate-supervisor-repair-' + str(previous_round))
+                normalized_folder = root / 'batches' / ('normalize-G-after-source-repair-' + str(record['rounds']))
+                if journal_path.exists() and generated_folder.exists() and normalized_folder.exists():
+                    journal = read_json(journal_path)
+                    rejected_sources = [r.get('source_scenario_id') for r in journal['failure'].get('findings', [])]
+                    if rejected_sources and all(rejected_sources):
+                        def cached(folder, check):
+                            values, status = collect_packets(folder, check)
+                            if not status['complete']:
+                                raise ValueError('prior repair candidate is incomplete; do not regenerate or promote it')
+                            proofs = []
+                            for row in read_json(folder / 'manifest.json')['batches']:
+                                path = folder / 'results' / (row['batch_id'] + '.json')
+                                raw = read_json(path)
+                                validate_result_execution(raw, result_path=path)
+                                self.packets.cache_identity(raw)
+                                proofs.append({'batch_id': raw['batch_id'], 'input_hash': raw['input_hash'],
+                                    'result_path': str(path.resolve()), 'result_hash': fingerprint(raw), 'model': raw['model']})
+                            return {'values': values, 'folder': str(folder.resolve()), 'executions': proofs}
+                        generation = cached(generated_folder, context['validators']['G-generate'])
+                        normalization = cached(normalized_folder, context['validators']['normalize-G'])
+                        reviewed_ids = {r['unit_id'] for r in failure.get('output', {}).get('values', [])}
+                        if reviewed_ids == {r['unit_id'] for r in normalization['values']}:
+                            from .directed_patch import validate_generation_progress
+                            validate_generation_progress(journal['old_output']['values'], generation['values'], rejected_sources)
+                            candidates = {self.key(case, 'G-generate'): generation, self.key(case, 'normalize-G'): normalization}
+                            source_progress = {'generation_task': self.key(case, 'G-generate'),
+                                'prior_output_hash': fingerprint(journal['old_output']),
+                                'corrected_output_hash': fingerprint(generation), 'rejected_source_ids': rejected_sources}
+            inputs = {**inputs, **candidates}
             upstream = bool(repair_target and failure.get('findings'))
             target_name = repair_target if upstream else name
-            if name == 'reverse-G' and any(not r.get('source_supported', True) for r in failure.get('findings', [])):
+            if name == 'reverse-G' and any(not r.get('source_supported', True) or not r.get('atomic', True)
+                    for r in failure.get('findings', [])):
                 target_name = 'G-generate'
                 by_unit = {u['unit_id']: u['source_scenario_id'] for u in self.values(inputs, case, 'normalize-G')}
                 failure = {**failure, 'findings': [{**r, 'source_scenario_id': by_unit.get(r.get('unit_id'))}
@@ -566,7 +779,10 @@ class Pipeline:
                     target = rejected_target(root, name, failure)
                 target_validator = validator
             if supervising:
-                diagnosis = {'action': 'repair', 'reason': 'Supervisor takeover of the last rejected output. Re-read only the allowed original sources; correct the actual rejection and validate the complete output contract. Preserve all unrelated entries. Do not weaken checks, invent evidence, introduce unapproved modeling items or copy E/GT into normal modeling/G.'}
+                revisions = [r for r in record.get('supervisor_continuations', [])
+                    if r['revision_id'] == record.get('active_supervisor_revision')]
+                action = revisions[0]['plan'].get('action', 'repair') if revisions else 'repair'
+                diagnosis = {'action': action, 'reason': 'Supervisor takeover of the last rejected output. Re-read only the allowed original sources; correct the actual rejection and validate the complete output contract. Preserve all unrelated entries. Do not weaken checks, invent evidence, introduce unapproved modeling items or copy E/GT into normal modeling/G.'}
                 # The controller's cross-stage diagnosis is audit evidence only.
                 # The semantic repair receives its original allowed inputs and
                 # current validator errors, never arbitrary controller prose
@@ -589,18 +805,37 @@ class Pipeline:
                 if reject:
                     findings = reject(repair_output['values'])
                     if findings:
-                        raise TaskRejected({'findings': findings, 'output': repair_output})
+                        raise TaskRejected({'findings': findings, 'output': repair_output,
+                            'candidate_replacements': candidates, 'candidate_source_repair': source_progress})
+                if candidates:
+                    repair_output['_replacements'] = candidates
+                    repair_output['_source_repair'] = source_progress
                 write_json(root / 'active' / (name + '.json'), {'input_hash': record['input_hash'], 'output': repair_output})
                 return repair_output
             changed = packets.repaired(root, target_name + ('-supervisor' if supervising else ''), target,
                 target_validator, diagnosis, failure, record['supervisor_rounds'] if supervising else record['rounds'])
+            source_repair = None
+            if name == 'reverse-G' and target_name == 'G-generate':
+                from .directed_patch import validate_generation_progress
+                rejected = [r['source_scenario_id'] for r in failure['findings']]
+                validate_generation_progress(target['values'], changed['values'], rejected)
+                source_repair = {'rejected_source_ids': rejected, 'generation_task': target_key,
+                    'prior_output_hash': fingerprint(target), 'corrected_output_hash': fingerprint(changed)}
             if upstream:
+                # Takeover applies to the rejected semantic output. Independent
+                # normalization and review retain the configured batch role and
+                # its own execution identity/budget, rather than consuming the
+                # controller's repair allowance for unrelated checking work.
+                followup_packets = self.packets if supervising else packets
                 new_inputs = {**inputs, target_key: changed}
                 normalization_replacement = None
                 if name == 'reverse-G' and target_name == 'G-generate':
                     normalized_folder = root / 'batches' / ('normalize-G-after-source-repair-' + str(record['rounds']))
                     b.normalized_packets(changed['values'], self.graph(case, new_inputs)[1], normalized_folder, 'G', self.index)
-                    normalization_replacement = packets.execute(normalized_folder, context['validators']['normalize-G'])
+                    from .partial_packet_reuse import reuse_from
+                    reuse_from(inputs[self.key(case, 'normalize-G')]['folder'], normalized_folder,
+                        context['validators']['normalize-G'], followup_packets.cache_identity)
+                    normalization_replacement = followup_packets.execute(normalized_folder, context['validators']['normalize-G'])
                     new_inputs[self.key(case, 'normalize-G')] = normalization_replacement
                 # Model repairs are checked against source + approved proposal
                 # bindings again; changed/new proposals cannot bypass confirmation.
@@ -609,19 +844,32 @@ class Pipeline:
                     new_inputs[self.key(case, 'authorization')] = {'model': changed_model}
                 folder = root / 'batches' / (name + '-recheck-' + str(record['rounds']))
                 prepare(new_inputs, folder)
+                # Changed upstream data need fresh checking; identical valid
+                # review packets retain their original execution and budget.
+                retained = []
+                previous_review = failure.get('output', {}).get('folder')
+                if previous_review and Path(previous_review).resolve() != folder.resolve():
+                    from .partial_packet_reuse import reuse_from
+                    retained = reuse_from(previous_review, folder, validator,
+                        followup_packets.cache_identity)['reused_batch_ids']
                 # Bind a fresh review to the diagnosis even if input happened
                 # to be identical. Do not reuse a prior failed judgment.
-                self.salt(folder, diagnosis, record['rounds'])
-                checked = packets.execute(folder, validator)
+                self.salt(folder, diagnosis, record['rounds'], retained=retained)
+                checked = followup_packets.execute(folder, validator)
                 if transform:
                     checked = transform(checked)
                 if reject:
                     findings = reject(checked['values'])
                     if findings:
-                        raise TaskRejected({'findings': findings, 'output': checked})
+                        raise TaskRejected({'findings': findings, 'output': checked,
+                            'candidate_replacements': {**candidates, target_key: changed,
+                                **({self.key(case, 'normalize-G'): normalization_replacement} if normalization_replacement else {})},
+                            'candidate_source_repair': source_repair or source_progress})
                 prior_record = self.scheduler.state['tasks'][target_key]
                 write_json(root / 'active' / (target_name + '.json'), {'input_hash': prior_record['input_hash'], 'output': changed})
-                checked['_replacements'] = {target_key: changed}
+                checked['_replacements'] = {**candidates, target_key: changed}
+                if source_repair or source_progress:
+                    checked['_source_repair'] = source_repair or source_progress
                 if normalization_replacement:
                     checked['_replacements'][self.key(case, 'normalize-G')] = normalization_replacement
                 if target_name == 'normal':
@@ -630,7 +878,7 @@ class Pipeline:
                         graph_folder = root / 'batches' / ('graphs-recheck-for-' + name + '-' + str(record['rounds']))
                         self.graph_packets(case, new_inputs, graph_folder)
                         self.salt(graph_folder, diagnosis, record['rounds'])
-                        checked_graph = self.component_records(packets.execute(graph_folder, self.graph_validator))
+                        checked_graph = self.component_records(followup_packets.execute(graph_folder, self.graph_validator))
                         if any(not row['valid'] for row in checked_graph['values']):
                             raise TaskRejected({'findings': [row for row in checked_graph['values'] if not row['valid']], 'output': checked_graph})
                         checked['_replacements'][self.key(case, 'graphs')] = checked_graph
@@ -642,6 +890,18 @@ class Pipeline:
             write_json(root / 'active' / (name + '.json'), {'input_hash': record['input_hash'], 'output': changed})
             return changed
         def verify(output):
+            if pending_source_correction():
+                raise ValueError('a proven source correction is still awaiting promotion and independent recheck')
+            generation_key = self.key(case, 'G-generate')
+            if name == 'reverse-G' and output.get('_source_repair'):
+                from .directed_patch import validate_generation_progress
+                proof = output.get('_source_repair') or {}
+                generation_record = self.scheduler.state['tasks'][generation_key]
+                changed = read_json(self.root / generation_record['output_file'])
+                if (proof.get('generation_task') != generation_key
+                        or proof.get('corrected_output_hash') != fingerprint(changed)):
+                    raise ValueError('source repair needs a bound proof of actual rejected-item changes')
+                validate_generation_progress(None, changed['values'], proof.get('rejected_source_ids'))
             verify_execution_output(output)
             for execution in output.get('executions', []):
                 self.packets.cache_identity(read_json(execution['result_path']))
@@ -662,7 +922,8 @@ class Pipeline:
             # payload, instructions and contract stay identical. Revalidate
             # the original execution with today's validator in that case.
             from tempfile import TemporaryDirectory
-            original=root/'batches'/name
+            original = (Path(output['folder']) if name in ('normalize-G', 'reverse-G')
+                and output.get('folder') else root/'batches'/name)
             if not (original/'manifest.json').exists():raise ValueError('original packet proof missing')
             revalidation_path = self.root / (name + '_rejected_revalidation.json') if hasattr(self, 'root') else None
             revalidated = False
@@ -680,12 +941,33 @@ class Pipeline:
                 if expected['stage']!=prior['stage'] or len(expected['batches'])!=len(prior['batches']):
                     raise ValueError('semantic batch scope changed')
                 def semantic_packet(packet):
-                    packet=copy.deepcopy(packet)
+                    from .partial_packet_reuse import semantic_packet as execution_neutral_packet
+                    packet=execution_neutral_packet(packet)
+                    # A failed-unit review patch still covers the exact prior
+                    # complete packet through its verified execution binding.
+                    # Compare that original evidence to the newly prepared
+                    # scope; validation below checks the actual patch lineage.
+                    seen = set()
+                    while packet.get('input', {}).get('review_patch'):
+                        previous_path = packet['input']['review_patch']['prior_execution']['packet_path']
+                        if previous_path in seen:
+                            raise ValueError('cyclic review patch evidence')
+                        seen.add(previous_path)
+                        packet = read_json(previous_path)
                     for field in ('batch_id','input_hash'):packet.pop(field,None)
                     for field in ('execution_versions','test_parser_version'):packet['input'].pop(field,None)
                     if revalidated:
                         packet.pop('instructions', None)
                         packet['input'].pop('extraction_skills', None)
+                    if name.startswith(('compare-', 'reverse-')):
+                        # New citation selectors are an additive output format.
+                        # Existing judgments remain usable only if the complete
+                        # original scope/input is identical and today's strict
+                        # semantic/evidence validator still accepts them below.
+                        packet.pop('instructions', None)
+                        packet.pop('output_contract', None)
+                        packet['input'].pop('fresh_recheck', None)
+                        packet['input'].pop('bounded_repair', None)
                     if name=='participants':packet['input'].pop('rule_hash',None)
                     if name=='graphs':
                         # Moving already-checked nodes into the shared registry
@@ -724,7 +1006,8 @@ class Pipeline:
                             data.pop(field, None)
                         return data
                     if (allowed_input(latest) != allowed_input(old_packet)
-                            or latest['output_contract'] != old_packet['output_contract']):
+                            or (not name.startswith(('compare-', 'reverse-'))
+                                and latest['output_contract'] != old_packet['output_contract'])):
                         raise ValueError('failed task original evidence or output contract changed')
             target = rejected_target(root, name, record.get('failure') or {})
             for batch in read_json(Path(target['folder']) / 'manifest.json')['batches']:
@@ -734,12 +1017,19 @@ class Pipeline:
         self.scheduler.tasks[self.key(case, name)].compatible_failure = compatible_failure
 
     @staticmethod
-    def salt(folder, diagnosis, round_number):
+    def salt(folder, diagnosis, round_number, retained=()):
         manifest = read_json(folder / 'manifest.json')
         packets = [read_json(folder / 'packets' / (row['batch_id'] + '.json')) for row in manifest['batches']]
-        if packets:
+        pending = [p for p in packets if p['batch_id'] not in set(retained)]
+        if pending:
             prepare_packets(folder, manifest['stage'], [{**p['input'], 'fresh_recheck': {
-                'diagnosis': diagnosis, 'round': round_number}} for p in packets], packets[0]['instructions'], packets[0]['output_contract'])
+                'diagnosis': diagnosis, 'round': round_number}} for p in pending], pending[0]['instructions'], pending[0]['output_contract'])
+            updated = read_json(folder / 'manifest.json')
+            replacements = iter(updated['batches'])
+            updated['batches'] = [row if row['batch_id'] in retained else next(replacements)
+                for row in manifest['batches']]
+            updated['input_hash'] = fingerprint(updated['batches'])
+            write_json(folder / 'manifest.json', updated)
 
     def model(self, case, normal):
         context = self.contexts[case]

@@ -125,3 +125,38 @@ def test_changed_correction_file_requires_controller_reassessment(tmp_path):
     (tmp_path / '.cac/tools/checker.py').write_text('unreviewed = True')
     with pytest.raises(ValueError, match='files changed'):
         build().run()
+
+
+def test_unstarted_plan_can_be_cancelled_without_refunding_attempts(tmp_path):
+    from scene_completion.supervisor_continuation import cancel_pending
+    root=tmp_path/'run';setup_failed(root)
+    request(root,'a',correction(root,tmp_path),repository=tmp_path)
+    before=read_json(root/'case_tasks.json')['tasks']['a']
+    result=cancel_pending(root,'a','dependency changed before execution')
+    after=read_json(root/'case_tasks.json')['tasks']['a']
+    assert result['model_calls']==0
+    assert after['rounds']==before['rounds'] and after['supervisor_rounds']==before['supervisor_rounds']
+    assert after['supervisor_continuations'][-1]['status']=='cancelled_unstarted'
+    assert 'supervisor_revision_pending' not in after
+    with pytest.raises(ValueError,match='unstarted'):
+        cancel_pending(root,'a','again')
+
+
+def test_refresh_pending_requires_unchanged_failure_and_dependency_hashes(tmp_path):
+    from scene_completion.supervisor_continuation import refresh_pending
+    from scene_completion.sources import fingerprint
+    root=tmp_path/'run';setup_failed(root)
+    request(root,'a',correction(root,tmp_path),repository=tmp_path)
+    state=read_json(root/'case_tasks.json');r=state['tasks']['a']
+    deps={key:state['tasks'][key].get('output_hash') for key in r.get('dependencies',[])}
+    r['previous_version']={'checker':'old'}
+    r['supervisor_continuations'][-1]['input_hash']=fingerprint({'version':r['previous_version'],'dependencies':deps})
+    r['input_hash']='new-version-input';write_json(root/'case_tasks.json',state)
+    assert refresh_pending(root,'a')['model_calls']==0
+    updated=read_json(root/'case_tasks.json')['tasks']['a']
+    assert updated['supervisor_continuations'][-1]['input_hash']=='new-version-input'
+    assert updated['supervisor_continuations'][-1]['input_rebindings'][0]['basis']=='tool_version_only_reconciliation'
+    state=read_json(root/'case_tasks.json');state['tasks']['a']['failure_hash']='changed'
+    write_json(root/'case_tasks.json',state)
+    with pytest.raises(ValueError,match='fresh diagnosis'):
+        refresh_pending(root,'a')

@@ -303,6 +303,192 @@ def test_targeted_repair_rejects_collateral_change_to_successful_unit(tmp_path):
     assert fingerprint(read_json(Path(previous['executions'][0]['result_path']))) == old_hash
 
 
+def test_reverse_review_recheck_keeps_retained_packet_slots_and_replaces_only_failed_unit(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets
+    from scene_completion.response_contract import contract_view
+
+    folder = tmp_path / 'case' / 'batches' / 'reverse-G'
+    inputs = [
+        {'units': [{'unit_id': 'U1', 'source_scenario_id': 'S1'}],
+         'original_scenarios': [{'scenario_id': 'S1', 'trigger_condition': 'trigger one'}],
+         'original_evidence': [{'scenario_id': 'S1', 'source_ref': 'ref-1', 'text': 'source one'}]},
+        {'units': [{'unit_id': 'U2', 'source_scenario_id': 'S2'}],
+         'original_scenarios': [{'scenario_id': 'S2', 'trigger_condition': 'trigger two'}],
+         'original_evidence': [{'scenario_id': 'S2', 'source_ref': 'ref-2', 'text': 'source two'}]},
+        {'units': [{'unit_id': 'U3', 'source_scenario_id': 'S3'}],
+         'original_scenarios': [{'scenario_id': 'S3', 'trigger_condition': 'trigger three'}],
+         'original_evidence': [{'scenario_id': 'S3', 'source_ref': 'ref-3', 'text': 'source three'}]},
+    ]
+    manifest = prepare_packets(folder, 'gap-reverse-check-G', inputs, [], {'reviews': []})
+    old_batches = list(manifest['batches'])
+
+    def review_validator(packet, raw):
+        expected = {unit['unit_id'] for unit in packet['input']['units']}
+        rows = copy.deepcopy(raw.get('reviews', []))
+        if {row.get('unit_id') for row in rows} != expected or len(rows) != len(expected):
+            raise ValueError('wrong review unit coverage')
+        for row in rows:
+            row['passed'] = all(row[key] for key in
+                ('source_supported', 'atomic', 'mapping_correct', 'cause_correct'))
+        return rows
+
+    for index, row in enumerate(old_batches):
+        packet_path = folder / 'packets' / f"{row['batch_id']}.json"
+        packet = read_json(packet_path)
+        unit_id = packet['input']['units'][0]['unit_id']
+        good = unit_id != 'U2'
+        raw = {'batch_id': row['batch_id'], 'input_hash': row['input_hash'],
+            'model': 'ecnu-max', 'execution_model_evidence': {'requested_model': 'ecnu-max'},
+            'reviews': [{'unit_id': unit_id, 'source_supported': good, 'atomic': good,
+                'mapping_correct': good, 'cause_correct': good, 'evidence_quote': f'trigger {index + 1}',
+                'reason': 'initial review'}]}
+        write_json(folder / 'results' / f"{row['batch_id']}.json", raw)
+    values = []
+    for row in old_batches:
+        packet = read_json(folder / 'packets' / f"{row['batch_id']}.json")
+        raw = read_json(folder / 'results' / f"{row['batch_id']}.json")
+        values.extend(review_validator(packet, raw))
+    target = {'folder': str(folder.resolve()), 'values': values}
+    failure = {'findings': [{'unit_id': 'U2', 'source_scenario_id': 'S2'}], 'output': target}
+
+    packets = object.__new__(dag.Packets)
+    seen = {}
+
+    def execute(repair_folder, validator):
+        current = read_json(repair_folder / 'manifest.json')
+        seen['batches'] = list(current['batches'])
+        merged_values = []
+        for batch in current['batches']:
+            packet = read_json(repair_folder / 'packets' / f"{batch['batch_id']}.json")
+            result_path = repair_folder / 'results' / f"{batch['batch_id']}.json"
+            if not result_path.exists():
+                unit_id = packet['input']['units'][0]['unit_id']
+                seen['repair_units'] = packet['input']['units']
+                assert packet['input']['review_patch']['rejected_unit_ids'] == ['U2']
+                raw = {'batch_id': batch['batch_id'], 'input_hash': batch['input_hash'],
+                    'reviews': [{'unit_id': unit_id, 'source_supported': True, 'atomic': True,
+                        'mapping_correct': True, 'cause_correct': True, 'evidence_quote': 'trigger two',
+                        'reason': 'rechecked only failed source'}]}
+            else:
+                raw = read_json(result_path)
+            merged_values.extend(validator(packet, contract_view(packet, raw)))
+        return {'folder': str(repair_folder.resolve()), 'values': merged_values, 'executions': []}
+
+    packets.execute = execute
+    result = packets.repaired(tmp_path / 'case', 'reverse-G', target, review_validator,
+        {'action': 'recheck'}, failure, 1)
+
+    assert [row['batch_id'] for row in seen['batches']] == [
+        old_batches[0]['batch_id'], seen['batches'][1]['batch_id'], old_batches[2]['batch_id']]
+    assert seen['batches'][0] == old_batches[0]
+    assert seen['batches'][2] == old_batches[2]
+    assert [row['unit_id'] for row in seen['repair_units']] == ['U2']
+    assert [row['unit_id'] for row in result['values']] == ['U1', 'U2', 'U3']
+    assert all(row['passed'] for row in result['values'])
+
+
+def _write_cached_candidate(folder, stage, payload, raw, validator):
+    from scene_completion.semantic_backend import prepare_packets
+    manifest = prepare_packets(folder, stage, [payload], [], {'items': []})
+    batch = manifest['batches'][0]
+    raw = {**raw, 'batch_id': batch['batch_id'], 'input_hash': batch['input_hash'],
+        'model': 'ecnu-max', 'execution_model_evidence': {'requested_model': 'ecnu-max'}}
+    write_json(folder / 'results' / f"{batch['batch_id']}.json", raw)
+    return raw
+
+
+@pytest.mark.parametrize('candidate_scenario_id,should_recheck', [
+    ('G-new', True), ('G-rejected', False),
+])
+def test_recovered_source_candidate_must_change_rejected_g_before_recheck_promotion(
+        tmp_path, candidate_scenario_id, should_recheck):
+    from scene_completion.case_dag import Scheduler
+    from scene_completion.semantic_backend import collect_packets
+
+    root = tmp_path / 'case'
+    generation_folder = root / 'batches' / 'G-generate-supervisor-repair-2'
+    normalization_folder = root / 'batches' / 'normalize-G-after-source-repair-4'
+    generation_values = [{'scenario_id': candidate_scenario_id, 'mount_id': 'M1',
+        'trigger_condition': 'new specific trigger' if candidate_scenario_id == 'G-new' else 'old rejected trigger'}]
+    normalized_values = [{'unit_id': 'UNIT::' + candidate_scenario_id,
+        'source_scenario_id': candidate_scenario_id}]
+
+    def generation_validator(packet, raw):
+        return copy.deepcopy(raw['items'])
+
+    def normalization_validator(packet, raw):
+        return copy.deepcopy(raw['items'])
+
+    generation_raw = _write_cached_candidate(generation_folder, 'gap-generation',
+        {'mounts': [{'mount_id': 'M1'}]}, {'items': generation_values}, generation_validator)
+    normalization_raw = _write_cached_candidate(normalization_folder, 'gap-normalize-G',
+        {'scenarios': [{'scenario_id': candidate_scenario_id}]}, {'items': normalized_values}, normalization_validator)
+    # Ensure the cached packets are real, complete, and validated candidates.
+    assert collect_packets(generation_folder, generation_validator)[1]['complete']
+    assert collect_packets(normalization_folder, normalization_validator)[1]['complete']
+
+    journal = {'failure': {'findings': [{'source_scenario_id': 'G-rejected'}]},
+        'old_output': {'values': [{'scenario_id': 'G-rejected', 'mount_id': 'M1',
+            'trigger_condition': 'old rejected trigger'}]}}
+    write_json(root / 'repair_rounds' / 'reverse-G-supervisor-2.json', journal)
+    review_folder = root / 'batches' / 'reverse-G-latest-recheck'
+    review_folder.mkdir(parents=True)
+    current_unit_id = 'UNIT::' + candidate_scenario_id
+    failure = {'findings': [{'unit_id': current_unit_id, 'source_supported': False,
+        'atomic': True, 'source_scenario_id': candidate_scenario_id}],
+        'output': {'folder': str(review_folder.resolve()), 'values': [
+            {'unit_id': current_unit_id, 'passed': False}]}}
+
+    class Packets:
+        def __init__(self):
+            self.diagnosed_target = None
+            self.rechecked_target = None
+
+        def cache_identity(self, raw):
+            return None
+
+        def diagnose(self, case_root, name, target, details, round_number):
+            self.diagnosed_target = target
+            return {'action': 'recheck', 'reason': 'candidate source was changed and must be independently rechecked'}, {}
+
+        def repaired(self, case_root, name, target, validator, diagnosis, details, round_number):
+            self.rechecked_target = target
+            assert target['folder'] == str(review_folder.resolve())
+            # The fresh reverse review is the only point at which a changed
+            # source can be promoted to passed.
+            return {'folder': target['folder'], 'values': [
+                {'unit_id': current_unit_id, 'passed': True}], 'executions': []}
+
+    packets = Packets()
+    pipeline = dag.Pipeline.__new__(dag.Pipeline)
+    pipeline.scheduler = Scheduler(root)
+    pipeline.args = SimpleNamespace(agent_mode='external')
+    pipeline.packets = packets
+    pipeline.supervisor_packets = None
+    pipeline.contexts = {'uc': {'root': root, 'version': 1,
+        'validators': {'G-generate': generation_validator, 'normalize-G': normalization_validator}}}
+    pipeline.semantic('uc', 'reverse-G', (), lambda deps, folder: None,
+        lambda packet, raw: raw['reviews'], reject=lambda rows: [row for row in rows if not row['passed']],
+        repair_target='normalize-G')
+    task = pipeline.scheduler.tasks['uc:reverse-G']
+    record = {'rounds': 4, 'supervisor_rounds': 2, 'input_hash': 'fixture-input-hash',
+        'failure': {'findings': failure['findings'], 'output': failure['output']}}
+
+    if should_recheck:
+        result = task.repair({}, record)
+        assert packets.diagnosed_target['values'] == generation_values
+        # The model decision to recheck does not itself change review status;
+        # only the fresh validator output is returned as passed.
+        assert packets.rechecked_target['folder'] == str(review_folder.resolve())
+        assert result['values'] == [{'unit_id': current_unit_id, 'passed': True}]
+        assert result['_replacements']['uc:G-generate']['values'] == generation_values
+        assert result['_source_repair']['rejected_source_ids'] == ['G-rejected']
+    else:
+        with pytest.raises(ValueError, match='unchanged'):
+            task.repair({}, record)
+        assert packets.diagnosed_target is None
+
+
 def test_repair_resolves_last_failed_manifest_instead_of_initial_packet(tmp_path):
     from scene_completion.semantic_backend import prepare_packets
     original = tmp_path / 'batches/normal'
@@ -313,6 +499,79 @@ def test_repair_resolves_last_failed_manifest_instead_of_initial_packet(tmp_path
     assert Path(target['folder']) == latest.resolve()
     with pytest.raises(ValueError, match='missing or ambiguous'):
         dag.rejected_target(tmp_path, 'normal', {'input_hash': 'unknown'})
+
+
+def test_comparison_repair_prefers_latest_semantic_attempt_over_stale_result_and_cache_snapshot(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets
+
+    source = tmp_path / 'case' / 'batches' / 'gap-ambiguity-EG'
+    input_data = {'checker': [{'scenario_id': 'C1'}],
+        'generated': [{'scenario_id': 'G1'}, {'scenario_id': 'G2'}],
+        'canonical_metadata': {'C1': {}, 'G1': {}, 'G2': {}}}
+    manifest = prepare_packets(source, 'gap-ambiguity-EG', [input_data],
+        ['Compare every pair.'], {'pairs': []})
+    batch = manifest['batches'][0]
+
+    def comparison_validator(packet, result):
+        expected = {(c['scenario_id'], g['scenario_id'])
+            for c in packet['input']['checker'] for g in packet['input']['generated']}
+        rows = result.get('pairs')
+        if not isinstance(rows, list):
+            raise ValueError('missing pair decisions')
+        seen = set()
+        for row in rows:
+            key = (row.get('checker_scenario_id'), row.get('generated_scenario_id'))
+            if key not in expected or key in seen:
+                raise ValueError('unknown or duplicate pair')
+            seen.add(key)
+            if row.get('decision') != 'valid':
+                raise ValueError('invalid pair decision')
+        if seen != expected:
+            raise ValueError('missing decisions')
+        return rows
+
+    proof = {'model': 'ecnu-max', 'execution_model_evidence': {'requested_model': 'ecnu-max'}}
+    valid_g1 = {'checker_scenario_id': 'C1', 'generated_scenario_id': 'G1', 'decision': 'valid'}
+    stale_result = {**proof, 'batch_id': batch['batch_id'], 'input_hash': batch['input_hash'],
+        'pairs': [valid_g1]}
+    write_json(source / 'results' / f"{batch['batch_id']}.json", stale_result)
+
+    attempts_dir = source / 'attempts'
+    cache_path = attempts_dir / f"{batch['batch_id']}-cache-snapshot.json"
+    semantic_path = attempts_dir / f"{batch['batch_id']}-semantic-result.json"
+    write_json(cache_path, {'result': stale_result, 'cached_result_revalidation': True})
+    semantic_result = {**proof, 'batch_id': batch['batch_id'], 'input_hash': batch['input_hash'],
+        'pairs': [valid_g1, {'checker_scenario_id': 'C1', 'generated_scenario_id': 'G2',
+            'decision': 'invalid'}]}
+    write_json(semantic_path, {'result': semantic_result,
+        'validation_error': 'invalid pair decision', 'attempt': 1})
+    # Even a newer synthetic cache snapshot must not shadow a real semantic attempt.
+    import os
+    semantic_stat = semantic_path.stat()
+    os.utime(cache_path, ns=(semantic_stat.st_atime_ns + 2_000_000,
+        semantic_stat.st_mtime_ns + 2_000_000))
+
+    packets = object.__new__(dag.Packets)
+    packets.cache_identity = lambda raw: None
+    seen = {}
+
+    def execute(folder, validator):
+        repair_manifest = read_json(folder / 'manifest.json')
+        repair_packet = read_json(folder / 'packets' / f"{repair_manifest['batches'][0]['batch_id']}.json")
+        seen['binding'] = repair_packet['input']['comparison_patch_binding']
+        seen['expected_pairs'] = repair_packet['input']['expected_pairs']
+        seen['feedback'] = repair_packet['input']['repair_feedback']
+        return {'folder': str(folder.resolve()), 'values': []}
+
+    packets.execute = execute
+    target = {'folder': str(source.resolve()), 'values': []}
+    failure = {'errors': {batch['batch_id']: 'current validator rejected result'}, 'output': target}
+    packets.repaired(tmp_path / 'case', 'EG', target, comparison_validator,
+        {'action': 'recheck'}, failure, 1)
+
+    assert seen['binding']['prior_attempt_path'] == str(semantic_path.resolve())
+    assert seen['expected_pairs'] == [{'checker_scenario_id': 'C1', 'generated_scenario_id': 'G2'}]
+    assert seen['feedback'][0]['validation_error'] == 'invalid pair decision'
 
 
 def test_supervisor_cache_checks_each_configured_endpoint_and_effort(tmp_path):

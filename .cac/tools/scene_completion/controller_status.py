@@ -52,10 +52,15 @@ def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, sna
             alive = True
     budgets = []
     unsafe_usage = False
+    unknown_usage = False
     for path in budget_ledgers:
         data = read(path, {})
         unknown = sum(r.get('status') == 'usage_unknown' for r in data.get('requests', {}).values())
-        unsafe_usage |= bool(unknown)
+        unknown_usage |= bool(unknown)
+        conservatively_held = all(type(r.get('reservation')) is int and r['reservation'] > 0
+            and r.get('charged_tokens', 0) >= r['reservation'] for r in data.get('requests', {}).values()
+            if r.get('status') == 'usage_unknown')
+        unsafe_usage |= bool(unknown) and (manifest.get('usage_accounting_policy') != 'retained_reservations' or not conservatively_held)
         budgets.append({'ledger': str(path), 'limit': data.get('limit'), 'committed_tokens': data.get('committed_tokens'),
             'reserved_tokens': data.get('reserved_tokens'), 'unknown_usage_requests': unknown})
     active = [{'task': k, 'stage': t['stage'], 'status': t['status']} for k, t in tasks.items() if t['status'] in ACTIVE]
@@ -98,10 +103,13 @@ def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, sna
     else:
         action = 'inspect_pending_dependencies_before_resuming_same_run'
     return {'scope': manifest.get('scope'), 'configured_batch_model': manifest.get('model'),
+        'active_batch_model': manifest.get('active_batch_model', manifest.get('model')),
         'pipeline_alive': alive, 'pipeline_complete': complete, 'recorded_accepted': manifest.get('accepted') is True,
         'verified_accepted': verified, 'ready_to_deliver': ready, 'next_action': action,
         'counts': dict(Counter(t['status'] for t in tasks.values())), 'active': active, 'blocked': blocked,
-        'budgets': budgets, 'artifacts': artifacts, 'verification_reasons': reasons}
+        'budgets': budgets, 'artifacts': artifacts, 'verification_reasons': reasons,
+        'usage_accounting_complete': not unknown_usage,
+        'unknown_usage_retained': unknown_usage and not unsafe_usage}
 
 
 def wait_for_change(root, *, wait_seconds=0, **kwargs):

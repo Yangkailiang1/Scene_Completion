@@ -88,6 +88,10 @@ def test_cli_overrides_config_and_config_overrides_environment(monkeypatch,tmp_p
 
 
 def test_model_environment_references_and_invalid_identifiers(monkeypatch):
+    # Validation can run after the workflow loads its configured environment.
+    # Missing-model assertions must not inherit an unrelated configured fallback.
+    for key in ('SCENE_AGENT_MODEL', 'ECNU_MAX_MODEL', 'UNSET_MODEL_TEST_VARIABLE'):
+        monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv('CONFIG_AGENT','qwen38-27b-vl')
     assert SemanticClient({'agent_model':'${CONFIG_AGENT}'}).model('agent')=='qwen38-27b-vl'
     for value in ['',[],None,'${UNSET_MODEL_TEST_VARIABLE}','bad\nmodel']:

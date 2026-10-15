@@ -134,3 +134,15 @@ def test_reverse_source_pointer_preserves_raw_and_semantic_rejection():
     raw['reviews'][0]['evidence_source_scenario_id']='OTHER'
     with pytest.raises(ValueError,match='exact unit original source ID'):
         reverse_validator(packet,raw)
+
+
+def test_case_dag_review_materials_bind_test_and_ar_sources(tmp_path):
+    from scene_completion.concern_gap_replay import proof_files
+    from scene_completion.semantic_backend import write_json
+    write_json(tmp_path/'run_manifest.json', {'execution_mode': 'case-dag'})
+    for name in ('sources_index.json', 'test_sources_index.json', 'ar_sources_index.json'):
+        write_json(tmp_path/name, {'documents': []})
+    before = proof_files(tmp_path)
+    assert {'sources_index.json', 'test_sources_index.json', 'ar_sources_index.json'} <= set(before)
+    write_json(tmp_path/'test_sources_index.json', {'documents': ['changed']})
+    assert proof_files(tmp_path)['test_sources_index.json'] != before['test_sources_index.json']

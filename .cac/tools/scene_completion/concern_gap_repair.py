@@ -9,6 +9,13 @@ from .sources import fingerprint
 
 
 def reverse_validator(packet,result):
+    if packet['input'].get('review_patch'):
+        from .review_patch import apply_review_patch
+        return apply_review_patch(packet, result, _base_reverse_validator)
+    return _base_reverse_validator(packet, result)
+
+
+def _base_reverse_validator(packet,result):
     candidate=deepcopy(result)
     units={u['unit_id']:u for u in packet['input']['units']}
     originals={s['scenario_id']:s for s in packet['input']['original_scenarios']}

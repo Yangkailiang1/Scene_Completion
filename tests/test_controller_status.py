@@ -63,6 +63,17 @@ def test_unknown_usage_prevents_delivery_and_exposes_no_raw_request(tmp_path):
     assert 'private_request' not in json.dumps(result) and 'do not expose' not in json.dumps(result)
 
 
+def test_explicit_retained_reservation_policy_keeps_usage_unknown_without_global_deadlock(tmp_path):
+    run_state(tmp_path, ['pending'])
+    manifest = c.read(tmp_path/'run_manifest.json');manifest['usage_accounting_policy'] = 'retained_reservations'
+    write(tmp_path/'run_manifest.json', manifest)
+    ledger = tmp_path/'budget.json'
+    write(ledger, {'requests': {'request': {'status': 'usage_unknown', 'reservation': 200, 'charged_tokens': 200}}})
+    result = c.inspect_run(tmp_path, budget_ledgers=[ledger])
+    assert result['unknown_usage_retained'] and not result['usage_accounting_complete']
+    assert result['next_action'] != 'resolve_unknown_usage'
+
+
 def test_confirmation_is_visible_while_independent_work_runs(tmp_path):
     run_state(tmp_path, ['passed', 'awaiting_confirmation', 'running'])
     result = c.inspect_run(tmp_path)

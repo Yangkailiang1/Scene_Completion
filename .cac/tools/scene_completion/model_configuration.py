@@ -65,7 +65,9 @@ def matches_review_policy(root, review):
     if policy is None:
         # Historical evidence retains its original, explicit reviewer identity.
         policy = {'model': 'gpt-6-luna', 'reasoning_effort': 'max'}
-    return review.get('model') == policy['model'] and review.get('reasoning_effort') == policy['reasoning_effort']
+    return (review.get('model') == policy['model']
+        and review.get('reasoning_effort') == policy['reasoning_effort']
+        and ('runtime' not in policy or review.get('runtime') == policy['runtime']))
 
 
 def review_policy_at(directory):

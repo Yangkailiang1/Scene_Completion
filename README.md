@@ -58,9 +58,13 @@ Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.exampl
 
 提供方只接受思考token上限时，配置`send_reasoning_effort=false`，再设置正整数`thinking_budget`；不同时发送两种推理参数。实际请求参数写入执行证明，不能把不同设置的缓存重新标成当前执行。
 
-用例级编排可配置有序的`batch_fallback_configs`文件路径列表。真实额度不足时按顺序切换；明确不可访问的备用模型保留探测拒绝并继续下一个已配置模型。429、断连、格式、引用或语义失败不触发额度切换，未知用量阻止继续调用。各模型使用独立持久账本，`batch_model_state.json`保留切换历史和实际当前模型；续跑不返回已耗尽模型，不改写成功结果身份。
+用例级编排可配置有序的`batch_fallback_configs`文件路径列表。真实额度不足时按顺序切换；明确不可访问的备用模型保留探测拒绝并继续下一个已配置模型。默认429、断连、格式、引用或语义失败不触发额度切换；未知用量默认停止后续调用。配置化的超时接手及保守续跑规则见下文。各模型使用独立持久账本，`batch_model_state.json`保留切换历史和实际当前模型；续跑不返回已耗尽模型，不改写成功结果身份。
 
-需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前为输入UTF-8字节代理及输出上限预留额度，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度并停止后续语义调用；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
+需要超时接手时，对相应配置显式开启`timeout_handoff=true`，把接手配置追加到模型链；超时或断连保留失败证明后转交下一配置，不重发原请求。未知用量默认停止；显式`unknown_usage_policy=reserve_and_continue`保留全部预留占额，再按剩余额度决定是否允许新调用。同一提供方账户须设置一致的`provider_token_budget_limit`、`provider_token_budget_ledgers`及`provider_token_budget_lock`，跨模型核算已用、在途和未知占额；更换模型不能重置账本。仅追加备用配置可保留原路由历史。
+
+模型能力筛选用`scene_model_benchmark.py --source-run <已有运行> --config <候选配置> --output-dir <本地对比目录>`；同一角色原包、证据和校验器在不同模型间保持一致，默认首次执行后最多两次定向补抽，成功不重跑。输出分别标注独立通过、补抽通过、无法访问、传输或额度停止。无访问权限不能计作模型能力失败；模型总参数与MoE激活参数分别记录，不由参数量直接推断可用性。
+
+需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前为输入UTF-8字节代理及输出上限预留额度，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度，按上述未知用量策略决定是否继续；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
 
 华师`ecnu-plus`配置见[ecnu_plus.config.example.json](ecnu_plus.config.example.json)。提供方的思考档位可能随模型不同，使用配置中的实际`reasoning_effort`及可选`supported_reasoning_efforts`，不要直接照搬另一模型。华师plus的`medium`对应界面“高”，支持`low/medium/xhigh`，详见[官方思考模式说明](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。示例按客户容量设置`max_context_tokens=200000`；这是本地限制，不自动套用平台更大的标称上限。发送前保守估算输入与输出预留，超限要求拆包，不截断证据。
 
@@ -120,6 +124,14 @@ v2 默认使用 `--execution-mode case-dag`：每个用例通过自己的 SSD、
 在默认用例编排中，历史材料核验和向量复用由独立的`history-import`任务完成。导入失败只阻止最终历史排序和正式指标发布，正常建模、SSD、当前用例的G/E/T仍可推进；同目录续跑只恢复待处理任务。历史引用兼容Windows和POSIX相对路径分隔符，继续核对原执行及文件哈希；不改写旧证据、不通过文件名猜测迁移位置，拒绝绝对路径和越界引用。
 
 计时数据不写入语义包或执行身份；是否启用计时不改变缓存键。只有新目录且未指定语义结果复用才是完整新跑测量；缓存续跑耗时应单独报告。实验性能数据保留本地，具体操作见[阶段性能测量](.cac/skills/scene-concern-gap/references/performance.md)。
+
+可用只读汇总工具合并运行遥测、多个额度账本和选定主控会话的代理日志：
+
+```bash
+python .cac/tools/scene_completion.py experiment-usage --run-dir output/run --ledger output/token_budget.json --output-dir output/usage
+```
+
+可重复传入 `--ledger`，主控日志通过 `--controller-db` 和重复的 `--controller-session` 明确选择会话。报告按阶段、执行/修复角色及实际模型列出请求数、输入/输出 tokens 和 API 耗时；账本占额、运行遥测、主控用量分别报告，不能重复相加。未知用量保留占额，API 耗时也不能直接当作总墙钟时间。
 
 429触发共享冷却并降低实际并发；即使并发已为1，也遵守Retry-After，不让其他就绪任务立即继续冲击接口。504、超时和断连保留为传输待处理，不盲目重复提交可能已经开始推理的同一请求。诊断协议有独立的最多两次格式尝试；引用可选择工具给出的逐字引句ID，失败进入`diagnosis_blocked`，保留原失败对象和预留轮次，不通过反复重生成上游来弥补诊断格式错误。
 
@@ -200,3 +212,5 @@ python -m pytest -q
 - 逻辑查询返回数据： [来源协议](docs/rr_sr_logical_query_data_policy.md)。
 
 新流程使用Agent语义处理及历史embedding，不使用rerank。旧流程通过 `--protocol rr-sr-ssd-identification-v1`或 `--protocol legacy`兼容，新旧语义结果使用不同运行目录。更多参数使用 `python .cac/tools/scene_completion.py <command> --help`查看。
+
+已测得某个推理配置不适合当前任务时，可追加配置档并设置`batch_preferred_profile_index`（从0计数）及非空`batch_profile_selection_reason`。调度器只向前选择已配置档位，保存原因、实际身份和原额度账本；续跑不会退回旧模型或重复成功调用。

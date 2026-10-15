@@ -63,6 +63,21 @@ def test_snapshot_hash_and_missing_mounts_rejected_before_export(tmp_path):
     with pytest.raises(ValueError,match='mounts'):verify_bundle(tampered)
 
 
+def test_v2_validation_identity_binds_pytest_collection_config(monkeypatch):
+    from scene_completion import concern_gap_replay as replay
+    config = replay.Path(replay.__file__).resolve().parents[3] / 'pytest.ini'
+    if not config.is_file():
+        pytest.skip('repository has no pytest.ini')
+    before = replay.validation_identity()
+    original_hash = replay.file_hash
+    def changed_hash(path):
+        if replay.Path(path).resolve() == config.resolve():
+            return 'changed-pytest-config-hash'
+        return original_hash(path)
+    monkeypatch.setattr(replay, 'file_hash', changed_hash)
+    assert replay.validation_identity() != before
+
+
 def test_seed_or_rank_tampering_is_not_accepted_as_new_results(tmp_path):
     value=bundle(tmp_path);value['ranking']['selected_ids']=[]
     value['result_hash']=fingerprint({k:v for k,v in value.items() if k!='result_hash'})

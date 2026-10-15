@@ -417,7 +417,10 @@ def generation_validator(index):
         supplied = {m["mount_id"]: m for m in packet["input"]["mounts"]}
         items = result.get("items", [])
         if not isinstance(items, list) or len(items) != len(supplied) or {i.get("mount_id") for i in items} != set(supplied):
-            raise ValueError("all valid concern mounts must be generated exactly once")
+            actual = [i.get('mount_id') for i in items if isinstance(i, dict)] if isinstance(items, list) else []
+            raise ValueError("all valid concern mounts must be generated exactly once; missing=" +
+                str(sorted(set(supplied)-set(actual))) + '; unknown=' + str(sorted(set(actual)-set(supplied), key=str)) +
+                '; duplicates=' + str([key for key in set(actual) if actual.count(key)>1]))
         exchanges = {e["exchange_id"]: e for e in packet["input"]["exchanges"]}
         output = []
         for item in items:

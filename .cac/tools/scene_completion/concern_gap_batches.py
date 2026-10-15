@@ -23,6 +23,8 @@ def versions():
     paths += [root/'case_dag.py', root/'model_access.py',root/'diagnosis.py',root/'streaming.py',
         root/'inline_ar.py',root/'task_diagnostics.py',root/'audit_quote_recovery.py',root/'response_contract.py',
         root/'supervisor_continuation.py',root/'quota_profiles.py',root/'partial_packet_reuse.py']
+    paths += [root/n for n in ('comparison_evidence_refs.py', 'comparison_patch.py',
+        'directed_patch.py', 'review_patch.py', 'source_candidate_recovery.py') if (root/n).is_file()]
     paths += [root.parent/'scene_completion.py']
     values={p.name:fingerprint(p.read_text(encoding='utf8')) for p in paths}
     for name in ('scene-concern-gap','scene-model-check','scene-feature-infer','scene-reverse','scene-reverse-check','scene-history-recommend'):
@@ -158,6 +160,7 @@ def review_packets(units,scenes,ssd,directory,collection,index=None):
     return prepare(directory,'gap-reverse-check-'+collection,payloads,[
         'Independently verify every canonical unit against the supplied ORIGINAL scenario, actual locations and concern definitions. No other G/E/T collection exists here. Return every unit ID once.',
         'Check source support, atomic actual cause, mapping, concern and semantic codes. Same category alone cannot establish a mechanism; generic code failure/invalid cannot collapse distinct causes. Different fields/bounds/time/conditions cannot share a misleading identity. Responses/recovery cannot define identity.',
+        'object_code/cause_code/condition_codes are open semantic snake_case identities, NOT a closed enum. Do not invent an allowed-code list or reject a meaningful code solely because no enum lists it. Data TYPE mismatch and FORMAT violation are different mechanisms; do not reclassify a type-mismatch cause as format merely because the normal text also mentions format validation. Unknown concrete legal types stay pending, as stated by the original scenario.',
         'For mapped units every location must be the actual supplied use-case operation. G must keep its actual mounted source. E/T may remain unmapped when genuine source/graph gaps exist: a faithfully reported unmapped gap can pass record preservation, but cannot become matched.',
         'Broad abnormal T may be framework_derived with separate causal concerns and distinct triggers. It is not literal source fact; ordinary normal flow cannot be expanded into failure. Source markers and reasons must remain unchanged.',
         'Use an exact original trigger/mechanism excerpt as evidence_quote. Fail actual semantic defects; describe pending source limits as warnings, not invented failures. Do not repair, drop or replace supplied units.',
@@ -198,12 +201,20 @@ def comparison_packets(left,right,directory,name):
         'full/partial require the same actual abnormal object, operation, concrete cause and compatible trigger. Shared concern/topic alone is unmatched. Responses, expected outcomes, handling and recovery cannot affect identification.',
         'For accepted pairs preserve full original identification excerpts on both sides. partial needs every missing necessary condition and precise source quote. condition_evidence must cover EVERY checker necessary_conditions item exactly once, relation supported|missing|contradictory. generated_quote is one COMPLETE generated trigger_condition, failure_mechanism or necessary_conditions item; missing uses empty quote. full has every condition supported. Contradictory conditions are unmatched.',
         'Return identification_evidence for exception_object/operation/failure_mechanism/trigger_condition; same_object, same_operation, same_mechanism, compatible_conditions booleans; same_causal_facet and causal_facet_evidence. Each partial missing_condition_details string is the exact checker condition and has missing_condition_evidence with detail, checker_field=trigger_condition|necessary_conditions, checker_quote, generated_gap_reason. Do not paraphrase required source strings.',
+        'Choose status first. For unmatched return ONLY checker_scenario_id, generated_scenario_id, status and a concrete reason explaining the different object/cause/condition. Do not populate affirmative accepted-pair evidence. For full/partial, all five compatibility booleans must reflect your actual semantic judgment; if an object, operation or cause differs, use unmatched rather than changing flags to fit this example.',
+        'compatible_conditions means NON-CONTRADICTORY, not complete: a missing checker prerequisite may justify partial with compatible_conditions=true and exact missing evidence. Only an actual contradictory prerequisite makes it false and unmatched. Do not mark a partial decision incompatible merely because a condition is absent. Determine the relation from the supplied identification; never flip a flag without this semantic basis.',
+        'For accepted evidence prefer a packet-local reference {"quote_ref":{"side":"generated|checker","field":"exception_object|operation|failure_mechanism|trigger_condition"}} instead of copying or paraphrasing text. Tools expand the selected ORIGINAL field, then run the same strict evidence validator. identification_evidence must reference its corresponding field and side. causal_facet_evidence references failure_mechanism or trigger_condition only. necessary_conditions references use field=necessary_conditions and zero-based index. These references select evidence, not a matching decision.',
+        'condition_evidence has exactly one row for each checker.necessary_conditions item, never generated-side extra conditions. If checker.necessary_conditions is empty return []. A partial missing condition must be an actual checker trigger/necessary condition, not a generated-only context or hypothetical consequence. Explanations belong in reason, not quote fields.',
+        'Partial is ONLY a missing-condition relation for the SAME object, operation and cause. It is not a compromise for different objects or operations: if you judge same_object=false or same_operation=false, return unmatched. Determine whether different wording describes the same actual business action from its context; neither identical wording nor similar labels decide this. If all checker conditions are supported and there is no concrete missing checker condition, a same-identity match is full, never partial with empty gaps.',
     ]
+    def quote(side, field):
+        return {'quote_ref': {'side': side, 'field': field}}
     contract={'pairs':[{'checker_scenario_id':'left ID','generated_scenario_id':'right ID','status':'full|partial|unmatched',
-        'same_object':False,'same_operation':False,'same_mechanism':False,'compatible_conditions':False,
-        'specific_shared_condition':'','generated_evidence':'exact condition','checker_evidence':'exact condition',
-        'identification_evidence':{k:{'generated':'exact field','checker':'exact field'} for k in ('exception_object','operation','failure_mechanism','trigger_condition')},
-        'condition_evidence':[],'same_causal_facet':False,'causal_facet_evidence':{'generated':'exact mechanism','checker':'exact mechanism','reason':'cause distinction'},
+        'same_object':True,'same_operation':True,'same_mechanism':True,'compatible_conditions':True,
+        'specific_shared_condition':'concrete common abnormal cause (accepted pairs only)',
+        'generated_evidence':quote('generated','trigger_condition'),'checker_evidence':quote('checker','trigger_condition'),
+        'identification_evidence':{k:{side:quote(side,k) for side in ('generated','checker')} for k in ('exception_object','operation','failure_mechanism','trigger_condition')},
+        'condition_evidence':[],'same_causal_facet':True,'causal_facet_evidence':{'generated':quote('generated','failure_mechanism'),'checker':quote('checker','failure_mechanism'),'reason':'actual same cause'},
         'missing_condition_details':[],'missing_condition_evidence':[],'reason':'specific judgment'}]}
     return prepare(directory,'gap-ambiguity-'+name,payloads,instructions,contract,'scene-concern-gap')
 
@@ -349,6 +360,10 @@ def generation_packets(ssd,mounts,features,directory):
 def generation_validator(index):
     validate=old.generation_validator(index)
     def checked(packet,result):
+        if packet['input'].get('directed_patch'):
+            from .directed_patch import apply_generation_patch
+            original_packet, merged = apply_generation_patch(packet, result, validate)
+            return validate(original_packet, merged)
         try:return validate(packet,result)
         except ValueError as exc:
             if 'citation' not in str(exc):raise

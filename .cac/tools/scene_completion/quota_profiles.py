@@ -1,4 +1,4 @@
-"""Configured quota-only model succession; semantic failures never change model."""
+"""Audited configured profile selection and transport/quota succession."""
 import threading
 import time
 import copy
@@ -35,6 +35,15 @@ def identity(client):
         'thinking_budget': client.config.get('thinking_budget')}
 
 
+def _provider_scope(client):
+    """Return a non-secret account identity for fail-closed profile checks."""
+    config = getattr(client, 'config', {})
+    credential = config.get('api_key_env')
+    if isinstance(credential, str) and credential.strip():
+        return ('credential-env', credential.strip())
+    return ('endpoint', fingerprint(getattr(client, 'base_url', 'native')))
+
+
 def quota_reason(value):
     """Classify only provider/admission quota, never source-validation text."""
     if not isinstance(value, dict):
@@ -66,13 +75,58 @@ class BatchProfiles:
         self.path = Path(root) / 'batch_model_state.json'
         self.lock = threading.RLock()
         profiles = [identity(c) for c in clients]
+        budget_path = Path(root) / 'batch_budget_bindings.json'
+        bindings = [{'model': c.model('agent'), 'ledger': str(c.token_budget.path.resolve()),
+            'limit': c.token_budget.limit} if getattr(c, 'token_budget', None) else {'model': c.model('agent'), 'ledger': None}
+            for c in clients]
+        # Continuing after unknown usage is safe only when every request for
+        # this provider is covered by one shared, locked allowance. In
+        # particular, a preferred-profile jump must not strand an earlier
+        # profile's unknown reservation outside the aggregate ledger set.
+        for client in clients:
+            budget = getattr(client, 'token_budget', None)
+            if not budget or budget.unknown_policy != 'reserve_and_continue':
+                continue
+            config = client.config
+            if (budget.provider_limit is None or not budget.peers
+                    or not config.get('provider_token_budget_lock')):
+                raise ValueError('reserve_and_continue requires a shared provider token limit, peer ledgers, and provider lock')
+            same_provider = [other for other in clients if _provider_scope(other) == _provider_scope(client)]
+            if any(not getattr(other, 'token_budget', None) for other in same_provider):
+                raise ValueError('reserve_and_continue cannot cover a same-provider profile without a token ledger')
+            same_provider_ledgers = {other.token_budget.path.resolve() for other in same_provider}
+            configured_peers = {path.resolve() for path in budget.peers}
+            if not same_provider_ledgers <= configured_peers:
+                raise ValueError('reserve_and_continue peer ledgers must include every configured profile for this provider')
+        if budget_path.exists():
+            prior_bindings = read_json(budget_path)
+            if bindings[:len(prior_bindings)] != prior_bindings:
+                raise ValueError('model budget ledger identity changed; do not reset an allowance by changing its path')
+        write_json(budget_path, bindings)
         self.chain_hash = fingerprint(profiles)
         self.state = read_json(self.path) if self.path.exists() else {
             'chain_hash': self.chain_hash, 'profiles': profiles, 'active_index': 0, 'transitions': []}
         if self.state.get('chain_hash') != self.chain_hash:
-            raise ValueError('configured model chain changed; preserve its existing routing history before changing profiles')
+            prior = self.state.get('profiles', [])
+            if profiles[:len(prior)] != prior or len(profiles) <= len(prior):
+                raise ValueError('configured model chain changed; only append-only configured fallbacks preserve routing history')
+            self.state.setdefault('chain_extensions', []).append({'at_unix': time.time(),
+                'previous_hash': self.state['chain_hash'], 'new_hash': self.chain_hash})
+            self.state.update(profiles=profiles, chain_hash=self.chain_hash)
         if type(self.state.get('active_index')) is not int or not 0 <= self.state['active_index'] < len(clients):
             raise ValueError('invalid persistent batch model index')
+        preferred = clients[0].config.get('batch_preferred_profile_index')
+        if preferred is not None:
+            if type(preferred) is not int or not 0 <= preferred < len(clients):
+                raise ValueError('batch_preferred_profile_index must name a configured profile')
+            if preferred > self.state['active_index']:
+                reason = clients[0].config.get('batch_profile_selection_reason')
+                if not isinstance(reason, str) or not reason.strip():
+                    raise ValueError('explicit profile selection requires batch_profile_selection_reason')
+                self.state['transitions'].append({'at_unix': time.time(),
+                    'from_index': self.state['active_index'], 'to_index': preferred,
+                    'reason': 'configured_profile_selection', 'basis': reason})
+                self.state['active_index'] = preferred
         write_json(self.path, self.state)
 
     def current(self):
@@ -82,14 +136,24 @@ class BatchProfiles:
 
     def guard_usage(self):
         # A profile switch cannot conceal a request whose actual usage was
-        # lost. In-flight reservations are not unknown settled requests.
+        # lost. Check all configured ledgers for this account, including
+        # profiles skipped by an explicit preferred-index selection. A
+        # reserve_and_continue profile is allowed only after __init__ proves
+        # its shared provider cap covers these ledgers.
+        active = self.current()[1]
+        active_budget = getattr(active, 'token_budget', None)
+        if active_budget and active_budget.unknown_policy == 'reserve_and_continue':
+            return
+        scope = _provider_scope(active)
         for client in self.clients:
             budget = getattr(client, 'token_budget', None)
-            if budget and budget.path.exists():
-                data = read_json(budget.path)
-                if any(r['status'] == 'usage_unknown' for r in data.get('requests', {}).values()):
-                    raise TaskBlocked('budget_exhausted', {'failure_category': 'budget_exhausted',
-                        'budget_reason': 'unresolved_previous_request', 'model': client.model('agent')})
+            if not budget or _provider_scope(client) != scope or not budget.path.exists():
+                continue
+            data = read_json(budget.path)
+            if any(r.get('status') == 'usage_unknown' for r in data.get('requests', {}).values()):
+                raise TaskBlocked('budget_exhausted', {'failure_category': 'budget_exhausted',
+                    'budget_reason': 'unresolved_previous_request', 'model': active.model('agent'),
+                    'unresolved_model': client.model('agent')})
 
     def advance(self, failed_index, reason):
         with self.lock:
@@ -109,13 +173,23 @@ class BatchProfiles:
     def run_batch(self, folder, validator, batch_id):
         from .model_access import preflight
         while True:
-            self.guard_usage()
             index, client, gate = self.current()
+            budget = getattr(client, 'token_budget', None)
+            if budget and budget.path.exists() and client.config.get('timeout_handoff'):
+                data = read_json(budget.path)
+                if any(r['status'] == 'usage_unknown' for r in data.get('requests', {}).values()):
+                    self.advance(index, 'timeout_handoff_unknown_usage_retained')
+                    continue
+            self.guard_usage()
             try:
                 gate.call(preflight, client)
                 result = gate.call(run_agent_packets, folder, client, validator, batch_ids=[batch_id])
             except TaskBlocked as exc:
                 reason = quota_reason(exc.details) or quota_reason(getattr(exc, 'response_diagnostic', {}))
+                if (client.config.get('timeout_handoff') and isinstance(exc.details, dict)
+                        and exc.details.get('cause_category') in ('transport_timeout', 'connection_failed', 'stream_incomplete')):
+                    self.advance(index, 'preflight_transport_handoff')
+                    continue
                 if (exc.status == 'awaiting_configuration' and isinstance(exc.details, dict)
                         and exc.details.get('failure_category') in ('model_unavailable', 'access_denied')):
                     # A configured fallback can be listed in a catalog while
@@ -128,6 +202,9 @@ class BatchProfiles:
                 self.advance(index, reason)
                 continue
             reason = quota_reason(result)
+            if client.config.get('timeout_handoff') and any(r.get('failure_category') in ('transport_timeout', 'connection_error', 'connection_failed', 'stream_incomplete') for r in result.get('batches', [])):
+                self.advance(index, 'transport_timeout_handoff')
+                continue
             if not reason:
                 return result
             self.advance(index, reason)

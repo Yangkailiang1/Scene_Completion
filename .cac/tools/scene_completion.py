@@ -61,6 +61,14 @@ def _main_impl(argv=None) -> int:
     rejected.add_argument('--output-dir', required=True)
     rejected.add_argument('--use-case-id', action='append')
     rejected.add_argument('--stage', required=True)
+    usage = sub.add_parser('experiment-usage', help='read-only experiment usage: ledgers, run telemetry and the controller proxy log; unknown stays unknown')
+    usage.add_argument('--output-dir', required=True)
+    usage.add_argument('--run-dir')
+    usage.add_argument('--ledger', action='append')
+    usage.add_argument('--controller-db')
+    usage.add_argument('--controller-session', action='append')
+    usage.add_argument('--exclude-controller-session', action='append')
+    usage.add_argument('--allow-any-output-dir', action='store_true')
     register_commands(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
@@ -179,6 +187,11 @@ def _main_impl(argv=None) -> int:
             from scene_completion.audit_quote_recovery import run
             result, code = run(args)
             print(json.dumps(result,ensure_ascii=False,indent=2))
+            return code
+        if args.command == 'experiment-usage':
+            from scene_completion.experiment_usage import run
+            result, code = run(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
             return code
         if args.command in ('check-models', 'configure-models'):
             from scene_completion.model_access import check_models, configure_models

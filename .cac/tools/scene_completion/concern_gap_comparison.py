@@ -24,6 +24,17 @@ def format_hint():
 
 
 def validator(packet,result):
+    binding = packet.get('input', {}).get('comparison_patch_binding')
+    if binding:
+        from .comparison_patch import apply_comparison_patch
+        return apply_comparison_patch(binding['source_packet_path'], binding['prior_attempt_path'],
+            packet, result, _base_validator)
+    return _base_validator(packet, result)
+
+
+def _base_validator(packet,result):
+    from .comparison_evidence_refs import resolve_comparison_evidence
+    result = resolve_comparison_evidence(packet, result)
     metadata=packet['input']['canonical_metadata']
     left=packet['input']['checker'];right=packet['input']['generated']
     ids={s['scenario_id'] for s in left+right}
@@ -48,6 +59,20 @@ def validator(packet,result):
     try:
         return pair_validator(view,result)
     except ValueError as exc:
+        if str(exc) == 'matched pair has incompatible identification':
+            invalid = [{'checker_scenario_id': row.get('checker_scenario_id'),
+                'generated_scenario_id': row.get('generated_scenario_id'),
+                'incompatible_fields': [field for field in ('same_object', 'same_operation',
+                    'same_mechanism', 'compatible_conditions') if row.get(field) is not True]}
+                for row in result.get('pairs', []) if row.get('status') in ('full', 'partial')
+                and any(row.get(field) is not True for field in ('same_object', 'same_operation',
+                    'same_mechanism', 'compatible_conditions'))]
+            raise ValueError(str(exc) + '. compatible_conditions means non-contradictory, not complete. '
+                             'Missing checker conditions can support partial with exact missing evidence; '
+                             'contradictory conditions or different object/operation/cause require unmatched. '
+                             'Partial cannot compensate for a different object or operation. '
+                             'Reassess the supplied originals; do not automatically flip any semantic flag. '
+                             'Rejected pairs: ' + repr(invalid)) from exc
         if not any(word in str(exc) for word in ('condition', 'evidence', 'detail')):
             raise
         # Diagnostic input, never a replacement semantic decision. Preserve exact

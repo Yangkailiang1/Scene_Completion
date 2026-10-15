@@ -10,6 +10,60 @@ from .sources import fingerprint
 KINDS = {'tool_fix', 'prompt_fix', 'source_reinterpretation', 'split_packet'}
 
 
+def cancel_pending(root, task_key, reason):
+    """Retire an unstarted stale plan, never refund an executed repair round."""
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError('cancelling a pending correction requires a reason')
+    root = Path(root).resolve()
+    with run_lock(root):
+        state = read_json(root / 'case_tasks.json')
+        record = state['tasks'][task_key]
+        rows = [r for r in record.get('supervisor_continuations', [])
+            if r['revision_id'] == record.get('supervisor_revision_pending')]
+        if len(rows) != 1 or rows[0]['status'] != 'requested':
+            raise ValueError('only an unstarted pending correction may be cancelled')
+        rows[0].update(status='cancelled_unstarted', cancellation_reason=reason, cancelled_unix=time.time())
+        record.pop('supervisor_revision_pending')
+        state['events'].append({'task': task_key, 'event': 'controller_correction_cancelled_unstarted',
+            'reason': reason, 'revision_id': rows[0]['revision_id']})
+        write_json(root / 'case_tasks.json', state)
+        return {'task': task_key, 'status': 'cancelled_unstarted', 'model_calls': 0,
+            'batch_rounds': record['rounds'], 'supervisor_rounds': record['supervisor_rounds']}
+
+
+def refresh_pending(root, task_key):
+    """Rebind an unstarted correction after tool-version-only reconciliation."""
+    root = Path(root).resolve()
+    with run_lock(root):
+        state = read_json(root / 'case_tasks.json')
+        record = state['tasks'][task_key]
+        rows = [r for r in record.get('supervisor_continuations', [])
+            if r['revision_id'] == record.get('supervisor_revision_pending')]
+        if len(rows) != 1 or rows[0]['status'] != 'requested':
+            raise ValueError('only an unstarted pending correction may be refreshed')
+        revision = rows[0]
+        dependencies = {key: state['tasks'][key].get('output_hash') for key in record.get('dependencies', [])}
+        previous_input = fingerprint({'version': record.get('previous_version'), 'dependencies': dependencies})
+        if (revision['failure_hash'] != record.get('failure_hash')
+                or previous_input != revision['input_hash']):
+            raise ValueError('correction failure/dependencies changed; a fresh diagnosis is required')
+        if fingerprint(revision['plan']) != revision['plan_hash']:
+            raise ValueError('controller correction plan changed')
+        for row in revision['plan'].get('changes', []):
+            if fingerprint(Path(row['path']).read_bytes().hex()) != row['content_hash']:
+                raise ValueError('correction files changed; reassess the actual correction')
+        binding = {'from_input_hash': revision['input_hash'], 'to_input_hash': record['input_hash'],
+            'failure_hash': record['failure_hash'], 'dependencies': dependencies,
+            'basis': 'tool_version_only_reconciliation', 'at_unix': time.time()}
+        revision.setdefault('input_rebindings', []).append(binding)
+        revision['input_hash'] = record['input_hash']
+        state['events'].append({'task': task_key, 'event': 'controller_correction_rebound', **binding})
+        write_json(root / 'case_tasks.json', state)
+        return {'task': task_key, 'correction': revision['revision_id'], 'model_calls': 0,
+            'status': 'pending_original_validation', 'batch_rounds': record['rounds'],
+            'supervisor_rounds': record['supervisor_rounds']}
+
+
 def pending_revision(record):
     identifier = record.get('supervisor_revision_pending')
     rows = [r for r in record.get('supervisor_continuations', []) if r['revision_id'] == identifier]
@@ -85,6 +139,9 @@ def request(root, task_key, plan_path, *, repository=None):
         # Deliberately exclude timestamps, caller labels and the failure ID from
         # the semantic strategy fingerprint: renaming a plan cannot buy a retry.
         normalized = {k: plan[k].strip() for k in ('kind', 'diagnosis', 'correction', 'validation')}
+        if plan.get('action', 'repair') not in ('repair', 'recheck'):
+            raise ValueError('controller correction action must be repair or recheck')
+        normalized['action'] = plan.get('action', 'repair')
         normalized['changes'] = changes
         plan_hash = fingerprint(normalized)
         strategy_hash = fingerprint(changes)

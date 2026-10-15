@@ -43,6 +43,26 @@ def test_canonical_causal_evidence_still_requires_original_quote():
         validator(packet(), {'pairs': [decision]})
 
 
+def test_partial_incompatible_flag_requires_reassessment_not_silent_coercion():
+    decision = pair('C', 'G')
+    decision.update(status='partial', compatible_conditions=False)
+    original = copy.deepcopy(decision)
+    with pytest.raises(ValueError, match='non-contradictory, not complete'):
+        validator(packet(), {'pairs': [decision]})
+    assert decision == original
+
+
+def test_different_operation_diagnostic_names_actual_pair_and_dimension():
+    decision = pair('C', 'G')
+    decision.update(status='partial', same_operation=False)
+    original = copy.deepcopy(decision)
+    with pytest.raises(ValueError, match='Partial cannot compensate') as exc:
+        validator(packet(), {'pairs': [decision]})
+    assert "'same_operation'" in str(exc.value)
+    assert "'checker_scenario_id': 'C'" in str(exc.value)
+    assert decision == original
+
+
 def test_unmatched_same_actual_cause_with_compatible_conditions_requires_rejudgment():
     decision = pair('C', 'G', 'unmatched')
     decision['same_mechanism'] = False

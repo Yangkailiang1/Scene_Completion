@@ -105,9 +105,10 @@ def stage_specs(root):
 
 
 def proof_files(root):
-    root=Path(root);names=['sources_index.json','generator_base_identity.json','scene_model.json','historical_ssd.json',
+    root=Path(root);names=['sources_index.json','test_sources_index.json','generator_base_identity.json','scene_model.json','historical_ssd.json',
         'model_authorization.json','result_bundle.json']
     if read_json(root/'run_manifest.json').get('execution_mode') == 'case-dag':
+        names += ['ar_sources_index.json']
         names += ['case_tasks.json'] + [str(p.relative_to(root)) for top in ('cases', 'task_outputs', 'task_history')
             for p in sorted((root/top).rglob('*')) if p.is_file() and '.embedding_cache' not in p.parts]
         return {name:file_hash(root/name) for name in names if (root/name).exists()}
@@ -228,7 +229,15 @@ def check(root):
 
 def validation_identity():
     repo=Path(__file__).resolve().parents[3]
-    return fingerprint({'tools':b.versions(),'tests':{str(p.relative_to(repo)):file_hash(p) for p in sorted((repo/'tests').rglob('*.py'))}})
+    tests = {str(p.relative_to(repo)):file_hash(p) for p in sorted((repo/'tests').rglob('*.py'))}
+    # Bind the collection rules used by `pytest -q`; otherwise changing
+    # pytest.ini can silently narrow validation while preserving the proof.
+    pytest_config = repo/'pytest.ini'
+    if pytest_config.is_file():
+        tests[pytest_config.relative_to(repo).as_posix()] = file_hash(pytest_config)
+    return fingerprint({'tools':b.versions(),
+        'delivery_tools': {'finalize.py': file_hash(Path(__file__).parent/'finalize.py')},
+        'tests':tests})
 
 
 def validate(root):
@@ -286,6 +295,12 @@ def acceptance_reasons(root,result):
         material={'protocol':PROTOCOL,'result_hash':result['result_hash'],'files':proof_files(root),'areas':AREAS}
         raw=read_json(root/'effect_review_raw.json');meta=read_json(root/'effect_review.json')
         areas=raw['areas']
+        run=read_json(root/'run_manifest.json')
+        if run.get('review_execution_required') and not meta.get('executions'):
+            raise ValueError('independent review requires actual execution')
+        if meta.get('executions'):
+            from .finalize import verify_review_execution
+            verify_review_execution(root, meta)
         from .model_configuration import matches_review_policy
         if (read_json(root/'effect_review_materials.json')!=material or raw['materials_hash']!=fingerprint(material)
             or meta['materials_hash']!=fingerprint(material) or meta['result_hash']!=result['result_hash']

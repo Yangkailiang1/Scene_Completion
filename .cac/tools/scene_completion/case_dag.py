@@ -216,6 +216,9 @@ class Scheduler:
             affected = expanded
         for item in affected:
             r = self.state['tasks'][item]
+            if r['status'] == 'passed' and r.get('output_hash'):
+                r['retained_success'] = {key: r[key] for key in ('input_hash', 'output_file', 'output_hash')}
+                r['retained_success']['version'] = r.get('previous_version', r.get('version'))
             r['status'] = 'stale'
             r.pop('output_hash', None)
             r.pop('reuse_reserved_round', None)
@@ -225,12 +228,35 @@ class Scheduler:
     def _ready(self, task):
         return all(self.state['tasks'][key]['status'] == 'passed' for key in task.deps)
 
-    def _refresh(self):
+    def _refresh(self, *, stale_only=False):
         for task in self.tasks.values():
             record = self.state['tasks'][task.key]
+            if stale_only and record['status'] != 'stale':
+                continue
             if not self._ready(task):
                 continue
             current = self.input_hash(task)
+            retained = record.get('retained_success')
+            if record['status'] == 'stale' and retained and task.compatible:
+                previous = fingerprint({'version': retained['version'], 'dependencies': {
+                    key: self.state['tasks'][key].get('output_hash') for key in task.deps}})
+                if previous == retained['input_hash']:
+                    try:
+                        output = read_json(self.root / retained['output_file'])
+                        if fingerprint(output) != retained['output_hash']:
+                            raise ValueError('retained successful output changed')
+                        deps = {key: read_json(self.root / self.state['tasks'][key]['output_file']) for key in task.deps}
+                        task.compatible(deps, output)
+                    except (ValueError, KeyError, OSError, TypeError, TaskBlocked):
+                        pass
+                    else:
+                        record.update(status='passed', input_hash=current,
+                            output_file=retained['output_file'], output_hash=retained['output_hash'])
+                        record.pop('previous_version', None)
+                        self.state['events'].append({'task': task.key, 'event': 'compatible_retained_reuse',
+                            'input_hash': current, 'output_hash': retained['output_hash']})
+                        self.save()
+                        continue
             if record.get('input_hash')==current:
                 record.pop('previous_version',None)
             if record.get('input_hash') != current:
@@ -401,6 +427,8 @@ class Scheduler:
                                 write_json(self.root / 'task_history' / (fingerprint(read_json(self.root / target)) + '.json'), read_json(self.root / target))
                             write_json(self.root / target, replacement)
                             old.update(status='passed', output_file=target, output_hash=fingerprint(replacement))
+                            old.pop('previous_version', None)
+                            old.pop('retained_success', None)
                             old['input_hash'] = self.input_hash(self.tasks[key])
                         record['input_hash'] = self.input_hash(task)
                         if task.verify:
@@ -410,6 +438,8 @@ class Scheduler:
                         filename = 'task_outputs/' + fingerprint(task.key) + '.json'
                         write_json(self.root / filename, output)
                         record.update(status='passed', output_file=filename, output_hash=fingerprint(output))
+                        record.pop('previous_version', None)
+                        record.pop('retained_success', None)
                         record.pop('failure', None)
                     except TaskBlocked as exc:
                         record.update(status=exc.status, reason=exc.details)
@@ -445,6 +475,10 @@ class Scheduler:
                     self.save()
                     if on_update:
                         on_update(self)
+                # A completed deterministic upstream task may restore exactly
+                # the previous dependency hash. Reconcile retained successes
+                # before the next ready task is dispatched, not just at startup.
+                self._refresh(stale_only=True)
         self.save()
         return self.summary()
 

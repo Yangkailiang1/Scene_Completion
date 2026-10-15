@@ -17,6 +17,21 @@ def result():
         'coverage_threshold_met': True, 'miss_rates': {'RR': 0, 'SR': 0, 'combined': 0}}
 
 
+def test_validation_identity_binds_pytest_collection_config(monkeypatch):
+    from pathlib import Path
+    config = e.repository() / 'pytest.ini'
+    if not config.is_file():
+        pytest.skip('repository has no pytest.ini')
+    before = e.validation_identity()
+    original_hash = e.file_hash
+    def changed_hash(path):
+        if Path(path).resolve() == config.resolve():
+            return 'changed-pytest-config-hash'
+        return original_hash(path)
+    monkeypatch.setattr(e, 'file_hash', changed_hash)
+    assert e.validation_identity() != before
+
+
 def validation_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(r, 'replay', lambda root: result())
     monkeypatch.setattr(e, 'validation_identity', lambda: 'actual-tools-and-tests')

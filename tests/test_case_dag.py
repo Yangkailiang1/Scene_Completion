@@ -55,6 +55,24 @@ def test_seventeen_cases_four_progress_while_other_cases_need_repair(tmp_path):
     assert reached == {str(i) for i in range(17)}
 
 
+def test_deterministic_upstream_version_does_not_erase_proven_downstream_success(tmp_path):
+    first = Scheduler(tmp_path)
+    first.add(Task('mounts', 'uc', 'mounts', version=1, execute=lambda d, r: {'mount': 'same'}))
+    first.add(Task('G', 'uc', 'G', ('mounts',), version=1,
+                   execute=lambda d, r: {'candidate': 'already corrected'}))
+    assert first.run()['complete']
+    second = Scheduler(tmp_path)
+    second.add(Task('mounts', 'uc', 'mounts', version=2, execute=lambda d, r: {'mount': 'same'}))
+    def compatible(deps, output):
+        assert deps == {'mounts': {'mount': 'same'}}
+        assert output == {'candidate': 'already corrected'}
+    second.add(Task('G', 'uc', 'G', ('mounts',), version=2,
+                   execute=lambda d, r: pytest.fail('must retain directed successful output'),
+                   compatible=compatible))
+    assert second.run()['complete']
+    assert any(e['event'] == 'compatible_retained_reuse' for e in second.state['events'])
+
+
 def test_repair_budget_survives_resume_and_stops_identical_failure(tmp_path):
     calls = []
     def fail(d, r):
