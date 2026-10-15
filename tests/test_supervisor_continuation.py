@@ -72,6 +72,22 @@ def test_unknown_request_never_qualifies_as_local_reservation_refusal(tmp_path):
     assert not _local_reservation_refusal(tmp_path, {'case': 'uc', 'stage': 'normal', 'supervisor_rounds': 1})
 
 
+def test_quota_resume_keeps_diagnosed_supervisor_route_and_counters(tmp_path):
+    scheduler = Scheduler(tmp_path)
+    scheduler.state['tasks'] = {
+        'correction': {'status': 'pending', 'reason': 'external quota exhausted',
+            'supervisor_revision_pending': 'bound-plan', 'supervisor_rounds': 1, 'rounds': 2},
+        'stopped': {'status': 'budget_exhausted', 'reason': 'external quota exhausted',
+            'supervisor_rounds': 1, 'rounds': 2},
+        'batch': {'status': 'budget_exhausted', 'reason': 'external quota exhausted', 'rounds': 0}}
+    scheduler.resume_external_budget()
+    assert scheduler.state['tasks']['correction']['status'] == 'budget_exhausted'
+    assert scheduler.state['tasks']['stopped']['status'] == 'budget_exhausted'
+    assert scheduler.state['tasks']['batch']['status'] == 'pending'
+    assert scheduler.state['tasks']['correction']['supervisor_rounds'] == 1
+    assert scheduler.state['tasks']['correction']['rounds'] == 2
+
+
 def test_controller_continues_after_initial_supervisor_failure_without_reset(tmp_path):
     root = tmp_path / 'run'
     calls, build = setup_failed(root)

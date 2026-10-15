@@ -784,7 +784,14 @@ class Scheduler:
         for r in self.state['tasks'].values():
             reason = r.get('reason')
             provider_quota = isinstance(reason, dict) and reason.get('failure_category') in ('quota_exhausted', 'budget_exhausted')
+            if r.get('supervisor_revision_pending') and r['status'] in ('pending', 'rejected', 'budget_exhausted'):
+                # A diagnosed supervisor continuation must never fall back to
+                # the initial batch request when a quota window is resumed.
+                r['status'] = 'budget_exhausted'
+                continue
             if r['status'] == 'budget_exhausted' and (reason == 'external quota exhausted' or provider_quota):
+                if r.get('supervisor_rounds'):
+                    continue
                 r['status'] = 'rejected' if r.get('reuse_reserved_round') else 'pending'
 
     def summary(self):
