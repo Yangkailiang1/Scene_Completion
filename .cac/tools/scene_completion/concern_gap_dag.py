@@ -8,6 +8,7 @@ import shutil
 from .case_dag import Scheduler, Task, TaskBlocked, TaskRejected, CallGate, quota_error, run_lock
 from .semantic_backend import read_json, write_json, collect_packets, run_agent_packets, prepare_packets, SemanticClient
 from .sources import fingerprint, index_sources, validate_refs
+from .response_contract import contract_view
 from . import concern_gap_batches as b, interaction_batches as old
 from .concern_gap import PROTOCOL, POLICY, metrics
 from .interaction_cli import source_index, merge_model, architecture_proposals, write_pending
@@ -101,6 +102,7 @@ class Packets:
         # Semantic repair budget belongs to the scheduler, not an inner retry loop.
         self.client.config['semantic_max_attempts'] = 1
         self.cache_clients = []
+        self.model_pool = None
 
     def cache_identity(self, raw):
         errors = []
@@ -119,9 +121,12 @@ class Packets:
         if actual not in config.get('allowed_cached_models', [client.model('agent')]):
             raise ValueError('cached actual model is not authorized')
         evidence = raw.get('execution_model_evidence', {})
+        if evidence.get('thinking_budget') != config.get('thinking_budget'):
+            raise ValueError('cached thinking token budget differs from configured request')
         if evidence.get('api_endpoint_hash') and hasattr(client, 'base_url') and evidence['api_endpoint_hash'] != fingerprint(client.base_url):
             raise ValueError('cached endpoint differs from configured endpoint')
-        effort = config.get('reasoning_effort', 'high') if config.get('thinking') else None
+        from .model_configuration import request_effort
+        effort = request_effort(config)
         authorized_effort = evidence.get('reasoning_effort') in config.get('allowed_cached_reasoning_efforts', [])
         if actual == client.model('agent') and not authorized_effort and (
                 evidence.get('thinking') != bool(config.get('thinking')) or evidence.get('reasoning_effort') != effort):
@@ -159,7 +164,7 @@ class Packets:
                     raw = read_json(src)
                     validate_result_execution(raw, result_path=src)
                     self.cache_identity(raw)
-                    validator(packet, copy.deepcopy(raw))
+                    validator(packet, contract_view(packet, raw))
                 except (ValueError, KeyError, TypeError):
                     continue
                 # Adopt ORIGINAL packet identity, never relabel the execution.
@@ -192,14 +197,18 @@ class Packets:
                 try:
                     if path.exists():
                         self.cache_identity(read_json(path))
-                        validator(read_json(folder / 'packets' / path.name), read_json(path))
+                        packet = read_json(folder / 'packets' / path.name)
+                        validator(packet, contract_view(packet, read_json(path)))
                         validate_result_execution(read_json(path), result_path=path)
                         continue
                 except (ValueError, KeyError, TypeError):
                     pass
                 from .model_access import preflight
-                self.gate.call(preflight, self.client)
-                status = self.gate.call(run_agent_packets, folder, self.client, validator, batch_ids=[batch['batch_id']])
+                if self.model_pool:
+                    status = self.model_pool.run_batch(folder, validator, batch['batch_id'])
+                else:
+                    self.gate.call(preflight, self.client)
+                    status = self.gate.call(run_agent_packets, folder, self.client, validator, batch_ids=[batch['batch_id']])
                 blocked = [r for r in status.get('batches', []) if r.get('failure_category') in ('model_unavailable','authentication_failed','access_denied')]
                 if blocked:
                     raise TaskBlocked('awaiting_configuration', blocked)
@@ -232,7 +241,11 @@ class Packets:
 
     def prepare(self, case_root, name, prepare, validator):
         folder = case_root / 'batches' / name
+        previous = read_json(folder / 'manifest.json') if (folder / 'manifest.json').is_file() else None
         prepare(folder)
+        if previous:
+            from .partial_packet_reuse import reuse
+            reuse(folder, previous, validator, self.cache_identity)
         self.import_valid(folder, validator)
         return folder
 
@@ -323,13 +336,13 @@ class Packets:
             errors = set(failure.get('errors', {})) | set(failure.get('pending', [])) if isinstance(failure, dict) else set()
             affected = (not rejected_ids and not errors) or row['batch_id'] in errors or contains_id(packet['input'], rejected_ids) or contains_id(prior, rejected_ids)
             if not affected and path.exists():
-                validator(packet, copy.deepcopy(prior))
+                validator(packet, contract_view(packet, prior))
                 validate_result_execution(prior, result_path=path)
                 retained.append((row, packet, path))
                 continue
             if prior:
                 try:
-                    for value in validator(packet, copy.deepcopy(prior)):
+                    for value in validator(packet, contract_view(packet, prior)):
                         identity = value.get('unit_id') or value.get('scenario_id')
                         if identity and rejected_ids and identity not in rejected_ids and value.get('source_scenario_id') not in rejected_ids:
                             preserved_by_prior.setdefault(fingerprint(prior), []).append(copy.deepcopy(value))
@@ -393,7 +406,8 @@ class Pipeline:
         self.client = _client(args, self.root)
         self.client.profiler = self.profiler
         self.gate = CallGate(self.client.config.get('max_concurrency', 1), adaptive=self.client.config.get('adaptive_concurrency', True),
-            on_change=lambda state: write_json(self.root/'concurrency_status.json', state))
+            on_change=lambda state: write_json(self.root/'concurrency_status.json', state),
+            pause_file=self.root / 'pause_requested.json')
         previous_limit = self.root/'concurrency_status.json'
         if previous_limit.exists():
             old_limit = read_json(previous_limit)
@@ -418,6 +432,11 @@ class Pipeline:
         self.embedding.embeddings = checked_vectors
         self.embedding_lock = __import__('threading').Lock()
         self.packets = Packets(self.root, self.args, self.client, self.gate)
+        from .quota_profiles import configured_clients, BatchProfiles
+        self.batch_clients = configured_clients(self.args, self.root, self.client)
+        self.packets.cache_clients.extend(self.batch_clients[1:])
+        if len(self.batch_clients) > 1:
+            self.packets.model_pool = BatchProfiles(self.root, self.batch_clients, self.gate)
         self.supervisor_packets = None
         supervisor_config = self.client.config.get('supervisor_config')
         if supervisor_config:
@@ -432,7 +451,7 @@ class Pipeline:
             supervisor = _client(supervisor_args, self.root / 'supervisor')
             supervisor.profiler = self.profiler
             self.supervisor_packets = Packets(self.root, self.args, supervisor, self.gate.budget_scope())
-            self.supervisor_packets.cache_clients.append(self.client)
+            self.supervisor_packets.cache_clients.extend(self.batch_clients)
             self.packets.cache_clients.append(supervisor)
         self.scheduler = Scheduler(self.root, concurrency=self.gate.limit, profiler=self.profiler,
             auto_repair=getattr(args, 'auto_repair', None) or self.client.config.get('auto_repair', 'bounded'),
@@ -548,8 +567,13 @@ class Pipeline:
                 target_validator = validator
             if supervising:
                 diagnosis = {'action': 'repair', 'reason': 'Supervisor takeover of the last rejected output. Re-read only the allowed original sources; correct the actual rejection and validate the complete output contract. Preserve all unrelated entries. Do not weaken checks, invent evidence, introduce unapproved modeling items or copy E/GT into normal modeling/G.'}
+                # The controller's cross-stage diagnosis is audit evidence only.
+                # The semantic repair receives its original allowed inputs and
+                # current validator errors, never arbitrary controller prose
+                # which could carry checker/test answers into normal/G.
                 proof = {'kind': 'supervisor_handoff', 'batch_rounds_preserved': record['rounds'],
-                    'supervisor_round': record['supervisor_rounds'], 'model': packets.client.model('agent')}
+                    'supervisor_round': record['supervisor_rounds'], 'model': packets.client.model('agent'),
+                    'controller_revision': record.get('active_supervisor_revision')}
             else:
                 diagnosis, proof = packets.diagnose(root, name, target, failure, record['rounds'])
             round_label = ('supervisor-' + str(record['supervisor_rounds'])) if supervising else str(record['rounds'])
@@ -1044,6 +1068,10 @@ class Pipeline:
         final_record = scheduler.state['tasks'].get('@project:historical-ranking', {})
         complete = summary['complete'] and final_record.get('status') == 'passed'
         self.manifest.update(complete=complete, task_summary=summary, pending_stage=None if complete else 'case_tasks')
+        if self.packets.model_pool:
+            pool = self.packets.model_pool
+            self.manifest['batch_model_chain'] = pool.state['profiles']
+            self.manifest['active_batch_model'] = pool.current()[1].model('agent')
         if complete:
             bundle = read_json(self.root / 'result_bundle.json')
             self.manifest.update(result_hash=bundle['result_hash'], metric_hash=fingerprint(bundle['metrics']))

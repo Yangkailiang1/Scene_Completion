@@ -7,6 +7,7 @@ from .case_dag import run_lock
 from .semantic_backend import read_json, write_json
 from .sources import fingerprint
 from .interaction_execution_identity import validate_result_execution
+from .response_contract import contract_view
 
 
 def run(args):
@@ -22,7 +23,7 @@ def run(args):
                 raise ValueError('offline rejected revalidation cannot change original sources or scope')
             def no_network(*a, **k):
                 raise RuntimeError('offline rejected revalidation forbids model and embedding calls')
-            for client in (pipeline.client, pipeline.embedding,
+            for client in (*getattr(pipeline, 'batch_clients', [pipeline.client]), pipeline.embedding,
                     getattr(getattr(pipeline, 'supervisor_packets', None), 'client', None)):
                 if client is not None:
                     client.agent = client.post = client.embeddings = no_network
@@ -61,7 +62,7 @@ def run(args):
                         validate_result_execution(raw, result_path=attempt)
                         pipeline.packets.cache_identity(raw)
                         try:
-                            validator(packet, copy.deepcopy(raw))
+                            validator(packet, contract_view(packet, raw))
                         except (ValueError, TypeError, KeyError):
                             continue
                         write_json(target, raw)

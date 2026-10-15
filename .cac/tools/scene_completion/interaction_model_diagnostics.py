@@ -123,7 +123,13 @@ def run_model_diagnostics(args):
         bid = batch['batch_id']
         if (folder / 'results' / (bid + '.json')).exists():
             continue
-        attempts = sorted((folder / 'attempts').glob(bid + '-*.json'), key=lambda p: p.stat().st_mtime)
+        def attempt_order(path):
+            data = read_json(path)
+            # A diagnostic copy is not a new model execution. With equal file
+            # timestamps prefer the actual attempt, including a stale binding
+            # which must be reported rather than silently ignored.
+            return (path.stat().st_mtime_ns, not bool(data.get('diagnostic_source_attempt')), path.name)
+        attempts = sorted((folder / 'attempts').glob(bid + '-*.json'), key=attempt_order)
         structured = [(p, read_json(p)) for p in attempts]
         structured = [(p, r) for p, r in structured if isinstance(r.get('result'), dict)]
         if not structured:

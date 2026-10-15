@@ -120,5 +120,8 @@ def test_retry_feedback_preserves_raw_evidence_and_rejects_stale_attempt(tmp_pat
     assert not (folder / 'results/normal-1.json').exists()
     raw['input_hash'] = 'stale'
     write_json(folder / 'attempts/normal-1-stale.json', {'result': raw})
+    import os
+    for p in (folder / 'attempts').glob('*.json'):
+        os.utime(p, ns=(1_700_000_000_000_000_000, 1_700_000_000_000_000_000))
     with pytest.raises(ValueError, match='current packet'):
         run_model_diagnostics(Namespace(output_dir=str(tmp_path), prepare_retry=False))

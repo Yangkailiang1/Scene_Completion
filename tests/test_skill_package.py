@@ -8,7 +8,7 @@ SKILL_NAMES = {
     "scene-extract", "scene-ssd", "scene-review", "scene-assemble",
     "dependency-graph", "test-scenario-extract", "scenario-match",
     "scene-generate", "scene-check", "scene-recommend", "scene-participants", "scene-assess",
-    "scene-concern-gap", "scene-model-check", "scene-feature-infer", "scene-reverse", "scene-reverse-check", "scene-history-recommend",
+    "scene-concern-gap", "scene-model-check", "scene-feature-infer", "scene-reverse", "scene-reverse-check", "scene-history-recommend", "scene-controller",
 }
 
 

@@ -134,6 +134,11 @@ def test_explicit_source_rejection_cannot_be_recovered_as_a_transport_retry(tmp_
     write_json(directory / 'attempts' / (packet['batch_id'] + '-review.json'),
         {'result': raw, 'validation_error': 'independent source review rejected this decision',
          'attempt': 0, feedback_field: [{'problem': 'concrete source omission'}]})
+    # WSL/remote filesystems may timestamp both writes identically; source
+    # rejection must still prevent recovery of the older transport attempt.
+    import os
+    for path in (directory / 'attempts').glob('*.json'):
+        os.utime(path, ns=(1_700_000_000_000_000_000, 1_700_000_000_000_000_000))
     state = run_agent_packets(directory, client, validator)
     assert state['complete'] and state['batches'][0]['status'] == 'complete'
     assert len(calls) == 2  # Original execution plus actual re-extraction/rejudge.

@@ -2,6 +2,8 @@
 
 在仓库根目录工作。先读 README 的工作流程、模型配置、按用例执行和结果检查说明，再按当前阶段读取 `.cac/skills/scene-concern-gap/SKILL.md` 及其引用；其他阶段的规则在 `.cac/skills/`。这些文件是方法规则，不必把所有 Skills、原文和产物一次性塞入提示词。
 
+主控生命周期及最终交付遵循[scene-controller](.cac/skills/scene-controller/SKILL.md)。执行器启动或退出不等于任务结束；不以固定轮询次数作为退出条件，也不把最终验收交给只读监控。用`.cac/tools/scene_workflow_status.py --run-dir <run> --wait-seconds 60`读取紧凑交接状态，待流水线结束后完成回归、零调用续跑、实际独立审查和离线重建，再核验`ready_to_deliver`。
+
 ## 执行约定
 
 - 使用 Python 3.11 或更新版本和项目依赖。WSL 使用 Linux 的 Python/Conda 环境；不要混用 Windows 虚拟环境。

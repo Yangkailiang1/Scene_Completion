@@ -10,7 +10,7 @@ def packet_versions(stage):
     from . import review
     root = Path(__file__).parent
     common = {name: fingerprint((root / name).read_text(encoding='utf-8')) for name in
-              ('sources.py', 'document_extract.py', 'schemas.py', 'interaction_hierarchy.py', 'model_configuration.py')}
+              ('sources.py', 'document_extract.py', 'schemas.py', 'interaction_hierarchy.py', 'model_configuration.py', 'response_contract.py')}
     common.update(protocol=p.PROTOCOL, taxonomy=fingerprint(p.baseline()),
         transport=fingerprint(inspect.getsource(s.SemanticClient.agent)),
         semantic_request=fingerprint(inspect.getsource(s.SemanticClient._agent)),

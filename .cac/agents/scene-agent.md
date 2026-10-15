@@ -2,6 +2,7 @@
 name: scene-agent
 description: 编排建模器、检查器和推荐器，并保留旧审核流程的兼容入口。
 skills:
+  - scene-controller
   - scene-extract
   - scene-ssd
   - dependency-graph
@@ -54,4 +55,4 @@ test-scenario-extract 与旧 scenario-match 可选运行，其 full-only 参考�
 
 运行前遵循 [模型可用性与并发配置](../skills/scene-concern-gap/references/model_access.md)：先检查并选择可访问模型，保存动态运行配置；默认并发1，按实际服务限制调整共享上限。无法访问进入待配置，不反复调用或消耗语义修复预算。
 
-批量两轮无法完成或额度耗尽时，若运行配置显式指定supervisor_config，主控最多一次定向接手失败语义任务；从最近拒绝的实际包继续，保持输入通道隔离及原校验。实际模型、提供方额度、耗时和用量分开记录，共用并发。工具误判修正后，先用revalidate-rejected-task离线复验原返回，不重复付费生成。规则见scene-concern-gap/references/case_execution.md。
+批量两轮无法完成或额度耗尽时，由显式配置supervisor_config的主控接手失败语义任务；从最近拒绝的实际包继续，保持输入通道隔离及原校验。首次接手失败不等于任务结束：宿主主控继续诊断、修改通用工具或提示词、离线复验；需要新调用时登记新的纠正计划，不重复相同失败，不重置计数。实际模型、提供方额度、耗时和用量分开记录，共用并发。工具误判先用revalidate-rejected-task离线复验原返回，不重复付费生成。规则见scene-concern-gap/references/case_execution.md及scene-controller/SKILL.md。

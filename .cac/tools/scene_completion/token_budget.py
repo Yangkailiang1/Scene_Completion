@@ -70,9 +70,9 @@ class TokenBudget:
         # UTF-8 bytes bound tokenization conservatively; never truncate evidence.
         reservation = sum(len(json.dumps(m, ensure_ascii=False).encode('utf8')) + 256
                           for m in body.get('messages', []))
-        reservation += int(body['max_tokens']) + int(body.get('thinking_budget', 0))
+        reservation += int(body['max_tokens'])
         if body.get('enable_thinking') or body.get('thinking'):
-            reservation += self.reasoning_reserve
+            reservation += max(self.reasoning_reserve, int(body.get('thinking_budget', 0)))
         with _locked(self.path):
             data = self._read()
             rows = list(data['requests'].values())

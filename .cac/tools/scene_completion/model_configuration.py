@@ -48,7 +48,12 @@ def concurrency_limit(value=1):
 def review_policy(config):
     selected = config.get('review_model') or os.environ.get('SCENE_REVIEW_MODEL') or configured_model(config, 'agent')
     return {'model': model_name(selected), 'runtime': config.get('review_runtime', config.get('agent_runtime', 'openai-compatible')),
-        'reasoning_effort': config.get('review_reasoning_effort', config.get('reasoning_effort') if config.get('thinking') else None)}
+        'reasoning_effort': config.get('review_reasoning_effort', request_effort(config))}
+
+
+def request_effort(config):
+    """Some thinking APIs accept a token budget but no effort parameter."""
+    return config.get('reasoning_effort', 'high') if config.get('thinking') and config.get('send_reasoning_effort', True) else None
 
 
 def matches_review_policy(root, review):

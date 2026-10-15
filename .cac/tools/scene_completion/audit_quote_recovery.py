@@ -51,9 +51,11 @@ def run(args):
             raise ValueError('offline format revalidation cannot change original source, base model or selected scope')
         def no_network(*a,**k):
             raise RuntimeError('offline quote revalidation forbids model or embedding calls')
-        pipeline.client.agent=no_network
-        pipeline.client.post=no_network
-        pipeline.embedding.post=no_network
+        clients = [*getattr(pipeline, 'batch_clients', [pipeline.client]), pipeline.embedding,
+            getattr(getattr(pipeline, 'supervisor_packets', None), 'client', None)]
+        for client in clients:
+            if client is not None:
+                client.agent = client.post = client.embeddings = no_network
         try:
             pipeline.build()
             selected=set(getattr(args,'use_case_id',None) or pipeline.contexts)

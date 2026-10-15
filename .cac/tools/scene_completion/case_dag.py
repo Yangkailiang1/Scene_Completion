@@ -77,7 +77,7 @@ class Task:
 
 class CallGate:
     """One global permit per actual API/native request, including embedding."""
-    def __init__(self, concurrency=1, *, adaptive=True, on_change=None):
+    def __init__(self, concurrency=1, *, adaptive=True, on_change=None, pause_file=None):
         self.limit = concurrency_limit(concurrency)
         self.effective_limit = self.limit
         self.active = 0
@@ -85,6 +85,7 @@ class CallGate:
         self.adaptive, self.on_change = adaptive, on_change
         self.quota = threading.Event()
         self.retry_not_before=0.
+        self.pause_file = Path(pause_file) if pause_file else None
 
     @contextmanager
     def slot(self):
@@ -114,6 +115,8 @@ class CallGate:
 
     def call(self, function, *args, **kwargs):
         with self.slot():
+            if self.pause_file and self.pause_file.exists():
+                raise TaskBlocked('pending', {'admission_paused': True, 'semantic_round_not_consumed': True})
             if self.quota.is_set():
                 raise TaskBlocked('budget_exhausted', 'external quota exhausted')
             try:
@@ -125,7 +128,9 @@ class CallGate:
                     raise TaskBlocked('awaiting_configuration', diagnostic) from exc
                 if quota_error(str(exc)) or quota_error(str(diagnostic)):
                     self.quota.set()
-                    raise TaskBlocked('budget_exhausted', 'external quota exhausted') from exc
+                    blocked = TaskBlocked('budget_exhausted', diagnostic or 'external quota exhausted')
+                    blocked.response_diagnostic = diagnostic or {}
+                    raise blocked from exc
                 if diagnostic:
                     raise TaskBlocked('pending', {'transport_failure': diagnostic, 'semantic_round_not_consumed': True}) from exc
                 raise
@@ -138,7 +143,7 @@ class CallGate:
 
     def budget_scope(self):
         """Separate provider quota, sharing permits, throttling and cooldown."""
-        scope = CallGate(self.limit, adaptive=self.adaptive)
+        scope = CallGate(self.limit, adaptive=self.adaptive, pause_file=self.pause_file)
         scope.slot = self.slot
         scope.observe = self.observe
         return scope
@@ -296,6 +301,8 @@ class Scheduler:
                     self.invalidate(task.key)
 
     def _pick(self, running, seen):
+        if (self.root / 'pause_requested.json').exists() and self.allowed is None:
+            return None
         queues = {k: deque() for k in ('progress', 'repair', 'discovery')}
         for task in self.tasks.values():
             r = self.state['tasks'][task.key]
@@ -305,7 +312,14 @@ class Scheduler:
                 continue
             if getattr(self, 'allowed', None) is not None and task.key not in self.allowed:
                 continue
-            if (task.supervisor and r['status'] in ('budget_exhausted', 'diagnosis_blocked')
+            if task.supervisor and r['status'] == 'supervisor_pending' and r.get('reuse_supervisor_round'):
+                queues['repair'].append((task, 'supervisor'))
+            elif (task.supervisor and r['status'] in ('budget_exhausted', 'diagnosis_blocked')
+                    and r.get('supervisor_revision_pending')):
+                from .supervisor_continuation import pending_revision
+                pending_revision(r)
+                queues['repair'].append((task, 'supervisor'))
+            elif (task.supervisor and r['status'] in ('budget_exhausted', 'diagnosis_blocked')
                     and not r.get('supervisor_rounds', 0)):
                 queues['repair'].append((task, 'supervisor'))
             elif r.get('reuse_reserved_round') and r['status'] in ('pending', 'rejected') and task.repair and self.auto_repair == 'bounded':
@@ -347,7 +361,13 @@ class Scheduler:
                     supervising = repairing == 'supervisor'
                     record['status'] = 'supervising' if supervising else ('repairing' if repairing else 'running')
                     if supervising:
-                        record['supervisor_rounds'] = record.get('supervisor_rounds', 0) + 1
+                        if not record.pop('reuse_supervisor_round', False):
+                            record['supervisor_rounds'] = record.get('supervisor_rounds', 0) + 1
+                            if record.get('supervisor_revision_pending'):
+                                from .supervisor_continuation import pending_revision
+                                revision = pending_revision(record)
+                                revision.update(status='started', supervisor_round=record['supervisor_rounds'])
+                                record['active_supervisor_revision'] = record.pop('supervisor_revision_pending')
                     elif repairing:
                         if not record.pop('reuse_reserved_round', False):
                             record['rounds'] += 1
@@ -393,6 +413,8 @@ class Scheduler:
                         record.pop('failure', None)
                     except TaskBlocked as exc:
                         record.update(status=exc.status, reason=exc.details)
+                        if repairing == 'supervisor' and isinstance(exc.details, dict) and exc.details.get('admission_paused'):
+                            record.update(status='supervisor_pending', reuse_supervisor_round=True)
                         if repairing and repairing != 'supervisor' and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
                             record['reuse_reserved_round'] = True
                         if repairing == 'supervisor' or not task.supervisor or exc.status not in ('budget_exhausted', 'diagnosis_blocked'):
@@ -409,13 +431,15 @@ class Scheduler:
                             record.update(status='budget_exhausted' if repeated or repairing == 'supervisor' else 'rejected', failure=details,
                                 failure_hash=failure)
                         if repairing == 'supervisor':
-                            record['reason'] = 'supervisor output rejected; no further automatic semantic attempts'
+                            record['reason'] = 'supervisor output rejected; controller must diagnose and register a revised correction before continuing'
                             seen.add(task.key)
                         if repeated:
                             record['reason'] = 'same failure; no semantic progress'
                         if not task.repair or self.auto_repair == 'off':
                             seen.add(task.key)
                     record['attempts'].append({'round': record['rounds'], 'status': record['status'],
+                        'supervisor_round': record.get('supervisor_rounds', 0),
+                        'supervisor_revision': record.get('active_supervisor_revision') if repairing == 'supervisor' else None,
                         'failure': record.get('failure'), 'input_hash': record['input_hash']})
                     self.state['events'].append({'task': task.key, 'event': record['status'], 'round': record['rounds']})
                     self.save()
@@ -426,12 +450,15 @@ class Scheduler:
 
     def resume_external_budget(self):
         for r in self.state['tasks'].values():
-            if r['status'] == 'budget_exhausted' and r.get('reason') == 'external quota exhausted':
+            reason = r.get('reason')
+            provider_quota = isinstance(reason, dict) and reason.get('failure_category') in ('quota_exhausted', 'budget_exhausted')
+            if r['status'] == 'budget_exhausted' and (reason == 'external quota exhausted' or provider_quota):
                 r['status'] = 'rejected' if r.get('reuse_reserved_round') else 'pending'
 
     def summary(self):
         rows = [dict(key=k, **self.state['tasks'][k]) for k in self.tasks]
         return {'complete': all(r['status'] == 'passed' for r in rows),
+            'admission_paused': (self.root / 'pause_requested.json').exists(),
             'counts': dict(Counter(r['status'] for r in rows)),
             'pending_tasks': [{'key': r['key'], 'case': r['case'], 'stage': r['stage'], 'status': r['status'],
                 'reason': r.get('reason', r.get('failure')), 'dependencies': r['dependencies']} for r in rows if r['status'] != 'passed']}

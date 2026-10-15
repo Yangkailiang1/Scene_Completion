@@ -28,7 +28,8 @@ class AccessRegistry:
         return fingerprint([getattr(self.client, 'base_url', self.client.config.get('agent_runtime', 'native')),
             fingerprint(getattr(self.client, 'api_key', 'local-cli-auth')),
             self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),
-            self.client.config.get('thinking_api','legacy'),self.client.config.get('stream',False), self.client.config.get('include_usage',False)])
+            self.client.config.get('thinking_api','legacy'),self.client.config.get('stream',False), self.client.config.get('include_usage',False),
+            self.client.config.get('send_reasoning_effort', True), self.client.config.get('thinking_budget')])
 
     def key(self, kind, model):
         return fingerprint([self.scope(), kind, model])

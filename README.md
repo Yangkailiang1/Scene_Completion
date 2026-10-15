@@ -56,6 +56,10 @@ Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.exampl
 
 百炼配置参考 [bailian.config.example.json](bailian.config.example.json)，分别设置`BAILIAN_BASE_URL`、`DASHSCOPE_API_KEY`和`BAILIAN_MODEL`；凭证变量名可通过`api_key_env`修改。`thinking_api=enable_thinking`使用提供方的思考开关，关闭时也显式传false；`reasoning_effort`按提供方支持的档位配置。流式请求可用`include_usage=true`要求返回实际用量。语义和embedding使用不同提供方时，增加`--embedding-config <独立配置>`，不会把语义凭证发送到embedding端点。
 
+提供方只接受思考token上限时，配置`send_reasoning_effort=false`，再设置正整数`thinking_budget`；不同时发送两种推理参数。实际请求参数写入执行证明，不能把不同设置的缓存重新标成当前执行。
+
+用例级编排可配置有序的`batch_fallback_configs`文件路径列表。真实额度不足时按顺序切换；明确不可访问的备用模型保留探测拒绝并继续下一个已配置模型。429、断连、格式、引用或语义失败不触发额度切换，未知用量阻止继续调用。各模型使用独立持久账本，`batch_model_state.json`保留切换历史和实际当前模型；续跑不返回已耗尽模型，不改写成功结果身份。
+
 需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前为输入UTF-8字节代理及输出上限预留额度，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度并停止后续语义调用；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
 
 华师`ecnu-plus`配置见[ecnu_plus.config.example.json](ecnu_plus.config.example.json)。提供方的思考档位可能随模型不同，使用配置中的实际`reasoning_effort`及可选`supported_reasoning_efforts`，不要直接照搬另一模型。华师plus的`medium`对应界面“高”，支持`low/medium/xhigh`，详见[官方思考模式说明](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。示例按客户容量设置`max_context_tokens=200000`；这是本地限制，不自动套用平台更大的标称上限。发送前保守估算输入与输出预留，超限要求拆包，不截断证据。
@@ -163,7 +167,9 @@ python .cac/tools/scene_completion.py evaluate-modeling --output-dir output/run
 
 `check-interaction-run`可检查部分运行，输出 `run_checks.json/md`。`validate-interaction-run`执行完整回归及禁止新模型调用的缓存续跑。流程完成、输入质量和覆盖效果分别报告，不能仅凭 `complete=true`宣告验收。
 
-批量修复默认最多两轮。可从[主控配置示例](supervisor.config.example.json)建立独立配置，再在批量配置增加`"supervisor_config": "supervisor.config.json"`；未配置不自动切换。批量修复或额度耗尽后，主控对失败任务最多接手一次，继续使用原校验器和允许输入，单独记录真实模型、用量及接手次数。已通过结果复用，共享并发与限流冷却；接手失败仍如实停止，续跑不重置预算。详细规则见[用例执行与修复](.cac/skills/scene-concern-gap/references/case_execution.md)。
+Claude Code等宿主的持续编排与最终交付见[主控Skill](.cac/skills/scene-controller/SKILL.md)。`python .cac/tools/scene_workflow_status.py --run-dir <run> --wait-seconds 60`提供紧凑任务交接，不启动模型或第二个执行器；可传执行器状态文件和各提供方额度账本。计算完成后仍需回归、零调用续跑、真实独立审查和离线重建；执行器停止后加`--verify`核对验收绑定及交付文件，只有`ready_to_deliver=true`才声明正式交付。尚未交付时退出码2只是状态，不是重跑成功阶段的理由。
+
+批量修复默认最多两轮。可从[主控配置示例](supervisor.config.example.json)建立独立配置，再在批量配置增加`"supervisor_config": "supervisor.config.json"`；未配置不自动切换。批量修复或额度耗尽后先自动接手一次，仍失败时由宿主主控继续诊断、修正通用工具或提示词、离线复检。确需新语义修复时，用`scene_supervisor_continue.py`登记绑定当前失败及实际修改的新计划，再恢复原流程；相同计划不能重复请求，接手次数和用量累计，成功结果继续复用。共享并发与限流冷却、原校验器和输入隔离始终有效。详细规则见[用例执行与修复](.cac/skills/scene-concern-gap/references/case_execution.md)和[主控编排](.cac/skills/scene-controller/SKILL.md)。
 
 输出包括生成/已有异常、全部配对决定、指标、推荐、测试采纳、章节诊断及图形；最终工作簿为 `scene_assessment.xlsx`，指标表在“类别”右侧提供中文“关注点说明”。四项指标使用规范化一一集合：漏报率=1−|(T−E)∩M|/|T−E|；生成有效率=|G∩T|/|G|；采纳率=|R∩T|/|R|；推荐误报率=|R−T|/|T|。空分母null，误报率不截断。测试明示和标记推导原因共同计入GT，分类数量不直接累加。
 
