@@ -27,6 +27,11 @@ def semantic_packet(packet: dict) -> dict:
     value.pop("batch_id", None)
     value.pop("input_hash", None)
     if isinstance(value.get("input"), dict):
+        if value.get('stage')=='gap-generation':
+            from .generation_compaction import decode, INSTRUCTION
+            if value['input'].get('generation_compaction'):
+                value['input']=decode(value['input'])
+            value['instructions']=[line for line in value.get('instructions',[]) if line!=INSTRUCTION]
         for field in ("execution_versions", "test_parser_version"):
             value["input"].pop(field, None)
         for field in ("skill", "generator_skill"):

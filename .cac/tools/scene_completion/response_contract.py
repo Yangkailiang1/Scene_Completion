@@ -14,6 +14,16 @@ def contract_view(packet, result):
         from .evidence_refs import expand_result
         result = expand_result(packet, result)
     expected = set(packet.get('output_contract', {}))
+    if packet.get('stage') == 'gap-generation' and expected == {'items'} and 'items' not in result:
+        mounts = [m.get('mount_id') for m in packet.get('input', {}).get('mounts', [])]
+        semantic = {key: value for key, value in result.items() if key not in ENVELOPE_METADATA}
+        if (mounts and len(mounts) == len(set(mounts)) and set(semantic) == set(mounts)
+                and all(isinstance(value, list) and all(isinstance(row, dict) for row in value)
+                    for value in semantic.values())):
+            # A complete ID-keyed map is the same collection shape. Preserve
+            # every scenario unchanged; missing/unknown IDs never qualify.
+            return {**{key: deepcopy(value) for key, value in result.items() if key in ENVELOPE_METADATA},
+                'items': [{'mount_id': key, 'scenarios': deepcopy(semantic[key])} for key in mounts]}
     if 'output_contract' not in result or 'output_contract' in expected:
         return deepcopy(result)
     nested = result['output_contract']

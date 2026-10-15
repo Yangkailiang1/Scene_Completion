@@ -44,3 +44,16 @@ def test_plain_root_does_not_gain_missing_semantics():
 def test_source_id_differences_identifies_missing_duplicate_and_unknown_entries():
     assert source_id_differences(['a','b'], ['a','a','unknown']) == {
         'expected_count': 2, 'actual_count': 3, 'missing_ids': ['b'], 'unknown_ids': ['unknown'], 'duplicate_ids': ['a']}
+def test_generation_accepts_only_complete_id_keyed_collection_without_semantic_changes():
+    from scene_completion.response_contract import contract_view
+    packet = {'stage': 'gap-generation', 'input': {'mounts': [{'mount_id': 'm1'}, {'mount_id': 'm2'}]},
+        'output_contract': {'items': []}}
+    raw = {'m2': [{'trigger_condition': 'second'}], 'm1': [{'trigger_condition': 'first'}],
+        'model': 'actual-model'}
+    view = contract_view(packet, raw)
+    assert view == {'model': 'actual-model', 'items': [
+        {'mount_id': 'm1', 'scenarios': raw['m1']}, {'mount_id': 'm2', 'scenarios': raw['m2']}]}
+    assert 'items' not in raw
+    for invalid in ({'m1': raw['m1']}, {**raw, 'unknown': []}, {**raw, 'm2': {'scenario': 'invalid'}}):
+        assert 'items' not in contract_view(packet, invalid)
+

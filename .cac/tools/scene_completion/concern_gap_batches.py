@@ -19,7 +19,7 @@ def skill(name):
 def versions():
     root=Path(__file__).parent
     paths=sorted(root.glob('concern_gap*.py'))+sorted(root.glob('interaction_*.py'))
-    paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py','component_names.py','normal_item_patch.py','normalization_evidence_patch.py')]
+    paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py','component_names.py','normal_item_patch.py','normalization_evidence_patch.py','generation_compaction.py')]
     paths += [root/'case_dag.py', root/'model_access.py',root/'diagnosis.py',root/'streaming.py',
         root/'inline_ar.py',root/'task_diagnostics.py',root/'audit_quote_recovery.py',root/'response_contract.py',
         root/'supervisor_continuation.py',root/'quota_profiles.py',root/'partial_packet_reuse.py']
@@ -48,8 +48,11 @@ def packet_versions(stage):
     elif stage=='gap-graph-check':functions += [graph_packets,graph_validator]
     elif stage=='gap-features':functions += [feature_packets,feature_validator]
     elif stage=='gap-ar-trace':functions += [ar_packets,ar_validator]
-    return {'protocol':PROTOCOL,'taxonomy':fingerprint(baseline()),
+    result={'protocol':PROTOCOL,'taxonomy':fingerprint(baseline()),
         'functions':{f.__name__:fingerprint(inspect.getsource(f)) for f in functions}}
+    if stage=='gap-generation':
+        result['generation_compaction']=fingerprint(Path(__file__).with_name('generation_compaction.py').read_text(encoding='utf8'))
+    return result
 
 
 def normalized_packets(scenes, ssd, directory, collection, index=None):
@@ -368,15 +371,24 @@ def generation_packets(ssd,mounts,features,directory):
             # second identical copy increases every mount packet's context.
             ids={m['exchange_id'] for m in d.get('mounts',[])}
             d['checked_features']=[by_exchange[k] for k in sorted(ids)]
+            from .generation_compaction import encode
+            d=encode(d)
             payloads.append(d)
             instructions=p['instructions']
             contract=p['output_contract']
+    if payloads:
+        from .generation_compaction import INSTRUCTION
+        if any(payload.get('generation_compaction') for payload in payloads):
+            instructions=[*instructions,INSTRUCTION]
     return prepare(directory,'gap-generation',payloads,instructions if payloads else [],
         contract if payloads else {'items':[]},'scene-concern-gap')
 
 
 def generation_validator(index):
-    validate=old.generation_validator(index)
+    original=old.generation_validator(index)
+    def validate(packet,result):
+        from .generation_compaction import decode
+        return original({**packet,'input':decode(packet['input'])},result)
     def checked(packet,result):
         if packet['input'].get('directed_patch'):
             from .directed_patch import apply_generation_patch

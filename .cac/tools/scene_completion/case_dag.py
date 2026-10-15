@@ -552,6 +552,15 @@ class Scheduler:
                     except (ValueError, KeyError, OSError, TypeError, TaskBlocked):
                         pass
                     else:
+                        if record.get('supervisor_revision_pending'):
+                            from .supervisor_continuation import pending_revision
+                            revision = pending_revision(record)
+                            revision.setdefault('input_rebindings', []).append({
+                                'from_input_hash': record['input_hash'], 'to_input_hash': current,
+                                'failure_hash': record.get('failure_hash'),
+                                'dependencies': {key: self.state['tasks'][key].get('output_hash') for key in task.deps},
+                                'basis': 'original_allowed_input_revalidated'})
+                            revision['input_hash'] = current
                         self.state['events'].append({'task': task.key, 'event': 'failed_context_revalidated',
                             'old_input_hash': record['input_hash'], 'input_hash': current})
                         record['input_hash'] = current

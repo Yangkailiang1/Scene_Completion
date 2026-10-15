@@ -88,6 +88,23 @@ def test_quota_resume_keeps_diagnosed_supervisor_route_and_counters(tmp_path):
     assert scheduler.state['tasks']['correction']['rounds'] == 2
 
 
+def test_verified_version_reuse_rebinds_the_unstarted_correction(tmp_path):
+    root = tmp_path / 'run'
+    _, build = setup_failed(root)
+    request(root, 'a', correction(root, tmp_path), repository=tmp_path)
+    scheduler = build()
+    record = scheduler.state['tasks']['a']
+    previous_hash = record['input_hash']
+    record['previous_version'] = record['version']
+    record['version'] = scheduler.tasks['a'].version = 2
+    scheduler.tasks['a'].compatible_failure = lambda deps, current: None
+    scheduler._refresh()
+    revision = record['supervisor_continuations'][-1]
+    assert revision['input_hash'] == record['input_hash'] != previous_hash
+    assert revision['input_rebindings'][-1]['basis'] == 'original_allowed_input_revalidated'
+    assert scheduler.run()['complete']
+
+
 def test_controller_continues_after_initial_supervisor_failure_without_reset(tmp_path):
     root = tmp_path / 'run'
     calls, build = setup_failed(root)
