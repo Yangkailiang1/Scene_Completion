@@ -33,6 +33,8 @@ python -m pip install -r requirements.txt
 python -m pip install pytest
 ```
 
+Claude Code 的项目入口见 [CLAUDE.md](CLAUDE.md)，按当前阶段读取 `.cac/skills` 并运行已有 tools。主控模型与工具批量模型分别配置，共享并发由一个调度器管理。WSL 使用 Linux 的 Python/Conda 环境及依赖；同一工作区跨 Windows/WSL 时，先核对 Git 的换行和文件权限设置，避免把环境差异当成源码改动。同一运行目录只能由一个环境中的调度器推进。
+
 ## 准备输入与配置
 
 | 输入 | 用途 |
