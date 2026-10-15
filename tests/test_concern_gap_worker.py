@@ -2,6 +2,27 @@ from scene_completion.semantic_backend import prepare_packets,run_agent_packets,
 from scene_completion.sources import fingerprint
 
 
+def test_fresh_generation_uses_the_same_format_view_as_cache_and_keeps_raw(tmp_path):
+    prepare_packets(tmp_path,'gap-generation',[{'mounts':[{'mount_id':'m1'}]}],[],{'items':[]})
+    class Client:
+        config={'max_concurrency':1,'semantic_max_attempts':1}
+        calls=0
+        def model(self,kind):return 'configured-candidate'
+        def agent(self,packet):
+            self.calls+=1
+            return {'m1':[{'name':'actual condition'}],
+                'execution_model_evidence':{'requested_model':self.model('agent'),'thinking':False,'reasoning_effort':None}}
+    client=Client()
+    def validate(packet,result):
+        assert result['items']==[{'mount_id':'m1','scenarios':[{'name':'actual condition'}]}]
+        return result['items']
+    assert run_agent_packets(tmp_path,client,validate)['complete']
+    raw=read_json(next((tmp_path/'results').glob('*.json')))
+    assert 'items' not in raw and raw['m1']==[{'name':'actual condition'}]
+    assert run_agent_packets(tmp_path,client,validate)['batches'][0]['status']=='cached'
+    assert client.calls==1
+
+
 def test_gap_failure_budget_and_immutable_diagnostic_are_retained(tmp_path):
     prepare_packets(tmp_path,'gap-unit-test',[{'value':1}],[],{'items':[]})
     class Client:

@@ -54,6 +54,10 @@ def test_generation_accepts_only_complete_id_keyed_collection_without_semantic_c
     assert view == {'model': 'actual-model', 'items': [
         {'mount_id': 'm1', 'scenarios': raw['m1']}, {'mount_id': 'm2', 'scenarios': raw['m2']}]}
     assert 'items' not in raw
+    for wrapper in (lambda key,value: {'scenarios':value}, lambda key,value: {'mount_id':key,'scenarios':value}):
+        wrapped={key:wrapper(key,value) for key,value in raw.items() if key!='model'}
+        assert contract_view(packet,wrapped)['items']==view['items']
+    assert 'items' not in contract_view(packet,{'m1':{'mount_id':'wrong','scenarios':raw['m1']},'m2':raw['m2']})
     for invalid in ({'m1': raw['m1']}, {**raw, 'unknown': []}, {**raw, 'm2': {'scenario': 'invalid'}}):
         assert 'items' not in contract_view(packet, invalid)
 

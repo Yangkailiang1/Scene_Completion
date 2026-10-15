@@ -17,13 +17,20 @@ def contract_view(packet, result):
     if packet.get('stage') == 'gap-generation' and expected == {'items'} and 'items' not in result:
         mounts = [m.get('mount_id') for m in packet.get('input', {}).get('mounts', [])]
         semantic = {key: value for key, value in result.items() if key not in ENVELOPE_METADATA}
+        mapped = {}
+        for key, value in semantic.items():
+            if isinstance(value, dict) and set(value) in ({'scenarios'}, {'mount_id','scenarios'}):
+                if value.get('mount_id', key) != key:
+                    continue
+                value = value['scenarios']
+            if isinstance(value, list) and all(isinstance(row, dict) for row in value):
+                mapped[key] = value
         if (mounts and len(mounts) == len(set(mounts)) and set(semantic) == set(mounts)
-                and all(isinstance(value, list) and all(isinstance(row, dict) for row in value)
-                    for value in semantic.values())):
+                and set(mapped) == set(mounts)):
             # A complete ID-keyed map is the same collection shape. Preserve
             # every scenario unchanged; missing/unknown IDs never qualify.
             return {**{key: deepcopy(value) for key, value in result.items() if key in ENVELOPE_METADATA},
-                'items': [{'mount_id': key, 'scenarios': deepcopy(semantic[key])} for key in mounts]}
+                'items': [{'mount_id': key, 'scenarios': deepcopy(mapped[key])} for key in mounts]}
     if 'output_contract' not in result or 'output_contract' in expected:
         return deepcopy(result)
     nested = result['output_contract']

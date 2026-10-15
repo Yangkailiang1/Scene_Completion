@@ -559,8 +559,7 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                 # Native proof binds the original CLI JSON. Validators may add
                 # normalized source references; keep those changes in memory.
                 from .response_contract import contract_view
-                validation_result = (contract_view(packet, result) if 'output_contract' in result
-                    and 'output_contract' not in packet['output_contract'] else result)
+                validation_result = contract_view(packet, result)
                 validator(packet, copy.deepcopy(validation_result) if native_result(result) else validation_result)
                 if packet["stage"] == "matching":
                     from .matching_audit import verify_matching
