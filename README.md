@@ -60,6 +60,8 @@ Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.exampl
 
 用例级编排可配置有序的`batch_fallback_configs`文件路径列表。真实额度不足时按顺序切换；明确不可访问的备用模型保留探测拒绝并继续下一个已配置模型。默认429、断连、格式、引用或语义失败不触发额度切换；未知用量默认停止后续调用。配置化的超时接手及保守续跑规则见下文。各模型使用独立持久账本，`batch_model_state.json`保留切换历史和实际当前模型；续跑不返回已耗尽模型，不改写成功结果身份。
 
+需要经授权提前转至已配置的备用模型时，设置`batch_preferred_profile_index`及非空的`batch_profile_selection_reason`，仅支持向前切换。初次执行因额度阻塞、尚无任务级语义失败的任务可继续原批次；已有修复计划及语义失败仍按定向修复处理。成功包与各模型原账本保持不变；混合模型运行不能作为单模型独立能力证明。
+
 需要超时接手时，对相应配置显式开启`timeout_handoff=true`，把接手配置追加到模型链；超时或断连保留失败证明后转交下一配置，不重发原请求。未知用量默认停止；显式`unknown_usage_policy=reserve_and_continue`保留全部预留占额，再按剩余额度决定是否允许新调用。同一提供方账户须设置一致的`provider_token_budget_limit`、`provider_token_budget_ledgers`及`provider_token_budget_lock`，跨模型核算已用、在途和未知占额；更换模型不能重置账本。仅追加备用配置可保留原路由历史。
 
 模型能力筛选用`scene_model_benchmark.py --source-run <已有运行> --config <候选配置> --output-dir <本地对比目录>`；同一角色原包、证据和校验器在不同模型间保持一致，默认首次执行后最多两次定向补抽，成功不重跑。输出分别标注独立通过、补抽通过、无法访问、传输或额度停止。无访问权限不能计作模型能力失败；模型总参数与MoE激活参数分别记录，不由参数量直接推断可用性。

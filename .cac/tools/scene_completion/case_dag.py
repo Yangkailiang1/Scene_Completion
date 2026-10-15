@@ -789,8 +789,19 @@ class Scheduler:
         self.save()
         return self.summary()
 
-    def resume_external_budget(self):
-        for r in self.state['tasks'].values():
+    def resume_external_budget(self, *, batch_transition=None):
+        # A configured forward model switch may resume a never-completed
+        # initial batch. It does not grant another semantic repair or bypass
+        # an already diagnosed supervisor correction.
+        transition = batch_transition or {}
+        switched = (type(transition.get('from_index')) is int
+            and type(transition.get('to_index')) is int
+            and transition['to_index'] > transition['from_index'] >= 0
+            and transition.get('reason') in ('configured_profile_selection', 'quota_exhausted')
+            and (transition.get('reason') != 'configured_profile_selection'
+                or bool(str(transition.get('basis', '')).strip())))
+        transition_hash = fingerprint(transition) if switched else None
+        for key, r in self.state['tasks'].items():
             reason = r.get('reason')
             provider_quota = isinstance(reason, dict) and reason.get('failure_category') in ('quota_exhausted', 'budget_exhausted')
             if r.get('supervisor_revision_pending') and r['status'] in ('pending', 'rejected', 'budget_exhausted'):
@@ -800,7 +811,13 @@ class Scheduler:
                 continue
             if r['status'] == 'budget_exhausted' and (reason == 'external quota exhausted' or provider_quota):
                 if r.get('supervisor_rounds'):
-                    continue
+                    if (not switched or r.get('rounds', 0) or r.get('failure_hash')
+                            or r.get('batch_budget_resume_transition') == transition_hash):
+                        continue
+                    r['batch_budget_resume_transition'] = transition_hash
+                    self.state['events'].append({'task': key, 'event': 'batch_budget_profile_resume',
+                        'transition': transition, 'supervisor_rounds': r['supervisor_rounds'],
+                        'rounds': r.get('rounds', 0)})
                 r['status'] = 'rejected' if r.get('reuse_reserved_round') else 'pending'
 
     def summary(self):

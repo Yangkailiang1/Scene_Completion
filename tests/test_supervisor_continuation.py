@@ -88,6 +88,41 @@ def test_quota_resume_keeps_diagnosed_supervisor_route_and_counters(tmp_path):
     assert scheduler.state['tasks']['correction']['rounds'] == 2
 
 
+def test_configured_profile_switch_resumes_only_initial_quota_stop_once(tmp_path):
+    scheduler = Scheduler(tmp_path)
+    base = {'status': 'budget_exhausted', 'reason': 'external quota exhausted',
+        'rounds': 0, 'supervisor_rounds': 1}
+    scheduler.state['tasks'] = {
+        'initial': dict(base), 'repair': dict(base, rounds=2),
+        'semantic': dict(base, failure_hash='real-semantic-failure'),
+        'correction': dict(base, supervisor_revision_pending='plan'),
+        'success': dict(base, status='passed')}
+    transition = {'from_index': 0, 'to_index': 1, 'reason': 'configured_profile_selection',
+        'basis': 'user approved mixed delivery with original model budgets'}
+    scheduler.resume_external_budget(batch_transition=transition)
+    assert scheduler.state['tasks']['initial']['status'] == 'pending'
+    assert scheduler.state['tasks']['initial']['supervisor_rounds'] == 1
+    for key in ('repair', 'semantic', 'correction'):
+        assert scheduler.state['tasks'][key]['status'] == 'budget_exhausted'
+    assert scheduler.state['tasks']['success']['status'] == 'passed'
+    assert scheduler.state['events'][-1]['event'] == 'batch_budget_profile_resume'
+    scheduler.state['tasks']['initial']['status'] = 'budget_exhausted'
+    scheduler.resume_external_budget(batch_transition=transition)
+    assert scheduler.state['tasks']['initial']['status'] == 'budget_exhausted'
+
+
+@pytest.mark.parametrize('transition', [None,
+    {'from_index': 1, 'to_index': 0, 'reason': 'quota_exhausted'},
+    {'from_index': 0, 'to_index': 1, 'reason': 'configured_profile_selection'},
+    {'from_index': 0, 'to_index': 1, 'reason': 'semantic_failure'}])
+def test_unapproved_or_nonforward_profile_cannot_resume_supervised_stop(tmp_path, transition):
+    scheduler = Scheduler(tmp_path)
+    scheduler.state['tasks']['a'] = {'status': 'budget_exhausted',
+        'reason': 'external quota exhausted', 'supervisor_rounds': 1, 'rounds': 0}
+    scheduler.resume_external_budget(batch_transition=transition)
+    assert scheduler.state['tasks']['a']['status'] == 'budget_exhausted'
+
+
 def test_verified_version_reuse_rebinds_the_unstarted_correction(tmp_path):
     root = tmp_path / 'run'
     _, build = setup_failed(root)

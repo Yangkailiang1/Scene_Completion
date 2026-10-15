@@ -646,7 +646,9 @@ class Pipeline:
             auto_repair=getattr(args, 'auto_repair', None) or self.client.config.get('auto_repair', 'bounded'),
             max_rounds=getattr(args, 'max_repair_rounds', None) if getattr(args, 'max_repair_rounds', None) is not None
                 else self.client.config.get('max_repair_rounds', 2))
-        self.scheduler.resume_external_budget()
+        pool = self.packets.model_pool
+        transitions = pool.state.get('transitions', []) if pool else []
+        self.scheduler.resume_external_budget(batch_transition=transitions[-1] if transitions else None)
         self.history = None
         self.history_run = getattr(args, 'history_run', None)
         self.test_index = index_sources(getattr(args, 'test_spec_document', None) or [])
