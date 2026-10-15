@@ -27,6 +27,18 @@ def reference(index):
     return validate_refs([{"document": "rr.md", "line_start": 3, "line_end": 3}], index)
 
 
+def test_rr_boundary_uses_human_kind_and_still_rejects_a_different_ui(sources):
+    value = model(sources)
+    value['nodes'][0]['boundary_role'] = 'ui'
+    ssd = build_ssd(value)
+    assert next(e for e in ssd['exchanges'] if e['local_id'] == 'sr1')['from_node'] == 'ui'
+    value['nodes'].append({'node_id': 'other-ui', 'name': 'Other UI', 'kind': 'frontend_ui',
+        'layer': 'RR', 'boundary_role': 'ui'})
+    value['use_cases'][0]['exchanges'][1]['from_node'] = 'other-ui'
+    with pytest.raises(ValueError, match='SR boundary differs'):
+        build_ssd(value)
+
+
 def model(index):
     refs = reference(index)
     return {"protocol": PROTOCOL, "source_hash": "hash", "nodes": [

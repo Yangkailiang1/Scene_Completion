@@ -59,6 +59,9 @@ def replay(root, cache_resume=False):
     state = read_json(root / 'case_tasks.json')
     if any(type(t.get('rounds')) is not int or not 0 <= t['rounds'] <= 2 for t in state['tasks'].values()):
         raise ValueError('invalid persistent repair budget')
+    if any(type(t.get('supervisor_rounds', 0)) is not int or not 0 <= t.get('supervisor_rounds', 0) <= 1
+            for t in state['tasks'].values()):
+        raise ValueError('invalid persistent supervisor budget')
     for evidence in sorted((root / 'cases').glob('*/repair_rounds/*.json')):
         repair = read_json(evidence)
         verify_execution_output(repair['execution'])

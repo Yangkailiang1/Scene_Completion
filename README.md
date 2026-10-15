@@ -163,6 +163,8 @@ python .cac/tools/scene_completion.py evaluate-modeling --output-dir output/run
 
 `check-interaction-run`可检查部分运行，输出 `run_checks.json/md`。`validate-interaction-run`执行完整回归及禁止新模型调用的缓存续跑。流程完成、输入质量和覆盖效果分别报告，不能仅凭 `complete=true`宣告验收。
 
+批量修复默认最多两轮。可从[主控配置示例](supervisor.config.example.json)建立独立配置，再在批量配置增加`"supervisor_config": "supervisor.config.json"`；未配置不自动切换。批量修复或额度耗尽后，主控对失败任务最多接手一次，继续使用原校验器和允许输入，单独记录真实模型、用量及接手次数。已通过结果复用，共享并发与限流冷却；接手失败仍如实停止，续跑不重置预算。详细规则见[用例执行与修复](.cac/skills/scene-concern-gap/references/case_execution.md)。
+
 输出包括生成/已有异常、全部配对决定、指标、推荐、测试采纳、章节诊断及图形；最终工作簿为 `scene_assessment.xlsx`，指标表在“类别”右侧提供中文“关注点说明”。四项指标使用规范化一一集合：漏报率=1−|(T−E)∩M|/|T−E|；生成有效率=|G∩T|/|G|；采纳率=|R∩T|/|R|；推荐误报率=|R−T|/|T|。空分母null，误报率不截断。测试明示和标记推导原因共同计入GT，分类数量不直接累加。
 
 ## 离线重建

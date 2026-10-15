@@ -57,6 +57,10 @@ def _main_impl(argv=None) -> int:
     diagnostics.add_argument('--output-dir',required=True)
     diagnostics.add_argument('--use-case-id',action='append')
     diagnostics.add_argument('--stage',required=True)
+    rejected = sub.add_parser('revalidate-rejected-task', help='offline validate original rejected executions after tool corrections; no model calls or budget reset')
+    rejected.add_argument('--output-dir', required=True)
+    rejected.add_argument('--use-case-id', action='append')
+    rejected.add_argument('--stage', required=True)
     register_commands(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
@@ -161,6 +165,11 @@ def _main_impl(argv=None) -> int:
     args = parser.parse_args(argv)
     args.command = {'prepare-modeling-input':'prepare-generator-model', 'evaluate-modeling':'evaluate-generator'}.get(args.command, args.command)
     try:
+        if args.command == 'revalidate-rejected-task':
+            from scene_completion.rejected_task_revalidation import run
+            result, code = run(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
         if args.command=='refresh-task-diagnostics':
             from scene_completion.task_diagnostics import run
             result,code=run(args)

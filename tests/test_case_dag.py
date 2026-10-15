@@ -78,6 +78,80 @@ def test_different_failures_use_at_most_two_rounds(tmp_path):
     assert scheduler.state['tasks']['x']['status'] == 'budget_exhausted'
 
 
+def test_supervisor_takes_over_once_after_batch_exhaustion_and_resumes_downstream(tmp_path):
+    calls = []
+    def fail(d, r):
+        calls.append(('batch', r['rounds']))
+        raise TaskRejected({'findings': [f'defect-{r["rounds"]}']})
+    for _ in range(2):
+        scheduler = Scheduler(tmp_path)
+        scheduler.add(Task('x', 'uc', 'normal', version=1, execute=fail, repair=fail,
+            supervisor=lambda d, r: calls.append(('supervisor', r['supervisor_rounds'])) or {'checked': True}))
+        scheduler.add(Task('y', 'uc', 'next', ('x',), version=1,
+            execute=lambda d, r: calls.append(('next', 0)) or {'done': True}))
+        assert scheduler.run()['complete']
+    assert calls == [('batch', 0), ('batch', 1), ('batch', 2), ('supervisor', 1), ('next', 0)]
+    assert scheduler.state['tasks']['x']['rounds'] == 2
+    assert scheduler.state['tasks']['x']['supervisor_rounds'] == 1
+
+
+def test_failed_supervisor_cannot_loop_or_override_confirmation(tmp_path):
+    calls = []
+    def fail(d, r): raise TaskRejected({'findings': ['same defect']})
+    def supervisor(d, r):
+        calls.append(1)
+        raise TaskRejected({'findings': ['still unsupported']})
+    for _ in range(3):
+        scheduler = Scheduler(tmp_path)
+        scheduler.add(Task('x', 'uc', 'normal', version=1, execute=fail, repair=fail, supervisor=supervisor))
+        scheduler.add(Task('c', 'uc', 'confirmation', version=1,
+            execute=lambda d,r: (_ for _ in ()).throw(TaskBlocked('awaiting_confirmation', 'new call')), supervisor=supervisor))
+        assert not scheduler.run()['complete']
+    assert calls == [1]
+    assert scheduler.state['tasks']['c']['status'] == 'awaiting_confirmation'
+
+
+def test_supervisor_quota_scope_shares_permits_but_not_provider_exhaustion():
+    gate = CallGate(1)
+    scope = gate.budget_scope()
+    gate.quota.set()
+    assert scope.call(lambda: 'supervisor response') == 'supervisor response'
+    with pytest.raises(TaskBlocked): gate.call(lambda: 'not called')
+    with scope.slot(): assert gate.active == 1
+    assert gate.active == 0
+
+
+def test_interrupted_supervisor_keeps_reserved_attempt(tmp_path):
+    scheduler = Scheduler(tmp_path)
+    scheduler.add(Task('x', 'uc', 'normal', version=1))
+    scheduler.state['tasks']['x'].update(status='supervising', supervisor_rounds=1)
+    scheduler.save()
+    resumed = Scheduler(tmp_path)
+    resumed.add(Task('x', 'uc', 'normal', version=1,
+        supervisor=lambda d,r: pytest.fail('interruption cannot replenish supervisor attempt')))
+    assert not resumed.run()['complete']
+    assert resumed.state['tasks']['x']['supervisor_rounds'] == 1
+
+
+def test_failed_context_revalidation_preserves_stopped_batch_and_rejects_new_sources(tmp_path):
+    def fail(d,r): raise TaskRejected({'findings': ['same actual error']})
+    first = Scheduler(tmp_path)
+    first.add(Task('x','uc','normal',version=1,execute=fail,repair=fail))
+    assert not first.run()['complete']
+    old = first.state['tasks']['x']
+    assert old['rounds'] == 1 and old['status'] == 'budget_exhausted'
+    second = Scheduler(tmp_path)
+    second.add(Task('x','uc','normal',version=2,execute=lambda d,r:pytest.fail('do not regenerate an exhausted batch'),
+        compatible_failure=lambda d,r:None))
+    assert not second.run()['complete']
+    assert second.state['tasks']['x']['rounds'] == 1
+    assert second.state['tasks']['x']['status'] == 'budget_exhausted'
+    third = Scheduler(tmp_path)
+    def changed(d,r): raise ValueError('actual original inputs changed')
+    third.add(Task('x','uc','normal',version=3,execute=lambda d,r:{'new':True},compatible_failure=changed))
+    assert third.run()['complete']
+
+
 def test_confirmation_and_component_failure_only_block_real_dependents(tmp_path):
     scheduler = Scheduler(tmp_path, auto_repair='off')
     def pending(d, r):

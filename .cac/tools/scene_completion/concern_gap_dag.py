@@ -80,24 +80,50 @@ def verify_execution_output(output):
             raise ValueError('execution packet changed')
 
 
+def rejected_target(case_root, name, failure):
+    """Resolve the exact last rejected packet manifest, including legacy runs."""
+    if failure.get('output', {}).get('folder'):
+        return failure['output']
+    signature = failure.get('input_hash')
+    if signature:
+        matches = [p.parent for p in (Path(case_root) / 'batches').glob('*/manifest.json')
+            if read_json(p).get('input_hash') == signature]
+        if len(matches) != 1:
+            raise ValueError('last rejected input manifest is missing or ambiguous')
+        return {'folder': str(matches[0].resolve())}
+    return {'folder': str(Path(case_root) / 'batches' / name)}
+
+
 class Packets:
     def __init__(self, root, args, client, gate):
         self.root, self.args, self.client, self.gate = Path(root), args, client, gate
         self.client.config['max_concurrency'] = 1
         # Semantic repair budget belongs to the scheduler, not an inner retry loop.
         self.client.config['semantic_max_attempts'] = 1
+        self.cache_clients = []
 
     def cache_identity(self, raw):
-        config = self.client.config
+        errors = []
+        for client in (self.client, *self.cache_clients):
+            try:
+                self._cache_identity(raw, client)
+                return
+            except ValueError as exc:
+                errors.append(str(exc))
+        raise ValueError('; '.join(errors))
+
+    @staticmethod
+    def _cache_identity(raw, client):
+        config = client.config
         actual = raw.get('model')
-        if actual not in config.get('allowed_cached_models', [self.client.model('agent')]):
+        if actual not in config.get('allowed_cached_models', [client.model('agent')]):
             raise ValueError('cached actual model is not authorized')
         evidence = raw.get('execution_model_evidence', {})
-        if evidence.get('api_endpoint_hash') and hasattr(self.client, 'base_url') and evidence['api_endpoint_hash'] != fingerprint(self.client.base_url):
+        if evidence.get('api_endpoint_hash') and hasattr(client, 'base_url') and evidence['api_endpoint_hash'] != fingerprint(client.base_url):
             raise ValueError('cached endpoint differs from configured endpoint')
         effort = config.get('reasoning_effort', 'high') if config.get('thinking') else None
         authorized_effort = evidence.get('reasoning_effort') in config.get('allowed_cached_reasoning_efforts', [])
-        if actual == self.client.model('agent') and not authorized_effort and (
+        if actual == client.model('agent') and not authorized_effort and (
                 evidence.get('thinking') != bool(config.get('thinking')) or evidence.get('reasoning_effort') != effort):
             raise ValueError('cached thinking/effort differs from configured request')
 
@@ -194,7 +220,7 @@ class Packets:
         if not state['complete']:
             if self.args.agent_mode != 'external' and not state['errors']:
                 raise TaskBlocked('pending', state)
-            raise TaskRejected(state)
+            raise TaskRejected({**state, 'output': {'folder': str(Path(folder).resolve())}})
         proofs = []
         for batch in read_json(folder / 'manifest.json')['batches']:
             path = folder / 'results' / (batch['batch_id'] + '.json')
@@ -383,7 +409,8 @@ class Pipeline:
         self.embedding = SemanticClient(config)
         self.embedding.profiler = self.profiler
         embedding_post = self.embedding.post
-        self.embedding.post = lambda *a, **k: self.gate.call(embedding_post, *a, **k)
+        embedding_gate = self.gate.budget_scope()
+        self.embedding.post = lambda *a, **k: embedding_gate.call(embedding_post, *a, **k)
         embedding_vectors = self.embedding.embeddings
         def checked_vectors(texts):
             from .model_access import with_embedding_preflight
@@ -391,6 +418,22 @@ class Pipeline:
         self.embedding.embeddings = checked_vectors
         self.embedding_lock = __import__('threading').Lock()
         self.packets = Packets(self.root, self.args, self.client, self.gate)
+        self.supervisor_packets = None
+        supervisor_config = self.client.config.get('supervisor_config')
+        if supervisor_config:
+            path = Path(supervisor_config)
+            if not path.is_absolute() and not path.exists():
+                path = Path(args.config).resolve().parent / path
+            supervisor_args = copy.copy(self.args)
+            supervisor_args.config = str(path)
+            supervisor_args.agent_model = None
+            supervisor_args.agent_runtime = None
+            supervisor_args.max_concurrency = self.gate.limit
+            supervisor = _client(supervisor_args, self.root / 'supervisor')
+            supervisor.profiler = self.profiler
+            self.supervisor_packets = Packets(self.root, self.args, supervisor, self.gate.budget_scope())
+            self.supervisor_packets.cache_clients.append(self.client)
+            self.packets.cache_clients.append(supervisor)
         self.scheduler = Scheduler(self.root, concurrency=self.gate.limit, profiler=self.profiler,
             auto_repair=getattr(args, 'auto_repair', None) or self.client.config.get('auto_repair', 'bounded'),
             max_rounds=getattr(args, 'max_repair_rounds', None) if getattr(args, 'max_repair_rounds', None) is not None
@@ -485,8 +528,8 @@ class Pipeline:
                     write_json(root / 'rejections' / (name + '.json'), {'findings': findings, 'output': output})
                     raise TaskRejected({'findings': findings, 'output': output})
             return output
-        def repair(inputs, record):
-            failure = record['failure']
+        def repair_with(packets, inputs, record, *, supervising=False):
+            failure = record.get('failure') or {}
             upstream = bool(repair_target and failure.get('findings'))
             target_name = repair_target if upstream else name
             if name == 'reverse-G' and any(not r.get('source_supported', True) for r in failure.get('findings', [])):
@@ -501,15 +544,21 @@ class Pipeline:
             else:
                 target = failure.get('output')
                 if not target:
-                    target = {'folder': str(root / 'batches' / name)}
+                    target = rejected_target(root, name, failure)
                 target_validator = validator
-            diagnosis, proof = self.packets.diagnose(root, name, target, failure, record['rounds'])
-            write_json(root / 'repair_rounds' / (name + '-' + str(record['rounds']) + '.json'),
+            if supervising:
+                diagnosis = {'action': 'repair', 'reason': 'Supervisor takeover of the last rejected output. Re-read only the allowed original sources; correct the actual rejection and validate the complete output contract. Preserve all unrelated entries. Do not weaken checks, invent evidence, introduce unapproved modeling items or copy E/GT into normal modeling/G.'}
+                proof = {'kind': 'supervisor_handoff', 'batch_rounds_preserved': record['rounds'],
+                    'supervisor_round': record['supervisor_rounds'], 'model': packets.client.model('agent')}
+            else:
+                diagnosis, proof = packets.diagnose(root, name, target, failure, record['rounds'])
+            round_label = ('supervisor-' + str(record['supervisor_rounds'])) if supervising else str(record['rounds'])
+            write_json(root / 'repair_rounds' / (name + '-' + round_label + '.json'),
                 {'diagnosis': diagnosis, 'execution': proof, 'old_output': target, 'failure': failure})
             if diagnosis['action'] == 'confirm':
                 raise TaskBlocked('awaiting_confirmation', diagnosis)
             if diagnosis['action'] == 'recheck':
-                repair_output = self.packets.repaired(root, name, failure.get('output', target), validator,
+                repair_output = packets.repaired(root, name, failure.get('output', target), validator,
                     diagnosis, failure, record['rounds'])
                 if transform:
                     repair_output = transform(repair_output)
@@ -519,14 +568,15 @@ class Pipeline:
                         raise TaskRejected({'findings': findings, 'output': repair_output})
                 write_json(root / 'active' / (name + '.json'), {'input_hash': record['input_hash'], 'output': repair_output})
                 return repair_output
-            changed = self.packets.repaired(root, target_name, target, target_validator, diagnosis, failure, record['rounds'])
+            changed = packets.repaired(root, target_name + ('-supervisor' if supervising else ''), target,
+                target_validator, diagnosis, failure, record['supervisor_rounds'] if supervising else record['rounds'])
             if upstream:
                 new_inputs = {**inputs, target_key: changed}
                 normalization_replacement = None
                 if name == 'reverse-G' and target_name == 'G-generate':
                     normalized_folder = root / 'batches' / ('normalize-G-after-source-repair-' + str(record['rounds']))
                     b.normalized_packets(changed['values'], self.graph(case, new_inputs)[1], normalized_folder, 'G', self.index)
-                    normalization_replacement = self.packets.execute(normalized_folder, context['validators']['normalize-G'])
+                    normalization_replacement = packets.execute(normalized_folder, context['validators']['normalize-G'])
                     new_inputs[self.key(case, 'normalize-G')] = normalization_replacement
                 # Model repairs are checked against source + approved proposal
                 # bindings again; changed/new proposals cannot bypass confirmation.
@@ -538,7 +588,7 @@ class Pipeline:
                 # Bind a fresh review to the diagnosis even if input happened
                 # to be identical. Do not reuse a prior failed judgment.
                 self.salt(folder, diagnosis, record['rounds'])
-                checked = self.packets.execute(folder, validator)
+                checked = packets.execute(folder, validator)
                 if transform:
                     checked = transform(checked)
                 if reject:
@@ -556,7 +606,7 @@ class Pipeline:
                         graph_folder = root / 'batches' / ('graphs-recheck-for-' + name + '-' + str(record['rounds']))
                         self.graph_packets(case, new_inputs, graph_folder)
                         self.salt(graph_folder, diagnosis, record['rounds'])
-                        checked_graph = self.component_records(self.packets.execute(graph_folder, self.graph_validator))
+                        checked_graph = self.component_records(packets.execute(graph_folder, self.graph_validator))
                         if any(not row['valid'] for row in checked_graph['values']):
                             raise TaskRejected({'findings': [row for row in checked_graph['values'] if not row['valid']], 'output': checked_graph})
                         checked['_replacements'][self.key(case, 'graphs')] = checked_graph
@@ -577,7 +627,12 @@ class Pipeline:
             if reject and reject(values):
                 raise ValueError('cached check is rejected')
         context['validators'][name] = validator
+        def repair(inputs, record):
+            return repair_with(self.packets, inputs, record)
         self.add(case, name, deps, execute, repair=repair, lane=lane, verify=verify)
+        if getattr(self, 'supervisor_packets', None) and self.args.agent_mode == 'external':
+            self.scheduler.tasks[self.key(case, name)].supervisor = lambda inputs, record: repair_with(
+                self.supervisor_packets, inputs, record, supervising=True)
         def compatible(inputs,output):
             # Tool version metadata may change while the actual semantic
             # payload, instructions and contract stay identical. Revalidate
@@ -585,6 +640,15 @@ class Pipeline:
             from tempfile import TemporaryDirectory
             original=root/'batches'/name
             if not (original/'manifest.json').exists():raise ValueError('original packet proof missing')
+            revalidation_path = self.root / (name + '_rejected_revalidation.json') if hasattr(self, 'root') else None
+            revalidated = False
+            if revalidation_path and revalidation_path.exists():
+                proof = read_json(revalidation_path)
+                bound = {(p['batch_id'], p['input_hash'], p['result_hash'])
+                    for task in proof.get('tasks', []) if task.get('task') == self.key(case, name) and task.get('status') == 'passed'
+                    for p in task.get('proofs', [])}
+                revalidated = bool(output.get('executions')) and all(
+                    (e['batch_id'], e['input_hash'], e['result_hash']) in bound for e in output['executions'])
             with TemporaryDirectory(prefix='scene-compatible-packets-') as temporary:
                 prepare(inputs,Path(temporary))
                 expected=read_json(Path(temporary)/'manifest.json')
@@ -595,6 +659,9 @@ class Pipeline:
                     packet=copy.deepcopy(packet)
                     for field in ('batch_id','input_hash'):packet.pop(field,None)
                     for field in ('execution_versions','test_parser_version'):packet['input'].pop(field,None)
+                    if revalidated:
+                        packet.pop('instructions', None)
+                        packet['input'].pop('extraction_skills', None)
                     if name=='participants':packet['input'].pop('rule_hash',None)
                     if name=='graphs':
                         # Moving already-checked nodes into the shared registry
@@ -615,6 +682,32 @@ class Pipeline:
                         raise ValueError('semantic packet changed')
             verify(output)
         self.scheduler.tasks[self.key(case,name)].compatible=compatible
+        def compatible_failure(inputs, record):
+            from tempfile import TemporaryDirectory
+            original = root / 'batches' / name
+            prior = read_json(original / 'manifest.json')
+            with TemporaryDirectory(prefix='scene-failed-context-') as temporary:
+                prepare(inputs, Path(temporary))
+                expected = read_json(Path(temporary) / 'manifest.json')
+                if expected['stage'] != prior['stage'] or len(expected['batches']) != len(prior['batches']):
+                    raise ValueError('failed task scope changed')
+                for batch, previous in zip(expected['batches'], prior['batches']):
+                    latest = read_json(Path(temporary) / 'packets' / (batch['batch_id'] + '.json'))
+                    old_packet = read_json(original / 'packets' / (previous['batch_id'] + '.json'))
+                    def allowed_input(packet):
+                        data = copy.deepcopy(packet['input'])
+                        for field in ('execution_versions', 'test_parser_version', 'extraction_skills'):
+                            data.pop(field, None)
+                        return data
+                    if (allowed_input(latest) != allowed_input(old_packet)
+                            or latest['output_contract'] != old_packet['output_contract']):
+                        raise ValueError('failed task original evidence or output contract changed')
+            target = rejected_target(root, name, record.get('failure') or {})
+            for batch in read_json(Path(target['folder']) / 'manifest.json')['batches']:
+                packet = read_json(Path(target['folder']) / 'packets' / (batch['batch_id'] + '.json'))
+                if fingerprint({k:v for k,v in packet.items() if k not in ('batch_id','input_hash')}) != batch['input_hash']:
+                    raise ValueError('failed original packet changed')
+        self.scheduler.tasks[self.key(case, name)].compatible_failure = compatible_failure
 
     @staticmethod
     def salt(folder, diagnosis, round_number):

@@ -198,7 +198,7 @@ def build_ssd(model):
                 incoming = source.get("kind") in external_kinds and target.get("boundary_role") == "receiver"
                 outgoing = source.get("boundary_role") == "receiver" and target.get("kind") in external_kinds
                 if not (human or incoming or outgoing):
-                    raise ValueError("RR requires human->UI or external<->receiving boundary")
+                    raise ValueError(f"RR requires human->UI or external<->receiving boundary: exchange={raw['local_id']}, from={item['from_node']} ({source.get('kind')}), to={item['to_node']} ({target.get('kind')}); human actors have no boundary_role, the UI endpoint has boundary_role=ui")
                 if any(n.get("layer") not in {"RR", "SR"} for n in endpoints):
                     raise ValueError("RR boundary/actor must have an explicit valid layer")
             if layer == "SR":
@@ -214,10 +214,15 @@ def build_ssd(model):
                 if not item.get("parent_rr_local_id") or item["parent_rr_local_id"] not in rr:
                     raise ValueError("SR exchange requires a corresponding RR interaction")
                 if service_call and not item.get("parent_sr_local_id"):
-                    raise ValueError("nested SR service call requires an enclosing SR parent")
+                    raise ValueError(f"nested SR service call requires an enclosing SR parent: exchange={raw['local_id']}, from={item['from_node']}, to={item['to_node']}; retain the source-backed boundary->entry SR request, then set parent_sr_local_id to that earlier exchange whose target equals this caller")
                 if boundary_call:
                     rr_parent = rr[item["parent_rr_local_id"]]
-                    parent_boundary = rr_parent["to_node"] if node_map[rr_parent["from_node"]].get("kind") != "frontend_ui" and not node_map[rr_parent["from_node"]].get("boundary_role") else rr_parent["from_node"]
+                    rr_source = node_map[rr_parent['from_node']]
+                    # Kind identifies a human actor even when an extractor adds
+                    # redundant UI metadata to it. RR validation above already
+                    # verifies that the actual target is the real UI boundary.
+                    parent_boundary = (rr_parent['to_node'] if rr_source.get('kind') == 'human_actor'
+                        or not rr_source.get('boundary_role') else rr_parent['from_node'])
                     if item["from_node"] != parent_boundary:
                         raise ValueError("SR boundary differs from its RR parent boundary")
             item.update({"use_case_id": uc["use_case_id"], "sequence": number,

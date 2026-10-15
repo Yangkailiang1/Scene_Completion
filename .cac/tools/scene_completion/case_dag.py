@@ -71,6 +71,8 @@ class Task:
     repair: object = None
     verify: object = None
     compatible: object = None
+    supervisor: object = None
+    compatible_failure: object = None
 
 
 class CallGate:
@@ -134,6 +136,13 @@ class CallGate:
                     self.observe(row)
             return result
 
+    def budget_scope(self):
+        """Separate provider quota, sharing permits, throttling and cooldown."""
+        scope = CallGate(self.limit, adaptive=self.adaptive)
+        scope.slot = self.slot
+        scope.observe = self.observe
+        return scope
+
 
 def quota_error(text):
     value = text.lower()
@@ -179,6 +188,8 @@ class Scheduler:
         # A crash cannot replenish a reserved semantic repair round.
         if record['status'] == 'repairing':
             record['status'] = 'rejected'
+        elif record['status'] == 'supervising':
+            record.update(status='budget_exhausted', reason='supervisor execution interrupted; reserved attempt retained')
         elif record['status'] == 'running':
             record['status'] = 'pending'
         elif record['status'] in ('awaiting_configuration','diagnosis_blocked'):
@@ -220,6 +231,20 @@ class Scheduler:
             if record.get('input_hash') != current:
                 previous=fingerprint({'version':record.get('previous_version'),'dependencies':{
                     key:self.state['tasks'][key].get('output_hash') for key in task.deps}})
+                if (record['status'] in ('rejected', 'budget_exhausted', 'diagnosis_blocked')
+                        and task.compatible_failure and previous == record.get('input_hash')):
+                    try:
+                        deps = {key: read_json(self.root / self.state['tasks'][key]['output_file']) for key in task.deps}
+                        task.compatible_failure(deps, record)
+                    except (ValueError, KeyError, OSError, TypeError, TaskBlocked):
+                        pass
+                    else:
+                        self.state['events'].append({'task': task.key, 'event': 'failed_context_revalidated',
+                            'old_input_hash': record['input_hash'], 'input_hash': current})
+                        record['input_hash'] = current
+                        record.pop('previous_version', None)
+                        self.save()
+                        continue
                 if record['status']=='passed' and task.compatible and previous==record.get('input_hash'):
                     try:
                         output=read_json(self.root/record['output_file'])
@@ -239,6 +264,21 @@ class Scheduler:
                 record['input_hash'] = current
                 record.pop('previous_version',None)
                 record.pop('failure', None)
+            if record['status'] == 'stale' and task.compatible_failure:
+                prior = next((attempt for attempt in reversed(record.get('attempts', []))
+                    if attempt.get('failure') and attempt.get('status') in ('rejected', 'budget_exhausted')), None)
+                if prior:
+                    try:
+                        deps = {key: read_json(self.root / self.state['tasks'][key]['output_file']) for key in task.deps}
+                        task.compatible_failure(deps, {**record, 'failure': prior['failure']})
+                    except (ValueError, KeyError, OSError, TypeError, TaskBlocked):
+                        pass
+                    else:
+                        record.update(failure=prior['failure'], status='budget_exhausted'
+                            if prior['status'] == 'budget_exhausted' or record['rounds'] >= self.max_rounds else 'rejected')
+                        self.state['events'].append({'task': task.key, 'event': 'failed_context_revalidated',
+                            'input_hash': current, 'original_attempt_input_hash': prior['input_hash']})
+                        self.save()
             if record['status'] == 'passed':
                 try:
                     output = read_json(self.root / record['output_file'])
@@ -265,7 +305,10 @@ class Scheduler:
                 continue
             if getattr(self, 'allowed', None) is not None and task.key not in self.allowed:
                 continue
-            if r.get('reuse_reserved_round') and r['status'] in ('pending', 'rejected') and task.repair and self.auto_repair == 'bounded':
+            if (task.supervisor and r['status'] in ('budget_exhausted', 'diagnosis_blocked')
+                    and not r.get('supervisor_rounds', 0)):
+                queues['repair'].append((task, 'supervisor'))
+            elif r.get('reuse_reserved_round') and r['status'] in ('pending', 'rejected') and task.repair and self.auto_repair == 'bounded':
                 queues['repair'].append((task, True))
             elif r['status'] in ('pending', 'stale'):
                 queues[task.lane].append((task, False))
@@ -273,6 +316,8 @@ class Scheduler:
                 if r['rounds'] >= self.max_rounds:
                     r['status'] = 'budget_exhausted'
                     r['reason'] = 'semantic repair rounds exhausted'
+                    if task.supervisor and not r.get('supervisor_rounds', 0):
+                        queues['repair'].append((task, 'supervisor'))
                 else:
                     queues['repair'].append((task, True))
         lanes = ('progress', 'repair', 'discovery')
@@ -299,19 +344,22 @@ class Scheduler:
                     task, repairing = item
                     record = self.state['tasks'][task.key]
                     record['input_hash'] = self.input_hash(task)
-                    record['status'] = 'repairing' if repairing else 'running'
-                    if repairing:
+                    supervising = repairing == 'supervisor'
+                    record['status'] = 'supervising' if supervising else ('repairing' if repairing else 'running')
+                    if supervising:
+                        record['supervisor_rounds'] = record.get('supervisor_rounds', 0) + 1
+                    elif repairing:
                         if not record.pop('reuse_reserved_round', False):
                             record['rounds'] += 1
                     self.state['events'].append({'task': task.key, 'event': record['status'], 'round': record['rounds']})
                     self.save()
                     deps = {key: read_json(self.root / self.state['tasks'][key]['output_file']) for key in task.deps}
-                    function = task.repair if repairing else task.execute
+                    function = task.supervisor if supervising else (task.repair if repairing else task.execute)
                     def timed_execute(function=function, deps=deps, record=dict(record), task=task, repairing=repairing):
                         from .performance import span
                         with span(self.profiler, 'task', case=task.case,stage=task.stage,
                                 task_key=task.key,dependencies=list(task.deps),
-                                phase='repair' if repairing else 'execute', round=record['rounds'],
+                                phase='supervisor' if repairing == 'supervisor' else ('repair' if repairing else 'execute'), round=record['rounds'],
                                 queue_seconds=time.perf_counter()-self.ready_times.pop(task.key,time.perf_counter())):
                             return function(deps,record)
                     future = pool.submit(copy_context().run, timed_execute)
@@ -345,9 +393,10 @@ class Scheduler:
                         record.pop('failure', None)
                     except TaskBlocked as exc:
                         record.update(status=exc.status, reason=exc.details)
-                        if repairing and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
+                        if repairing and repairing != 'supervisor' and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
                             record['reuse_reserved_round'] = True
-                        seen.add(task.key)
+                        if repairing == 'supervisor' or not task.supervisor or exc.status not in ('budget_exhausted', 'diagnosis_blocked'):
+                            seen.add(task.key)
                     except Exception as exc:
                         details = exc.details if isinstance(exc, TaskRejected) else {'error': str(exc)}
                         failure = failure_signature(details)
@@ -357,8 +406,11 @@ class Scheduler:
                                 reason={'tool_error': str(exc)})
                             seen.add(task.key)
                         else:
-                            record.update(status='budget_exhausted' if repeated else 'rejected', failure=details,
+                            record.update(status='budget_exhausted' if repeated or repairing == 'supervisor' else 'rejected', failure=details,
                                 failure_hash=failure)
+                        if repairing == 'supervisor':
+                            record['reason'] = 'supervisor output rejected; no further automatic semantic attempts'
+                            seen.add(task.key)
                         if repeated:
                             record['reason'] = 'same failure; no semantic progress'
                         if not task.repair or self.auto_repair == 'off':

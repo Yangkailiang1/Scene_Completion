@@ -303,6 +303,74 @@ def test_targeted_repair_rejects_collateral_change_to_successful_unit(tmp_path):
     assert fingerprint(read_json(Path(previous['executions'][0]['result_path']))) == old_hash
 
 
+def test_repair_resolves_last_failed_manifest_instead_of_initial_packet(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets
+    original = tmp_path / 'batches/normal'
+    latest = tmp_path / 'batches/normal-repair-2'
+    prepare_packets(original, 'interaction-model', [{'original': 'source'}], [], {'items': []})
+    manifest = prepare_packets(latest, 'interaction-model', [{'original': 'source', 'bounded_repair': {'prior_output': 'previous fix'}}], [], {'items': []})
+    target = dag.rejected_target(tmp_path, 'normal', {'input_hash': manifest['input_hash']})
+    assert Path(target['folder']) == latest.resolve()
+    with pytest.raises(ValueError, match='missing or ambiguous'):
+        dag.rejected_target(tmp_path, 'normal', {'input_hash': 'unknown'})
+
+
+def test_supervisor_cache_checks_each_configured_endpoint_and_effort(tmp_path):
+    from scene_completion.case_dag import CallGate
+    class Client:
+        def __init__(self, name, url):
+            self.name, self.base_url = name, url
+            self.config = {'thinking': True, 'reasoning_effort': 'high'}
+        def model(self, kind): return self.name
+    batch, supervisor = Client('batch', 'https://batch.invalid'), Client('supervisor', 'https://supervisor.invalid')
+    packets = dag.Packets(tmp_path, SimpleNamespace(agent_mode='external'), batch, CallGate(1))
+    packets.cache_clients.append(supervisor)
+    raw = {'model': 'supervisor', 'execution_model_evidence': {'requested_model': 'supervisor',
+        'api_endpoint_hash': fingerprint(supervisor.base_url), 'thinking': True, 'reasoning_effort': 'high'}}
+    packets.cache_identity(raw)
+    raw['execution_model_evidence']['api_endpoint_hash'] = fingerprint(batch.base_url)
+    with pytest.raises(ValueError, match='endpoint'): packets.cache_identity(raw)
+
+
+def test_supervisor_adapter_validates_real_output_and_cache_resume_without_batch_calls(tmp_path):
+    from scene_completion.case_dag import Scheduler, CallGate
+    from scene_completion.semantic_backend import prepare_packets
+    calls = []
+    class Client:
+        def __init__(self, name):
+            self.name = name
+            self.config = {'thinking': False, 'model_preflight': 'off'}
+        def model(self, kind): return self.name
+        def agent(self, packet):
+            calls.append(self.name)
+            assert packet['input']['normal_source'] == 'positive flow only'
+            if self.name == 'supervisor':
+                assert packet['input']['bounded_repair']['prior_output']['items'] is None
+            return {'items': [] if self.name == 'supervisor' else None,
+                'execution_model_evidence': {'requested_model': self.name, 'thinking': False, 'reasoning_effort': None}}
+    for _ in range(2):
+        adapter = dag.Pipeline.__new__(dag.Pipeline)
+        adapter.args = SimpleNamespace(agent_mode='external')
+        adapter.scheduler = Scheduler(tmp_path, max_rounds=0)
+        primary, supervisor = Client('batch'), Client('supervisor')
+        gate = CallGate(1)
+        adapter.packets = dag.Packets(tmp_path, adapter.args, primary, gate)
+        adapter.supervisor_packets = dag.Packets(tmp_path, adapter.args, supervisor, gate.budget_scope())
+        adapter.packets.cache_clients.append(supervisor)
+        adapter.supervisor_packets.cache_clients.append(primary)
+        adapter.contexts = {'uc': {'root': tmp_path / 'case', 'validators': {}, 'version': 1}}
+        def prepare(deps, directory):
+            return prepare_packets(directory, 'interaction-fixture', [{'normal_source': 'positive flow only'}], [], {'items': []})
+        def validate(packet, raw):
+            if not isinstance(raw.get('items'), list): raise ValueError('items must be a list')
+            return raw['items']
+        adapter.semantic('uc', 'normal', (), prepare, validate)
+        assert adapter.scheduler.run()['complete']
+    assert calls == ['batch', 'supervisor']
+    record = adapter.scheduler.state['tasks']['uc:normal']
+    assert record['supervisor_rounds'] == 1 and record['rounds'] == 0
+
+
 def test_checker_format_failure_repairs_check_output_not_upstream_model(tmp_path):
     from scene_completion.case_dag import Scheduler, CallGate
     from scene_completion.semantic_backend import prepare_packets
