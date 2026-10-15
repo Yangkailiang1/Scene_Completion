@@ -54,6 +54,27 @@ def test_normalization_needs_each_necessary_condition_code(index,tmp_path):
         b.normalize_validator(index)(p,{'items':[{'source_scenario_id':'G','units':[u]}]})
 
 
+def test_g_normalization_keeps_full_location_closure_without_unrelated_calls(index,tmp_path):
+    ssd=build_ssd(model(index));source=raw_scene(index,ssd)
+    source['necessary_conditions']=['有请求','服务可调用']
+    extra=deepcopy(ssd['exchanges'][0])
+    extra.update(exchange_id='UNRELATED',parent_exchange_id=None,parent_sr_exchange_id=None,
+        operation='unrelated operation')
+    ssd['exchanges'].append(extra)
+    manifest=b.normalized_packets([source],ssd,tmp_path,'G')
+    packet=read_json(tmp_path/'packets'/(manifest['batches'][0]['batch_id']+'.json'))
+    data=packet['input']
+    assert 'UNRELATED' not in {e['exchange_id'] for e in data['exchange_details']}
+    assert source['exchange_id'] in {e['exchange_id'] for e in data['exchange_details']}
+    assert {s['scenario_id'] for s in data['scenarios']}=={'G'}
+    assert data['source_condition_counts']=={'G':2}
+    assert set(data['concern_definitions'])==set(source['concern_keys'])
+    # The original strict validator still refuses missing condition identities.
+    unit={'object_code':'request','cause_code':'timeout','condition_codes':['request_present'], 'reason':'source'}
+    with pytest.raises(ValueError,match='every necessary condition'):
+        b.normalize_validator(index)(packet,{'items':[{'source_scenario_id':'G','units':[unit]}]})
+
+
 def test_features_must_include_actual_checked_operation_trait(index):
     exchange={'exchange_id':'X','operation_kinds':['read']}
     packet={'input':{'exchanges':[exchange]}}

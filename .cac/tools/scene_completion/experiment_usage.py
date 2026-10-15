@@ -115,6 +115,12 @@ def telemetry_summary(run_dir):
         if not isinstance(event.get('transport_attempts'), int):
             channel['unknown_transport_attempts'] += 1
         usage = event.get('usage')
+        if event.get('admitted') is False:
+            channel['admission_blocks'] = channel.get('admission_blocks', 0) + 1
+            detail['admission_blocks'] = detail.get('admission_blocks', 0) + 1
+            # No HTTP call: neither a zero-token provider answer nor unknown
+            # provider usage. The local refusal remains in logical requests.
+            continue
         if not isinstance(usage, dict) or not usage:
             # No provider report: the tokens are unknown, not zero.
             channel['unknown_usage_requests'] += 1

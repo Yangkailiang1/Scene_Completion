@@ -285,6 +285,21 @@ def test_incremental_budget_counts_unknown_usage_and_stops_before_over_cap_call(
     assert len(ledger['requests']) == 1
 
 
+def test_assignment_fingerprint_includes_effective_preparation_and_versions(tmp_path,monkeypatch):
+    from scene_completion.semantic_backend import compose_packet
+    from scene_completion import interaction_versions
+    assigned={'stage':'interaction-model','input':{'source':'original'},
+        'instructions':['Original task.'],'output_contract':{'items':[]}}
+    monkeypatch.setattr(interaction_versions,'packet_versions',lambda stage:{'source':'v1'})
+    effective=compose_packet(assigned['stage'],assigned['input'],assigned['instructions'],assigned['output_contract'])
+    assert benchmark._assignment_fingerprint(assigned)==benchmark.fingerprint(effective)
+    repeated=compose_packet(effective['stage'],effective['input'],effective['instructions'],effective['output_contract'])
+    assert repeated==effective
+    assert assigned['instructions']==['Original task.'] and 'execution_versions' not in assigned['input']
+    monkeypatch.setattr(interaction_versions,'packet_versions',lambda stage:{'source':'v2'})
+    assert benchmark._assignment_fingerprint(assigned)!=benchmark.fingerprint(effective)
+
+
 def test_incremental_budget_allows_normal_settlement_and_preserves_resume_history(tmp_path):
     client = FakeClient()
     client.token_budget = TokenBudget({'token_budget_limit': 10_000,

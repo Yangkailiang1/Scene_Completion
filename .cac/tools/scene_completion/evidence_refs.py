@@ -7,6 +7,7 @@ same literal quote strings and remain responsible for all semantic decisions.
 from __future__ import annotations
 
 from copy import deepcopy
+import re
 
 from .sources import fingerprint
 
@@ -71,6 +72,61 @@ def _ref_contains_line(refs, line_ref):
     return any(_same_source_ref(ref, line_ref) for ref in (refs if isinstance(refs, list) else []))
 
 
+def _has_participant_label(line):
+    return bool(isinstance(line, str) and re.search(r'参与者|Actor|Participants?', line, re.I))
+
+
+def _participant_catalog(data):
+    """Build component-bound quotes from only this packet's original sections."""
+    nodes = {row.get('component_id'): row for row in data.get('normal_model', {}).get('components', [])
+        if isinstance(row, dict) and isinstance(row.get('component_id'), str)}
+    sections = data.get('sections', [])
+    architecture = data.get('architecture_sections', [])
+    entries = []
+    if not isinstance(sections, list):
+        sections = []
+    if not isinstance(architecture, list):
+        architecture = []
+    for component_id, node in nodes.items():
+        layer = node.get('layer')
+        original_refs = node.get('source_refs', [])
+        for section in [*sections, *architecture]:
+            if not isinstance(section, dict):
+                continue
+            for quote, ref in _numbered_section_lines(section):
+                named = isinstance(node.get('name'), str) and node['name'] in quote
+                if _ref_contains_line(original_refs, ref) or named:
+                    _add(entries, quote, {'kind': 'participant_role', 'component_id': component_id}, ref)
+        # Declarations are only sourced from this use case's own sections and
+        # must look like an actual actor/participant declaration for this name.
+        name = node.get('name')
+        if isinstance(name, str) and name:
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                for quote, ref in _numbered_section_lines(section):
+                    if name in quote and _has_participant_label(quote):
+                        _add(entries, quote, {'kind': 'participant_declaration', 'component_id': component_id}, ref)
+        # Interaction quotes are limited to own-layer normal SSD exchanges
+        # involving this component, and must be present in supplied sections.
+        for exchange in data.get('normal_model', {}).get('exchanges', []):
+            if (not isinstance(exchange, dict) or exchange.get('requirement_layer') != layer
+                    or component_id not in {exchange.get('from_component_id'), exchange.get('to_component_id')}):
+                continue
+            exchange_id = exchange.get('local_id') or exchange.get('exchange_id')
+            if not isinstance(exchange_id, str):
+                continue
+            exchange_refs = exchange.get('source_refs', [])
+            for section in sections:
+                if not isinstance(section, dict):
+                    continue
+                for quote, ref in _numbered_section_lines(section):
+                    if _ref_contains_line(exchange_refs, ref):
+                        _add(entries, quote, {'kind': 'participant_interaction',
+                            'component_id': component_id, 'exchange_id': exchange_id}, ref)
+    return entries
+
+
 def _stage(packet):
     stage = packet.get("stage")
     if isinstance(stage, str):
@@ -105,6 +161,9 @@ def _build_catalog(packet, stage):
         for quote, path in _walk_input_strings(allowed, ("allowed_inputs",)):
             _add(entries, quote, {"kind": "diagnosis_allowed_input", "path": list(path)})
         return entries
+
+    if stage == "interaction-participants":
+        return _participant_catalog(data)
 
     if stage.startswith("gap-reverse-check"):
         units = {u.get("unit_id"): u for u in data.get("units", []) if isinstance(u, dict)}
@@ -211,8 +270,36 @@ def _graph_exchange(packet, supplied_id):
     return aliases[0] if len(aliases) == 1 else None
 
 
-def _entry_allowed(entry, stage, parent, quote_key, packet, exchange_scope=None):
+def _entry_allowed(entry, stage, parent, quote_key, packet, exchange_scope=None, path=()):
     scope = entry["scope"]
+    if scope.get('kind') in {'participant_role', 'participant_interaction', 'participant_declaration'}:
+        if stage != 'interaction-participants' or len(path) != 2 or path[0] != 'component_reviews':
+            return False
+        component_id = parent.get('component_id') if isinstance(parent, dict) else None
+        if component_id != scope.get('component_id'):
+            return False
+        nodes = {row.get('component_id'): row for row in packet['input'].get('normal_model', {}).get('components', [])
+            if isinstance(row, dict)}
+        node = nodes.get(component_id)
+        if node is None:
+            return False
+        if scope['kind'] == 'participant_role':
+            if quote_key != 'role_quote':
+                return False
+            refs = parent.get('role_refs')
+            return _ref_contains_line(refs, entry.get('ref'))
+        if scope['kind'] == 'participant_declaration':
+            if quote_key != 'declared_participant_quote':
+                return False
+            refs = parent.get('participant_refs')
+            return _ref_contains_line(refs, entry.get('ref'))
+        if quote_key != 'interaction_quote' or node.get('layer') not in {'RR', 'SR'}:
+            return False
+        exchanges = [row for row in packet['input'].get('normal_model', {}).get('exchanges', [])
+            if isinstance(row, dict) and (row.get('local_id') or row.get('exchange_id')) == scope.get('exchange_id')
+            and row.get('requirement_layer') == node.get('layer')
+            and component_id in {row.get('from_component_id'), row.get('to_component_id')}]
+        return len(exchanges) == 1 and _ref_contains_line(parent.get('interaction_refs'), entry.get('ref'))
     if scope["kind"] == "diagnosis_allowed_input":
         return stage == "diagnosis" or stage.endswith("-diagnosis")
     if scope["kind"] == "reverse_review":
@@ -272,9 +359,10 @@ def _entry_allowed(entry, stage, parent, quote_key, packet, exchange_scope=None)
     return False
 
 
-def _resolve(value, packet, stage, catalog, exchange_scope=None, feature_item=False, result_root=False):
+def _resolve(value, packet, stage, catalog, exchange_scope=None, feature_item=False, result_root=False, path=()):
     if isinstance(value, list):
-        return [_resolve(item, packet, stage, catalog, exchange_scope, feature_item, False) for item in value]
+        return [_resolve(item, packet, stage, catalog, exchange_scope, feature_item, False, path + (i,))
+            for i, item in enumerate(value)]
     if isinstance(value, dict):
         local_scope = exchange_scope
         if stage == "gap-features" and feature_item:
@@ -287,12 +375,15 @@ def _resolve(value, packet, stage, catalog, exchange_scope=None, feature_item=Fa
             if key in ref_keys:
                 continue
             child_is_feature_item = stage == "gap-features" and result_root and key == "items"
-            out[key] = _resolve(item, packet, stage, catalog, local_scope, child_is_feature_item, False)
+            out[key] = _resolve(item, packet, stage, catalog, local_scope, child_is_feature_item, False, path + (key,))
         if not ref_keys:
             return out
         for ref_key in ref_keys:
             quote_key = ref_key[:-4]  # evidence_quote_ref -> evidence_quote
-            if quote_key not in {"evidence_quote", "failure_evidence_quote"}:
+            allowed_quote_keys = {"evidence_quote", "failure_evidence_quote"}
+            if stage == 'interaction-participants':
+                allowed_quote_keys |= {'role_quote', 'interaction_quote', 'declared_participant_quote'}
+            if quote_key not in allowed_quote_keys:
                 raise ValueError("unsupported evidence quote reference field")
             spec = value[ref_key]
             if not isinstance(spec, dict) or set(spec) != {"evidence_id"}:
@@ -303,7 +394,7 @@ def _resolve(value, packet, stage, catalog, exchange_scope=None, feature_item=Fa
             entry = catalog.get(evidence_id)
             if entry is None:
                 raise ValueError("unknown packet-local evidence ID")
-            if not _entry_allowed(entry, stage, value, quote_key, packet, local_scope):
+            if not _entry_allowed(entry, stage, value, quote_key, packet, local_scope, path):
                 raise ValueError("evidence ID is outside this result item's source scope")
             current = value.get(quote_key)
             if quote_key in value and current != entry["quote"]:

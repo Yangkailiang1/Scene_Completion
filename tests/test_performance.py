@@ -57,6 +57,27 @@ def test_failure_and_absent_usage_remain_unknown(tmp_path):
     assert session['stages']['model-availability']['failures']==1
 
 
+def test_budget_refusal_before_transport_is_not_unknown_provider_usage(tmp_path, monkeypatch):
+    from scene_completion.token_budget import TokenBudgetBlocked
+    from scene_completion.experiment_usage import telemetry_summary
+    monkeypatch.setenv('PROFILE_KEY','private-secret')
+    def transport(*args):
+        pytest.fail('no HTTP request is admitted')
+    client=SemanticClient({'agent_model':'fixture','base_url':'https://fixture.invalid/v1',
+        'api_key_env':'PROFILE_KEY','token_budget_limit':1,
+        'token_budget_ledger':str(tmp_path/'ledger.json')},transport)
+    profile=Profiler(tmp_path);client.profiler=profile
+    with pytest.raises(TokenBudgetBlocked):
+        client.agent({'stage':'gap-fixture','batch_id':'b','input':{}})
+    profile.finish('budget_blocked')
+    session=read_json(tmp_path/'performance.json')['sessions'][0]
+    assert session['request_count']==1 and session['reported_http_attempts']==0
+    assert session['admission_blocked_requests']==1 and session['unknown_usage_requests']==0
+    summary=telemetry_summary(tmp_path)
+    assert summary['channels'][0]['admission_blocks']==1
+    assert summary['channels'][0]['unknown_usage_requests']==0
+
+
 def test_unfinished_session_does_not_report_zero_wall_time(tmp_path):
     profile=Profiler(tmp_path)
     profile.emit('cache',stage='normal')

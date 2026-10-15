@@ -16,7 +16,8 @@ MAX_INCREMENTAL_TOKENS = 150_000
 
 def _assignment_fingerprint(packet):
     """Bind a benchmark task to its complete assigned role packet."""
-    return fingerprint({key: packet.get(key) for key in ('stage', 'input', 'instructions', 'output_contract')})
+    from .semantic_backend import compose_packet
+    return fingerprint(compose_packet(packet['stage'],packet['input'],packet['instructions'],packet['output_contract']))
 
 
 def _client_identity(client):
@@ -57,7 +58,7 @@ def _legacy_assignment_matches(output, task, packet):
                     if key not in {'batch_id', 'input_hash'}})
                 if (saved.get('batch_id') == row.get('batch_id')
                         and saved.get('input_hash') == row.get('input_hash') == packet_hash
-                        and _assignment_fingerprint(saved) == expected
+                        and fingerprint({key: saved.get(key) for key in ('stage','input','instructions','output_contract')}) == expected
                         and task.get('input_fingerprint') == fingerprint(saved.get('input'))):
                     return True
         except (ValueError, KeyError, OSError, TypeError):

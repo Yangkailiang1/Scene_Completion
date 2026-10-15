@@ -81,10 +81,12 @@ class SemanticClient:
             from .performance import span, size
             with span(getattr(self, 'profiler', None), 'request', endpoint=endpoint, model=body.get('model'),
                     request_bytes=size(body), request_kind=kind) as timing:
+                timing.update(admitted=False, transport_attempts=0)
                 budget = self.token_budget if endpoint == '/chat/completions' else None
                 reservation = budget.reserve(body) if budget else None
                 if reservation:
                     timing['budget_request_id'] = reservation
+                timing.update(admitted=True, transport_attempts=None)
                 try:
                     # An unobserved retry may spend the allowance twice. A
                     # budgeted request therefore has exactly one HTTP attempt.
@@ -309,22 +311,34 @@ def scene_text(scene: dict) -> str:
     return "\n".join(f"{key}: {json.dumps(scene.get(key, ''), ensure_ascii=False)}" for key in keys)
 
 
+def compose_packet(stage: str, payload: dict, instructions: list[str], contract: dict) -> dict:
+    """Pure effective assignment, shared by packet writing and reuse checks."""
+    payload, instructions, contract = copy.deepcopy(payload), list(instructions), copy.deepcopy(contract)
+    if stage.startswith("interaction-"):
+        policy = "Every source_refs entry is an OBJECT with document (exact supplied filename), line_start and line_end (JSON integers). Example: {\"document\":\"rr.md\",\"line_start\":12,\"line_end\":12}. Never return bare line numbers, strings, renamed filenames or chapter IDs in place of source_refs objects. Use actual lines from assigned numbered_text/evidence; retain section IDs only in covered_section_ids."
+        if policy not in instructions:
+            instructions.append(policy)
+        from .interaction_versions import packet_versions
+        payload['execution_versions'] = packet_versions(stage)
+    packet = {"stage": stage, "input": payload, "instructions": instructions, "output_contract": contract}
+    if (stage in {'gap-graph-check', 'gap-features', 'interaction-checker-audit', 'interaction-participants'}
+            or stage.startswith(('gap-normalize-', 'gap-reverse-check-'))):
+        from .evidence_refs import prepare_packet
+        packet = prepare_packet(packet)
+        if stage == 'interaction-participants':
+            policy = 'Within component_reviews, role_quote_ref, interaction_quote_ref and declared_participant_quote_ref may select the corresponding input.evidence_catalog ID instead of copying text. Keep component_id and the corresponding role_refs, interaction_refs or participant_refs. Select only that component’s allowed quote kind; tools restore literal text, not decisions. Rows without an appropriate catalog entry retain the ordinary literal/unresolved protocol.'
+        else:
+            policy = 'For literal evidence_quote you may instead use evidence_quote_ref={"evidence_id":"EV-..."} from input.evidence_catalog. The tool restores that exact supplied quote before the ordinary semantic validator runs. Keep this item’s own IDs and source_refs; never borrow another scenario/unit/interaction’s evidence. For failure_evidence_quote use failure_evidence_quote_ref separately. Do not paraphrase or invent evidence IDs.'
+        if policy not in packet['instructions']:
+            packet['instructions'].append(policy)
+    return packet
+
+
 def prepare_packets(directory: str | Path, stage: str, payloads: list[dict], instructions: list[str], contract: dict) -> dict:
     root = Path(directory)
-    if stage.startswith("interaction-"):
-        instructions = [*instructions, "Every source_refs entry is an OBJECT with document (exact supplied filename), line_start and line_end (JSON integers). Example: {\"document\":\"rr.md\",\"line_start\":12,\"line_end\":12}. Never return bare line numbers, strings, renamed filenames or chapter IDs in place of source_refs objects. Use actual lines from assigned numbered_text/evidence; retain section IDs only in covered_section_ids."]
     batches = []
     for number, payload in enumerate(payloads):
-        if stage.startswith("interaction-"):
-            from .interaction_versions import packet_versions
-            payload = {**payload, "execution_versions": packet_versions(stage)}
-        packet = {"stage": stage, "input": payload, "instructions": instructions, "output_contract": contract}
-        if (stage in {'gap-graph-check', 'gap-features', 'interaction-checker-audit'}
-                or stage.startswith(('gap-normalize-', 'gap-reverse-check-'))):
-            from .evidence_refs import prepare_packet
-            packet = prepare_packet(packet)
-            packet['instructions'] = [*packet['instructions'],
-                'For literal evidence_quote you may instead use evidence_quote_ref={"evidence_id":"EV-..."} from input.evidence_catalog. The tool restores that exact supplied quote before the ordinary semantic validator runs. Keep this item’s own IDs and source_refs; never borrow another scenario/unit/interaction’s evidence. For failure_evidence_quote use failure_evidence_quote_ref separately. Do not paraphrase or invent evidence IDs.']
+        packet = compose_packet(stage, payload, instructions, contract)
         packet_hash = fingerprint(packet)
         batch_id = f"{stage}-{number:04d}-{packet_hash[:12]}"
         packet["batch_id"] = batch_id

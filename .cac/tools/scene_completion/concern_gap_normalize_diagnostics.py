@@ -30,6 +30,9 @@ def validator(index):
                 except (ValueError,KeyError,TypeError) as error:
                     details.append({'source_id':source['scenario_id'],'error':str(error),
                         'exact_condition':source['trigger_condition'],
+                        'expected_condition_code_count':len(source.get('necessary_conditions',[])),
+                        'actual_condition_code_counts':[len(u.get('condition_codes',[]))
+                            if isinstance(u.get('condition_codes'),list) else None for u in item.get('units',[])],
                         'allowed_locations':[c['location_id'] for c in data['locations'] if c['use_case_id']==source['use_case_id']]})
             shape = source_id_differences(by_id, [item.get('source_scenario_id') for item in candidate.get('items', [])])
             raise ValueError('evidence_quote MUST copy scenes.trigger_condition exactly, not original_evidence.text/document normal contracts. Mapped location_id MUST be an input.locations.location_id of this same use case (not an exchange_id or step name); absent valid mapping must stay unmapped. concern_key MUST be an exact concern_definitions key. Keep all semantic identification source-backed. '+str(exc)+'; collection_shape: '+str(shape)+'; invalid source units: '+str(details)) from exc

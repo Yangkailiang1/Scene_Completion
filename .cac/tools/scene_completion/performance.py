@@ -96,10 +96,13 @@ class Profiler:
                     session['reported_http_attempts']+=row['transport_attempts']
                 else:session['requests_with_unknown_attempts']+=1
                 stage['failures']+=row['status']=='failed'
+                if row.get('admitted') is False:
+                    stage['admission_blocks']=stage.get('admission_blocks',0)+1
+                    session['admission_blocked_requests']=session.get('admission_blocked_requests',0)+1
                 usage=row.get('usage')
-                if not usage:session['unknown_usage_requests']+=1
+                if not usage and row.get('admitted') is not False:session['unknown_usage_requests']+=1
                 else:
-                    for key,value in usage.items():
+                    for key,value in (usage or {}).items():
                         if type(value) in (int,float):session['usage'][key]=session['usage'].get(key,0)+value
         for sid,session in sessions.items():
             session['unfinished_request_count']=sum(n for key,n in open_requests.items() if key[0]==sid)
@@ -127,7 +130,7 @@ class Profiler:
             wall = (f"{session['wall_seconds']:.2f} 秒" if session['wall_seconds'] is not None
                 else f"未结束（最后记录至 {session['last_observed_seconds']:.2f} 秒）")
             lines += [f"## 运行 {session['session']}", '',
-                f"墙钟时间：{wall}；逻辑请求数：{session['request_count']}；已记录HTTP尝试：{session['reported_http_attempts']}；未返回用量的请求：{session['unknown_usage_requests']}",
+                f"墙钟时间：{wall}；逻辑请求数：{session['request_count']}；已记录HTTP尝试：{session['reported_http_attempts']}；发送前阻止：{session.get('admission_blocked_requests',0)}；未返回用量的请求：{session['unknown_usage_requests']}",
                 f"墙钟计时依据：{session.get('wall_measurement','未结束')}；尚未取得完整结束记录的请求：{session['unfinished_request_count']}（耗时及用量未知，不能按零处理）",
                 '', '| 阶段 | 任务秒 | 请求秒 | 排队秒 | 校验秒 | 请求数 | 修复尝试 | 缓存命中 |',
                 '|---|---:|---:|---:|---:|---:|---:|---:|']
