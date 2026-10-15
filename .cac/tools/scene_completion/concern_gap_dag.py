@@ -439,6 +439,27 @@ class Packets:
                     payloads.append(patch['payload'])
                     instructions, contract = patch['instructions'], patch['contract']
                     continue
+            if (original['stage'] in {'gap-normalize-E', 'gap-normalize-T'}
+                    and prior_attempt and prior and len(original['batches']) == 1):
+                from .normalization_evidence_patch import prepare as prepare_quote_patch
+                filename = 'test_sources_index.json' if original['stage'].endswith('-T') else 'sources_index.json'
+                normalization_index = read_json(self.root / filename)
+                from .concern_gap_batches import normalize_validator as source_normalizer
+                try:
+                    source_normalizer(normalization_index)(packet, contract_view(packet, prior))
+                except ValueError as exc:
+                    patch = prepare_quote_patch(packet, prior,
+                        source / 'packets' / (row['batch_id'] + '.json'),
+                        prior_attempt, str(exc), normalization_index)
+                else:
+                    patch = None
+                if patch:
+                    self.cache_identity(prior)
+                    normal_item_patch = True
+                    ordered_slots.append(('new', len(payloads)))
+                    payloads.append(patch['payload'])
+                    instructions, contract = patch['instructions'], patch['contract']
+                    continue
             if prior:
                 try:
                     for value in validator(packet, contract_view(packet, prior)):
@@ -1012,6 +1033,11 @@ class Pipeline:
                         packet['input']['nodes']=[nodes[key] for key in sorted(identities)]
                         packet['input'].pop('reused_components',None)
                         packet['input'].pop('component_versions',None)
+                        # The catalog is derived from the explicit vs cached
+                        # component layout. Compare the reconstructed full
+                        # graph, then verify the saved raw catalog separately.
+                        packet['input'].pop('evidence_catalog',None)
+                        packet['input'].pop('evidence_catalog_format',None)
                     return packet
                 for batch,previous in zip(expected['batches'],prior['batches']):
                     latest=read_json(Path(temporary)/'packets'/(batch['batch_id']+'.json'))

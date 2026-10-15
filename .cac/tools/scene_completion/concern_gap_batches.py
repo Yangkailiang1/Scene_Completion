@@ -19,7 +19,7 @@ def skill(name):
 def versions():
     root=Path(__file__).parent
     paths=sorted(root.glob('concern_gap*.py'))+sorted(root.glob('interaction_*.py'))
-    paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py','component_names.py','normal_item_patch.py')]
+    paths += [root/n for n in ('semantic_backend.py','role_cli.py','sources.py','schemas.py','document_extract.py','review.py','model_configuration.py','component_names.py','normal_item_patch.py','normalization_evidence_patch.py')]
     paths += [root/'case_dag.py', root/'model_access.py',root/'diagnosis.py',root/'streaming.py',
         root/'inline_ar.py',root/'task_diagnostics.py',root/'audit_quote_recovery.py',root/'response_contract.py',
         root/'supervisor_continuation.py',root/'quota_profiles.py',root/'partial_packet_reuse.py']
@@ -103,6 +103,9 @@ def normalized_packets(scenes, ssd, directory, collection, index=None):
 
 def normalize_validator(index):
     def validate(packet,result):
+        if packet['input'].get('normalization_evidence_patch'):
+            from .normalization_evidence_patch import validate as validate_quote_patch
+            return validate_quote_patch(packet, result, index)
         data=packet['input']; originals={s['scenario_id']:s for s in data['scenarios']}
         items=result.get('items',[])
         if len(items)!=len(originals) or {r.get('source_scenario_id') for r in items}!=set(originals):

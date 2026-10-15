@@ -78,10 +78,12 @@ def model_audit_packets(model_directory, index, directory, *, use_case_ids=None)
             continue
         raw = read_json(folder / 'results' / (batch['batch_id'] + '.json'))
         model = b.model_validator(index)(packet, raw)[0]
+        from .normal_item_patch import source_packet
+        source = source_packet(packet, index)
         payloads.append({'use_case_id': packet['input']['use_case_id'],
             **({'query_data_policy': model['query_data_policy']} if model.get('query_data_policy') else {}),
             'model_batch_id': batch['batch_id'], 'model_result_hash': fingerprint(model),
-            'sections': packet['input']['sections'], 'normal_source_lines': normal_source_lines(packet['input']['sections'], index),
+            'sections': source['input']['sections'], 'normal_source_lines': normal_source_lines(source['input']['sections'], index),
             'source_data_coverage_required': True,
             'source_resource_coverage_required': True,
             'resource_caller_source_required': True,
@@ -90,7 +92,7 @@ def model_audit_packets(model_directory, index, directory, *, use_case_ids=None)
             'responsibility_universe': responsibility_universe(model),
             'contract_universe': contract_universe(model),
             'contract_source_lines': contract_source_lines(model, index),
-            'extraction_skills': packet['input']['extraction_skills'], 'normal_model': model,
+            'extraction_skills': source['input']['extraction_skills'], 'normal_model': model,
             'audit_rule_hash': fingerprint([Path(__file__).read_text(encoding='utf-8'), inspect.getsource(line_origins), inspect.getsource(normal_model_line_origins), inspect.getsource(explicit_exception_line), Path(__file__).with_name('interaction_resource_audit.py').read_text(encoding='utf-8')])})
     return prepare_packets(directory, 'interaction-model-audit', payloads, [
         'query_data_policy allows ONLY a logical result of an original positive read/query when its protocol structure is unknown. Independently inventory that logical returned object with source_kind=query_semantics, exact query quote and actual exchange field mapping; verify derived_response_data marks it, cites that read, and says protocol_structure_unknown=true. Explicitly documented data uses source_kind=explicit. Reject invented protocol members, types, Boolean validation results and calls. A return label is not an original JSON field. No inference from exceptions, C or tests.',

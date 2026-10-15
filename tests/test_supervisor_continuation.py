@@ -42,6 +42,36 @@ def correction(root, repository, name='repair.json'):
     return path
 
 
+def test_smaller_correction_after_local_reservation_refusal_preserves_budget(tmp_path):
+    root = tmp_path / 'run'
+    setup_failed(root)
+    state = read_json(root / 'case_tasks.json')
+    state['tasks']['a'].update(status='budget_exhausted', reason='external quota exhausted')
+    write_json(root / 'case_tasks.json', state)
+    case = root / 'cases' / 'case'
+    write_json(case / 'case_identity.json', {'use_case_id': 'uc'})
+    rejected = case / 'batches' / 'normal-supervisor-repair-1' / 'attempts' / 'batch-1.json'
+    write_json(rejected, {'response_diagnostic': {'failure_category': 'budget_exhausted',
+        'budget_kind': 'tokens', 'budget_reason': 'insufficient_provider_allowance'}})
+    ledger = root / 'token_budget.json'
+    write_json(ledger, {'limit': 900000, 'unknown_reservation': 12345})
+    original = ledger.read_bytes()
+    result = request(root, 'a', correction(root, tmp_path), repository=tmp_path)
+    assert result['supervisor_rounds'] == 1 and result['model_calls'] == 0
+    assert ledger.read_bytes() == original
+    pending = read_json(root / 'case_tasks.json')['tasks']['a']['supervisor_continuations'][-1]
+    assert pending['prior_local_reservation_refusal']
+
+
+def test_unknown_request_never_qualifies_as_local_reservation_refusal(tmp_path):
+    from scene_completion.supervisor_continuation import _local_reservation_refusal
+    case = tmp_path / 'cases' / 'case'
+    write_json(case / 'case_identity.json', {'use_case_id': 'uc'})
+    write_json(case / 'batches' / 'normal-supervisor-repair-1' / 'attempts' / 'batch-1.json',
+        {'response_diagnostic': {'budget_kind': 'tokens', 'budget_reason': 'unresolved_previous_request'}})
+    assert not _local_reservation_refusal(tmp_path, {'case': 'uc', 'stage': 'normal', 'supervisor_rounds': 1})
+
+
 def test_controller_continues_after_initial_supervisor_failure_without_reset(tmp_path):
     root = tmp_path / 'run'
     calls, build = setup_failed(root)

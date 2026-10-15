@@ -207,16 +207,21 @@ def _bound_patch_source(packet, index):
     if rebuilt is None:
         raise ValueError('normal item patch no longer matches the current validator failure or source evidence')
     from .semantic_backend import compose_packet
+    from .partial_packet_reuse import semantic_packet
     expected = compose_packet(source_packet['stage'], rebuilt['payload'],
         rebuilt['instructions'], rebuilt['contract'])
-    if (packet.get('stage') != expected.get('stage')
-            or data != expected.get('input')
-            or packet.get('instructions') != expected.get('instructions')
-            or packet.get('output_contract') != expected.get('output_contract')):
+    if semantic_packet(packet) != semantic_packet(expected):
         raise ValueError('normal item patch packet differs from its bound source and scoped instructions')
     if packet.get('input_hash') != _packet_identity(packet):
         raise ValueError('normal item patch packet identity is invalid')
     return source_packet, shell, raw, patch, rebuilt
+
+
+def source_packet(packet, index):
+    """Expose the bound original sources to downstream model consumers."""
+    if not packet.get('input', {}).get('normal_item_patch'):
+        return packet
+    return _bound_patch_source(packet, index)[0]
 
 
 def validate(packet, result, index):

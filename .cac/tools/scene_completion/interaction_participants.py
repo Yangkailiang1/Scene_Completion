@@ -45,8 +45,10 @@ def participant_packets(model_directory, index, directory, *, use_case_ids=None)
         if use_case_ids and packet['input']['use_case_id'] not in set(use_case_ids):
             continue
         model = b.model_validator(index)(packet, read_json(folder / 'results' / (batch['batch_id'] + '.json')))[0]
+        from .normal_item_patch import source_packet
+        source = source_packet(packet, index)
         payloads.append({'use_case_id': model['use_case_id'], 'normal_model': model,
-            'model_result_hash': fingerprint(model), 'sections': packet['input']['sections'],
+            'model_result_hash': fingerprint(model), 'sections': source['input']['sections'],
             'normal_source_audit': audited.get(model['use_case_id']),
             'architecture_sections': architecture_context(index),
             'participant_skill': b.role_skill('scene-participants'),

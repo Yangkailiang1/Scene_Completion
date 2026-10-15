@@ -10,6 +10,8 @@ def validator(index):
         # RR and its public SR view can name the same real interaction. Resolve
         # only explicit exchange membership; never infer a different operation.
         candidate=contract_view(packet, result)
+        if packet['input'].get('normalization_evidence_patch'):
+            return check(packet, candidate)
         data=packet['input'];sources={s['scenario_id']:s for s in data['scenarios']}
         for item in candidate.get('items',[]):
             source=sources.get(item.get('source_scenario_id'))

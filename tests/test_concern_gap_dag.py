@@ -135,6 +135,12 @@ def test_full_dag_packet_flow_final_rebuild_and_zero_call_resume(tmp_path, monke
     count = len(calls)
     assert count > 10
     assert (Path(args.output_dir) / 'scene_assessment.xlsx').exists()
+    graph_task = pipeline.scheduler.tasks['UC-1:graphs']
+    graph_state = pipeline.scheduler.state['tasks']['UC-1:graphs']
+    graph_deps = {key: read_json(Path(args.output_dir) / pipeline.scheduler.state['tasks'][key]['output_file'])
+        for key in graph_task.deps}
+    graph_task.compatible(graph_deps, read_json(Path(args.output_dir) / graph_state['output_file']))
+    assert len(calls) == count  # Shared component layout changes must stay offline.
     assert replay(args.output_dir)['complete']
     snapshot = tmp_path / 'snapshot.json'
     export_snapshot(args.output_dir, snapshot)

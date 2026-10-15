@@ -10,6 +10,30 @@ from .sources import fingerprint
 KINDS = {'tool_fix', 'prompt_fix', 'source_reinterpretation', 'split_packet'}
 
 
+def _local_reservation_refusal(root, record):
+    """An oversized, never-admitted packet may be replaced by a smaller plan.
+
+    This is not quota recovery: the next call still reserves against the same
+    ledgers and provider limit. Unknown transport usage never qualifies.
+    """
+    folders = []
+    for identity in (root / 'cases').glob('*/case_identity.json'):
+        if read_json(identity).get('use_case_id') == record.get('case'):
+            folders.append(identity.parent / 'batches' /
+                f"{record['stage']}-supervisor-repair-{record.get('supervisor_rounds', 0)}")
+    attempts = [p for folder in folders for p in (folder / 'attempts').glob('*.json')]
+    if not attempts:
+        return False
+    for path in attempts:
+        value = read_json(path)
+        diagnostic = value.get('response_diagnostic', {})
+        if (value.get('result') or diagnostic.get('budget_kind') != 'tokens'
+                or diagnostic.get('budget_reason') not in {
+                    'insufficient_provider_allowance', 'insufficient_remaining_allowance'}):
+            return False
+    return True
+
+
 def cancel_pending(root, task_key, reason):
     """Retire an unstarted stale plan, never refund an executed repair round."""
     if not isinstance(reason, str) or not reason.strip():
@@ -112,7 +136,8 @@ def request(root, task_key, plan_path, *, repository=None):
         if record.get('supervisor_revision_pending'):
             raise ValueError('a controller correction is already pending; resume it without registering another')
         reason = record.get('reason')
-        if isinstance(reason, str) and ('external quota exhausted' in reason or 'usage unresolved' in reason):
+        local_refusal = _local_reservation_refusal(root, record)
+        if isinstance(reason, str) and ('external quota exhausted' in reason or 'usage unresolved' in reason) and not local_refusal:
             raise ValueError('resolve real quota or unknown usage before semantic continuation')
         if isinstance(reason, dict) and (reason.get('failure_category') in ('quota_exhausted', 'budget_exhausted')
                 or reason.get('budget_reason') == 'unresolved_previous_request'):
@@ -151,7 +176,8 @@ def request(root, task_key, plan_path, *, repository=None):
             raise ValueError('unchanged tool/Skill correction cannot buy another request by rewording its diagnosis')
         revision = {'revision_id': fingerprint({'task': task_key, 'plan': plan_hash}),
             'plan': normalized, 'plan_hash': plan_hash, 'strategy_hash': strategy_hash, 'input_hash': record['input_hash'],
-            'failure_hash': record['failure_hash'], 'status': 'requested', 'created_unix': time.time()}
+            'failure_hash': record['failure_hash'], 'status': 'requested', 'created_unix': time.time(),
+            'prior_local_reservation_refusal': local_refusal}
         record.setdefault('supervisor_continuations', []).append(revision)
         record['supervisor_revision_pending'] = revision['revision_id']
         state['events'].append({'task': task_key, 'event': 'controller_correction_requested',

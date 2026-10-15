@@ -131,3 +131,17 @@ def test_prepare_rejects_stale_attempt_file_hash(tmp_path, monkeypatch):
             'source_id': 'UC-1'}}
     with pytest.raises(ValueError):
         validate(patch_packet, result, index)
+
+
+def test_version_only_replay_keeps_original_source_sections(tmp_path, monkeypatch):
+    from scene_completion.normal_item_patch import source_packet
+    source, path, prior, attempt, index, original_row = _setup(tmp_path, monkeypatch)
+    built = prepare(source, prior, path, attempt, ERROR, index)
+    packet = _patch_packet(tmp_path, built)
+    packet['input']['execution_versions'] = {'old_tool_revision': 'preserved'}
+    packet['input_hash'] = fingerprint({k: v for k, v in packet.items()
+        if k not in {'batch_id', 'input_hash'}})
+    result = {**_proof('repair-model'), 'batch_id': packet['batch_id'],
+        'input_hash': packet['input_hash'], 'replacement': {**original_row, 'source_id': 'UC-1'}}
+    assert validate(packet, result, index)
+    assert source_packet(packet, index)['input']['sections'] == source['input']['sections']
