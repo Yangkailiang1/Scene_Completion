@@ -5,6 +5,7 @@ from .semantic_backend import read_json,write_json
 from .sources import fingerprint
 from .interaction_execution_identity import validate_result_execution,copy_execution_sidecars
 from .concern_gap_repair import reverse_validator,apply_repairs
+from .artifact_paths import relative_artifact_path
 
 
 def preserve(root):
@@ -24,8 +25,8 @@ def preserve(root):
             write_json(destination,raw);copy_execution_sidecars(raw,source,destination)
             packet=read_json(folder/'packets'/(rejection['review_batch_id']+'.json'))
             write_json(destination.with_name('packet.json'),packet)
-            evidence[key]={'result_path':str(destination.relative_to(root)),
-                'packet_path':str(destination.with_name('packet.json').relative_to(root))}
+            evidence[key]={'result_path':destination.relative_to(root).as_posix(),
+                'packet_path':destination.with_name('packet.json').relative_to(root).as_posix()}
     write_json(path,ledger)
     return ledger
 
@@ -38,11 +39,12 @@ def verify(root,base,ledger,outputs):
         if record['source_set_hash']!=fingerprint(base):raise ValueError('repair source-set fingerprint changed')
         for rejection in record['rejections']:
             paths=record['rejection_evidence'][rejection['review_result_hash']]
-            packet=read_json(root/paths['packet_path']);raw=read_json(root/paths['result_path'])
+            packet=read_json(relative_artifact_path(root,paths['packet_path']))
+            result_path=relative_artifact_path(root,paths['result_path']);raw=read_json(result_path)
             if fingerprint(raw)!=rejection['review_result_hash']:raise ValueError('rejection result changed')
             if raw['input_hash']!=packet['input_hash'] or raw['batch_id']!=packet['batch_id']:
                 raise ValueError('rejection packet execution does not agree')
-            validate_result_execution(raw,result_path=root/paths['result_path'])
+            validate_result_execution(raw,result_path=result_path)
             row=next(r for r in reverse_validator(packet,deepcopy(raw)) if r['unit_id']==rejection['unit_id'])
             unit=next(u for u in packet['input']['units'] if u['unit_id']==rejection['unit_id'])
             source=next(s for s in packet['input']['original_scenarios'] if s['scenario_id']==rejection['source_scenario_id'])

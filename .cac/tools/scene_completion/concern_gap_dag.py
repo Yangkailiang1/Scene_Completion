@@ -397,13 +397,7 @@ class Pipeline:
                 else self.client.config.get('max_repair_rounds', 2))
         self.scheduler.resume_external_budget()
         self.history = None
-        if getattr(args,'history_run',None):
-            from .concern_gap_history import load,copy_vectors
-            from .performance import span
-            with span(self.profiler,'history-import',stage='history-import') as timing:
-                self.history=load(args.history_run,self.index,self.selected,[u['use_case_id'] for u in self.base['use_cases']])
-                timing['copied_vectors']=copy_vectors(self.history,self.embedding)
-            write_json(self.root/'history_import.json',self.history['binding'])
+        self.history_run = getattr(args, 'history_run', None)
         self.test_index = index_sources(getattr(args, 'test_spec_document', None) or [])
         for doc in self.test_index['documents']:
             doc['requirement_layer'] = 'TEST'
@@ -417,8 +411,6 @@ class Pipeline:
         elif reuse and (reuse / 'model_authorization.json').exists():
             self.approval = read_json(reuse / 'model_authorization.json')
         old_model = read_json(reuse / 'scene_model.json') if reuse and (reuse / 'scene_model.json').exists() else None
-        if self.history and not old_model:
-            old_model = self.history['model']
         self.bindings = approval_bindings(self.approval, old_model, self.base)
         ar_paths=getattr(args,'ar_spec_document',None) or []
         if ar_paths:
@@ -671,15 +663,48 @@ class Pipeline:
             if merged_units(deps)!=output:raise ValueError('normalized unit inputs changed')
         self.scheduler.tasks[self.key(case,'units-'+collection)].compatible=compatible_units
 
+    def history_version(self):
+        from hashlib import sha256
+        root = Path(self.history_run)
+        files = {}
+        for name in ('run_manifest.json', 'result_bundle.json', 'historical_scene_model.json'):
+            try:
+                files[name] = sha256((root/name).read_bytes()).hexdigest()
+            except OSError as exc:
+                files[name] = {'unavailable': type(exc).__name__}
+        return {'run': str(root.resolve()), 'files': files, 'source': fingerprint(self.index),
+            'selected': sorted(self.selected), 'cases': sorted(u['use_case_id'] for u in self.base['use_cases']),
+            'embedding_model': self.embedding.model('embedding'), 'endpoint': fingerprint(self.embedding.base_url),
+            'rules': fingerprint(Path(__file__).with_name('concern_gap_history.py').read_text(encoding='utf8')),
+            'path_rules': fingerprint(Path(__file__).with_name('artifact_paths.py').read_text(encoding='utf8'))}
+
+    def import_history(self):
+        from .concern_gap_history import load, copy_vectors
+        corpus = load(self.history_run, self.index, self.selected, [u['use_case_id'] for u in self.base['use_cases']])
+        corpus['copied_vectors'] = copy_vectors(corpus, self.embedding)
+        write_json(self.root/'history_import.json', corpus['binding'])
+        return corpus
+
+    def verify_imported_history(self, corpus):
+        from .concern_gap_history import verify_binding
+        verify_binding(corpus['binding'])
+        if (corpus['binding']['excluded_use_case_ids'] != sorted(self.selected)
+                or corpus['binding']['corpus_hash'] != fingerprint(corpus['source_units'])):
+            raise ValueError('historical corpus scope or contents changed')
+
     def build(self):
         from .interaction_versions import packet_versions
         positive_versions = {'normal': packet_versions('interaction-model'),
             'semantic': b.packet_versions('gap-graph-check'), 'adapter': fingerprint(Path(__file__).read_text(encoding='utf8')),
             'model': self.client.model('agent'), 'reasoning_effort': self.client.config.get('reasoning_effort'),
             'thinking': self.client.config.get('thinking'), 'endpoint': fingerprint(getattr(self.client, 'base_url', 'native'))}
+        if self.history_run:
+            self.scheduler.add(Task('@project:history-import', '@project', 'history-import', (),
+                self.history_version(), execute=lambda deps, record: self.import_history(),
+                verify=self.verify_imported_history))
         for uc in self.base['use_cases']:
             case = uc['use_case_id']
-            if self.history and case not in self.selected:
+            if self.history_run and case not in self.selected:
                 continue
             root = self.root / 'cases' / case_name(case)
             root.mkdir(parents=True, exist_ok=True)
@@ -854,6 +879,15 @@ class Pipeline:
         return output
 
     def authorize(self, case, model):
+        # A legacy approval may refer to a historical model hash. Reading that
+        # exact approved snapshot does not require importing the historical E
+        # corpus, and it never becomes a modeling/normal-generation input.
+        if self.history_run and self.approval.get('model_hash'):
+            path = Path(self.history_run)/'historical_scene_model.json'
+            try:
+                self.bindings.update(approval_bindings(self.approval, read_json(path), self.base))
+            except (OSError, ValueError):
+                pass
         proposals = architecture_proposals(model, self.base)
         pending = [p for p in proposals if self.bindings.get(p['proposal_id']) != proposal_hash(p)]
         if pending or model['model_gaps']:
@@ -928,6 +962,12 @@ class Pipeline:
         def output(case, stage):
             record = self.scheduler.state['tasks'][self.key(case, stage)]
             return read_json(self.root / record['output_file'])
+        if self.history_run:
+            record = self.scheduler.state['tasks'].get('@project:history-import', {})
+            if record.get('status') != 'passed':
+                raise TaskBlocked('pending', 'historical library is not ready; ranking and formal metrics are withheld')
+            self.history = read_json(self.root / record['output_file'])
+            self.verify_imported_history(self.history)
         cases = [output(case, 'case-report') for case in sorted(self.selected)]
         history = sorted([u for case in sorted(self.contexts) for u in output(case, 'units-E')['values']], key=lambda u: u['scenario_id'])
         raw_history = [u for case in sorted(self.contexts) for u in output(case, 'E-extract')['values']]

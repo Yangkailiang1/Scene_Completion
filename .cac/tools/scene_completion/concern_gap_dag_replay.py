@@ -16,6 +16,12 @@ def validate_values(output, task, index, test_index):
     from .concern_gap_comparison import validator as comparison_validator
     from .semantic_backend import collect_packets
     stage = task['stage']
+    if stage == 'history-import':
+        from .concern_gap_history import verify_binding
+        verify_binding(output['binding'])
+        if output['binding']['corpus_hash'] != fingerprint(output['source_units']):
+            raise ValueError('imported historical corpus changed')
+        return
     validators = {'normal': old.model_validator(index), 'E-extract': old.checker_validator(index),
         'E-audit': checker_audit_validator(index), 'participants': participant_validator(index),
         'features': b.feature_validator(index), 'G-generate': b.generation_validator(index),

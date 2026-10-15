@@ -182,6 +182,30 @@ def test_history_prefetch_is_independent_cached_and_does_not_rank(tmp_path, monk
     assert selected['complete'] and len(requests) == 1
 
 
+def test_failed_history_import_does_not_block_normal_and_resume_reuses_success(tmp_path, monkeypatch):
+    from scene_completion import concern_gap_history as h
+    args=arguments(tmp_path);args.history_run=str(tmp_path/'missing-history');args.agent_mode='packets'
+    pipeline=dag.Pipeline(args)  # Invalid history must not abort construction.
+    pipeline.build()
+    key='@project:history-import'; normal='UC-1:normal'; calls=[]
+    assert key not in pipeline.scheduler.tasks[normal].deps
+    assert key in pipeline.scheduler.tasks['@project:historical-ranking'].deps
+    task=pipeline.scheduler.tasks[normal]
+    task.execute=lambda deps,record:(calls.append(1) or {'local_fixture':True})
+    task.verify=None
+    pipeline.scheduler.run(pipeline.progress, allowed={key,normal})
+    assert pipeline.scheduler.state['tasks'][normal]['status']=='passed'
+    assert pipeline.scheduler.state['tasks'][key]['status']=='pending'
+    assert read_json(Path(args.output_dir)/'progress.json')['formal_metrics'] is None
+    corpus={'binding':{'proofs':{},'excluded_use_case_ids':['UC-1'],'corpus_hash':fingerprint([])},
+        'history':[],'source_units':[]}
+    monkeypatch.setattr(h,'load',lambda *a:copy.deepcopy(corpus))
+    monkeypatch.setattr(h,'copy_vectors',lambda *a:0)
+    pipeline.scheduler.run(pipeline.progress, allowed={key,normal})
+    assert pipeline.scheduler.state['tasks'][key]['status']=='passed'
+    assert calls==[1]  # History repair must not regenerate successful modeling.
+
+
 def test_cli_default_and_packet_mode_never_calls_external_model(tmp_path, monkeypatch):
     from scene_completion import role_cli
     from scene_completion.semantic_backend import SemanticClient

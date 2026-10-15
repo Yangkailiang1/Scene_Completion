@@ -8,6 +8,7 @@ from .concern_gap_normalize_diagnostics import validator
 from .concern_gap_repair import reverse_validator
 from .interaction_execution_identity import validate_result_execution,copy_execution_sidecars
 from .sources import fingerprint
+from .artifact_paths import relative_artifact_path
 
 
 def packets(source,ssd,index,collection,rejections,prior,directory):
@@ -77,8 +78,8 @@ def run(args):
         destination=root/'inverse_repair_evidence'/fingerprint(raw)/'result.json'
         write_json(destination,raw);copy_execution_sidecars(raw,result_path,destination)
         write_json(destination.with_name('packet.json'),packet)
-        rejections.append({'reviews':found,'result_path':str(destination.relative_to(root)),
-            'packet_path':str(destination.with_name('packet.json').relative_to(root)),'result_hash':fingerprint(raw)})
+        rejections.append({'reviews':found,'result_path':destination.relative_to(root).as_posix(),
+            'packet_path':destination.with_name('packet.json').relative_to(root).as_posix(),'result_hash':fingerprint(raw)})
     graph=read_json(root/('historical_ssd.json' if collection=='E' else 'diagrams/ssd.json'))
     packets(sources,graph,index,collection,rejections,prior,directory)
     state=run_agent_packets(directory,_client(args,root),validator(index))
@@ -96,7 +97,8 @@ def verify(root,units,records,outputs):
     for record in records:
         prior={u['unit_id']:u for u in record['prior_units']}
         for evidence in record['rejections']:
-            path=root/evidence['result_path'];raw=read_json(path);packet=read_json(root/evidence['packet_path'])
+            path=relative_artifact_path(root,evidence['result_path']);raw=read_json(path)
+            packet=read_json(relative_artifact_path(root,evidence['packet_path']))
             if (fingerprint(raw)!=evidence['result_hash'] or raw['input_hash']!=packet['input_hash']
                 or packet['input_hash']!=fingerprint({k:v for k,v in packet.items() if k not in {'batch_id','input_hash'}})):
                 raise ValueError('inverse rejection execution changed')
