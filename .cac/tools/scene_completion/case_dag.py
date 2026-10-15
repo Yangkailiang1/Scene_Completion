@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+import copy
 from dataclasses import dataclass, field
 from pathlib import Path
 import threading
@@ -207,7 +208,7 @@ class Scheduler:
         return fingerprint({'version': task.version, 'dependencies': {
             key: self.state['tasks'][key].get('output_hash') for key in task.deps}})
 
-    def invalidate(self, key):
+    def invalidate(self, key, *, persist=True):
         affected = {key}
         while True:
             expanded = affected | {t.key for t in self.tasks.values() if set(t.deps) & affected}
@@ -222,8 +223,287 @@ class Scheduler:
             r['status'] = 'stale'
             r.pop('output_hash', None)
             r.pop('reuse_reserved_round', None)
-        self.save()
+        if persist:
+            self.save()
         return affected
+
+    def _promotion_dir(self):
+        return self.root / 'promotion_intents'
+
+    def _promotion_path(self, task_key, input_hash, output_hash):
+        return self._promotion_dir() / (fingerprint([task_key, input_hash, output_hash]) + '.json')
+
+    @staticmethod
+    def _sealed_intent(payload):
+        return {**payload, 'intent_hash': fingerprint(payload)}
+
+    @staticmethod
+    def _verify_intent_seal(intent):
+        payload = {key: value for key, value in intent.items() if key != 'intent_hash'}
+        if intent.get('intent_hash') != fingerprint(payload):
+            raise ValueError('promotion intent hash mismatch')
+        if intent.get('schema') != 'case-dag-promotion-v1':
+            raise ValueError('unsupported promotion intent schema')
+        return payload
+
+    def _task_binding(self, task):
+        record = self.state['tasks'][task.key]
+        dependencies = {}
+        for key in task.deps:
+            dependency = self.state['tasks'][key]
+            if dependency.get('status') != 'passed' or not dependency.get('output_file') or not dependency.get('output_hash'):
+                raise ValueError(f'promotion dependency is not a verified success: {key}')
+            expected_hash = dependency['output_hash']
+            output_path = self.root / dependency['output_file']
+            valid = False
+            if output_path.exists():
+                try:
+                    valid = fingerprint(read_json(output_path)) == expected_hash
+                except (ValueError, OSError, TypeError):
+                    valid = False
+            if not valid:
+                # A pending promotion may have partially overwritten a dependency;
+                # its pre-promotion output must still exist in the history archive.
+                history = self.root / 'task_history' / (expected_hash + '.json')
+                if history.exists():
+                    try:
+                        valid = fingerprint(read_json(history)) == expected_hash
+                    except (ValueError, OSError, TypeError):
+                        valid = False
+            if not valid:
+                raise ValueError(f'promotion dependency output changed: {key}')
+            dependencies[key] = expected_hash
+        return {'version': task.version, 'dependencies': list(task.deps),
+            'input_hash': self.input_hash(task),
+            'dependency_outputs': dependencies}
+
+    def _new_promotion_intent(self, task, output, replacements):
+        if not isinstance(replacements, dict) or not replacements:
+            raise ValueError('promotion replacements must be a non-empty object')
+        keys = [task.key, *replacements]
+        if len(keys) != len(set(keys)) or any(key not in self.tasks for key in replacements):
+            raise ValueError('promotion references an unknown or duplicate task')
+        raw_output = copy.deepcopy(output)
+        output_payload = copy.deepcopy(output)
+        output_payload.pop('_replacements', None)
+        bindings = {key: self._task_binding(self.tasks[key]) for key in keys}
+        records = {key: copy.deepcopy(self.state['tasks'][key]) for key in keys}
+        prior_outputs = {}
+        for key in replacements:
+            record = self.state['tasks'][key]
+            old = None
+            if record.get('output_file'):
+                old_path = self.root / record['output_file']
+                if old_path.exists():
+                    old = read_json(old_path)
+                    if record.get('output_hash') and fingerprint(old) != record['output_hash']:
+                        raise ValueError(f'cannot promote over changed prior output for {key}')
+            prior_outputs[key] = old
+        payload = {'schema': 'case-dag-promotion-v1', 'status': 'pending',
+            'task_key': task.key, 'task_input_hash': self.input_hash(task),
+            'task_output_raw': raw_output, 'task_output_raw_hash': fingerprint(raw_output),
+            'task_output': output_payload, 'task_output_hash': fingerprint(output_payload),
+            'replacements': copy.deepcopy(replacements),
+            'replacement_hashes': {key: fingerprint(value) for key, value in replacements.items()},
+            'bindings': bindings, 'records_before': records, 'prior_outputs': prior_outputs,
+            'round': self.state['tasks'][task.key].get('rounds', 0),
+            'supervisor_round': self.state['tasks'][task.key].get('supervisor_rounds', 0),
+            'supervisor_revision': self.state['tasks'][task.key].get('active_supervisor_revision')}
+        intent = self._sealed_intent(payload)
+        path = self._promotion_path(task.key, payload['task_input_hash'], payload['task_output_hash'])
+        if path.exists():
+            existing = read_json(path)
+            existing_payload = self._verify_intent_seal(existing)
+            # A worker may stage this before returning. The scheduler must
+            # reuse that exact durable intent and must never replace a pending
+            # intent for the same task/output identity with different bindings.
+            comparable_existing = {key: value for key, value in existing_payload.items() if key != 'status'}
+            comparable_new = {key: value for key, value in payload.items() if key != 'status'}
+            if comparable_existing != comparable_new:
+                raise ValueError('existing promotion intent conflicts with the current task binding or output')
+            if existing_payload.get('status') not in ('pending', 'committed'):
+                raise ValueError('existing promotion intent is not recoverable')
+            return path, existing
+        write_json(path, intent)
+        return path, intent
+
+    def stage_promotion(self, task_key, output):
+        """Durably stage a successful worker output before it writes active candidates."""
+        if task_key not in self.tasks:
+            raise ValueError(f'cannot stage promotion for unregistered task {task_key}')
+        if not isinstance(output, dict) or not output.get('_replacements'):
+            raise ValueError('staged promotion output must contain non-empty _replacements')
+        return self._new_promotion_intent(self.tasks[task_key], output, output['_replacements'])[0]
+
+    def _check_promotion_binding(self, payload):
+        task_key = payload.get('task_key')
+        if task_key not in self.tasks:
+            raise ValueError('promotion task is not registered in the current scheduler')
+        task = self.tasks[task_key]
+        if fingerprint(payload.get('task_output')) != payload.get('task_output_hash'):
+            raise ValueError('promotion task output hash mismatch')
+        if fingerprint(payload.get('task_output_raw')) != payload.get('task_output_raw_hash'):
+            raise ValueError('promotion original output hash mismatch')
+        replacements = payload.get('replacements')
+        if not isinstance(replacements, dict) or not replacements:
+            raise ValueError('promotion replacements are missing')
+        if set(replacements) != set(payload.get('replacement_hashes', {})):
+            raise ValueError('promotion replacement manifest mismatch')
+        for key, value in replacements.items():
+            if key not in self.tasks or fingerprint(value) != payload['replacement_hashes'].get(key):
+                raise ValueError(f'promotion replacement hash mismatch for {key}')
+        keys = [task_key, *replacements]
+        if set(payload.get('bindings', {})) != set(keys) or set(payload.get('records_before', {})) != set(keys):
+            raise ValueError('promotion task binding manifest mismatch')
+        for key in keys:
+            current = self._task_binding(self.tasks[key])
+            before = payload['bindings'][key]
+            if current != before:
+                raise ValueError(f'promotion binding expired for {key}')
+            expected_record = payload['records_before'][key]
+            record = self.state['tasks'][key]
+            # add() changes a persisted running record to pending after a crash.
+            allowed_statuses = {expected_record.get('status')}
+            if key == task_key and expected_record.get('status') == 'running':
+                allowed_statuses.add('pending')
+            for field in ('version', 'dependencies', 'input_hash', 'rounds', 'attempts', 'output_hash', 'output_file'):
+                if record.get(field) != expected_record.get(field):
+                    raise ValueError(f'promotion record changed for {key}: {field}')
+            if record.get('status') not in allowed_statuses:
+                raise ValueError(f'promotion status changed for {key}')
+        if payload.get('task_input_hash') != payload['bindings'][task_key].get('input_hash'):
+            raise ValueError('promotion task input hash does not match its dependency binding')
+        return task
+
+    def _archive_prior_output(self, key, prior):
+        if prior is None:
+            return
+        write_json(self.root / 'task_history' / (fingerprint(prior) + '.json'), prior)
+
+    def _apply_promotion(self, intent, *, recovering=False):
+        payload = self._verify_intent_seal(intent)
+        task = self._check_promotion_binding(payload)
+        task_key = task.key
+        output = copy.deepcopy(payload['task_output'])
+        replacements = payload['replacements']
+        state_before = copy.deepcopy(self.state)
+        # Back up every prior candidate before the first replacement can land.
+        for key, prior in payload['prior_outputs'].items():
+            self._archive_prior_output(key, prior)
+        try:
+            for key, replacement in replacements.items():
+                self.invalidate(key, persist=False)
+                old = self.state['tasks'][key]
+                target = 'task_outputs/' + fingerprint(key) + '.json'
+                write_json(self.root / target, replacement)
+                old.update(status='passed', output_file=target, output_hash=fingerprint(replacement))
+                old.pop('previous_version', None)
+                old.pop('retained_success', None)
+                old['input_hash'] = self.input_hash(self.tasks[key])
+            record = self.state['tasks'][task_key]
+            record['input_hash'] = self.input_hash(task)
+            if task.verify:
+                from .performance import span
+                with span(self.profiler, 'validation', case=task.case, stage=task.stage, reuse=recovering):
+                    task.verify(output)
+            filename = 'task_outputs/' + fingerprint(task.key) + '.json'
+            write_json(self.root / filename, output)
+            record.update(status='passed', output_file=filename, output_hash=fingerprint(output))
+            record.pop('previous_version', None)
+            record.pop('retained_success', None)
+            record.pop('failure', None)
+            record.pop('reason', None)
+            return output
+        except Exception:
+            self.state = state_before
+            for key, prior in payload['prior_outputs'].items():
+                record = payload['records_before'][key]
+                if prior is not None and record.get('output_file'):
+                    write_json(self.root / record['output_file'], prior)
+            raise
+
+    def _restore_prior_outputs(self):
+        # If an intent cannot be trusted, keep every still-proven prior output
+        # available from its content-addressed history copy.
+        for key, record in self.state.get('tasks', {}).items():
+            if record.get('status') != 'passed' or not record.get('output_file') or not record.get('output_hash'):
+                continue
+            current_path = self.root / record['output_file']
+            try:
+                if current_path.exists() and fingerprint(read_json(current_path)) == record['output_hash']:
+                    continue
+            except (ValueError, OSError, TypeError):
+                pass
+            history = self.root / 'task_history' / (record['output_hash'] + '.json')
+            if history.exists():
+                old = read_json(history)
+                if fingerprint(old) == record['output_hash']:
+                    write_json(current_path, old)
+
+    def _block_promotion(self, path, message):
+        self._restore_prior_outputs()
+        intent_name = path.name
+        try:
+            intent = read_json(path)
+            task_key = intent.get('task_key')
+        except (ValueError, OSError, TypeError):
+            task_key = None
+        if task_key in self.state.get('tasks', {}):
+            record = self.state['tasks'][task_key]
+            record.update(status='promotion_blocked', reason={'promotion_intent': intent_name, 'error': message})
+            self.state['events'].append({'task': task_key, 'event': 'promotion_blocked', 'intent': intent_name})
+            self.save()
+
+    def _recover_promotions(self):
+        for path in sorted(self._promotion_dir().glob('*.json')) if self._promotion_dir().exists() else ():
+            try:
+                intent = read_json(path)
+                payload = self._verify_intent_seal(intent)
+                if payload.get('status') == 'committed':
+                    continue
+                if payload.get('status') != 'pending':
+                    raise ValueError('promotion intent has an invalid status')
+                if self._promotion_already_committed(payload, path.name):
+                    write_json(path, self._sealed_intent({**payload, 'status': 'committed'}))
+                    continue
+                self._apply_promotion(intent, recovering=True)
+                task_key = payload['task_key']
+                record = self.state['tasks'][task_key]
+                # A crash after state save but before marking committed is safe;
+                # avoid duplicating the original attempt and event.
+                attempts = record.setdefault('attempts', [])
+                if not any(a.get('promotion_intent') == path.name for a in attempts):
+                    attempts.append({'round': payload['round'], 'status': 'passed',
+                        'supervisor_round': payload.get('supervisor_round', 0),
+                        'supervisor_revision': payload.get('supervisor_revision'),
+                        'failure': None, 'input_hash': record['input_hash'], 'promotion_intent': path.name})
+                if not any(e.get('promotion_intent') == path.name for e in self.state['events']):
+                    self.state['events'].append({'task': task_key, 'event': 'passed',
+                        'round': payload['round'], 'promotion_intent': path.name})
+                self.save()
+                committed = self._sealed_intent({**payload, 'status': 'committed'})
+                try:
+                    write_json(path, committed)
+                except OSError:
+                    # State is already durable and carries the intent identity;
+                    # the next resume will recognize this as committed.
+                    pass
+            except Exception as exc:
+                self.state = read_json(self.path) if self.path.exists() else self.state
+                self._block_promotion(path, str(exc))
+
+    def _promotion_already_committed(self, payload, intent_name):
+        task_key = payload.get('task_key')
+        records = self.state.get('tasks', {})
+        if task_key not in records or records[task_key].get('status') != 'passed':
+            return False
+        task_record = records[task_key]
+        if task_record.get('output_hash') != payload.get('task_output_hash'):
+            return False
+        for key, expected_hash in payload.get('replacement_hashes', {}).items():
+            if key not in records or records[key].get('status') != 'passed' or records[key].get('output_hash') != expected_hash:
+                return False
+        return any(a.get('promotion_intent') == intent_name for a in task_record.get('attempts', []))
 
     def _ready(self, task):
         return all(self.state['tasks'][key]['status'] == 'passed' for key in task.deps)
@@ -231,6 +511,8 @@ class Scheduler:
     def _refresh(self, *, stale_only=False):
         for task in self.tasks.values():
             record = self.state['tasks'][task.key]
+            if record.get('status') == 'promotion_blocked':
+                continue
             if stale_only and record['status'] != 'stale':
                 continue
             if not self._ready(task):
@@ -374,6 +656,7 @@ class Scheduler:
             if key not in self.tasks:
                 self.state.setdefault('inactive_tasks', {})[key] = self.state['tasks'].pop(key)
         seen, running = set(), {}
+        self._recover_promotions()
         self._refresh()
         with ThreadPoolExecutor(max_workers=self.limit) as pool:
             while True:
@@ -416,63 +699,78 @@ class Scheduler:
                 for future in done:
                     task, repairing = running.pop(future)
                     record = self.state['tasks'][task.key]
+                    promotion_path = None
                     try:
                         output = future.result()
-                        replacements = output.pop('_replacements', {}) if isinstance(output, dict) else {}
-                        for key, replacement in replacements.items():
-                            self.invalidate(key)
-                            old = self.state['tasks'][key]
-                            target = 'task_outputs/' + fingerprint(key) + '.json'
-                            if (self.root / target).exists():
-                                write_json(self.root / 'task_history' / (fingerprint(read_json(self.root / target)) + '.json'), read_json(self.root / target))
-                            write_json(self.root / target, replacement)
-                            old.update(status='passed', output_file=target, output_hash=fingerprint(replacement))
-                            old.pop('previous_version', None)
-                            old.pop('retained_success', None)
-                            old['input_hash'] = self.input_hash(self.tasks[key])
-                        record['input_hash'] = self.input_hash(task)
-                        if task.verify:
-                            from .performance import span
-                            with span(self.profiler,'validation',case=task.case,stage=task.stage):
-                                task.verify(output)
-                        filename = 'task_outputs/' + fingerprint(task.key) + '.json'
-                        write_json(self.root / filename, output)
-                        record.update(status='passed', output_file=filename, output_hash=fingerprint(output))
-                        record.pop('previous_version', None)
-                        record.pop('retained_success', None)
-                        record.pop('failure', None)
+                        replacements = output.get('_replacements', {}) if isinstance(output, dict) else {}
+                        if replacements:
+                            promotion_path, intent = self._new_promotion_intent(task, output, replacements)
+                            output = self._apply_promotion(intent)
+                        else:
+                            record['input_hash'] = self.input_hash(task)
+                            if task.verify:
+                                from .performance import span
+                                with span(self.profiler,'validation',case=task.case,stage=task.stage):
+                                    task.verify(output)
+                            filename = 'task_outputs/' + fingerprint(task.key) + '.json'
+                            write_json(self.root / filename, output)
+                            record.update(status='passed', output_file=filename, output_hash=fingerprint(output))
+                            record.pop('previous_version', None)
+                            record.pop('retained_success', None)
+                            record.pop('failure', None)
                     except TaskBlocked as exc:
-                        record.update(status=exc.status, reason=exc.details)
-                        if repairing == 'supervisor' and isinstance(exc.details, dict) and exc.details.get('admission_paused'):
-                            record.update(status='supervisor_pending', reuse_supervisor_round=True)
-                        if repairing and repairing != 'supervisor' and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
-                            record['reuse_reserved_round'] = True
-                        if repairing == 'supervisor' or not task.supervisor or exc.status not in ('budget_exhausted', 'diagnosis_blocked'):
-                            seen.add(task.key)
-                    except Exception as exc:
-                        details = exc.details if isinstance(exc, TaskRejected) else {'error': str(exc)}
-                        failure = failure_signature(details)
-                        repeated = repairing and failure == record.get('failure_hash')
-                        if not isinstance(exc, TaskRejected):
-                            record.update(status='pending', failure=details, failure_hash=failure,
-                                reason={'tool_error': str(exc)})
+                        if promotion_path:
+                            self.state = read_json(self.path) if self.path.exists() else self.state
+                            self._block_promotion(promotion_path, str(exc.details))
+                            record = self.state['tasks'][task.key]
                             seen.add(task.key)
                         else:
-                            record.update(status='budget_exhausted' if repeated or repairing == 'supervisor' else 'rejected', failure=details,
-                                failure_hash=failure)
-                        if repairing == 'supervisor':
-                            record['reason'] = 'supervisor output rejected; controller must diagnose and register a revised correction before continuing'
+                            record.update(status=exc.status, reason=exc.details)
+                            if repairing == 'supervisor' and isinstance(exc.details, dict) and exc.details.get('admission_paused'):
+                                record.update(status='supervisor_pending', reuse_supervisor_round=True)
+                            if repairing and repairing != 'supervisor' and exc.status in ('pending', 'budget_exhausted', 'awaiting_configuration','diagnosis_blocked'):
+                                record['reuse_reserved_round'] = True
+                            if repairing == 'supervisor' or not task.supervisor or exc.status not in ('budget_exhausted', 'diagnosis_blocked'):
+                                seen.add(task.key)
+                    except Exception as exc:
+                        if promotion_path:
+                            self.state = read_json(self.path) if self.path.exists() else self.state
+                            self._block_promotion(promotion_path, str(exc))
+                            record = self.state['tasks'][task.key]
                             seen.add(task.key)
-                        if repeated:
-                            record['reason'] = 'same failure; no semantic progress'
-                        if not task.repair or self.auto_repair == 'off':
-                            seen.add(task.key)
-                    record['attempts'].append({'round': record['rounds'], 'status': record['status'],
+                        else:
+                            details = exc.details if isinstance(exc, TaskRejected) else {'error': str(exc)}
+                            failure = failure_signature(details)
+                            repeated = repairing and failure == record.get('failure_hash')
+                            if not isinstance(exc, TaskRejected):
+                                record.update(status='pending', failure=details, failure_hash=failure,
+                                    reason={'tool_error': str(exc)})
+                                seen.add(task.key)
+                            else:
+                                record.update(status='budget_exhausted' if repeated or repairing == 'supervisor' else 'rejected', failure=details,
+                                    failure_hash=failure)
+                            if repairing == 'supervisor':
+                                record['reason'] = 'supervisor output rejected; controller must diagnose and register a revised correction before continuing'
+                                seen.add(task.key)
+                            if repeated:
+                                record['reason'] = 'same failure; no semantic progress'
+                            if not task.repair or self.auto_repair == 'off':
+                                seen.add(task.key)
+                    attempt = {'round': record['rounds'], 'status': record['status'],
                         'supervisor_round': record.get('supervisor_rounds', 0),
                         'supervisor_revision': record.get('active_supervisor_revision') if repairing == 'supervisor' else None,
-                        'failure': record.get('failure'), 'input_hash': record['input_hash']})
-                    self.state['events'].append({'task': task.key, 'event': record['status'], 'round': record['rounds']})
+                        'failure': record.get('failure'), 'input_hash': record['input_hash']}
+                    if promotion_path:
+                        attempt['promotion_intent'] = promotion_path.name
+                    record['attempts'].append(attempt)
+                    event = {'task': task.key, 'event': record['status'], 'round': record['rounds']}
+                    if promotion_path:
+                        event['promotion_intent'] = promotion_path.name
+                    self.state['events'].append(event)
                     self.save()
+                    if promotion_path:
+                        payload = self._verify_intent_seal(read_json(promotion_path))
+                        write_json(promotion_path, self._sealed_intent({**payload, 'status': 'committed'}))
                     if on_update:
                         on_update(self)
                 # A completed deterministic upstream task may restore exactly

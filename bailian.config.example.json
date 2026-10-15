@@ -11,6 +11,11 @@
   "include_usage": true,
   "max_context_tokens": 200000,
   "max_tokens": 24000,
+  "stage_max_tokens": {
+    "model-availability": 512,
+    "gap-diagnosis": 3000,
+    "gap-ambiguity-*": 4000
+  },
   "max_concurrency": 3,
   "adaptive_concurrency": true,
   "semantic_max_attempts": 1,

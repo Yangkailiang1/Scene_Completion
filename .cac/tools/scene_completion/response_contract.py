@@ -10,6 +10,9 @@ def contract_view(packet, result):
     """Accept only an unambiguous echo envelope, never alternate semantics."""
     if not isinstance(result, dict):
         raise ValueError('response root must be a JSON object')
+    if packet.get('input', {}).get('evidence_catalog_format') == 'scoped-quotes-v1':
+        from .evidence_refs import expand_result
+        result = expand_result(packet, result)
     expected = set(packet.get('output_contract', {}))
     if 'output_contract' not in result or 'output_contract' in expected:
         return deepcopy(result)

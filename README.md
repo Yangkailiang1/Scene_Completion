@@ -133,6 +133,19 @@ python .cac/tools/scene_completion.py experiment-usage --run-dir output/run --le
 
 可重复传入 `--ledger`，主控日志通过 `--controller-db` 和重复的 `--controller-session` 明确选择会话。报告按阶段、执行/修复角色及实际模型列出请求数、输入/输出 tokens 和 API 耗时；账本占额、运行遥测、主控用量分别报告，不能重复相加。未知用量保留占额，API 耗时也不能直接当作总墙钟时间。
 
+### 候选模型验证
+
+候选筛选和完整交付分开验证：先用当前校验器检查固定上游难例，再让候选从原始文档独立运行完整用例。筛选范围可用重复的`--task`选择；同一筛选目录不得更换范围、模型身份或原预算账本。
+
+```bash
+python .cac/tools/scene_model_benchmark.py --source-run output/reference --config candidate.json --output-dir output/screening --screen-token-limit 150000
+python .cac/tools/scene_trial_status.py --run-dir output/run --candidate-model configured-model --verify --output-file output/trial.json
+```
+
+筛选增量额度计入模型原账本，未知用量按原占额保留。候选独立配置禁用跨模型fallback和语义supervisor；主控补全时保留独立失败记录并单列真实执行身份及成本。只有正式交付检查通过且所有当前用例语义执行属于候选，工具才标记独立合格；固定独立审查员及其他用例历史库不算候选代写。
+
+API配置可用`stage_max_tokens`设置阶段输出额度，例如`{"gap-diagnosis":3000,"gap-ambiguity-*":4000}`；精确阶段优先，其余选最具体的模式，歧义拒绝。配置显式关闭思考时发送对应接口的关闭参数，不能将参数缺省当成已关闭。证据ID由工具限定在本包、本对象和原始引用范围内，恢复原句后仍执行原校验器。详见[模型试验](.cac/skills/scene-controller/references/model_trials.md)。
+
 429触发共享冷却并降低实际并发；即使并发已为1，也遵守Retry-After，不让其他就绪任务立即继续冲击接口。504、超时和断连保留为传输待处理，不盲目重复提交可能已经开始推理的同一请求。诊断协议有独立的最多两次格式尝试；引用可选择工具给出的逐字引句ID，失败进入`diagnosis_blocked`，保留原失败对象和预留轮次，不通过反复重生成上游来弥补诊断格式错误。
 
 ### Excel或Markdown测试spec

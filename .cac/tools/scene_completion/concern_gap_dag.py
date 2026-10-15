@@ -810,6 +810,12 @@ class Pipeline:
                 if candidates:
                     repair_output['_replacements'] = candidates
                     repair_output['_source_repair'] = source_progress
+                    # Persist the complete checked promotion before any active
+                    # pointer can move ahead of the scheduler's task records.
+                    self.scheduler.stage_promotion(self.key(case, name), repair_output)
+                    for key, value in candidates.items():
+                        write_json(root / 'active' / (key.split(':', 1)[1] + '.json'), {
+                            'input_hash': self.scheduler.state['tasks'][key]['input_hash'], 'output': value})
                 write_json(root / 'active' / (name + '.json'), {'input_hash': record['input_hash'], 'output': repair_output})
                 return repair_output
             changed = packets.repaired(root, target_name + ('-supervisor' if supervising else ''), target,
@@ -865,8 +871,6 @@ class Pipeline:
                             'candidate_replacements': {**candidates, target_key: changed,
                                 **({self.key(case, 'normalize-G'): normalization_replacement} if normalization_replacement else {})},
                             'candidate_source_repair': source_repair or source_progress})
-                prior_record = self.scheduler.state['tasks'][target_key]
-                write_json(root / 'active' / (target_name + '.json'), {'input_hash': prior_record['input_hash'], 'output': changed})
                 checked['_replacements'] = {**candidates, target_key: changed}
                 if source_repair or source_progress:
                     checked['_source_repair'] = source_repair or source_progress
@@ -882,6 +886,11 @@ class Pipeline:
                         if any(not row['valid'] for row in checked_graph['values']):
                             raise TaskRejected({'findings': [row for row in checked_graph['values'] if not row['valid']], 'output': checked_graph})
                         checked['_replacements'][self.key(case, 'graphs')] = checked_graph
+                self.scheduler.stage_promotion(self.key(case, name), checked)
+                for key, value in checked['_replacements'].items():
+                    write_json(root / 'active' / (key.split(':', 1)[1] + '.json'), {
+                        'input_hash': self.scheduler.state['tasks'][key]['input_hash'], 'output': value})
+                write_json(root / 'active' / (name + '.json'), {'input_hash': record['input_hash'], 'output': checked})
                 return checked
             if reject:
                 findings = reject(changed['values'])

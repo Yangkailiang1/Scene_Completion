@@ -1,5 +1,6 @@
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 import threading
 import time
 
@@ -273,3 +274,97 @@ def test_scope_change_retains_inactive_success_and_budget_for_later_resume(tmp_p
         if cases == ('a',):
             assert 'b' not in scheduler.state['tasks'] and scheduler.state['inactive_tasks']['b']['status'] == 'passed'
     assert calls == {'a': 1, 'b': 1}
+
+
+def _promotion_scheduler(tmp_path, calls, *, source_version=1):
+    import scene_completion.case_dag as case_dag
+    scheduler = Scheduler(tmp_path)
+    for key in ('replacement-a', 'replacement-b'):
+        scheduler.add(Task(key, 'uc', key, version=1, execute=lambda d, r, key=key: {'value': key + '-old'}))
+    def verify(output):
+        assert output == {'checked': True}
+        for key, expected in (('replacement-a', {'value': 'a-new'}), ('replacement-b', {'value': 'b-new'})):
+            assert read_json(tmp_path / 'task_outputs' / f'{case_dag.fingerprint(key)}.json') == expected
+            assert scheduler.state['tasks'][key]['output_hash'] == case_dag.fingerprint(expected)
+    def execute(d, r):
+        calls.append('source')
+        return {'checked': True, '_replacements': {
+            'replacement-a': {'value': 'a-new'}, 'replacement-b': {'value': 'b-new'}}}
+    scheduler.add(Task('source', 'uc', 'source', version=source_version, execute=execute, verify=verify))
+    return scheduler
+
+
+def _crash_after_first_replacement(tmp_path, monkeypatch, calls):
+    import scene_completion.case_dag as case_dag
+    scheduler = _promotion_scheduler(tmp_path, calls)
+    real_write_json = case_dag.write_json
+    second = tmp_path / 'task_outputs' / f'{case_dag.fingerprint("replacement-b")}.json'
+    def crash_on_second(path, value):
+        if Path(path) == second and value == {'value': 'b-new'}:
+            raise KeyboardInterrupt('simulated process termination after first replacement')
+        return real_write_json(path, value)
+    monkeypatch.setattr(case_dag, 'write_json', crash_on_second)
+    with pytest.raises(KeyboardInterrupt):
+        scheduler.run()
+    monkeypatch.setattr(case_dag, 'write_json', real_write_json)
+    assert read_json(tmp_path / 'task_outputs' / f'{case_dag.fingerprint("replacement-a")}.json') == {'value': 'a-new'}
+    assert read_json(second) == {'value': 'replacement-b-old'}
+    assert len(list((tmp_path / 'promotion_intents').glob('*.json'))) == 1
+
+
+def test_pending_promotion_recovers_offline_after_partial_replacement_write(tmp_path, monkeypatch):
+    calls = []
+    _crash_after_first_replacement(tmp_path, monkeypatch, calls)
+    resumed = _promotion_scheduler(tmp_path, calls)
+    result = resumed.run()
+    assert result['complete']
+    assert calls == ['source']
+    assert resumed.state['tasks']['source']['rounds'] == 0
+    assert len(resumed.state['tasks']['source']['attempts']) == 1
+    assert resumed.state['tasks']['source']['attempts'][0]['status'] == 'passed'
+    intents = [read_json(p) for p in (tmp_path / 'promotion_intents').glob('*.json')]
+    assert len(intents) == 1 and intents[0]['status'] == 'committed'
+
+
+def test_worker_staged_promotion_recovers_if_worker_dies_before_return(tmp_path):
+    import scene_completion.case_dag as case_dag
+    calls = []
+    interrupted = _promotion_scheduler(tmp_path, calls)
+    original_execute = interrupted.tasks['source'].execute
+    def stage_then_die(deps, record):
+        output = original_execute(deps, record)
+        interrupted.stage_promotion('source', output)
+        case_dag.write_json(tmp_path / 'active' / 'candidate.json', {'staged': True})
+        raise KeyboardInterrupt('simulated worker termination after durable stage')
+    interrupted.tasks['source'].execute = stage_then_die
+    with pytest.raises(KeyboardInterrupt):
+        interrupted.run()
+    assert (tmp_path / 'active' / 'candidate.json').exists()
+    assert len(list((tmp_path / 'promotion_intents').glob('*.json'))) == 1
+
+    resumed = _promotion_scheduler(tmp_path, calls)
+    assert resumed.run()['complete']
+    assert calls == ['source']
+    intent = read_json(next((tmp_path / 'promotion_intents').glob('*.json')))
+    assert intent['status'] == 'committed'
+
+
+@pytest.mark.parametrize('tamper', ['payload', 'expired_version'])
+def test_tampered_or_expired_promotion_is_blocked_without_reexecution(tmp_path, monkeypatch, tamper):
+    import scene_completion.case_dag as case_dag
+    calls = []
+    _crash_after_first_replacement(tmp_path, monkeypatch, calls)
+    intent_path = next((tmp_path / 'promotion_intents').glob('*.json'))
+    if tamper == 'payload':
+        intent = read_json(intent_path)
+        intent['task_output']['checked'] = False
+        case_dag.write_json(intent_path, intent)
+    resumed = _promotion_scheduler(tmp_path, calls,
+        source_version=2 if tamper == 'expired_version' else 1)
+    result = resumed.run()
+    assert not result['complete']
+    assert resumed.state['tasks']['source']['status'] == 'promotion_blocked'
+    assert 'promotion_intent' in resumed.state['tasks']['source']['reason']
+    assert calls == ['source']
+    assert read_json(tmp_path / 'task_outputs' / f'{case_dag.fingerprint("replacement-a")}.json') == {'value': 'replacement-a-old'}
+    assert read_json(tmp_path / 'task_outputs' / f'{case_dag.fingerprint("replacement-b")}.json') == {'value': 'replacement-b-old'}

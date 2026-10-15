@@ -467,6 +467,12 @@ def test_recovered_source_candidate_must_change_rejected_g_before_recheck_promot
     pipeline.supervisor_packets = None
     pipeline.contexts = {'uc': {'root': root, 'version': 1,
         'validators': {'G-generate': generation_validator, 'normalize-G': normalization_validator}}}
+    # A durable source promotion must bind real registered target tasks even
+    # when this unit test invokes the repair callback without running the DAG.
+    for stage in ('G-generate', 'normalize-G'):
+        pipeline.add('uc', stage, (), lambda deps, record: {})
+        registered = pipeline.scheduler.tasks['uc:' + stage]
+        pipeline.scheduler.state['tasks'][registered.key]['input_hash'] = pipeline.scheduler.input_hash(registered)
     pipeline.semantic('uc', 'reverse-G', (), lambda deps, folder: None,
         lambda packet, raw: raw['reviews'], reject=lambda rows: [row for row in rows if not row['passed']],
         repair_target='normalize-G')

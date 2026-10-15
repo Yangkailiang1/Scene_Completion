@@ -70,6 +70,37 @@ def test_embedding_model_and_endpoint_each_have_their_own_cached_vectors(monkeyp
     assert c.embeddings(['same text'])==[[1.,0.]] and len(calls)==3
 
 
+def test_stage_output_limits_are_configurable_without_client_mutation(monkeypatch, tmp_path):
+    client, calls = api(monkeypatch, tmp_path)
+    client.config.update(max_tokens=8000, stage_max_tokens={
+        'gap-*': 6000, 'gap-ambiguity-*': 3000, 'model-availability': 256})
+    for stage, expected in [('gap-normalize-G', 6000), ('gap-ambiguity-EG', 3000),
+                            ('model-availability', 256), ('interaction-model', 8000)]:
+        client.agent({'stage': stage, 'input': {}, 'output_contract': {'items': []}})
+        assert calls[-1][1]['max_tokens'] == expected
+    assert client.config['max_tokens'] == 8000
+    client.config['stage_max_tokens'] = {'gap-*': 4000, '*-foo': 3000}
+    with pytest.raises(ValueError, match='ambiguous'):
+        client.output_limit('gap-foo')
+    client.config['stage_max_tokens'] = {'gap-*': True}
+    with pytest.raises(ValueError, match='positive integer'):
+        client.output_limit('gap-x')
+
+
+@pytest.mark.parametrize('api_mode', ['legacy', 'enable_thinking'])
+def test_disabled_thinking_is_sent_explicitly_and_recorded(monkeypatch, tmp_path, api_mode):
+    client, calls = api(monkeypatch, tmp_path)
+    client.config.update(thinking=False, thinking_api=api_mode, max_tokens=5000)
+    result = client.agent({'stage': 'gap-fixture', 'input': {}, 'output_contract': {'items': []}})
+    body = calls[-1][1]
+    if api_mode == 'legacy':
+        assert body['thinking'] == {'type': 'disabled'}
+    else:
+        assert body['enable_thinking'] is False
+    proof = result['execution_model_evidence']
+    assert proof['thinking_control_sent'] is True and proof['max_tokens'] == 5000
+
+
 def test_cli_overrides_config_and_config_overrides_environment(monkeypatch,tmp_path):
     monkeypatch.setenv('SCENE_AGENT_MODEL','env-agent')
     monkeypatch.setenv('SCENE_EMBEDDING_MODEL','env-vector')

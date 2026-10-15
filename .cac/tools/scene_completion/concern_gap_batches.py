@@ -24,7 +24,7 @@ def versions():
         root/'inline_ar.py',root/'task_diagnostics.py',root/'audit_quote_recovery.py',root/'response_contract.py',
         root/'supervisor_continuation.py',root/'quota_profiles.py',root/'partial_packet_reuse.py']
     paths += [root/n for n in ('comparison_evidence_refs.py', 'comparison_patch.py',
-        'directed_patch.py', 'review_patch.py', 'source_candidate_recovery.py') if (root/n).is_file()]
+        'directed_patch.py', 'review_patch.py', 'source_candidate_recovery.py', 'evidence_refs.py') if (root/n).is_file()]
     paths += [root.parent/'scene_completion.py']
     values={p.name:fingerprint(p.read_text(encoding='utf8')) for p in paths}
     for name in ('scene-concern-gap','scene-model-check','scene-feature-infer','scene-reverse','scene-reverse-check','scene-history-recommend'):
@@ -347,7 +347,8 @@ def generation_packets(ssd,mounts,features,directory):
         for batch in manifest['batches']:
             p=read_json(Path(tmp)/'packets'/(batch['batch_id']+'.json'))
             d=p['input']; d.pop('execution_versions',None)
-            d['generator_skill']=skill('scene-concern-gap')
+            # prepare() supplies this same Skill once as input.skill. Keeping a
+            # second identical copy increases every mount packet's context.
             ids={m['exchange_id'] for m in d.get('mounts',[])}
             d['checked_features']=[by_exchange[k] for k in sorted(ids)]
             payloads.append(d)
