@@ -840,7 +840,63 @@ def _expected_local_packets(root, materials_hash, packet_bytes):
         raise ValueError('review materials no longer match current run proof files')
     bundle = read_json(root / 'result_bundle.json')
     payloads = _review_jobs(root, prepared, materials, bundle, packet_bytes)
+    payloads = _reuse_local_validation_context(root, payloads)
     return _packet_plan('gap-effect-review-local', payloads)
+
+
+def _reuse_local_validation_context(root, payloads):
+    """Keep actual successful review inputs when only test count increased.
+
+    The latest regression/resume proof is still checked independently and sent
+    to the global reviewer. No response is relabeled with a new input hash.
+    """
+    from .interaction_execution_identity import validate_result_execution
+    folder = Path(root) / 'batches' / 'independent-effect-review' / 'local'
+    def comparable(value):
+        context = value.get('regression_resume', {})
+        counts = context.get('junit_counts', {})
+        if (context.get('complete') is not True or context.get('network_calls') != 0
+                or context.get('exit_code') != 0 or type(counts.get('tests')) is not int
+                or counts['tests'] <= 0 or any(counts.get(k) != 0 for k in ('failures', 'errors', 'skipped'))):
+            return None
+        return {**value, 'regression_resume': {k: v for k, v in context.items() if k != 'junit_counts'}}
+    output = []
+    for index, current in enumerate(payloads):
+        expected = comparable(current)
+        retained = current
+        if expected is not None:
+            for path in sorted((folder / 'packets').glob(f'gap-effect-review-local-{index:04d}-*.json')):
+                original = read_json(path)
+                prior = original.get('input', {})
+                if comparable(prior) != expected:
+                    continue
+                if prior['regression_resume']['junit_counts']['tests'] > current['regression_resume']['junit_counts']['tests']:
+                    continue
+                _, planned = _packet_plan('gap-effect-review-local', [prior])
+                # Index changes the batch ID prefix, not its content hash.
+                content_hash = next(iter(planned.values()))['input_hash']
+                if (original.get('input_hash') != content_hash
+                        or original.get('instructions') != REVIEW_INSTRUCTIONS
+                        or original.get('output_contract') != REVIEW_CONTRACT
+                        or path.stem != f'gap-effect-review-local-{index:04d}-{content_hash[:12]}'):
+                    continue
+                result_path = folder / 'results' / path.name
+                if not result_path.exists():
+                    continue
+                raw = read_json(result_path)
+                if raw.get('batch_id') != path.stem or raw.get('input_hash') != content_hash:
+                    continue
+                try:
+                    validate_result_execution(raw, result_path=result_path)
+                    verdict = _validate_review_packet(original, raw)
+                except (ValueError, KeyError, OSError, TypeError):
+                    continue
+                if not all(row['passed'] for row in verdict['areas']) or verdict['unresolved_findings']:
+                    continue
+                retained = prior
+                break
+        output.append(retained)
+    return output
 
 
 def _expected_global_packets(root, materials_hash, packet_bytes, local_values):

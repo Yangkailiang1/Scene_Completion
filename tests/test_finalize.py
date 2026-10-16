@@ -260,7 +260,8 @@ def _complete_review_fixture(root, reconsider=False):
     for name, value in [('sources_index.json', {'documents': []}), ('generator_base_identity.json', {}),
             ('scene_model.json', {}), ('historical_ssd.json', {}), ('model_authorization.json', {}),
             ('case_tasks.json', {'tasks': {}}), ('validation.json', {'complete': True, 'result_hash': 'result',
-                'junit_counts': {}, 'network_calls': 0, 'resumed_batches': 0, 'exit_code': 0})]:
+                'junit_counts': {'tests': 10, 'failures': 0, 'errors': 0, 'skipped': 0},
+                'network_calls': 0, 'resumed_batches': 0, 'exit_code': 0})]:
         write_json(root / name, value)
     bundle = {'protocol': 'rr-sr-concern-gap-v2', 'result_hash': 'result',
         'source_index': {'documents': []}, 'test_source_index': {'documents': []},
@@ -507,3 +508,41 @@ def test_reconsideration_record_closure_preserves_complete_cited_records():
     assert view['retained_original_input_fingerprint'] == fingerprint(original)
     prior['unresolved_findings'].append('A separate unlocated problem has no record ID')
     assert finalize._reconsideration_evidence(original, prior)['kind'] == 'full_original_input'
+
+
+def test_local_review_keeps_actual_success_when_only_regression_count_grows(tmp_path):
+    meta = _complete_review_fixture(tmp_path)
+    folder = tmp_path / 'batches/independent-effect-review/local'
+    original_manifest = read_json(folder / 'manifest.json')
+    validation = read_json(tmp_path / 'validation.json')
+    validation['junit_counts']['tests'] = 11
+    write_json(tmp_path / 'validation.json', validation)
+    manifest, packets = finalize._expected_local_packets(tmp_path, meta['materials_hash'], 12000)
+    assert manifest == original_manifest
+    payloads = [p['input'] for p in packets.values()]
+    context = next(p['regression_resume'] for p in payloads if 'regression_resume' in p)
+    assert context['junit_counts']['tests'] == 10
+    local = [{'input': p['input'], 'result': finalize._validate_review_packet(p,
+        read_json(folder / 'results' / (p['batch_id'] + '.json')))} for p in packets.values()]
+    _, global_packets = finalize._expected_global_packets(tmp_path, meta['materials_hash'], 12000, local)
+    payload = finalize._decode_review_tables(next(iter(global_packets.values()))['input'])
+    assert payload['resume']['junit_counts']['tests'] == 11
+
+
+def test_local_review_context_reuse_rejects_semantic_edits_or_tampered_old_packet(tmp_path):
+    meta = _complete_review_fixture(tmp_path)
+    _, packets = finalize._expected_local_packets(tmp_path, meta['materials_hash'], 12000)
+    payloads = [p['input'] for p in packets.values()]
+    index = next(i for i, p in enumerate(payloads) if 'regression_resume' in p)
+    import copy
+    changed = copy.deepcopy(payloads)
+    changed[index]['projection']['new_semantic_fact'] = 'different'
+    changed[index]['regression_resume']['junit_counts']['tests'] = 11
+    assert finalize._reuse_local_validation_context(tmp_path, changed) == changed
+    path = tmp_path / 'batches/independent-effect-review/local/packets' / (
+        list(packets.values())[index]['batch_id'] + '.json')
+    raw = read_json(path); raw['input']['regression_resume']['junit_counts']['tests'] = 9
+    write_json(path, raw)
+    current = copy.deepcopy(payloads)
+    current[index]['regression_resume']['junit_counts']['tests'] = 11
+    assert finalize._reuse_local_validation_context(tmp_path, current)[index] == current[index]
