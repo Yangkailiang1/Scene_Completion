@@ -202,6 +202,15 @@ python .cac/tools/scene_completion.py evaluate-modeling --output-dir output/run
 
 Claude Code等宿主的持续编排与最终交付见[主控Skill](.cac/skills/scene-controller/SKILL.md)。`python .cac/tools/scene_workflow_status.py --run-dir <run> --wait-seconds 60`提供紧凑任务交接，不启动模型或第二个执行器；可传执行器状态文件和各提供方额度账本。计算完成后仍需回归、零调用续跑、真实独立审查和离线重建；执行器停止后加`--verify`核对验收绑定及交付文件，只有`ready_to_deliver=true`才声明正式交付。尚未交付时退出码2只是状态，不是重跑成功阶段的理由。
 
+宿主会清理随对话启动的后台进程时，在业务任务全部完成后使用独立收尾作业，避免主控结束对话时中断验收：
+
+```bash
+python .cac/tools/scene_delivery_job.py start --run-dir output/run --review-config review.config.json
+python .cac/tools/scene_delivery_job.py status --run-dir output/run
+```
+
+该作业依次执行回归、零新增调用续跑、配置指定的独立审查、验收及离线快照重建；独立审查仍会调用模型并使用原配置的额度。重复启动会复用活跃或已完成的作业，失败时保留日志及需处理状态。`running`和主控退出都不代表交付，最终仍需`ready_to_deliver=true`。
+
 批量修复默认最多两轮。可从[主控配置示例](supervisor.config.example.json)建立独立配置，再在批量配置增加`"supervisor_config": "supervisor.config.json"`；未配置不自动切换。批量修复或额度耗尽后先自动接手一次，仍失败时由宿主主控继续诊断、修正通用工具或提示词、离线复检。确需新语义修复时，用`scene_supervisor_continue.py`登记绑定当前失败及实际修改的新计划，再恢复原流程；相同计划不能重复请求，接手次数和用量累计，成功结果继续复用。共享并发与限流冷却、原校验器和输入隔离始终有效。详细规则见[用例执行与修复](.cac/skills/scene-concern-gap/references/case_execution.md)和[主控编排](.cac/skills/scene-controller/SKILL.md)。
 
 输出包括生成/已有异常、全部配对决定、指标、推荐、测试采纳、章节诊断及图形；最终工作簿为 `scene_assessment.xlsx`，指标表在“类别”右侧提供中文“关注点说明”。四项指标使用规范化一一集合：漏报率=1−|(T−E)∩M|/|T−E|；生成有效率=|G∩T|/|G|；采纳率=|R∩T|/|R|；推荐误报率=|R−T|/|T|。空分母null，误报率不截断。测试明示和标记推导原因共同计入GT，分类数量不直接累加。
