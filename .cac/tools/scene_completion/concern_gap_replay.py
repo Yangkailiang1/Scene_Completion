@@ -13,8 +13,10 @@ from .sources import fingerprint
 from .interaction_protocol import build_ssd,route_mounts,validate_generated
 from .interaction_execution_identity import validate_result_execution
 from .interaction_evidence import file_hash,junit_counts,deny_resume_network
+from .verification_context import cached_replay, measured
 
 
+@measured('verify_bundle')
 def verify_bundle(bundle):
     if bundle.get('protocol')!=PROTOCOL:raise ValueError('not a v2 snapshot')
     if bundle.get('result_hash')!=fingerprint({k:v for k,v in bundle.items() if k!='result_hash'}):
@@ -104,13 +106,15 @@ def stage_specs(root):
     return specs
 
 
+@measured('proof_inventory')
 def proof_files(root):
     root=Path(root);names=['sources_index.json','test_sources_index.json','generator_base_identity.json','scene_model.json','historical_ssd.json',
         'model_authorization.json','result_bundle.json']
     if read_json(root/'run_manifest.json').get('execution_mode') == 'case-dag':
         names += ['ar_sources_index.json']
         names += ['case_tasks.json'] + [str(p.relative_to(root)) for top in ('cases', 'task_outputs', 'task_history')
-            for p in sorted((root/top).rglob('*')) if p.is_file() and '.embedding_cache' not in p.parts]
+            for p in sorted((root/top).rglob('*')) if p.is_file()
+                and not {'.embedding_cache', 'context_metrics'} & set(p.parts)]
         return {name:file_hash(root/name) for name in names if (root/name).exists()}
     if (root/'ar_sources_index.json').exists():names+=['ar_sources_index.json','ar_trace.json']
     if (root/'generation_repairs.json').exists():
@@ -128,6 +132,7 @@ def proof_files(root):
     return {name:file_hash(root/name) for name in names}
 
 
+@cached_replay
 def replay(root,cache_resume=False):
     root=Path(root);run=read_json(root/'run_manifest.json')
     if run.get('execution_mode') == 'case-dag':
@@ -269,6 +274,7 @@ AREAS=['ssd_only_generation','ar_trace_only','graph_checks','feature_inference',
     'top_n_sampling','one_to_one_assignment','resume_and_scope']
 
 
+@measured('review_materials')
 def prepare_review(root):
     root=Path(root);result=replay(root)
     if not result['complete']:
@@ -327,6 +333,7 @@ def evaluate(root):
     return output
 
 
+@measured('snapshot_export')
 def export_snapshot(root,path):
     result=replay(root)
     if not result['complete']:
@@ -337,6 +344,7 @@ def export_snapshot(root,path):
     return {'complete':True,'result_hash':result['result_hash']}
 
 
+@measured('snapshot_rebuild')
 def rebuild_snapshot(path,root):
     from .concern_gap_reports import export
     raw=read_json(path);bundle=raw['payload']

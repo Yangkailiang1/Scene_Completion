@@ -11,6 +11,8 @@ def rejection_ids(failure, target):
     """Connect a rejected normalized unit to its own original source record."""
     ids = {str(row[key]) for row in failure.get('findings', []) if isinstance(row, dict)
         for key in ('unit_id', 'scenario_id', 'id', 'source_scenario_id') if row.get(key)}
+    ids.update(str(row['item_id']) for diagnostic in failure.get('validation_diagnostics', {}).values()
+        for row in diagnostic.get('issues', []) if row.get('item_id'))
     for row in target.get('values', []):
         if isinstance(row, dict) and any(str(row.get(k)) in ids for k in ('unit_id', 'scenario_id', 'id')):
             if row.get('source_scenario_id'):
@@ -45,6 +47,15 @@ def focus_input(payload, ids=()):
         related = [row for row in evidence if str(row.get('scenario_id')) in selected]
         if related:
             result['original_evidence'] = related
+    # A quote catalog belongs to its own scenario/unit, not the entire stage.
+    if selected and isinstance(result.get('evidence_catalog'), list):
+        def related_scope(value):
+            if isinstance(value, str): return value in selected
+            if isinstance(value, dict): return any(related_scope(v) for v in value.values())
+            if isinstance(value, list): return any(related_scope(v) for v in value)
+            return False
+        result['evidence_catalog'] = [r for r in result['evidence_catalog']
+            if related_scope(r.get('scope', {}))]
     return result
 
 

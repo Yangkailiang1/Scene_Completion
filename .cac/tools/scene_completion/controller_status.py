@@ -36,7 +36,7 @@ def verified_acceptance(root, snapshot_file, rebuilt_dir):
     return reasons
 
 
-def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, snapshot_file=None, rebuilt_dir=None):
+def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, snapshot_file=None, rebuilt_dir=None, since_state=None):
     root = Path(root)
     manifest = read(root / 'run_manifest.json', {})
     tasks = read(root / 'case_tasks.json', {}).get('tasks', {})
@@ -65,7 +65,13 @@ def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, sna
             'reserved_tokens': data.get('reserved_tokens'), 'unknown_usage_requests': unknown})
     active = [{'task': k, 'stage': t['stage'], 'status': t['status']} for k, t in tasks.items() if t['status'] in ACTIVE]
     blocked = [{'task': k, 'stage': t['stage'], 'status': t['status'], 'rounds': t.get('rounds', 0),
-        'supervisor_rounds': t.get('supervisor_rounds', 0)} for k, t in tasks.items() if t['status'] in BLOCKED]
+        'supervisor_rounds': t.get('supervisor_rounds', 0),
+        'current_reason': str(t.get('reason', ''))[:240],
+        'failure_hash': t.get('failure_hash'),
+        'failed_batch_count': len((t.get('failure') or {}).get('errors', {})),
+        'diagnostic_issue_count': sum(len(d.get('issues', [])) for d in
+            (t.get('failure') or {}).get('validation_diagnostics', {}).values())}
+        for k, t in tasks.items() if t['status'] in BLOCKED]
     complete = bool(tasks) and manifest.get('complete') is True and all(t['status'] == 'passed' for t in tasks.values())
     artifacts = {name: (root / name).is_file() and (root / name).stat().st_size > 0 for name in ARTIFACTS}
     snapshot_file = Path(snapshot_file) if snapshot_file else root / 'final_snapshot.json'
@@ -102,14 +108,21 @@ def inspect_run(root, *, process_file=None, budget_ledgers=(), verify=False, sna
         action = 'finish_regression_resume_review_snapshot_and_verify_delivery'
     else:
         action = 'inspect_pending_dependencies_before_resuming_same_run'
-    return {'scope': manifest.get('scope'), 'configured_batch_model': manifest.get('model'),
+    state = {'scope': manifest.get('scope'), 'configured_batch_model': manifest.get('model'),
         'active_batch_model': manifest.get('active_batch_model', manifest.get('model')),
         'pipeline_alive': alive, 'pipeline_complete': complete, 'recorded_accepted': manifest.get('accepted') is True,
         'verified_accepted': verified, 'ready_to_deliver': ready, 'next_action': action,
         'counts': dict(Counter(t['status'] for t in tasks.values())), 'active': active, 'blocked': blocked,
         'budgets': budgets, 'artifacts': artifacts, 'verification_reasons': reasons,
         'usage_accounting_complete': not unknown_usage,
-        'unknown_usage_retained': unknown_usage and not unsafe_usage}
+        'unknown_usage_retained': unknown_usage and not unsafe_usage,
+        'passed_tasks_with_historical_failures': sum(t['status'] == 'passed' and bool(t.get('failure') or t.get('reason')) for t in tasks.values())}
+    from .sources import fingerprint
+    state['state_fingerprint'] = fingerprint(state)
+    state['unchanged'] = state['state_fingerprint'] == since_state
+    if state['unchanged']:
+        return {k: state[k] for k in ('state_fingerprint', 'unchanged', 'next_action', 'ready_to_deliver', 'pipeline_complete')}
+    return state
 
 
 def wait_for_change(root, *, wait_seconds=0, **kwargs):
@@ -117,7 +130,7 @@ def wait_for_change(root, *, wait_seconds=0, **kwargs):
         raise ValueError('wait_seconds must be between 0 and 60')
     state = inspect_run(root, **kwargs)
     if (not wait_seconds or state['pipeline_complete'] or state['ready_to_deliver']
-            or state['blocked'] and not state['pipeline_alive'] and not state['active']):
+            or state.get('blocked') and not state['pipeline_alive'] and not state['active']):
         return state
     deadline = time.monotonic() + wait_seconds
     # No timestamp/poll counter in the comparison, so unchanged state remains

@@ -5,6 +5,8 @@ description: 持续编排场景分析流水线，处理批次阻塞并完成工�
 
 # 主控编排与交付
 
+优先采用[上下文与执行效率](../scene-concern-gap/references/context_efficiency.md)的职责范围。状态返回`state_fingerprint`后，下一次传`--since-state <指纹>`并使用工具等待；`unchanged=true`时不继续调用模型分析同一现场。passed任务的历史reason只作历史记录，当前阻塞以blocked清单为准。真实阻塞时先读结构化失败字段和相关函数；不要先把整库源码、原始日志与已成功产物送入长会话。
+
 主控负责让当前授权范围到达可验证的交付状态。后台进程启动、正常退出、单阶段通过或流水线`complete=true`都不代表任务交付。不得约定固定轮询次数后把收尾留给只读监控。模型、推理、并发、预算及范围沿用当前配置；不为完成验证扩大实验或重跑成功阶段。
 
 先用`python .cac/tools/scene_workflow_status.py --run-dir <run>`读取紧凑任务状态。可传`--process-file <执行器状态>`及重复的`--budget-ledger <账本>`，WSL中使用WSL进程状态文件。`--wait-seconds 60`仅在状态变化或超时返回，避免把完整版本、原文、原包及日志不断送给主控。未交付时退出码2是状态，不能据此重新启动实验。

@@ -252,6 +252,18 @@ API配置可用`stage_max_tokens`设置阶段输出额度，例如`{"gap-diagnos
 
 429触发共享冷却并降低实际并发；即使并发已为1，也遵守Retry-After，不让其他就绪任务立即继续冲击接口。504、超时和断连保留为传输待处理，不盲目重复提交可能已经开始推理的同一请求。诊断协议有独立的最多两次格式尝试；引用可选择工具给出的逐字引句ID，失败进入`diagnosis_blocked`，保留原失败对象和预留轮次，不通过反复重生成上游来弥补诊断格式错误。
 
+### 上下文减量与离线检查
+
+新建case-dag运行默认采用`context_profile: "compact-v1"`；未声明方案的旧运行继续使用`legacy`。完整原包仍保存并交给原校验器，模型请求将重复材料合为一份可读正文，以包内引用关联。G生成只加载Skill中标记的具体化规则；G/E/T的来源隔离、全部有效挂载及独立检查保持约束。来源检查不用于删除异常候选。
+
+可在批量配置中增加`stage_request_bytes`，如`{"gap-normalize-*":120000,"gap-reverse-check-*":160000}`。精确阶段优先，其余选择最具体通配符；超限按分配条目拆包，单条仍过大则报错，不截断原文。每包的`context_metrics/`记录原始/发送视图字节、覆盖ID与UTF-8字节上界估算；真实tokens以接口usage为准。改变方案会产生新的包身份，不能把旧执行证明重标为新方案。
+
+独立审查配置支持`review_projection_profile: "case-closure-v1"`：因果审查读取当前用例、未知归属及显式跨用例依赖，历史排名保留完整历史库。已有旧审查默认按原投影核验。证据ID恢复、无损格式恢复和原包校验不等于语义通过；结构化错误可直接进入失败字段修复，语义歧义仍需诊断。规范化局部补丁保留原成功条目及执行证明，再用原完整包复验。
+
+主控用`python .cac/tools/scene_workflow_status.py --run-dir <run> --wait-seconds 60 --since-state <上次state_fingerprint>`等待变化；无变化返回紧凑状态，历史拒绝不会将成功任务改为失败。最终收尾仅在一次调用内复用内容哈希绑定的验证结果，`cache_resume`、当前回归和真实独立审查仍执行；本地分项耗时记录在`local_performance.jsonl`。
+
+来源覆盖、共享值往返、错误证据、局部修复、缓存失效与历史排名使用离线测试验证。旧输出复验不能证明新提示词的模型效果；实际token节省和模型速度需要另行授权的定向验证。现有embedding缓存与同类全部历史相似度求和继续使用，未增加向量数据库或近邻TopK替代。详见[上下文与执行效率](.cac/skills/scene-concern-gap/references/context_efficiency.md)。
+
 ### Excel或Markdown测试spec
 
 `--test-spec-document`可读取Markdown、`.xlsx`或`.xlsm`，多个文件可重复指定。Excel与Markdown共用用例编号、用例名称、前提条件、测试步骤、预期结果、对应需求六类字段；可附场景类型及原始来源。示例见[test_spec.example.xlsx](examples/test_spec.example.xlsx)及[同内容Markdown](examples/test_spec.example.md)。兼容原Markdown的前置条件、关联需求及九列表格。

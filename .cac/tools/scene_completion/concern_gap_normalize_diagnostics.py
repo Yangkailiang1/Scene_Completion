@@ -10,7 +10,7 @@ def validator(index):
         # RR and its public SR view can name the same real interaction. Resolve
         # only explicit exchange membership; never infer a different operation.
         candidate=contract_view(packet, result)
-        if packet['input'].get('normalization_evidence_patch'):
+        if packet['input'].get('normalization_evidence_patch') or packet['input'].get('normalization_item_patch'):
             return check(packet, candidate)
         data=packet['input'];sources={s['scenario_id']:s for s in data['scenarios']}
         for item in candidate.get('items',[]):
@@ -37,5 +37,7 @@ def validator(index):
                             if isinstance(u.get('condition_codes'),list) else None for u in item.get('units',[])],
                         'allowed_locations':[c['location_id'] for c in data['locations'] if c['use_case_id']==source['use_case_id']]})
             shape = source_id_differences(by_id, [item.get('source_scenario_id') for item in candidate.get('items', [])])
-            raise ValueError('evidence_quote MUST copy scenes.trigger_condition exactly, not original_evidence.text/document normal contracts. Mapped location_id MUST be an input.locations.location_id of this same use case (not an exchange_id or step name); absent valid mapping must stay unmapped. concern_key MUST be an exact concern_definitions key. Keep all semantic identification source-backed. '+str(exc)+'; collection_shape: '+str(shape)+'; invalid source units: '+str(details)) from exc
+            from .validation_issues import ValidationFailure, normalization_issue
+            issues = [normalization_issue(sources[d['source_id']], d['error']) for d in details]
+            raise ValidationFailure('evidence_quote MUST copy scenes.trigger_condition exactly, not original_evidence.text/document normal contracts. Mapped location_id MUST be an input.locations.location_id of this same use case (not an exchange_id or step name); absent valid mapping must stay unmapped. concern_key MUST be an exact concern_definitions key. Keep all semantic identification source-backed. '+str(exc)+'; collection_shape: '+str(shape)+'; invalid source units: '+str(details), issues) from exc
     return validate

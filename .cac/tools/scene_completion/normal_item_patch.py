@@ -209,7 +209,7 @@ def _bound_patch_source(packet, index):
     from .semantic_backend import compose_packet
     from .partial_packet_reuse import semantic_packet
     expected = compose_packet(source_packet['stage'], rebuilt['payload'],
-        rebuilt['instructions'], rebuilt['contract'])
+        rebuilt['instructions'], rebuilt['contract'], context_policy=packet.get('context_policy', {}))
     if semantic_packet(packet) != semantic_packet(expected):
         raise ValueError('normal item patch packet differs from its bound source and scoped instructions')
     if packet.get('input_hash') != _packet_identity(packet):

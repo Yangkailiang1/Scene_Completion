@@ -9,6 +9,7 @@ from .semantic_backend import read_json, write_json, prepare_packets, run_agent_
 from .sources import fingerprint
 from .case_dag import run_lock
 from .interaction_evidence import file_hash
+from .verification_context import invocation, measured
 
 
 # The API's conservative input estimate is based on UTF-8 bytes. Keeping each
@@ -339,6 +340,9 @@ def _source_documents(root, bundle):
                             for child in value: refs(child)
                     for key in ('model', 'ssd', 'mounts', 'features', 'graphs', 'normal', 'source_generated'):
                         refs(bundle.get(key))
+                    if '_causal_scope_source_ids' in bundle:
+                        for key in ('source_existing', 'source_tests', 'source_units', 'base_source_units'):
+                            refs(bundle.get(key))
                     lines = entry['text'].splitlines()
                     merged = []
                     for first, last in sorted(ranges):
@@ -392,8 +396,10 @@ def _project_bundle(bundle, keys):
         if key == 'source_existing' and isinstance(value, list):
             selected = set(bundle.get('scope', {}).get('use_case_ids', []))
             if selected:
-                outside = [row for row in value if row.get('use_case_id') and row['use_case_id'] not in selected]
-                value = [row for row in value if not row.get('use_case_id') or row['use_case_id'] in selected]
+                retained = set(bundle.get('_causal_scope_source_ids', []))
+                outside = [row for row in value if row.get('use_case_id') and row['use_case_id'] not in selected
+                    and row.get('scenario_id') not in retained]
+                value = [row for row in value if row not in outside]
                 if outside:
                     omitted['historical_other_case_sources'] = {'count': len(outside), 'hash': fingerprint(outside)}
         if key == 'mounts' and isinstance(value, list):
@@ -526,12 +532,25 @@ def _global_overview(bundle):
             'metrics': fingerprint(bundle.get('metrics', {})), 'ranking': fingerprint(ranking)}}
 
 
-def _role_content(role, areas, prepared, catalog, docs, validation, bundle):
+def _role_content(role, areas, prepared, catalog, docs, validation, bundle, projection_profile='legacy'):
+    scope_omitted = {}
+    if projection_profile not in ('legacy', 'case-closure-v1'):
+        raise ValueError('unsupported review_projection_profile')
+    if role == 'causal_mapping' and projection_profile == 'case-closure-v1':
+        from .review_scope import causal_scope
+        bundle, scope_omitted = causal_scope(bundle)
+        # Include original clauses reached by explicit cross-case references.
+        # AR uses the original root's provided documents, not a new source.
+        updated = _source_documents(Path('__projection_only__'), bundle)
+        updates = {(d['document'], d['layer']): d for d in updated if d['layer'] in ('RR', 'SR', 'RR/SR')}
+        docs = [updates.pop((d['document'], d['layer']), d) for d in docs] + list(updates.values())
     keys = tuple(dict.fromkeys(key for area in areas for key in AREA_FIELDS[area]))
     # The area field lists are the review contract; exclude helper-only source
     # collections that the projection does not directly audit.
     keys = tuple(key for key in keys if key in bundle)
     data, omitted_hashes = _project_bundle(bundle, keys)
+    if scope_omitted:
+        omitted_hashes['out_of_case_causal_material'] = scope_omitted
     if role == 'causal_mapping' and 'base_source_units' in bundle:
         base, base_omitted = _project_bundle(bundle, ('base_source_units',))
         data.update(base)
@@ -662,7 +681,8 @@ def _split_area_content(content, packet_bytes):
     return output
 
 
-def _review_jobs(root, prepared, materials, bundle, packet_bytes=DEFAULT_REVIEW_PACKET_BYTES):
+@measured('review_packet_build')
+def _review_jobs(root, prepared, materials, bundle, packet_bytes=DEFAULT_REVIEW_PACKET_BYTES, projection_profile='legacy'):
     from .concern_gap_replay import AREAS
     if type(packet_bytes) is not int or not 1024 <= packet_bytes <= MAX_REVIEW_PACKET_BYTES:
         raise ValueError('review packet byte budget is outside the supported range')
@@ -674,7 +694,7 @@ def _review_jobs(root, prepared, materials, bundle, packet_bytes=DEFAULT_REVIEW_
         'network_calls', 'resumed_batches', 'exit_code')}
     jobs = []
     for role, areas in REVIEW_ROLES.items():
-        content = _shared_view(_role_content(role, areas, prepared, catalog, docs, validation, bundle))
+        content = _shared_view(_role_content(role, areas, prepared, catalog, docs, validation, bundle, projection_profile))
         if _encoded_size(content) <= packet_bytes - _packet_reserve(packet_bytes):
             jobs.append(content)
         else:
@@ -682,7 +702,7 @@ def _review_jobs(root, prepared, materials, bundle, packet_bytes=DEFAULT_REVIEW_
             # shared fields and selected source documents once, then each
             # fragment receives only the area labels covered by its sections.
             role_content = _role_content(role, areas, prepared, catalog, docs,
-                validation, bundle)
+                validation, bundle, projection_profile)
             jobs.extend(_split_area_content(role_content, packet_bytes))
     return jobs
 
@@ -828,7 +848,7 @@ def _apply_reconsideration(local_values, packets, results):
     return effective
 
 
-def _expected_local_packets(root, materials_hash, packet_bytes):
+def _expected_local_packets(root, materials_hash, packet_bytes, projection_profile='legacy'):
     from .concern_gap_replay import AREAS, proof_files
     root = Path(root)
     result_hash = read_json(root / 'result_bundle.json')['result_hash']
@@ -839,7 +859,7 @@ def _expected_local_packets(root, materials_hash, packet_bytes):
     if prepared['materials_hash'] != materials_hash:
         raise ValueError('review materials no longer match current run proof files')
     bundle = read_json(root / 'result_bundle.json')
-    payloads = _review_jobs(root, prepared, materials, bundle, packet_bytes)
+    payloads = _review_jobs(root, prepared, materials, bundle, packet_bytes, projection_profile)
     payloads = _reuse_local_validation_context(root, payloads)
     return _packet_plan('gap-effect-review-local', payloads)
 
@@ -1014,6 +1034,10 @@ def review(root, config):
     client = _client(SimpleNamespace(config=str(config), env_file='.env', agent_model=None,
         agent_runtime=None, max_concurrency=1), root / 'review-backend')
     client.config.update(semantic_max_attempts=1, max_concurrency=1)
+    saved_meta = read_json(root / 'effect_review.json') if (root / 'effect_review.json').exists() else {}
+    has_local = (root / 'batches/independent-effect-review/local/manifest.json').exists()
+    projection_profile = client.config.get('review_projection_profile',
+        saved_meta.get('projection_profile', 'legacy' if has_local else 'case-closure-v1'))
     from .performance import Profiler
     profiler = Profiler(root)
     client.profiler = profiler
@@ -1059,7 +1083,7 @@ def review(root, config):
                     'packet_hash': fingerprint(saved_packet), 'identity': identity})
             return phase_values, None
 
-        local_manifest, local_packets = _expected_local_packets(root, prepared['materials_hash'], packet_bytes)
+        local_manifest, local_packets = _expected_local_packets(root, prepared['materials_hash'], packet_bytes, projection_profile)
         local_folder = root / 'batches' / 'independent-effect-review' / 'local'
         local_values_result, status = execute_phase(local_folder, local_manifest, local_packets, 'local')
         if status:
@@ -1095,6 +1119,7 @@ def review(root, config):
         passed = all(a['passed'] for a in aggregate['areas']) and not aggregate['unresolved_findings']
         endpoint_hash = fingerprint(client.base_url) if hasattr(client, 'base_url') else None
         meta = {**policy, 'runtime': runtime, 'endpoint_hash': endpoint_hash,
+            'projection_profile': projection_profile,
             'packet_bytes': packet_bytes, 'agent_id': 'independent-api-review-' + fingerprint(proofs)[:16],
             'materials_hash': prepared['materials_hash'], 'result_hash': prepared['result_hash'],
             'raw_review_hash': file_hash(root / 'effect_review_raw.json'), 'executions': proofs,
@@ -1115,7 +1140,8 @@ def verify_review_execution(root, meta):
     proofs = meta.get('executions', [])
     if not proofs:
         raise ValueError('independent effect review requires actual execution proofs')
-    local_manifest, local_packets = _expected_local_packets(root, meta.get('materials_hash'), meta.get('packet_bytes'))
+    local_manifest, local_packets = _expected_local_packets(root, meta.get('materials_hash'), meta.get('packet_bytes'),
+        meta.get('projection_profile', 'legacy'))
     run_policy = read_json(root / 'run_manifest.json').get('review_policy') or {}
     if (meta.get('runtime') != run_policy.get('runtime') or meta.get('model') != run_policy.get('model')
             or meta.get('reasoning_effort') != run_policy.get('reasoning_effort')):
@@ -1187,6 +1213,7 @@ def verify_review_execution(root, meta):
         raise ValueError('independent review metadata differs from actual execution outputs')
 
 
+@invocation
 def run(root, config):
     from . import concern_gap_replay as r
     from .controller_status import inspect_run

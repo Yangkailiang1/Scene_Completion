@@ -23,6 +23,7 @@ from .concern_gap_comparison import validator as comparison_validator
 from .concern_gap_ranking import scene_text, rank
 from .interaction_scope import assessment_base
 from .model_configuration import config_overrides, referenced_env_keys
+from .context_projection import configured as context_configured
 
 
 def case_name(identifier):
@@ -239,6 +240,7 @@ class Packets:
                 'result_path': str(path.resolve()), 'result_hash': fingerprint(raw), 'model': raw['model']})
         return {'values': values, 'folder': str(folder.resolve()), 'executions': proofs}
 
+    @context_configured
     def prepare(self, case_root, name, prepare, validator):
         folder = case_root / 'batches' / name
         previous = read_json(folder / 'manifest.json') if (folder / 'manifest.json').is_file() else None
@@ -249,8 +251,13 @@ class Packets:
         self.import_valid(folder, validator)
         return folder
 
+    @context_configured
     def diagnose(self, case_root, name, target, failure, round_number, *, _batch_id=None):
         from .diagnosis import quote_catalog, rejection_ids, failure_view, focus_input, share_allowed_inputs, protocol_key
+        from .validation_issues import direct_plan
+        direct = direct_plan(failure)
+        if direct and _batch_id is None:
+            return direct
         original = read_json(Path(target['folder']) / 'manifest.json')
         packets = [read_json(Path(target['folder']) / 'packets' / (row['batch_id'] + '.json')) for row in original['batches']]
         errors=set(failure.get('errors',{}))|set(failure.get('pending',[]))
@@ -294,6 +301,8 @@ class Packets:
                     scoped_failure[field] = {k: v for k, v in scoped_failure[field].items() if k == _batch_id}
             if 'pending' in scoped_failure:
                 scoped_failure['pending'] = [b for b in scoped_failure['pending'] if b == _batch_id]
+            if 'validation_diagnostics' in scoped_failure:
+                scoped_failure['validation_diagnostics'] = {k: v for k, v in scoped_failure['validation_diagnostics'].items() if k == _batch_id}
         failed_outputs = []
         for row in packets:
             saved_result = Path(target['folder']) / 'results' / (row['batch_id'] + '.json')
@@ -311,7 +320,21 @@ class Packets:
                     'result': history.get('result')})
         # Only the target's original permitted input channel is supplied.
         allowed=share_allowed_inputs([focus_input({k:v for k,v in p['input'].items()
-            if k not in ('skill','extraction_skills','execution_versions')}, rejected) for p in packets])
+            if k not in ('skill','generator_skill','test_condition_skill','extraction_skills','execution_versions')}, rejected) for p in packets])
+        if rejected:
+            for entry in failed_outputs:
+                raw = entry.get('result')
+                if not isinstance(raw, dict): continue
+                raw = copy.deepcopy(raw)
+                for field in ('items', 'reviews'):
+                    rows = raw.get(field)
+                    if not isinstance(rows, list): continue
+                    related = [r for r in rows if contains_id(r, rejected)]
+                    # Unknown-ID/collection-shape errors still need full output.
+                    if related: raw[field] = related
+                for field in ('execution_model_evidence', 'baseline_execution'):
+                    raw.pop(field, None)
+                entry['result'] = raw
         payload = {'stage': name, 'failure': scoped_failure, 'allowed_inputs': allowed,
             'evidence_catalog':quote_catalog(allowed),
             'round': round_number, 'repair_policy': 'source-only; preserve successful records; never add unconfirmed model items',
@@ -365,6 +388,7 @@ class Packets:
             'original_stage':name,'original_failure_preserved':True,'invalid_diagnoses':record['invalid_outputs'],
             'reason':'bounded diagnosis-format attempts exhausted; original target was not regenerated'})
 
+    @context_configured
     def repaired(self, case_root, name, target, validator, diagnosis, failure, round_number):
         from .diagnosis import rejection_ids, failure_view, repair_input
         source = Path(target['folder'])
@@ -508,6 +532,17 @@ class Packets:
                     instructions, contract = patch['instructions'], patch['contract']
                     continue
             if prior:
+                if original['stage'].startswith('gap-normalize-') and prior_attempt:
+                    from .normalization_item_patch import prepare as prepare_item_patch
+                    filename = 'test_sources_index.json' if original['stage'].endswith('-T') else 'sources_index.json'
+                    patch = prepare_item_patch(packet, prior, source / 'packets' / (row['batch_id'] + '.json'),
+                        prior_attempt, read_json(self.root / filename))
+                    if patch:
+                        self.cache_identity(prior)
+                        ordered_slots.append(('new', len(payloads)))
+                        payloads.append(patch['payload'])
+                        instructions, contract = patch['instructions'], patch['contract']
+                        continue
                 try:
                     for value in validator(packet, contract_view(packet, prior)):
                         identity = value.get('unit_id') or value.get('scenario_id')
@@ -640,6 +675,10 @@ class Pipeline:
             for u in raw['use_cases']], 'system_composition': {'nodes': raw.get('system_composition', {}).get('nodes', [])}}
         self.selected = {u['use_case_id'] for u in assessment_base(self.base, getattr(args, 'use_case_id', None))['use_cases']}
         self.client = _client(args, self.root)
+        # Existing runs keep their original request identity. New runs opt into
+        # the versioned request view; explicit configuration wins.
+        self.client.config.setdefault('context_profile', (previous or {}).get('context_profile',
+            'legacy' if previous else 'compact-v1'))
         self.client.profiler = self.profiler
         self.gate = CallGate(self.client.config.get('max_concurrency', 1), adaptive=self.client.config.get('adaptive_concurrency', True),
             on_change=lambda state: write_json(self.root/'concurrency_status.json', state),
@@ -721,6 +760,7 @@ class Pipeline:
         for doc in self.ar_index['documents']:
             doc['requirement_layer'] = 'AR'
         self.manifest = {'protocol': PROTOCOL, 'policy': POLICY, 'execution_mode': 'case-dag', 'complete': False,
+            'context_profile': self.client.config['context_profile'],
             'accepted': False, 'versions': b.versions(), 'source_hash': fingerprint(self.index), 'base_hash': fingerprint(self.base),
             'scope': {'kind': 'representative' if getattr(args, 'use_case_id', None) else 'full',
                 'use_case_ids': sorted(self.selected), 'granularity': 'complete_use_cases'},
@@ -1037,7 +1077,9 @@ class Pipeline:
                 revalidated = bool(output.get('executions')) and all(
                     (e['batch_id'], e['input_hash'], e['result_hash']) in bound for e in output['executions'])
             with TemporaryDirectory(prefix='scene-compatible-packets-') as temporary:
-                prepare(inputs,Path(temporary))
+                from .context_projection import settings as context_settings
+                with context_settings(self.packets.client.config):
+                    prepare(inputs,Path(temporary))
                 expected=read_json(Path(temporary)/'manifest.json')
                 prior=read_json(original/'manifest.json')
                 if expected['stage']!=prior['stage'] or len(expected['batches'])!=len(prior['batches']):
@@ -1129,8 +1171,10 @@ class Pipeline:
         packets = [read_json(folder / 'packets' / (row['batch_id'] + '.json')) for row in manifest['batches']]
         pending = [p for p in packets if p['batch_id'] not in set(retained)]
         if pending:
-            prepare_packets(folder, manifest['stage'], [{**p['input'], 'fresh_recheck': {
-                'diagnosis': diagnosis, 'round': round_number}} for p in pending], pending[0]['instructions'], pending[0]['output_contract'])
+            from .context_projection import settings as context_settings
+            with context_settings({'context_profile': pending[0].get('context_policy', {}).get('profile', 'legacy')}):
+                prepare_packets(folder, manifest['stage'], [{**p['input'], 'fresh_recheck': {
+                    'diagnosis': diagnosis, 'round': round_number}} for p in pending], pending[0]['instructions'], pending[0]['output_contract'])
             updated = read_json(folder / 'manifest.json')
             replacements = iter(updated['batches'])
             updated['batches'] = [row if row['batch_id'] in retained else next(replacements)

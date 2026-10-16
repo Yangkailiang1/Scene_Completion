@@ -17,7 +17,8 @@ MAX_INCREMENTAL_TOKENS = 150_000
 def _assignment_fingerprint(packet):
     """Bind a benchmark task to its complete assigned role packet."""
     from .semantic_backend import compose_packet
-    return fingerprint(compose_packet(packet['stage'],packet['input'],packet['instructions'],packet['output_contract']))
+    return fingerprint(compose_packet(packet['stage'],packet['input'],packet['instructions'],packet['output_contract'],
+        context_policy=packet.get('context_policy', {})))
 
 
 def _client_identity(client):

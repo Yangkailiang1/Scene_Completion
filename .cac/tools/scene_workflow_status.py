@@ -15,6 +15,7 @@ def main():
     parser.add_argument('--verify', action='store_true')
     parser.add_argument('--snapshot-file')
     parser.add_argument('--rebuilt-dir')
+    parser.add_argument('--since-state', help='previous state_fingerprint; unchanged replies omit repeated task/log context')
     admission = parser.add_mutually_exclusive_group()
     admission.add_argument('--pause-admission', action='store_true')
     admission.add_argument('--resume-admission', action='store_true')
@@ -33,7 +34,7 @@ def main():
                 marker.unlink(missing_ok=True)
         result = wait_for_change(args.run_dir, process_file=args.process_file,
             budget_ledgers=args.budget_ledger, wait_seconds=args.wait_seconds, verify=args.verify,
-            snapshot_file=args.snapshot_file, rebuilt_dir=args.rebuilt_dir)
+            snapshot_file=args.snapshot_file, rebuilt_dir=args.rebuilt_dir, since_state=args.since_state)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         result = {'ready_to_deliver': False, 'next_action': 'inspect_state_read_failure', 'error_type': type(exc).__name__}
     print(json.dumps(result, ensure_ascii=False, indent=2))

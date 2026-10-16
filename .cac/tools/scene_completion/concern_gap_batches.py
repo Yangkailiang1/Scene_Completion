@@ -23,7 +23,8 @@ def versions():
     paths += [root/'case_dag.py', root/'model_access.py',root/'diagnosis.py',root/'streaming.py',
         root/'inline_ar.py',root/'task_diagnostics.py',root/'audit_quote_recovery.py',root/'response_contract.py',
         root/'supervisor_continuation.py',root/'quota_profiles.py',root/'partial_packet_reuse.py']
-    paths += [root/n for n in ('comparison_evidence_refs.py', 'comparison_patch.py',
+    paths += [root/n for n in ('context_projection.py', 'validation_issues.py', 'normalization_item_patch.py', 'verification_context.py',
+        'comparison_evidence_refs.py', 'comparison_patch.py',
         'directed_patch.py', 'review_patch.py', 'source_candidate_recovery.py', 'evidence_refs.py') if (root/n).is_file()]
     paths += [root.parent/'scene_completion.py']
     values={p.name:fingerprint(p.read_text(encoding='utf8')) for p in paths}
@@ -108,6 +109,9 @@ def normalized_packets(scenes, ssd, directory, collection, index=None):
 
 def normalize_validator(index):
     def validate(packet,result):
+        if packet['input'].get('normalization_item_patch'):
+            from .normalization_item_patch import validate as validate_items
+            return validate_items(packet, result, index)
         if packet['input'].get('normalization_evidence_patch'):
             from .normalization_evidence_patch import validate as validate_quote_patch
             return validate_quote_patch(packet, result, index)
