@@ -19,6 +19,102 @@
 
 重复请求、回调或事件的幂等重放按异常触发条件处理，即使正确预期是复用已有结果且不重复执行；不能因为处理成功便改成普通可选流程。普通取消或正常选择仍保留为可选。
 
+### Skills 全流程时序图
+
+下图描述默认 `case-dag` 编排。`par` 表示输入独立、允许并行，不要求一定同时调用模型；实际并发、模型和预算来自配置。每个用例依赖通过即可继续，其他用例的失败不阻塞它。为便于阅读，G/E/T的公共逆向子流程只画一次；实际按各通道依赖就绪分别执行，不等待三个通道一起完成，比较才等待关联集合完整。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as 主控与调度器
+    participant M as 建模器批量LLM
+    participant X as 逆向与比较LLM
+    participant V as 校验与集合tools
+    participant H as 推荐与embedding
+    participant A as 独立审查LLM
+
+    C->>V: 读取配置，检查模型、额度、并发与可复用结果
+    V-->>C: 用例任务DAG与执行记录
+    Note over M,X: 正向建模、原文E、测试T输入隔离；E和T不用于补写G
+    par 正向建模
+        C->>M: RR/SR正常及可选流程：scene-extract、scene-ssd
+        M-->>V: 系统组成、分层交互、正常模型及来源
+        V->>V: 结构、来源、层级与架构授权检查
+        V->>M: SSD及组成图检查：scene-model-check
+        M-->>V: 逐组件、逐交换的检查结论
+        V->>M: 参与者核对：scene-participants；AR追溯：scene-model-check
+        M-->>V: Actor补全依据与独立AR实现追溯
+        Note over M,V: 内外数据库封装为SR资源服务；AR内部交互不生成异常
+        C->>M: 交互对象特性推理：scene-feature-infer
+        M-->>V: 双方、数据、状态、操作及依赖特性
+        V->>V: 从已检查SSD构造主成功场景，确定性挂载注册关注点
+        C->>M: 沿有效挂载生成G：scene-generate、scene-concern-gap
+        M-->>V: 异常对象、操作、原因、条件及SSD锚点
+        V->>V: 挂载全覆盖、真实锚点及来源检查，不做适用性筛选
+    and 原文已有异常
+        C->>X: 独立读取RR/SR异常分支：scene-check
+        X-->>V: 原文异常E及精确引用
+        V->>X: 独立来源审查：scene-check
+        X-->>V: 原文支持、原子性、遗漏及引用结论
+    and 测试临时GT
+        C->>X: 独立读取Markdown或Excel测试：scene-reverse
+        X-->>V: 测试异常T，区分明示与框架推导单元
+    end
+    Note over X,V: 定位等待本用例SSD通过；G、E、T分别处理，不把其他集合送入规范化
+    loop 各通道就绪即独立执行（公共子流程合并绘制）
+        V->>X: 同一交互、关注点及具体原因编码：scene-reverse
+        X-->>V: 规范化异常单元与未映射记录
+        V->>X: 逆向来源和映射检查：scene-reverse-check
+        X-->>V: 全部单元的独立检查结论
+        V->>X: 有条件差异的同通道去重：scene-reverse
+        X-->>V: 同一实际原因的等价或保留决定
+        V->>V: 校验完整性、去重并保留原始来源及标签
+    end
+    V->>X: 仅核验规范身份无法确定的歧义对：scene-concern-gap
+    X-->>V: E/G、T/G、T/E逐对语义决定
+    V->>V: 一一分配，得到缺失集合M及本用例报告
+    Note over C,H: 各用例E通过后可提前缓存历史向量；历史库未齐不排名
+    V->>H: 全部必要历史就绪后，传入M与历史E，不传测试T
+    H->>H: embedding缓存，同关注点余弦求和与TopN选取
+    H-->>V: 推荐集合R、排名及相似度明细
+    V->>V: 使用T计算四项指标，导出Excel、Markdown、JSON和图
+    C->>V: 完整回归与禁止新增模型调用的缓存续跑
+    C->>A: 工具内置审查协议：局部审查及全局核对
+    A-->>V: 真实独立审查结论与执行证明
+    alt 必要检查全部通过
+        V->>V: 正式验收，导出快照并离线重建
+        V-->>C: ready_to_deliver=true及最终文件
+    else 存在真实拒绝或阻塞
+        V-->>C: 指定失败条目、证据、预算及待确认项
+        C->>V: 定向修复或登记主控纠正计划，再执行原校验
+        Note over C,V: 此恢复规则适用于每次检查；保留成功结果，不盲目重投
+    end
+```
+
+### 阶段、Skill 与检查职责
+
+“批量”指请求包实际加载的 Skill；“主控指导”指宿主按阶段读取的方法说明，不表示另一次模型调用。纯工具计算不会为了对应 Skill 名称而额外调用 LLM。
+
+| 阶段 | 输入 → 输出 | Skill 或执行方式 | 主要检查 | 失败去向 |
+| --- | --- | --- | --- | --- |
+| 预检与编排 | 文档、配置、已有运行 → 来源索引、可执行任务及缓存状态 | 主控指导：[scene-controller](.cac/skills/scene-controller/SKILL.md)、[scene-concern-gap](.cac/skills/scene-concern-gap/SKILL.md)；模型探测及DAG由tools执行 | 实际可访问模型、上下文、共享并发、预算、输入版本及执行身份；Excel/Markdown读取 | 配置或额度待处理；有效缓存继续检查，不重置账本 |
+| 正常交互抽取 | RR/SR正常及普通可选流程、正向契约 → 分层模型及融合SSD | 批量：[scene-extract](.cac/skills/scene-extract/SKILL.md)、[scene-ssd](.cac/skills/scene-ssd/SKILL.md)及其输入规范；tools构图 | 用例分解、请求/逐层返回、字段、真实来源、数据库SR服务化；禁止读取E/T | 定向修复正常模型；新增组件、调用或原文修订先确认 |
+| SSD、组成与AR检查 | 正常模型、SSD、原文 → 图检查及实现追溯 | 批量：[scene-model-check](.cac/skills/scene-model-check/SKILL.md) | 组件身份、内外属性、交换顺序、父子展开、来源；AR仅追溯 | 修复对应模型或待确认；已通过共享组件按版本复用 |
+| 参与者补全检查 | 正常调用、架构角色、原Actor列表 → 核对结论 | 批量：[scene-participants](.cac/skills/scene-participants/SKILL.md) | 原文实际调用是否漏写Actor；架构成员身份不能凭空证明调用 | 回到正常模型，保留有依据的参与者；新增调用先确认 |
+| 交互特性推理 | 已检查图、正常交互 → 身份、职责、数据及依赖特性 | 批量：[scene-feature-infer](.cac/skills/scene-feature-infer/SKILL.md) | 明示与推断分开、逐特性引用；未知限制待确认，不能继承其他交互的操作能力 | 修复实际拒绝的特性，不重做成功交互 |
+| 主成功与关注点挂载 | 已检查SSD、特性、注册关注点 → 主成功/可选场景与挂载清单 | 确定性tools；主控方法参考：[scene-generate](.cac/skills/scene-generate/SKILL.md) | 主成功步骤来自SSD消息顺序；关注点绑定真实同层交换、对象与数据，保留挂载理由 | 模型、特性或挂载缺口；未确认的新关注点不得加入 |
+| 异常G具体化 | 有效挂载及其正向证据 → 全部生成异常G | 实际批量：[scene-generate](.cac/skills/scene-generate/SKILL.md)（generator_skill）及[scene-concern-gap](.cac/skills/scene-concern-gap/SKILL.md)（skill） | 每个有效挂载均有候选；对象、原因、条件、来源和SSD锚点有效；不虚构阈值，不做适用性删除 | 只修复拒绝挂载的产物；不得从E或T补写G |
+| 原文E抽取与审查 | RR/SR原文异常分支 → 已有异常及独立来源审查 | 抽取和审查包均携带：[scene-check](.cac/skills/scene-check/SKILL.md) | 明示/泛指异常结合明确契约的依据、原子拆分、操作绑定、遗漏及引用；普通前置条件不冒充异常 | 原通道定向补抽或修复；不能参考G/T改分母 |
+| 测试T抽取 | Markdown/Excel测试 → 临时GT，保留明示/推导标记 | v2实际批量：[scene-reverse](.cac/skills/scene-reverse/SKILL.md)；测试方法参考：[test-scenario-extract](.cac/skills/test-scenario-extract/SKILL.md) | 读取前提、步骤、预期、对应需求及编号；正常流程不变异常，幂等触发单独处理 | 只依据测试原文及允许的框架推导修复，禁止读取G或推荐 |
+| G/E/T规范化 | 各自场景及已检查交互 → 原子因果单元、未映射记录 | 各通道独立批量：scene-reverse | 交互、对象、原因及必要条件完整；G已有识别字段与挂载由tools保持不可变 | 修复本通道失败单元；未映射保留，不能强行匹配 |
+| 逆向检查与同通道去重 | 各通道规范单元、来源 → 检查结论及唯一单元 | 批量：[scene-reverse-check](.cac/skills/scene-reverse-check/SKILL.md)；条件差异去重批量：scene-reverse；合并由tools执行 | 来源、原子性、映射、原因、条件等价及全ID覆盖；不同实际原因不合并 | 修复源场景或规范化结果，再复检；不能删掉拒绝记录来通过 |
+| 对应与缺失检查 | 已检查G/E/T → E/G、T/G、T/E决定和M | 规范身份确定性比较；歧义对批量：scene-concern-gap；一一分配由tools执行 | 同一实际交互、对象、原因和必要条件；响应/恢复不参与；不得多对多占用 | 仅修复失败比较对或上游实际错误；不降低匹配标准 |
+| 历史推荐 | 全部就绪的历史E及M → 向量、相似度、每类排名及R | 主控指导：[scene-history-recommend](.cac/skills/scene-history-recommend/SKILL.md)；embedding API及确定性排名tools | 历史来源、向量端点/模型/文本版本、同类全部历史求和、TopN及固定种子；T不进入排序 | 缺失或过期向量按需补齐；历史未齐只缓存，不发布排名 |
+| 指标与报告 | G/E/T、对应、M/R → 总计及分类指标、全部报告和图 | 确定性tools；主控指导：scene-concern-gap | 一一对应去重、四项公式、空分母、分类标签、输入完整性及章节定位 | 未完成部分保留为进行中，不能作为全项目正式指标 |
+| 验收与交付 | 完整产物、执行证明 → 验收结果及离线快照 | 主控指导：scene-controller；回归/续跑/重建为tools；独立LLM使用工具内置审查协议，**不直接加载scene-review** | 真实回归、零新增调用、独立局部及全局审查、材料/模型身份绑定、离线一致性和文件齐全 | 真实缺陷定向修复；审查误判须绑定原结论重新独立复核；只有ready_to_deliver=true正式交付 |
+
+默认自动修复最多两轮，计数随续跑保留。配置的首次主控接手仍失败后，主控先定位通用工具或提示词问题；需要新语义调用时登记绑定当前失败及纠正依据的新计划。相同失败且没有新依据不得反复提交。新组件、调用边、关注点或原始文档修改继续先确认；成功任务及无关用例保持有效。宿主主控的指导 Skill 与批量模型配置相互独立，不在提示词中固定具体模型。
+
 ## 安装
 
 使用Python 3.11或更新版本，在项目根目录运行：
