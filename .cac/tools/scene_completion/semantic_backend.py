@@ -501,11 +501,11 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
         previous_output = None
         source_audit_feedback = None
         model_origin_feedback = None
-        attempts = 2
-        if packet["stage"].startswith(("interaction-", "gap-")):
-            attempts = getattr(client, "config", {}).get("semantic_max_attempts", 4)
-            if type(attempts) is not int or not 1 <= attempts <= 6:
-                raise ValueError("semantic_max_attempts must be 1..6")
+        semantic_stage = packet["stage"].startswith(("interaction-", "gap-"))
+        attempts = getattr(client, "config", {}).get("semantic_max_attempts", 4 if semantic_stage else 2)
+        if type(attempts) is not int or not 1 <= attempts <= 6:
+            raise ValueError("semantic_max_attempts must be 1..6")
+        if semantic_stage:
             def attempt_order(path):
                 record = read_json(path)
                 # Filesystems can give successive atomic replacements the same
@@ -551,6 +551,11 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
                     return {'batch_id': bid, 'status': 'recovered', 'source_attempt': str(prior[records.index(record)])}
                 last_error = records[-1]["validation_error"][:1200]
                 structured = [r for r in records if isinstance(r.get("result"), dict)]
+                if not structured and isinstance(records[-1].get('response_diagnostic'), dict):
+                    # Admission/transport failures have produced no semantic
+                    # answer. They must not become instructions to alter the
+                    # next request or spend a semantic repair attempt.
+                    last_error = None
                 if structured:
                     previous_output = structured[-1]["result"]
                     if packet['stage'].startswith('gap-'):
@@ -622,13 +627,13 @@ def run_agent_packets(directory: str | Path, client: SemanticClient, validator,
             except (ValueError, KeyError, TypeError, RuntimeError) as exc:
                 last_error = type(exc).__name__ + ": " + str(exc)[:1200 if packet["stage"].startswith(("interaction-", "gap-")) else 180]
                 previous_output = attempt_result
-                if packet["stage"].startswith(("interaction-", "gap-")) and attempt_result is not None:
+                if attempt_result is not None:
                     # Invalid semantic outputs are audit evidence, never completed
                     # batches. Retain them so model/graph failures are diagnosable.
                     write_json(root / "attempts" / f"{bid}-{fingerprint(attempt_result)[:12]}.json",
                         {"result": attempt_result, "validation_error": str(exc), "attempt": attempt_index + 1})
                 diagnostic = getattr(exc, "response_diagnostic", None)
-                if packet["stage"].startswith(("interaction-", "gap-")) and diagnostic is not None:
+                if diagnostic is not None:
                     write_json(root / "attempts" / f"{bid}-response-{fingerprint(diagnostic)[:12]}.json",
                         {"result": None, "response_diagnostic": diagnostic, "validation_error": str(exc), "attempt": attempt_index + 1})
                 if isinstance(diagnostic, dict) and diagnostic.get('failure_category') == 'quota_exhausted':

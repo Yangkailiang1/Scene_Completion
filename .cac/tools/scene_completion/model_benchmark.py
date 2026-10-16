@@ -213,12 +213,8 @@ def _verify_ledger_history(previous, current):
 
 
 def _reservation_for_body(body, budget):
-    reservation = sum(len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256
-        for message in body.get('messages', []))
-    reservation += int(body['max_tokens'])
-    if body.get('enable_thinking') or body.get('thinking'):
-        reservation += max(budget.reasoning_reserve, int(body.get('thinking_budget', 0)))
-    return reservation
+    from .token_budget import request_reservation
+    return request_reservation(body, budget.reasoning_reserve)
 
 
 class _IncrementalBudgetGuard:

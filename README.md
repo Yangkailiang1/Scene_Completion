@@ -162,7 +162,7 @@ Qwen的OpenAI兼容接口示例见 [qwen.config.example.json](qwen.config.exampl
 
 模型能力筛选用`scene_model_benchmark.py --source-run <已有运行> --config <候选配置> --output-dir <本地对比目录>`；同一角色原包、证据和校验器在不同模型间保持一致，默认首次执行后最多两次定向补抽，成功不重跑。输出分别标注独立通过、补抽通过、无法访问、传输或额度停止。无访问权限不能计作模型能力失败；模型总参数与MoE激活参数分别记录，不由参数量直接推断可用性。
 
-需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前为输入UTF-8字节代理及输出上限预留额度，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度，按上述未知用量策略决定是否继续；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
+需要限制一次实验的语义API总量时，在本地配置设置`token_budget_limit`和`token_budget_ledger`。调用前按接口实际接收的文本内容UTF-8字节上界、消息元数据与输出上限预留额度，不重复计入HTTP外层JSON转义；非文本消息保留序列化上界，并发共享持久账本；接口返回后按实际总tokens结算。若提供方的输出上限不包含思考tokens，另配置`token_budget_reasoning_reserve`预留该档位的思考上限。用量未知时保守保留预留额度，按上述未知用量策略决定是否继续；预算模式每个请求只发一次HTTP，不作隐式传输重投。续跑保留账本和限额，不换账本重置已用量；缓存命中不扣API预算。 `semantic_max_attempts`对所有批量阶段生效；校验拒绝时保留原始结构化答复及错误，传输或预算拒绝未产生语义答复时不作为修改内容的依据。该本地保护不代替提供方账户余额或计费查询，其他程序使用同一凭证时须另行计入。
 
 华师`ecnu-plus`配置见[ecnu_plus.config.example.json](ecnu_plus.config.example.json)。提供方的思考档位可能随模型不同，使用配置中的实际`reasoning_effort`及可选`supported_reasoning_efforts`，不要直接照搬另一模型。华师plus的`medium`对应界面“高”，支持`low/medium/xhigh`，详见[官方思考模式说明](https://developer.ecnu.edu.cn/vitepress/llm/thinking.html)。示例按客户容量设置`max_context_tokens=200000`；这是本地限制，不自动套用平台更大的标称上限。发送前保守估算输入与输出预留，超限要求拆包，不截断证据。
 

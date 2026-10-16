@@ -10,6 +10,28 @@ import uuid
 _LOCK = threading.RLock()
 
 
+def request_reservation(body, reasoning_reserve=0):
+    """Bound decoded textual input, output and configured reasoning reserve.
+
+    JSON transport escaping (e.g. \" inside an already JSON-encoded prompt)
+    is removed by the API parser before tokenization. Counting those extra
+    backslashes twice needlessly blocks structured prompts. Non-text content
+    keeps the conservative serialized-message fallback and framing reserve.
+    """
+    reservation = 0
+    for message in body.get('messages', []):
+        content = message.get('content') if isinstance(message, dict) else None
+        if isinstance(content, str):
+            metadata = {k: v for k, v in message.items() if k != 'content'}
+            reservation += len(content.encode('utf8')) + len(json.dumps(metadata, ensure_ascii=False).encode('utf8')) + 256
+        else:
+            reservation += len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256
+    reservation += int(body['max_tokens'])
+    if body.get('enable_thinking') or body.get('thinking'):
+        reservation += max(reasoning_reserve, int(body.get('thinking_budget', 0)))
+    return reservation
+
+
 class TokenBudgetBlocked(RuntimeError):
     def __init__(self, reason, *, remaining=0, required=0):
         super().__init__('semantic token budget_exhausted or usage unresolved; inspect the token ledger')
@@ -76,11 +98,7 @@ class TokenBudget:
 
     def reserve(self, body):
         # UTF-8 bytes bound tokenization conservatively; never truncate evidence.
-        reservation = sum(len(json.dumps(m, ensure_ascii=False).encode('utf8')) + 256
-                          for m in body.get('messages', []))
-        reservation += int(body['max_tokens'])
-        if body.get('enable_thinking') or body.get('thinking'):
-            reservation += max(self.reasoning_reserve, int(body.get('thinking_budget', 0)))
+        reservation = request_reservation(body, self.reasoning_reserve)
         with _locked(self.provider_lock), _locked(self.path):
             data = self._read()
             rows = list(data['requests'].values())
@@ -100,6 +118,7 @@ class TokenBudget:
                     raise TokenBudgetBlocked('insufficient_provider_allowance', remaining=self.provider_limit-shared, required=reservation)
             request_id = uuid.uuid4().hex
             data['requests'][request_id] = {'model': body.get('model'), 'status': 'reserved',
+                'reservation_basis': 'decoded_text_utf8_upper_bound_v1',
                 'reservation': reservation, 'started_unix': time.time()}
             self._write(data)
         return request_id

@@ -1,7 +1,7 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 import pytest
-from scene_completion.token_budget import TokenBudget, TokenBudgetBlocked
+from scene_completion.token_budget import TokenBudget, TokenBudgetBlocked, request_reservation
 from scene_completion.semantic_backend import SemanticClient
 
 
@@ -96,3 +96,89 @@ def test_embedding_not_charged_to_semantic_allowance(tmp_path, monkeypatch):
         'api_key_env': 'FIXTURE_KEY'}, lambda *a: {'data': []})
     client.post('/embeddings', {'model': 'embedding', 'input': ['hello']})
     assert not (tmp_path/'budget.json').exists()
+
+
+def test_structured_text_reservation_counts_decoded_content_not_transport_escaping(tmp_path):
+    content = json.dumps({'source': '原文包含"引号"、反斜线\\和换行\n', 'items': ['"\\\n'] * 80}, ensure_ascii=False)
+    request = {'model': 'fixture', 'messages': [{'role': 'user', 'content': content}], 'max_tokens': 500}
+    estimate = request_reservation(request)
+    old_estimate = len(json.dumps(request['messages'][0], ensure_ascii=False).encode('utf8')) + 256 + 500
+    assert estimate >= len(content.encode('utf8')) + 256 + 500
+    assert estimate < old_estimate
+    budget = TokenBudget(settings(tmp_path, estimate))
+    key = budget.reserve(request)
+    budget.settle(key, usage=None)
+    row = budget._read()['requests'][key]
+    assert row['charged_tokens'] == estimate and row['status'] == 'usage_unknown'
+    with pytest.raises(TokenBudgetBlocked): budget.reserve(request)
+
+
+def test_non_text_reservation_keeps_serialized_fallback_and_reasoning():
+    message = {'role': 'user', 'content': [{'type': 'text', 'text': '完整数据'}]}
+    request = {'messages': [message], 'max_tokens': 400, 'enable_thinking': True}
+    assert request_reservation(request, 300) == len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256 + 400 + 300
+
+
+def test_incremental_and_original_reservation_estimators_agree():
+    from scene_completion.model_benchmark import _reservation_for_body
+    from types import SimpleNamespace
+    request = {'messages': [{'role': 'user', 'content': '{"quoted":"\\n"}'}], 'max_tokens': 600}
+    assert _reservation_for_body(request, SimpleNamespace(reasoning_reserve=0)) == request_reservation(request)
+
+
+def test_pre_http_refusal_is_not_sent_as_semantic_repair_feedback(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets, write_json, run_agent_packets
+    from types import SimpleNamespace
+    manifest = prepare_packets(tmp_path, 'gap-fixture', [{'source': 'unchanged permitted input'}], [], {'items': []})
+    batch = manifest['batches'][0]
+    write_json(tmp_path/'attempts'/(batch['batch_id']+'-budget.json'), {'result': None,
+        'validation_error': 'request was not admitted', 'response_diagnostic': {'failure_category': 'budget_exhausted'}})
+    calls = []
+    def agent(packet):
+        calls.append(packet)
+        return {'items': [], 'execution_model_evidence': {'requested_model': 'fixture'}}
+    client = SimpleNamespace(config={'agent_model': 'fixture', 'semantic_max_attempts': 1},
+        model=lambda kind: 'fixture', agent=agent)
+    state = run_agent_packets(tmp_path, client, lambda p, r: r['items'])
+    assert state['complete'] and len(calls) == 1
+    assert 'validation_feedback' not in calls[0] and 'previous_output' not in calls[0]
+
+
+def test_custom_stage_obeys_attempt_limit_and_preserves_rejected_result(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets, run_agent_packets
+    from types import SimpleNamespace
+    manifest = prepare_packets(tmp_path, 'independent-custom-review', [{'source': 'source text'}], [], {'checks': []})
+    calls = []
+    def agent(packet):
+        calls.append(packet)
+        return {'checks': [{'id': 'wrong-id'}], 'execution_model_evidence': {'requested_model': 'fixture'}}
+    def reject(packet, result):
+        raise ValueError('assigned ID missing')
+    client = SimpleNamespace(config={'agent_model': 'fixture', 'semantic_max_attempts': 1},
+        model=lambda kind: 'fixture', agent=agent)
+    state = run_agent_packets(tmp_path, client, reject)
+    assert not state['complete'] and len(calls) == 1
+    attempts = list((tmp_path/'attempts').glob('*.json'))
+    assert len(attempts) == 1
+    retained = json.loads(attempts[0].read_text())
+    assert retained['result']['checks'] == [{'id': 'wrong-id'}]
+    assert retained['validation_error'] == 'assigned ID missing'
+    assert retained['result']['batch_id'] == manifest['batches'][0]['batch_id']
+
+
+def test_custom_stage_preserves_response_diagnostic_without_retry(tmp_path):
+    from scene_completion.semantic_backend import prepare_packets, run_agent_packets
+    from types import SimpleNamespace
+    prepare_packets(tmp_path, 'independent-custom-review', [{}], [], {})
+    calls = []
+    def agent(packet):
+        calls.append(packet)
+        error = ValueError('invalid structured response')
+        error.response_diagnostic = {'content': '{partial', 'finish_reason': 'length'}
+        raise error
+    client = SimpleNamespace(config={'agent_model': 'fixture', 'semantic_max_attempts': 1},
+        model=lambda kind: 'fixture', agent=agent)
+    state = run_agent_packets(tmp_path, client, lambda p, r: [])
+    assert not state['complete'] and len(calls) == 1
+    retained = json.loads(next((tmp_path/'attempts').glob('*.json')).read_text())
+    assert retained['response_diagnostic']['content'] == '{partial'
