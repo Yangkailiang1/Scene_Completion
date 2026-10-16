@@ -28,6 +28,8 @@ description: 持续编排场景分析流水线，处理批次阻塞并完成工�
 
 可用`scene_finalize.py --run-dir <run> --review-config <独立配置>`实际执行回归、缓存续跑、独立API效果审查、验收及快照重建。审查配置须与运行的review_policy一致，保留原始模型执行证明。发现真实审查问题时继续诊断，不能改审查通过字段。
 
+独立审查疑似误解范围或协议时，先核实原包和原结论。在审查配置的`review_reconsideration_plan`指定纠正计划，使用`schema=scene-review-reconsideration-v1`、当前`materials_hash`及`targets`；每项绑定原包`input`的`input_fingerprint`、校验后原结论的`review_fingerprint`和具体`diagnosis`。工具只对真实拒绝的领域重新调用原独立审查模型，保留第一次结论、通过的其他领域和全部执行证明。被质疑记录可以形成完整证据闭包时只发送该闭包，否则保留完整原包。新的拒绝仍阻止验收，主控诊断不能直接覆盖独立结论；全局核对同时读取原结论、复核结论及范围依据。
+
 宿主会在对话结束时清理后台子进程时，用`scene_delivery_job.py start --run-dir <run> --review-config <独立配置>`启动独立存活的验收作业；用相同入口的`status --run-dir <run>`读取实际完成、异常或需处理状态，不另开第二份作业。该入口仅处理已完成业务流水线的验收收尾，不能替代失败任务修复。`starting/running`或主控退出都不代表交付；仍以最终`ready_to_deliver`和真实独立审查、重建证明为准。成功业务结果继续复用；当前工具和测试改变时，必须重新生成回归及零调用续跑证明。
 
 用`scene_controller_watch.py --run-dir <run> --state-file <本地watch.json>`检测停滞。连续600秒没有任务、纠正代码、诊断或真实回归证据变化时返回3，主控立即定位具体阻塞；反复状态查询、日志增长、长篇思考不算推进。已确定需外部处理时报告并结束付费空转，不把活进程冒充正常推进。

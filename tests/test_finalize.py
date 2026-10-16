@@ -254,7 +254,7 @@ def test_oversized_role_package_is_blocked_instead_of_fragmented(tmp_path):
         finalize._review_jobs(tmp_path, prepared, materials, bundle, packet_bytes=1024)
 
 
-def _complete_review_fixture(root):
+def _complete_review_fixture(root, reconsider=False):
     from scene_completion.concern_gap_replay import AREAS, proof_files
 
     for name, value in [('sources_index.json', {'documents': []}), ('generator_base_identity.json', {}),
@@ -290,6 +290,10 @@ def _complete_review_fixture(root):
             'areas': [{'area': area, 'passed': True, 'reason': 'audited complete supplied role',
                 'evidence_ids': ['F0']} for area in packet['input']['areas']],
             'unresolved_findings': []}
+        if reconsider and phase == 'local' and not local_values:
+            raw['areas'][0]['passed'] = False
+            raw['areas'][0]['reason'] = 'initial disputed scope finding'
+            raw['unresolved_findings'] = ['initial disputed scope finding']
         if phase == 'global':
             raw['global_review'] = {'passed': True, 'reason': 'cross-role IDs and denominators reconcile',
                 'coverage_check': {'complete': True, 'unique': True, 'missing_ids': [],
@@ -305,6 +309,18 @@ def _complete_review_fixture(root):
             local_values.append({'input': packet['input'], 'result': value})
       return phase_values
     values.extend(make_phase('local', manifest, packets))
+    plan = None
+    if reconsider:
+        original = local_values[0]
+        plan = {'schema': 'scene-review-reconsideration-v1', 'materials_hash': materials_hash,
+            'targets': [{'input_fingerprint': fingerprint(original['input']),
+                'review_fingerprint': fingerprint(original['result']),
+                'diagnosis': 'Scope evidence requires an independent reconsideration.'}]}
+        reconsider_manifest, reconsider_packets = finalize._reconsideration_packets(
+            root, materials_hash, local_values, plan)
+        reconsider_values = make_phase('reconsideration', reconsider_manifest, reconsider_packets)
+        local_values = finalize._apply_reconsideration(local_values, reconsider_packets, reconsider_values)
+        values[:] = [value['result'] for value in local_values]
     global_manifest, global_packets = finalize._expected_global_packets(root, materials_hash, 12000, local_values)
     values.extend(make_phase('global', global_manifest, global_packets))
     catalog = finalize._evidence_catalog({'files': files})
@@ -314,6 +330,8 @@ def _complete_review_fixture(root):
         'endpoint_hash': endpoint_hash, 'packet_bytes': 12000, 'materials_hash': materials_hash,
         'result_hash': 'result', 'executions': proofs, 'passed': True, 'unresolved_findings': [],
         'raw_review_hash': file_hash(root / 'effect_review_raw.json')}
+    if plan:
+        meta['reconsideration_plan'] = plan
     write_json(root / 'effect_review.json', meta)
     return meta
 
@@ -413,3 +431,79 @@ def test_causal_role_includes_generated_units_and_original_rr_sr_evidence(tmp_pa
     role = finalize._decode_review_tables(next(j for j in jobs if j['role'] == 'causal_mapping'))
     assert role['projection']['source_generated'][0]['scenario_id'] == 'G1'
     assert {d['layer'] for d in role['source_documents']} == {'RR','SR','TEST'}
+
+
+def test_reconsideration_requires_actual_proof_and_keeps_first_failure(tmp_path):
+    meta = _complete_review_fixture(tmp_path, reconsider=True)
+    finalize.verify_review_execution(tmp_path, meta)
+    original = next(p for p in meta['executions'] if p['phase'] == 'local')
+    assert read_json(original['path'])['areas'][0]['passed'] is False
+    global_proof = next(p for p in meta['executions'] if p['phase'] == 'global')
+    packet = read_json(tmp_path / 'batches/independent-effect-review/global/packets' /
+        (global_proof['batch_id'] + '.json'))
+    payload = finalize._decode_review_tables(packet['input'])
+    assert payload['local_review_results'][0]['prior_review']['areas'][0]['passed'] is False
+    assert payload['local_review_results'][0]['review'][0]['passed'] is True
+    meta['executions'] = [p for p in meta['executions'] if p['phase'] != 'reconsideration']
+    with pytest.raises(ValueError, match='proof is missing'):
+        finalize.verify_review_execution(tmp_path, meta)
+
+
+def test_reconsideration_binds_materials_original_verdict_and_target(tmp_path):
+    meta = _complete_review_fixture(tmp_path, reconsider=True)
+    plan = meta['reconsideration_plan']
+    manifest, packets = finalize._expected_local_packets(tmp_path, meta['materials_hash'], 12000)
+    local = []
+    for batch in manifest['batches']:
+        packet = packets[batch['batch_id']]
+        raw = read_json(tmp_path / 'batches/independent-effect-review/local/results' /
+            (batch['batch_id'] + '.json'))
+        local.append({'input': packet['input'], 'result': finalize._validate_review_packet(packet, raw)})
+    import copy
+    stale = copy.deepcopy(plan); stale['materials_hash'] = 'stale'
+    with pytest.raises(ValueError, match='current materials'):
+        finalize._reconsideration_packets(tmp_path, meta['materials_hash'], local, stale)
+    stale = copy.deepcopy(plan); stale['targets'][0]['review_fingerprint'] = 'edited'
+    with pytest.raises(ValueError, match='real rejection'):
+        finalize._reconsideration_packets(tmp_path, meta['materials_hash'], local, stale)
+    duplicate = copy.deepcopy(plan); duplicate['targets'] *= 2
+    with pytest.raises(ValueError, match='duplicated'):
+        finalize._reconsideration_packets(tmp_path, meta['materials_hash'], local, duplicate)
+
+
+def test_reconsideration_cannot_suppress_a_real_second_rejection(tmp_path):
+    write_json(tmp_path / 'result_bundle.json', {'scope': {'use_case_ids': ['UC-1']},
+        'source_units': {'E': [{'unit_id': 'E-out', 'use_case_id': 'UC-2'}]}})
+    original = {'input': {'role': 'causal_mapping', 'areas': ['exception_identity'],
+        'evidence_file_catalog': {'F0': 'result_bundle.json'}},
+        'result': {'areas': [{'area': 'exception_identity', 'passed': False,
+            'reason': 'source contradiction', 'evidence_ids': ['F0']}],
+            'unresolved_findings': ['source contradiction']}}
+    plan = {'schema': 'scene-review-reconsideration-v1', 'materials_hash': 'M',
+        'targets': [{'input_fingerprint': fingerprint(original['input']),
+            'review_fingerprint': fingerprint(original['result']), 'diagnosis': 'Verify scope.'}]}
+    _, packets = finalize._reconsideration_packets(tmp_path, 'M', [original], plan)
+    payload = next(iter(packets.values()))['input']
+    assert payload['scope_evidence']['historical_other_case_unit_ids'] == ['E-out']
+    assert payload['reconsideration_evidence']['input'] == original['input']
+    effective = finalize._apply_reconsideration([original], packets, [original['result']])
+    assert effective[0]['result']['areas'][0]['passed'] is False
+    assert effective[0]['prior_review'] == original['result']
+
+
+def test_reconsideration_record_closure_preserves_complete_cited_records():
+    original = finalize._shared_view({'projection_sections': [
+        {'path': ['projection', 'source_units', 'E', i], 'value': {'unit_id': uid,
+            'cause_code': 'missing_resource', 'necessary_conditions': ['specific prerequisite'],
+            'source_refs': [{'document': 'req.md', 'line_start': 7, 'line_end': 9}]}}
+        for i, uid in enumerate(['U-1', 'U-2'])]})
+    prior = {'areas': [{'area': 'exception_identity', 'passed': False, 'reason': 'U-1 disputed'}],
+        'unresolved_findings': ['U-1 disputed']}
+    view = finalize._reconsideration_evidence(original, prior)
+    assert view['kind'] == 'record_closure'
+    assert view['unit_ids'] == ['U-1']
+    assert view['sections'][0]['value']['necessary_conditions'] == ['specific prerequisite']
+    assert view['sections'][0]['value']['source_refs'][0]['line_end'] == 9
+    assert view['retained_original_input_fingerprint'] == fingerprint(original)
+    prior['unresolved_findings'].append('A separate unlocated problem has no record ID')
+    assert finalize._reconsideration_evidence(original, prior)['kind'] == 'full_original_input'

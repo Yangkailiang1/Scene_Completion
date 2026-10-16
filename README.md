@@ -211,6 +211,8 @@ python .cac/tools/scene_delivery_job.py status --run-dir output/run
 
 该作业依次执行回归、零新增调用续跑、配置指定的独立审查、验收及离线快照重建；独立审查仍会调用模型并使用原配置的额度。重复启动会复用活跃或已完成的作业，失败时保留日志及需处理状态。`running`和主控退出都不代表交付，最终仍需`ready_to_deliver=true`。
 
+独立审查出现范围或协议理解争议时，可在审查配置中用`review_reconsideration_plan`指定绑定当前材料、原包及原拒绝结论的定向复核计划，字段见[主控Skill](.cac/skills/scene-controller/SKILL.md)。复核由同一独立模型实际执行；第一次结论和已通过领域保留，复核仍拒绝则不能验收。
+
 批量修复默认最多两轮。可从[主控配置示例](supervisor.config.example.json)建立独立配置，再在批量配置增加`"supervisor_config": "supervisor.config.json"`；未配置不自动切换。批量修复或额度耗尽后先自动接手一次，仍失败时由宿主主控继续诊断、修正通用工具或提示词、离线复检。确需新语义修复时，用`scene_supervisor_continue.py`登记绑定当前失败及实际修改的新计划，再恢复原流程；相同计划不能重复请求，接手次数和用量累计，成功结果继续复用。共享并发与限流冷却、原校验器和输入隔离始终有效。详细规则见[用例执行与修复](.cac/skills/scene-concern-gap/references/case_execution.md)和[主控编排](.cac/skills/scene-controller/SKILL.md)。
 
 输出包括生成/已有异常、全部配对决定、指标、推荐、测试采纳、章节诊断及图形；最终工作簿为 `scene_assessment.xlsx`，指标表在“类别”右侧提供中文“关注点说明”。四项指标使用规范化一一集合：漏报率=1−|(T−E)∩M|/|T−E|；生成有效率=|G∩T|/|G|；采纳率=|R∩T|/|R|；推荐误报率=|R−T|/|T|。空分母null，误报率不截断。测试明示和标记推导原因共同计入GT，分类数量不直接累加。
