@@ -15,6 +15,8 @@ def rejection_ids(failure, target):
         if isinstance(row, dict) and any(str(row.get(k)) in ids for k in ('unit_id', 'scenario_id', 'id')):
             if row.get('source_scenario_id'):
                 ids.add(str(row['source_scenario_id']))
+            if row.get('mount_id'):
+                ids.add(str(row['mount_id']))
     return ids
 
 

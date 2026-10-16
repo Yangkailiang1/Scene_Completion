@@ -249,7 +249,7 @@ class Packets:
         self.import_valid(folder, validator)
         return folder
 
-    def diagnose(self, case_root, name, target, failure, round_number):
+    def diagnose(self, case_root, name, target, failure, round_number, *, _batch_id=None):
         from .diagnosis import quote_catalog, rejection_ids, failure_view, focus_input, share_allowed_inputs, protocol_key
         original = read_json(Path(target['folder']) / 'manifest.json')
         packets = [read_json(Path(target['folder']) / 'packets' / (row['batch_id'] + '.json')) for row in original['batches']]
@@ -259,8 +259,51 @@ class Packets:
             ((Path(target['folder'])/'results'/(p['batch_id']+'.json')).exists() and
                 contains_id(read_json(Path(target['folder'])/'results'/(p['batch_id']+'.json')),rejected))]
         if scoped:packets=scoped
+        if _batch_id is not None:
+            packets = [p for p in packets if p['batch_id'] == _batch_id]
+            if len(packets) != 1:
+                raise ValueError('diagnosis shard must bind one original rejected packet')
+        elif len(packets) > 1:
+            parts = [self.diagnose(case_root, name, target, failure, round_number,
+                _batch_id=p['batch_id']) for p in packets]
+            diagnoses = [row[0] for row in parts]
+            action = ('confirm' if any(d['action'] == 'confirm' for d in diagnoses)
+                else 'repair' if any(d['action'] == 'repair' for d in diagnoses) else 'recheck')
+            combined = {'action': action,
+                'reason': '\n'.join(f"{p['batch_id']}: {d['action']}: {d['reason']}"
+                    for p, d in zip(packets, diagnoses)),
+                'targets': list(dict.fromkeys(t for d in diagnoses for t in d['targets'])),
+                'evidence_quotes': list(dict.fromkeys(q for d in diagnoses for q in d.get('evidence_quotes', [])))}
+            return combined, {'kind': 'packet_sharded_diagnosis',
+                'coverage': [p['batch_id'] for p in packets],
+                'parts': [{'batch_id': p['batch_id'], 'diagnosis': d, 'execution': proof}
+                    for p, (d, proof) in zip(packets, parts)]}
+        diagnostic_name = name + ('-part-' + fingerprint(_batch_id)[:10] if _batch_id else '')
+        scoped_failure = failure_view(failure)
+        if _batch_id:
+            relevant = {str(row.get(key)) for p in packets for field in ('units', 'scenarios', 'original_scenarios', 'mounts')
+                for row in p['input'].get(field, []) if isinstance(row, dict)
+                for key in ('unit_id', 'scenario_id', 'source_scenario_id', 'mount_id') if row.get(key)}
+            relevant.update(str(row[key]) for row in target.get('values', []) if isinstance(row, dict)
+                and any(str(row.get(k)) in relevant for k in ('source_scenario_id', 'mount_id', 'scenario_id'))
+                for key in ('unit_id', 'scenario_id') if row.get(key))
+            if 'findings' in scoped_failure:
+                scoped_failure['findings'] = [f for f in scoped_failure['findings'] if contains_id(f, relevant)]
+            for field in ('errors',):
+                if isinstance(scoped_failure.get(field), dict):
+                    scoped_failure[field] = {k: v for k, v in scoped_failure[field].items() if k == _batch_id}
+            if 'pending' in scoped_failure:
+                scoped_failure['pending'] = [b for b in scoped_failure['pending'] if b == _batch_id]
         failed_outputs = []
         for row in packets:
+            saved_result = Path(target['folder']) / 'results' / (row['batch_id'] + '.json')
+            if saved_result.exists():
+                raw = read_json(saved_result)
+                self.cache_identity(raw)
+                validate_result_execution(raw, result_path=saved_result)
+                failed_outputs.append({'batch_id': row['batch_id'], 'result': raw,
+                    'note': 'Current proven output under review; historical format refusals are superseded.'})
+                continue
             attempts = sorted((Path(target['folder']) / 'attempts').glob(row['batch_id'] + '-*.json'))
             if attempts:
                 history = read_json(attempts[-1])
@@ -269,7 +312,7 @@ class Packets:
         # Only the target's original permitted input channel is supplied.
         allowed=share_allowed_inputs([focus_input({k:v for k,v in p['input'].items()
             if k not in ('skill','extraction_skills','execution_versions')}, rejected) for p in packets])
-        payload = {'stage': name, 'failure': failure_view(failure), 'allowed_inputs': allowed,
+        payload = {'stage': name, 'failure': scoped_failure, 'allowed_inputs': allowed,
             'evidence_catalog':quote_catalog(allowed),
             'round': round_number, 'repair_policy': 'source-only; preserve successful records; never add unconfirmed model items',
             'failed_outputs_from_same_channel': failed_outputs}
@@ -299,7 +342,7 @@ class Packets:
             # under the current rule, instead of paying to regenerate it.
             from .rejected_task_revalidation import offline_ready,promote_offline
             for index in range(record['invalid_outputs']):
-                previous=case_root/'batches'/(name+'-diagnosis-'+str(round_number)+('-format-'+str(index) if index else ''))
+                previous=case_root/'batches'/(diagnostic_name+'-diagnosis-'+str(round_number)+('-format-'+str(index) if index else ''))
                 promote_offline(previous,diagnosis_validator,self.cache_identity)
                 if not offline_ready(previous,diagnosis_validator,self.cache_identity):
                     continue
@@ -308,7 +351,7 @@ class Packets:
                 return result['values'][0],result
         while record['invalid_outputs']<limit:
             attempt=record['invalid_outputs']
-            folder=case_root/'batches'/(name+'-diagnosis-'+str(round_number)+('-format-'+str(attempt) if attempt else ''))
+            folder=case_root/'batches'/(diagnostic_name+'-diagnosis-'+str(round_number)+('-format-'+str(attempt) if attempt else ''))
             data={**payload,**({'diagnosis_format_feedback':record['feedback']} if attempt else {})}
             prepare_packets(folder,'gap-diagnosis',[data],instructions,contract)
             try:result=self.execute(folder,diagnosis_validator)

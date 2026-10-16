@@ -129,6 +129,58 @@ def test_diagnosis_locates_original_packet_using_rejected_unit_source_id(tmp_pat
     assert len(failure['output']['large_unrelated'])==300000
 
 
+def test_diagnosis_shards_failed_packets_preserves_coverage_and_does_not_resend_success(tmp_path, monkeypatch):
+    folder = tmp_path / 'source'
+    prepare_packets(folder, 'gap-normalize-G', [
+        {'scenarios': [{'scenario_id': key, 'trigger_condition': key + ' missing value'}]}
+        for key in ('G1', 'G2', 'G3')], [], {})
+    packets = Packets(tmp_path, SimpleNamespace(agent_mode='external'),
+        SimpleNamespace(config={}, model=lambda _: 'fixture'), CallGate(1))
+    captured = []
+    def execute(directory, validator):
+        manifest = read_json(directory / 'manifest.json')
+        p = read_json(directory / 'packets' / (manifest['batches'][0]['batch_id'] + '.json'))
+        captured.append(p)
+        return {'values': [{'action': 'repair', 'reason': 'source-backed fix',
+            'targets': ['code'], 'evidence_quotes': []}], 'folder': str(directory)}
+    monkeypatch.setattr(packets, 'execute', execute)
+    target = {'folder': str(folder), 'values': [
+        {'unit_id': 'U1', 'source_scenario_id': 'G1'},
+        {'unit_id': 'U3', 'source_scenario_id': 'G3'}]}
+    failure = {'findings': [{'unit_id': 'U1'}, {'unit_id': 'U3'}]}
+    diagnosis, proof = packets.diagnose(tmp_path, 'reverse-G', target, failure, 1)
+    assert diagnosis['action'] == 'repair' and len(proof['coverage']) == 2
+    assert len(captured) == 2
+    assert [p['input']['allowed_inputs'][0]['scenarios'][0]['scenario_id'] for p in captured] == ['G1', 'G3']
+    assert [p['input']['failure']['findings'] for p in captured] == [[{'unit_id': 'U1'}], [{'unit_id': 'U3'}]]
+    packets.diagnose(tmp_path, 'reverse-G', target, failure, 1)
+    assert len(captured) == 4  # existing valid-folder route, no new diagnostic protocol
+    ledger = read_json(tmp_path / 'diagnosis_format_budget.json')
+    assert len(ledger) == 2 and all(r['invalid_outputs'] == 0 for r in ledger.values())
+
+
+def test_source_repair_diagnosis_locates_generated_scenarios_by_mount(tmp_path, monkeypatch):
+    folder = tmp_path / 'source'
+    prepare_packets(folder, 'gap-generation', [
+        {'mounts': [{'mount_id': key, 'feature_evidence': ['source-backed trait']}]} for key in ('M1', 'M2')], [], {})
+    packets = Packets(tmp_path, SimpleNamespace(agent_mode='external'),
+        SimpleNamespace(config={}, model=lambda _: 'fixture'), CallGate(1))
+    captured = []
+    def execute(directory, validator):
+        m = read_json(directory / 'manifest.json')
+        packet = read_json(directory / 'packets' / (m['batches'][0]['batch_id'] + '.json'))
+        captured.append(packet['input'])
+        return {'values': [{'action': 'repair', 'reason': 'remove invented bound',
+            'targets': ['G2'], 'evidence_quotes': []}], 'folder': str(directory)}
+    monkeypatch.setattr(packets, 'execute', execute)
+    target = {'folder': str(folder), 'values': [{'scenario_id': 'G2', 'mount_id': 'M2'}]}
+    packets.diagnose(tmp_path, 'reverse-G', target,
+        {'findings': [{'unit_id': 'U2', 'source_scenario_id': 'G2'}]}, 2)
+    assert len(captured) == 1
+    assert captured[0]['allowed_inputs'][0]['mounts'][0]['mount_id'] == 'M2'
+    assert captured[0]['failure']['findings'][0]['source_scenario_id'] == 'G2'
+
+
 def test_repair_failure_prompt_excludes_successful_full_stage_output():
     from scene_completion.diagnosis import failure_view, rejection_ids
     original={'findings':[{'unit_id':'U1'}], 'output':{'values':['successful']}}
