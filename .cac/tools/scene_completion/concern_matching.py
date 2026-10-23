@@ -17,10 +17,11 @@ def complete_data_matches(inputs, matches):
     for i in interactions(inputs):
         for p in parameters_for(i,inputs):
             rules=[]
-            if p['required'] is True:rules.append(('数据完整性','required',p['source_refs']))
-            if p['data_type'] is not None:rules.append(('数据类型','type='+p['data_type'],p['source_refs']))
-            rules += [(kinds[r['kind']],r['kind']+'='+json.dumps(r['value'],ensure_ascii=False),r['source_refs']) for r in p['constraints'] if r['status']=='explicit']
-            for label,rule,refs in rules:
+            if p['required'] is True:rules.append(('数据完整性','required',True,p['source_refs']))
+            if p['data_type'] is not None:rules.append(('数据类型','type',p['data_type'],p['source_refs']))
+            rules += [(kinds[r['kind']],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if r['status']=='explicit']
+            for label,rule,value,refs in rules:
                 matches.append({'interaction_id':i['id'],'target':'data','object':p['name'],'concern_key':concern_by_label(label),
-                                'basis':'接收方接口的明示字段属性','concrete_rule':rule,'source_refs':refs})
+                                'basis':'当前请求/返回接口的明示字段属性','concrete_rule':rule+'='+json.dumps(value,ensure_ascii=False),'source_refs':refs,
+                                'scope':'interface','data_location':p['location'],'activation_evidence':[{'kind':'data','condition':p['name']+' '+rule+'='+json.dumps(value,ensure_ascii=False),'value':value,'unit':None,'status':'explicit','field':p['name'],'constraint_kind':rule,'source_refs':refs}]})
     return list({fingerprint(m):m for m in matches}.values())

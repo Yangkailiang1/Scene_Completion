@@ -28,3 +28,5 @@ python .cac/tools/scene_completion.py task --task api-parameters --input-json IN
 ```
 
 默认只准备任务包。真实模型执行须显式external模式及配置。本Skill定义任务边界，不承诺每任务固定调用一次模型。
+
+请求/返回字段分别记录，数据关注点共享七类但不混淆方向；保留明示规则，未知不从已有错误响应反推。服务策略等非字段规则由关注点匹配读取正向文档确认。

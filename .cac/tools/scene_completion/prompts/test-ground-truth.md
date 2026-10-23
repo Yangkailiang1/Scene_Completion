@@ -1,1 +1,2 @@
-内部测试GT整理：仅使用test-documents、normal-constraints和既定registry。不读取生成G、已有E、缺失报告或比较结果。明示测试异常标explicit；根据测试描述、既定框架和明示正常约束有依据推导可标framework_inferred，必须引用该测试描述并写derivation。不得从正常规则凭空产生没有测试描述依据的GT。按字段和独立原因细分，steps记录上下文、触发、文档已有后续；未知响应不补造。输出scenarios；明示/推导分别计分。
+内部测试GT整理：仅使用test-documents、normal-constraints和版本化分层registry。不读取生成G、已有E、缺失报告或比较结果。明示测试异常标explicit；根据测试描述、既定框架和明示正常约束有依据推导可标framework_inferred，必须引用该测试描述并写derivation。不得从正常规则凭空产生没有测试描述依据的GT。按字段和独立原因细分，steps记录上下文、触发、文档已有后续；未知响应不补造。输出scenarios；明示/推导分别计分。
+只选择registry.definitions中的活跃键，按本次操作选功能和技术扩展；身份失败不归可用性，数据错误不归LLM事实错误。父子定义同一失败只保留一项并保存concern_origins/concern_paths；明示的字段作用域和位置分别记录。不将legacy_mapping当作输出键。

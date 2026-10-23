@@ -31,7 +31,8 @@ def resolved_api_id(i,inputs):
 def parameters_for(i, inputs):
     is_return=i['direction']=='return'
     valid=lambda p:p['location']=='response' if is_return else p['location']!='response'
-    params=[deepcopy(p) for p in i['data']['sequence'] if valid(p)]
+    actual_valid=lambda p:p['location'] in {'response','business'} if is_return else p['location']!='response'
+    params=[deepcopy(p) for p in i['data']['sequence'] if actual_valid(p)]
     api_id=resolved_api_id(i,inputs)
     if api_id:
         apis=[a for a in inputs.get('api-parameters',{}).get('apis',[]) if a['id']==api_id]

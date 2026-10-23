@@ -7,8 +7,8 @@
 | 3 | 每用例RR/SR基础SSD | rr-ssd / sr-ssd | 先抽取，不依赖能力表 |
 | 4 | 对象能力汇总 | 内部test-operation-project → capability_union | 测试仅操作投影，不新增交互 |
 | 5 | 交互补全 | interaction-align → enrich | 有据统一名称、组成位置、能力、接口；RR/SR对应未知待确认 |
-| 6 | 关注点匹配 | concern-match → enriched-view | 预定义57项，双方及数据；本次操作决定适用性 |
-| 7 | 异常生成G | exception-generate、data_exceptions、query_exceptions | 不看E/GT；请求/返回分离、字段/约束原子化，未知待确认 |
+| 6 | 关注点匹配 | concern-match → enriched-view | 统一基础、五类实际功能、数据库/LLM扩展及条件规则；三态与继承路径 |
+| 7 | 异常生成G | exception-generate、data_exceptions、query_exceptions | 不看E/GT；请求/返回分离、字段/约束原子化、适用状态过滤；父子失败去重保留来源，未知待确认 |
 | 8 | 已有异常E | existing-extract | 独立当前文档已有分支 |
 | 9 | 缺失比较M | gap-compare直接输出decisions+missing | 仅G/E，full语义一一对应；partial不覆盖 |
 | 10 | 缺失报告 | missing-report → JSON / Markdown | 独立于GT失败，汇总交互、关注点、异常步骤、已有覆盖和缺失原因 |

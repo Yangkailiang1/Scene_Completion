@@ -51,7 +51,8 @@ def decision(a,b,status='full'):return {'left_id':a,'right_id':b,'status':status
 
 def test_registry_and_eight_data_exceptions():
     approved=json.loads((Path(__file__).parent/'fixtures/workflow_v1/acceptance.json').read_text())
-    assert len(registry()['definitions'])==57
+    assert registry()['version']=='service-concerns-v2'
+    assert len(registry()['legacy_mapping'])==57
     x=memory_inputs();out=data_exceptions(x)
     assert sorted([s['field'],s['cause']] for s in out)==sorted(approved['expected_data_rules'])
     validate_result('exception-generate',{'scenarios':out,'pending':[]},x)

@@ -4,7 +4,9 @@ from .storage import fingerprint
 from .contracts import PROTOCOL,registry,validate
 from .source_documents import validate_evidence,documents_in,evidence_refs
 from .interaction_enrichment import interactions,parameters_for
-from .exception_generation import scenario_key,data_exceptions,query_matches
+from .concern_hierarchy import applicability,match_is_applicable,context
+from .concern_registry import inheritance_paths
+from .exception_generation import scenario_key,data_exceptions,query_matches,storage_exceptions,deduplicate
 def refs_required(value):
     def visit(v):
         if isinstance(v,dict):
@@ -27,10 +29,44 @@ def validate_result(task, payload, inputs):
             if not docs:raise ValueError('output uses evidence outside task dependencies')
             validate_evidence(ref,docs)
     refs_required(payload)
+    # Numerical rule values must be traceable, even when the model cites a
+    # real sentence. Citation presence alone is not a threshold source.
+    import re
+    def rule_values(node):
+        if isinstance(node,dict):
+            for g in node.get('activation_evidence',[]):
+                value=g.get('value');kind=g['kind']
+                if g.get('status')!='explicit' or kind not in {'timing','resource_limit','stability'}:continue
+                text=' '.join(r['quote'] for r in g['source_refs'])
+                if type(value) in (int,float) and g.get('unit'):
+                    numbers=[float(n) for n in re.findall(r'\d+(?:\.\d+)?',text)]
+                    if kind=='timing':
+                        import math
+                        units={'ms':.001,'millisecond':.001,'milliseconds':.001,'毫秒':.001,'s':1,'sec':1,'second':1,'seconds':1,'秒':1,'min':60,'minute':60,'minutes':60,'分钟':60}
+                        unit=g['unit'].casefold()
+                        if unit in units:
+                            pairs=re.findall(r'(\d+(?:\.\d+)?)\s*(毫秒|milliseconds?|ms|分钟|minutes?|min|秒|seconds?|sec|s)(?![a-z])',text,re.I)
+                            if not any(math.isclose(float(number)*units[u.casefold()],float(value)*units[unit],rel_tol=1e-9) for number,u in pairs):raise ValueError('timing value/unit is not supported by cited normal evidence')
+
+                    if float(value) not in numbers:
+                        unit=g['unit'].casefold();seconds=unit in {'s','sec','second','seconds','秒'};millis=unit in {'ms','millisecond','milliseconds','毫秒'}
+                        converted=[]
+                        if seconds:converted += [float(v)/1000 for v in re.findall(r'(\d+(?:\.\d+)?)\s*(?:毫秒|ms)',text,re.I)]
+                        if millis:converted += [float(v)*1000 for v in re.findall(r'(\d+(?:\.\d+)?)\s*(?:秒|s(?:ec(?:onds?)?)?)(?![a-z])',text,re.I)]
+                        if float(value) not in converted:raise ValueError('numeric rule value is not supported by cited normal evidence')
+                if isinstance(value,str) and value.strip() and value not in text:raise ValueError('qualitative deadline/stability criterion must cite its exact normal wording')
+            for child in node.values():rule_values(child)
+        elif isinstance(node,list):
+            for child in node:rule_values(child)
+    rule_values(payload)
     if 'scenarios' in payload and len({s['id'] for s in payload['scenarios']})!=len(payload['scenarios']):raise ValueError('duplicate scenario ID')
     definitions=registry()['definitions']
     def visit(v):
         if isinstance(v,dict):
+            for key in v.get('concern_origins',[]):
+                if key not in definitions:raise ValueError('unregistered concern origin')
+            for path in v.get('concern_paths',v.get('inheritance_paths',[])):
+                if not path or any(k not in definitions for k in path) or path not in inheritance_paths(path[-1]):raise ValueError('invalid concern inheritance path')
             if 'concern_key' in v and v['concern_key'] not in definitions:raise ValueError('unregistered concern')
             for x in v.values():visit(x)
         elif isinstance(v,list):
@@ -99,19 +135,21 @@ def validate_result(task, payload, inputs):
         for x in payload.get('matches',[])+payload.get('scenarios',[])+payload.get('pending',[]):
             if x['interaction_id'] not in by_id:raise ValueError('unknown actual interaction')
         if task=='concern-match':
-            correct_query={(m['interaction_id'],m['object']):m['concern_key'] for m in query_matches(inputs)}
             for m in payload['matches']:
-                expected_key=correct_query.get((m['interaction_id'],m['object']))
-                if m['target']=='receiver' and expected_key and m['concern_key'].endswith('.resource_existence') and m['concern_key']!=expected_key:raise ValueError('wrong query/database resource concern')
-                i=by_id[m['interaction_id']]
+                i=by_id[m['interaction_id']];d=definitions[m['concern_key']]
                 if m['target'] in {'sender','receiver'} and m['object']!=i[m['target']]['name']:
                     raise ValueError('concern party must be actual sender/receiver')
-                if set(i['operation']['kinds']) <= {'read','display'} and (m['concern_key'].startswith('service.resource_mutation.') or m['concern_key'] in {'internal_database.persistence','internal_database.idempotency','internal_database.uniqueness'}):
+                kinds=context(i,inputs)['kinds']
+                if kinds <= {'read','display'} and d['operation_kinds'] and not kinds&set(d['operation_kinds']) and m.get('status') not in {'not_applicable','pending'}:
                     raise ValueError('read-only interaction cannot activate mutation concerns')
-                if m['target']=='data' and m['object'] not in {p['name'] for p in parameters_for(i,inputs)}:
+                if m['concern_key']=='service.base.availability' and (m['target']!=context(i,inputs)['role'] or m['object']!=context(i,inputs)['name']):
+                    raise ValueError('availability belongs to this actual called service')
+                if m['target']=='data' and m.get('scope','interface') not in {'storage','context'} and m['object'] not in {p['name'] for p in parameters_for(i,inputs)}:
                     raise ValueError('data concern must identify an actual field')
+                status,reason=applicability(m,i,inputs)
+                if m.get('status')=='applicable' and status!='applicable':raise ValueError('concern applicability lacks evidence: '+reason)
         else:
-            matches={(m['interaction_id'],m['object'],m['concern_key']) for m in inputs['concern-match']['matches']}
+            matches={(m['interaction_id'],m['object'],m['concern_key']) for m in inputs['concern-match']['matches'] if match_is_applicable(m,by_id[m['interaction_id']],inputs)}
             for s in payload['scenarios']:
                 i=by_id[s['interaction_id']]
                 if s['operation']!=i['operation']['name'] or s['case_id']!=i['case_id'] or s['layer']!=i['layer']:
@@ -121,11 +159,16 @@ def validate_result(task, payload, inputs):
                 if s['source_status']!='framework_inferred' or not s['derivation']:
                     raise ValueError('G requires recorded positive-rule derivation')
                 if s['field'] is not None:
-                    expected={scenario_key(x) for x in data_exceptions(inputs)}
+                    expected={scenario_key(x) for x in data_exceptions(inputs)+storage_exceptions(inputs)}
                     if scenario_key(s) not in expected: raise ValueError('unsupported or invented field exception')
                 else:
-                    match=[m for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key'])]
+                    match=[m for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key']) and match_is_applicable(m,i,inputs)]
+                    if definitions[s['concern_key']]['kind']=='family':raise ValueError('abstract concern family cannot generate an independent exception')
                     if not any(m['concrete_rule'] for m in match):raise ValueError('no concrete rule; move to pending')
+                if s['concern_key']=='service.workflow.interruption' and s['cause'].casefold() in {'cancel','canceled','cancelled','取消','用户取消','普通取消','正常取消'}:raise ValueError('ordinary cancellation is not an exception')
+                if s['concern_key']=='service.base.availability':
+                    import re
+                    if re.search(r'认证|凭证|身份|token|authenticat',s['cause']+' '+str(s['conditions']),re.I):raise ValueError('authentication failure is not service availability')
     if task in {'existing-extract','test-ground-truth'}:
         test_ids={d['source_id'] for d in documents_in(inputs) if d.get('channel')=='test'}
         for s in payload['scenarios']:
@@ -142,9 +185,11 @@ def validate_result(task, payload, inputs):
             a,b=left[d['left_id']],right[d['right_id']]
             if d['status']=='full' and (a['case_id']!=b['case_id'] or a['layer']!=b['layer']):
                 raise ValueError('full match cannot cross case/layer')
+            if d['status']=='full' and a.get('scope') in {'interface','storage','context'} and b.get('scope') in {'interface','storage','context'} and a['scope']!=b['scope']:raise ValueError('full match cannot cross constraint scope')
+            if d['status']=='full' and a.get('data_location') and b.get('data_location') and a['data_location']!=b['data_location']:raise ValueError('full match cannot cross field location')
             if d['status']=='full' and {a['cause'],b['cause']} & {'no_matching_records','empty_list'} and {a['cause'],b['cause']} & {'instance_missing','instance_not_found','requested_resource_not_found'}:raise ValueError('no match cannot cover missing instance')
     if task=='gap-compare':
         from .exception_comparison import missing_report
         expected=missing_report(inputs['left'],inputs['right'],payload['decisions'])['M']
-        if payload['missing']!=expected:raise ValueError('missing must equal G minus complete one-to-one E coverage')
+        if deduplicate(payload['missing'])!=expected:raise ValueError('missing must equal G minus complete one-to-one E coverage')
     return payload

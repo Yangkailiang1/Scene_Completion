@@ -169,6 +169,39 @@
               "documented_follow_up"
             ],
             "additionalProperties": false
+          },
+          "concern_origins": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "concern_paths": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "scope": {
+            "enum": [
+              "interface",
+              "storage",
+              "context",
+              "service",
+              "relation",
+              "environment"
+            ]
+          },
+          "data_location": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

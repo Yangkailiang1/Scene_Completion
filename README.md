@@ -1,6 +1,6 @@
 # Scene Completion
 
-项目只保留 `scene-workflow-v1`：11个任务Skill和主控Skill。共享抽取系统组成/API两表，逐用例整理交互、匹配57项既定关注点、生成异常G、抽取已有异常E并交付缺失集合M。推荐未启用，不生成Q。
+项目只保留 `scene-workflow-v1`：11个任务Skill和主控Skill。共享抽取系统组成/API两表，逐用例整理交互、按版本化分层定义匹配关注点（当前45个定义，包含基础族）、生成异常G、抽取已有异常E并交付缺失集合M。推荐未启用，不生成Q。
 
 ## 安装与离线验证
 
@@ -52,6 +52,16 @@ python .cac/tools/scene_completion.py check-run --run-dir runs/mall-v1
 `--responses-dir`可导入人工/外部执行结果：文件名为任务包的batch_id，根对象为 `{protocol,task,batch_id,payload}`。任务包包含Skill文本、严格输出Schema、指定用例、输入及修复信息，不接受不匹配的响应。
 
 流水线可选 `--extraction-truth GT.json` 与 `--adjudications DECISIONS.json`：共享任务键为 `components`、`api-map`、`api-parameters`，逐用例键为 `用例编号:rr-ssd`、`用例编号:sr-ssd`、`用例编号:object-operations`。未提供人工GT标“未评测”，明确空集合标“不适用”。语义决策须经人工确认；可复用的绑定格式及最小计分单元见[协议说明](docs/scene-workflow-v1/protocol.md)。测试异常GT与人工抽取GT是两个独立输入。
+
+## Service关注点分层
+
+当前注册表为 `service-concerns-v2`，不固定定义数量：统一Service基础层 → 本次实际操作的五类功能 → 数据库/LLM技术扩展，再叠加有据时间、环境和调用边约束。内部/外部是位置身份，不是两套基础规则。
+
+匹配制品逐条输出 `applicable`（适用）、`pending`（待确认）、`not_applicable`（不适用）、继承路径、具体正常规则和来源。身份/授权不默认要求登录；未知阈值、格式或模型允许波动不补造。请求与返回共享七类数据定义，但字段方向、位置、接口/存储/上下文作用域分别处理。仅适用且有具体规则的叶检查进入G。
+
+父层、功能层、技术层命中同一具体失败时，合并为一个失败单元并保留全部 `concern_origins` / `concern_paths`。七类字段规则、集合查询、实际被调用服务可用性及有据存储字段规则由工具生成，语义模型补充其他有规则支持的异常；不强制每个关注点生成一条。
+
+完整[分类与旧57项迁移对照](docs/scene-workflow-v1/concern-hierarchy.md)。旧映射只作审计，不能输出已移除键。运行身份包含注册表版本与摘要，旧关注点结果不会直接当作新结果复用；从当前版本起，仅修改注册表时不重抽组成、SSD和API表。代码/Schema升级仍会触发相应阶段失效。
 
 ## 输出与恢复
 

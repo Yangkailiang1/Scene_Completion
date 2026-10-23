@@ -28,3 +28,5 @@ python .cac/tools/scene_completion.py task --task existing-extract --input-json 
 ```
 
 默认只准备任务包。真实模型执行须显式external模式及配置。本Skill定义任务边界，不承诺每任务固定调用一次模型。
+
+只使用当前活跃关注点键；按实际失败原因选择最具体的定义，保留父层来源。字段已知时标注scope和data_location，区分接口/存储、请求/返回。认证失败不能按旧标签归为服务不可用。

@@ -28,3 +28,5 @@ python .cac/tools/scene_completion.py task --task sr-ssd --input-json INPUT.json
 ```
 
 默认只准备任务包。真实模型执行须显式external模式及配置。本Skill定义任务边界，不承诺每任务固定调用一次模型。
+
+operation.kinds应同时保留实际业务行为和调用属性：external_call不替代read/process等功能标记，支持按本次复合操作组合类别；不能因为被调用对象是数据库或LLM就推断未发生的功能。

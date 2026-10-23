@@ -19,7 +19,7 @@ def export_task(root,task,payload,artifact_name=None):
         headers=['顺序','发送方','操作','数据','接收方'];rows=[[i['sequence'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']] for i in payload['interactions']]
     elif task=='concern-match':
         from .contracts import registry
-        defs=registry()['definitions'];headers=['交互','系统组成/数据','关注点'];rows=[[m['interaction_id'],m['object'],defs[m['concern_key']]['label']] for m in payload['matches']]
+        defs=registry()['definitions'];headers=['交互','Service','系统组成/数据','关注点','状态','继承路径','规则或待确认原因'];rows=[[m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),m.get('status','待确认')),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason','')] for m in payload['matches']]
     if headers:
         safe=lambda x:str(x).replace('|','\\|').replace('\n','<br>')
         text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
@@ -76,8 +76,8 @@ def export_missing_report(root,combined):
           '| 交互 | 发送方 | 操作 | 数据 | 接收方 |','| --- | --- | --- | --- | --- |']
         for i in report['interactions']['interactions']:
             lines.append('| '+' | '.join(cell(v) for v in (i['id'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']))+' |')
-        lines+=['','| 交互 | 对象/数据 | 关注点 | 依据 |','| --- | --- | --- | --- |']
-        for m in report['concerns']:lines.append('| '+' | '.join(cell(x) for x in (m['interaction_id'],m['object'],defs[m['concern_key']]['label'],m['basis']))+' |')
+        lines+=['','| 交互 | Service | 对象/数据 | 关注点 | 状态 | 继承路径 | 规则或待确认原因 |','| --- | --- | --- | --- | --- | --- | --- |']
+        for m in report['concerns']:lines.append('| '+' | '.join(cell(x) for x in (m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),'待确认'),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason') or m['basis']))+' |')
         missing={s['id'] for s in report['M']};existing={s['id']:s for s in report['E']}
         lines+=['','### 异常、已有覆盖及缺失原因','']
         for s in report['G']:
@@ -87,6 +87,7 @@ def export_missing_report(root,combined):
               '  - 后续行为：'+('；'.join(x['action'] for x in s['steps']['documented_follow_up']) or '待确认，未补造'),
               '  - 已有覆盖：'+('；'.join(x+': '+existing[x]['cause'] for x in links) or '无完整对应'),
               '  - 缺失原因：'+('对象、操作、原因及必要条件未与已有分支完整对应' if s['id'] in missing else '已有完整对应'),
+              '  - 继承来源：'+'；'.join(' → '.join(defs[k]['label'] for k in path) for path in s.get('concern_paths',[])),
               '  - 来源：'+json.dumps(s['source_refs'],ensure_ascii=False)]
         lines+=['','### 文档已有异常','']
         for s in report['E']:lines.append('- '+s['id']+'：'+s['cause']+'；'+'；'.join(s['conditions']))

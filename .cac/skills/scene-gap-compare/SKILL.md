@@ -28,3 +28,5 @@ python .cac/tools/scene_completion.py task --task gap-compare --input-json INPUT
 ```
 
 默认只准备任务包。真实模型执行须显式external模式及配置。本Skill定义任务边界，不承诺每任务固定调用一次模型。
+
+父子关注点名称不同不代表两个失败；比较具体原因与必要条件。已知接口/存储作用域、同名字段不同位置不得完整对应；服务/调用边的分析视角本身不构成独立异常。

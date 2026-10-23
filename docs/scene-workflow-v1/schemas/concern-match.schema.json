@@ -66,6 +66,234 @@
               ],
               "additionalProperties": false
             }
+          },
+          "status": {
+            "enum": [
+              "applicable",
+              "pending",
+              "not_applicable"
+            ]
+          },
+          "status_reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "inheritance_paths": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "activation_evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "data",
+                    "authentication",
+                    "authorization",
+                    "availability",
+                    "result",
+                    "compatibility",
+                    "timing",
+                    "device",
+                    "resource_limit",
+                    "business",
+                    "persistence",
+                    "concurrency",
+                    "idempotency",
+                    "release",
+                    "recovery",
+                    "resource_lookup",
+                    "storage_field",
+                    "unique",
+                    "reference",
+                    "transaction",
+                    "isolation",
+                    "grounding",
+                    "instruction",
+                    "context",
+                    "prompt_security",
+                    "stability",
+                    "relation",
+                    "technology"
+                  ]
+                },
+                "condition": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "explicit",
+                    "pending"
+                  ]
+                },
+                "source_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "line_start": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "line_end": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "source_id",
+                      "line_start",
+                      "line_end",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "field": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "constraint_kind": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "enum": [
+                        "required",
+                        "type",
+                        "enum",
+                        "minimum",
+                        "maximum",
+                        "format",
+                        "length",
+                        "size",
+                        "pattern",
+                        "other"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "condition",
+                "value",
+                "unit",
+                "status",
+                "source_refs"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scope": {
+            "enum": [
+              "interface",
+              "storage",
+              "context",
+              "service",
+              "relation",
+              "environment"
+            ]
+          },
+          "data_location": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "enum": [
+                  "header",
+                  "path",
+                  "query",
+                  "body",
+                  "response",
+                  "business",
+                  "storage"
+                ]
+              }
+            ]
+          },
+          "service": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functional_types": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "display_interaction",
+                "query_retrieval",
+                "resource_mutation",
+                "analysis_generation",
+                "release_activation"
+              ]
+            }
+          },
+          "technologies": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "database",
+                "llm"
+              ]
+            }
           }
         },
         "required": [

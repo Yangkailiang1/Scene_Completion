@@ -22,7 +22,7 @@ def client_for(config,root,env_file=None):
     return SemanticClient(config)
 
 def parser():
-    p=argparse.ArgumentParser(description='Scene workflow: isolated inputs, fixed concerns, bounded execution')
+    p=argparse.ArgumentParser(description='Scene workflow: isolated inputs, layered concerns, bounded execution')
     sub=p.add_subparsers(dest='command',required=True)
     pipe=sub.add_parser('pipeline');pipe.add_argument('--rr-spec-document',action='append',required=True)
     pipe.add_argument('--sr-spec-document',action='append',required=True);pipe.add_argument('--test-spec-document',action='append',default=[])

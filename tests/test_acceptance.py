@@ -40,11 +40,12 @@ def test_database_facade_has_database_resource_concern_for_either_origin(origin)
     x=bind_resource_services(x)
     x['enriched-interactions']={'interactions':x['sr-ssd']['interactions']}
     out=query_exceptions(x)
-    assert len(out)==2 and all(s['concern_key']=='internal_database.resource_existence' for s in out)
+    assert len(out)==2 and all(s['concern_key']=='service.query_retrieval.resource_existence' for s in out)
     assert {s['cause'] for s in out}=={'no_matching_records','requested_resource_not_found'}
     assert out[0]['cause']=='no_matching_records' and out[0]['object']=='PhysicalDB资源服务'
-    bad=query_matches(x)[0];bad['concern_key']='service.query_retrieval.resource_existence'
-    with pytest.raises(ValueError,match='wrong query'):validate_result('concern-match',{'matches':[bad],'pending':[]},x)
+    bad=query_matches(x)[0];bad['concern_key']='database.uniqueness'
+    bad['status']='applicable'
+    with pytest.raises(ValueError,match='read-only'):validate_result('concern-match',{'matches':[bad],'pending':[]},x)
 
 
 def test_generic_query_and_missing_instance_do_not_cover_each_other():

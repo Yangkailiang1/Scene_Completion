@@ -10,8 +10,9 @@ from .contracts import PROTOCOL,TASKS,SCHEMAS,packet,registry,schema,validate
 from .source_documents import read_documents,normal_projection,documents_in
 from .validation import validate_result
 from .interaction_enrichment import resource_metadata,bind_resource_services,capability_union,enrich,with_concerns,actual_context,basic_views
-from .exception_generation import data_exceptions,deduplicate,pending_rules,query_matches,query_exceptions
+from .exception_generation import data_exceptions,deduplicate,pending_rules,query_matches,query_exceptions,service_exceptions,storage_exceptions,attach_provenance
 from .concern_matching import complete_data_matches
+from .concern_hierarchy import resolve_matches
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
 from .scheduler import Scheduler,Task,TaskRejected,TaskBlocked,CallGate,run_lock
@@ -28,7 +29,7 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','model_client.py','native_client.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py']
     skill=skill_path(task)
     return fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
 
@@ -53,7 +54,7 @@ class Execution:
         if any((self.root/n).exists() for n in ('case_tasks.json','workflow_tasks.json')) and not previous:raise ValueError('unbound/legacy scheduler cache requires a separate run directory')
         if previous and previous.get('execution_identity',{}).get('mode')=='mock' and mocks is None:raise ValueError('mock results cannot be promoted into a real run')
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
-                       'registry_hash':registry()['hash'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
+                       'registry_hash':registry()['hash'],'registry_version':registry()['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
         write_json(manifest,self.manifest)
         self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
         self.gate=CallGate(self.config.get('max_concurrency',1),adaptive=self.config.get('adaptive_concurrency',True),on_change=lambda s:write_json(self.root/'concurrency_status.json',s),pause_file=self.root/'pause_requested.json')
@@ -75,7 +76,7 @@ class Execution:
         if task=='exception-generate':
             # These are derived only from this task's positive inputs. They are
             # not E/GT, previous G, or semantic answers from another channel.
-            p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'pending':pending_rules(inputs)}
+            p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'availability':service_exceptions(inputs),'storage':storage_exceptions(inputs),'pending':pending_rules(inputs)}
             p['tool_rule_instruction']='工具会合并上述确定性候选。模型只需返回其他有具体正常规则支持的双方/操作异常，可返回空scenarios；不要改写字段规则或编造后续行为。'
         if record.get('rounds'):
             p['repair']={'failure':record.get('failure'),'round':record['rounds'],'rule':'仅修复本任务；不读取其他通道。'}
@@ -138,11 +139,12 @@ class Execution:
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
             if task=='concern-match':
-                value['matches']=complete_data_matches(inputs,value['matches'])+query_matches(inputs)
-                value['matches']=list({fingerprint(m):m for m in value['matches']}.values())
+                resolved=resolve_matches(inputs,value['matches'])
+                value['matches']=resolved['matches']
+                value['pending']=list({fingerprint(v):v for v in value['pending']+resolved['pending']}.values())
             if task in {'exception-generate','existing-extract','test-ground-truth'}:
                 if task=='exception-generate':
-                    value['scenarios']=deduplicate(value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs))
+                    value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)))
                     value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
                 else:value['scenarios']=deduplicate(value['scenarios'])
             if task in SCHEMAS:
@@ -157,7 +159,7 @@ class Execution:
                 dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
                 validate_result(task,value['payload'],inputs_for(dependencies))
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
-                 'static':fingerprint(static),'identity':self.identity,'cases':self.case_ids,'registry':registry()['hash']}
+                 'static':fingerprint(static),'identity':self.identity,'cases':self.case_ids,'registry':registry()['hash'] if task in {'concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
 
     def finish(self):
@@ -226,11 +228,12 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
         add('interaction-align',('components','rr-ssd','sr-ssd'),build=lambda d:d)
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:enrich(d,d['interaction-align']))
-        def concern_input(d):
+        positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
+        def concern_input(d,positive=positive):
             v={k:d[k] for k in normal};v=bind_resource_services(v)
             v.update(basic_views(d['interaction-enrich']))
-            return {**v,'enriched-interactions':d['interaction-enrich'],'registry':registry()}
-        add('concern-match',normal+('interaction-enrich',),build=concern_input)
+            return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry()}
+        add('concern-match',normal+('interaction-enrich',),static={'normal-documents':positive},build=concern_input)
         add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
         def generation_input(d):
             v=bind_resource_services({k:d[k] for k in normal if k!='object-operations'})
