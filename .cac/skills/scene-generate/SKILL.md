@@ -3,6 +3,9 @@ name: scene-generate
 description: 融合 RR/SR 正常与可选交互，沿真实 SSD 关注点挂载生成全部异常候选。
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # 场景生成
 
 ## 异常具体化的批量规则

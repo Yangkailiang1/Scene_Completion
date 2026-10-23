@@ -1,9 +1,13 @@
 ---
 name: scene-assemble
 description: 将通过审核的需求模型、SSD 与异常 finding 汇总为可追溯场景、预测、图表和工作簿。
-title: Scene Assemble
-version: 1.0.0
+metadata:
+  title: Scene Assemble
+  version: 1.0.0
 ---
+
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
 
 # Scene Assemble
 

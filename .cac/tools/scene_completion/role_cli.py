@@ -82,14 +82,15 @@ def register_commands(sub):
     configure.add_argument('--output-config', required=True)
     configure.add_argument('--embedding-config')
     configure.add_argument('--output-embedding-config')
-    pipeline.add_argument("--model", required=True)
+    pipeline.add_argument("--model", help="legacy base model; ppt-task-v1 reads RR/SR directly")
     pipeline.add_argument("--spec-document", action="append", help="legacy: all documents also feed checker")
     pipeline.add_argument("--requirement-document", action="append")
     pipeline.add_argument("--design-document", action="append")
     pipeline.add_argument("--rr-spec-document", action="append", help="RR original spec; IR aliases RR")
     pipeline.add_argument("--sr-spec-document", action="append", help="SR original spec; AR is reference only")
     pipeline.add_argument("--test-spec-document", action="append", help="independent full test spec; no RR/SR partition")
-    pipeline.add_argument("--protocol", choices=("rr-sr-concern-gap-v2", "rr-sr-ssd-identification-v1", "legacy"), default="rr-sr-concern-gap-v2")
+    pipeline.add_argument("--protocol", choices=("ppt-task-v1", "rr-sr-concern-gap-v2", "rr-sr-ssd-identification-v1", "legacy"), default="ppt-task-v1")
+    pipeline.add_argument("--responses-dir", help="input-bound results for ppt-task-v1 packets")
     pipeline.add_argument('--ar-spec-document', action='append', help='optional separate AR trace material; never an exception analysis layer')
     pipeline.add_argument('--reuse-run', help='reuse byte-identical successful source/model packets from another run')
     pipeline.add_argument('--history-run', help='verified completed v2 run supplying only other cases historical E and compatible vectors')
@@ -463,6 +464,11 @@ def run_evaluate(args):
 
 
 def run_pipeline(args):
+    if getattr(args,"protocol",None)=="ppt-task-v1":
+        from .ppt_runner import run
+        return run(args)
+    if not getattr(args,"model",None):
+        raise ValueError("legacy protocols require --model")
     if getattr(args,'protocol',None)=='rr-sr-concern-gap-v2':
         from .concern_gap_cli import run
         from .concern_gap_replay import check

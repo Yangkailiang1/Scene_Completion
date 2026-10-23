@@ -3,6 +3,9 @@ name: scene-assess
 description: 检查RR/SR运行完整性、同层一一覆盖、推荐去重和测试关注点单元采纳，核验实际验收证据。
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # 方法与实验验收
 
 v2默认按用例依赖推进，编排与两轮修复规则见 [../scene-concern-gap/references/case_execution.md](../scene-concern-gap/references/case_execution.md)。检查每个成功任务的原包、源文、执行身份及依赖哈希；未完成时返回待处理清单，并保留其他用例有效产物。部分报告不发布全项目指标，历史未齐不排名。完整回归、同版本零新增调用续跑和离线重建仍是最终验证要求。

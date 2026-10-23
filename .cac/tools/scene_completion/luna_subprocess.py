@@ -323,6 +323,9 @@ class LunaSubprocessClient:
                 from .interaction_output_schema import equivalence_output_schema
                 paths['schema'].write_text(json.dumps(equivalence_output_schema(packet),ensure_ascii=False,indent=2),encoding='utf-8')
                 schema_path=paths['schema']
+            if packet.get('output_schema') and self.config.get('structured_output') == 'json_schema':
+                paths['schema'].write_text(json.dumps(packet['output_schema'],ensure_ascii=False,indent=2),encoding='utf-8')
+                schema_path=paths['schema']
             argv = self._argv(paths["output"], schema_path)
         except OSError as exc:
             finished_at = _utc_now()

@@ -3,6 +3,9 @@ name: scene-check
 description: 独立从原始需求用例抽取已有场景，批量语义匹配并统计关注点覆盖。
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # 场景检查
 
 分别独立读取 RR、SR 原始 spec 和统一关注点注册表，抽取原文明示的原子异常 C_RR、C_SR。

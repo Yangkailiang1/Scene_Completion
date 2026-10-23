@@ -70,6 +70,8 @@ def _main_impl(argv=None) -> int:
     usage.add_argument('--exclude-controller-session', action='append')
     usage.add_argument('--allow-any-output-dir', action='store_true')
     register_commands(sub)
+    from scene_completion.ppt_runner import register as register_ppt
+    register_ppt(sub)
     extract = sub.add_parser("extract", help="extract text from a source document")
     extract.add_argument("--input", required=True)
     extract.add_argument("--output", required=True)
@@ -276,6 +278,18 @@ def _main_impl(argv=None) -> int:
             result,code=run(args)
             print(json.dumps(result,ensure_ascii=False,indent=2))
             return code
+        if args.command == 'scene-task':
+            from scene_completion.ppt_runner import run
+            result, code = run(args)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return code
+        if args.command == 'score-ppt-extraction':
+            from scene_completion.ppt_exports import accuracy
+            from scene_completion.ppt_runner import payload
+            value = accuracy(args.task, payload(_read_json(args.extracted)), payload(_read_json(args.truth)),
+                             _read_json(args.decisions) if args.decisions else None)
+            _write_json(args.output, value)
+            return 0
         if args.command in {"scene-pipeline", "run-agent-batches", "prepare-matching-review", "apply-matching-review", "prepare-generator-model", "evaluate-generator", "prepare-checker-taxonomy", "prepare-generator-taxonomy"}:
             result, code = (run_pipeline(args) if args.command == "scene-pipeline" else
                             run_worker(args) if args.command == "run-agent-batches" else

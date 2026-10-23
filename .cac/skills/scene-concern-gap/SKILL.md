@@ -3,6 +3,9 @@ name: scene-concern-gap
 description: 按检查后的SSD和对象特性挂载关注点、生成异常并检查规范化缺失集合。
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # 交互关注点建模与缺失检查
 
 <!-- batch-rules:start -->

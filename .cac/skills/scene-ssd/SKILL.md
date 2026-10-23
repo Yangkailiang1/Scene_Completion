@@ -6,6 +6,9 @@ metadata:
   version: "2.0.0"
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # Scene SSD
 
 职责限于 SSD 交互语义和时序图，不负责需求抽取、关注点审核或最终组装。

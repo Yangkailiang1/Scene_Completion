@@ -243,6 +243,12 @@ class SemanticClient:
                 **({'separators': (',', ':')} if packet.get('context_policy') else {}))}],
             "response_format": {"type": "json_object"},
             "max_tokens": self.output_limit(packet['stage'])}
+        if packet.get('output_schema') and self.config.get('structured_output') == 'json_schema':
+            body['response_format'] = {'type': 'json_schema', 'json_schema': {
+                'name': packet.get('task', 'task_result').replace('-', '_'),
+                'strict': True, 'schema': packet['output_schema']}}
+        # Providers without configured schema support retain JSON mode and the
+        # task runner performs strict local validation with bounded repairs.
         from .context_projection import settings as context_settings, byte_limit
         with context_settings(self.config):
             request_limit = byte_limit(packet['stage'])

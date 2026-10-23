@@ -1,0 +1,1362 @@
+{
+  "version": "ppt-task-v1",
+  "hash": "953166eb205f01f63d16b413a1f27c6373ba44a44aa72b8e279a605f9e6b67c9",
+  "definitions": {
+    "api.data.completeness": {
+      "key": "api.data.completeness",
+      "label": "数据完整性",
+      "group": "api_data",
+      "description": "必填数据缺失或请求体为空",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "必填数据缺失或请求体为空"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.format": {
+      "key": "api.data.format",
+      "label": "数据格式",
+      "group": "api_data",
+      "description": "数据不满足格式规范",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "数据不满足格式规范"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.legality": {
+      "key": "api.data.legality",
+      "label": "数据合法性",
+      "group": "api_data",
+      "description": "非法字符、不允许字段或非法取值",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "非法字符、不允许字段或非法取值"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.length": {
+      "key": "api.data.length",
+      "label": "数据长度",
+      "group": "api_data",
+      "description": "字符串长度超过限制",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "字符串长度超过限制"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.range": {
+      "key": "api.data.range",
+      "label": "数据范围",
+      "group": "api_data",
+      "description": "数值超出允许范围",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "数值超出允许范围"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.size": {
+      "key": "api.data.size",
+      "label": "数据大小",
+      "group": "api_data",
+      "description": "文件或请求体超过限制",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "文件或请求体超过限制"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "api.data.type": {
+      "key": "api.data.type",
+      "label": "数据类型",
+      "group": "api_data",
+      "description": "数据类型与接口定义不符",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "request_payload|response_payload",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "数据类型与接口定义不符"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "common.timeout": {
+      "key": "common.timeout",
+      "label": "超时关注点",
+      "group": "common",
+      "description": "延时是否影响需求满足、后续行为执行或系统与环境协调",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "transport",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "延时是否影响需求满足、后续行为执行或系统与环境协调"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_database.availability": {
+      "key": "external_database.availability",
+      "label": "数据库服务可用性",
+      "group": "external_database",
+      "description": "连接失败或数据库不可用",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "连接失败或数据库不可用"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_database.query_performance": {
+      "key": "external_database.query_performance",
+      "label": "查询性能",
+      "group": "external_database",
+      "description": "外部数据库查询超时",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "外部数据库查询超时"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.access_permission": {
+      "key": "external_llm.access_permission",
+      "label": "访问权限",
+      "group": "external_llm",
+      "description": "外部模型调用本系统时无权限",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "外部模型调用本系统时无权限"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.availability": {
+      "key": "external_llm.availability",
+      "label": "外部模型可用性",
+      "group": "external_llm",
+      "description": "模型服务不可用、连接失败或认证失败",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "模型服务不可用、连接失败或认证失败"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.contract": {
+      "key": "external_llm.contract",
+      "label": "外部接口契约",
+      "group": "external_llm",
+      "description": "LLM 输出字段、格式或版本不符合约定",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "LLM 输出字段、格式或版本不符合约定"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.quality.context_completeness": {
+      "key": "external_llm.quality.context_completeness",
+      "label": "上下文完整性",
+      "group": "external_llm_quality",
+      "description": "模型调用缺少必要上下文",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "模型调用缺少必要上下文"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.quality.instruction_following": {
+      "key": "external_llm.quality.instruction_following",
+      "label": "指令遵循",
+      "group": "external_llm_quality",
+      "description": "模型未遵循系统或用户指令",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "模型未遵循系统或用户指令"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.quality.output_stability": {
+      "key": "external_llm.quality.output_stability",
+      "label": "输出稳定性",
+      "group": "external_llm_quality",
+      "description": "相同输入输出结构或结果不稳定",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "相同输入输出结构或结果不稳定"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.quality.prompt_security": {
+      "key": "external_llm.quality.prompt_security",
+      "label": "提示词安全",
+      "group": "external_llm_quality",
+      "description": "提示词注入、越权指令或敏感信息泄露",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "提示词注入、越权指令或敏感信息泄露"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_llm.quality.semantic_correctness": {
+      "key": "external_llm.quality.semantic_correctness",
+      "label": "语义正确性",
+      "group": "external_llm_quality",
+      "description": "模型输出语义错误或与业务目标不一致",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "模型输出语义错误或与业务目标不一致"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_service.availability": {
+      "key": "external_service.availability",
+      "label": "外部服务可用性",
+      "group": "external_service",
+      "description": "服务不可用、连接失败或调用失败",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "服务不可用、连接失败或调用失败"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_service.contract": {
+      "key": "external_service.contract",
+      "label": "外部接口契约",
+      "group": "external_service",
+      "description": "返回字段缺失、格式改变或版本不兼容",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "返回字段缺失、格式改变或版本不兼容"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_service.identity": {
+      "key": "external_service.identity",
+      "label": "调用方身份",
+      "group": "external_service",
+      "description": "调用方身份不明或身份过期",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "调用方身份不明或身份过期"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "external_service.permission": {
+      "key": "external_service.permission",
+      "label": "调用权限",
+      "group": "external_service",
+      "description": "调用方无权限或权限过期",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "调用方无权限或权限过期"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "human.authentication": {
+      "key": "human.authentication",
+      "label": "身份认证",
+      "group": "human",
+      "description": "无凭证、Token 无效或过期",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "无凭证、Token 无效或过期"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "human.authorization": {
+      "key": "human.authorization",
+      "label": "权限控制",
+      "group": "human",
+      "description": "水平越权或垂直越权",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "水平越权或垂直越权"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.availability": {
+      "key": "internal_database.availability",
+      "label": "数据库可用性",
+      "group": "internal_database",
+      "description": "连接失败或数据库宕机",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "连接失败或数据库宕机"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.concurrency_consistency": {
+      "key": "internal_database.concurrency_consistency",
+      "label": "并发一致性",
+      "group": "internal_database",
+      "description": "并发更新冲突或后写覆盖前写",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "并发更新冲突或后写覆盖前写"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.field_validity": {
+      "key": "internal_database.field_validity",
+      "label": "字段合法性",
+      "group": "internal_database",
+      "description": "类型错误、非法字符或超长",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "类型错误、非法字符或超长"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.idempotency": {
+      "key": "internal_database.idempotency",
+      "label": "幂等性",
+      "group": "internal_database",
+      "description": "重复请求导致重复操作异常",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "重复请求导致重复操作异常"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.persistence": {
+      "key": "internal_database.persistence",
+      "label": "持久化能力",
+      "group": "internal_database",
+      "description": "写入失败或事务回滚",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "写入失败或事务回滚"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.query_performance": {
+      "key": "internal_database.query_performance",
+      "label": "查询性能",
+      "group": "internal_database",
+      "description": "大表联查超时",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "大表联查超时"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.referential_consistency": {
+      "key": "internal_database.referential_consistency",
+      "label": "关联一致性",
+      "group": "internal_database",
+      "description": "级联删除失效或子对象残留",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "级联删除失效或子对象残留"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.required_field_completeness": {
+      "key": "internal_database.required_field_completeness",
+      "label": "必填字段完整性",
+      "group": "internal_database",
+      "description": "必要字段缺失",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "必要字段缺失"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.resource_existence": {
+      "key": "internal_database.resource_existence",
+      "label": "资源存在性",
+      "group": "internal_database",
+      "description": "查询、修改或删除不存在资源",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "查询、修改或删除不存在资源"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "internal_database.uniqueness": {
+      "key": "internal_database.uniqueness",
+      "label": "唯一性约束",
+      "group": "internal_database",
+      "description": "名称重复或唯一键冲突",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "名称重复或唯一键冲突"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.analysis_generation.execution_deadline": {
+      "key": "service.analysis_generation.execution_deadline",
+      "label": "执行时限",
+      "group": "service_analysis_generation",
+      "description": "处理耗时影响业务后续行为",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "处理耗时影响业务后续行为"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.analysis_generation.resource_consumption": {
+      "key": "service.analysis_generation.resource_consumption",
+      "label": "资源消耗",
+      "group": "service_analysis_generation",
+      "description": "处理消耗超过可接受资源范围",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "处理消耗超过可接受资源范围"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.analysis_generation.result_correctness": {
+      "key": "service.analysis_generation.result_correctness",
+      "label": "处理正确性",
+      "group": "service_analysis_generation",
+      "description": "分析或生成结果错误",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "分析或生成结果错误"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.dependency.availability": {
+      "key": "service.dependency.availability",
+      "label": "内部依赖可用性",
+      "group": "service_dependency",
+      "description": "已声明的内部业务服务调用失败或不可用，导致依赖操作无法完成",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "已声明的内部业务服务调用失败或不可用，导致依赖操作无法完成"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.display_interaction.display_correctness": {
+      "key": "service.display_interaction.display_correctness",
+      "label": "显示正确性",
+      "group": "service_display_interaction",
+      "description": "展示内容与业务结果不一致",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "展示内容与业务结果不一致"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.display_interaction.render_performance": {
+      "key": "service.display_interaction.render_performance",
+      "label": "渲染性能",
+      "group": "service_display_interaction",
+      "description": "渲染耗时影响用户后续操作",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "渲染耗时影响用户后续操作"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.query_retrieval.data_visibility": {
+      "key": "service.query_retrieval.data_visibility",
+      "label": "数据可见性",
+      "group": "service_query_retrieval",
+      "description": "数据越过用户、租户或权限范围被访问或返回",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "数据越过用户、租户或权限范围被访问或返回"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.query_retrieval.resource_existence": {
+      "key": "service.query_retrieval.resource_existence",
+      "label": "资源存在性",
+      "group": "service_query_retrieval",
+      "description": "查询资源不存在或已失效",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "查询资源不存在或已失效"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.query_retrieval.result_correctness": {
+      "key": "service.query_retrieval.result_correctness",
+      "label": "结果正确性",
+      "group": "service_query_retrieval",
+      "description": "查询结果错误、遗漏或分页重复",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "查询结果错误、遗漏或分页重复"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.release_activation.failure_recovery": {
+      "key": "service.release_activation.failure_recovery",
+      "label": "失败恢复",
+      "group": "service_release_activation",
+      "description": "发布失败后未恢复或留下半成品状态",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "发布失败后未恢复或留下半成品状态"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.release_activation.prerequisite": {
+      "key": "service.release_activation.prerequisite",
+      "label": "发布前置条件",
+      "group": "service_release_activation",
+      "description": "发布前置条件未满足仍执行发布",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "发布前置条件未满足仍执行发布"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.release_activation.result_consistency": {
+      "key": "service.release_activation.result_consistency",
+      "label": "发布结果一致性",
+      "group": "service_release_activation",
+      "description": "发布状态与实际生效状态不一致",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "发布状态与实际生效状态不一致"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.resource_mutation.business_constraint": {
+      "key": "service.resource_mutation.business_constraint",
+      "label": "业务约束",
+      "group": "service_resource_mutation",
+      "description": "当前业务条件不满足变更要求",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "当前业务条件不满足变更要求"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.resource_mutation.concurrency_idempotency": {
+      "key": "service.resource_mutation.concurrency_idempotency",
+      "label": "并发与幂等性",
+      "group": "service_resource_mutation",
+      "description": "并发变更产生冲突，或重复请求导致重复变更",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "并发变更产生冲突，或重复请求导致重复变更"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.resource_mutation.persistence_consistency": {
+      "key": "service.resource_mutation.persistence_consistency",
+      "label": "持久化一致性",
+      "group": "service_resource_mutation",
+      "description": "操作结果未可靠持久化或局部成功",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "操作结果未可靠持久化或局部成功"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.workflow.interruption": {
+      "key": "service.workflow.interruption",
+      "label": "业务流程取消与中止",
+      "group": "service_workflow",
+      "description": "参与者取消或中止已发起的业务流程，需检查终止状态与已发生副作用",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "参与者取消或中止已发起的业务流程，需检查终止状态与已发生副作用"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.call_order": {
+      "key": "service_relation.call_order",
+      "label": "调用顺序",
+      "group": "service_relation",
+      "description": "前置操作未完成就执行后续操作",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "前置操作未完成就执行后续操作"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.cascade_operation": {
+      "key": "service_relation.cascade_operation",
+      "label": "级联操作",
+      "group": "service_relation",
+      "description": "漏删、误删或级联失败",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "漏删、误删或级联失败"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.concurrency_consistency": {
+      "key": "service_relation.concurrency_consistency",
+      "label": "并发一致性",
+      "group": "service_relation",
+      "description": "并发修改或删除产生冲突",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "并发修改或删除产生冲突"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.cross_service_consistency": {
+      "key": "service_relation.cross_service_consistency",
+      "label": "跨服务数据一致性",
+      "group": "service_relation",
+      "description": "一侧成功、一侧失败或版本不一致",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "一侧成功、一侧失败或版本不一致"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.dependency_consistency": {
+      "key": "service_relation.dependency_consistency",
+      "label": "依赖一致性",
+      "group": "service_relation",
+      "description": "被依赖资源不存在或失效",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "被依赖资源不存在或失效"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service_relation.idempotency": {
+      "key": "service_relation.idempotency",
+      "label": "幂等性",
+      "group": "service_relation",
+      "description": "重复请求导致重复执行",
+      "draft": false,
+      "examples": [],
+      "concern_subject": "source_node|target_node",
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "evidence_types": [
+        "requirement",
+        "architecture",
+        "interface_contract",
+        "ssd_structure",
+        "domain_rule"
+      ],
+      "atomic_exception_types": [
+        "重复请求导致重复执行"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    },
+    "service.display_interaction.device_adaptation": {
+      "key": "service.display_interaction.device_adaptation",
+      "label": "设备适配性",
+      "group": "service_display_interaction",
+      "description": "设备、分辨率或横竖屏切换导致布局或交互异常",
+      "draft": false,
+      "layers": [
+        "RR",
+        "SR"
+      ],
+      "registry_version": "rr-sr-ssd-identification-v1"
+    }
+  }
+}

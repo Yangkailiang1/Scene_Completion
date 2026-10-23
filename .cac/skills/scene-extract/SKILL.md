@@ -6,6 +6,9 @@ metadata:
   version: "2.0.0"
 ---
 
+> 历史协议兼容Skill。仅在显式选择旧协议时执行下述旧流程；新默认 `ppt-task-v1` 使用独立任务Skill，见 `docs/ppt-task-v1/protocol.md`。旧文中的生成下限、部分匹配计分及推荐回退规则不适用于新协议。
+
+
 # Scene Extract
 
 职责限于需求材料理解、结构化抽取和模型校验，不生成 SSD、不判定关注点，也不导出最终场景。
