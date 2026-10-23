@@ -1,0 +1,13 @@
+{
+  "agent_runtime": "openai-compatible",
+  "base_url": "${SCENE_API_BASE_URL}",
+  "api_key_env": "SCENE_API_KEY",
+  "agent_model": "${SCENE_AGENT_MODEL}",
+  "structured_output": "json_object",
+  "thinking": false,
+  "max_concurrency": 2,
+  "max_tokens": 12000,
+  "max_retries": 0,
+  "timeout_seconds": 120,
+  "adaptive_concurrency": true
+}

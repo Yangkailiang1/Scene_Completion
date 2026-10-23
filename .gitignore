@@ -5,12 +5,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .scene_cache/
-examples/results/
-tmp/
+runs/
 output/
-diagram-output/
-*.xlsx
-!examples/test_spec.example.xlsx
-*.puml
-*.svg
-*.png
+tmp/

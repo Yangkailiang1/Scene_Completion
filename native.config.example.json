@@ -1,0 +1,9 @@
+{
+  "agent_runtime": "luna-subprocess",
+  "agent_model": "${SCENE_AGENT_MODEL}",
+  "structured_output": "json_schema",
+  "thinking": true,
+  "reasoning_effort": "high",
+  "max_concurrency": 2,
+  "timeout_seconds": 600
+}

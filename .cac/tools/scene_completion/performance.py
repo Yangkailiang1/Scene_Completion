@@ -55,7 +55,7 @@ class Profiler:
         self.report()
 
     def report(self):
-        from .semantic_backend import write_json
+        from .storage import write_json
         rows = [json.loads(line) for line in self.path.read_text(encoding='utf8').splitlines() if line]
         sessions = {}
         task_intervals=defaultdict(list)

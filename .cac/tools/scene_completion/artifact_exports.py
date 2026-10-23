@@ -1,0 +1,96 @@
+from pathlib import Path
+import json
+from .storage import write_json,fingerprint
+from .contracts import PROTOCOL
+
+def export_task(root,task,payload,artifact_name=None):
+    file_stem=artifact_name or task
+    root=Path(root); root.mkdir(parents=True,exist_ok=True)
+    write_json(root/(file_stem+'.json'),{'protocol':PROTOCOL,'task':task,'payload':payload})
+    def show(x):return '待确认' if x is None else str(x)
+    rows=[]; headers=[]
+    if task=='components':headers=['名称','系统组成'];rows=[[x['name'],x['composition_type']] for x in payload['components']]
+    elif task=='object-operations':headers=['名称','支持的操作'];rows=[[x['name'],'、'.join(o['name'] for o in x['supported_operations'])] for x in payload['objects']]
+    elif task=='api-map':headers=['服务名称','对应接口列表'];rows=[[s['name'],'；'.join(' '.join(filter(None,[i['id'],i['method'],i['address']])) for i in s['interfaces'])] for s in payload['services']]
+    elif task=='api-parameters':
+        headers=['API名称','接口地址','请求参数','数据类型','可选/必填','约束条件']
+        rows=[[a['name'],show(a['address']),p['name'],show(p['data_type']),show(p['required']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
+    elif task in {'rr-ssd','sr-ssd'}:
+        headers=['顺序','发送方','操作','数据','接收方'];rows=[[i['sequence'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']] for i in payload['interactions']]
+    elif task=='concern-match':
+        from .contracts import registry
+        defs=registry()['definitions'];headers=['交互','系统组成/数据','关注点'];rows=[[m['interaction_id'],m['object'],defs[m['concern_key']]['label']] for m in payload['matches']]
+    if headers:
+        safe=lambda x:str(x).replace('|','\\|').replace('\n','<br>')
+        text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
+        text+='\n'.join('| '+' | '.join(map(safe,r))+' |' for r in rows)
+        (root/(file_stem+'.md')).write_text(text+'\n',encoding='utf8')
+    if task in {'components','rr-ssd','sr-ssd'}:
+        # Native vector text/shapes; source .dot is also supplied for editing.
+        if task=='components':
+            nodes=[(c['id'],c['name'],c['composition_type']=='用例') for c in payload['components']]
+            edges=[(r['from_id'],r['to_id'],r['relation']) for r in payload['relations']]
+        else:
+            names=list(dict.fromkeys(p['name'] for i in payload['interactions'] for p in (i['sender'],i['receiver'])))
+            nodes=[(n,n,False) for n in names];edges=[(i['sender']['name'],i['receiver']['name'],str(i['sequence'])+' '+i['operation']['name']) for i in payload['interactions']]
+        q=lambda s:json.dumps(s,ensure_ascii=False)
+        dot='digraph model { rankdir=LR;\n'+''.join(f'{q(i)} [label={q(n)}, shape={"ellipse" if usecase else "box"}];\n' for i,n,usecase in nodes)
+        dot+=''.join(f'{q(a)} -> {q(b)} [label={q(label)}];\n' for a,b,label in edges)+'}\n'
+        (root/(file_stem+'.dot')).write_text(dot,encoding='utf8')
+        # Graphviz is optional; JSON, Markdown and DOT always export.
+        import shutil,subprocess
+        if shutil.which('dot'):
+            try:subprocess.run(['dot','-Tsvg',str(root/(file_stem+'.dot')),'-o',str(root/(file_stem+'.svg'))],check=True,capture_output=True)
+            except (OSError,subprocess.CalledProcessError):
+                (root/(file_stem+'.render-warning.txt')).write_text('Graphviz rendering failed; editable JSON/Markdown/DOT retained.',encoding='utf8')
+        if task in {'rr-ssd','sr-ssd'}:export_sequence_svg(root,task,payload)
+
+
+
+def export_sequence_svg(root,task,payload):
+    """Editable SVG lifelines/messages; no legacy graph representation."""
+    from html import escape
+    for cid in dict.fromkeys(i['case_id'] for i in payload['interactions']):
+        rows=sorted((i for i in payload['interactions'] if i['case_id']==cid),key=lambda i:i['sequence'])
+        names=list(dict.fromkeys(p['name'] for i in rows for p in (i['sender'],i['receiver'])))
+        width=max(720,len(names)*260);height=150+len(rows)*95
+        x={n:120+j*260 for j,n in enumerate(names)}
+        svg=[f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3z" fill="#3970c6"/></marker></defs>',
+        '<rect width="100%" height="100%" fill="white"/>']
+        for n in names:
+            svg.extend([f'<rect x="{x[n]-100}" y="20" width="200" height="45" rx="8" fill="#edf4ff" stroke="#3970c6"/>',f'<text x="{x[n]}" y="47" text-anchor="middle" font-size="15">{escape(n)}</text>',f'<line x1="{x[n]}" y1="65" x2="{x[n]}" y2="{height-20}" stroke="#3970c6" stroke-dasharray="5 4"/>'])
+        for j,i in enumerate(rows):
+            y=125+j*95;a=x[i['sender']['name']];b=x[i['receiver']['name']]
+            label=escape(str(i['sequence'])+' '+i['operation']['name'])
+            svg.extend([f'<line x1="{a}" y1="{y}" x2="{b}" y2="{y}" stroke="#3970c6" marker-end="url(#arrow)"'+(' stroke-dasharray="5 4"' if i['direction']=='return' else '')+'/>',f'<text x="{(a+b)/2}" y="{y-12}" font-size="14" text-anchor="middle">{label}</text>'])
+        svg.append('</svg>');(Path(root)/(task+'-'+fingerprint(cid)[:12]+'.svg')).write_text('\n'.join(svg),encoding='utf8')
+
+def export_missing_report(root,combined):
+    root=Path(root);write_json(root/'missing_report.json',combined)
+    from .contracts import registry
+    defs=registry()['definitions'];lines=['# 缺失异常报告','', '推荐：未启用。仅完整语义一一对应表示已有覆盖。','']
+    def cell(v):return str(v).replace('|','\\|').replace('\n','<br>')
+    for cid,report in combined['cases'].items():
+        lines+=['## '+cid,'', '评测：'+combined['evaluation_status'][cid],'','### 交互及关注点','',
+          '| 交互 | 发送方 | 操作 | 数据 | 接收方 |','| --- | --- | --- | --- | --- |']
+        for i in report['interactions']['interactions']:
+            lines.append('| '+' | '.join(cell(v) for v in (i['id'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']))+' |')
+        lines+=['','| 交互 | 对象/数据 | 关注点 | 依据 |','| --- | --- | --- | --- |']
+        for m in report['concerns']:lines.append('| '+' | '.join(cell(x) for x in (m['interaction_id'],m['object'],defs[m['concern_key']]['label'],m['basis']))+' |')
+        missing={s['id'] for s in report['M']};existing={s['id']:s for s in report['E']}
+        lines+=['','### 异常、已有覆盖及缺失原因','']
+        for s in report['G']:
+            links=[p['generated_scenario_id'] for p in report['full_matches'] if p['checker_scenario_id']==s['id']]
+            lines+=['- **'+s['id']+'**：'+s['object']+' / '+s['cause']+'（'+defs[s['concern_key']]['label']+'）',
+              '  - 正常交互：'+'；'.join(s['steps']['normal_context']), '  - 异常触发：'+s['steps']['trigger'],
+              '  - 后续行为：'+('；'.join(x['action'] for x in s['steps']['documented_follow_up']) or '待确认，未补造'),
+              '  - 已有覆盖：'+('；'.join(x+': '+existing[x]['cause'] for x in links) or '无完整对应'),
+              '  - 缺失原因：'+('对象、操作、原因及必要条件未与已有分支完整对应' if s['id'] in missing else '已有完整对应'),
+              '  - 来源：'+json.dumps(s['source_refs'],ensure_ascii=False)]
+        lines+=['','### 文档已有异常','']
+        for s in report['E']:lines.append('- '+s['id']+'：'+s['cause']+'；'+'；'.join(s['conditions']))
+        lines+=['','### 待确认','']
+        for x in report['pending']:lines.append('- '+x['interaction_id']+'：'+x['reason'])
+        lines.append('')
+    (root/'missing_report.md').write_text('\n'.join(lines),encoding='utf8')

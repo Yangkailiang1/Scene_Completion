@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "case_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "interaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "layer": {
+            "enum": [
+              "RR",
+              "SR"
+            ]
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cause": {
+            "type": "string",
+            "minLength": 1
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "concern_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "field": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rule_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_status": {
+            "enum": [
+              "explicit",
+              "framework_inferred"
+            ]
+          },
+          "derivation": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_id",
+                "line_start",
+                "line_end",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "steps": {
+            "type": "object",
+            "properties": {
+              "normal_context": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "trigger": {
+                "type": "string",
+                "minLength": 1
+              },
+              "documented_follow_up": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "action": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_refs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source_id": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "line_start": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "line_end": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "source_id",
+                          "line_start",
+                          "line_end",
+                          "quote"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "action",
+                    "source_refs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "normal_context",
+              "trigger",
+              "documented_follow_up"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "interaction_id",
+          "layer",
+          "object",
+          "operation",
+          "cause",
+          "conditions",
+          "concern_key",
+          "field",
+          "rule_id",
+          "source_status",
+          "derivation",
+          "source_refs",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "interaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "concern_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_id",
+                "line_start",
+                "line_end",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "interaction_id",
+          "object",
+          "concern_key",
+          "reason",
+          "source_refs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "scenarios",
+    "pending"
+  ],
+  "additionalProperties": false
+}

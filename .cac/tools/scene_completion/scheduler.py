@@ -1,0 +1,145 @@
+"""Persistent per-task DAG with local failure, shared admission and bounded repair."""
+from __future__ import annotations
+from dataclasses import dataclass
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor,wait,FIRST_COMPLETED
+from contextvars import copy_context
+from .storage import read_json,write_json,fingerprint
+from .model_configuration import concurrency_limit
+from contextlib import contextmanager
+import threading,time
+
+@contextmanager
+def run_lock(root):
+    import os
+    path=Path(root)/'.workflow.lock';path.parent.mkdir(parents=True,exist_ok=True)
+    with path.open('a+b') as f:
+        if not path.stat().st_size:f.write(b'0');f.flush()
+        f.seek(0)
+        if os.name=='nt':
+            import msvcrt
+            try:msvcrt.locking(f.fileno(),msvcrt.LK_NBLCK,1)
+            except OSError as e:raise ValueError('run already active') from e
+            try:yield
+            finally:f.seek(0);msvcrt.locking(f.fileno(),msvcrt.LK_UNLCK,1)
+        else:
+            import fcntl
+            try:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except OSError as e:raise ValueError('run already active') from e
+            try:yield
+            finally:fcntl.flock(f,fcntl.LOCK_UN)
+
+class TaskBlocked(Exception):
+    def __init__(self,status,details):super().__init__(str(details));self.status=status;self.details=details
+class TaskRejected(Exception):
+    def __init__(self,details):super().__init__(str(details));self.details=details
+
+@dataclass
+class Task:
+    key:str
+    case:str
+    stage:str
+    deps:tuple=()
+    version:object=None
+    execute:object=None
+    repair:object=None
+    verify:object=None
+
+class CallGate:
+    def __init__(self,concurrency=1,*,adaptive=True,on_change=None,pause_file=None):
+        self.limit=concurrency_limit(concurrency);self.effective_limit=self.limit
+        self.adaptive=adaptive;self.on_change=on_change;self.pause_file=Path(pause_file) if pause_file else None
+        self.condition=threading.Condition();self.active=0;self.retry_not_before=0.;self.quota=threading.Event()
+    @contextmanager
+    def slot(self):
+        with self.condition:
+            while self.active>=self.effective_limit or time.monotonic()<self.retry_not_before:
+                self.condition.wait(timeout=max(.05,self.retry_not_before-time.monotonic()))
+            self.active+=1
+        try:yield
+        finally:
+            with self.condition:self.active-=1;self.condition.notify_all()
+    def observe(self,diagnostic):
+        if not isinstance(diagnostic,dict) or diagnostic.get('failure_category')!='rate_limited':return
+        with self.condition:
+            if self.adaptive:self.effective_limit=max(1,self.effective_limit//2)
+            self.retry_not_before=max(self.retry_not_before,time.monotonic()+max(1.,min(300.,float(diagnostic.get('retry_after_seconds') or 30))))
+            self.condition.notify_all()
+        if self.on_change:self.on_change({'configured_max':self.limit,'effective_max':self.effective_limit,'not_before_unix':time.time()+max(0,self.retry_not_before-time.monotonic())})
+    def call(self,function,*args,**kwargs):
+        with self.slot():
+            if self.pause_file and self.pause_file.exists():raise TaskBlocked('pending',{'admission_paused':True})
+            if self.quota.is_set():raise TaskBlocked('budget_exhausted',{'quota':True})
+            try:return function(*args,**kwargs)
+            except Exception as e:
+                d=getattr(e,'response_diagnostic',None)
+                if d and d.get('failure_category'):
+                    self.observe(d)
+                    if d.get('failure_category') in {'quota_exhausted','budget_exhausted'}:self.quota.set();raise TaskBlocked('budget_exhausted',d) from e
+                    if d.get('configuration_required'):raise TaskBlocked('awaiting_configuration',d) from e
+                    raise TaskBlocked('pending',{'transport_failure':d}) from e
+                raise
+
+class Scheduler:
+    def __init__(self,root,concurrency=1,auto_repair='bounded',max_rounds=2):
+        if max_rounds not in (0,1,2):raise ValueError('at most two repair rounds')
+        self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
+        self.path=self.root/'workflow_tasks.json';self.tasks={}
+        self.state=read_json(self.path) if self.path.exists() else {'tasks':{},'events':[]}
+        self.limit=concurrency_limit(concurrency);self.rounds=max_rounds if auto_repair=='bounded' else 0
+    def save(self):write_json(self.path,self.state)
+    def add(self,task):
+        if task.key in self.tasks:raise ValueError('duplicate task key')
+        self.tasks[task.key]=task
+    def _event(self,key,event):self.state['events'].append({'task':key,'event':event,'at':time.time()})
+    def run(self):
+        for t in self.tasks.values():
+            if any(d not in self.tasks for d in t.deps):raise ValueError('unknown dependency')
+        remaining=set(self.tasks);active={};done=set();outputs={}
+        def job(t,deps,record):
+            fn=t.repair if record['rounds'] else t.execute
+            v=(fn or t.execute)(deps,record)
+            if t.verify:t.verify(v)
+            return v
+        with ThreadPoolExecutor(max_workers=self.limit) as pool:
+            while remaining or active:
+                progressed=False
+                for key in sorted(remaining):
+                    t=self.tasks[key]
+                    if not set(t.deps)<=done:continue
+                    if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
+                        self.state['tasks'][key]={'status':'blocked_dependency','case':t.case,'stage':t.stage};remaining.remove(key);done.add(key);progressed=True;continue
+                    deps={d:outputs[d] for d in t.deps}
+                    identity=fingerprint({'version':t.version,'dependencies':{d:v.get('payload',v) if isinstance(v,dict) else v for d,v in deps.items()}})
+                    rec=self.state['tasks'].get(key,{})
+                    if rec.get('identity')!=identity:
+                        rec={'identity':identity,'status':'pending','rounds':0,'case':t.case,'stage':t.stage};self.state['tasks'][key]=rec
+                    if rec.get('status')=='passed':
+                        try:
+                            v=read_json(self.root/rec['output_file'])
+                            if fingerprint(v)!=rec['output_hash']:raise ValueError('cache content altered')
+                            if t.verify:t.verify(v)
+                            outputs[key]=v;remaining.remove(key);done.add(key);progressed=True;continue
+                        except (OSError,ValueError,KeyError):rec.update(status='pending',rounds=0)
+                    if rec['status'] in {'rejected','failed'}:
+                        if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
+                        rec['rounds']+=1
+                    if len(active)>=self.limit:continue
+                    rec['status']='running';self._event(key,'repairing' if rec['rounds'] else 'started')
+                    future=pool.submit(copy_context().run,job,t,deps,dict(rec));active[future]=key;remaining.remove(key);progressed=True
+                self.save()
+                if not active:
+                    if remaining and not progressed:raise ValueError('dependency cycle')
+                    continue
+                finished,_=wait(active,return_when=FIRST_COMPLETED)
+                for f in finished:
+                    key=active.pop(f);rec=self.state['tasks'][key]
+                    try:
+                        v=f.result();file='task_outputs/'+fingerprint([key,rec['identity'],v])+'.json';write_json(self.root/file,v)
+                        rec.update(status='passed',output_file=file,output_hash=fingerprint(v));outputs[key]=v;done.add(key);self._event(key,'passed')
+                    except TaskBlocked as e:rec.update(status=e.status,failure=e.details);done.add(key)
+                    except Exception as e:
+                        rec.update(status='rejected' if isinstance(e,(TaskRejected,ValueError)) else 'failed',failure=getattr(e,'details',{'error':str(e),'type':type(e).__name__}))
+                        self._event(key,rec['status']);remaining.add(key)
+                    self.save()
+        return {'complete':all(self.state['tasks'][k]['status']=='passed' for k in self.tasks)}

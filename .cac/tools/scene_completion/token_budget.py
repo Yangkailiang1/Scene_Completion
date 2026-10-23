@@ -90,7 +90,7 @@ class TokenBudget:
         return data
 
     def _write(self, data):
-        from .semantic_backend import write_json
+        from .storage import write_json
         data['committed_tokens'] = sum(r.get('charged_tokens', 0) for r in data['requests'].values())
         data['reserved_tokens'] = sum(r['reservation'] for r in data['requests'].values() if r['status'] == 'reserved')
         data['remaining_tokens'] = self.limit - data['committed_tokens'] - data['reserved_tokens']

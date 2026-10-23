@@ -1,51 +1,67 @@
 # Scene Completion
 
-按27页PPT执行系统组成、RR/SR SSD、对象操作、API两表和异常识别。默认协议为 **`ppt-task-v1`**：11个独立Skill任务入口，推荐暂停。保留现有DAG、共享限流/冷却、成功结果复用和有界修复；本轮不迁移Deep Agents。
+项目只保留 `scene-workflow-v1`：11个任务Skill和主控Skill。共享抽取系统组成/API两表，逐用例整理交互、匹配57项既定关注点、生成异常G、抽取已有异常E并交付缺失集合M。推荐未启用，不生成Q。
 
-## 开始使用
+## 安装与离线验证
 
-安装Python 3.10+及依赖（测试环境同时验证了3.9兼容性）：
-
-```sh
-python -m pip install -r requirements.txt
-python .cac/tools/scene_completion.py scene-pipeline \
-  --rr-spec-document RR.md --sr-spec-document SR.md \
-  --test-spec-document test_spec.md --output-dir output/ppt-v1
-```
-
-默认只准备有输入约束的任务包，返回码2表示尚有待执行任务，不调用付费模型。输出位于`packets/`，可以用同一命令恢复。模型执行必须显式加入`--agent-mode external --config CONFIG.json`；本次交付仅进行了离线模拟和测试。
-
-每个任务均可单独执行：
+Python 3.9及以上（验收环境3.9）；Windows、macOS/Linux的运行锁均有实现。Graphviz可选，仅用于组成图SVG；JSON、Markdown、DOT与SSD SVG不依赖它。
 
 ```sh
-python .cac/tools/scene_completion.py scene-task \
-  --task api-parameters --input-json INPUT.json --output-dir output/api-parameters
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python .cac/tools/scene_completion.py --help
 ```
 
-完整输入格式、外部结果提交方式、数据契约与迁移约束见 [新协议说明](docs/ppt-task-v1/protocol.md)。可运行的离线记忆库演示见 [示例说明](examples/ppt_task_v1/README.md)。
+## 运行流水线
 
-## 方法边界
-
-- 六项抽取各自读取指定材料；系统组成直接读取RR/SR。未添加32页版本的架构/依赖图任务。
-- 测试只向对象能力表提供名称和支持操作；来源引文仅保留操作名称，不带异常答案。能力表不反向新增SSD交互或写入异常。
-- 当前57项定义作为固定输入。按双方身份、实际操作、字段属性匹配；不强制每个关注点生成异常。未知约束待确认，不进入G，可选缺省正常。
-- G、已有异常E和测试GT分通道。GT允许有依据的框架推导直接计分，明示/推导分别报告；不得读取G或比较结果。
-- 只有完整语义对应计命中；部分对应只诊断。空列表不等同实例不存在。
-- 推荐不生成Q、不初始化历史向量、不执行排序或随机回退；推荐指标为“未启用”。
-
-制品包含严格JSON、中文字段Markdown表、可编辑DOT，以及安装Graphviz时的SVG。物理数据库、逻辑SR资源服务及映射单独保留。所有结构与来源校验通过后才进入成功缓存；拒绝结果保留在`attempts/`。
-
-抽取指标仅为`Acc（抽取准确率）=H（命中的真值单元数）/N（真值单元总数）×100%`。未运行全量模型评测，不宣称真实输出稳定性已有提升。
-
-## 离线验证
+默认 `packets` 只构造任务包，**不调用模型**。退出码2表示仍有待执行任务，已成功任务及有效缺失报告仍保留。
 
 ```sh
-PYTHONPATH=.cac/tools python -m pytest -q
-python examples/ppt_task_v1/offline_demo.py --output-dir output/ppt-memory-offline
+python .cac/tools/scene_completion.py pipeline \
+  --rr-spec-document 在线商城购物系统/系统需求_spec.md \
+  --sr-spec-document 在线商城购物系统/功能设计_spec.md \
+  --test-spec-document 在线商城购物系统/test_spec.md \
+  --use-case-id UCG-001-UC001 --output-dir runs/mall-v1
 ```
 
-新增验收覆盖8条记忆库字段异常、泛化字段/对象、未知约束、只读交互、数据库封装、输入隔离、部分匹配、去重、缓存恢复/局部失效及推荐停用。模拟结果会标记`mode=mock`，不能在原目录转成正式运行。
+省略 `--use-case-id` 时从文档发现 `UCG-nnn-UCnnn`、`SCnnn-UCnnn` 或 `UC-...`；其他编号须显式提供。用例标题应含编号，程序保留公共前言和本用例章节。非标准排版需先检查任务包中的分段是否正确，不以文件名推断场景。
 
-## 旧协议
+需要真实执行时，先填写 `workflow.config.example.json` 对应的本地配置及环境变量，再在同一命令中明确添加：
 
-[历史v2说明](README.legacy-v2.md)及旧Skill仅用于显式兼容：`--protocol rr-sr-concern-gap-v2`、`--protocol rr-sr-ssd-identification-v1`或`--protocol legacy`。旧模式仍需要`--model`。它们的“每关注点至少一条”、部分匹配计分、历史推荐规则均不适用于新协议；不得将旧结果搬入新运行目录。
+```sh
+--agent-mode external --config workflow.local.json --env-file .env
+```
+
+配置支持OpenAI兼容Chat接口、JSON Schema（仅在供应商支持时开启）、流式响应、输出/上下文限制与持久化token预算。本地CLI运行使用 `native.config.example.json`，记录实际配置模型和原生执行凭证。`.env`、`*.local.json`不会提交。模型选择来自配置，不重标记旧执行结果。模糊网络失败不自动当作语义失败重发；缺额度/配置停在对应状态。
+
+## 其余三个公开入口
+
+```sh
+# 独立任务：输入必须符合该任务的具名输入契约
+python .cac/tools/scene_completion.py task --task gap-recommend \
+  --input-json examples/disabled-recommendation.json --output-dir runs/disabled
+
+# 人工抽取GT计分：六类图表之一；决策不提供时只做精确已知属性匹配
+python .cac/tools/scene_completion.py score-extraction --task components \
+  --extracted EXTRACTED.json --truth TRUTH.json --output ACC.json
+
+# 不联网检查当前运行的协议、任务状态与输出完整性
+python .cac/tools/scene_completion.py check-run --run-dir runs/mall-v1
+```
+
+`--responses-dir`可导入人工/外部执行结果：文件名为任务包的batch_id，根对象为 `{protocol,task,batch_id,payload}`。任务包包含Skill文本、严格输出Schema、指定用例、输入及修复信息，不接受不匹配的响应。
+
+流水线可选 `--extraction-truth GT.json` 与 `--adjudications DECISIONS.json`：共享任务键为 `components`、`api-map`、`api-parameters`，逐用例键为 `用例编号:rr-ssd`、`用例编号:sr-ssd`、`用例编号:object-operations`。未提供人工GT标“未评测”，明确空集合标“不适用”。语义决策须经人工确认；可复用的绑定格式及最小计分单元见[协议说明](docs/scene-workflow-v1/protocol.md)。测试异常GT与人工抽取GT是两个独立输入。
+
+## 输出与恢复
+
+- `run_manifest.json`：整体完成、每个用例分析完成及独立评测状态。GT失败不阻塞缺失报告。
+- `missing_report.json` / `.md`：各成功用例的交互、双方及数据关注点、异常步骤、已有覆盖、缺失原因、来源和待确认。
+- `artifacts/shared/`：共享图表；`artifacts/<用例ID哈希>/`：逐用例图表、富化交互及指标。任务JSON和metadata分开，物理数据库/逻辑服务映射保留。
+- `packets/`、`attempts/`、`task_outputs/`、`workflow_tasks.json`：请求、被拒结果、验证通过的输出及依赖状态。
+
+同一目录重跑会验证缓存；只有输入、契约、规则或执行身份变化的任务及其受影响结果才重新执行。上游重做但payload相同，下游成功结果复用。模型与额度限流共享，每任务最多两轮定向修复，修复记录不会靠再次运行清零。不要删除运行目录来规避预算。旧协议运行目录拒绝直接复用。
+
+本轮仅离线与模拟响应验收，没有付费全量评测，也未据此宣称真实模型效果或稳定性提升。可运行 `python examples/memory_demo.py --output-dir /tmp/memory-demo` 查看明确标记mock的完整演示；其中抽取与语义对应是固定测试夹具，不代表真实模型结果。
+
+完整[流程对照表](docs/scene-workflow-v1/workflow-map.md)、[迁移说明](docs/scene-workflow-v1/migration.md)与[测试记录](docs/scene-workflow-v1/validation.md)。

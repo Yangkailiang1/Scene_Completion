@@ -1,14 +1,17 @@
 ---
 name: scene-controller
-description: 持续编排场景分析流水线，处理批次阻塞并完成工具验收及产物交付；用于Claude Code或其他宿主主控，不作为批量语义包。
+description: 调度scene-workflow-v1的共享抽取及逐用例分析、恢复和离线检查；用户要求运行完整场景检查时使用。
 ---
 
-# 默认主控：27页PPT独立任务流程
+# 场景流程主控
 
-默认运行 `ppt-task-v1`。先读取 `docs/ppt-task-v1/protocol.md`，再只加载当前任务对应Skill。11个独立任务包含6项抽取、关注点匹配、异常生成、已有异常抽取、缺失比较、暂停的缺失推荐；测试操作投影与GT是隔离内部处理，不新增PPT任务。
+读取用户指定RR、SR、可选测试Markdown及可选人工抽取GT，按README运行pipeline。
 
-执行 `.cac/tools/scene_completion.py scene-pipeline --rr-spec-document RR.md --sr-spec-document SR.md --test-spec-document TEST.md --output-dir NEW_RUN`。默认只准备任务包。显式external模式才调用配置模型；不得因准备包就启动评测。
+1. 共享抽取组成和API两表；逐用例抽基础RR/SR SSD。
+2. 内部测试操作投影只给对象与操作；整理能力表，然后补全组成身份、接收方能力、接口及有据RR/SR对应。无法确认写pending。
+3. 匹配既定57项关注点，按本次实际操作生成G。独立抽原文E。
+4. 缺失比较直接输出关系及M，交付JSON/Markdown，不等待测试GT。
+5. 内部GT整理与评测独立运行；推导GT须保存测试依据，分别报告明示/推导项。无人工抽取GT标未评测，空分母不适用。
+6. 推荐未启用，不生成Q。用check-run检查协议和缓存完整性。
 
-保留现有DAG调度、共享限流/冷却、成功结果复用与最多两轮修复。新协议目录拒绝旧协议缓存。推荐暂停，不初始化embedding或历史检索，不生成Q。G不读取E/GT，GT不读取G/比较结果。只有完整语义对应计分。
-
-恢复任务只重做失效依赖；保存拒绝结果及来源。报告不宣称真实模型稳定性已提高。需要复现历史版本时显式指定旧 `--protocol`，再读取 [旧主控](references/legacy-controller.md)。
+一个用例失败不阻塞其他用例。成功输出按输入身份复用；共享限流和最多两轮定向修复。旧协议缓存拒绝。默认packets不调用付费模型，external必须显式配置；不擅自启动全量模型评测。

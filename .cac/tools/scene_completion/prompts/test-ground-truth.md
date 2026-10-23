@@ -1,0 +1,1 @@
+内部测试GT整理：仅使用test-documents、normal-constraints和既定registry。不读取生成G、已有E、缺失报告或比较结果。明示测试异常标explicit；根据测试描述、既定框架和明示正常约束有依据推导可标framework_inferred，必须引用该测试描述并写derivation。不得从正常规则凭空产生没有测试描述依据的GT。按字段和独立原因细分，steps记录上下文、触发、文档已有后续；未知响应不补造。输出scenarios；明示/推导分别计分。

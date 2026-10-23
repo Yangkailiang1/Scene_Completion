@@ -1,0 +1,262 @@
+"""Independent tasks and a fixed, resumable DAG for scene-workflow-v1.
+
+No legacy packets, history vectors, recommendations or external paid calls in
+packet/mock mode. Semantic results are evidence-checked before cache promotion.
+"""
+from pathlib import Path
+from copy import deepcopy
+import json
+from .contracts import PROTOCOL,TASKS,SCHEMAS,packet,registry,schema,validate
+from .source_documents import read_documents,normal_projection,documents_in
+from .validation import validate_result
+from .interaction_enrichment import resource_metadata,bind_resource_services,capability_union,enrich,with_concerns,actual_context,basic_views
+from .exception_generation import data_exceptions,deduplicate,pending_rules,query_matches,query_exceptions
+from .concern_matching import complete_data_matches
+from .exception_comparison import compare_report,missing_report
+from .artifact_exports import export_task
+from .scheduler import Scheduler,Task,TaskRejected,TaskBlocked,CallGate,run_lock
+from .storage import read_json,write_json
+from .storage import fingerprint
+
+
+def payload(value):
+    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v1')
+    return value['payload']
+
+
+def code_version(task):
+    folder=Path(__file__).parent
+    # Semantic contracts and validators are part of every result identity.
+    names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','model_client.py','native_client.py']
+    skill=skill_path(task)
+    return fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
+
+def skill_path(task):
+    if task in TASKS:return Path(__file__).resolve().parents[2]/'skills'/TASKS[task][0]/'SKILL.md'
+    internal={'test-operation-project','test-ground-truth','interaction-align','semantic-compare'}
+    return Path(__file__).parent/'prompts'/((task if task in internal else 'tool-task')+'.md')
+
+
+class Execution:
+    def __init__(self,root,*,mode='packets',client=None,responses_dir=None,mocks=None,config=None,case_ids=None,auto_repair='bounded',max_rounds=2):
+        self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
+        self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
+        self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
+        if self.config.get('structured_output','json_object') not in {'json_object','json_schema'}:
+            raise ValueError('structured_output must be json_object or configured json_schema')
+        self.identity={'mode':'mock' if mocks is not None else mode,'model':client.model('agent') if client else None,
+                       'config_hash':fingerprint(self.config),'endpoint_hash':fingerprint(getattr(client,'base_url',None))}
+        manifest=self.root/'run_manifest.json'
+        previous=read_json(manifest) if manifest.exists() else None
+        if previous and previous.get('protocol')!=PROTOCOL:raise ValueError('different protocol: use a new run directory')
+        if any((self.root/n).exists() for n in ('case_tasks.json','workflow_tasks.json')) and not previous:raise ValueError('unbound/legacy scheduler cache requires a separate run directory')
+        if previous and previous.get('execution_identity',{}).get('mode')=='mock' and mocks is None:raise ValueError('mock results cannot be promoted into a real run')
+        self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
+                       'registry_hash':registry()['hash'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
+        write_json(manifest,self.manifest)
+        self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
+        self.gate=CallGate(self.config.get('max_concurrency',1),adaptive=self.config.get('adaptive_concurrency',True),on_change=lambda s:write_json(self.root/'concurrency_status.json',s),pause_file=self.root/'pause_requested.json')
+        prior_limit=self.root/'concurrency_status.json'
+        if prior_limit.exists():
+            import time
+            prior=read_json(prior_limit)
+            if prior.get('configured_max')==self.gate.limit:
+                self.gate.effective_limit=min(self.gate.limit,prior['effective_max'])
+                self.gate.retry_not_before=time.monotonic()+max(0.,min(300.,prior.get('not_before_unix',0)-time.time()))
+        # Reuse the existing request-level gate, cooldown and token-budget code.
+        if client and hasattr(client,'post'):
+            original=client.post
+            client.post=lambda *a,**k:self.gate.call(original,*a,**k)
+
+    def semantic(self,task,inputs,record):
+        p=packet(task,inputs,[record['case']] if record.get('case') not in (None,'shared') else self.case_ids)
+        p['skill_text']=self.skill_text(task)
+        if task=='exception-generate':
+            # These are derived only from this task's positive inputs. They are
+            # not E/GT, previous G, or semantic answers from another channel.
+            p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'pending':pending_rules(inputs)}
+            p['tool_rule_instruction']='工具会合并上述确定性候选。模型只需返回其他有具体正常规则支持的双方/操作异常，可返回空scenarios；不要改写字段规则或编造后续行为。'
+        if record.get('rounds'):
+            p['repair']={'failure':record.get('failure'),'round':record['rounds'],'rule':'仅修复本任务；不读取其他通道。'}
+        p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
+        batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
+        raw=None
+        if self.mocks is not None:
+            value=self.mocks.get(record.get('stage'),self.mocks.get(task))
+            if value is None:raise TaskBlocked('pending',{'mock_missing':task})
+            raw=value(p) if callable(value) else deepcopy(value)
+        elif self.responses_dir and (self.responses_dir/(batch+'.json')).exists():
+            envelope=read_json(self.responses_dir/(batch+'.json'))
+            if envelope.get('protocol')!=PROTOCOL or envelope.get('batch_id')!=batch or envelope.get('task')!=task:
+                raise TaskRejected({'error':'external result is not bound to this protocol/task/input'})
+            raw=envelope['payload']
+        elif self.mode=='external':
+            if not self.client:raise ValueError('external mode needs a configured semantic client')
+            try:
+                raw=self.client.agent(p) if hasattr(self.client,'post') else self.gate.call(self.client.agent,p)
+            except ValueError as exc:
+                diagnostic=getattr(exc,'response_diagnostic',None)
+                if diagnostic:
+                    attempt=self.root/'attempts'/batch/(str(record.get('rounds',0))+'.json')
+                    write_json(attempt,{'task':task,'protocol':PROTOCOL,'rejected_response':diagnostic})
+                    raise TaskRejected({'error':str(exc),'rejected_output':str(attempt.relative_to(self.root))}) from exc
+                raise
+        else:raise TaskBlocked('pending',{'packet':str(self.root/'packets'/(batch+'.json')),'batch_id':batch})
+        if not isinstance(raw,dict):raise TaskRejected({'error':'model result must be a JSON object'})
+        proof={k:raw[k] for k in ('execution_model_evidence','native_execution') if k in raw}
+        value={k:v for k,v in raw.items() if k not in proof}
+        attempt=self.root/'attempts'/batch/(str(record.get('rounds',0))+'.json')
+        write_json(attempt,{'task':task,'protocol':PROTOCOL,'payload':value,'execution':proof})
+        try:
+            validate_result(task,value,inputs)
+            if task in {'rr-ssd','sr-ssd'} and any(inputs.values()) and not value['interactions']:
+                raise ValueError('nonempty positive document requires real SSD interactions, not an empty successful result')
+            if task=='components' and any(inputs.values()) and not value['components']:
+                raise ValueError('nonempty RR/SR requires evidenced components')
+            scope=p['case_ids']
+            if scope and task in {'rr-ssd','sr-ssd','exception-generate','existing-extract','test-ground-truth'}:
+                records=value.get('interactions',value.get('scenarios',[]))
+                if any(r['case_id'] not in scope for r in records):raise ValueError('result outside selected case scope')
+                if task in {'rr-ssd','sr-ssd'} and set(scope)!={r['case_id'] for r in records}:
+                    raise ValueError('selected SSD cases incomplete')
+        except ValueError as exc:raise TaskRejected({'error':str(exc),'rejected_output':str(attempt.relative_to(self.root))}) from exc
+        return value,proof
+
+    def skill_text(self,task):
+        return skill_path(task).read_text(encoding='utf8')
+
+    def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None):
+        static=static or {}
+        def inputs_for(dependencies):
+            values={k:payload(v) for k,v in dependencies.items()}
+            return build(values) if build else deepcopy(static)
+        def execute(dependencies,record):
+            inputs=inputs_for(dependencies)
+            if transform:
+                value=transform(inputs);proof={}
+            elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
+            else:value,proof=self.semantic(semantic_task or task,inputs,record)
+            if task=='concern-match':
+                value['matches']=complete_data_matches(inputs,value['matches'])+query_matches(inputs)
+                value['matches']=list({fingerprint(m):m for m in value['matches']}.values())
+            if task in {'exception-generate','existing-extract','test-ground-truth'}:
+                if task=='exception-generate':
+                    value['scenarios']=deduplicate(value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs))
+                    value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
+                else:value['scenarios']=deduplicate(value['scenarios'])
+            if task in SCHEMAS:
+                validate_result(task,value,inputs)
+            meta={'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
+            if task=='components':meta.update(resource_metadata(value))
+            return {'protocol':PROTOCOL,'task':task,'payload':value,'metadata':meta}
+        def verify(value):
+            if value.get('protocol')!=PROTOCOL or value.get('task')!=task:raise ValueError('wrong task/protocol result')
+            # Re-run schema checks on cache reads, not just initial responses.
+            if task in SCHEMAS:
+                dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
+                validate_result(task,value['payload'],inputs_for(dependencies))
+        version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
+                 'static':fingerprint(static),'identity':self.identity,'cases':self.case_ids,'registry':registry()['hash']}
+        self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
+
+    def finish(self):
+        result=self.scheduler.run();artifact_root=self.root/'artifacts'
+        import shutil
+        if artifact_root.exists():shutil.rmtree(artifact_root)
+        (self.root/'missing_report.json').unlink(missing_ok=True)
+        (self.root/'missing_report.md').unlink(missing_ok=True)
+        reports={};evaluations={};cases={}
+        records=self.scheduler.state['tasks']
+        for key,record in records.items():
+            if key not in self.scheduler.tasks:continue
+            cid=record.get('case','shared')
+            cases.setdefault(cid,{})[record['stage']]=record['status']
+            if record['status']!='passed':continue
+            value=read_json(self.root/record['output_file']);stage=value['task']
+            destination=artifact_root/(safe_case(cid) if cid!='shared' else 'shared')
+            stem=(key if cid=='shared' else key[len(cid)+1:]).replace(':','--')
+            export_task(destination,stage,value['payload'],artifact_name=stem)
+            write_json(destination/(stem+'.metadata.json'),value.get('metadata',{}))
+            if stage=='missing-report':reports[cid]=value['payload']
+            if stage=='exception-evaluation':evaluations[cid]=value['payload']
+        if reports:
+            from .artifact_exports import export_missing_report
+            combined={'protocol':PROTOCOL,'cases':reports,'evaluation':evaluations,
+              'recommendation':{'enabled':False,'status':'未启用'},'evaluation_status':{
+                  c:'已评测' if c in evaluations else '未评测或任务未完成' for c in reports}}
+            export_missing_report(self.root,combined)
+        analysis_stages={'rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
+        analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
+        self.manifest.update(complete=result['complete'],analysis_complete=bool(analysis) and all(analysis.values()),
+          analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
+          tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
+        write_json(self.root/'run_manifest.json',self.manifest)
+        return self.manifest
+
+
+def safe_case(case):
+    return fingerprint(case)[:12]
+
+
+def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
+    from .source_documents import discover_cases,case_projection,current_projection
+    extraction_truth=extraction_truth or {};adjudications=adjudications or {}
+    rr=current_projection(rr);sr=current_projection(sr)
+    normal_rr=normal_projection(rr);normal_sr=normal_projection(sr)
+    for task,inputs in [('components',{'RR':normal_rr,'SR':normal_sr}),('api-map',{'SR':normal_sr}),('api-parameters',{'SR':normal_sr})]:
+        ex.add(task,task,static=inputs)
+    cases=ex.case_ids or discover_cases(rr+sr)
+    if not cases:raise ValueError('no use-case IDs discovered; supply --use-case-id')
+    extraction_jobs=[('shared',t,t) for t in ('components','api-map','api-parameters')]
+    for cid in cases:
+        key=lambda t:cid+':'+t
+        # Translate scheduler keys to task contract names only within this case.
+        def add(task,deps=(),static=None,build=None,transform=None,cid=cid):
+            local=lambda t:t if t in {'components','api-map','api-parameters'} else cid+':'+t
+            def construct(d):
+                values={t:d[local(t)] for t in deps}
+                return build(values) if build else deepcopy(static or {})
+            ex.add(cid+':'+task,task,tuple(local(t) for t in deps),static=static,build=construct,transform=transform,case=cid)
+        scoped_rr=case_projection(rr,cid,cases);scoped_sr=case_projection(sr,cid,cases);scoped_test=case_projection(tests,cid,cases)
+        add('rr-ssd',static={'RR':normal_projection(scoped_rr)})
+        add('sr-ssd',static={'SR':normal_projection(scoped_sr)})
+        add('test-operation-project',static={'test-operation-source':scoped_test},transform=(lambda d:{'objects':[]}) if not scoped_test else None)
+        add('object-operations',('components','rr-ssd','test-operation-project'),build=lambda d:{'components':d['components'],'rr-ssd':d['rr-ssd'],'test-operations':d['test-operation-project']},transform=capability_union)
+        add('interaction-align',('components','rr-ssd','sr-ssd'),build=lambda d:d)
+        normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations')
+        add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:enrich(d,d['interaction-align']))
+        def concern_input(d):
+            v={k:d[k] for k in normal};v=bind_resource_services(v)
+            v.update(basic_views(d['interaction-enrich']))
+            return {**v,'enriched-interactions':d['interaction-enrich'],'registry':registry()}
+        add('concern-match',normal+('interaction-enrich',),build=concern_input)
+        add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
+        def generation_input(d):
+            v=bind_resource_services({k:d[k] for k in normal if k!='object-operations'})
+            v.update(basic_views(d['enriched-view']))
+            return {**v,'enriched-interactions':actual_context(d['enriched-view']),'concern-match':d['concern-match'],'registry':registry()}
+        add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input)
+        add('existing-extract',static={'existing-documents':scoped_rr+scoped_sr,'registry':registry()})
+        add('gap-compare',('exception-generate','existing-extract'),build=lambda d:{'left':d['exception-generate']['scenarios'],'right':d['existing-extract']['scenarios'],'purpose':'G_E'})
+        add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match'),build=lambda d:d,
+            transform=lambda d:{**missing_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['gap-compare']['decisions']),
+              'interactions':d['enriched-view'],'concerns':d['concern-match']['matches'],
+              'pending':d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']})
+        add('test-ground-truth',('api-parameters',),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':d['api-parameters'],'registry':registry()},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None)
+        for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
+            # internal semantic comparison, not the public missing-report task
+            a,b='test-ground-truth',target
+            ex.add(key(task),'semantic-compare',(key(a),key(b)),build=lambda d,a=key(a),b=key(b),task=task:{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':task},case=cid)
+        if scoped_test:
+            add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E'),build=lambda d:d,
+                transform=lambda d:compare_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['test-ground-truth']['scenarios'],d['gap-compare']['decisions'],d['GT_G']['decisions'],d['GT_E']['decisions']))
+        for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
+    ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
+    for cid,task,source in extraction_jobs:
+        truth_key=task if cid=='shared' else cid+':'+task
+        gt=extraction_truth.get(truth_key);decisions=adjudications.get(truth_key)
+        from .evaluation import accuracy,not_evaluated
+        ex.add(truth_key+':accuracy','extraction-evaluation',(source,),static={'truth':gt,'decisions':decisions},
+          build=lambda d,source=source,gt=gt,ds=decisions:{'actual':d[source],'truth':gt,'decisions':ds},
+          transform=lambda d,task=task:accuracy(task,d['actual'],d['truth'],d['decisions']) if d['truth'] is not None else not_evaluated(task),case=cid)

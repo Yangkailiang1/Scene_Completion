@@ -1,0 +1,1 @@
+内部交互对应整理：从components和基础rr-ssd/sr-ssd中识别有原文证据的同一对象别名及RR步骤与SR展开对应。aliases只含同一实体的有据名称，不将外部Actor、系统边界、服务合并。links的confirmed须引用明确展开依据，按顺序列sr_ids；无法确定status=pending，不因相邻步骤或相似词强行对应。只输出aliases、links，不增改SSD或引入测试信息。

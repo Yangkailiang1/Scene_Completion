@@ -1,0 +1,16 @@
+{
+  "protocol": "scene-workflow-v1",
+  "frozen_before_implementation": true,
+  "case": "memory-repository-list",
+  "api": "API-M-IF2",
+  "path": "/ms/v1/memory-instances/{memoryInstanceID}/mem-repos",
+  "expected_data_rules": [
+    ["x-wisecloud-service-id", "missing_required"],
+    ["memoryInstanceID", "missing_required"],
+    ["memoryType", "enum"],
+    ["page", "type"], ["page", "minimum"],
+    ["pageSize", "type"], ["pageSize", "minimum"], ["pageSize", "maximum"]
+  ],
+  "not_covered_by_empty_list": "memory instance does not exist",
+  "invariants": ["optional omission is normal", "unknown constraints remain pending", "read capability does not activate writes", "G excludes E and test exceptions", "GT inference excludes G and comparisons", "partial is diagnostic only", "no Q or history request", "duplicates do not score twice", "legacy caches cannot enter new protocol"]
+}
