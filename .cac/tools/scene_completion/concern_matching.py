@@ -24,4 +24,3 @@ def complete_data_matches(inputs, matches):
                 matches.append({'interaction_id':i['id'],'target':'data','object':p['name'],'concern_key':concern_by_label(label),
                                 'basis':'接收方接口的明示字段属性','concrete_rule':rule,'source_refs':refs})
     return list({fingerprint(m):m for m in matches}.values())
-

@@ -128,4 +128,3 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
     error=RuntimeError(f"semantic API request failed ({last_error})")
     error.response_diagnostic={**(diagnostic or {'failure_category':'transport_error'}),'transport_attempts':attempt+1}
     raise error
-

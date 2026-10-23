@@ -189,4 +189,3 @@ class SemanticClient:
             "api_endpoint_hash": fingerprint(self.base_url),
             "verification_limit": "Request model is recorded; provider routing is observable only when response model metadata is supplied."}
         return result
-

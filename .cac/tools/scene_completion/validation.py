@@ -148,4 +148,3 @@ def validate_result(task, payload, inputs):
         expected=missing_report(inputs['left'],inputs['right'],payload['decisions'])['M']
         if payload['missing']!=expected:raise ValueError('missing must equal G minus complete one-to-one E coverage')
     return payload
-
