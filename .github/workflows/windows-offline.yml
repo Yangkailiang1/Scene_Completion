@@ -6,6 +6,8 @@ on:
 jobs:
   package:
     runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,9 +19,9 @@ jobs:
       - name: Smoke test embedded runtime
         shell: pwsh
         run: |
-          & dist/scene-completion-windows-x64/python/python.exe -c "import deepagents,fastapi,uvicorn; print('embedded runtime OK')"
+          & dist/scene-completion-windows-x64/python/python.exe -X utf8 -c "import deepagents,fastapi,uvicorn; print('embedded runtime OK')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & dist/scene-completion-windows-x64/python/python.exe -m pytest dist/scene-completion-windows-x64/app/tests -q
+          & dist/scene-completion-windows-x64/python/python.exe -X utf8 -m pytest dist/scene-completion-windows-x64/app/tests -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
