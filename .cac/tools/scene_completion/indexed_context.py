@@ -41,7 +41,7 @@ def select_indexed_sections(documents,index,section_ids):
 
 class EvidenceContext:
     def __init__(self,packet):
-        self.original=packet;self.pool={};self.components={};self.names={}
+        self.original=packet;self.pool={};self.components={};self.names={};self.normalizations=[]
         self.source_layers={}
         if packet['task']=='fused-ssd':
             for layer in ('RR','SR'):
@@ -111,7 +111,7 @@ class EvidenceContext:
             for k in ('sender','receiver'):props['properties'][k]={'type':'object','properties':{'component_id':{'enum':list(self.components)}},'required':['component_id'],'additionalProperties':False}
             props['properties'].pop('case_id');props['required'].remove('case_id')
             props['properties'].pop('sequence');props['required'].remove('sequence')
-            props['properties']['reply_to']=props['properties'].pop('parent_id');props['required'].remove('parent_id');props['required'].append('reply_to')
+            props['properties']['reply_to']=props['properties'].pop('parent_id');props['required'].remove('parent_id')
             props['properties']['operation']['required']=['name']
             props['allOf']=[{'if':{'properties':{'direction':{'const':direction}}},'then':{'properties':{**({'reply_to':{'type':'null'}} if direction=='request' else {}),'data':{'properties':{'sequence':{'items':{'properties':{'location':{'enum':locations}}}}}}}}} for direction,locations in [('request',['header','path','query','body','business']),('return',['response','business'])]]
             # Data attributes that have not yet been associated by the API tool
@@ -132,8 +132,8 @@ class EvidenceContext:
             self.packet['instructions']+='\n只返回需语义理解的额外匹配依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础继承和字段规则由工具补齐，不重复列出。'
         if self.fused:
             self.packet['instructions']+='\nRR消息只使用RR-或DUAL-证据；SR消息只使用SR-或DUAL-证据；META-只作组件身份依据，不能当消息动作事实。'
-            self.packet['instructions']+='\nSSD职责只限本用例交互与RR/SR消息对应。sender/receiver仅输出组件component_id，不重复名称和位置；不输出case_id，程序填当前对应组ID。数据只写本次实际传递的字段名和位置，不展开items数组内部对象字段；类型、默认值、必填性、约束由独立API参数任务及交互属性关联工具补齐。仅本用例额外明示的值/条件才在data中补充。source_refs在消息级提供一次，operation和各数据字段仅有额外不同依据时补充；程序默认使用消息依据。refinements.rr_message_id和sr_message_ids只能引用本次输出的交互消息id，不是用例编号。每条RR消息至多一个refinements项。request的reply_to必须null；return的reply_to指向本层端点完全反向的原请求id。跨层对应只放refinements，不能放reply_to。RR和SR都保留明示的业务结果返回，不能只建RR入口请求。不要填空数组/空值占位可选属性。本地处理放入operation.sequence。'
-            self.packet['instructions']+='\n按实际先后顺序输出interactions数组，层内sequence由程序编号，不要填写。request必须识别operation.kinds（read/create/update/delete/display/process/publish/external_call）；return不填写kinds，由工具继承原请求操作类别，return是方向而不是功能类别。数据字段不填写data_type/required/default，这三项由API属性关联工具补齐。'
+            self.packet['instructions']+='\nSSD职责只限本用例交互与RR/SR消息对应。sender/receiver仅输出组件component_id，不重复名称和位置；不输出case_id，程序填当前对应组ID。数据只写本次实际传递的字段名和位置，不展开items数组内部对象字段；类型、默认值、必填性、约束由独立API参数任务及交互属性关联工具补齐。仅本用例额外明示的值/条件才在data中补充。source_refs在消息级提供一次，operation和各数据字段仅有额外不同依据时补充；程序默认使用消息依据。refinements.rr_message_id和sr_message_ids只能引用本次输出的交互消息id，不是用例编号。每条RR消息至多一个refinements项。request不输出reply_to，父调用由工具按实际端点和顺序确定；return的reply_to指向本层端点完全反向的原请求id。跨层对应只放refinements，不能放reply_to。RR和SR都保留明示的业务结果返回，不能只建RR入口请求。不要填空数组/空值占位可选属性。本地处理放入operation.sequence。'
+            self.packet['instructions']+='\n按实际先后顺序输出interactions数组，层内sequence由程序编号，不要填写。request不输出reply_to；即使误填，工具也不采用此提示建立关系。request必须识别operation.kinds（read/create/update/delete/display/process/publish/external_call）；return不填写kinds，由工具继承原请求操作类别，return是方向而不是功能类别。数据字段不填写data_type/required/default，这三项由API属性关联工具补齐。'
 
     def register(self,ref):
         layers=self.source_layers.get(ref['source_id'],set())
@@ -232,7 +232,9 @@ class EvidenceContext:
                 layer=row['layer'];orders[layer]=orders.get(layer,0)+1;row['sequence']=orders[layer]
                 row['case_id']=self.original['input']['case-group']['id']
                 row['parent_id']=row.pop('reply_to',None)
-                if row['direction']=='request' and row['parent_id'] is not None:raise ValueError('request.reply_to must be null; use refinements for cross-layer expansion, reply_to only for a return message')
+                if row['direction']=='request':
+                    if row['parent_id'] is not None:self.normalizations.append({'message_id':row['id'],'field':'reply_to','action':'ignored request-only transport hint; parent is independently derived from actual endpoints/order'})
+                    row['parent_id']=None
                 for role in ('sender','receiver'):
                     cid=row[role].get('component_id');c=self.components.get(cid)
                     if c is None:raise ValueError('unknown SSD component_id; do not invent a service')
@@ -247,7 +249,7 @@ class EvidenceContext:
                     row['operation']['kinds']=deepcopy(parent['operation'].get('kinds',[]))
                 elif not row['operation'].get('kinds'):raise ValueError('request.operation.kinds must identify the actual business operation category')
             from .ssd_tools import complete_structure
-            result=complete_structure(result)
+            result=complete_structure(result,self.normalizations)
         return result
 
 

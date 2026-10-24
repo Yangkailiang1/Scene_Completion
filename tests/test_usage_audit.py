@@ -17,3 +17,9 @@ def test_context_scope_and_repeated_dependency_quotes_are_distinct():
     assert context_summary({'RR':[{**d,'lines':d['lines'][1:]}]},[d])['documents'][0]['scope']=='scoped'
     h=usage_html({'tasks':{},'totals':{},'notes':['<script>']})
     assert '&lt;script&gt;' in h
+
+
+def test_in_flight_usage_is_pending_not_a_failed_unknown_charge():
+    events=[{'id':1,'kind':'request_started','at':10,'task_key':'slow','data':{'model_call_id':'one','requested_model':'large'}}]
+    r=summarize_requests(events,now=20)['tasks']['slow']
+    assert r['in_flight_calls']==1 and r['unknown_usage_calls']==0 and r['request_seconds']==10

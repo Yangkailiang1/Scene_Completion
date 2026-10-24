@@ -192,7 +192,7 @@ class DeepAgentsClient(SemanticClient):
         if not submitted:raise ValueError('Deep Agent did not submit a validated task result; inspect agent_traces')
         if len({fingerprint(p) for p in submitted})!=1:raise ValueError('conflicting task submissions')
         observed=sorted({m.response_metadata.get('provider_model') for m in result['messages'] if getattr(m,'response_metadata',{}).get('provider_model')})
-        return {**submitted[-1],'execution_model_evidence':{'provider':'deepagents_openai_compatible','requested_model':self.model('agent'),'observed_models':observed,'role':role}}
+        return {**submitted[-1],'execution_model_evidence':{'provider':'deepagents_openai_compatible','requested_model':self.model('agent'),'observed_models':observed,'role':role,'normalizations':indexed.normalizations if indexed else []}}
 
 def _transport_model(client,stage):
     from langchain_core.language_models.chat_models import BaseChatModel

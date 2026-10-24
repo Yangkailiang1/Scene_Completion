@@ -179,7 +179,7 @@ def test_model_format_rejection_retains_targeted_repair_candidate(tmp_path):
     from scene_completion.scheduler import TaskRejected
     p=fused_fixture();ctx=EvidenceContext(p)
     bad=ctx.encode_output({'interactions':[exchange(sid='rr',layer='RR'),exchange(sid='sr')],'rr_sr_links':[],'pending':[]})
-    bad['interactions'][0]['reply_to']='bad-request-parent'
+    bad['interactions'][0]['sender']['component_id']='unknown-identity'
     def transport(*args):return {'model':'offline','choices':[{'message':{'content':json.dumps(bad)},'finish_reason':'stop'}]}
     client=DeepAgentsClient({'api_key':'test','base_url':'http://offline','agent_model':'test','run_root':str(tmp_path),'indexed_context':True,'submission_mode':'json_text'},transport=transport)
     with pytest.raises(TaskRejected) as caught:client.agent(p)
@@ -187,7 +187,7 @@ def test_model_format_rejection_retains_targeted_repair_candidate(tmp_path):
     assert saved['candidate_format']=='model' and saved['payload']==bad
     p['repair']={k:saved[k] for k in ('payload','candidate_format')};p['repair']['candidate']=p['repair'].pop('payload')
     repaired=EvidenceContext(p).packet['repair']['candidate']
-    assert repaired['interactions'][0]['reply_to']=='bad-request-parent'
+    assert repaired['interactions'][0]['sender']['component_id']=='unknown-identity'
     assert repaired['interactions'][1]['sender']['component_id']=='human'
 
 
@@ -224,3 +224,29 @@ def test_deterministic_generation_does_not_call_model_for_matrix_only_rules(tmp_
     output=read_json(tmp_path/ex.scheduler.state['tasks']['G']['output_file'])
     assert len([s for s in output['payload']['scenarios'] if s['field']])==8
     assert output['metadata']['execution']['provider']=='deterministic_rule_coverage'
+
+
+def test_request_parent_transport_hint_does_not_define_business_relation():
+    p=fused_fixture();ctx=EvidenceContext(p)
+    v=ctx.encode_output({'interactions':[exchange(sid='rr',layer='RR'),exchange(sid='sr')],'rr_sr_links':[],'pending':[]})
+    v['interactions'][1]['reply_to']='rr'
+    result=ctx.expand(v)
+    assert result['interactions'][1]['parent_id'] is None
+    assert ctx.normalizations[0]['message_id']=='sr'
+    assert result['interactions'][1]['sender']['name']=='开发者'
+
+
+def test_structure_tool_assigns_duplicate_return_only_to_unique_direct_match():
+    from scene_completion.ssd_tools import complete_structure
+    rr=exchange(sid='rr',layer='RR');sr=exchange(sid='sr')
+    def response(i,sid):
+        r=deepcopy(i);r.update(id=sid,sequence=2,direction='return',parent_id=i['id']);r['sender'],r['receiver']=deepcopy(i['receiver']),deepcopy(i['sender']);return r
+    rrret=response(rr,'rrret');srret=response(sr,'srret')
+    value={'interactions':[rr,rrret,sr,srret],'rr_sr_links':[{'rr_id':'rr','sr_ids':['sr','srret'],'status':'confirmed','source_refs':R},{'rr_id':'rrret','sr_ids':['srret'],'status':'confirmed','source_refs':R}],'pending':[]}
+    log=[];out=complete_structure(value,log)
+    assert out['rr_sr_links'][0]['sr_ids']==['sr'] and out['rr_sr_links'][1]['sr_ids']==['srret']
+    assert log[0]['rr_message_id']=='rrret' and len(out['interactions'])==4
+    # Two equally direct RR messages are a business ambiguity, not a tool fix.
+    rrret2=deepcopy(rrret);rrret2['id']='rrret2';value['interactions'].append(rrret2);value['rr_sr_links'].append({'rr_id':'rrret2','sr_ids':['srret'],'status':'confirmed','source_refs':R})
+    out=complete_structure(value)
+    assert sum('srret' in link['sr_ids'] for link in out['rr_sr_links'])==3

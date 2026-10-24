@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 
-def complete_structure(value):
+def complete_structure(value,normalizations=None):
     out=deepcopy(value);rows=out['interactions'];by_id={i['id']:i for i in rows}
     for layer in ('RR','SR'):
         opened=[]
@@ -14,6 +14,28 @@ def complete_structure(value):
                     out.setdefault('pending',[]).append({'interaction_id':i['id'],'reason':'多个未结束调用都可能是本请求的调用上下文，未猜测父调用','source_refs':i['source_refs']})
                 opened.append(i['id'])
             elif i.get('parent_id') in opened:opened.remove(i['parent_id'])
+    claims={}
+    for link in out.get('rr_sr_links',[]):
+        if link['status']=='confirmed':
+            for sid in link['sr_ids']:claims.setdefault(sid,[]).append(link)
+    for sid,links in claims.items():
+        if len(links)<2 or sid not in by_id:continue
+        message=by_id[sid]
+        exact=[link for link in links if link['rr_id'] in by_id and
+          by_id[link['rr_id']]['direction']==message['direction'] and
+          all(by_id[link['rr_id']][role]['name']==message[role]['name'] for role in ('sender','receiver'))]
+        # A root request may encompass downstream returns, but a separately
+        # modeled identical RR return owns its exact SR return. Multiple exact
+        # matches (e.g. reusable templates) remain unresolved for review.
+        if len(exact)!=1:continue
+        owner=exact[0]
+        for link in links:
+            if link is owner:continue
+            link['sr_ids']=[k for k in link['sr_ids'] if k!=sid]
+            if not link['sr_ids']:
+                link['status']='pending'
+                out.setdefault('pending',[]).append({'interaction_id':link['rr_id'],'reason':'展开消息归属于唯一同向同端点交互；本条RR展开尚缺依据','source_refs':link.get('source_refs',[])})
+        if normalizations is not None:normalizations.append({'message_id':sid,'field':'refinements','action':'unique same-direction same-endpoint RR message owns this SR message','rr_message_id':owner['rr_id']})
     direct={sid:link['rr_id'] for link in out.get('rr_sr_links',[]) if link['status']=='confirmed' for sid in link['sr_ids']}
     children={}
     for i in rows:
