@@ -36,7 +36,7 @@ def scenario_key(s):
     # Different inheritance labels do not create different failure units.
     normalize=lambda v:' '.join(v.casefold().split())
     cause={'服务不可用':'service_unavailable','超时':'timeout','结果错误':'incorrect_result'}.get(s['cause'],s['cause'])
-    return (s['case_id'],s['layer'],s['interaction_id'],s['object'],s['operation'],cause,
+    return (s['case_id'],s.get('canonical_interaction_id',s['interaction_id']),s['object'],s['operation'],cause,
             tuple(sorted({normalize(x) for x in s['conditions']})),(s.get('scope','interface' if s.get('field') else 'service') if s.get('field') or s.get('scope') in {'interface','storage','context'} else 'service'),
             s.get('data_location'),failure_family(s['concern_key']))
 

@@ -67,24 +67,34 @@ class CallGate:
             self.condition.notify_all()
         if self.on_change:self.on_change({'configured_max':self.limit,'effective_max':self.effective_limit,'not_before_unix':time.time()+max(0,self.retry_not_before-time.monotonic())})
     def call(self,function,*args,**kwargs):
-        with self.slot():
-            if self.pause_file and self.pause_file.exists():raise TaskBlocked('pending',{'admission_paused':True})
-            if self.quota.is_set():raise TaskBlocked('budget_exhausted',{'quota':True})
-            try:return function(*args,**kwargs)
-            except Exception as e:
-                d=getattr(e,'response_diagnostic',None)
-                if d and d.get('failure_category'):
-                    self.observe(d)
-                    if d.get('failure_category') in {'quota_exhausted','budget_exhausted'}:self.quota.set();raise TaskBlocked('budget_exhausted',d) from e
+        from .execution_events import emit,phase
+        for retry in range(4):
+            with self.slot():
+                if self.pause_file and self.pause_file.exists():raise TaskBlocked('pending',{'admission_paused':True})
+                if self.quota.is_set():raise TaskBlocked('budget_exhausted',{'quota':True})
+                try:return function(*args,**kwargs)
+                except Exception as e:
+                    d=getattr(e,'response_diagnostic',None)
+                    if not d or not d.get('failure_category'):raise
+                    if d['failure_category']=='rate_limited':
+                        delay=float(d.get('retry_after_seconds') or (2**(retry+1)))
+                        delay=max(0.,min(300.,delay))
+                        self.observe({**d,'retry_after_seconds':delay})
+                        if retry==3:raise TaskBlocked('rate_limited',{'transport_failure':d,'retry_count':retry,'recoverable':True}) from e
+                        at=time.time()+max(delay,self.retry_not_before-time.monotonic())
+                        phase('rate_limit_wait',retry_at=at,retry_count=retry+1,retry_limit=3)
+                        emit('rate_limit_wait',retry_at=at,retry_count=retry+1,retry_limit=3,diagnostic=d)
+                        continue
+                    if d['failure_category'] in {'quota_exhausted','budget_exhausted'}:self.quota.set();raise TaskBlocked('budget_exhausted',d) from e
                     if d.get('configuration_required'):raise TaskBlocked('awaiting_configuration',d) from e
                     raise TaskBlocked('pending',{'transport_failure':d}) from e
-                raise
+        raise AssertionError('bounded retry exhausted')
 
 class Scheduler:
     def __init__(self,root,concurrency=1,auto_repair='bounded',max_rounds=2):
         if max_rounds not in (0,1,2):raise ValueError('at most two repair rounds')
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.path=self.root/'workflow_tasks.json';self.tasks={}
+        self.path=self.root/'workflow_tasks.json';self.tasks={};self.on_update=None
         self.state=read_json(self.path) if self.path.exists() else {'tasks':{},'events':[]}
         from .execution_events import EventStore
         self.events=EventStore(root)
@@ -95,7 +105,7 @@ class Scheduler:
         self.tasks[task.key]=task
         from .execution_graph import expected_files
         from .deepagents_client import role_for
-        write_json(self.root/'workflow_graph.json',{'nodes':[{'id':t.key,'case':t.case,'stage':t.stage,'role':role_for(t.stage),'deps':list(t.deps),'expected_files':expected_files(t.key,t.case,t.stage)} for t in self.tasks.values()]})
+        write_json(self.root/'workflow_graph.json',{'nodes':[{'id':t.key,'case':t.case,'stage':t.stage,'role':role_for(t.stage),'label':getattr(t,'display_label',None),'deps':list(t.deps),'expected_files':expected_files(t.key,t.case,t.stage)} for t in self.tasks.values()]})
         self.events.append('graph_updated',node_id=task.key)
     def _event(self,key,event):
         self.state['events'].append({'task':key,'event':event,'at':time.time()})
@@ -118,6 +128,9 @@ class Scheduler:
                 return v
         with ThreadPoolExecutor(max_workers=self.limit) as pool:
             while remaining or active:
+                if self.on_update:
+                    self.on_update()
+                    remaining.update(set(self.tasks)-done-set(active.values()))
                 progressed=False
                 for key in sorted(remaining):
                     t=self.tasks[key]
@@ -128,7 +141,7 @@ class Scheduler:
                     identity=fingerprint({'version':t.version,'dependencies':{d:v.get('payload',v) if isinstance(v,dict) else v for d,v in deps.items()}})
                     rec=self.state['tasks'].get(key,{})
                     if rec.get('identity')!=identity:
-                        rec={'identity':identity,'status':'pending','rounds':0,'case':t.case,'stage':t.stage};self.state['tasks'][key]=rec
+                        rec={'identity':identity,'status':'pending','rounds':rec.get('rounds',0) if rec.get('status')=='awaiting_answer' else 0,'case':t.case,'stage':t.stage};self.state['tasks'][key]=rec
                     if rec.get('status')=='passed':
                         try:
                             v=read_json(self.root/rec['output_file'])
@@ -140,7 +153,7 @@ class Scheduler:
                         if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
                         rec['rounds']+=1
                     if len(active)>=self.limit:continue
-                    rec.update(status='running',started_at=time.time());rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
+                    rec.update(status='running',started_at=time.time());rec.pop('failure',None);rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
                     future=pool.submit(copy_context().run,job,t,deps,dict(rec));active[future]=key;remaining.remove(key);progressed=True
                 self.save()
                 if not active:
@@ -150,7 +163,11 @@ class Scheduler:
                 for f in finished:
                     key=active.pop(f);rec=self.state['tasks'][key]
                     try:
-                        v=f.result();file='task_outputs/'+fingerprint([key,rec['identity'],v])+'.json';write_json(self.root/file,v)
+                        v=f.result();
+                        from .artifact_exports import export_task
+                        from .execution_graph import artifact_folder
+                        if isinstance(v,dict) and 'payload' in v and 'task' in v:export_task(artifact_folder(self.root,key,rec['case']),rec['stage'],v['payload'],artifact_name=(key if rec['case']=='shared' else key[len(rec['case'])+1:]).replace(':','--'))
+                        file='task_outputs/'+fingerprint([key,rec['identity'],v])+'.json';write_json(self.root/file,v)
                         rec.update(status='passed',output_file=file,output_hash=fingerprint(v),finished_at=time.time());outputs[key]=v;done.add(key);self._event(key,'passed')
                     except TaskBlocked as e:
                         rec.update(status=e.status,failure=e.details,finished_at=time.time());done.add(key);self._event(key,e.status)

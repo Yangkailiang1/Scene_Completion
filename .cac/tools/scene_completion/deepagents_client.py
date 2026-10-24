@@ -9,6 +9,8 @@ from datetime import datetime,timezone
 import json
 from .model_client import SemanticClient
 from .storage import write_json,fingerprint
+from contextvars import ContextVar
+_AGENT_SESSION=ContextVar('scene_agent_session',default=None)
 
 def task_files(packet):
     from .source_documents import documents_in
@@ -18,7 +20,7 @@ def task_files(packet):
         files[path]='source_id='+doc['source_id']+'\n'+'\n'.join(str(line['number'])+' | '+line['text'] for line in doc['lines'])
     return files
 
-CHECKER_TASKS={'existing-extract','gap-compare','semantic-compare','test-ground-truth','missing-report','exception-evaluation','extraction-evaluation'}
+CHECKER_TASKS={'existing-branches','existing-bind','existing-extract','gap-compare','semantic-compare','test-ground-truth','missing-report','exception-evaluation','extraction-evaluation'}
 def role_for(task):
     if task=='gap-recommend':return 'recommender'
     return 'checker' if task in CHECKER_TASKS else 'modeler'
@@ -32,15 +34,38 @@ class DeepAgentsClient(SemanticClient):
         from deepagents import create_deep_agent
         from deepagents.backends import StateBackend
         from deepagents.middleware.filesystem import FilesystemPermission
-        from langchain_core.tools import tool
         from .validation import validate_result
         role=role_for(packet['task'])
         if role=='recommender':return {'enabled':False,'status':'未启用'}
-        submitted=[]
         from langchain_core.tools import StructuredTool
+        submitted=[]
+        from .execution_events import context
+        from .node_conversations import Conversations
+        _,event_context=context();task_key=event_context.get('task_key',packet['task'])
+        conversations=Conversations(self.root)
+        attempt=event_context.get('attempt',1)
+        checkpoint_id=fingerprint([packet['task'],packet['input'],packet['output_schema'],packet.get('skill_text'),packet.get('instructions'),attempt,fingerprint(self.config),self.model('agent'),self.base_url])
+        saved=conversations.checkpoint(task_key,checkpoint_id) or {}
+        pending=conversations.pending(task_key)
+        if pending:
+            from .scheduler import TaskBlocked
+            raise TaskBlocked('awaiting_answer',{'question':pending})
+        session={'task_key':task_key,'conversations':conversations,'count':saved.get('model_calls',0)}
+        session_token=_AGENT_SESSION.set(session)
+        def ask_user(question:str,basis:str,decision:str)->str:
+            from .scheduler import TaskBlocked
+            if sum(m['kind']=='question' for m in conversations.list(task_key))>=int(self.config.get('agent_max_questions',3)):
+                raise TaskRejected({'error':'本节点业务澄清预算已用完，请审核任务输入后重做','phase':'clarification'})
+            q=conversations.question(task_key,question,basis,decision)
+            emit('question_asked',question=q)
+            raise TaskBlocked('awaiting_answer',{'question':q})
+        ask=StructuredTool.from_function(func=ask_user,name='ask_user',description='仅在缺少会影响结果的业务决定时提问。包含问题、已有依据、待决定事项。暂停当前节点，其他任务继续。')
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
         def submit(payload:dict) -> str:
+            if any(not r['applied'] for r in conversations.list(task_key) if r['kind'] in {'guidance','answer'}):
+                emit('guidance_pending',message='新指导尚未进入本次请求，请下一轮模型调用后重新提交')
+                return '用户在本次HTTP输出期间补充了指导；结果尚未保存。请在下一轮读取节点指导后提交。'
             phase('validating')
             try:validate_result(packet['task'],payload,packet['input'])
             except ValueError as e:
@@ -65,11 +90,19 @@ class DeepAgentsClient(SemanticClient):
         file=lambda content:{'content':content.splitlines(),'created_at':now,'modified_at':now}
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
-        agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result],subagents=[],backend=StateBackend(),
-          skills=['/skills/'],system_prompt=role_text+'\n'+packet['instructions']+'\n先阅读指定Skill，再处理任务。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
+        agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask],subagents=[],backend=StateBackend(),
+          skills=['/skills/'],system_prompt=role_text+'\n'+packet['instructions']+'\n先阅读指定Skill，再处理任务。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
         inputs={'messages':[{'role':'user','content':'执行'+packet['task']+'。完整任务包：\n'+json.dumps(packet,ensure_ascii=False)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}
+        if saved.get('status') in {'awaiting_answer','transport_wait'} and saved.get('messages'):
+            from langchain_core.messages import messages_from_dict,messages_to_dict,ToolMessage
+            inputs['messages']=messages_from_dict(saved['messages'])
+            last=inputs['messages'][-1]
+            if getattr(last,'tool_calls',None):
+                for call in last.tool_calls:
+                    inputs['messages'].append(ToolMessage(content='用户已回答；请读取下次模型请求附带的节点指导并继续。',tool_call_id=call['id']))
+        initial_messages=inputs['messages'][:]
         from langsmith import tracing_context
         from langchain_core.callbacks import BaseCallbackHandler
         captured=[];tool_names={}
@@ -96,6 +129,15 @@ class DeepAgentsClient(SemanticClient):
             trace={'role':role,'task':packet['task'],'batch_id':packet['batch_id'],'status':'failed' if error else 'complete','error_type':error,
                'messages':[m.model_dump(mode='json') for m in (result['messages'] if result else captured)]}
             write_json(self.root/'agent_traces'/(packet['batch_id']+'.json'),trace)
+            from uuid import uuid4
+            write_json(self.root/'agent_trace_history'/(packet['batch_id']+'-'+uuid4().hex+'.json'),trace)
+            from langchain_core.messages import messages_to_dict,convert_to_messages
+            history=(result['messages'] if result else convert_to_messages(initial_messages)+captured)
+            conversations.checkpoint(task_key,checkpoint_id,{'status':'awaiting_answer' if conversations.pending(task_key) else ('transport_wait' if error=='TaskBlocked' else ('failed' if error else 'complete')), 'messages':messages_to_dict(history),'model_calls':session['count']})
+            if result and result['messages']:
+                reply=next((m.content for m in reversed(result['messages']) if getattr(m,'type',None)=='ai' and isinstance(m.content,str) and m.content),None)
+                if reply:conversations.append(task_key,'assistant',reply)
+            _AGENT_SESSION.reset(session_token)
         if not submitted:raise ValueError('Deep Agent did not submit a validated task result; inspect agent_traces')
         if len({fingerprint(p) for p in submitted})!=1:raise ValueError('conflicting task submissions')
         observed=sorted({m.response_metadata.get('provider_model') for m in result['messages'] if getattr(m,'response_metadata',{}).get('provider_model')})
@@ -120,8 +162,17 @@ def _transport_model(client,stage):
             if tool_choice is not None:args['tool_choice']=tool_choice
             return self.bind(**args)
         def _generate(self,messages,stop=None,run_manager=None,**kwargs):
+            session=_AGENT_SESSION.get()
+            if session:
+                self.request_count=session['count']
+                pending=session['conversations'].pending(session['task_key'])
+                if pending:
+                    from .scheduler import TaskBlocked
+                    raise TaskBlocked('awaiting_answer',{'question':pending})
             self.request_count+=1
+            if session:session['count']=self.request_count
             limit=int(self.scene_client.config.get('agent_max_model_calls',5))
+            if session:limit+=min(int(self.scene_client.config.get('agent_max_questions',3)),sum(m['kind']=='answer' for m in session['conversations'].list(session['task_key'])))
             if self.request_count>limit:raise ValueError('task model-call budget exhausted without a validated submission')
             converted=[]
             for m in messages:
@@ -131,11 +182,16 @@ def _transport_model(client,stage):
                 if m.type=='ai' and m.tool_calls:
                     row['tool_calls']=[{'id':t['id'],'type':'function','function':{'name':t['name'],'arguments':json.dumps(t['args'],ensure_ascii=False)}} for t in m.tool_calls]
                 converted.append(row)
+            if session:
+                guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer'} and not r['applied']]
+                all_guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer'}]
+                if all_guidance:converted.append({'role':'user','content':'本节点业务指导（仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
             body={'model':self.scene_client.model('agent'),'messages':converted,
               'max_tokens':self.scene_client.output_limit(self.task_stage),'stream':self.scene_client.config.get('stream',True),**{k:v for k,v in kwargs.items() if k in {'tools','tool_choice','parallel_tool_calls'}}}
             if self.request_count>=limit:
-                body['tool_choice']={'type':'function','function':{'name':'submit_result'}}
-                notice='已到达本任务工具阅读预算。请立即根据现有允许材料调用submit_result提交产物；未知项明确待确认，不再探索文件。'
+                body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
+                body['tool_choice']='required'
+                notice='已到达本任务工具阅读预算。请停止文件探索：材料充分则submit_result；存在阻断业务疑问则ask_user。未知项明确待确认。'
                 if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 else:converted.insert(0,{'role':'system','content':notice})
             if body['stream'] and self.scene_client.config.get('stream_usage',True):body['stream_options']={'include_usage':True}
@@ -148,7 +204,11 @@ def _transport_model(client,stage):
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
                 phase('model_wait');emit('request_started',requested_model=body['model'])
-                response=self.scene_client.post('/chat/completions',body)
+                try:response=self.scene_client.post('/chat/completions',body)
+                except Exception as e:
+                    if getattr(e,'status',None)=='rate_limited' and session:session['count']-=1
+                    raise
+                if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
                 emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))
             message=response['choices'][0]['message'];calls=[]
             for call in message.get('tool_calls',[]) or []:

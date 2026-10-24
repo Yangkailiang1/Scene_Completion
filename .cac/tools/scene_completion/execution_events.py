@@ -36,7 +36,7 @@ class EventStore:
         return [{**json.loads(payload),'id':seq} for seq,payload in rows]
     def latest_phases(self):
         with self.connect() as db:
-            rows=db.execute("SELECT e.id,e.payload FROM events e INNER JOIN (SELECT task_key,MAX(id) id FROM events WHERE kind IN ('phase','task_status','tool_started','tool_finished','request_started','stream_delta') GROUP BY task_key) a ON a.id=e.id").fetchall()
+            rows=db.execute("SELECT e.id,e.payload FROM events e INNER JOIN (SELECT task_key,MAX(id) id FROM events WHERE kind IN ('phase','task_status','tool_started','tool_finished','request_started','stream_delta','rate_limit_wait','question_asked') GROUP BY task_key) a ON a.id=e.id").fetchall()
         return {json.loads(payload)['task_key']:{**json.loads(payload),'id':seq} for seq,payload in rows}
     def dump_jsonl(self):
         after=0
@@ -65,3 +65,7 @@ def fields(**values):
     if context:
         with bind(context[0],**values):yield
     else:yield
+
+def context():
+    current=_CURRENT.get()
+    return (current[0],dict(current[1])) if current else (None,{})

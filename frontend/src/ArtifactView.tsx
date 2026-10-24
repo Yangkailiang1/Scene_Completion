@@ -56,6 +56,31 @@ export function PayloadView({
         ]}
       />
     );
+  else if (value.branches)
+    body = (
+      <Table
+        rows={value.branches}
+        columns={[
+          ["id", "原分支"],
+          ["case_hint", "用例提示"],
+          ["description", "原文异常"],
+          ["operation_hint", "操作"],
+          ["source_refs", "原文依据"],
+        ]}
+      />
+    );
+  else if (value.bindings)
+    body = (
+      <Table
+        rows={value.bindings}
+        columns={[
+          ["branch_id", "原分支"],
+          ["interaction_id", "具体交互"],
+          ["status", "绑定状态"],
+          ["basis", "绑定依据"],
+        ]}
+      />
+    );
   else if (value.cases)
     body = (
       <Table
@@ -140,7 +165,16 @@ export function PayloadView({
         <Table
           rows={value.G.map((s: any) => ({
             ...s,
-            coverage: missing.has(s.id) ? "缺失，待审核" : "已有完整对应",
+            coverage: missing.has(s.id) ? "缺失，待审核" : "已有覆盖",
+            original_coverage: (value.full_matches || [])
+              .filter((p: any) => p.checker_scenario_id === s.id)
+              .map((p: any) => {
+                const e = value.E.find(
+                  (e: any) => e.id === p.generated_scenario_id,
+                );
+                return `${e?.original_branch_id || e?.id}：${e?.coverage_kind === "input_parameters" ? "同交互输入参数分支覆盖" : "具体异常对应"}`;
+              })
+              .join("；"),
             label: definitions[s.concern_key]?.label || s.concern_key,
           }))}
           columns={[
@@ -149,10 +183,22 @@ export function PayloadView({
             ["label", "关注点"],
             ["cause", "异常原因"],
             ["conditions", "触发条件"],
-            ["coverage", "已有覆盖"],
+            ["interaction_id", "具体交互"],
+            ["coverage", "覆盖状态"],
+            ["original_coverage", "原分支与覆盖依据"],
           ]}
         />
-        <h3 className="section-label">原文已有异常 E</h3>
+        <h3 className="section-label">原文已有异常 E及逆向细化</h3>
+        {value.original_branches && (
+          <Table
+            rows={value.original_branches}
+            columns={[
+              ["id", "原分支"],
+              ["description", "原文描述"],
+              ["source_refs", "依据"],
+            ]}
+          />
+        )}
         <Table
           rows={value.E}
           columns={[
@@ -166,12 +212,20 @@ export function PayloadView({
   } else if (value.scenarios)
     body = (
       <Table
-        rows={value.scenarios}
+        rows={value.scenarios.map((s: any) => ({
+          ...s,
+          label: definitions[s.concern_key]?.label || s.concern_key,
+        }))}
         columns={[
           ["interaction_id", "交互"],
           ["object", "对象"],
           ["cause", "具体原因"],
           ["conditions", "必要条件"],
+          ["label", "关注点"],
+          ["original_branch_id", "原分支"],
+          ["coverage_kind", "覆盖范围"],
+          ["source_status", "明示／推导"],
+          ["derivation", "细化依据"],
         ]}
       />
     );

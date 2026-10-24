@@ -75,6 +75,16 @@ def validate_result(task, payload, inputs):
         elif isinstance(v,list):
             for x in v:visit(x)
     visit(payload)
+    if task=='api-parameters' and 'interface' in inputs:
+        if len(payload['apis'])!=1 or payload['apis'][0]['id']!=inputs['interface']['id']:raise ValueError('API child must output exactly the indexed interface, preserving its ID')
+    if task=='api-index':
+        ids=set();docs={d['source_id']:d for d in inputs['SR']}
+        for a in payload['apis']:
+            if a['id'] in ids or not a['source_ranges']:raise ValueError('API index requires unique identities and source ranges')
+            ids.add(a['id'])
+            for span in a['source_ranges']:
+                numbers={r['number'] for r in docs.get(span['source_id'],{}).get('lines',[])}
+                if span['start'] not in numbers or span['end'] not in numbers or span['start']>span['end']:raise ValueError('API index range outside allowed source')
     if task=='components':
         ids=[c['id'] for c in payload['components']]
         if len(ids)!=len(set(ids)):raise ValueError('duplicate component ID')
@@ -176,8 +186,18 @@ def validate_result(task, payload, inputs):
         for s in payload['scenarios']:
             if task=='test-ground-truth' and not any(r['source_id'] in test_ids for r in s['source_refs']):
                 raise ValueError('each GT unit must cite its independent test description')
-            if task=='existing-extract' and s['source_status']!='explicit':raise ValueError('E may contain only documented exceptions')
+            if task=='existing-extract' and s['source_status']=='framework_inferred' and not s.get('original_branch_id'):raise ValueError('E inference requires original branch provenance')
             if s['source_status']=='framework_inferred' and not s['derivation']:raise ValueError('GT inference needs derivation')
+    if task=='existing-bind':
+        branches={b['id'] for b in inputs['branches']['branches']}
+        from .inverse_alignment import canonical_fused
+        ids={i['id'] for i in canonical_fused(inputs['fused-ssd'])['interactions']}
+        for b in payload['bindings']:
+            if b['branch_id'] not in branches:raise ValueError('unknown original branch')
+            if b['status']=='confirmed' and b['interaction_id'] not in ids:raise ValueError('binding needs a concrete canonical interaction')
+    if task=='existing-extract' and 'fused-ssd' in inputs:
+        from .inverse_alignment import normalized_scenarios
+        normalized_scenarios(payload,inputs['fused-ssd'])
     if task in {'gap-compare','semantic-compare'}:
         expected={(a['id'],b['id']) for a in inputs['left'] for b in inputs['right']}
         got=[(d['left_id'],d['right_id']) for d in payload['decisions']]
@@ -185,8 +205,8 @@ def validate_result(task, payload, inputs):
         left={s['id']:s for s in inputs['left']}; right={s['id']:s for s in inputs['right']}
         for d in payload['decisions']:
             a,b=left[d['left_id']],right[d['right_id']]
-            if d['status']=='full' and (a['case_id']!=b['case_id'] or a['layer']!=b['layer']):
-                raise ValueError('full match cannot cross case/layer')
+            if d['status']=='full' and (a['case_id']!=b['case_id'] or a['interaction_id']!=b['interaction_id']):
+                raise ValueError('full match cannot cross case/fused interaction')
             if d['status']=='full' and a.get('scope') in {'interface','storage','context'} and b.get('scope') in {'interface','storage','context'} and a['scope']!=b['scope']:raise ValueError('full match cannot cross constraint scope')
             if d['status']=='full' and a.get('data_location') and b.get('data_location') and a['data_location']!=b['data_location']:raise ValueError('full match cannot cross field location')
             if d['status']=='full' and {a['cause'],b['cause']} & {'no_matching_records','empty_list'} and {a['cause'],b['cause']} & {'instance_missing','instance_not_found','requested_resource_not_found'}:raise ValueError('no match cannot cover missing instance')

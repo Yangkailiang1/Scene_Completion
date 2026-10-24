@@ -130,6 +130,8 @@ def test_partial_never_scores_and_match_scope():
     assert r['metrics']['missing_exception_miss_rate']['value']==100
     assert r['metrics']['generation_validity']['value']==0
     a=scenario('a');b=scenario('b');b['layer']='RR'
+    validate_result('semantic-compare',{'decisions':[decision('a','b')]},{'left':[a],'right':[b],'purpose':'GT_G'})
+    b['interaction_id']='another-call'
     with pytest.raises(ValueError,match='cross'):validate_result('semantic-compare',{'decisions':[decision('a','b')]},{'left':[a],'right':[b],'purpose':'GT_G'})
 
 
@@ -191,6 +193,12 @@ def install_catalogue_mocks(m):
         rr=[i for i in values if i['layer']=='RR'];sr=[i for i in values if i['layer']=='SR']
         return {'interactions':values,'rr_sr_links':[{'rr_id':rr[0]['id'],'sr_ids':[i['id'] for i in sr],
           'status':'confirmed','basis':'explicit fixture refinement','source_refs':rr[0]['source_refs']}],'pending':[]}
+    def api_index(p):
+        v=m.get('api-parameters',{'apis':[]});v=v(p) if callable(v) else v
+        docs=p['input']['SR']
+        return {'apis':[{'id':a['id'],'name':a['name'],'source_ranges':[{'source_id':d['source_id'],'start':d['lines'][0]['number'],'end':d['lines'][-1]['number']} for d in docs], 'source_refs':a['source_refs']} for a in v.get('apis',[])]}
+    m.setdefault('existing-branches',{'branches':[]});m.setdefault('existing-bind',{'bindings':[]})
+    m.setdefault('api-index',api_index)
     m.update({'use-case-extract':catalogue,'use-case-align':align,'fused-ssd':fused})
 
 
@@ -298,7 +306,7 @@ def test_gt_unknown_ssd_attribute_not_required_to_match():
 
 def test_checked_in_schema_matches_runtime():
     from scene_completion.contracts import SCHEMAS,schema
-    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v2/schemas'
+    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v3/schemas'
     for key in SCHEMAS:assert json.loads((folder/(key+'.schema.json')).read_text())==schema(key)
 
 

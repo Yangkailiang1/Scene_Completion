@@ -117,7 +117,8 @@ def test_deepagent_forces_submission_at_task_budget_instead_of_raising_recursion
     p=packet('api-map',{'SR':[]});p['skill_text']='---\nname: scene-api-map\ndescription: API\n---\nRead and submit.'
     result=client.agent(p)
     assert result['services']==[] and len(sent)==2
-    assert sent[-1]['tool_choice']=={'type':'function','function':{'name':'submit_result'}}
+    assert sent[-1]['tool_choice']=='required'
+    assert {t['function']['name'] for t in sent[-1]['tools']}=={'submit_result','ask_user'}
     assert result['execution_model_evidence']['observed_models']==['provider']
 
 def test_task_virtual_sources_preserve_only_allowed_lines():

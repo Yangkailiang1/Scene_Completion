@@ -14,7 +14,7 @@ class Workbench:
     def __init__(self,root,client_factory=None,env_file=None):
         self.root=Path(root).resolve();self.root.mkdir(parents=True,exist_ok=True)
         self.env_file=Path(env_file or PROJECT/'.env')
-        self.pool=ThreadPoolExecutor(max_workers=2);self.active=set();self.lock=Lock();self.client_factory=client_factory
+        self.pool=ThreadPoolExecutor(max_workers=2);self.active=set();self.lock=Lock();self.client_factory=client_factory;self.gates={};self.dialogue_active=set()
     def run_dir(self,run_id):
         if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):raise ValueError('invalid project id')
         p=self.root/run_id
@@ -53,7 +53,17 @@ class Workbench:
             config[k]=v
         write_json(p/'model.local.json',config)
         return {k:v for k,v in config.items() if k!='api_key'}
+    def upgrade(self,rid):
+        import shutil
+        p=self.run_dir(rid);meta=read_json(p/'project.json')
+        if meta.get('protocol')==PROTOCOL:return rid
+        sources={k:[{'name':d['name'],'content':(p/d['path']).read_text(encoding='utf8')} for d in rows] for k,rows in meta['sources'].items()}
+        new=self.create({'name':meta['name']+' · 融合交互新版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
+        if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
+        target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
+        return new['id']
     def start(self,rid):
+        rid=self.upgrade(rid)
         p=self.run_dir(rid)
         from .model_settings import resolve
         config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
@@ -63,7 +73,7 @@ class Workbench:
             self.active.add(rid)
         write_json(p/'job.json',{'status':'running','started_at':time.time()})
         self.pool.submit(self._execute,rid)
-        return {'status':'running'}
+        return {'status':'running','project_id':rid}
     def _execute(self,rid):
         p=self.run_dir(rid)
         try:
@@ -78,6 +88,7 @@ class Workbench:
             with run_lock(p/'run'):
                 client=self.client_factory(config,p/'run') if self.client_factory else client_for(config,p/'run')
                 ex=Execution(p/'run',mode='external',client=client,config=config,case_ids=project.get('case_ids'))
+                self.gates[rid]=ex.gate
                 docs={role:read_documents([p/d['path'] for d in project['sources'][role]],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
                 build_pipeline(ex,docs['RR'],docs['SR'],docs['test']);manifest=ex.finish()
                 write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'waiting','finished_at':time.time()})
@@ -104,6 +115,7 @@ class Workbench:
             prefixes['run/reviews/previews/'+fingerprint(key)+'/'+preview_stem]=key
         for artifact in artifacts:
             artifact['task_key']=next((key for prefix,key in prefixes.items() if artifact['path'].startswith(prefix+'.')),None)
+        artifacts=[a for a in artifacts if '/reviews/previews/' not in a['path'] or records.get(a.get('task_key'),{}).get('status') in {'passed','awaiting_review'}]
         for name in ('missing_report.json','missing_report.md'):
             if (run/name).exists():artifacts.append({'path':'run/'+name,'name':name,'bytes':(run/name).stat().st_size})
         job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
@@ -113,6 +125,57 @@ class Workbench:
         return {'project':read_json(p/'project.json'),'job':job,'manifest':read_json(run/'run_manifest.json') if (run/'run_manifest.json').exists() else None,
           'tasks':read_json(run/'workflow_tasks.json') if (run/'workflow_tasks.json').exists() else {'tasks':{},'events':[]},'reviews':reviews,'artifacts':artifacts,
           'config':public_settings(config)}
+    def conversation(self,rid,key):
+        from .node_conversations import Conversations
+        p=self.run_dir(rid)
+        graph=read_json(p/'run/workflow_graph.json') if (p/'run/workflow_graph.json').exists() else {'nodes':[]}
+        tasks=read_json(p/'run/workflow_tasks.json').get('tasks',{}) if (p/'run/workflow_tasks.json').exists() else {}
+        if key not in tasks and key not in {n['id'] for n in graph['nodes']}:raise ValueError('请选择已创建的实际节点')
+        store=Conversations(p/'run');return store
+    def guide(self,rid,key,text):
+        store=self.conversation(rid,key);row=store.append(key,'guidance',text)
+        tasks=read_json(self.run_dir(rid)/'run/workflow_tasks.json').get('tasks',{})
+        if tasks.get(key,{}).get('status') not in {'running','awaiting_answer'}:
+            store.invalidate(key)
+            self.pool.submit(self._dialogue,rid,key)
+        return row
+    def _dialogue(self,rid,key):
+        with self.lock:
+            if (rid,key) in self.dialogue_active:return
+            self.dialogue_active.add((rid,key))
+        from .model_settings import resolve
+        from .cli import client_for
+        from .execution_events import EventStore,bind,emit
+        p=self.run_dir(rid);store=self.conversation(rid,key)
+        try:
+            packets=[]
+            for f in (p/'run/packets').glob('*.json'):
+                value=read_json(f)
+                if value.get('node_key')==key:packets.append((f.stat().st_mtime,value))
+            task_packet=max(packets,key=lambda a:a[0])[1] if packets else None
+            if not task_packet:
+                store.append(key,'assistant','指导已保存，将在该节点下一次模型调用时生效。');return
+            config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+            config['max_tokens']=min(config.get('max_tokens',1200),1600);client=client_for(config,p/'run')
+            messages=[{'role':'system','content':'你是该节点的业务对话助手。只根据允许任务包回答指导和疑问。不得读取其他任务、E、GT或比较答案，不修改或伪造正式产物；需要重做时说明点击重新执行本节点。'},
+              {'role':'user','content':'允许任务包：'+json.dumps(task_packet,ensure_ascii=False)}]
+            messages += [{'role':'assistant' if m['kind']=='assistant' else 'user','content':m['text']} for m in store.list(key)[-20:] if m['kind'] in {'assistant','guidance','answer'}]
+            with bind(EventStore(p/'run'),task_key=key,role='dialogue',case='node',attempt=0,model_call_id='dialogue-'+uuid4().hex):
+                body={'model':client.model('agent'),'messages':messages,'max_tokens':1600,'stream':True,'stream_options':{'include_usage':True}}
+                emit('request_started',requested_model=body['model'],purpose='dialogue')
+                from .scheduler import CallGate
+                gate=self.gates.setdefault(rid,CallGate(config.get('max_concurrency',1)))
+                response=gate.call(client.post,'/chat/completions',body)
+                emit('request_finished',requested_model=body['model'],provider_model=response.get('model'))
+                store.append(key,'assistant',response['choices'][0]['message'].get('content') or '回复为空；指导仍已保存。')
+        except Exception as e:
+            store.append(key,'system','对话未完成：'+type(e).__name__+'；指导已保存，可稍后重试。')
+        finally:
+            with self.lock:self.dialogue_active.discard((rid,key))
+    def _resume(self,rid):
+        while rid in self.active:time.sleep(.2)
+        try:self.start(rid)
+        except ValueError:pass
     def export(self,rid):
         p=self.run_dir(rid);stream=io.BytesIO()
         with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as z:
@@ -122,6 +185,9 @@ class Workbench:
             if (p/'run/execution_events.sqlite3').exists():
                 from .execution_events import EventStore
                 z.writestr('run/execution_events.jsonl',''.join(EventStore(p/'run').dump_jsonl()))
+                from .node_conversations import Conversations
+                tasks=read_json(p/'run/workflow_graph.json').get('nodes',[]) if (p/'run/workflow_graph.json').exists() else []
+                z.writestr('run/node_conversations.json',json.dumps({n['id']:Conversations(p/'run').list(n['id']) for n in tasks},ensure_ascii=False))
         return stream.getvalue()
 
 def create_app(root=None,client_factory=None,env_file=None):
@@ -189,6 +255,25 @@ def create_app(root=None,client_factory=None,env_file=None):
                     yield ': heartbeat\n\n';heartbeat=time.monotonic()
                 await asyncio.sleep(.2)
         return StreamingResponse(stream(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+    @app.get('/api/projects/{rid}/conversation')
+    def conversation(rid:str,task_key:str):
+        store=service.conversation(rid,task_key)
+        return {'messages':store.list(task_key),'question':store.pending(task_key),'revision':store.revision(task_key)}
+    @app.post('/api/projects/{rid}/conversation')
+    def guidance(rid:str,body:dict):return service.guide(rid,body['task_key'],body['text'])
+    @app.post('/api/projects/{rid}/answer')
+    def answer(rid:str,body:dict):
+        store=service.conversation(rid,body['task_key']);value=store.answer(body['task_key'],body['question_id'],body['text'])
+        service.pool.submit(service._resume,rid)
+        return value
+    @app.post('/api/projects/{rid}/rerun-node')
+    def rerun(rid:str,body:dict):
+        if rid in service.active:raise ValueError('请等待当前执行轮结束；运行中指导会在下一次模型调用生效')
+        store=service.conversation(rid,body['task_key'])
+        if store.pending(body['task_key']):raise ValueError('请先回答当前问题')
+        store.append(body['task_key'],'guidance',body.get('text') or '根据本节点最新指导重新执行并生成审核稿。')
+        store.invalidate(body['task_key'])
+        return service.start(rid)
     @app.get('/api/projects/{rid}/review-history')
     def review_history(rid:str,task_key:str):
         root=service.run_dir(rid)/'run/reviews/versions';rows=[]

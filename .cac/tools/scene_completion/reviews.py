@@ -7,7 +7,7 @@ from .scheduler import TaskBlocked
 from .validation import validate_result
 from .contracts import SCHEMAS
 
-REVIEW_TASKS={'use-case-extract','use-case-align','components','api-map','api-parameters','fused-ssd','object-operations','concern-match','exception-generate','existing-extract','gap-compare'}
+REVIEW_TASKS={'existing-branches','existing-bind','use-case-extract','use-case-align','components','api-map','api-parameters','fused-ssd','object-operations','concern-match','exception-generate','existing-extract','gap-compare'}
 class Reviews:
     def __init__(self,root,mode='auto'):
         if mode not in {'auto','manual'}:raise ValueError('review mode must be auto or manual')
@@ -28,7 +28,7 @@ class Reviews:
         return deepcopy(v['payload'])
     def propose(self,key,task,inputs,value,identity=None):
         if task not in REVIEW_TASKS:return value
-        old=self.read(key);rev=old.get('revision',0) if old else 0
+        old=self.read(key);rev=old.get('revision',0)+1 if old else 0
         from .execution_events import phase,emit
         phase('saving')
         from .artifact_exports import export_task

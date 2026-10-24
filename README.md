@@ -37,12 +37,14 @@ npm run build --prefix frontend
 3. 对每个confirmed用例组，将两层正向描述一起交给建模器，生成完整SSD及RR步骤—SR展开关系。保留整体系统边界、层级、实际调用及逐层返回；没有AR材料不生成AR。
 4. 从完整SSD投影RR/SR视图，整理名称—支持操作，再结合API表、组成身份补全交互。
 5. 匹配双方及输入/输出数据的关注点，按本次实际操作组合五类功能与数据库/LLM扩展；生成有明确规则的异常G。
-6. 检查器独立提取本用例文档已有异常E；比较G/E，完整语义一一对应计覆盖，部分仅诊断，输出M及JSON/Markdown报告。
+6. 检查器并行提取原文异常分支，再绑定融合SSD具体交互、逆向归类和细化E。参数非法可覆盖同交互多个请求细项（含缺失），不覆盖输出。G/E比较输出M及JSON/Markdown报告。测试GT独立绑定、细化后评测。
 7. 可选测试GT及抽取Acc评测独立运行。测试操作仅投影对象和支持操作，不向G提供异常答案。推荐器未启用，不生成Q。
 
 Deep Agents实际承担建模器和检查器的任务执行，加载各自Skill并通过工具提交结构化结果。任务依赖由持久化DAG约束；每个Agent只拿到本任务包和独立虚拟文件系统，无宿主文件/其他角色结果访问。共用原有传输、模型额度与并发控制，最多两轮任务修复。
 
 ## 三栏执行工作台
+
+中间节点对话区默认占60%、执行图40%，支持调宽、恢复默认和最大化工作区。日志正文至少14px，工具参数默认折叠，输入框在底部。可对节点发指导、提问、回答模型阻断疑问；指导在下一次模型调用生效。旧项目继续运行会保留原记录并创建新版项目。
 
 左侧项目栏可收起，偏好保存在浏览器；中间与右侧可拖动分隔线调整宽度。右侧只读执行图按建模器、检查器、推荐器分组，节点和连线读取调度器实际DAG，支持缩放、平移、用例筛选和定位当前节点。用例对应完成后展开真实用例节点；历史未保存依赖图的运行只展示原状态，不补造连线。
 
@@ -88,6 +90,6 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 组成绘图恢复历史分区参与关系设计，适配当前JSON；用例为椭圆、人类Actor旁带小人。不会恢复旧CRUD推导或部署猜测。示例明确使用mock，不代表真实模型效果。
 
-协议为 `scene-workflow-v2`，关注点版本为 `interaction-concerns-v3`。旧协议运行目录必须另开，禁止直接复用。关注点依据用户2026-10-24新版分类图，当前40个定义（含输入/输出两个抽象族及共享七类数据），不再沿用旧45项。
+协议为 `scene-workflow-v3`，关注点版本为 `interaction-concerns-v3`。旧协议项目升级时创建新版本，原记录保留，旧缓存不直接复用。关注点依据用户2026-10-24新版分类图，当前40个定义（含输入/输出两个抽象族及共享七类数据），不再沿用旧45项。
 
-详见[协议与字段](docs/scene-workflow-v2/protocol.md)、[任务依赖](docs/scene-workflow-v2/workflow-map.md)、[关注点体系](docs/scene-workflow-v2/concern-hierarchy.md)及[验证记录](docs/scene-workflow-v2/validation.md)。
+详见[协议与字段](docs/scene-workflow-v3/protocol.md)、[任务依赖](docs/scene-workflow-v3/workflow-map.md)、[关注点体系](docs/scene-workflow-v2/concern-hierarchy.md)及[验证记录](docs/scene-workflow-v3/validation.md)。

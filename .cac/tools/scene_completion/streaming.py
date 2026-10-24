@@ -19,7 +19,10 @@ def read_chat_stream(response, started, timeout, observer=None):
             details=row['error'] if isinstance(row['error'],dict) else {}
             code=details.get('code')
             error=RuntimeError('model provider rejected streamed request')
-            error.response_diagnostic={'failure_category':'request_invalid' if code==400 else 'stream_provider_error',**({'http_status':code} if type(code) is int else {}),'configuration_required':code in (400,401,403,404)}
+            category={400:'request_invalid',401:'authentication_failed',403:'access_denied',404:'model_unavailable',408:'transport_timeout',429:'rate_limited',504:'transport_timeout'}.get(code,'stream_provider_error')
+            error.response_diagnostic={'failure_category':category,**({'http_status':code} if type(code) is int else {}),'configuration_required':code in (400,401,403,404)}
+            retry=details.get('retry_after_seconds')
+            if type(retry) in (int,float):error.response_diagnostic['retry_after_seconds']=max(0.,min(300.,retry))
             raise error
         model=row.get('model') or model
         usage=row.get('usage') or usage

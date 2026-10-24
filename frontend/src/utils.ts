@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 export const phaseLabels: Record<string, string> = {
   pending: "待执行",
+  planned: "流程预告",
+  awaiting_answer: "等待回答",
+  rate_limit_wait: "限流冷却",
+  rate_limited: "限流待恢复",
   preparing: "准备中",
   model_wait: "等待模型",
   streaming: "输出中",
@@ -28,7 +32,7 @@ export const roleLabels: Record<string, string> = {
 export function phaseColor(phase: string) {
   return phase === "complete"
     ? "green"
-    : phase === "awaiting_review"
+    : ["awaiting_review", "awaiting_answer", "rate_limit_wait"].includes(phase)
       ? "amber"
       : [
             "failed",

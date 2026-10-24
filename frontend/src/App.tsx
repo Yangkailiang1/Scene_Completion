@@ -27,6 +27,7 @@ import {
 import { Button } from "./components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { ExecutionFlow } from "./ExecutionFlow";
+import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { ArtifactView } from "./ArtifactView";
 import { api, projectUrl, fileUrl } from "./api";
@@ -52,6 +53,9 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
   );
 }
 export default function App() {
+  const [maximized, setMaximized] = useState(false),
+    [graphMaximized, setGraphMaximized] = useState(false),
+    [panelVersion, setPanelVersion] = useState(0);
   const [projects, setProjects] = useState<Project[]>([]),
     [current, setCurrent] = useState<string | null>(null),
     [snapshot, setSnapshot] = useState<Snapshot | null>(null),
@@ -175,7 +179,7 @@ export default function App() {
     };
   }, [current]);
   useEffect(() => {
-    if (!current || !selected) return;
+    if (!current || !selected || selected.startsWith("planned:")) return;
     let active = true;
     setLoading(true);
     setEvents([]);
@@ -208,7 +212,8 @@ export default function App() {
   const artifacts =
     snapshot?.artifacts.filter((a) => a.task_key === selected) || [];
   useEffect(() => {
-    if (!current || !selected || !snapshot) return;
+    if (!current || !selected || !snapshot || selected.startsWith("planned:"))
+      return;
     let active = true;
     const id = current,
       key = selected;
@@ -254,7 +259,15 @@ export default function App() {
   async function start() {
     if (!current) return;
     setNotice("");
-    await api(projectUrl(current, "run"), { method: "POST", body: "{}" });
+    const response = await api<any>(projectUrl(current, "run"), {
+      method: "POST",
+      body: "{}",
+    });
+    if (response.project_id && response.project_id !== current) {
+      await loadProjects();
+      openProject(response.project_id);
+      return;
+    }
     await refresh();
   }
   async function decide(action: string) {
@@ -295,13 +308,16 @@ export default function App() {
     }
   }
   if (review) collect(review.inputs);
-  const activeNodes = graph.nodes.filter((n) => n.status === "running"),
+  const activeNodes = graph.nodes.filter(
+      (n) => n.status === "running" || n.status === "awaiting_answer",
+    ),
     failedNodes = graph.nodes.filter((n) =>
       [
         "failed",
         "rejected",
         "budget_exhausted",
         "awaiting_configuration",
+        "rate_limited",
       ].includes(n.status),
     ),
     pendingReviews =
@@ -477,6 +493,12 @@ export default function App() {
           </div>
         ) : (
           <>
+            {snapshot?.project.protocol &&
+              snapshot.project.protocol !== "scene-workflow-v3" && (
+                <div className="upgrade-banner">
+                  当前是旧版运行记录。继续运行会创建融合交互新版项目；原项目与失败记录保留。
+                </div>
+              )}
             <div className="project-statusbar">
               <span
                 className={`status-dot ${running ? "blue" : snapshot?.job.status === "complete" ? "green" : failedNodes.length ? "red" : "gray"}`}
@@ -496,7 +518,12 @@ export default function App() {
               <span>
                 已完成{" "}
                 <b>{graph.nodes.filter((n) => n.status === "passed").length}</b>{" "}
-                / {graph.nodes.filter((n) => n.status !== "disabled").length}{" "}
+                /{" "}
+                {
+                  graph.nodes.filter(
+                    (n) => !n.planned && n.status !== "disabled",
+                  ).length
+                }{" "}
                 个已发现节点
               </span>
               <span>
@@ -525,10 +552,15 @@ export default function App() {
             </div>
             <PanelGroup
               direction="horizontal"
-              autoSaveId="scene-workspace-panels-v2"
-              className="main-panels"
+              key={panelVersion}
+              autoSaveId="scene-workspace-panels-v3"
+              className={cn(
+                "main-panels",
+                maximized && "workspace-maximized",
+                graphMaximized && "graph-maximized",
+              )}
             >
-              <Panel defaultSize={55} minSize={30}>
+              <Panel defaultSize={60} minSize={30}>
                 <section className="center-workspace">
                   {!selected ? (
                     <div className="overview">
@@ -542,8 +574,9 @@ export default function App() {
                           <Workflow size={17} />
                           <strong>
                             {
-                              graph.nodes.filter((n) => n.status !== "disabled")
-                                .length
+                              graph.nodes.filter(
+                                (n) => !n.planned && n.status !== "disabled",
+                              ).length
                             }
                           </strong>
                           <span>已发现任务</span>
@@ -664,6 +697,21 @@ export default function App() {
                           {phaseLabels[node?.phase || "pending"] || node?.phase}
                         </span>
                       </div>
+                      <div className="workspace-tools">
+                        <button onClick={() => setMaximized(!maximized)}>
+                          {maximized ? "恢复执行图" : "最大化工作区"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            localStorage.removeItem(
+                              "react-resizable-panels:scene-workspace-panels-v3",
+                            );
+                            setPanelVersion((v) => v + 1);
+                          }}
+                        >
+                          恢复60 / 40布局
+                        </button>
+                      </div>
                       <div className="node-meta">
                         <span>
                           目标文件{" "}
@@ -707,7 +755,7 @@ export default function App() {
                           <TabsList>
                             <TabsTrigger value="stream">
                               <Activity size={13} />
-                              实时输出
+                              节点对话与实时输出
                             </TabsTrigger>
                             <TabsTrigger value="artifacts">
                               <Files size={13} />
@@ -731,6 +779,13 @@ export default function App() {
                             key={selected}
                             events={events}
                             loading={loading}
+                          />
+                          <NodeConversation
+                            key={"conversation-" + selected}
+                            projectId={current}
+                            taskKey={selected}
+                            planned={node?.planned}
+                            onChanged={() => refresh().catch(error)}
                           />
                         </TabsContent>
                         <TabsContent value="artifacts" className="panel-scroll">
@@ -883,8 +938,13 @@ export default function App() {
               <PanelResizeHandle className="panel-handle">
                 <GripVertical size={13} />
               </PanelResizeHandle>
-              <Panel defaultSize={45} minSize={28}>
+              <Panel defaultSize={40} minSize={28}>
                 <ExecutionFlow
+                  maximized={graphMaximized}
+                  onMaximize={() => {
+                    setMaximized(false);
+                    setGraphMaximized((v) => !v);
+                  }}
                   graph={graph}
                   selected={selected}
                   onSelect={selectNode}

@@ -87,22 +87,24 @@ beforeEach(() => {
                 }
               : url.includes("events/history")
                 ? { events: [stream(1, '{"services":')] }
-                : url.includes("review-history")
-                  ? { versions: [] }
-                  : url.endsWith("/run")
-                    ? { status: "running" }
-                    : {
-                        project,
-                        job: { status: "running" },
-                        reviews: [],
-                        artifacts: [],
-                        config: {
-                          agent_model: "ecnu-plus",
-                          credential_configured: true,
+                : url.includes("conversation")
+                  ? { messages: [], question: null }
+                  : url.includes("review-history")
+                    ? { versions: [] }
+                    : url.endsWith("/run")
+                      ? { status: "running" }
+                      : {
+                          project,
+                          job: { status: "running" },
+                          reviews: [],
+                          artifacts: [],
+                          config: {
+                            agent_model: "ecnu-plus",
+                            credential_configured: true,
+                          },
+                          tasks: { tasks: {}, events: [] },
+                          manifest: null,
                         },
-                        tasks: { tasks: {}, events: [] },
-                        manifest: null,
-                      },
     })),
   );
 });
@@ -183,16 +185,18 @@ describe("workspace interactions", () => {
                   }
                 : url.includes("events/history")
                   ? { events: [] }
-                  : url.includes("review-history")
-                    ? { versions: [] }
-                    : {
-                        project,
-                        job: { status: "waiting" },
-                        reviews: [],
-                        artifacts: [],
-                        config: {},
-                        tasks: { tasks: {}, events: [] },
-                      },
+                  : url.includes("conversation")
+                    ? { messages: [], question: null }
+                    : url.includes("review-history")
+                      ? { versions: [] }
+                      : {
+                          project,
+                          job: { status: "waiting" },
+                          reviews: [],
+                          artifacts: [],
+                          config: {},
+                          tasks: { tasks: {}, events: [] },
+                        },
       })),
     );
     render(<App />);

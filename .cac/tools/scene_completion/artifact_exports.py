@@ -20,6 +20,12 @@ def export_task(root,task,payload,artifact_name=None):
     elif task=='concern-match':
         from .contracts import registry
         defs=registry()['definitions'];headers=['交互','Service','系统组成/数据','关注点','状态','继承路径','规则或待确认原因'];rows=[[m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),m.get('status','待确认')),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason','')] for m in payload['matches']]
+    if task=='existing-branches':headers=['原分支ID','用例提示','原文异常','操作提示','参与方提示'];rows=[[b[k] for k in ('id','case_hint','description','operation_hint','party_hint')] for b in payload['branches']]
+    elif task=='existing-bind':headers=['原分支','具体融合交互','状态','绑定依据'];rows=[[b[k] for k in ('branch_id','interaction_id','status','basis')] for b in payload['bindings']]
+    elif task in {'existing-extract','test-ground-truth','exception-generate'}:
+        from .contracts import registry
+        defs=registry()['definitions'];headers=['具体交互','对象或字段','关注点','异常原因','原分支','覆盖范围','来源性质','细化依据']
+        rows=[[s['interaction_id'],s['object'],defs[s['concern_key']]['label'],s['cause'],s.get('original_branch_id') or '',s.get('coverage_kind','exact'),s['source_status'],s['derivation']] for s in payload['scenarios']]
     if headers:
         safe=lambda x:str(x).replace('|','\\|').replace('\n','<br>')
         text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
@@ -75,7 +81,7 @@ def export_sequence_svg(root,task,payload):
 def export_missing_report(root,combined):
     root=Path(root);write_json(root/'missing_report.json',combined)
     from .contracts import registry
-    defs=registry()['definitions'];lines=['# 缺失异常报告','', '推荐：未启用。仅完整语义一一对应表示已有覆盖。','']
+    defs=registry()['definitions'];lines=['# 缺失异常报告','', '推荐：未启用。具体异常按完整对应；同一交互的参数非法原分支可覆盖多个输入细项，不覆盖输出。','']
     def cell(v):return str(v).replace('|','\\|').replace('\n','<br>')
     for cid,report in combined['cases'].items():
         lines+=['## '+cid,'', '评测：'+combined['evaluation_status'][cid],'','### 交互及关注点','',
@@ -95,6 +101,11 @@ def export_missing_report(root,combined):
               '  - 缺失原因：'+('对象、操作、原因及必要条件未与已有分支完整对应' if s['id'] in missing else '已有完整对应'),
               '  - 继承来源：'+'；'.join(' → '.join(defs[k]['label'] for k in path) for path in s.get('concern_paths',[])),
               '  - 来源：'+json.dumps(s['source_refs'],ensure_ascii=False)]
+        lines+=['','### 原文分支与覆盖细项','']
+        for b in report.get('original_branches',[]):
+            eids={s['id'] for s in report['E'] if s.get('original_branch_id')==b['id']}
+            hits={p['checker_scenario_id'] for p in report['full_matches'] if p['generated_scenario_id'] in eids}
+            lines.append('- '+b['id']+'：'+b['description']+'；覆盖细项：'+('、'.join(sorted(hits)) or '暂无完整覆盖'))
         lines+=['','### 文档已有异常','']
         for s in report['E']:lines.append('- '+s['id']+'：'+s['cause']+'；'+'；'.join(s['conditions']))
         lines+=['','### 待确认','']

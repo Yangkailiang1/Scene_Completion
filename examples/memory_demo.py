@@ -72,6 +72,10 @@ pageSize：可选整数，默认20，范围1-100。
     mocks['use-case-align']={'groups':[{'id':'SC002-UC002','rr_ids':['SC002-UC002'],'sr_ids':['SC002-UC002'],'status':'confirmed','reason':'明确同一用例的RR/SR夹具','source_refs':refs(rr,1)}]}
     mocks['fused-ssd']={'interactions':[interaction('RR'),interaction('SR')],
       'rr_sr_links':mocks['interaction-align']['links'],'pending':[]}
+    mocks['api-index']={'apis':[{'id':'API-M-IF2','name':'查询记忆库列表','source_ranges':[{'source_id':sr[0]['source_id'],'start':2,'end':9}],'source_refs':refs(sr,3)}]}
+    mocks['existing-branches']={'branches':[{'id':'empty','case_hint':'SC002-UC002','description':rr_text.splitlines()[3],'operation_hint':'查询记忆库列表','party_hint':'WiseCloudMemoryPlatformService','source_refs':refs(rr,4)}]}
+    mocks['existing-bind']={'bindings':[{'branch_id':'empty','interaction_id':'SR-request','status':'confirmed','basis':'本用例同一次查询请求的RR/SR视图','source_refs':refs(rr,4)}]}
+    mocks['existing-extract']['scenarios'][0].update(interaction_id='SR-request',original_branch_id='empty',coverage_kind='exact')
     ex=Execution(root/'run',mocks=mocks,config={'max_concurrency':2,'fixture_version':'memory-demo-1.1'},case_ids=['SC002-UC002'])
     build_pipeline(ex,rr,sr,[]);result=ex.finish();print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result['complete'] else 2

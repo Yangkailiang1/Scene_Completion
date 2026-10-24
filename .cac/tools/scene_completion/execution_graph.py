@@ -5,17 +5,30 @@ from .storage import read_json
 from .deepagents_client import role_for
 
 LABELS={'components':'系统组成','use-case-extract':'用例目录抽取','use-case-align':'RR / SR 用例对应',
- 'api-map':'API 接口映射','api-parameters':'API 参数','fused-ssd':'完整 SSD 建模','rr-ssd':'RR SSD 视图','sr-ssd':'SR SSD 视图',
+ 'api-index':'接口目录与参数任务拆分','existing-branches':'原文已有异常分支','existing-bind':'异常与融合交互绑定','api-map':'API 接口映射','api-parameters':'API 参数','fused-ssd':'完整 SSD 建模','rr-ssd':'RR SSD 视图','sr-ssd':'SR SSD 视图',
  'test-operation-project':'测试操作投影','object-operations':'对象支持操作','interaction-align':'步骤展开对应','interaction-enrich':'交互属性补全',
- 'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'已有异常 E',
+ 'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
  'gap-compare':'缺失比较 M','missing-report':'缺失异常报告','test-ground-truth':'测试真值整理','semantic-compare':'评测语义对应',
  'exception-evaluation':'异常评测','extraction-evaluation':'抽取 Acc','gap-recommend':'推荐器'}
+
+def artifact_folder(root,key,case):
+    from .storage import fingerprint
+    return Path(root)/'artifacts'/('shared' if case=='shared' else fingerprint(case)[:12])
+
+INPUTS={'components':'RR＋SR正向文档','rr-use-cases':'RR正向文档','sr-use-cases':'SR正向文档',
+ 'api-index':'SR接口定义','api-map':'SR服务及接口定义','api-parameters':'SR接口定义与约束（按接口分任务）',
+ 'fused-ssd':'对应RR/SR用例＋系统组成','object-operations':'组成＋RR视图＋测试操作投影',
+ 'concern-match':'具体交互＋接口表＋预定义关注点','exception-generate':'正向交互及已匹配关注点，隔离E/GT',
+ 'existing-branches':'RR＋SR原文已有异常（独立通道）','existing-bind':'原分支＋融合SSD＋用例对应',
+ 'existing-extract':'已绑定分支＋接口约束＋关注点体系','test-ground-truth':'独立测试spec＋融合SSD＋正常约束',
+ 'gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','exception-evaluation':'独立GT与G/E对齐结果'}
+PREVIEWS=[('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','exception-generate','生成异常G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
 
 def expected_files(key,case,stage):
     stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
     suffixes=['json']
     if stage in {'components','fused-ssd','rr-ssd','sr-ssd'}:suffixes+=['svg']
-    if stage in {'components','api-map','api-parameters','object-operations','concern-match','rr-ssd','sr-ssd','missing-report'}:suffixes+=['md']
+    if stage in {'components','api-map','api-parameters','object-operations','concern-match','rr-ssd','sr-ssd','missing-report','existing-branches','existing-bind','existing-extract','test-ground-truth','exception-generate'}:suffixes+=['md']
     return [stem+'.'+s for s in suffixes]
 
 def graph_snapshot(root):
@@ -25,6 +38,8 @@ def graph_snapshot(root):
     if (root/'execution_events.sqlite3').exists():
         from .execution_events import EventStore
         phases=EventStore(root).latest_phases()
+    from .node_conversations import Conversations
+    conversations=Conversations(root)
     nodes=[];edges=[]
     declared=definition['nodes'] or [{'id':k,'case':r.get('case','shared'),'stage':r.get('stage',k),'role':role_for(r.get('stage',k)),'deps':[],'expected_files':expected_files(k,r.get('case','shared'),r.get('stage',k))} for k,r in state.items()]
     for node in declared:
@@ -35,17 +50,29 @@ def graph_snapshot(root):
         elif event and event['kind']=='request_started':phase='model_wait'
         elif event and event['kind']=='tool_started':phase='tool_running'
         elif event and event['kind']=='tool_finished':phase='preparing'
+        if event and event['kind']=='rate_limit_wait' and status=='running':phase='rate_limit_wait'
         if node['stage']=='gap-recommend':phase='disabled';status='disabled'
         blocked=[d for d in node['deps'] if state.get(d,{}).get('status')!='passed']
         if blocked and status in {'pending','blocked_dependency'}:phase='dependency_wait'
         started=record.get('started_at');ended=record.get('finished_at')
-        nodes.append({**node,'label':LABELS.get(node['stage'],node['stage']),'status':status,'phase':phase or 'pending',
+        actual=[]
+        folder=artifact_folder(root,key,node['case']);stem=(key if node['case']=='shared' else key[len(node['case'])+1:]).replace(':','--')
+        for f in folder.glob(stem+'.*'):
+            if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'saved'})
+        question=conversations.pending(key)
+        nodes.append({**node,'planned':False,'input_summary':INPUTS.get(key,INPUTS.get(node['stage'],'依赖上游已验证产物')),'artifacts':actual,'question':question,'guidance_revision':conversations.revision(key),
+          'retry_at':event.get('data',{}).get('retry_at') if event else None,'retry_count':event.get('data',{}).get('retry_count') if event else None,'label':node.get('label') or LABELS.get(node['stage'],node['stage']),'status':status,'phase':phase or 'pending',
           'blocked_by':blocked,'failure':record.get('failure') if status not in {'passed','awaiting_review','disabled'} else None,'attempt':record.get('rounds',0)+1,
           'elapsed_seconds':max(0,(ended or time.time())-started) if started else None,'last_event_at':event['at'] if event else None})
         edges += [{'id':d+'->'+key,'source':d,'target':key} for d in node['deps']]
+    if not any(n['case']!='shared' and not n.get('planned') for n in nodes):
+        for role,stage,label in PREVIEWS:
+            nodes.append({'id':'planned:'+stage,'stage':stage,'case':'待用例对应','role':role,'label':label,'planned':True,'status':'planned','phase':'planned','deps':[],'expected_files':expected_files(stage,'shared',stage),'input_summary':INPUTS.get(stage,'按用例展开'),'artifacts':[],'blocked_by':[],'failure':None,'attempt':0,'elapsed_seconds':None,'question':None})
+    if not any(n['stage']=='gap-recommend' for n in nodes):
+        nodes.append({'id':'planned:gap-recommend','stage':'gap-recommend','case':'shared','role':'recommender','label':'推荐流程待定','planned':True,'status':'disabled','phase':'disabled','deps':[],'expected_files':[],'input_summary':'缺失报告M；当前不执行','artifacts':[],'blocked_by':[],'failure':None,'attempt':0,'elapsed_seconds':None})
     # Old runs have status records but no graph. Make that limitation explicit.
     return {'nodes':nodes,'edges':edges,'definition_available':bool(definition['nodes']),
-      'case_expansion_pending':not any(n['case']!='shared' for n in nodes),
-      'roles':[{'id':r,'label':label,'completed':sum(n['role']==r and n['status']=='passed' for n in nodes),
-        'known':sum(n['role']==r and n['status']!='disabled' for n in nodes),'disabled':r=='recommender'}
+      'case_expansion_pending':not any(n['case']!='shared' and not n.get('planned') for n in nodes),
+      'roles':[{'id':r,'label':label,'completed':sum(n['role']==r and not n.get('planned') and n['status']=='passed' for n in nodes),
+        'known':sum(n['role']==r and not n.get('planned') and n['status']!='disabled' for n in nodes),'disabled':r=='recommender'}
         for r,label in [('modeler','建模器'),('checker','检查器'),('recommender','推荐器')]]}

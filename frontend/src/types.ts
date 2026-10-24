@@ -1,5 +1,6 @@
 export type Role = "modeler" | "checker" | "recommender";
 export interface Project {
+  protocol?: string;
   id: string;
   name: string;
   review_mode: "manual" | "auto";
@@ -8,6 +9,13 @@ export interface Project {
   created_at: number;
 }
 export interface GraphNode {
+  planned?: boolean;
+  input_summary?: string;
+  artifacts?: { name: string; path: string; status: string }[];
+  retry_at?: number | null;
+  retry_count?: number | null;
+  question?: any;
+  guidance_revision?: number;
   id: string;
   stage: string;
   case: string;

@@ -53,9 +53,18 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
         "result_validated",
         "artifacts_saved",
         "task_status",
+        "rate_limit_wait",
+        "guidance_applied",
+        "question_asked",
       ].includes(e.kind)
     ) {
       let text = "";
+      if (e.kind === "rate_limit_wait")
+        text = `限流冷却，${new Date(d.retry_at * 1000).toLocaleTimeString()}重试（${d.retry_count}/3）`;
+      if (e.kind === "guidance_applied")
+        text = `节点指导版本${d.revision}已生效`;
+      if (e.kind === "question_asked")
+        text = d.question?.text || "等待用户回答";
       if (e.kind === "request_started") text = `请求 ${d.requested_model}`;
       if (e.kind === "request_finished")
         text = `实际返回模型：${d.provider_model || "未报告"}`;
@@ -90,6 +99,9 @@ const labels: Record<string, string> = {
   result_validated: "校验通过",
   artifacts_saved: "产物已保存",
   task_status: "任务状态",
+  rate_limit_wait: "限流冷却",
+  guidance_applied: "指导已生效",
+  question_asked: "模型提问",
 };
 export function NodeOutput({
   events,
@@ -156,7 +168,16 @@ export function NodeOutput({
                       {time} · 尝试 {g.attempt || 1}
                     </small>
                   </div>
-                  <pre>{g.text || "…"}</pre>
+                  {g.channel === "tool_arguments" ? (
+                    <details>
+                      <summary>
+                        查看工具参数增量 · {g.text.length.toLocaleString()} 字符
+                      </summary>
+                      <pre>{g.text || "…"}</pre>
+                    </details>
+                  ) : (
+                    <pre>{g.text || "…"}</pre>
+                  )}
                 </section>
               );
             const bad = g.kind.endsWith("failed");
