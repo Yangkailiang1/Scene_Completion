@@ -7,7 +7,7 @@ from .storage import fingerprint
 
 
 def validate_registry(value):
-    if value.get('version')!='service-concerns-v2':raise ValueError('unsupported concern registry version')
+    if value.get('version')!='interaction-concerns-v3':raise ValueError('unsupported concern registry version')
     digest=fingerprint({k:v for k,v in value.items() if k!='hash'})
     if value.get('hash')!=digest:raise ValueError('concern registry digest mismatch')
     definitions=value['definitions']
@@ -30,7 +30,7 @@ def validate_registry(value):
             for key in node:visit(key)
     profiles(value['profiles'])
     for old,row in value['legacy_mapping'].items():
-        if not row['targets']:raise ValueError('empty migration target')
+        if not row['targets'] and row.get('status')!='retired_by_user_taxonomy':raise ValueError('empty migration target')
         for target in row['targets']:visit(target)
     return value
 

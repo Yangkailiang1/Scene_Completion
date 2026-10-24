@@ -9,7 +9,7 @@ class SemanticClient:
         self.config = config or {}
         self.transport = transport or _post_chat_completions
         self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
-        self.api_key = os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
+        self.api_key = self.config.get("api_key") or os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self.token_budget = None
         if self.config.get('token_budget_limit') is not None:
             from .token_budget import TokenBudget

@@ -1,1 +1,2 @@
--r .cac/tools/requirements.txt
+# Exact portable dependency set used by the Windows offline distribution.
+-r requirements-windows.lock

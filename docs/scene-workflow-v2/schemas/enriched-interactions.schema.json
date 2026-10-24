@@ -1677,6 +1677,42 @@
               "string",
               "null"
             ]
+          },
+          "classification": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "actor_system",
+                  "service_service",
+                  "undetermined"
+                ]
+              },
+              "caller": {
+                "type": "string",
+                "minLength": 1
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "caller_location": {
+                "type": "string",
+                "minLength": 1
+              },
+              "provider_location": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "kind",
+              "caller",
+              "provider",
+              "caller_location",
+              "provider_location"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -1692,7 +1728,8 @@
           "direction",
           "api_id",
           "source_refs",
-          "associated_api"
+          "associated_api",
+          "classification"
         ],
         "additionalProperties": false
       }

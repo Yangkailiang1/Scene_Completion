@@ -51,7 +51,7 @@ def decision(a,b,status='full'):return {'left_id':a,'right_id':b,'status':status
 
 def test_registry_and_eight_data_exceptions():
     approved=json.loads((Path(__file__).parent/'fixtures/workflow_v1/acceptance.json').read_text())
-    assert registry()['version']=='service-concerns-v2'
+    assert registry()['version']=='interaction-concerns-v3'
     assert len(registry()['legacy_mapping'])==57
     x=memory_inputs();out=data_exceptions(x)
     assert sorted([s['field'],s['cause']] for s in out)==sorted(approved['expected_data_rules'])
@@ -165,13 +165,39 @@ def fake_pipeline(tmp_path,mocks=None):
     empty['rr-ssd']={'interactions':[rr_i]};empty['sr-ssd']={'interactions':[sr_i]}
     empty['components']={'components':[{'id':'actor','name':'开发者','composition_type':'外部Actor（人类）','parent_id':None,'source_status':'explicit','source_refs':ref(rr)},
       {'id':'platform','name':'Platform','composition_type':'系统边界','parent_id':None,'source_status':'explicit','source_refs':ref(rr)}],'relations':[]}
-    return rr,sr,tests,mocks if mocks is not None else empty
+    if mocks is not None:empty=mocks
+    install_catalogue_mocks(empty)
+    return rr,sr,tests,empty
+
+
+def install_catalogue_mocks(m):
+    def catalogue(p):
+        cases=[]
+        for d in p['input']['documents']:
+            title=d['lines'][0];cid=title['text'].lstrip('# ').split('：')[0]
+            cases.append({'id':cid,'name':cid,'goal':'normal request','actors':['开发者'],'layer':p['input']['layer'],'source_ranges':[{'source_id':d['source_id'],'start':title['number'],'end':d['lines'][-1]['number']}],
+              'source_refs':[{'source_id':d['source_id'],'line_start':title['number'],'line_end':title['number'],'quote':title['text']}]})
+        return {'cases':cases}
+    def align(p):
+        rr=p['input']['rr-cases']['cases'];sr=p['input']['sr-cases']['cases']
+        return {'groups':[{'id':a['id'],'rr_ids':[a['id']],'sr_ids':[b['id'] for b in sr if b['id']==a['id']],
+           'status':'confirmed','reason':'test fixture explicit shared case','source_refs':a['source_refs']} for a in rr]}
+    def fused(p):
+        values=[]
+        for t in ('rr-ssd','sr-ssd'):
+            v=m[t](p) if callable(m[t]) else deepcopy(m[t])
+            if 'interactions' not in v:return v
+            values+=v['interactions']
+        rr=[i for i in values if i['layer']=='RR'];sr=[i for i in values if i['layer']=='SR']
+        return {'interactions':values,'rr_sr_links':[{'rr_id':rr[0]['id'],'sr_ids':[i['id'] for i in sr],
+          'status':'confirmed','basis':'explicit fixture refinement','source_refs':rr[0]['source_refs']}],'pending':[]}
+    m.update({'use-case-extract':catalogue,'use-case-align':align,'fused-ssd':fused})
 
 
 def test_pipeline_mock_completes_without_recommendation_or_embedding_and_cache(tmp_path):
     rr,sr,t,m=fake_pipeline(tmp_path);calls=[]
     def capture(task,value):
-        def f(p):calls.append(p['task']);return deepcopy(value)
+        def f(p):calls.append(p['task']);return value(p) if callable(value) else deepcopy(value)
         return f
     mocks={k:capture(k,v) for k,v in m.items()}
     run=tmp_path/'run'
@@ -223,7 +249,7 @@ def test_sr_resource_binding_keeps_physical_identity():
 def test_dependency_local_retry_test_change_cannot_invalidate_G(tmp_path):
     rr,sr,t,m=fake_pipeline(tmp_path);calls=[]
     def capture(task,val):
-        def f(p):calls.append(task);return deepcopy(val)
+        def f(p):calls.append(task);return val(p) if callable(val) else deepcopy(val)
         return f
     mocks={k:capture(k,v) for k,v in m.items()};root=tmp_path/'run'
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
@@ -272,7 +298,7 @@ def test_gt_unknown_ssd_attribute_not_required_to_match():
 
 def test_checked_in_schema_matches_runtime():
     from scene_completion.contracts import SCHEMAS,schema
-    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v1/schemas'
+    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v2/schemas'
     for key in SCHEMAS:assert json.loads((folder/(key+'.schema.json')).read_text())==schema(key)
 
 

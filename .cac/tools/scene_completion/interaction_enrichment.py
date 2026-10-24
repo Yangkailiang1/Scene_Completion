@@ -126,6 +126,8 @@ def enrich(inputs,alignment):
         i['data']['concerns']=[]
         if not i['receiver']['supported_operations'] or i['operation']['name'] not in {o['name'] for o in i['receiver']['supported_operations']}:
             pending.append({'interaction_id':i['id'],'reason':'本次操作未在接收方能力表中得到对应，需核对；不得据此改写操作','source_refs':i['operation']['source_refs']})
+        from .interaction_types import classify
+        i['classification']=classify(i,interactions(value))
         views.append(i)
     for rr in value['rr-ssd']['interactions']:
         if not any(l['rr_id']==rr['id'] and l['status']=='confirmed' for l in alignment['links']):

@@ -82,8 +82,10 @@ def applicability(match,interaction,inputs):
         if interaction['direction']!=phase:return 'not_applicable','在对应请求或返回交互中检查'
         from .interaction_enrichment import parameters_for
         return ('applicable','字段检查由共享七类数据关注点细化') if parameters_for(interaction,inputs) else ('pending','具体接口字段或契约待确认')
-    if key in {'service.base.authentication','service.base.authorization'} and interaction['direction']!='request':
+    if key in {'human.authentication','human.authorization','service_relation.authentication','service_relation.authorization'} and interaction['direction']!='request':
         return 'not_applicable','调用身份和权限在请求方向检查，不在返回交互重复检查'
+    if key.startswith('human.') and '人类' not in interaction['sender']['position']:
+        return 'not_applicable','仅适用于人类调用方'
     guard_kind=definition['guard'];guards=explicit_guards(match,guard_kind) if guard_kind else []
     if key=='service.query_retrieval.resource_existence':
         from .exception_generation import query_matches
@@ -105,8 +107,6 @@ def applicability(match,interaction,inputs):
         # components that happen to appear elsewhere in the composition.
         if not all(any(t in interaction[s]['position'] for t in ('服务','数据库','系统','AI模型')) for s in ('sender','receiver')):
             return 'not_applicable','本次交互不是有依据的服务调用边'
-    if key=='service.workflow.interruption' and not ctx['kinds']&{'create','update','delete','publish','process'}:
-        return 'not_applicable','普通读取或普通取消不产生副作用恢复检查'
     if not guards:return 'pending','缺少该关注点可判定的正常规则，不生成确定异常'
     return 'applicable','有本次操作适用的明示正常规则及来源'
 
@@ -151,7 +151,8 @@ def resolve_matches(inputs,matches):
         technology_evidence=unique([g for m in matches if m['interaction_id']==i['id'] for g in explicit_guards(m,'technology')])
         for g in technology_evidence:
             if g['value'] in {'database','llm'} and g['value'] not in ctx['technologies']:ctx['technologies'].append(g['value'])
-        keys=reg['profiles']['base']+['service.contract.compatibility']
+        keys=list(reg['profiles']['base'])
+        if i['direction']=='request' and '人类' in i['sender']['position']:keys+=reg['profiles']['human']
         for function in ctx['functions']:keys+=reg['profiles']['functional'][function]
         for tech in ctx['technologies']:keys+=reg['profiles']['technology'][tech]
         keys+=reg['profiles']['conditional']+reg['profiles']['relation']
@@ -163,7 +164,7 @@ def resolve_matches(inputs,matches):
         i=by_id[raw['interaction_id']];m=deepcopy(raw);ctx=context(i,inputs)
         # Authentication belongs to the incoming caller of this service. Do not
         # duplicate it once on a human and again on the provider.
-        if m['concern_key'] in {'service.base.authentication','service.base.authorization'} and i['direction']=='request':
+        if m['concern_key'] in {'human.authentication','human.authorization','service_relation.authentication','service_relation.authorization'} and i['direction']=='request':
             m.update(target='sender',object=i['sender']['name'])
         if m['target']=='data' and not m.get('data_location') and m.get('scope','interface')=='interface':
             from .interaction_enrichment import parameters_for

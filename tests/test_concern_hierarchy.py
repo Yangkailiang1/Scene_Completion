@@ -37,8 +37,8 @@ def test_registry_is_a_valid_DAG_and_all_57_old_items_have_audit_mapping():
     assert 'internal_database.availability' not in r['definitions']
     assert r['legacy_mapping']['internal_database.availability']['targets']==['service.base.availability']
     assert len(r['legacy_mapping']['service.resource_mutation.concurrency_idempotency']['targets'])==2
-    assert inheritance_paths('database.transaction_atomicity')==[['service.base.result_correctness','service.resource_mutation.persistence_consistency','database.transaction_atomicity']]
-    broken=deepcopy(r);broken['definitions']['service.base.result_correctness']['parents']=['database.transaction_atomicity']
+    assert inheritance_paths('api.data.type')==[['service.base.request_data','api.data.type'],['service.base.response_contract','api.data.type']]
+    broken=deepcopy(r);broken['definitions']['service.base.request_data']['parents']=['api.data.type']
     broken['hash']=fingerprint({k:v for k,v in broken.items() if k!='hash'})
     with pytest.raises(ValueError,match='cycle'):validate_registry(broken)
 
@@ -51,9 +51,9 @@ def test_every_service_position_inherits_the_same_base(position):
     base=set(registry()['profiles']['base'])
     assert base<={m['concern_key'] for m in rows}
     assert find(rows,'service.base.availability')['status']=='applicable'
-    assert find(rows,'service.base.authentication')['status']=='pending'
-    assert find(rows,'service.base.authentication')['object']=='开发者'
-    assert find(rows,'service.base.authentication')['service']==i['receiver']['name']
+    assert find(rows,'human.authentication')['status']=='pending'
+    assert find(rows,'human.authentication')['object']=='开发者'
+    assert find(rows,'human.authentication')['service']==i['receiver']['name']
     assert len(service_exceptions(x))==1
     assert len(data_exceptions(x))==8
 
@@ -89,15 +89,15 @@ def test_explicit_technology_evidence_can_identify_a_non_LLM_named_provider():
 
 def test_security_is_conditional_not_an_automatic_login_requirement():
     x=memory_inputs();rows=resolved(x)
-    auth=find(rows,'service.base.authentication')
+    auth=find(rows,'human.authentication')
     assert auth['status']=='pending' and auth['concrete_rule'] is None
-    rows=resolved(x,[match('service.base.authentication',rules=[guard('authentication',False,'该接口允许匿名调用')])])
-    auth=find(rows,'service.base.authentication');assert auth['status']=='not_applicable'
-    rows=resolved(x,[match('service.base.authentication',rules=[guard('authentication',True,'该接口需要认证')])])
-    auth=find(rows,'service.base.authentication');assert auth['status']=='applicable' and auth['target']=='sender'
-    assert len([m for m in rows if m['concern_key']=='service.base.authentication'])==1
-    rows=resolved(x,[match('service.base.authentication',rules=[guard('authentication',True),guard('authentication',False)])])
-    assert find(rows,'service.base.authentication')['status']=='pending'
+    rows=resolved(x,[match('human.authentication',rules=[guard('authentication',False,'该接口允许匿名调用')])])
+    auth=find(rows,'human.authentication');assert auth['status']=='not_applicable'
+    rows=resolved(x,[match('human.authentication',rules=[guard('authentication',True,'该接口需要认证')])])
+    auth=find(rows,'human.authentication');assert auth['status']=='applicable' and auth['target']=='sender'
+    assert len([m for m in rows if m['concern_key']=='human.authentication'])==1
+    rows=resolved(x,[match('human.authentication',rules=[guard('authentication',True),guard('authentication',False)])])
+    assert find(rows,'human.authentication')['status']=='pending'
 
 
 def test_authentication_failure_cannot_be_generated_as_unavailability():
@@ -107,18 +107,18 @@ def test_authentication_failure_cannot_be_generated_as_unavailability():
 
 
 def test_unknown_deadline_is_pending_no_synthetic_five_seconds():
-    x=memory_inputs();rows=resolved(x)
-    assert find(rows,'common.timeout')['status']=='not_applicable'
-    raw=match('common.timeout',rules=[guard('timing',None,'要求实时响应但没有给定时限')])
-    rows=resolved(x,[raw]);timing=find(rows,'common.timeout')
+    x=memory_inputs();x['sr-ssd']['interactions'][0]['operation']['kinds']=['process'];rows=resolved(x)
+    assert find(rows,'service.analysis_generation.execution_deadline')['status']=='not_applicable'
+    raw=match('service.analysis_generation.execution_deadline',rules=[guard('timing',None,'要求实时响应但没有给定时限')])
+    rows=resolved(x,[raw]);timing=find(rows,'service.analysis_generation.execution_deadline')
     assert timing['status']=='pending' and timing['concrete_rule'] is None
     bad=deepcopy(timing);bad.update(status='applicable',concrete_rule='必须5秒内完成')
     with pytest.raises(ValueError,match='lacks evidence'):
         validate_result('concern-match',{'matches':[bad],'pending':[]},x)
-    rows=resolved(x,[match('common.timeout',rules=[guard('timing',500,'必须500毫秒内响应','ms')])])
-    assert find(rows,'common.timeout')['status']=='applicable'
-    rows=resolved(x,[match('common.timeout',rules=[guard('timing','必须在提交下一步前返回','必须在提交下一步前返回')])])
-    assert find(rows,'common.timeout')['status']=='applicable'
+    rows=resolved(x,[match('service.analysis_generation.execution_deadline',rules=[guard('timing',500,'必须500毫秒内响应','ms')])])
+    assert find(rows,'service.analysis_generation.execution_deadline')['status']=='applicable'
+    rows=resolved(x,[match('service.analysis_generation.execution_deadline',rules=[guard('timing','必须在提交下一步前返回','必须在提交下一步前返回')])])
+    assert find(rows,'service.analysis_generation.execution_deadline')['status']=='applicable'
 
 
 def test_output_stability_needs_a_declared_allowed_variation_not_identical_text_by_default():
@@ -136,13 +136,13 @@ def test_database_uses_shared_query_base_and_only_relevant_extensions(physical):
     x=bind_resource_services(x);rows=resolved(x)
     assert find(rows,'service.base.availability')['status']=='applicable'
     assert find(rows,'database.uniqueness')['status']=='not_applicable'
-    assert find(rows,'database.transaction_atomicity')['status']=='not_applicable'
-    assert find(rows,'database.isolation')['status']=='pending'
+    assert find(rows,'database.query_performance')['status']=='not_applicable'
+    assert 'database.transaction_atomicity' not in registry()['definitions']
     assert {s['concern_key'] for s in query_exceptions(x)}=={'service.query_retrieval.resource_existence'}
     x['sr-ssd']['interactions'][0]['operation'].update(name='创建记录',kinds=['create'])
     raw=match('database.uniqueness',name='Database资源服务',rules=[guard('unique',True,'名称必须唯一')])
     rows=resolved(x,[raw]);assert find(rows,'database.uniqueness')['status']=='applicable'
-    assert find(rows,'database.transaction_atomicity')['status']=='pending'
+    assert find(rows,'database.referential_integrity')['status']=='pending'
 
 
 def test_storage_schema_data_rules_reuse_seven_families_without_interface_collision():
@@ -173,13 +173,10 @@ def test_request_and_response_use_shared_definitions_but_separate_inheritance_an
     assert len([k for k in registry()['definitions'] if k.startswith('api.data.')])==7
 
 
-def test_parent_and_refinement_do_not_duplicate_a_failure_or_its_score():
-    first=scenario('root',cause='incorrect_result');first.update(object='LLMService',operation='生成摘要',concern_key='service.base.result_correctness',conditions=['生成摘要与给定证据矛盾'])
-    child=deepcopy(first);child.update(id='leaf',concern_key='llm.grounding')
+def test_same_failure_does_not_duplicate_a_failure_or_its_score():
+    first=scenario('root',cause='incorrect_result');first.update(object='LLMService',operation='生成摘要',concern_key='llm.grounding',conditions=['生成摘要与给定证据矛盾'])
+    child=deepcopy(first);child['id']='leaf'
     merged=deduplicate([first,child]);assert len(merged)==1
-    assert merged[0]['concern_key']=='llm.grounding'
-    assert set(merged[0]['concern_origins'])=={'llm.grounding','service.base.result_correctness'}
-    assert ['service.base.result_correctness','llm.grounding'] in merged[0]['concern_paths']
     truth=deepcopy(child);truth.update(id='truth',source_status='explicit')
     report=compare_report([first,child],[],[truth],[],[decision('truth','root')],[])
     assert report['metrics']['generation_validity']['denominator']==1
@@ -210,14 +207,14 @@ def test_pipeline_exports_applicability_and_passes_only_positive_rule_documents(
     ex=Execution(tmp_path/'run',mocks=m);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
     assert seen and all(d['channel']=='normal' for d in seen[0]['input']['normal-documents'])
     assert 'existing empty result' not in json.dumps(seen[0])
-    manifest=read_json(ex.root/'run_manifest.json');assert manifest['registry_version']=='service-concerns-v2'
+    manifest=read_json(ex.root/'run_manifest.json');assert manifest['registry_version']=='interaction-concerns-v3'
     report=read_json(ex.root/'missing_report.json')['cases']['UC-X']
     assert {'applicable','pending','not_applicable'}<={m['status'] for m in report['concerns']}
     assert all(m['inheritance_paths'] for m in report['concerns'])
 
 
 def test_numerical_and_qualitative_timing_rules_cannot_be_invented():
-    x=memory_inputs();bad=match('common.timeout',rules=[guard('timing',500,'响应要快','ms')],status='applicable')
+    x=memory_inputs();x['sr-ssd']['interactions'][0]['operation']['kinds']=['process'];bad=match('service.analysis_generation.execution_deadline',rules=[guard('timing',500,'响应要快','ms')],status='applicable')
     with pytest.raises(ValueError,match='numeric rule value|value/unit'):
         validate_result('concern-match',{'matches':[bad],'pending':[]},x)
     normal={'source_id':'timing-doc','name':'sr.md','channel':'normal','lines':[{'number':1,'text':'该服务必须在0.5秒内响应。'}]}
@@ -240,12 +237,10 @@ def test_interface_and_storage_scopes_cannot_cover_each_other():
         validate_result('semantic-compare',{'decisions':[decision('a','b')]},{'left':[a],'right':[b],'purpose':'GT_G'})
 
 
-def test_ordinary_cancel_is_not_a_failure_even_when_operation_supports_cleanup():
-    x=memory_inputs();i=x['sr-ssd']['interactions'][0];i['operation'].update(name='处理任务',kinds=['process'])
-    rows=resolved(x,[match('service.workflow.interruption',rules=[guard('recovery',True,'取消后应清理临时数据')])])
-    s=scenario('cancel',cause='用户取消');s.update(object='Platform',operation='处理任务',concern_key='service.workflow.interruption',conditions=['用户主动取消'])
-    with pytest.raises(ValueError,match='ordinary cancellation'):
-        validate_result('exception-generate',{'scenarios':[s],'pending':[]},x)
+def test_cancel_and_old_generic_timeout_are_not_registered_in_new_taxonomy():
+    assert not {'service.workflow.interruption','common.timeout','service.base.result_correctness','service.contract.compatibility'}&set(registry()['definitions'])
+    with pytest.raises(ValueError,match='unregistered concern'):
+        validate_result('existing-extract',{'scenarios':[{**scenario('cancel',status='explicit'),'concern_key':'service.workflow.interruption'}]},{'evidence':R})
 
 
 def test_report_distinguishes_applicable_pending_and_inapplicable(tmp_path):
@@ -272,8 +267,8 @@ def test_callback_authentication_belongs_to_the_actual_caller_of_the_local_servi
     x=memory_inputs();i=x['sr-ssd']['interactions'][0]
     i['sender'].update(name='ExternalLLM',position='外部Actor（系统）')
     i['receiver'].update(name='LocalService',position='内部服务')
-    rows=resolved(x,[match('service.base.authentication',name='LocalService',rules=[guard('authentication',True,'该回调接口必须认证')])])
-    auth=find(rows,'service.base.authentication')
+    rows=resolved(x,[match('service_relation.authentication',name='LocalService',rules=[guard('authentication',True,'该回调接口必须认证')])])
+    auth=find(rows,'service_relation.authentication')
     assert auth['object']=='ExternalLLM' and auth['service']=='LocalService' and auth['status']=='applicable'
     assert not any(m['concern_key'].startswith('llm.') for m in rows)
 
@@ -284,11 +279,11 @@ def test_registry_rule_changes_invalidate_concern_analysis_without_reextracting_
     monkeypatch.setattr(registry_module,'Path',lambda _:tmp_path/'registry-module.py')
     rr,sr,t,m=fake_pipeline(tmp_path);calls=[]
     def capture(task,value):
-        def invoke(packet):calls.append(task);return deepcopy(value)
+        def invoke(packet):calls.append(task);return value(packet) if callable(value) else deepcopy(value)
         return invoke
     mocks={k:capture(k,v) for k,v in m.items()};root=tmp_path/'run'
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    calls.clear();full['definitions']['service.base.authentication']['description']='明确根据当前调用方和接口要求检查认证'
+    calls.clear();full['definitions']['human.authentication']['description']='明确根据当前调用方和接口要求检查认证'
     full['hash']=fingerprint({k:v for k,v in full.items() if k!='hash'});file.write_text(json.dumps(full,ensure_ascii=False))
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
     assert {'concern-match','exception-generate'}<=set(calls)
@@ -300,7 +295,7 @@ def test_technical_refinement_paths_only_use_the_actual_function_not_dormant_cla
     i['receiver'].update(name='LLMService',position='AI模型');i['operation']['kinds']=['process']
     rows=resolved(x)
     paths=find(rows,'llm.grounding')['inheritance_paths']
-    assert paths==[['service.base.result_correctness','service.analysis_generation.result_correctness','llm.grounding']]
+    assert paths==[['llm.grounding']]
     assert not any('service.query_retrieval.result_correctness' in path for path in paths)
 
 

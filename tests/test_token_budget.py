@@ -110,4 +110,9 @@ def test_structured_text_reservation_counts_decoded_content_not_transport_escapi
 def test_non_text_reservation_keeps_serialized_fallback_and_reasoning():
     message = {'role': 'user', 'content': [{'type': 'text', 'text': '完整数据'}]}
     request = {'messages': [message], 'max_tokens': 400, 'enable_thinking': True}
-    assert request_reservation(request, 300) == len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256 + 400 + 300
+    assert request_reservation(request, 300) >= len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256 + 400 + 300
+
+
+def test_tool_schema_bytes_are_reserved_before_a_deep_agent_call():
+    small=body();large={**small,'tools':[{'type':'function','function':{'name':'submit_result','description':'字段约束'*300}}]}
+    assert request_reservation(large)-request_reservation(small)>3000

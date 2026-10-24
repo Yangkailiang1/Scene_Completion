@@ -1,0 +1,37 @@
+name: Windows offline package
+on:
+  workflow_dispatch:
+  push:
+    tags: ['scene-workbench-*']
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-windows.lock
+      - run: python -m pytest -q
+      - run: python tools/build_windows_bundle.py --output-dir dist
+      - name: Smoke test embedded runtime
+        shell: pwsh
+        run: |
+          & dist/scene-completion-windows-x64/python/python.exe -c "import deepagents,fastapi,uvicorn; print('embedded runtime OK')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & dist/scene-completion-windows-x64/python/python.exe -m pytest dist/scene-completion-windows-x64/app/tests -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scene-completion-windows-x64
+          path: |
+            dist/scene-completion-windows-x64.zip
+            dist/scene-completion-windows-x64.zip.sha256
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/scene-completion-windows-x64.zip
+            dist/scene-completion-windows-x64.zip.sha256
+permissions:
+  contents: write

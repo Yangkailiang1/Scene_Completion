@@ -63,6 +63,15 @@ pageSize：可选整数，默认20，范围1-100。
             if not hit:missing.append(a)
         return {'decisions':decisions,'missing':missing}
     mocks['gap-compare']=compare
+    def catalogue(p):
+        doc=p['input']['documents'][0]
+        ref={'source_id':doc['source_id'],'line_start':1,'line_end':1,'quote':doc['lines'][0]['text']}
+        return {'cases':[{'id':'SC002-UC002','name':'查询记忆库列表','goal':'查询记忆库列表','actors':['开发者'],'layer':p['input']['layer'],
+          'source_ranges':[{'source_id':doc['source_id'],'start':1,'end':doc['lines'][-1]['number']}],'source_refs':[ref]}]}
+    mocks['use-case-extract']=catalogue
+    mocks['use-case-align']={'groups':[{'id':'SC002-UC002','rr_ids':['SC002-UC002'],'sr_ids':['SC002-UC002'],'status':'confirmed','reason':'明确同一用例的RR/SR夹具','source_refs':refs(rr,1)}]}
+    mocks['fused-ssd']={'interactions':[interaction('RR'),interaction('SR')],
+      'rr_sr_links':mocks['interaction-align']['links'],'pending':[]}
     ex=Execution(root/'run',mocks=mocks,config={'max_concurrency':2,'fixture_version':'memory-demo-1.1'},case_ids=['SC002-UC002'])
     build_pipeline(ex,rr,sr,[]);result=ex.finish();print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result['complete'] else 2

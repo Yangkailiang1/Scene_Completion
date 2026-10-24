@@ -1,5 +1,5 @@
 {
-  "version": "service-concerns-v2",
+  "version": "interaction-concerns-v3",
   "definitions": {
     "service.base.availability": {
       "key": "service.base.availability",
@@ -14,35 +14,9 @@
       "technology": null,
       "description": "服务可用性"
     },
-    "service.base.authentication": {
-      "key": "service.base.authentication",
-      "label": "调用方身份认证",
-      "layer": "base",
-      "group": "service_base",
-      "parents": [],
-      "guard": "authentication",
-      "kind": "check",
-      "failure_family": "service.base.authentication",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "调用方身份认证"
-    },
-    "service.base.authorization": {
-      "key": "service.base.authorization",
-      "label": "访问授权",
-      "layer": "base",
-      "group": "service_base",
-      "parents": [],
-      "guard": "authorization",
-      "kind": "check",
-      "failure_family": "service.base.authorization",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "访问授权"
-    },
     "service.base.request_data": {
       "key": "service.base.request_data",
-      "label": "请求数据正确性",
+      "label": "输入数据关注点",
       "layer": "base",
       "group": "service_base",
       "parents": [],
@@ -55,7 +29,7 @@
     },
     "service.base.response_contract": {
       "key": "service.base.response_contract",
-      "label": "返回契约与数据正确性",
+      "label": "输出数据关注点",
       "layer": "base",
       "group": "service_base",
       "parents": [],
@@ -65,19 +39,6 @@
       "operation_kinds": [],
       "technology": null,
       "description": "返回契约与数据正确性"
-    },
-    "service.base.result_correctness": {
-      "key": "service.base.result_correctness",
-      "label": "业务结果正确性",
-      "layer": "base",
-      "group": "service_base",
-      "parents": [],
-      "guard": "result",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "业务结果正确性"
     },
     "api.data.completeness": {
       "key": "api.data.completeness",
@@ -191,29 +152,12 @@
       "technology": null,
       "description": "数据类型与接口定义不符"
     },
-    "service.contract.compatibility": {
-      "key": "service.contract.compatibility",
-      "label": "接口契约兼容性",
-      "layer": "base",
-      "group": "service_base",
-      "parents": [
-        "service.base.response_contract"
-      ],
-      "guard": "compatibility",
-      "kind": "check",
-      "failure_family": "service.contract.compatibility",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "接口契约兼容性"
-    },
     "service.display_interaction.display_correctness": {
       "key": "service.display_interaction.display_correctness",
       "label": "显示正确性",
       "layer": "functional",
       "group": "display_interaction",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "result",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -228,9 +172,7 @@
       "label": "设备适配性",
       "layer": "functional",
       "group": "display_interaction",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "device",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -245,9 +187,7 @@
       "label": "资源存在性",
       "layer": "functional",
       "group": "query_retrieval",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "resource_lookup",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -257,31 +197,12 @@
       "technology": null,
       "description": "资源存在性"
     },
-    "service.query_retrieval.result_correctness": {
-      "key": "service.query_retrieval.result_correctness",
-      "label": "查询结果正确性",
-      "layer": "functional",
-      "group": "query_retrieval",
-      "parents": [
-        "service.base.result_correctness"
-      ],
-      "guard": "result",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [
-        "read"
-      ],
-      "technology": null,
-      "description": "查询结果正确性"
-    },
     "service.query_retrieval.data_visibility": {
       "key": "service.query_retrieval.data_visibility",
       "label": "数据可见性",
       "layer": "functional",
       "group": "query_retrieval",
-      "parents": [
-        "service.base.authorization"
-      ],
+      "parents": [],
       "guard": "authorization",
       "kind": "check",
       "failure_family": "service.base.authorization",
@@ -296,9 +217,7 @@
       "label": "变更业务约束",
       "layer": "functional",
       "group": "resource_mutation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "business",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -315,9 +234,7 @@
       "label": "持久化一致性",
       "layer": "functional",
       "group": "resource_mutation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "persistence",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -334,9 +251,7 @@
       "label": "并发一致性",
       "layer": "functional",
       "group": "resource_mutation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "concurrency",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -353,9 +268,7 @@
       "label": "幂等性",
       "layer": "functional",
       "group": "resource_mutation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "idempotency",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -367,31 +280,12 @@
       "technology": null,
       "description": "幂等性"
     },
-    "service.analysis_generation.result_correctness": {
-      "key": "service.analysis_generation.result_correctness",
-      "label": "处理正确性",
-      "layer": "functional",
-      "group": "analysis_generation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
-      "guard": "result",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [
-        "process"
-      ],
-      "technology": null,
-      "description": "处理正确性"
-    },
     "service.analysis_generation.resource_consumption": {
       "key": "service.analysis_generation.resource_consumption",
       "label": "资源消耗",
       "layer": "functional",
       "group": "analysis_generation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "resource_limit",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -406,9 +300,7 @@
       "label": "发布前置条件",
       "layer": "functional",
       "group": "release_activation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "release",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -423,9 +315,7 @@
       "label": "发布结果一致性",
       "layer": "functional",
       "group": "release_activation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "result",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -440,9 +330,7 @@
       "label": "失败恢复",
       "layer": "functional",
       "group": "release_activation",
-      "parents": [
-        "service.base.result_correctness"
-      ],
+      "parents": [],
       "guard": "recovery",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -472,12 +360,10 @@
     },
     "database.referential_integrity": {
       "key": "database.referential_integrity",
-      "label": "关联完整性",
+      "label": "关联一致性",
       "layer": "technology",
       "group": "database",
       "parents": [
-        "service.base.result_correctness",
-        "service.query_retrieval.result_correctness",
         "service.resource_mutation.business_constraint"
       ],
       "guard": "reference",
@@ -492,57 +378,12 @@
       "technology": "database",
       "description": "关联完整性"
     },
-    "database.transaction_atomicity": {
-      "key": "database.transaction_atomicity",
-      "label": "事务原子性",
-      "layer": "technology",
-      "group": "database",
-      "parents": [
-        "service.resource_mutation.persistence_consistency"
-      ],
-      "guard": "transaction",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [
-        "create",
-        "update",
-        "delete"
-      ],
-      "technology": "database",
-      "description": "事务原子性"
-    },
-    "database.isolation": {
-      "key": "database.isolation",
-      "label": "事务隔离保证",
-      "layer": "technology",
-      "group": "database",
-      "parents": [
-        "service.base.result_correctness",
-        "service.query_retrieval.result_correctness",
-        "service.resource_mutation.concurrency_consistency"
-      ],
-      "guard": "isolation",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [
-        "read",
-        "create",
-        "update",
-        "delete"
-      ],
-      "technology": "database",
-      "description": "事务隔离保证"
-    },
     "llm.grounding": {
       "key": "llm.grounding",
       "label": "事实与依据一致性",
       "layer": "technology",
       "group": "llm",
-      "parents": [
-        "service.base.result_correctness",
-        "service.analysis_generation.result_correctness",
-        "service.query_retrieval.result_correctness"
-      ],
+      "parents": [],
       "guard": "grounding",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -555,11 +396,7 @@
       "label": "指令遵循",
       "layer": "technology",
       "group": "llm",
-      "parents": [
-        "service.base.result_correctness",
-        "service.analysis_generation.result_correctness",
-        "service.query_retrieval.result_correctness"
-      ],
+      "parents": [],
       "guard": "instruction",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -587,11 +424,7 @@
       "label": "提示词安全",
       "layer": "technology",
       "group": "llm",
-      "parents": [
-        "service.base.result_correctness",
-        "service.analysis_generation.result_correctness",
-        "service.query_retrieval.result_correctness"
-      ],
+      "parents": [],
       "guard": "prompt_security",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
@@ -604,30 +437,13 @@
       "label": "输出稳定性",
       "layer": "technology",
       "group": "llm",
-      "parents": [
-        "service.base.result_correctness",
-        "service.analysis_generation.result_correctness",
-        "service.query_retrieval.result_correctness"
-      ],
+      "parents": [],
       "guard": "stability",
       "kind": "check",
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": "llm",
       "description": "输出稳定性"
-    },
-    "common.timeout": {
-      "key": "common.timeout",
-      "label": "超时关注点",
-      "layer": "conditional",
-      "group": "timing",
-      "parents": [],
-      "guard": "timing",
-      "kind": "check",
-      "failure_family": "common.timeout",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "超时关注点"
     },
     "service_relation.call_order": {
       "key": "service_relation.call_order",
@@ -681,19 +497,6 @@
       "technology": null,
       "description": "一侧成功、一侧失败或版本不一致"
     },
-    "service_relation.idempotency": {
-      "key": "service_relation.idempotency",
-      "label": "幂等性",
-      "layer": "relation",
-      "group": "service_relation",
-      "parents": [],
-      "guard": "relation",
-      "kind": "check",
-      "failure_family": "service.base.result_correctness",
-      "operation_kinds": [],
-      "technology": null,
-      "description": "重复请求导致重复执行"
-    },
     "service_relation.concurrency_consistency": {
       "key": "service_relation.concurrency_consistency",
       "label": "并发一致性",
@@ -707,28 +510,98 @@
       "technology": null,
       "description": "并发修改或删除产生冲突"
     },
-    "service.workflow.interruption": {
-      "key": "service.workflow.interruption",
-      "label": "取消与中止后的状态及副作用",
-      "layer": "conditional",
-      "group": "workflow",
+    "human.authentication": {
+      "key": "human.authentication",
+      "label": "身份认证",
+      "layer": "human",
+      "group": "human",
       "parents": [],
-      "guard": "recovery",
+      "guard": "authentication",
       "kind": "check",
-      "failure_family": "service.workflow.interruption",
+      "failure_family": "service.base.authentication",
       "operation_kinds": [],
       "technology": null,
-      "description": "普通取消正常；只检查有明确要求的终止状态、清理或副作用恢复是否违反规则"
+      "description": "调用方身份认证"
+    },
+    "service_relation.authentication": {
+      "key": "service_relation.authentication",
+      "label": "调用方身份认证",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authentication",
+      "kind": "check",
+      "failure_family": "service.base.authentication",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "调用方身份认证"
+    },
+    "human.authorization": {
+      "key": "human.authorization",
+      "label": "权限控制",
+      "layer": "human",
+      "group": "human",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service.base.authorization",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "访问授权"
+    },
+    "service_relation.authorization": {
+      "key": "service_relation.authorization",
+      "label": "调用授权",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service.base.authorization",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "访问授权"
+    },
+    "service.analysis_generation.execution_deadline": {
+      "key": "service.analysis_generation.execution_deadline",
+      "label": "执行时限",
+      "layer": "functional",
+      "group": "analysis_generation",
+      "parents": [],
+      "guard": "timing",
+      "kind": "check",
+      "failure_family": "execution_deadline",
+      "operation_kinds": [
+        "process"
+      ],
+      "technology": null,
+      "description": "资源消耗"
+    },
+    "database.query_performance": {
+      "key": "database.query_performance",
+      "label": "查询性能",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "timing",
+      "kind": "check",
+      "failure_family": "execution_deadline",
+      "operation_kinds": [
+        "read"
+      ],
+      "technology": "database",
+      "description": "资源消耗"
     }
   },
   "profiles": {
+    "human": [
+      "human.authentication",
+      "human.authorization"
+    ],
     "base": [
       "service.base.availability",
-      "service.base.authentication",
-      "service.base.authorization",
       "service.base.request_data",
-      "service.base.response_contract",
-      "service.base.result_correctness"
+      "service.base.response_contract"
     ],
     "functional": {
       "display_interaction": [
@@ -737,7 +610,6 @@
       ],
       "query_retrieval": [
         "service.query_retrieval.resource_existence",
-        "service.query_retrieval.result_correctness",
         "service.query_retrieval.data_visibility"
       ],
       "resource_mutation": [
@@ -747,8 +619,8 @@
         "service.resource_mutation.idempotency"
       ],
       "analysis_generation": [
-        "service.analysis_generation.result_correctness",
-        "service.analysis_generation.resource_consumption"
+        "service.analysis_generation.resource_consumption",
+        "service.analysis_generation.execution_deadline"
       ],
       "release_activation": [
         "service.release_activation.prerequisite",
@@ -760,8 +632,7 @@
       "database": [
         "database.uniqueness",
         "database.referential_integrity",
-        "database.transaction_atomicity",
-        "database.isolation"
+        "database.query_performance"
       ],
       "llm": [
         "llm.grounding",
@@ -771,26 +642,15 @@
         "llm.output_stability"
       ]
     },
-    "conditional": [
-      "common.timeout",
-      "service.workflow.interruption"
-    ],
+    "conditional": [],
     "relation": [
       "service_relation.call_order",
       "service_relation.dependency_consistency",
       "service_relation.cascade_operation",
       "service_relation.cross_service_consistency",
-      "service_relation.idempotency",
-      "service_relation.concurrency_consistency"
-    ],
-    "data": [
-      "api.data.completeness",
-      "api.data.format",
-      "api.data.legality",
-      "api.data.length",
-      "api.data.range",
-      "api.data.size",
-      "api.data.type"
+      "service_relation.concurrency_consistency",
+      "service_relation.authentication",
+      "service_relation.authorization"
     ]
   },
   "legacy_mapping": {
@@ -845,10 +705,9 @@
     },
     "common.timeout": {
       "old_label": "超时关注点",
-      "targets": [
-        "common.timeout"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "external_database.availability": {
       "old_label": "数据库服务可用性",
@@ -859,31 +718,27 @@
     },
     "external_database.query_performance": {
       "old_label": "查询性能",
-      "targets": [
-        "common.timeout"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "external_llm.access_permission": {
       "old_label": "访问权限",
-      "targets": [
-        "service.base.authorization"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "external_llm.availability": {
       "old_label": "外部模型可用性",
       "targets": [
-        "service.base.availability",
-        "service.base.authentication"
+        "service.base.availability"
       ],
       "note": "原定义混有连接/服务故障与认证失败；迁移必须按具体原因分开，不得全部归为不可用"
     },
     "external_llm.contract": {
       "old_label": "外部接口契约",
       "targets": [
-        "service.base.response_contract",
-        "service.contract.compatibility"
+        "service.base.response_contract"
       ],
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     },
@@ -932,38 +787,33 @@
     "external_service.contract": {
       "old_label": "外部接口契约",
       "targets": [
-        "service.base.response_contract",
-        "service.contract.compatibility"
+        "service.base.response_contract"
       ],
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     },
     "external_service.identity": {
       "old_label": "调用方身份",
-      "targets": [
-        "service.base.authentication"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "external_service.permission": {
       "old_label": "调用权限",
-      "targets": [
-        "service.base.authorization"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "human.authentication": {
       "old_label": "身份认证",
-      "targets": [
-        "service.base.authentication"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "human.authorization": {
       "old_label": "权限控制",
-      "targets": [
-        "service.base.authorization"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "internal_database.availability": {
       "old_label": "数据库可用性",
@@ -1005,10 +855,9 @@
     },
     "internal_database.query_performance": {
       "old_label": "查询性能",
-      "targets": [
-        "common.timeout"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "internal_database.referential_consistency": {
       "old_label": "关联一致性",
@@ -1040,10 +889,9 @@
     },
     "service.analysis_generation.execution_deadline": {
       "old_label": "执行时限",
-      "targets": [
-        "common.timeout"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service.analysis_generation.resource_consumption": {
       "old_label": "资源消耗",
@@ -1054,10 +902,9 @@
     },
     "service.analysis_generation.result_correctness": {
       "old_label": "处理正确性",
-      "targets": [
-        "service.analysis_generation.result_correctness"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service.dependency.availability": {
       "old_label": "内部依赖可用性",
@@ -1075,10 +922,9 @@
     },
     "service.display_interaction.render_performance": {
       "old_label": "渲染性能",
-      "targets": [
-        "common.timeout"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service.query_retrieval.data_visibility": {
       "old_label": "数据可见性",
@@ -1096,10 +942,9 @@
     },
     "service.query_retrieval.result_correctness": {
       "old_label": "结果正确性",
-      "targets": [
-        "service.query_retrieval.result_correctness"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service.release_activation.failure_recovery": {
       "old_label": "失败恢复",
@@ -1146,10 +991,9 @@
     },
     "service.workflow.interruption": {
       "old_label": "业务流程取消与中止",
-      "targets": [
-        "service.workflow.interruption"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service_relation.call_order": {
       "old_label": "调用顺序",
@@ -1188,10 +1032,9 @@
     },
     "service_relation.idempotency": {
       "old_label": "幂等性",
-      "targets": [
-        "service_relation.idempotency"
-      ],
-      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
+      "targets": [],
+      "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用",
+      "status": "retired_by_user_taxonomy"
     },
     "service.display_interaction.device_adaptation": {
       "old_label": "设备适配性",
@@ -1201,5 +1044,6 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "5dc04389fb19461ae65ae15f8cf9a135735975de5b1c7231e18f836d0c455ac1"
+  "hash": "782c4324f14e283adba96a98c1edcecac20892b5e29e70e83746ac8fbb409407",
+  "taxonomy_note": "2026-10-24用户分类图；设备分析暂不纳入。认证授权：人类Actor及Service关系分别定义。推荐停用。"
 }

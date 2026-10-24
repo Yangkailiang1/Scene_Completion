@@ -13,8 +13,8 @@ def export_task(root,task,payload,artifact_name=None):
     elif task=='object-operations':headers=['名称','支持的操作'];rows=[[x['name'],'、'.join(o['name'] for o in x['supported_operations'])] for x in payload['objects']]
     elif task=='api-map':headers=['服务名称','对应接口列表'];rows=[[s['name'],'；'.join(' '.join(filter(None,[i['id'],i['method'],i['address']])) for i in s['interfaces'])] for s in payload['services']]
     elif task=='api-parameters':
-        headers=['API名称','接口地址','请求参数','数据类型','可选/必填','约束条件']
-        rows=[[a['name'],show(a['address']),p['name'],show(p['data_type']),show(p['required']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
+        headers=['API名称','接口地址','数据方向','参数位置','参数','数据类型','可选/必填','默认值','约束条件']
+        rows=[[a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
     elif task in {'rr-ssd','sr-ssd'}:
         headers=['顺序','发送方','操作','数据','接收方'];rows=[[i['sequence'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']] for i in payload['interactions']]
     elif task=='concern-match':
@@ -25,6 +25,12 @@ def export_task(root,task,payload,artifact_name=None):
         text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
         text+='\n'.join('| '+' | '.join(map(safe,r))+' |' for r in rows)
         (root/(file_stem+'.md')).write_text(text+'\n',encoding='utf8')
+    if task=='fused-ssd':
+        from .ssd_drawing import render_fused_ssd
+        render_fused_ssd(payload,root/(file_stem+'.svg'))
+    if task=='components':
+        from .composition_drawing import render_composition
+        render_composition(payload,root/(file_stem+'.svg'))
     if task in {'components','rr-ssd','sr-ssd'}:
         # Native vector text/shapes; source .dot is also supplied for editing.
         if task=='components':
@@ -39,7 +45,7 @@ def export_task(root,task,payload,artifact_name=None):
         (root/(file_stem+'.dot')).write_text(dot,encoding='utf8')
         # Graphviz is optional; JSON, Markdown and DOT always export.
         import shutil,subprocess
-        if shutil.which('dot'):
+        if task!='components' and shutil.which('dot'):
             try:subprocess.run(['dot','-Tsvg',str(root/(file_stem+'.dot')),'-o',str(root/(file_stem+'.svg'))],check=True,capture_output=True)
             except (OSError,subprocess.CalledProcessError):
                 (root/(file_stem+'.render-warning.txt')).write_text('Graphviz rendering failed; editable JSON/Markdown/DOT retained.',encoding='utf8')

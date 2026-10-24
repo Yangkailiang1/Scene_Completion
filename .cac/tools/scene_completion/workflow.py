@@ -1,4 +1,4 @@
-"""Independent tasks and a fixed, resumable DAG for scene-workflow-v1.
+"""Independent tasks and a fixed, resumable DAG for scene-workflow-v2.
 
 No legacy packets, history vectors, recommendations or external paid calls in
 packet/mock mode. Semantic results are evidence-checked before cache promotion.
@@ -15,13 +15,14 @@ from .concern_matching import complete_data_matches
 from .concern_hierarchy import resolve_matches
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
+from .reviews import REVIEW_TASKS
 from .scheduler import Scheduler,Task,TaskRejected,TaskBlocked,CallGate,run_lock
 from .storage import read_json,write_json
 from .storage import fingerprint
 
 
 def payload(value):
-    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v1')
+    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v2')
     return value['payload']
 
 
@@ -29,7 +30,7 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py']
     skill=skill_path(task)
     return fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
 
@@ -44,10 +45,14 @@ class Execution:
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
+        from .reviews import Reviews
+        self.reviews=Reviews(self.root,self.config.get('review_mode','auto'))
+        self.expand_pipeline=None
         if self.config.get('structured_output','json_object') not in {'json_object','json_schema'}:
             raise ValueError('structured_output must be json_object or configured json_schema')
         self.identity={'mode':'mock' if mocks is not None else mode,'model':client.model('agent') if client else None,
                        'config_hash':fingerprint(self.config),'endpoint_hash':fingerprint(getattr(client,'base_url',None))}
+        self.reviews.execution_identity=fingerprint({**{k:v for k,v in self.identity.items() if k!='config_hash'},'config_hash':fingerprint({k:v for k,v in self.config.items() if k!='review_mode'})})
         manifest=self.root/'run_manifest.json'
         previous=read_json(manifest) if manifest.exists() else None
         if previous and previous.get('protocol')!=PROTOCOL:raise ValueError('different protocol: use a new run directory')
@@ -129,12 +134,16 @@ class Execution:
 
     def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None):
         static=static or {}
+        review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None])
         def inputs_for(dependencies):
             values={k:payload(v) for k,v in dependencies.items()}
             return build(values) if build else deepcopy(static)
         def execute(dependencies,record):
             inputs=inputs_for(dependencies)
-            if transform:
+            reviewed=self.reviews.cached(key,task,inputs,review_identity) if task in REVIEW_TASKS else None
+            if reviewed is not None:
+                value=reviewed;proof={'reviewed':True}
+            elif transform:
                 value=transform(inputs);proof={}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
@@ -149,6 +158,7 @@ class Execution:
                 else:value['scenarios']=deduplicate(value['scenarios'])
             if task in SCHEMAS:
                 validate_result(task,value,inputs)
+            if reviewed is None:self.reviews.propose(key,task,inputs,value,review_identity)
             meta={'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
             if task=='components':meta.update(resource_metadata(value))
             return {'protocol':PROTOCOL,'task':task,'payload':value,'metadata':meta}
@@ -159,11 +169,14 @@ class Execution:
                 dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
                 validate_result(task,value['payload'],inputs_for(dependencies))
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
-                 'static':fingerprint(static),'identity':self.identity,'cases':self.case_ids,'registry':registry()['hash'] if task in {'concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+                 'static':fingerprint(static),'identity':self.identity,'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
 
     def finish(self):
-        result=self.scheduler.run();artifact_root=self.root/'artifacts'
+        result=self.scheduler.run()
+        if self.expand_pipeline and self.scheduler.state['tasks'].get('use-case-align',{}).get('status')=='passed':
+            expand=self.expand_pipeline;self.expand_pipeline=None;expand();result=self.scheduler.run()
+        artifact_root=self.root/'artifacts'
         import shutil
         if artifact_root.exists():shutil.rmtree(artifact_root)
         (self.root/'missing_report.json').unlink(missing_ok=True)
@@ -188,9 +201,9 @@ class Execution:
               'recommendation':{'enabled':False,'status':'未启用'},'evaluation_status':{
                   c:'已评测' if c in evaluations else '未评测或任务未完成' for c in reports}}
             export_missing_report(self.root,combined)
-        analysis_stages={'rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
+        analysis_stages={'fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
-        self.manifest.update(complete=result['complete'],analysis_complete=bool(analysis) and all(analysis.values()),
+        self.manifest.update(complete=result['complete'] and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
@@ -208,8 +221,26 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
     normal_rr=normal_projection(rr);normal_sr=normal_projection(sr)
     for task,inputs in [('components',{'RR':normal_rr,'SR':normal_sr}),('api-map',{'SR':normal_sr}),('api-parameters',{'SR':normal_sr})]:
         ex.add(task,task,static=inputs)
-    cases=ex.case_ids or discover_cases(rr+sr)
-    if not cases:raise ValueError('no use-case IDs discovered; supply --use-case-id')
+    ex.add('rr-use-cases','use-case-extract',static={'documents':normal_rr,'layer':'RR'})
+    ex.add('sr-use-cases','use-case-extract',static={'documents':normal_sr,'layer':'SR'})
+    ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
+    ex.add('use-case-align','use-case-align',('rr-use-cases','sr-use-cases'),
+      build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})
+    def expand():
+        state=ex.scheduler.state['tasks']
+        get=lambda key:payload(read_json(ex.root/state[key]['output_file']))
+        catalogue={'RR':get('rr-use-cases')['cases'],'SR':get('sr-use-cases')['cases']}
+        groups=get('use-case-align')['groups']
+        if ex.case_ids:groups=[g for g in groups if g['id'] in ex.case_ids or set(ex.case_ids)&set(g['rr_ids']+g['sr_ids'])]
+        ex.manifest['case_correspondence']=groups
+        _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
+    ex.expand_pipeline=expand
+
+
+def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications):
+    from .use_cases import select_documents
+    from .source_documents import case_projection
+    cases=[g['id'] for g in groups if g['status']=='confirmed']
     extraction_jobs=[('shared',t,t) for t in ('components','api-map','api-parameters')]
     for cid in cases:
         key=lambda t:cid+':'+t
@@ -220,12 +251,20 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
                 values={t:d[local(t)] for t in deps}
                 return build(values) if build else deepcopy(static or {})
             ex.add(cid+':'+task,task,tuple(local(t) for t in deps),static=static,build=construct,transform=transform,case=cid)
-        scoped_rr=case_projection(rr,cid,cases);scoped_sr=case_projection(sr,cid,cases);scoped_test=case_projection(tests,cid,cases)
-        add('rr-ssd',static={'RR':normal_projection(scoped_rr)})
-        add('sr-ssd',static={'SR':normal_projection(scoped_sr)})
+        group=next(g for g in groups if g['id']==cid)
+        scoped_rr=select_documents(rr,[c for c in catalogue['RR'] if c['id'] in group['rr_ids']],catalogue['RR'])
+        scoped_sr=select_documents(sr,[c for c in catalogue['SR'] if c['id'] in group['sr_ids']],catalogue['SR'])
+        test_ids=list(dict.fromkeys(x for g in groups for x in g['rr_ids']+g['sr_ids']))
+        scoped_test=[]
+        for tid in group['rr_ids']+group['sr_ids']:scoped_test+=case_projection(tests,tid,test_ids)
+        scoped_test=list({fingerprint(d):d for d in scoped_test}.values())
+        add('fused-ssd',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
+          build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g})
+        for layer in ('RR','SR'):
+            add(layer.lower()+'-ssd',('fused-ssd',),build=lambda d:d,transform=lambda d,l=layer:{'interactions':[i for i in d['fused-ssd']['interactions'] if i['layer']==l]})
         add('test-operation-project',static={'test-operation-source':scoped_test},transform=(lambda d:{'objects':[]}) if not scoped_test else None)
         add('object-operations',('components','rr-ssd','test-operation-project'),build=lambda d:{'components':d['components'],'rr-ssd':d['rr-ssd'],'test-operations':d['test-operation-project']},transform=capability_union)
-        add('interaction-align',('components','rr-ssd','sr-ssd'),build=lambda d:d)
+        add('interaction-align',('components','rr-ssd','sr-ssd','fused-ssd'),build=lambda d:d,transform=lambda d:{'aliases':[],'links':d['fused-ssd']['rr_sr_links']})
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:enrich(d,d['interaction-align']))
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
@@ -255,7 +294,6 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
             add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E'),build=lambda d:d,
                 transform=lambda d:compare_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['test-ground-truth']['scenarios'],d['gap-compare']['decisions'],d['GT_G']['decisions'],d['GT_E']['decisions']))
         for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
-    ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
     for cid,task,source in extraction_jobs:
         truth_key=task if cid=='shared' else cid+':'+task
         gt=extraction_truth.get(truth_key);decisions=adjudications.get(truth_key)

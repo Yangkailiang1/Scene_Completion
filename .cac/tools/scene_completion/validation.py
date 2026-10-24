@@ -22,6 +22,9 @@ def refs_required(value):
 def validate_result(task, payload, inputs):
     validate(task,payload)
     if task=='gap-recommend':return payload
+    if task in {'use-case-extract','use-case-align','fused-ssd'}:
+        from .use_cases import validate_catalogue
+        validate_catalogue(task,payload,inputs)
     docs=documents_in(inputs)
     allowed={fingerprint(r) for r in evidence_refs(inputs)}
     for ref in evidence_refs(payload):
@@ -165,7 +168,6 @@ def validate_result(task, payload, inputs):
                     match=[m for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key']) and match_is_applicable(m,i,inputs)]
                     if definitions[s['concern_key']]['kind']=='family':raise ValueError('abstract concern family cannot generate an independent exception')
                     if not any(m['concrete_rule'] for m in match):raise ValueError('no concrete rule; move to pending')
-                if s['concern_key']=='service.workflow.interruption' and s['cause'].casefold() in {'cancel','canceled','cancelled','取消','用户取消','普通取消','正常取消'}:raise ValueError('ordinary cancellation is not an exception')
                 if s['concern_key']=='service.base.availability':
                     import re
                     if re.search(r'认证|凭证|身份|token|authenticat',s['cause']+' '+str(s['conditions']),re.I):raise ValueError('authentication failure is not service availability')

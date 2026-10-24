@@ -1,5 +1,5 @@
 {
-  "agent_runtime": "openai-compatible",
+  "agent_runtime": "deepagents",
   "base_url": "${SCENE_API_BASE_URL}",
   "api_key_env": "SCENE_API_KEY",
   "agent_model": "${SCENE_AGENT_MODEL}",
@@ -9,5 +9,6 @@
   "max_tokens": 12000,
   "max_retries": 0,
   "timeout_seconds": 120,
-  "adaptive_concurrency": true
+  "adaptive_concurrency": true,
+  "agent_recursion_limit": 24
 }

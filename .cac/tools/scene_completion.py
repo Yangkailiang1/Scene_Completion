@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 """Public scene workflow command line."""
+from pathlib import Path
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parent))
 from scene_completion.cli import main
 if __name__=='__main__':
     import sys
