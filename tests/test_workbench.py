@@ -104,7 +104,7 @@ def test_real_deepagents_tools_submit_using_existing_transport_and_no_host_acces
     client=DeepAgentsClient({'base_url':'http://offline.test/v1','agent_model':'customer-qwen38','api_key':'offline-test','max_tokens':1000,'run_root':str(tmp_path)},transport=transport)
     p=packet('api-map',{'SR':[]});p['skill_text']='---\nname: scene-api-map\ndescription: API mapping\n---\nExtract declared services.'
     result=client.agent(p)
-    assert result['services']==[] and len(sent)==3
+    assert result['services']==[] and len(sent)==2
     assert result['execution_model_evidence']['requested_model']=='customer-qwen38'
     assert all(b['model']=='customer-qwen38' for b in sent)
     assert 'root:' not in json.dumps(sent[-1])

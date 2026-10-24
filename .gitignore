@@ -13,3 +13,6 @@ tmp/
 dist/
 wheelhouse/
 .workbench/
+
+frontend/node_modules/
+frontend/coverage/

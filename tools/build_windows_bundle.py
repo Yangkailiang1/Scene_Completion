@@ -27,11 +27,13 @@ def build(output):
     site=stage/'python/Lib/site-packages'
     subprocess.run([sys.executable,'-m','pip','install','--no-index','--find-links',str(wheels),'--only-binary=:all:','--platform','win_amd64','--python-version','312','--implementation','cp','--abi','cp312','--abi','abi3','--no-compile','--no-deps','--target',str(site),'-r',str(lock)],check=True)
     (stage/'python/python312._pth').write_text('python312.zip\n.\nLib/site-packages\nimport site\n',encoding='utf8')
+    if not (ROOT/'web/assets').is_dir() or not (ROOT/'web/third-party-licenses.txt').is_file():
+        raise RuntimeError('Build frontend first: npm ci --prefix frontend && npm run build --prefix frontend')
     # Deliberately allow-list runtime sources. No local configuration, original
     # customer documents, caches or Git history enter the distributable.
     for name in ('.cac','web','docs','tests','examples'):
         shutil.copytree(ROOT/name,stage/'app'/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.local.json','.env','scene_completion_output'))
-    for name in ('serve.py','README.md','requirements-windows.lock','workflow.config.example.json','requirements.txt','requirements-dev.txt'):
+    for name in ('serve.py','README.md','requirements-windows.lock','workflow.config.example.json','requirements.txt','requirements-dev.txt','THIRD_PARTY_NOTICES.md'):
         shutil.copy2(ROOT/name,stage/'app'/name)
     for name in ('start.cmd','check.cmd'):
         shutil.copy2(ROOT/'deployment'/name,stage/name)

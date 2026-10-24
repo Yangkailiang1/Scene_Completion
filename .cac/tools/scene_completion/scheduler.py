@@ -86,21 +86,36 @@ class Scheduler:
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
         self.path=self.root/'workflow_tasks.json';self.tasks={}
         self.state=read_json(self.path) if self.path.exists() else {'tasks':{},'events':[]}
+        from .execution_events import EventStore
+        self.events=EventStore(root)
         self.limit=concurrency_limit(concurrency);self.rounds=max_rounds if auto_repair=='bounded' else 0
     def save(self):write_json(self.path,self.state)
     def add(self,task):
         if task.key in self.tasks:raise ValueError('duplicate task key')
         self.tasks[task.key]=task
-    def _event(self,key,event):self.state['events'].append({'task':key,'event':event,'at':time.time()})
+        from .execution_graph import expected_files
+        from .deepagents_client import role_for
+        write_json(self.root/'workflow_graph.json',{'nodes':[{'id':t.key,'case':t.case,'stage':t.stage,'role':role_for(t.stage),'deps':list(t.deps),'expected_files':expected_files(t.key,t.case,t.stage)} for t in self.tasks.values()]})
+        self.events.append('graph_updated',node_id=task.key)
+    def _event(self,key,event):
+        self.state['events'].append({'task':key,'event':event,'at':time.time()})
+        from .deepagents_client import role_for
+        t=self.tasks[key];r=self.state['tasks'].get(key,{})
+        self.events.append('task_status',task_key=key,role=role_for(t.stage),case=t.case,attempt=r.get('rounds',0)+1,status=event,phase={'started':'preparing','repairing':'preparing','passed':'complete'}.get(event,event),failure=r.get('failure'))
     def run(self):
         for t in self.tasks.values():
             if any(d not in self.tasks for d in t.deps):raise ValueError('unknown dependency')
         remaining=set(self.tasks);active={};done=set();outputs={}
         def job(t,deps,record):
             fn=t.repair if record['rounds'] else t.execute
-            v=(fn or t.execute)(deps,record)
-            if t.verify:t.verify(v)
-            return v
+            from .execution_events import bind,phase
+            from .deepagents_client import role_for
+            with bind(self.events,task_key=t.key,role=role_for(t.stage),case=t.case,attempt=record['rounds']+1):
+                v=(fn or t.execute)(deps,record)
+                phase('validating')
+                if t.verify:t.verify(v)
+                phase('saving')
+                return v
         with ThreadPoolExecutor(max_workers=self.limit) as pool:
             while remaining or active:
                 progressed=False
@@ -108,7 +123,7 @@ class Scheduler:
                     t=self.tasks[key]
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
-                        self.state['tasks'][key]={'status':'blocked_dependency','case':t.case,'stage':t.stage};remaining.remove(key);done.add(key);progressed=True;continue
+                        self.state['tasks'][key]={'status':'blocked_dependency','case':t.case,'stage':t.stage,'blocked_by':[d for d in t.deps if self.state['tasks'][d]['status']!='passed']};remaining.remove(key);done.add(key);progressed=True;continue
                     deps={d:outputs[d] for d in t.deps}
                     identity=fingerprint({'version':t.version,'dependencies':{d:v.get('payload',v) if isinstance(v,dict) else v for d,v in deps.items()}})
                     rec=self.state['tasks'].get(key,{})
@@ -125,7 +140,7 @@ class Scheduler:
                         if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
                         rec['rounds']+=1
                     if len(active)>=self.limit:continue
-                    rec['status']='running';self._event(key,'repairing' if rec['rounds'] else 'started')
+                    rec.update(status='running',started_at=time.time());rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
                     future=pool.submit(copy_context().run,job,t,deps,dict(rec));active[future]=key;remaining.remove(key);progressed=True
                 self.save()
                 if not active:
@@ -136,10 +151,11 @@ class Scheduler:
                     key=active.pop(f);rec=self.state['tasks'][key]
                     try:
                         v=f.result();file='task_outputs/'+fingerprint([key,rec['identity'],v])+'.json';write_json(self.root/file,v)
-                        rec.update(status='passed',output_file=file,output_hash=fingerprint(v));outputs[key]=v;done.add(key);self._event(key,'passed')
-                    except TaskBlocked as e:rec.update(status=e.status,failure=e.details);done.add(key)
+                        rec.update(status='passed',output_file=file,output_hash=fingerprint(v),finished_at=time.time());outputs[key]=v;done.add(key);self._event(key,'passed')
+                    except TaskBlocked as e:
+                        rec.update(status=e.status,failure=e.details,finished_at=time.time());done.add(key);self._event(key,e.status)
                     except Exception as e:
-                        rec.update(status='rejected' if isinstance(e,(TaskRejected,ValueError)) else 'failed',failure=getattr(e,'details',{'error':str(e),'type':type(e).__name__}))
+                        rec.update(finished_at=time.time(),status='rejected' if isinstance(e,(TaskRejected,ValueError)) else 'failed',failure=getattr(e,'details',{'error':str(e),'type':type(e).__name__}))
                         self._event(key,rec['status']);remaining.add(key)
                     self.save()
         return {'complete':all(self.state['tasks'][k]['status']=='passed' for k in self.tasks)}

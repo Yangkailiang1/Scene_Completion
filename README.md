@@ -20,7 +20,15 @@ python serve.py
 python -m pytest -q
 ```
 
-前端为本地HTML/CSS/JavaScript，服务端使用FastAPI；没有CDN、Node安装或前端依赖下载步骤。默认只监听127.0.0.1。
+前端源码使用React / TypeScript / Vite，执行图使用React Flow，基础组件适配shadcn/ui。仓库已提交构建好的web静态文件，由FastAPI本地提供。客户运行无需Node、CDN或联网下载资源；只有开发时需要Node 22：
+
+```sh
+npm ci --prefix frontend
+npm test --prefix frontend
+npm run build --prefix frontend
+```
+
+默认只监听127.0.0.1。服务端默认读取仓库根目录`.env`中的`ECNU_BASE_URL`、`ECNU_API_KEY`，请求模型默认`ecnu-plus`；可用`python serve.py --env-file /path/to/.env`指定。项目配置优先，未覆盖项继续读取服务端配置。密钥不返回浏览器、不进入项目或Windows导出包。请求模型与服务端实际返回模型分别保存。
 
 ## 实际工作流
 
@@ -33,6 +41,20 @@ python -m pytest -q
 7. 可选测试GT及抽取Acc评测独立运行。测试操作仅投影对象和支持操作，不向G提供异常答案。推荐器未启用，不生成Q。
 
 Deep Agents实际承担建模器和检查器的任务执行，加载各自Skill并通过工具提交结构化结果。任务依赖由持久化DAG约束；每个Agent只拿到本任务包和独立虚拟文件系统，无宿主文件/其他角色结果访问。共用原有传输、模型额度与并发控制，最多两轮任务修复。
+
+## 三栏执行工作台
+
+左侧项目栏可收起，偏好保存在浏览器；中间与右侧可拖动分隔线调整宽度。右侧只读执行图按建模器、检查器、推荐器分组，节点和连线读取调度器实际DAG，支持缩放、平移、用例筛选和定位当前节点。用例对应完成后展开真实用例节点；历史未保存依赖图的运行只展示原状态，不补造连线。
+
+点击节点，在中间查看实时模型正文、工具参数与返回、校验反馈、文件保存、原文依据和审核版本。等待依赖的节点可点击上游定位。产物通过校验后即可预览与下载；未完成工具参数不会被当成产物。推荐器灰色显示“未启用”。阶段由后端提供，不计算虚假的完成百分比。
+
+事件存储在各运行的`execution_events.sqlite3`，先提交后推送；SSE支持`Last-Event-ID`或`after`续接，节点详情按序读取历史。导出包含JSONL事件而不携带数据库锁文件。端点：
+
+- `GET /api/projects/{id}/graph`：实际节点、依赖、文件、阻塞、阶段及耗时。
+- `GET /api/projects/{id}/events`：SSE增量；`events/history?task_key=...&after=...`读取节点历史。
+- `GET /api/projects/{id}/review-history?task_key=...`：审核版本。
+
+Deep Agents有效提交后由中间件直接结束，避免追加模型轮次。单任务默认最多5次模型请求，最后一次强制提交；无效提交使用执行器原有最多两轮定向修复。失败保留部分输出及完整任务诊断，不提高递归上限、不返回空结果冒充成功。
 
 ## 业务审核与保存
 

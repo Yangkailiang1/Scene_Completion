@@ -29,6 +29,8 @@ class Reviews:
     def propose(self,key,task,inputs,value,identity=None):
         if task not in REVIEW_TASKS:return value
         old=self.read(key);rev=old.get('revision',0) if old else 0
+        from .execution_events import phase,emit
+        phase('saving')
         from .artifact_exports import export_task
         preview=self.root/'previews'/fingerprint(key)
         export_task(preview,task,value,artifact_name=(task if ':' in key else key).replace(':','--'))
@@ -36,6 +38,7 @@ class Reviews:
           'execution_identity':identity,'status':'draft' if self.mode=='manual' else 'auto','revision':rev,'updated_at':datetime.now(timezone.utc).isoformat()}
         # Immutable history is separate from replaceable rendering artifacts.
         write_json(self.root/'versions'/(fingerprint(entry)+'.json'),entry);write_json(self.path(key),entry)
+        emit('artifacts_saved',files=[str(p.relative_to(self.root.parent)).replace('\\','/') for p in preview.iterdir() if p.is_file()])
         if self.mode=='manual':raise TaskBlocked('awaiting_review',{'review':key})
         return value
     def decide(self,key,action,*,expected_revision,expected_input_hash,value=None,comment=''):

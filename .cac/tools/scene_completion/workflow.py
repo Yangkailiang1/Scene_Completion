@@ -30,7 +30,7 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py']
     skill=skill_path(task)
     return fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
 
@@ -76,7 +76,7 @@ class Execution:
             client.post=lambda *a,**k:self.gate.call(original,*a,**k)
 
     def semantic(self,task,inputs,record):
-        p=packet(task,inputs,[record['case']] if record.get('case') not in (None,'shared') else self.case_ids)
+        p=packet(task,inputs,[record['case']] if record.get('case') not in (None,'shared') else [])
         p['skill_text']=self.skill_text(task)
         if task=='exception-generate':
             # These are derived only from this task's positive inputs. They are
@@ -156,6 +156,8 @@ class Execution:
                     value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)))
                     value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
                 else:value['scenarios']=deduplicate(value['scenarios'])
+            from .execution_events import phase
+            phase('validating')
             if task in SCHEMAS:
                 validate_result(task,value,inputs)
             if reviewed is None:self.reviews.propose(key,task,inputs,value,review_identity)
