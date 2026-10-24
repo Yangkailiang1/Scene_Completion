@@ -136,7 +136,7 @@ class DeepAgentsClient(SemanticClient):
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
         agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask],subagents=[],backend=StateBackend(),
-          skills=['/skills/'],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
+          skills=['/skills/'] if packet['skill_text'].lstrip().startswith('---') else [],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
         inputs={'messages':[{'role':'user','content':task_message(packet)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}

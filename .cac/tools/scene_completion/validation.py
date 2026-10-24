@@ -127,8 +127,8 @@ def validate_result(task, payload, inputs):
         params=[p for a in payload.get('apis',[]) for p in a['parameters']]
         params += [p for i in payload.get('interactions',[]) for p in i['data']['sequence']]
         for i in payload.get('interactions',[]):
-            if i['direction']=='return' and any(p['location'] in {'header','path','query','body'} for p in i['data']['sequence']):raise ValueError('request fields cannot enter response data')
-            if i['direction']=='request' and any(p['location']=='response' for p in i['data']['sequence']):raise ValueError('response fields cannot enter request data')
+            if i['direction']=='return' and any(p['location'] in {'header','path','query','body'} for p in i['data']['sequence']):raise ValueError('request fields cannot enter response data: message '+i['id']+' contains '+', '.join(p['name']+'@'+p['location'] for p in i['data']['sequence'] if p['location'] in {'header','path','query','body'})+'; response messages permit response/business fields only')
+            if i['direction']=='request' and any(p['location']=='response' for p in i['data']['sequence']):raise ValueError('response fields cannot enter request data: message '+i['id']+' contains '+', '.join(p['name'] for p in i['data']['sequence'] if p['location']=='response')+'; output projection columns are not request payload. Keep request criteria in this message; put explicitly returned fields on its actual return message, or record local projection in operation.sequence without inventing returned values.')
         for p in params:
             for rule in p['constraints']:
                 if rule['status']=='explicit' and rule['value'] is None: raise ValueError('explicit constraint needs a known value')

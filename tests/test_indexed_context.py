@@ -161,3 +161,14 @@ def test_chinese_alternative_flow_never_enters_positive_ssd_or_G():
     result=normal_projection([d])
     assert [r['number'] for r in result[0]['lines']]==[1,2,3,7,8]
     assert len(d['lines'])==8
+
+
+def test_model_schema_disallows_response_fields_in_request_before_submission():
+    from jsonschema import Draft202012Validator
+    p=fused_fixture();ctx=EvidenceContext(p)
+    i=exchange();i['data']['sequence']=[{'name':'resultColumn','location':'response','source_refs':R}]
+    q=ctx.encode_output({'interactions':[i],'rr_sr_links':[],'pending':[]})
+    errors=list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(q))
+    assert any('location' in list(e.path) for e in errors)
+    q['interactions'][0]['data']['sequence'][0]['location']='query'
+    assert not list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(q))

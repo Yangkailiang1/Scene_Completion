@@ -106,6 +106,7 @@ class EvidenceContext:
             props['properties'].pop('sequence');props['required'].remove('sequence')
             props['properties']['reply_to']=props['properties'].pop('parent_id');props['required'].remove('parent_id');props['required'].append('reply_to')
             props['properties']['operation']['required']=['name']
+            props['allOf']=[{'if':{'properties':{'direction':{'const':direction}}},'then':{'properties':{'data':{'properties':{'sequence':{'items':{'properties':{'location':{'enum':locations}}}}}}}}} for direction,locations in [('request',['header','path','query','body','business']),('return',['response','business'])]]
             # Data attributes that have not yet been associated by the API tool
             # are omitted, not regenerated as repeated null placeholders.
             p=props['properties']['data']['properties']['sequence']['items'];p['required']=['name','location']
