@@ -212,3 +212,66 @@ def test_provider_SSE_429_is_rate_limited_instead_of_a_connection_error():
     d=error.value.response_diagnostic
     assert d['failure_category']=='rate_limited' and d['retry_after_seconds']==2
     assert not d['configuration_required'] and 'untrusted' not in str(error.value)
+
+
+def test_composition_uses_complete_input_without_repeated_filesystem_calls(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    rr,sr,_,m=fake_pipeline(tmp_path);sent=[]
+    def transport(url,key,body,*args):
+        sent.append(body)
+        assert {t['function']['name'] for t in body['tools']}=={'ask_user','submit_result'}
+        assert body['tool_choice']=='required' and body['parallel_tool_calls'] is False
+        assert 'read_file' not in {t['function']['name'] for t in body['tools']}
+        return {'model':'actual','choices':[{'message':{'content':None,'tool_calls':[{'id':'c','type':'function','function':{'name':'submit_result','arguments':json.dumps({'payload':m['components']})}}]}}]}
+    from scene_completion.source_documents import normal_projection
+    p=packet('components',{'RR':normal_projection(rr),'SR':normal_projection(sr)});p['skill_text']='---\nname: scene-components\ndescription: extract\n---\nExtract components.'
+    c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path),'component_submission_mode':'tool_calls'},transport=transport)
+    assert c.agent(p)['components']==m['components']['components'] and len(sent)==1
+
+
+def test_composition_json_stream_adapter_validates_and_finishes_in_one_request(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.source_documents import normal_projection
+    rr,sr,_,m=fake_pipeline(tmp_path);sent=[]
+    def transport(url,key,body,*args):
+        sent.append(body)
+        assert 'tools' not in body and 'tool_choice' not in body
+        assert body['response_format']=={'type':'json_object'} and body['stream']
+        return {'model':'actual','choices':[{'message':{'content':json.dumps(m['components'])},'finish_reason':'stop'}]}
+    p=packet('components',{'RR':normal_projection(rr),'SR':normal_projection(sr)});p['skill_text']='---\nname: scene-components\ndescription: extract\n---\nExtract components.'
+    c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path)},transport=transport)
+    store=EventStore(tmp_path)
+    with bind(store,task_key='components',case='shared',role='modeler',attempt=1):assert c.agent(p)['components']==m['components']['components']
+    assert len(sent)==1 and any(e['kind']=='structured_text_submission' for e in store.read())
+
+
+def test_composition_json_adapter_preserves_blocking_questions_and_validation(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.source_documents import normal_projection
+    rr,sr,_,m=fake_pipeline(tmp_path)
+    p=packet('components',{'RR':normal_projection(rr),'SR':normal_projection(sr)});p['skill_text']='---\nname: scene-components\ndescription: extract\n---\nExtract.'
+    response={'clarification':{'question':'服务内外边界？','basis':'原文缺少边界','decision':'请确认'}}
+    def transport(*args):return {'choices':[{'message':{'content':json.dumps(response)},'finish_reason':'stop'}]}
+    c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path/'question')},transport=transport)
+    with pytest.raises(TaskBlocked) as failure:c.agent(p)
+    assert failure.value.status=='awaiting_answer'
+    assert Conversations(tmp_path/'question').pending('components')['text']=='服务内外边界？'
+    response.clear();response.update({'components':[{'name':'fabricated'}],'relations':[]})
+    c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path/'invalid')},transport=transport)
+    from scene_completion.scheduler import TaskRejected
+    with pytest.raises(TaskRejected):c.agent(p)
+
+
+def test_runtime_cache_aliases_preserve_only_exact_reviewed_implementations(tmp_path,monkeypatch):
+    from pathlib import Path
+    import scene_completion.workflow as workflow
+    from scene_completion.storage import fingerprint,read_json
+    table=read_json(Path(workflow.__file__).with_name('cache_code_aliases.json'))
+    assert 'components' not in table['retained_task_versions']
+    assert workflow.code_version('api-map')==table['retained_task_versions']['api-map']
+    actual=Path.read_text
+    def changed(path,*args,**kwargs):
+        text=actual(path,*args,**kwargs)
+        return text+'\n# semantic change' if path.name=='deepagents_client.py' else text
+    monkeypatch.setattr(Path,'read_text',changed)
+    assert workflow.code_version('api-map')!=table['retained_task_versions']['api-map']

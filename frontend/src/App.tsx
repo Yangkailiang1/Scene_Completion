@@ -801,6 +801,7 @@ export default function App() {
                             artifacts={visibleArtifacts}
                             value={value}
                             definitions={definitions}
+                            taskKey={selected || undefined}
                           />
                         </TabsContent>
                         <TabsContent value="evidence" className="panel-scroll">

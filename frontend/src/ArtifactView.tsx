@@ -1,15 +1,43 @@
-import { useState } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, Download, FileCode2, FileText } from "lucide-react";
 import { fileUrl } from "./api";
 import { display } from "./utils";
 import type { Artifact } from "./types";
+import { api, projectUrl } from "./api";
+class PreviewBoundary extends Component<
+  { children: ReactNode; value: any },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <div role="alert" className="p-5 text-sm">
+        <p>此产物暂时无法渲染表格，完整数据和文件仍可查看。</p>
+        <pre className="json-preview">
+          {JSON.stringify(this.props.value, null, 2)}
+        </pre>
+      </div>
+    ) : (
+      this.props.children
+    );
+  }
+}
 function Table({
   rows,
   columns,
 }: {
-  rows: any[];
+  rows?: any[];
   columns: [string, string][];
 }) {
+  if (!Array.isArray(rows))
+    return (
+      <p role="alert" className="p-5 text-sm">
+        此结果缺少表格字段，请查看完整结构化结果。
+      </p>
+    );
   return (
     <div className="table-scroll">
       <table>
@@ -246,9 +274,33 @@ export function PayloadView({
         ]}
       />
     );
+  else if (
+    Array.isArray(value.apis) &&
+    value.apis.some((a: any) => "source_ranges" in a)
+  )
+    body = (
+      <>
+        <h3 className="section-label">接口目录（内部拆分依据）</h3>
+        <p className="px-5 pb-4 text-sm text-slate-500">
+          此节点只定位接口及原文章节。参数由后续接口任务提取，完成后汇入接口总表。
+        </p>
+        <Table
+          rows={value.apis}
+          columns={[
+            ["id", "接口标识"],
+            ["name", "接口名称"],
+            ["source_ranges", "原文范围"],
+            ["source_refs", "原文依据"],
+          ]}
+        />
+      </>
+    );
   else if (value.apis)
     body = (
       <>
+        {value.apis.length === 0 && (
+          <p className="p-5 text-sm text-slate-500">当前接口集合为空。</p>
+        )}
         {value.apis.map((a: any) => (
           <section key={a.id}>
             <h3 className="section-label">
@@ -288,13 +340,47 @@ export function ArtifactView({
   artifacts,
   value,
   definitions,
+  taskKey,
 }: {
   projectId: string;
   artifacts: Artifact[];
   value: any;
   definitions: Record<string, any>;
+  taskKey?: string;
 }) {
   const [diagram, setDiagram] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<any>(null);
+  const [catalogError, setCatalogError] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
+  const isApi =
+    !!taskKey &&
+    (taskKey === "api-map" ||
+      taskKey === "api-index" ||
+      taskKey.startsWith("api-parameters"));
+  useEffect(() => {
+    setShowCatalog(taskKey === "api-map" || taskKey === "api-parameters");
+    setCatalog(null);
+    setCatalogError("");
+    if (!isApi) return;
+    let active = true;
+    const load = () =>
+      api(projectUrl(projectId, "api-catalog"))
+        .then((v) => {
+          if (active) {
+            setCatalog(v);
+            setCatalogError("");
+          }
+        })
+        .catch((e) => {
+          if (active) setCatalogError(String(e));
+        });
+    load();
+    const timer = setInterval(load, 5000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [projectId, taskKey, isApi]);
   const images = artifacts.filter((a) => a.name.endsWith(".svg"));
   const selected = images.find((a) => a.path === diagram) || images[0];
   return (
@@ -320,7 +406,88 @@ export function ArtifactView({
           />
         </div>
       )}
-      <PayloadView value={value} definitions={definitions} />
+      {isApi && (
+        <div className="flex gap-4 p-4 text-sm">
+          <button className="text-primary" onClick={() => setShowCatalog(true)}>
+            接口总表（服务、接口与参数）
+          </button>
+          <button
+            className="text-primary"
+            onClick={() => setShowCatalog(false)}
+          >
+            本节点产物
+          </button>
+        </div>
+      )}
+      {isApi && showCatalog ? (
+        <>
+          <h3 className="section-label">API 接口总表</h3>
+          {catalogError && (
+            <p role="alert" className="p-5 text-sm">
+              总表暂时加载失败：{catalogError}。可切换查看本节点产物。
+            </p>
+          )}
+          {!catalog && !catalogError && (
+            <p className="p-5 text-sm">正在读取已保存的接口结果…</p>
+          )}
+          {catalog && (
+            <>
+              <p className="px-5 pb-4 text-sm text-slate-500">
+                {catalog.complete
+                  ? "已完成：归属与参数均通过审核。"
+                  : "中间结果：包含待审核或尚未完成的接口；未提取的参数不表示无参数。"}
+              </p>
+              {catalog.identity_pending > 0 && (
+                <p className="px-5 pb-4 text-sm text-amber-700">
+                  {catalog.identity_pending}
+                  项接口身份或服务归属待确认，已分别保留，未按名称猜测合并。
+                </p>
+              )}
+              <PreviewBoundary
+                key={projectId + taskKey + JSON.stringify(catalog)}
+                value={catalog}
+              >
+                <Table
+                  rows={catalog.rows}
+                  columns={[
+                    ["service", "服务名称"],
+                    ["api_name", "API名称"],
+                    ["method", "方法"],
+                    ["address", "接口地址"],
+                    ["mapping_status", "归属状态"],
+                    ["parameter_status", "参数状态"],
+                    ["direction", "方向"],
+                    ["location", "位置"],
+                    ["name", "参数"],
+                    ["data_type", "数据类型"],
+                    ["required", "可选／必填"],
+                    ["default", "默认值"],
+                    ["constraints", "约束条件"],
+                  ]}
+                />
+              </PreviewBoundary>
+              <div className="flex gap-4 p-5 text-sm text-primary">
+                {["json", "md"].map((format) => (
+                  <a
+                    key={format}
+                    href={projectUrl(projectId, "api-catalog?format=" + format)}
+                    download={"api-catalog." + format}
+                  >
+                    下载总表 {format.toUpperCase()}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      ) : (
+        <PreviewBoundary
+          key={projectId + taskKey + JSON.stringify(value)}
+          value={value}
+        >
+          <PayloadView value={value} definitions={definitions} />
+        </PreviewBoundary>
+      )}
       <div className="artifact-files">
         <h3 className="section-label">已保存文件</h3>
         {artifacts.map((a) => (

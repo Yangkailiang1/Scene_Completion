@@ -58,7 +58,10 @@ class DeepAgentsClient(SemanticClient):
         _,event_context=context();task_key=event_context.get('task_key',packet['task'])
         conversations=Conversations(self.root)
         attempt=event_context.get('attempt',1)
-        checkpoint_id=fingerprint([packet['task'],packet['input'],packet['output_schema'],packet.get('skill_text'),packet.get('instructions'),attempt,fingerprint(self.config),self.model('agent'),self.base_url])
+        submission_mode=self.config.get('component_submission_mode','json_text') if packet['task']=='components' else 'tool_calls'
+        checkpoint_parts=[packet['task'],packet['input'],packet['output_schema'],packet.get('skill_text'),packet.get('instructions'),attempt,fingerprint(self.config),self.model('agent'),self.base_url]
+        if packet['task']=='components':checkpoint_parts.append(submission_mode)
+        checkpoint_id=fingerprint(checkpoint_parts)
         saved=conversations.checkpoint(task_key,checkpoint_id) or {}
         pending=conversations.pending(task_key)
         if pending:
@@ -202,12 +205,31 @@ def _transport_model(client,stage):
                 if all_guidance:converted.append({'role':'user','content':'本节点业务指导（仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
             body={'model':self.scene_client.model('agent'),'messages':converted,
               'max_tokens':self.scene_client.output_limit(self.task_stage),'stream':self.scene_client.config.get('stream',True),**{k:v for k,v in kwargs.items() if k in {'tools','tool_choice','parallel_tool_calls'}}}
+            if self.task_stage=='components':
+                # Full positive RR/SR is already in the first message. Re-reading
+                # it inflated the real failing run by four unnecessary requests.
+                body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
+                body['tool_choice']='required';body['parallel_tool_calls']=False
+                notice='系统组成输入已完整提供，直接分析并submit_result，不需要文件探索或维护待办。每个事实保留最小且充分的原文引用，不复制整章。缺失事实保留未知；有阻断业务决定才ask_user。'
+                if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
+                else:converted.insert(0,{'role':'system','content':notice})
             if self.request_count>=limit:
                 body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
                 body['tool_choice']='required'
                 notice='已到达本任务工具阅读预算。请停止文件探索：材料充分则submit_result；存在阻断业务疑问则ask_user。未知项明确待确认。'
                 if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 else:converted.insert(0,{'role':'system','content':notice})
+            # This gateway streamed the tool name, then buffered the large
+            # composition arguments until disconnect. JSON text lets actual
+            # result tokens flow; the existing submit tool still validates it.
+            text_submission=self.task_stage=='components' and self.scene_client.config.get('component_submission_mode','json_text')=='json_text'
+            if text_submission:
+                result_tool=next(t for t in body['tools'] if t['function']['name']=='submit_result')
+                output_schema=result_tool['function']['parameters']['properties']['payload']
+                notice='本次使用JSON文本传输，不调用工具。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
+                converted[0]['content']=str(converted[0]['content'])+'\n'+notice
+                for key in ('tools','tool_choice','parallel_tool_calls'):body.pop(key,None)
+                body['response_format']={'type':'json_object'}
             if body['stream'] and self.scene_client.config.get('stream_usage',True):body['stream_options']={'include_usage':True}
             if stop:body['stop']=stop
             if 'extra_body' in self.scene_client.config:body.update(self.scene_client.config['extra_body'])
@@ -226,8 +248,21 @@ def _transport_model(client,stage):
                 if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
                 emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))
             message=response['choices'][0]['message'];calls=[]
+            if text_submission:
+                if response['choices'][0].get('finish_reason')=='length':raise ValueError('composition JSON was truncated; no artifact was published')
+                from .http_transport import _content_from_response
+                decoded=json.loads(_content_from_response(response))
+                if not isinstance(decoded,dict):raise ValueError('composition response must be a JSON object')
+                if set(decoded)=={'clarification'}:
+                    detail=decoded['clarification']
+                    if not isinstance(detail,dict) or set(detail)!={'question','basis','decision'} or any(not isinstance(v,str) or not v.strip() for v in detail.values()):raise ValueError('incomplete composition clarification')
+                    name,args='ask_user',detail
+                else:name,args='submit_result',{'payload':decoded}
+                emit('structured_text_submission',adapter='json_text',target_tool=name)
+                calls.append({'name':name,'args':args,'id':'json-adapter-'+uuid4().hex})
             for call in message.get('tool_calls',[]) or []:
+                if text_submission:raise ValueError('provider returned tool calls despite JSON text submission mode')
                 calls.append({'name':call['function']['name'],'args':json.loads(call['function']['arguments']),'id':call['id']})
-            ai=AIMessage(content=message.get('content') or '',tool_calls=calls,response_metadata={'provider_model':response.get('model'),'usage':response.get('usage',{})})
+            ai=AIMessage(content=message.get('content') or '',tool_calls=calls,response_metadata={'provider_model':response.get('model'),'usage':response.get('usage',{}),'submission_adapter':'json_text' if text_submission else 'tool_calls'})
             return ChatResult(generations=[ChatGeneration(message=ai)],llm_output={'token_usage':response.get('usage',{})})
     return MeteredChatModel(scene_client=client,task_stage=stage)

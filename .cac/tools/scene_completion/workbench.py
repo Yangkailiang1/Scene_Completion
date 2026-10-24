@@ -178,6 +178,8 @@ class Workbench:
         try:self.start(rid)
         except ValueError:pass
     def export(self,rid):
+        from .api_catalog import saved_catalog,save_catalog
+        with self.lock:save_catalog(self.run_dir(rid)/'run',saved_catalog(self.run_dir(rid)/'run'))
         p=self.run_dir(rid);stream=io.BytesIO()
         with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as z:
             for f in p.rglob('*'):
@@ -292,6 +294,16 @@ def create_app(root=None,client_factory=None,env_file=None):
         if rid in service.active:raise ValueError('请等待当前任务结束再提交审核')
         return Reviews(service.run_dir(rid)/'run').decide(body['key'],body['action'],expected_revision=body['revision'],
           expected_input_hash=body['input_hash'],value=body.get('payload'),comment=body.get('comment',''))
+    @app.get('/api/projects/{rid}/api-catalog')
+    def api_catalog(rid:str,format:str='view'):
+        from .api_catalog import saved_catalog,save_catalog,markdown
+        if format not in {'view','json','md'}:raise HTTPException(400,'unsupported format')
+        with service.lock:
+            catalog=saved_catalog(service.run_dir(rid)/'run');save_catalog(service.run_dir(rid)/'run',catalog)
+        if format=='view':return catalog
+        return Response(markdown(catalog) if format=='md' else json.dumps(catalog,ensure_ascii=False,indent=2),
+          media_type='text/markdown' if format=='md' else 'application/json',
+          headers={'Content-Disposition':f'attachment; filename="api-catalog.{format}"'})
     @app.get('/api/projects/{rid}/file')
     def file(rid:str,path:str):
         p=service.run_dir(rid);f=(p/path).resolve()

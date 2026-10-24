@@ -72,7 +72,11 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
     if event and not done:consume(event)
     if not done or finish is None:
         error=http.client.IncompleteRead(b'',None)
-        error.response_diagnostic={'failure_category':'stream_incomplete','partial_content_bytes':size,'stream_events':events}
+        error.response_diagnostic={'failure_category':'stream_incomplete','phase':'stream_read',
+          'elapsed_seconds':round(time.perf_counter()-started,3),'partial_content_bytes':size,'stream_events':events,
+          'provider_model':model,'finish_reason':finish,'done_received':done,
+          'first_event_seconds':first,'last_event_age_seconds':round(time.perf_counter()-last,3) if last else None,
+          'incomplete_tools':[c['function']['name'] for c in tool_calls.values()]}
         raise error
     if finish=='length':raise ValueError('model output was truncated before a complete task submission; review stage output budget')
     calls=[tool_calls[i] for i in sorted(tool_calls)]

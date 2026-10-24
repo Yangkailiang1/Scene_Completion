@@ -7,6 +7,7 @@ export const phaseLabels: Record<string, string> = {
   pending: "待执行",
   transport_timeout: "请求超时",
   connection_failed: "连接中断",
+  stream_incomplete: "模型流中断，可继续",
   planned: "流程预告",
   awaiting_answer: "等待回答",
   rate_limit_wait: "限流冷却",
@@ -43,6 +44,7 @@ export function phaseColor(phase: string) {
             "awaiting_configuration",
             "transport_timeout",
             "connection_failed",
+            "stream_incomplete",
           ].includes(phase)
         ? "red"
         : [
@@ -71,6 +73,8 @@ export function display(value: any): string {
 
 export function failureText(value: any): string {
   const d = value?.transport_failure || value?.diagnostic || value;
+  if (d?.failure_category === "stream_incomplete")
+    return `模型流未完整返回${d.elapsed_seconds != null ? `，约${Math.round(d.elapsed_seconds)}秒后结束` : ""}，已收到${d.partial_content_bytes ?? 0}字节正文／工具参数。未生成有效产物，已有成功文件保留；可继续当前任务。`;
   if (d?.failure_category === "transport_timeout") {
     const stage =
       d.timeout_kind === "total_deadline"

@@ -43,7 +43,13 @@ def code_version(task):
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
            'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py']
     skill=skill_path(task)
-    return fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
+    implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
+    # Exact reviewed, output-compatible runtime changes may retain paid results.
+    # Any subsequent implementation/Skill edit changes this hash and misses the
+    # alias; components deliberately has no alias for the new submission mode.
+    compatibility=folder/'cache_code_aliases.json'
+    aliases=read_json(compatibility).get('aliases',{}) if compatibility.exists() else {}
+    return aliases.get(implementation,implementation)
 
 def skill_path(task):
     if task in TASKS:return Path(__file__).resolve().parents[2]/'skills'/TASKS[task][0]/'SKILL.md'

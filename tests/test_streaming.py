@@ -25,3 +25,12 @@ def test_stream_assembles_json_and_discards_reasoning():
 def test_complete_looking_json_without_done_is_still_incomplete():
     with pytest.raises(http.client.IncompleteRead):
         read_chat_stream(rows([{'choices':[{'delta':{'content':'{}'},'finish_reason':'stop'}]}],done=False),time.perf_counter(),60)
+
+
+def test_incomplete_stream_reports_real_provider_finish_and_no_payload():
+    with pytest.raises(http.client.IncompleteRead) as failure:
+        read_chat_stream(rows([{'model':'actual','choices':[{'delta':{'role':'assistant'}}]}],done=False),time.perf_counter(),900)
+    d=failure.value.response_diagnostic
+    assert d['failure_category']=='stream_incomplete' and d['partial_content_bytes']==0
+    assert d['provider_model']=='actual' and not d['done_received'] and d['finish_reason'] is None
+    assert d['elapsed_seconds']>=0 and d['phase']=='stream_read'
