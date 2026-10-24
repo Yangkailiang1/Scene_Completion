@@ -30,9 +30,9 @@
 | functional / release_activation | 失败恢复 | `service.release_activation.failure_recovery` |
 | technology / database | 唯一性约束 | `database.uniqueness` |
 | technology / database | 关联一致性 | `database.referential_integrity` |
-| technology / llm | 事实与依据一致性 | `llm.grounding` |
+| technology / llm | 语义正确性 | `llm.grounding` |
 | technology / llm | 指令遵循 | `llm.instruction_following` |
-| technology / llm | 上下文充分性 | `llm.context_sufficiency` |
+| technology / llm | 上下文完整性 | `llm.context_sufficiency` |
 | technology / llm | 提示词安全 | `llm.prompt_security` |
 | technology / llm | 输出稳定性 | `llm.output_stability` |
 | relation / service_relation | 调用顺序 | `service_relation.call_order` |

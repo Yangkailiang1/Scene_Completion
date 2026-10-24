@@ -380,7 +380,7 @@
     },
     "llm.grounding": {
       "key": "llm.grounding",
-      "label": "事实与依据一致性",
+      "label": "语义正确性",
       "layer": "technology",
       "group": "llm",
       "parents": [],
@@ -389,7 +389,7 @@
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": "llm",
-      "description": "事实与依据一致性"
+      "description": "输出语义、事实与本次任务要求及给定依据一致；具体正常要求需有来源。"
     },
     "llm.instruction_following": {
       "key": "llm.instruction_following",
@@ -406,7 +406,7 @@
     },
     "llm.context_sufficiency": {
       "key": "llm.context_sufficiency",
-      "label": "上下文充分性",
+      "label": "上下文完整性",
       "layer": "technology",
       "group": "llm",
       "parents": [
@@ -1044,6 +1044,6 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "782c4324f14e283adba96a98c1edcecac20892b5e29e70e83746ac8fbb409407",
+  "hash": "37a4a2050fef55c0751c43c5465329a23100b5f405aa1afe47c198da19add171",
   "taxonomy_note": "2026-10-24用户分类图；设备分析暂不纳入。认证授权：人类Actor及Service关系分别定义。推荐停用。"
 }
