@@ -1694,3 +1694,25 @@ body,
   color: #536faa;
   white-space: nowrap;
 }
+
+.live-stream-status {
+  flex-shrink: 0;
+  padding: 11px 20px;
+  border-bottom: 1px solid #dbe6f5;
+  background: #f1f6ff;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4e678e;
+}
+.live-stream-status strong {
+  font-size: 14px;
+  color: #304f80;
+}
+.live-stream-status p {
+  margin: 4px 0;
+}
+.live-stream-status small {
+  display: block;
+  color: #6e7f98;
+  font-size: 12px;
+}

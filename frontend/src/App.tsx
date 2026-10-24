@@ -785,6 +785,7 @@ export default function App() {
                             key={selected}
                             events={events}
                             loading={loading}
+                            active={node?.status === "running"}
                           />
                           <NodeConversation
                             key={"conversation-" + selected}

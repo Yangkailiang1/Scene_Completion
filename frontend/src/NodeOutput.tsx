@@ -118,11 +118,42 @@ const labels: Record<string, string> = {
 export function NodeOutput({
   events,
   loading,
+  active = false,
 }: {
   events: ExecutionEvent[];
   loading: boolean;
+  active?: boolean;
 }) {
   const groups = useMemo(() => segments(events), [events]);
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now() / 1000);
+    const timer = setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => clearInterval(timer);
+  }, [active]);
+  const request = [...events]
+    .reverse()
+    .find((e) => e.kind === "request_started" && e.data.purpose !== "dialogue");
+  const requestEvents = request
+    ? events.filter(
+        (e) =>
+          e.id >= request.id &&
+          e.data.model_call_id === request.data.model_call_id,
+      )
+    : [];
+  const waiting =
+    active &&
+    request &&
+    !requestEvents.some((e) =>
+      ["request_finished", "request_failed"].includes(e.kind),
+    );
+  const deltas = requestEvents.filter((e) => e.kind === "stream_delta");
+  const received = deltas.reduce((n, e) => n + (e.data.text?.length || 0), 0);
+  const pendingTool = deltas.find((e) => e.data.tool_name === "submit_result")
+    ? "submit_result"
+    : deltas.find((e) => e.data.tool_name)?.data.tool_name;
+  const lastDelta = deltas[deltas.length - 1];
   const viewport = useRef<HTMLDivElement>(null);
   const [follow, setFollow] = useState(true);
   useEffect(() => {
@@ -138,6 +169,31 @@ export function NodeOutput({
         </span>
         <span>断线后可续接 · 只显示模型正文与工具输出</span>
       </div>
+      {waiting && (
+        <div className="live-stream-status" role="status">
+          <strong>
+            {received === 0
+              ? pendingTool === "submit_result"
+                ? "正在等待结构化产物正文"
+                : "已发送请求，尚未收到可显示正文"
+              : "已收到流式内容，等待本次请求完成"}
+          </strong>
+          <p>
+            本次请求已等待 {Math.max(0, Math.floor(now - request.at))} 秒 ·
+            已收到 {received.toLocaleString()} 字符
+            {lastDelta
+              ? ` · 最近增量${Math.max(0, Math.floor(now - lastDelta.at))}秒前`
+              : ""}
+          </p>
+          {received === 0 && (
+            <small>
+              {pendingTool === "submit_result"
+                ? "上游已返回submit_result工具名，但参数正文仍为空；本接口的大JSON可能在生成完成后集中返回。"
+                : "尚无正文不代表请求已经失败；这里只展示模型实际返回的文本和工具参数。"}
+            </small>
+          )}
+        </div>
+      )}
       <div
         className="log-scroll"
         ref={viewport}
@@ -181,9 +237,14 @@ export function NodeOutput({
                     </small>
                   </div>
                   {g.channel === "tool_arguments" ? (
-                    <details>
+                    <details
+                      open={g.name === "submit_result" && g.text.length > 0}
+                    >
                       <summary>
-                        查看工具参数增量 · {g.text.length.toLocaleString()} 字符
+                        {g.name === "submit_result"
+                          ? "查看结构化产物正文"
+                          : "查看工具参数增量"}{" "}
+                        · {g.text.length.toLocaleString()} 字符
                       </summary>
                       <pre>{g.text || "…"}</pre>
                     </details>
