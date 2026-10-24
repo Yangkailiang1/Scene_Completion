@@ -32,13 +32,16 @@ def select_documents(documents,entries,all_entries=None):
 
 def validate_catalogue(task,value,inputs):
     if task=='use-case-extract':
-        ids=set();docs={d['source_id']:d for d in inputs['documents']}
+        occupied={};ids=set();docs={d['source_id']:d for d in inputs['documents']}
         for c in value['cases']:
             if c['id'] in ids or c['layer']!=inputs['layer']:raise ValueError('duplicate use case or wrong source layer')
             ids.add(c['id'])
             if not c['source_ranges']:raise ValueError('use case must identify source range')
             for span in c['source_ranges']:
                 d=docs.get(span['source_id']);numbers={x['number'] for x in d['lines']} if d else set()
+                for a,b,owner in occupied.get(span['source_id'],[]):
+                    if owner!=c['id'] and span['start']<=b and a<=span['end']:raise ValueError('overlapping use-case source ranges')
+                occupied.setdefault(span['source_id'],[]).append((span['start'],span['end'],c['id']))
                 if span['start'] not in numbers or span['end'] not in numbers or span['start']>span['end']:raise ValueError('case range outside source')
         if inputs['documents'] and not value['cases']:raise ValueError('no use cases extracted; document needs review')
     elif task=='use-case-align':
@@ -55,6 +58,8 @@ def validate_catalogue(task,value,inputs):
         if len(ids)!=len(rows) or not rows:raise ValueError('empty SSD or duplicate message id')
         orders=set()
         for i in rows:
+            from .source_documents import validate_evidence
+            validate_evidence(i['source_refs']+i['operation']['source_refs'],inputs[i['layer']])
             if i['case_id']!=inputs['case-group']['id']:raise ValueError('SSD outside selected case group')
             k=(i['layer'],i['sequence'])
             if k in orders:raise ValueError('duplicate layer-local SSD order')

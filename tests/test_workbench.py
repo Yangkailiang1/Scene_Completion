@@ -157,3 +157,18 @@ def test_artifact_links_identify_their_case_and_drafts_have_editable_diagrams(tm
     items=wb.snapshot(p['id'])['artifacts']
     assert any(a['task_key']=='components' and a['name']=='components.svg' and '/reviews/previews/' in a['path'] for a in items)
     assert all(a['task_key']=='components' for a in items if a['name']=='components.svg')
+
+
+def test_fused_message_cannot_use_other_layers_source_as_its_only_evidence(tmp_path):
+    rr,sr,t,m=fake_pipeline(tmp_path)
+    p={'input':{'RR':rr,'SR':sr,'case-group':{'id':'UC-X'}}}
+    value=m['fused-ssd'](p);i=value['interactions'][0]
+    i['source_refs']=deepcopy(value['interactions'][1]['source_refs'])
+    with pytest.raises(ValueError,match='outside allowed source channel'):validate_result('fused-ssd',value,{'RR':rr,'SR':sr,'case-group':{'id':'UC-X'},'components':m['components']})
+
+
+def test_catalogue_rejects_overlapping_independent_use_cases(tmp_path):
+    rr,sr,t,m=fake_pipeline(tmp_path)
+    value=m['use-case-extract']({'input':{'documents':rr,'layer':'RR'}})
+    other=deepcopy(value['cases'][0]);other['id']='other';value['cases'].append(other)
+    with pytest.raises(ValueError,match='overlapping'):validate_result('use-case-extract',value,{'documents':rr,'layer':'RR'})
