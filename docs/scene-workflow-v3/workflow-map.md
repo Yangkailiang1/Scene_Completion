@@ -2,20 +2,24 @@
 
 ```mermaid
 flowchart TD
-  RR[RR Markdown] --> RC[RR用例目录]
-  SR[SR Markdown] --> SC[SR用例目录]
+  RR[RR Markdown] --> IDX[章节索引 工具]
+  SR[SR Markdown] --> IDX
+  IDX --> RC[RR目录元数据取片 再抽取用例]
+  IDX --> SC[SR目录元数据取片 再抽取用例]
   RR --> C[系统组成]
   SR --> C
   SR --> AM[API映射]
-  SR --> AI[接口索引]
+  AM --> AI[接口索引 工具]
   AI --> P[各接口参数子任务 并行]
   P --> AP[完整API参数表]
   RR --> EB[原文已有异常分支]
   SR --> EB
   RC --> A[用例对应]
   SC --> A
-  A --> F[每用例完整SSD]
-  C --> F
+  A --> CTX[本组正向正文与身份取片 工具]
+  C --> CTX
+  CTX --> F[每组一次语义抽取 精简完整SSD]
+  F --> STR[顺序和引用整理 SVG绘制 工具]
   F --> V[RR/SR显示视图]
   V --> O[对象支持操作]
   T[测试spec操作投影] --> O

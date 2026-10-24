@@ -30,11 +30,20 @@ def validate_result(task, payload, inputs):
     evidence_errors=[]
     for ref in evidence_refs(payload):
         if fingerprint(ref) not in allowed:
-            if not docs:raise ValueError('output uses evidence outside task dependencies')
+            if not docs:
+                candidates=[r for r in evidence_refs(inputs) if r['source_id']==ref['source_id']]
+                sample=candidates[:4] or evidence_refs(inputs)[:4]
+                raise ValueError('output uses evidence outside task dependencies; offending='+json.dumps(ref,ensure_ascii=False)+'; copy an existing dependency source_refs object verbatim (do not invent line numbers or abbreviate quotes); examples='+json.dumps(sample,ensure_ascii=False))
             try:validate_evidence(ref,docs)
             except ValueError as e:evidence_errors.append(str(e))
     if evidence_errors:raise ValueError('; '.join(dict.fromkeys(evidence_errors[:8])))
     refs_required(payload)
+    if task=='api-map':
+        from .api_documents import explicit_http_interfaces
+        declared=explicit_http_interfaces(inputs['SR'])
+        actual={(a['method'].upper(),a['address']) for s in payload['services'] for a in s['interfaces'] if a.get('method') and a.get('address')}
+        missing=set(declared)-actual
+        if missing:raise ValueError('API mapping omitted explicit method/path declarations or downstream calls; include each evidenced service/interface (generate a stable local ID if no document API ID exists): '+json.dumps([{'method':m,'path':p,'source_ref':declared[(m,p)]} for m,p in sorted(missing)[:8]],ensure_ascii=False))
     # Numerical rule values must be traceable, even when the model cites a
     # real sentence. Citation presence alone is not a threshold source.
     import re
@@ -82,6 +91,15 @@ def validate_result(task, payload, inputs):
         if len(payload['apis'])!=1 or payload['apis'][0]['id']!=inputs['interface']['id']:raise ValueError('API child must output exactly the indexed interface, preserving its ID')
         expected=inputs['interface'].get('address')
         if expected and payload['apis'][0]['address']!=expected:raise ValueError('接口目录已明确地址，参数表必须保留该地址，不得改为待确认')
+        if inputs['interface'].get('source_role')=='invocation_only':
+            import re
+            for p in payload['apis'][0]['parameters']:
+                text=' '.join(r['quote'] for r in p['source_refs'])
+                if p['required'] is not None and not re.search(r'必填|可选|required|optional',text,re.I):raise ValueError('只有调用材料，字段出现不等于接口必填/可选；required请设null待确认')
+                if p['data_type'] is not None and not re.search(r'类型|type|字符串|string|整数|integer|布尔|boolean|浮点|float|double|数组|array|对象|object',text,re.I):raise ValueError('只有调用材料，不能猜接口字段类型；data_type请设null待确认')
+                if p['default'] is not None and not re.search(r'默认|default',text,re.I):raise ValueError('本次调用绑定值不是接口默认值；default请设null')
+                for rule in p['constraints']:
+                    if rule['status']=='explicit' and rule['kind']=='enum' and not re.search(r'枚举|允许|有效值|只能|enum', ' '.join(r['quote'] for r in rule['source_refs']),re.I):raise ValueError('本次调用固定值不能扩展为接口全局枚举；调用绑定保留在本用例SSD，枚举范围待确认')
     if task=='api-index':
         ids=set();docs={d['source_id']:d for d in inputs['SR']}
         for a in payload['apis']:

@@ -17,6 +17,7 @@ def client_for(config,root,env_file=None):
     if config.get('agent_runtime')=='deepagents':
         from .deepagents_client import DeepAgentsClient
         config['run_root']=str(root)
+        config.setdefault('indexed_context',True)
         return DeepAgentsClient(config)
     if config.get('agent_runtime')=='luna-subprocess':
         from .native_client import NativeClient

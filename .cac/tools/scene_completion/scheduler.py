@@ -68,6 +68,8 @@ class CallGate:
         if self.on_change:self.on_change({'configured_max':self.limit,'effective_max':self.effective_limit,'not_before_unix':time.time()+max(0,self.retry_not_before-time.monotonic())})
     def call(self,function,*args,**kwargs):
         from .execution_events import emit,phase
+        body=next((v for v in args if isinstance(v,dict) and v.get('model')),kwargs.get('body',{}))
+        model=body.get('model') if isinstance(body,dict) else None
         for retry in range(4):
             with self.slot():
                 if self.pause_file and self.pause_file.exists():raise TaskBlocked('pending',{'admission_paused':True})
@@ -85,7 +87,14 @@ class CallGate:
                         phase('rate_limit_wait',retry_at=at,retry_count=retry+1,retry_limit=3)
                         emit('rate_limit_wait',retry_at=at,retry_count=retry+1,retry_limit=3,diagnostic=d)
                         continue
-                    if d['failure_category'] in {'quota_exhausted','budget_exhausted'}:self.quota.set();raise TaskBlocked('budget_exhausted',d) from e
+                    if d['failure_category'] in {'quota_exhausted','budget_exhausted'}:
+                        if model and d.get('budget_kind')=='tokens' and d.get('budget_reason')!='insufficient_provider_allowance':
+                            # Admission is request-specific: another model, a
+                            # smaller request, or released in-flight reserves
+                            # may still fit. Never latch a global quota flag.
+                            raise TaskBlocked('budget_exhausted',{**d,'model':model,'model_scope':True}) from e
+                        else:self.quota.set()
+                        raise TaskBlocked('budget_exhausted',d) from e
                     if d.get('configuration_required'):raise TaskBlocked('awaiting_configuration',d) from e
                     raise TaskBlocked('pending',{'transport_failure':d}) from e
         raise AssertionError('bounded retry exhausted')
@@ -137,7 +146,7 @@ class Scheduler:
                 # Filename sorting let api-parameters-part-* starve both use-case
                 # catalogs. Unlock project roots first, then share dispatches
                 # across stages so one large fan-out cannot monopolize slots.
-                for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 1,dispatches.get(self.tasks[k].stage,0),order[k])):
+                for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in {'source-index','document-context'} else 1 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 2,dispatches.get(self.tasks[k].stage,0),order[k])):
                     t=self.tasks[key]
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
@@ -154,10 +163,13 @@ class Scheduler:
                             if t.verify:t.verify(v)
                             outputs[key]=v;remaining.remove(key);done.add(key);progressed=True;continue
                         except (OSError,ValueError,KeyError):rec.update(status='pending',rounds=0)
+                    # Waiting for a worker slot is not a semantic repair. Do
+                    # not consume rounds on every scheduler wake-up while
+                    # independent requests are still occupying the pool.
+                    if len(active)>=self.limit:continue
                     if rec['status'] in {'rejected','failed'}:
                         if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
                         rec['rounds']+=1
-                    if len(active)>=self.limit:continue
                     previous_failure=rec.get('failure')
                     rec.update(status='running',started_at=time.time());rec.pop('failure',None);rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
                     attempt_record=dict(rec)

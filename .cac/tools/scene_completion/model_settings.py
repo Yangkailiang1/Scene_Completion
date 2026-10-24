@@ -26,6 +26,7 @@ def resolve(overrides,env_path):
     else:config['api_key']=env.get('SCENE_API_KEY') or env.get('ECNU_API_KEY') or env.get('ECNU_MAX_API_KEY') or ''
     config['agent_model']=expand(config.get('agent_model')) or env.get('SCENE_AGENT_MODEL') or 'ecnu-plus'
     config.setdefault('agent_runtime','deepagents');config.setdefault('structured_output','json_object');config.setdefault('stream',True)
+    config.setdefault('indexed_context',True)
     config.setdefault('max_retries',0)
     config.setdefault('stream_idle_timeout_seconds',300);config.setdefault('stream_total_timeout_seconds',900)
     return config

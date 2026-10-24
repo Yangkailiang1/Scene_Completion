@@ -161,17 +161,26 @@ class Workbench:
             if not task_packet:
                 store.append(key,'assistant','指导已保存，将在该节点下一次模型调用时生效。');return
             config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+            from .model_routing import routed_config
+            from .deepagents_client import role_for
+            config=routed_config(config,task_packet['task'],role_for(task_packet['task'])) or config
             config['max_tokens']=min(config.get('max_tokens',1200),1600);client=client_for(config,p/'run')
+            from .indexed_context import EvidenceContext
+            from .deepagents_client import compact_input
+            context_packet=EvidenceContext(task_packet).packet if config.get('indexed_context',False) else task_packet
             messages=[{'role':'system','content':'你是该节点的业务对话助手。只根据允许任务包回答指导和疑问。不得读取其他任务、E、GT或比较答案，不修改或伪造正式产物；需要重做时说明点击重新执行本节点。'},
-              {'role':'user','content':'允许任务包：'+json.dumps(task_packet,ensure_ascii=False)}]
+              {'role':'user','content':'允许任务上下文：'+json.dumps({'task':context_packet['task'],'input':compact_input(context_packet['input'])},ensure_ascii=False,separators=(',',':'))}]
             messages += [{'role':'assistant' if m['kind']=='assistant' else 'user','content':m['text']} for m in store.list(key)[-20:] if m['kind'] in {'assistant','guidance','answer'}]
             with bind(EventStore(p/'run'),task_key=key,role='dialogue',case='node',attempt=0,model_call_id='dialogue-'+uuid4().hex):
                 body={'model':client.model('agent'),'messages':messages,'max_tokens':1600,'stream':True,'stream_options':{'include_usage':True}}
-                emit('request_started',requested_model=body['model'],purpose='dialogue')
+                emit('request_started',requested_model=body['model'],purpose='dialogue',input_bytes=len(json.dumps(body,ensure_ascii=False).encode()))
                 from .scheduler import CallGate
                 gate=self.gates.setdefault(rid,CallGate(config.get('max_concurrency',1)))
-                response=gate.call(client.post,'/chat/completions',body)
-                emit('request_finished',requested_model=body['model'],provider_model=response.get('model'))
+                try:response=gate.call(client.post,'/chat/completions',body)
+                except Exception as e:
+                    emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))
+                    raise
+                emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))
                 store.append(key,'assistant',response['choices'][0]['message'].get('content') or '回复为空；指导仍已保存。')
         except Exception as e:
             store.append(key,'system','对话未完成：'+type(e).__name__+'；指导已保存，可稍后重试。')
@@ -238,6 +247,21 @@ def create_app(root=None,client_factory=None,env_file=None):
     def graph(rid:str):
         from .execution_graph import graph_snapshot
         return graph_snapshot(service.run_dir(rid)/'run')
+    @app.get('/api/projects/{rid}/context')
+    def model_context(rid:str,task_key:str):
+        root=service.run_dir(rid)/'run';chosen=None
+        for f in sorted((root/'model_contexts').glob('*.json'),key=lambda f:f.stat().st_mtime,reverse=True):
+            v=read_json(f)
+            if v.get('node_key')==task_key:chosen=v;break
+        if chosen is None:return Response(json.dumps({'status':'未准备模型上下文','task_key':task_key},ensure_ascii=False),media_type='application/json')
+        return Response(json.dumps(chosen,ensure_ascii=False,indent=2),media_type='application/json')
+    @app.get('/api/projects/{rid}/usage')
+    def usage(rid:str,format:str='json'):
+        from .usage_audit import project_usage,usage_html
+        report=project_usage(service.run_dir(rid)/'run',include_context=True)
+        if format=='html':return Response(usage_html(report),media_type='text/html')
+        if format!='json':raise ValueError('usage format must be html or json')
+        return Response(json.dumps(report,ensure_ascii=False),media_type='application/json')
     @app.get('/api/projects/{rid}/events/history')
     def history(rid:str,after:int=0,task_key:str|None=None,limit:int=500):
         from .execution_events import EventStore

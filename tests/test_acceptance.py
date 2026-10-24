@@ -60,7 +60,7 @@ def test_generic_query_and_missing_instance_do_not_cover_each_other():
         validate_result('semantic-compare',{'decisions':[decision(no_match['id'],'existing')]},{'left':[no_match],'right':[other],'purpose':'G_E'})
     result=missing_report([no_match],[other],[decision(no_match['id'],'existing','partial')])
     assert result['M']==[no_match]
-    i['operation']['name']='read single workspace';assert not query_exceptions(x)
+    i['operation']['name']='read single workspace';assert {v['cause'] for v in query_exceptions(x)}=={'requested_resource_not_found'}
 
 
 def test_enrichment_uses_composition_capabilities_api_and_evidenced_expansion():
@@ -116,7 +116,9 @@ def test_missing_report_survives_GT_failure_and_internal_prompts_differ(tmp_path
 def test_two_cases_one_failure_does_not_block_other_case(tmp_path):
     rr,sr,t,m=fake_pipeline(tmp_path);rr2=deepcopy(rr[0]);sr2=deepcopy(sr[0])
     rr2['source_id']='rr-two';sr2['source_id']='sr-two'
-    for d in (rr2,sr2):d['lines'][0]['text']='# UC-Y'
+    for d in (rr2,sr2):
+        d['lines'][0]['text']='# UC-Y'
+        d['lines'][1]['text']+=' 开发者 Platform'
     rr+= [rr2];sr+=[sr2]
     base_rr=m['rr-ssd'];base_sr=m['sr-ssd']
     def ssd(base):

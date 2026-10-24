@@ -572,6 +572,7 @@ export default function App() {
                 待审核 <b>{pendingReviews}</b>
               </span>
               <div className="ml-auto flex items-center gap-2">
+                {current && <a className="text-sm text-blue-700" href={projectUrl(current,"usage")+"?format=html"} target="_blank" rel="noreferrer">用量与上下文</a>}
                 <span className="text-[11px] text-slate-400">执行模式</span>
                 <select
                   aria-label="执行模式"
@@ -757,6 +758,7 @@ export default function App() {
                         <span>
                           第 {node?.attempt || 1} 次尝试 ·{" "}
                           {duration(node?.elapsed_seconds ?? null)}
+                          {current && <a className="ml-2 text-blue-700" href={projectUrl(current,"usage")+"?format=html#"+encodeURIComponent(selected || "")} target="_blank" rel="noreferrer">token / 耗时明细</a>}
                         </span>
                       </div>
                       {node?.failure && (

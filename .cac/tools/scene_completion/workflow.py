@@ -41,17 +41,14 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py','model_routing.py','indexed_context.py','ssd_tools.py','task_context.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
-    # Exact reviewed, output-compatible runtime changes may retain paid results.
-    # Any subsequent implementation/Skill edit changes this hash and misses the
-    # alias; components deliberately has no alias for the new submission mode.
-    compatibility=folder/'cache_code_aliases.json'
-    aliases=read_json(compatibility).get('aliases',{}) if compatibility.exists() else {}
-    return aliases.get(implementation,implementation)
+    return implementation
 
 def skill_path(task):
+    tool_skills={'source-index':'scene-context-index','ssd-context':'scene-context-index','interaction-enrich':'scene-interaction-attributes','interaction-align':'scene-ssd-structure'}
+    if task in tool_skills:return Path(__file__).resolve().parents[2]/'skills'/tool_skills[task]/'SKILL.md'
     if task in TASKS:return Path(__file__).resolve().parents[2]/'skills'/TASKS[task][0]/'SKILL.md'
     internal={'test-operation-project','test-ground-truth','interaction-align','semantic-compare','api-index'}
     return Path(__file__).parent/'prompts'/((task if task in internal else 'tool-task')+'.md')
@@ -92,6 +89,7 @@ class Execution:
                 self.gate.retry_not_before=time.monotonic()+max(0.,min(300.,prior.get('not_before_unix',0)-time.time()))
         # Reuse the existing request-level gate, cooldown and token-budget code.
         if client and hasattr(client,'post'):
+            client.shared_call_gate=self.gate
             original=client.post
             client.post=lambda *a,**k:self.gate.call(original,*a,**k)
 
@@ -100,6 +98,9 @@ class Execution:
         from .execution_events import context
         _,event_context=context()
         p['node_key']=event_context.get('task_key',task)
+        from .usage_audit import context_summary
+        from .execution_events import emit
+        emit('context_prepared',task=task,context=context_summary(inputs))
         p['skill_text']=self.skill_text(task)
         if task=='exception-generate':
             # These are derived only from this task's positive inputs. They are
@@ -289,10 +290,17 @@ def safe_case(case):
 def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
     from .source_documents import discover_cases,case_projection,current_projection
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
+    from .indexed_context import markdown_index,task_document_view,catalogue_context
+    ex.add('source-index','source-index',static={'documents':rr+sr},transform=lambda d:markdown_index(d['documents']))
     rr=current_projection(rr);sr=current_projection(sr)
     normal_rr=normal_projection(rr);normal_sr=normal_projection(sr)
-    for task,inputs in [('components',{'RR':normal_rr,'SR':normal_sr}),('api-map',{'SR':normal_sr})]:
-        ex.add(task,task,static=inputs)
+    root_contexts=[('components',{'RR':normal_rr,'SR':normal_sr},'components'),('api-map',{'SR':normal_sr},'api-map')]
+    for task,documents,intent in root_contexts:
+        context_key=task+'-context'
+        ex.add(context_key,'document-context',('source-index',),static=documents,
+          transform=lambda d,intent=intent:{role:task_document_view(docs,intent) for role,docs in d.items()})
+        ex.scheduler.tasks[context_key].display_label=('系统组成' if task=='components' else 'API映射')+'取片（工具）'
+        ex.add(task,task,(context_key,),build=lambda d,k=context_key:d[k])
     from .api_documents import index_interfaces
     ex.add('api-index','api-index',('api-map',),build=lambda d:{'SR':normal_sr,'api-map':d['api-map']},transform=index_interfaces)
     def expand_api():
@@ -313,6 +321,10 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
                 if lines:docs.append({**d,'lines':lines})
             if not docs:raise ValueError('API index has no valid source range')
             interface={**interfaces[entry['id']]}
+            import re
+            source_text='\n'.join(r['text'] for doc in docs for r in doc['lines'])
+            if re.search(r'(发送|发起|调用).{0,40}\b(GET|POST|PUT|PATCH|DELETE)\s+/',source_text) and not re.search(r'请求参数|请求头|路径参数|查询参数|数据类型|参数名称|必填|可选|枚举',source_text):
+                interface['source_role']='invocation_only'
             ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,interface=interface:{'SR':docs,'interface':interface})
             ex.scheduler.tasks[key].display_label='接口参数 · '+entry['name']
             keys.append(key)
@@ -323,8 +335,12 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
             return {'apis':apis}
         ex.add('api-parameters','api-parameters',tuple(keys) or ('api-index',),build=lambda d:d,transform=merge)
     ex.expand_api=expand_api
-    ex.add('rr-use-cases','use-case-extract',static={'documents':normal_rr,'layer':'RR'})
-    ex.add('sr-use-cases','use-case-extract',static={'documents':normal_sr,'layer':'SR'})
+    for layer,docs in [('RR',normal_rr),('SR',normal_sr)]:
+        k=layer.lower()+'-catalogue-context'
+        ex.add(k,'document-context',('source-index',),static={'documents':docs},
+          build=lambda d,docs=docs:{'documents':docs,'index':d['source-index']},transform=lambda d:catalogue_context(d['documents'],d['index']))
+        ex.scheduler.tasks[k].display_label=layer+'用例元数据取片（工具）'
+        ex.add(layer.lower()+'-use-cases','use-case-extract',(k,),build=lambda d,k=k,layer=layer:{**d[k],'layer':layer})
     ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
     ex.add('use-case-align','use-case-align',('rr-use-cases','sr-use-cases'),
       build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})
@@ -360,10 +376,20 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         test_ids=list(dict.fromkeys(x for g in groups for x in g['rr_ids']+g['sr_ids']))
         scoped_test=[]
         for tid in group['rr_ids']+group['sr_ids']:scoped_test+=case_projection(tests,tid,test_ids)
-        scoped_test=list({fingerprint(d):d for d in scoped_test}.values())
+        merged_test={}
+        for document in scoped_test:
+            part=merged_test.setdefault(document['source_id'],{**document,'lines':[]})
+            rows={r['number']:r for r in part['lines']}
+            for row in document['lines']:
+                if row['number'] in rows and rows[row['number']]['text']!=row['text']:raise ValueError('conflicting source text for the same test line')
+                rows[row['number']]=row
+            part['lines']=[rows[n] for n in sorted(rows)]
+        scoped_test=list(merged_test.values())
         add('existing-branches',static={'existing-documents':scoped_rr+scoped_sr})
-        add('fused-ssd',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
-          build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g})
+        from .task_context import ssd_context
+        add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
+          build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g},transform=ssd_context)
+        add('fused-ssd',('ssd-context',),build=lambda d:d['ssd-context'])
         for layer in ('RR','SR'):
             add(layer.lower()+'-ssd',('fused-ssd',),build=lambda d:d,transform=lambda d,l=layer:{'interactions':[i for i in d['fused-ssd']['interactions'] if i['layer']==l]})
         add('test-operation-project',static={'test-operation-source':scoped_test},transform=(lambda d:{'objects':[]}) if not scoped_test else None)

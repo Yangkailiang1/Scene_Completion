@@ -5,7 +5,7 @@ import re
 from .storage import fingerprint
 
 # Section-level exclusion, including numbered use-case sections in existing specs.
-EXCEPTION = re.compile(r'异常|扩展路径|失败路径|失败分支|错误处理|错误码|错误响应|错误返回|失败响应|异常处理|异常码|HTTP\s*[45]\d\d|exception|alternative\s+flow|error\s+(?:handling|responses?)', re.I)
+EXCEPTION = re.compile(r'异常|扩展路径|备选流程|替代流程|失败路径|失败分支|错误处理|错误码|错误响应|错误返回|失败响应|异常处理|异常码|HTTP\s*[45]\d\d|exception|alternative\s+flow|error\s+(?:handling|responses?)', re.I)
 SECTION = re.compile(r'^\s*(?:#{1,6}\s+|\d+[.、]\s*|\*\*\d+[.、]\s*)')
 
 
@@ -30,7 +30,7 @@ def current_projection(documents):
         for row in doc['lines']:
             heading=re.match(r'^\s*(#{1,6})\s+',row['text'])
             level=len(heading[1]) if heading else None
-            if heading and ('变更前' in row['text'] or 'before change' in row['text'].lower()):
+            if heading and ('变更前' in row['text'] or 'before change' in row['text'].lower() or '非抽取权威' in row['text'] or '关联实现接口OpenAPI文件' in row['text']):
                 blocked=True;blocked_level=level;continue
             if blocked and level is not None and level<=blocked_level:blocked=False
             if not blocked:rows.append(deepcopy(row))
@@ -68,7 +68,7 @@ def validate_evidence(value, documents):
                 rows=allowed.get(node['source_id'],{})
                 start,end=node['line_start'],node['line_end']
                 if end<start or end-start>100 or any(i not in rows for i in range(start,end+1)):
-                    raise ValueError('evidence outside allowed source channel')
+                    raise ValueError('evidence outside allowed source channel: '+node['source_id']+':'+str(start)+'-'+str(end)+'; allowed sources: '+', '.join(allowed))
                 text='\n'.join(rows[i] for i in range(start,end+1))
                 # Markdown indentation/CRLF is presentation. Keep all words,
                 # internal spaces, punctuation and line boundaries significant.
@@ -122,6 +122,25 @@ def case_projection(documents,case_id,case_ids):
     """
     out=[]
     for doc in documents:
+        if doc.get('channel')=='test':
+            # Test specifications commonly put use-case associations in table
+            # rows, not Markdown headings. Never pass the whole test corpus
+            # merely because its headings are AR/module names.
+            matches=lambda text,cid:bool(re.search(r'(?<![\w-])'+re.escape(cid)+r'(?![\w-])',text))
+            associated=[r for r in doc['lines'] if r['text'].lstrip().startswith('|') and any(matches(r['text'],cid) for cid in case_ids)]
+            if associated:
+                selected={r['number'] for r in associated if matches(r['text'],case_id)}
+                if not selected:continue
+                keep=set(selected);heading=[];headers=[]
+                for row in doc['lines']:
+                    text=row['text'];m=re.match(r'^\s*(#{1,6})\s+',text)
+                    if m:
+                        level=len(m[1]);heading=[p for p in heading if p[0]<level]+[(level,row['number'])];headers=[]
+                    if text.lstrip().startswith('|') and not any(matches(text,cid) for cid in case_ids):
+                        if '关联需求' in text or re.match(r'^\s*\|\s*:?-+',text):headers.append(row['number'])
+                    if row['number'] in selected:keep.update(n for _,n in heading);keep.update(headers)
+                out.append({**doc,'lines':[deepcopy(r) for r in doc['lines'] if r['number'] in keep]});continue
+            if not any(matches(r['text'],case_id) for r in doc['lines']):continue
         current=None;rows=[];seen=False
         for row in doc['lines']:
             text=row['text'];ids=[cid for cid in case_ids if re.search(r'(?<![\w-])'+re.escape(cid)+r'(?![\w-])',text)]

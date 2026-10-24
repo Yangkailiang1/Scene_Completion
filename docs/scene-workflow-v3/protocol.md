@@ -45,3 +45,23 @@ ask_user记录问题、原文依据和待决定事项，当前节点awaiting_ans
 ## 模型传输等待
 
 连接／首响应使用timeout_seconds；stream_idle_timeout_seconds默认300、stream_total_timeout_seconds默认900。流式每次读取上限取无数据等待与剩余总时限的较小值。项目显式配置优先，界面可调整。超时记录phase、timeout_kind、elapsed_seconds、first_event_seconds、last_event_age_seconds、partial_content_bytes与incomplete_tools，不包含请求头/密钥或模型隐私推理文本。输入文档以完整原行号文本呈现，Schema只通过提交工具提供；可查虚拟原文件保留。
+
+## 按任务／角色选择模型
+
+本地模型配置可设置`role_models`（modeler/checker）、优先级更高的`task_models`，以及按模型名称索引的`model_profiles`。Profile仅接受生成参数、时限及额度账本，不能改写凭证、端点或材料通道。切换模型必须显式设置独立`token_budget_ledger`，避免多个约1M额度共用账本。所有模型继续共享请求门控、限流冷却、暂停及修复上限；实际模型记录在节点事件和产物执行证据中。关闭思考仅用于支持该选项的模型，不能给GLM/Kimi等思考专用模型强行关闭。
+
+## 索引与模型侧精简契约
+
+Markdown一次建立章节树（source-index工具），以原始source_id、行号及内容hash保存。原始文档不删除。用户确认的“非抽取权威”历史段和关联实现OpenAPI/AR附录标记default_input=false，不进入默认RR/SR建模。
+
+组成、API映射和RR/SR用例目录先经独立document-context工具取片。目录只用标题、清单及元数据，API映射只用接口身份/方法/路径/归属，SSD再按已确认source_ranges读取这组用例正文。大文档无索引时等待确认，不退回整份；4KB以内小输入可整体提供，并在审计中明确范围。接口参数仍按接口索引单独取片，未知接口关联不以全量参数表兜底。
+
+模型传输使用indexed-evidence-v1：source_refs是当前上下文给定的evidence_id，完整引用由程序从受控输入恢复。SSD双方使用component_id；case_id、层内序号、返回类别及唯一的嵌套调用结构由工具整理。refinements引用消息ID，区别于用例编号；程序恢复对外标准rr_sr_links。只有已有消息可进入展开闭包，不新增消息或改变其方向/端点。多个可能父调用进入待确认。
+
+SSD不重复生成接口data_type/required/default；本次字段和位置先保存，接口属性由独立参数任务与交互属性工具关联，额外业务约束仍保留。SVG由程序绘制。测试操作投影只允许将操作名称字面片段带出，证据整行中的异常条件/预期响应不得进入能力表或G。
+
+用量接口`GET /api/projects/{id}/usage?format=html|json`按节点提供全部历史请求、已报告输入/输出token、其中思考、未知usage、请求累计耗时和原文范围。输出已含思考，不重复相加；并行请求累计时间不是项目墙钟时间；未发送的暂停/预算阻断不算实际调用。费用不由token预留反推。
+
+目录存在概要与详情重复项时，必须选择包含正式用例编号记录的详情章节；source-index给出原始详情边界，SSD再取其中正向流程。中文“备选流程/替代流程”与扩展路径一样进入独立已有异常通道，不进入正向建模。
+
+`ssd-context`工具保存本组RR/SR正向正文与相关组件身份子集。RR/SR消息证据ID区分前缀，不能互相替代。`model_contexts`保存实际发给模型的精简业务上下文（不含凭证）；用量报告点击任务ID可查看最新上下文。关注点适用状态、继承路径、服务功能和技术身份由工具校验整理，模型只补充语义依据。

@@ -77,12 +77,23 @@ def validate_catalogue(task,value,inputs):
             if c['id'] in ids or c['layer']!=inputs['layer']:raise ValueError('duplicate use case or wrong source layer')
             ids.add(c['id'])
             if not c['source_ranges']:raise ValueError('use case must identify source range')
+            # Formal metadata must be inside the chosen use case. A same-named
+            # brief summary cannot stand in for its detailed request/return flow.
+            import re
+            metadata=[]
+            for d in inputs['documents']:
+                for row in d['lines']:
+                    m=re.match(r'^\s*\|\s*(?:用例编号|用例ID|Use\s*case\s*ID)\s*\|\s*([^|]+)\|',row['text'],re.I)
+                    if m and m[1].strip().strip('`* ')==c['id']:metadata.append((d['source_id'],row['number']))
+            if metadata and not all(any(span['source_id']==sid and span['start']<=n<=span['end'] for span in c['source_ranges']) for sid,n in metadata):
+                raise ValueError('use case '+c['id']+' must select the detailed section containing its explicit 用例编号 metadata; the brief summary is not the modeling source')
             for span in c['source_ranges']:
                 d=docs.get(span['source_id']);numbers={x['number'] for x in d['lines']} if d else set()
+                indexed=any(s['line_start']==span['start'] and s['line_end']==span['end'] for doc in inputs.get('source-index',{}).get('documents',[]) if doc['source_id']==span['source_id'] for s in doc['sections'])
                 for a,b,owner in occupied.get(span['source_id'],[]):
                     if owner!=c['id'] and span['start']<=b and a<=span['end']:raise ValueError('overlapping use-case source ranges')
                 occupied.setdefault(span['source_id'],[]).append((span['start'],span['end'],c['id']))
-                if span['start'] not in numbers or span['end'] not in numbers or span['start']>span['end']:raise ValueError('case range outside source')
+                if (not indexed and (span['start'] not in numbers or span['end'] not in numbers)) or span['start']>span['end']:raise ValueError('case range outside source/index')
         if inputs['documents'] and not value['cases']:raise ValueError('no use cases extracted; document needs review')
         missing=declared_case_ids(inputs['documents'])-ids
         if missing:raise ValueError('用例目录遗漏原文明示的用例编号，不能用业务模块/用例组代替单个用例：'+', '.join(sorted(missing)))
@@ -102,20 +113,28 @@ def validate_catalogue(task,value,inputs):
         orders=set()
         for i in rows:
             from .source_documents import validate_evidence
-            validate_evidence(i['source_refs']+i['operation']['source_refs'],inputs[i['layer']])
+            try:validate_evidence(i['source_refs']+i['operation']['source_refs'],inputs[i['layer']])
+            except ValueError as exc:raise ValueError('message '+i['id']+' ('+i['layer']+'): '+str(exc)) from exc
             if i['case_id']!=inputs['case-group']['id']:raise ValueError('SSD outside selected case group')
             k=(i['layer'],i['sequence'])
             if k in orders:raise ValueError('duplicate layer-local SSD order')
             orders.add(k)
             if i['parent_id']:
                 parent=ids.get(i['parent_id'])
-                if not parent or parent['layer']!=i['layer'] or parent['sequence']>=i['sequence']:raise ValueError('parent must precede message within its layer')
-                if i['direction']=='return' and (parent['direction']!='request' or parent['sender']['name']!=i['receiver']['name'] or parent['receiver']['name']!=i['sender']['name']):raise ValueError('return must reverse its request endpoints')
+                if not parent or parent['layer']!=i['layer'] or parent['sequence']>=i['sequence']:raise ValueError('message '+i['id']+' parent/reply_to must precede message within its layer and reference an earlier request; cross-layer mapping belongs only to refinements/rr_sr_links')
+                if i['direction']=='return' and (parent['direction']!='request' or parent['sender']['name']!=i['receiver']['name'] or parent['receiver']['name']!=i['sender']['name']):raise ValueError('return must reverse its request endpoints: '+i['id']+' replies to '+parent['id']+' but sends '+i['sender']['name']+' -> '+i['receiver']['name']+'; required reverse endpoints are '+parent['receiver']['name']+' -> '+parent['sender']['name']+'. If this is a new downstream resource call, keep evidenced endpoints and use direction=request, reply_to=null; do not invent or alter parties to pass validation.')
             elif i['direction']=='return':raise ValueError('return requires its request id')
+        linked_rr=set();sr_owner={}
         for link in value['rr_sr_links']:
-            if link['rr_id'] not in ids or ids[link['rr_id']]['layer']!='RR':raise ValueError('unknown RR refinement source')
-            if any(k not in ids or ids[k]['layer']!='SR' for k in link['sr_ids']):raise ValueError('unknown SR refinement target')
+            if link['rr_id'] not in ids or ids[link['rr_id']]['layer']!='RR':raise ValueError('rr_sr_links.rr_id must reference an RR message ID, not a use-case ID; allowed: '+', '.join(i['id'] for i in rows if i['layer']=='RR'))
+            if any(k not in ids or ids[k]['layer']!='SR' for k in link['sr_ids']):raise ValueError('rr_sr_links.sr_ids must reference SR message IDs, not use-case IDs; allowed: '+', '.join(i['id'] for i in rows if i['layer']=='SR'))
             if link['status']=='confirmed' and not link['sr_ids']:raise ValueError('confirmed refinement needs SR messages')
+            if link['rr_id'] in linked_rr:raise ValueError('Each RR message needs at most one rr_sr_links entry; combine its SR message IDs into one sr_ids list: '+link['rr_id'])
+            linked_rr.add(link['rr_id'])
+            if link['status']=='confirmed':
+                for sid in link['sr_ids']:
+                    if sid in sr_owner and sr_owner[sid]!=link['rr_id']:raise ValueError('SR message is assigned to conflicting RR expansions: '+sid)
+                    sr_owner[sid]=link['rr_id']
         # Existing validators check evidence, request/return fields, and known constraints.
         from .validation import validate_result
         for layer in ('RR','SR'):

@@ -14,6 +14,7 @@ class EventStore:
             db.execute('PRAGMA journal_mode=WAL')
             db.execute('CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL, task_key TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL)')
             db.execute('CREATE INDEX IF NOT EXISTS event_task ON events(task_key,id)')
+            db.execute('CREATE INDEX IF NOT EXISTS event_kind ON events(kind,id)')
     @contextmanager
     def connect(self):
         db=sqlite3.connect(self.path,timeout=30)

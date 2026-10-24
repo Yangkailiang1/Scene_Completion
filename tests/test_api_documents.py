@@ -20,3 +20,38 @@ def test_parameter_task_preserves_known_interface_address():
     p={'apis':[{'id':'a','name':'List','address':None,'parameters':[],'source_refs':[{'source_id':'s','line_start':1,'line_end':1,'quote':'list'}]}]}
     inputs['interface']['source_refs']=p['apis'][0]['source_refs']
     with pytest.raises(ValueError,match='地址'):validate_result('api-parameters',p,inputs)
+
+
+def test_unknown_interface_never_falls_back_to_all_parameter_contracts():
+    from scene_completion.api_documents import case_parameters
+    from tests.test_workflow import exchange
+    i=exchange(api='unknown')
+    assert case_parameters({'api-parameters':{'apis':[{'id':'unrelated'}]},'api-map':{'services':[]}}, {'interactions':[i]})=={'apis':[]}
+
+
+def test_explicit_method_path_resolves_without_path_similarity_or_name_guessing():
+    from scene_completion.interaction_enrichment import resolved_api_id
+    from tests.test_workflow import exchange
+    i=exchange(api=None);i['operation']['name']='POST /catalog/search'
+    context={'api-parameters':{'apis':[{'id':'search','address':'/catalog/search','name':'搜索'}]},'api-map':{'services':[{'name':'Catalog','interfaces':[{'id':'search','name':'搜索','method':'POST','address':'/catalog/search'}]}]}}
+    assert resolved_api_id(i,context)=='search'
+    i['operation']['name']='GET /catalog/search';assert resolved_api_id(i,context) is None
+    i['operation']['name']='POST /catalog/search-similar';assert resolved_api_id(i,context) is None
+
+
+def test_mapping_cannot_omit_an_explicit_downstream_method_path():
+    ref={'source_id':'s','line_start':1,'line_end':1,'quote':'系统向 SearchService 发送 POST /catalog/search 请求。'}
+    doc={'source_id':'s','name':'sr.md','channel':'normal','lines':[{'number':1,'text':ref['quote']}]}
+    with pytest.raises(ValueError,match='downstream'):validate_result('api-map',{'services':[]},{'SR':[doc]})
+    value={'services':[{'name':'SearchService','interfaces':[{'id':'local-search','name':'Search','method':'POST','address':'/catalog/search','source_refs':[ref]}],'source_refs':[ref]}]}
+    validate_result('api-map',value,{'SR':[doc]})
+
+
+def test_invocation_values_are_not_global_interface_defaults_or_enum():
+    ref={'source_id':'s','line_start':1,'line_end':1,'quote':'系统发送 POST /search，请求体补充status=ON_SALE。'}
+    doc={'source_id':'s','name':'sr.md','channel':'normal','lines':[{'number':1,'text':ref['quote']}]}
+    inputs={'SR':[doc],'interface':{'id':'search','address':'/search','source_role':'invocation_only'}}
+    p={'name':'status','location':'body','data_type':None,'required':None,'default':'ON_SALE','constraints':[],'source_refs':[ref]}
+    value={'apis':[{'id':'search','name':'search','address':'/search','parameters':[p],'source_refs':[ref]}]}
+    with pytest.raises(ValueError,match='默认值'):validate_result('api-parameters',value,inputs)
+    p['default']=None;validate_result('api-parameters',value,inputs)

@@ -23,7 +23,7 @@ def compact_input(value):
     """Lossless numbered document presentation; do not repeat schema in the prompt."""
     if isinstance(value,dict):
         if {'source_id','channel','lines'}<=value.keys():
-            return {k:value[k] for k in ('source_id','name','channel')}|{'numbered_text':'\n'.join(str(r['number'])+' | '+r['text'] for r in value['lines'])}
+            return {k:value[k] for k in ('source_id','name','channel')}|{'numbered_text':'\n'.join(('['+r['evidence_id']+'] ' if r.get('evidence_id') else '')+str(r['number'])+' | '+r['text'] for r in value['lines'])}
         return {k:compact_input(v) for k,v in value.items()}
     if isinstance(value,list):return [compact_input(v) for v in value]
     return value
@@ -52,6 +52,21 @@ class DeepAgentsClient(SemanticClient):
         self.model_override=model_override
         self.root=Path(config.get('run_root','runs/deepagents'))
     def agent(self,packet):
+        from .model_routing import routed_config
+        routed=routed_config(self.config,packet['task'],role_for(packet['task']))
+        if routed is not None:
+            child=DeepAgentsClient(routed,model_override=self.model_override,transport=self.transport)
+            if getattr(self,'shared_call_gate',None):
+                original=child.post
+                child.post=lambda *a,**k:self.shared_call_gate.call(original,*a,**k)
+            return child.agent(packet)
+        original_packet=packet
+        from .indexed_context import EvidenceContext
+        indexed=EvidenceContext(packet) if self.config.get('indexed_context',False) else None
+        if indexed:packet=indexed.packet
+        # Persist the actual model-facing, credential-free packet for inspection.
+        context_id=fingerprint({'task':packet['task'],'input':packet['input'],'schema':packet['output_schema']})
+        write_json(self.root/'model_contexts'/(context_id+'.json'),{'task':packet['task'],'node_key':packet.get('node_key'),'input':packet['input'],'output_schema':packet['output_schema'],'context_version': 'indexed-evidence-v1' if indexed else 'raw'})
         from deepagents import create_deep_agent
         from deepagents.backends import StateBackend
         from deepagents.middleware.filesystem import FilesystemPermission
@@ -87,6 +102,7 @@ class DeepAgentsClient(SemanticClient):
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
         def submit(payload:dict) -> str:
+            if indexed:payload=indexed.expand(payload)
             if packet['task']=='fused-ssd':
                 from .use_cases import canonical_case_ids
                 payload=canonical_case_ids(payload,packet['input'])
@@ -94,11 +110,11 @@ class DeepAgentsClient(SemanticClient):
                 emit('guidance_pending',message='新指导尚未进入本次请求，请下一轮模型调用后重新提交')
                 return '用户在本次HTTP输出期间补充了指导；结果尚未保存。请在下一轮读取节点指导后提交。'
             phase('validating')
-            try:validate_result(packet['task'],payload,packet['input'])
+            try:validate_result(original_packet['task'],payload,original_packet['input'])
             except ValueError as e:
                 emit('validation_failed',error=str(e))
                 rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload])+'.json')
-                write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(packet['input']),'payload':payload,'error':str(e)})
+                write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'error':str(e)})
                 raise TaskRejected({'error':str(e),'phase':'validation','rejected_output':str(rejection.relative_to(self.root)),'instruction':'由任务执行器使用剩余修复预算定向修复'}) from e
             submitted.append(payload);emit('result_validated')
             return '结果已通过校验，任务完成。'

@@ -266,15 +266,14 @@ def test_runtime_cache_aliases_preserve_only_exact_reviewed_implementations(tmp_
     from pathlib import Path
     import scene_completion.workflow as workflow
     from scene_completion.storage import fingerprint,read_json
-    table=read_json(Path(workflow.__file__).with_name('cache_code_aliases.json'))
-    assert 'components' not in table['retained_task_versions']
-    assert workflow.code_version('api-map')==table['retained_task_versions']['api-map']
+    before=workflow.code_version('api-map')
+    assert not Path(workflow.__file__).with_name('cache_code_aliases.json').exists()
     actual=Path.read_text
     def changed(path,*args,**kwargs):
         text=actual(path,*args,**kwargs)
         return text+'\n# semantic change' if path.name=='deepagents_client.py' else text
     monkeypatch.setattr(Path,'read_text',changed)
-    assert workflow.code_version('api-map')!=table['retained_task_versions']['api-map']
+    assert workflow.code_version('api-map')!=before
 
 
 def test_ecnu_all_tasks_use_json_text_and_do_not_buffer_tool_arguments(tmp_path):
@@ -389,3 +388,35 @@ def test_fused_case_identifier_normalization_is_exact_layer_scoped_and_nonmutati
     assert [i['case_id'] for i in value['interactions']]==['group-1','group-1','RR-2','RR-1']
     assert source['interactions'][0]['case_id']=='RR-1'
     assert canonical_case_ids(source,{'case-group':{**group['case-group'],'status':'pending'}})==source
+
+
+def test_busy_worker_pool_does_not_spend_repairs_before_retry_is_dispatched(tmp_path):
+    from scene_completion.scheduler import TaskRejected
+    calls=[]
+    def first(deps,record):
+        calls.append(record['rounds'])
+        if len(calls)==1:raise TaskRejected({'error':'fix me'})
+        assert record['failure']=={'error':'fix me'}
+        return {'ok':True}
+    def slow(deps,record):time.sleep(.18);return {'ok':True}
+    def short(deps,record):time.sleep(.025);return {'ok':True}
+    s=Scheduler(tmp_path,concurrency=2)
+    s.add(Task('a','shared','components',execute=first,repair=first))
+    s.add(Task('b','shared','api-map',execute=slow))
+    s.add(Task('c','shared','use-case-extract',execute=short))
+    s.add(Task('d','shared','use-case-align',execute=short))
+    assert s.run()['complete'] and calls==[0,1]
+    assert s.state['tasks']['a']['rounds']==1
+
+
+def test_local_model_budget_does_not_block_other_models():
+    gate=CallGate(3);calls=[]
+    def post(endpoint,body):
+        calls.append(body['model'])
+        if body['model']=='exhausted' and body.get('max_tokens',1000)>100:
+            e=RuntimeError();e.response_diagnostic={'failure_category':'budget_exhausted','budget_kind':'tokens','budget_reason':'insufficient_remaining_allowance'};raise e
+        return 'ok'
+    with pytest.raises(TaskBlocked):gate.call(post,'/chat/completions',{'model':'exhausted'})
+    assert gate.call(post,'/chat/completions',{'model':'available'})=='ok'
+    assert gate.call(post,'/chat/completions',{'model':'exhausted','max_tokens':50})=='ok'
+    assert calls==['exhausted','available','exhausted'] and not gate.quota.is_set()

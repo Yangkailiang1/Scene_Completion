@@ -9,7 +9,7 @@ def case_parameters(inputs,views):
     context={**inputs,'rr-ssd':{'interactions':[i for i in rows if i['layer']=='RR']},'sr-ssd':{'interactions':[i for i in rows if i['layer']=='SR']}}
     used={i.get('associated_api') or resolved_api_id(i,context) for i in rows}
     used.discard(None)
-    if not used:return inputs['api-parameters']
+    if not used:return {'apis':[]}
     return {'apis':[a for a in inputs['api-parameters']['apis'] if a['id'] in used]}
 
 def index_interfaces(inputs):
@@ -46,3 +46,16 @@ def index_interfaces(inputs):
             if not unique:raise ValueError('接口没有可定位的正向原文依据：'+api['id'])
             found[api['id']]=(signature,{'id':api['id'],'name':api['name'],'source_ranges':list(unique.values()),'source_refs':api['source_refs']})
     return {'apis':[entry for _,entry in found.values()]}
+
+
+def explicit_http_interfaces(documents):
+    """Literal method/path declarations and calls, not inferred endpoint names."""
+    found={}
+    pattern=re.compile(r'\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s`\"\'，。；,;|)]+)',re.I)
+    for d in documents:
+        for row in d['lines']:
+            for match in pattern.finditer(row['text']):
+                if re.search(r'不是|不要|禁止',row['text'][max(0,match.start()-12):match.start()]):continue
+                path=match[2].split('?',1)[0]
+                found.setdefault((match[1].upper(),path),{'source_id':d['source_id'],'line_start':row['number'],'line_end':row['number'],'quote':row['text']})
+    return found

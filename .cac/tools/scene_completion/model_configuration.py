@@ -29,7 +29,7 @@ def referenced_env_keys(config):
     keys=set()
     for name,value in config.items():
         if not isinstance(value,str):continue
-        match=re.fullmatch(r'\$\{([A-Z][A-Z0-9_]*)\}',value.strip())
+        match=re.fullmatch(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}',value.strip())
         if match:keys.add(match.group(1))
         if name=='api_key_env':keys.add(value)
     return keys

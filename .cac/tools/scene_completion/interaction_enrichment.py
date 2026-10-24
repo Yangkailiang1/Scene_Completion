@@ -10,6 +10,7 @@ def interactions(inputs):
 
 
 def resolved_api_id(i,inputs):
+    import re
     apis=inputs.get('api-parameters',{}).get('apis',[])
     if i['direction']=='return' and i.get('parent_id'):
         request=next((x for x in interactions(inputs) if x['id']==i['parent_id'] and x['direction']=='request' and x['case_id']==i['case_id']),None)
@@ -17,9 +18,11 @@ def resolved_api_id(i,inputs):
     if i['api_id'] and any(a['id']==i['api_id'] for a in apis):return i['api_id']
     # Link independently extracted API tables by an explicit identity/address,
     # never path similarity or overlapping parameter names.
+    explicit_call=re.match(r'^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s，。;]+)',i['operation']['name'],re.I)
     interfaces=[api for service in inputs.get('api-map',{}).get('services',[]) for api in service['interfaces']
                 if (i['api_id'] and api['id']==i['api_id']) or
-                   (service['name']==i['receiver']['name'] and api['name']==i['operation']['name'])]
+                   (service['name']==i['receiver']['name'] and api['name']==i['operation']['name']) or
+                   (explicit_call and api.get('method','') and api['method'].upper()==explicit_call[1].upper() and api.get('address')==explicit_call[2])]
     found=set()
     for api in interfaces:
         for a in apis:
@@ -40,7 +43,13 @@ def parameters_for(i, inputs):
         if apis:
             # API contract wins over an incomplete interaction presentation.
             by_name={(p['location'],p['name']):p for p in params}
-            by_name.update({(p['location'],p['name']):p for p in apis[0]['parameters'] if valid(p)})
+            for p in apis[0]['parameters']:
+                if not valid(p):continue
+                p=deepcopy(p);actual=by_name.get((p['location'],p['name']))
+                if actual:
+                    p['constraints']=list({fingerprint(r):r for r in p['constraints']+actual['constraints']}.values())
+                    p['source_refs']=list({fingerprint(r):r for r in p['source_refs']+actual['source_refs']}.values())
+                by_name[(p['location'],p['name'])]=p
             params=list(by_name.values())
     return params
 
@@ -123,6 +132,8 @@ def enrich(inputs,alignment):
                     i['receiver']['supported_operations'] += [{'name':a['name'],'source_refs':a['source_refs']} for a in service['interfaces']]
         i['data']['sequence']=parameters_for(i,value)
         i['associated_api']=resolved_api_id(i,value)
+        if i['api_id'] and not i['associated_api']:
+            pending.append({'interaction_id':i['id'],'reason':'API标识未能唯一关联已验证接口表；不以全量接口表兜底，相关属性待确认','source_refs':i['source_refs']})
         i['data']['concerns']=[]
         if not i['receiver']['supported_operations'] or i['operation']['name'] not in {o['name'] for o in i['receiver']['supported_operations']}:
             pending.append({'interaction_id':i['id'],'reason':'本次操作未在接收方能力表中得到对应，需核对；不得据此改写操作','source_refs':i['operation']['source_refs']})

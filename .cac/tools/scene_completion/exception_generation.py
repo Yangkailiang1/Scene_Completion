@@ -97,9 +97,9 @@ def query_matches(inputs):
     for i in interactions(inputs):
         ctx=context(i,inputs)
         if i['direction']!='request' or 'query_retrieval' not in ctx['functions'] or not ctx['service']:continue
-        if not re.search(r'列表|集合|list\b|collection|search\b',i['operation']['name'],re.I):continue
+        collection=bool(re.search(r'列表|集合|list\b|collection|search\b',i['operation']['name'],re.I))
         key='service.query_retrieval.resource_existence'
-        out.append({'interaction_id':i['id'],'target':'receiver','object':i['receiver']['name'],'concern_key':key,
+        if collection:out.append({'interaction_id':i['id'],'target':'receiver','object':i['receiver']['name'],'concern_key':key,
           'basis':'本次操作明确查询列表或集合','concrete_rule':'查询集合可能无匹配记录（不等同实例不存在）','source_refs':i['operation']['source_refs']})
         api=next((a for a in inputs.get('api-parameters',{}).get('apis',[]) if a['id']==resolved_api_id(i,inputs)),None)
         if api and api['address']:
