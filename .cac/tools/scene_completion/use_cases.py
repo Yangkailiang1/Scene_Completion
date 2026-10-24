@@ -2,7 +2,34 @@
 from copy import deepcopy
 from .contracts import obj,arr,S,STR,REFS,enum,INTERACTION,SCHEMAS,INPUT_KEYS,TASKS
 
+def declared_case_ids(documents):
+    """Explicit metadata identifiers, without assuming a numbering convention."""
+    import re
+    found=set()
+    for d in documents:
+        for row in d['lines']:
+            text=row['text']
+            match=re.match(r'^\s*\|\s*(?:用例编号|用例ID|Use\s*case\s*(?:ID|Identifier))\s*\|\s*([^|]+)\|',text,re.I)
+            if not match:match=re.match(r'^\s*(?:[-*]\s*)?(?:\*\*)?(?:用例编号|用例ID|Use\s*case\s*ID)(?:\*\*)?\s*[:：]\s*(.+?)\s*$',text,re.I)
+            if not match:continue
+            identifier=match[1].strip().strip('`* ')
+            if identifier and len(identifier)<=120 and not re.search(r'\s',identifier) and identifier.casefold() not in {'待定','待补充','tbd','n/a','—','-'}:found.add(identifier)
+    return found
+
 CASE=obj(id=S,name=S,goal=S,actors=arr(S),layer=enum('RR','SR'),source_ranges=arr(obj(source_id=S,start={'type':'integer','minimum':1},end={'type':'integer','minimum':1})),source_refs=REFS)
+
+def canonical_case_ids(value,inputs):
+    """Normalize only declared source-case aliases to their confirmed group ID.
+
+    This is identifier normalization, not semantic case matching. Other IDs are
+    deliberately left untouched so that scope validation still rejects them.
+    """
+    result=deepcopy(value);group=inputs.get('case-group',{})
+    if group.get('status')!='confirmed' or not group.get('id'):return result
+    for row in result.get('interactions',[]):
+        aliases=group.get('rr_ids' if row.get('layer')=='RR' else 'sr_ids',[]) if row.get('layer') in ('RR','SR') else []
+        if row.get('case_id') in aliases:row['case_id']=group['id']
+    return result
 CASE_GROUP=obj(id=S,rr_ids=arr(S),sr_ids=arr(S),status=enum('confirmed','pending'),reason=S,source_refs=REFS)
 FUSED_LINK=obj(rr_id=S,sr_ids=arr(S),status=enum('confirmed','pending'),basis=S,source_refs=REFS)
 
@@ -25,7 +52,20 @@ def select_documents(documents,entries,all_entries=None):
         if all_entries and d['channel']=='existing':
             starts=sorted({sp['start'] for c in all_entries for sp in c['source_ranges'] if sp['source_id']==d['source_id']})
             last=max((r['number'] for r in d['lines']),default=0)
-            ranges=[(a,next((start-1 for start in starts if start>a),last)) for a,b in ranges]
+            expanded=[]
+            for a,b in ranges:
+                end=next((start-1 for start in starts if start>a),last)
+                # Include this use case's exception sections, but stop at the
+                # next peer/parent Markdown section (e.g. a global appendix).
+                line=next((r for r in d['lines'] if r['number']==a),None)
+                import re
+                heading=re.match(r'^(#{1,6})\s+',line['text']) if line else None
+                if heading:
+                    level=len(heading[1])
+                    next_section=next((r['number']-1 for r in d['lines'] if r['number']>a and (m:=re.match(r'^(#{1,6})\s+',r['text'])) and len(m[1])<=level),last)
+                    end=min(end,max(b,next_section))
+                expanded.append((a,end))
+            ranges=expanded
         rows=[deepcopy(r) for r in d['lines'] if any(a<=r['number']<=b for a,b in ranges)]
         if rows:result.append({**d,'lines':rows})
     return result
@@ -44,12 +84,15 @@ def validate_catalogue(task,value,inputs):
                 occupied.setdefault(span['source_id'],[]).append((span['start'],span['end'],c['id']))
                 if span['start'] not in numbers or span['end'] not in numbers or span['start']>span['end']:raise ValueError('case range outside source')
         if inputs['documents'] and not value['cases']:raise ValueError('no use cases extracted; document needs review')
+        missing=declared_case_ids(inputs['documents'])-ids
+        if missing:raise ValueError('用例目录遗漏原文明示的用例编号，不能用业务模块/用例组代替单个用例：'+', '.join(sorted(missing)))
     elif task=='use-case-align':
         rr={c['id'] for c in inputs['rr-cases']['cases']};sr={c['id'] for c in inputs['sr-cases']['cases']};seen=set();covered_rr=set();covered_sr=set()
         for g in value['groups']:
             if g['id'] in seen or not set(g['rr_ids'])<=rr or not set(g['sr_ids'])<=sr:raise ValueError('invalid use-case correspondence')
             if not g['rr_ids'] and not g['sr_ids']:raise ValueError('empty correspondence')
             if g['status']=='confirmed' and (not g['rr_ids'] or not g['sr_ids']):raise ValueError('unpaired case must remain pending')
+            if g['status']=='confirmed' and len(g['rr_ids'])!=1:raise ValueError('每个confirmed对应组必须以一个RR用例为单位，允许一个RR对应多个SR，不得合并不同RR用例')
             if covered_rr&set(g['rr_ids']):raise ValueError('one RR use case cannot belong to competing groups; use a single one-to-many group')
             seen.add(g['id']);covered_rr.update(g['rr_ids']);covered_sr.update(g['sr_ids'])
         if covered_rr!=rr or covered_sr!=sr:raise ValueError('catalogue entries must be matched or explicitly pending')

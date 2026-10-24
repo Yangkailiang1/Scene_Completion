@@ -129,7 +129,7 @@ def test_dynamic_case_work_starts_while_independent_api_task_is_still_running(tm
 def test_API_children_reuse_success_and_merge_only_after_all_children_pass(tmp_path):
     from scene_completion.workflow import Execution,build_pipeline
     rr,sr,t,m=fake_pipeline(tmp_path);ref=[{'source_id':sr[0]['source_id'],'line_start':2,'line_end':2,'quote':sr[0]['lines'][1]['text']}]
-    m['api-index']={'apis':[{'id':name,'name':name,'source_ranges':[{'source_id':sr[0]['source_id'],'start':2,'end':2}],'source_refs':ref} for name in ['a','b']]}
+    m['api-map']={'services':[{'name':'Service','interfaces':[{'id':name,'name':name,'address':None,'method':None,'source_refs':ref} for name in ['a','b']],'source_refs':ref}]}
     calls=[]
     def part(p):
         key=p['node_key'];calls.append(key)
@@ -275,3 +275,117 @@ def test_runtime_cache_aliases_preserve_only_exact_reviewed_implementations(tmp_
         return text+'\n# semantic change' if path.name=='deepagents_client.py' else text
     monkeypatch.setattr(Path,'read_text',changed)
     assert workflow.code_version('api-map')!=table['retained_task_versions']['api-map']
+
+
+def test_ecnu_all_tasks_use_json_text_and_do_not_buffer_tool_arguments(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    sent=[]
+    def transport(url,key,body,*args):
+        sent.append(body);assert body['response_format']=={'type':'json_object'} and 'tools' not in body
+        return {'model':'qwen3.8-flash','choices':[{'message':{'content':'{"branches":[]}'},'finish_reason':'stop'}]}
+    p=packet('existing-branches',{'existing-documents':[]});p['skill_text']='---\nname: scene-existing-branches\ndescription: extract\n---\nExtract.'
+    c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'ecnu-plus','run_root':str(tmp_path)},transport=transport)
+    assert c.agent(p)['branches']==[] and len(sent)==1
+
+
+def test_scheduler_prioritizes_catalog_before_api_fanout(tmp_path):
+    from scene_completion.scheduler import Scheduler,Task
+    order=[];s=Scheduler(tmp_path,concurrency=1)
+    def work(name):return lambda d,r:(order.append(name),{'value':name})[1]
+    s.add(Task('api-part-a','shared','api-parameters',execute=work('api1')))
+    s.add(Task('api-part-b','shared','api-parameters',execute=work('api2')))
+    s.add(Task('rr-use-cases','shared','use-case-extract',execute=work('catalog')))
+    s.add(Task('UC:fused-ssd','UC','fused-ssd',execute=work('fused')))
+    assert s.run()['complete']
+    assert order[0]=='catalog' and order.index('fused')<order.index('api2')
+
+
+def test_repair_receives_only_this_node_rejected_candidate_and_specific_evidence_error(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.workflow import Execution
+    from scene_completion.source_documents import normal_projection
+    from copy import deepcopy
+    rr,sr,_,m=fake_pipeline(tmp_path);root=tmp_path/'repair';sent=[]
+    def transport(url,key,body,*args):
+        sent.append(body);value=deepcopy(m['components'])
+        if len(sent)==1:value['components'][0]['source_refs'][0]['quote']='wrong quotation'
+        else:
+            text=body['messages'][-1]['content']
+            assert 'candidate' in text and 'wrong quotation' in text and 'allowed_text=' in text
+        return {'choices':[{'message':{'content':json.dumps(value)},'finish_reason':'stop'}]}
+    config={'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(root),'submission_mode':'json_text'}
+    client=DeepAgentsClient(config,transport=transport);ex=Execution(root,mode='external',client=client,config=config)
+    ex.add('components','components',static={'RR':normal_projection(rr),'SR':normal_projection(sr)})
+    assert ex.finish()['complete'] and len(sent)==2
+    assert len(list((root/'agent_rejections').glob('*.json')))==1
+
+
+def test_mixed_case_provider_keys_and_missing_explicit_credential_fail_closed(tmp_path):
+    from scene_completion.model_settings import read_env,resolve
+    f=tmp_path/'.env';f.write_text('ECNU_API_KEY=ecnu-secret\nECNU_BASE_URL=http://ecnu/v1\nBailian_API_Key=bailian-secret\nBailian_API_URL=http://bailian/v1\n')
+    assert read_env(f)['Bailian_API_Key']=='bailian-secret'
+    c=resolve({'base_url':'${Bailian_API_URL}','api_key_env':'Bailian_API_Key'},f)
+    assert c['base_url']=='http://bailian/v1' and c['api_key']=='bailian-secret'
+    assert resolve({'api_key_env':'Missing_Provider_Key'},f)['api_key']==''
+
+
+def test_catalog_cannot_replace_explicit_use_cases_with_a_group_header():
+    from scene_completion.use_cases import validate_catalogue
+    docs=[{'source_id':'s','lines':[{'number':1,'text':'| 用例编号 | unusual.id.one |'},{'number':2,'text':'| 用例编号 | another-id |'}]}]
+    value={'cases':[{'id':'MODULE','layer':'SR','source_ranges':[{'source_id':'s','start':1,'end':2}]}]}
+    with pytest.raises(ValueError,match='遗漏'):validate_catalogue('use-case-extract',value,{'documents':docs,'layer':'SR'})
+
+
+def test_alignment_does_not_merge_distinct_rr_use_cases():
+    from scene_completion.use_cases import validate_catalogue
+    inputs={'rr-cases':{'cases':[{'id':'a'},{'id':'b'}]},'sr-cases':{'cases':[{'id':'s'}]}}
+    value={'groups':[{'id':'g','rr_ids':['a','b'],'sr_ids':['s'],'status':'confirmed'}]}
+    with pytest.raises(ValueError,match='一个RR'):validate_catalogue('use-case-align',value,inputs)
+
+
+def test_markdown_indent_is_not_an_evidence_error_but_words_and_internal_spaces_are():
+    from scene_completion.source_documents import validate_evidence
+    docs=[{'source_id':'s','lines':[{'number':1,'text':'   failure condition'},{'number':2,'text':'   → return empty list'}]}]
+    ref={'source_id':'s','line_start':1,'line_end':2,'quote':'failure condition\n    → return empty list'}
+    validate_evidence(ref,docs)
+    for quote in ['failure changed\n→ return empty list','failure condition\n→ return  empty list','   ']:
+        with pytest.raises(ValueError):validate_evidence({**ref,'quote':quote},docs)
+
+
+def test_truncated_output_is_settled_and_repair_increases_only_to_configured_ceiling(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.workflow import Execution
+    from scene_completion.storage import read_json
+    calls=[];root=tmp_path/'truncated';ledger=tmp_path/'tokens.json'
+    def transport(url,key,body,*args):
+        calls.append(body['max_tokens'])
+        return {'model':'actual','usage':{'total_tokens':17},'choices':[{'message':{'content':'{"services":[' if len(calls)==1 else '{"services":[]}'},'finish_reason':'length' if len(calls)==1 else 'stop'}]}
+    config={'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(root),'submission_mode':'json_text','max_tokens':4000,'stage_max_tokens':{'api-map':1000},'token_budget_limit':100000,'token_budget_ledger':str(ledger)}
+    ex=Execution(root,mode='external',client=DeepAgentsClient(config,transport=transport),config=config);ex.add('api-map','api-map',static={'SR':[]})
+    assert ex.finish()['complete'] and calls==[1000,2000]
+    book=read_json(ledger);assert book['committed_tokens']==34 and all(r['status']=='complete' for r in book['requests'].values())
+
+
+def test_truncation_at_output_ceiling_waits_for_configuration_without_paid_retry(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.workflow import Execution
+    calls=[]
+    def transport(url,key,body,*args):
+        calls.append(body['max_tokens'])
+        return {'model':'actual','usage':{'total_tokens':17},'choices':[{'message':{'content':'{"services":['},'finish_reason':'length'}]}
+    config={'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path),'submission_mode':'json_text','max_tokens':1000}
+    ex=Execution(tmp_path,mode='external',client=DeepAgentsClient(config,transport=transport),config=config);ex.add('api-map','api-map',static={'SR':[]})
+    assert not ex.finish()['complete'] and calls==[1000]
+    assert ex.scheduler.tasks['api-map'].key=='api-map'
+    from scene_completion.storage import read_json
+    assert read_json(tmp_path/'workflow_tasks.json')['tasks']['api-map']['status']=='awaiting_configuration'
+
+
+def test_fused_case_identifier_normalization_is_exact_layer_scoped_and_nonmutating():
+    from scene_completion.use_cases import canonical_case_ids
+    source={'interactions':[{'case_id':'RR-1','layer':'RR'},{'case_id':'SR-1','layer':'SR'},{'case_id':'RR-2','layer':'RR'},{'case_id':'RR-1','layer':'SR'}]}
+    group={'case-group':{'id':'group-1','rr_ids':['RR-1'],'sr_ids':['SR-1'],'status':'confirmed'}}
+    value=canonical_case_ids(source,group)
+    assert [i['case_id'] for i in value['interactions']]==['group-1','group-1','RR-2','RR-1']
+    assert source['interactions'][0]['case_id']=='RR-1'
+    assert canonical_case_ids(source,{'case-group':{**group['case-group'],'status':'pending'}})==source

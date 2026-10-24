@@ -44,8 +44,9 @@ class Workbench:
         p=self.run_dir(rid)
         if rid in self.active:raise ValueError('运行期间不能修改模型配置')
         if not body.get('base_url','').startswith(('http://','https://')) or not body.get('agent_model','').strip():raise ValueError('请填写内网API地址和实际模型标识')
-        config={k:body[k] for k in ('base_url','agent_model','api_key','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}
-        if not config.get('api_key') and (p/'model.local.json').exists():config['api_key']=read_json(p/'model.local.json').get('api_key','')
+        previous=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
+        config={**previous,**{k:body[k] for k in ('base_url','agent_model','api_key','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
+        if not config.get('api_key'):config['api_key']=previous.get('api_key','')
         config.update(agent_runtime='deepagents',structured_output='json_object',max_retries=0,adaptive_concurrency=True)
         for k,default,lo,hi in [('max_concurrency',2,1,8),('max_tokens',12000,256,64000),('timeout_seconds',120,10,1800),('stream_idle_timeout_seconds',300,10,1800),('stream_total_timeout_seconds',900,30,3600)]:
             v=config.get(k,default)
@@ -53,7 +54,8 @@ class Workbench:
             config[k]=v
         if config['stream_total_timeout_seconds']<config['stream_idle_timeout_seconds']:raise ValueError('流式总时限不能小于无数据等待时限')
         write_json(p/'model.local.json',config)
-        return {k:v for k,v in config.items() if k!='api_key'}
+        from .model_settings import public_settings
+        return public_settings(config)
     def upgrade(self,rid):
         import shutil
         p=self.run_dir(rid);meta=read_json(p/'project.json')
@@ -66,6 +68,8 @@ class Workbench:
     def start(self,rid):
         rid=self.upgrade(rid)
         p=self.run_dir(rid)
+        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        if job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('项目正在由联调工作进程执行')
         from .model_settings import resolve
         config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
         if not self.client_factory and (not config['api_key'] or not config['base_url']):raise ValueError('请在.env或项目中配置模型地址和密钥')
@@ -120,7 +124,7 @@ class Workbench:
         for name in ('missing_report.json','missing_report.md'):
             if (run/name).exists():artifacts.append({'path':'run/'+name,'name':name,'bytes':(run/name).stat().st_size})
         job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
-        if job['status']=='running' and rid not in self.active:job={'status':'interrupted','message':'上次进程已退出，可继续运行并复用成功结果'}
+        if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'上次进程已退出，可继续运行并复用成功结果'}
         from .model_settings import resolve,public_settings
         config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
         return {'project':read_json(p/'project.json'),'job':job,'manifest':read_json(run/'run_manifest.json') if (run/'run_manifest.json').exists() else None,

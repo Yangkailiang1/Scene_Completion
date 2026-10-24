@@ -90,3 +90,45 @@ it("opens the combined table for mappings and can switch back to the node result
   expect(screen.getByText("对应接口列表")).toBeTruthy();
   vi.unstubAllGlobals();
 });
+
+it("shows readable rules without expanding source JSON inside parameter cells", () => {
+  render(
+    <PayloadView
+      definitions={{}}
+      value={{
+        apis: [
+          {
+            id: "A",
+            name: "API",
+            address: "/a",
+            parameters: [
+              {
+                name: "page",
+                required: false,
+                constraints: [
+                  {
+                    kind: "minimum",
+                    status: "explicit",
+                    value: 1,
+                    source_refs: [{ quote: "原文" }],
+                  },
+                  {
+                    kind: "format",
+                    status: "pending",
+                    value: "格式合法",
+                    source_refs: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+  const cells = screen.getAllByRole("cell");
+  expect(cells.some((c) => c.textContent === "可选")).toBe(true);
+  const rules = cells.find((c) => c.textContent?.includes("最小值：1"))!;
+  expect(rules.textContent).toContain("格式：待确认具体约束");
+  expect(rules.textContent).not.toContain("source_refs");
+});

@@ -12,6 +12,13 @@ from .storage import write_json,fingerprint
 from contextvars import ContextVar
 _AGENT_SESSION=ContextVar('scene_agent_session',default=None)
 
+def submission_mode(config,task,model):
+    default='json_text' if task=='components' or model=='ecnu-plus' else 'tool_calls'
+    selected=config.get('component_submission_mode') if task=='components' else None
+    selected=selected or config.get('submission_mode',default)
+    if selected not in {'json_text','tool_calls'}:raise ValueError('submission_mode must be json_text or tool_calls')
+    return selected
+
 def compact_input(value):
     """Lossless numbered document presentation; do not repeat schema in the prompt."""
     if isinstance(value,dict):
@@ -58,16 +65,16 @@ class DeepAgentsClient(SemanticClient):
         _,event_context=context();task_key=event_context.get('task_key',packet['task'])
         conversations=Conversations(self.root)
         attempt=event_context.get('attempt',1)
-        submission_mode=self.config.get('component_submission_mode','json_text') if packet['task']=='components' else 'tool_calls'
+        mode=submission_mode(self.config,packet['task'],self.model('agent'))
         checkpoint_parts=[packet['task'],packet['input'],packet['output_schema'],packet.get('skill_text'),packet.get('instructions'),attempt,fingerprint(self.config),self.model('agent'),self.base_url]
-        if packet['task']=='components':checkpoint_parts.append(submission_mode)
+        if packet['task']=='components' or mode=='json_text':checkpoint_parts.append(mode)
         checkpoint_id=fingerprint(checkpoint_parts)
         saved=conversations.checkpoint(task_key,checkpoint_id) or {}
         pending=conversations.pending(task_key)
         if pending:
             from .scheduler import TaskBlocked
             raise TaskBlocked('awaiting_answer',{'question':pending})
-        session={'task_key':task_key,'conversations':conversations,'count':saved.get('model_calls',0)}
+        session={'task_key':task_key,'conversations':conversations,'count':saved.get('model_calls',0),'repair':packet.get('repair')}
         session_token=_AGENT_SESSION.set(session)
         def ask_user(question:str,basis:str,decision:str)->str:
             from .scheduler import TaskBlocked
@@ -80,6 +87,9 @@ class DeepAgentsClient(SemanticClient):
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
         def submit(payload:dict) -> str:
+            if packet['task']=='fused-ssd':
+                from .use_cases import canonical_case_ids
+                payload=canonical_case_ids(payload,packet['input'])
             if any(not r['applied'] for r in conversations.list(task_key) if r['kind'] in {'guidance','answer'}):
                 emit('guidance_pending',message='新指导尚未进入本次请求，请下一轮模型调用后重新提交')
                 return '用户在本次HTTP输出期间补充了指导；结果尚未保存。请在下一轮读取节点指导后提交。'
@@ -87,7 +97,9 @@ class DeepAgentsClient(SemanticClient):
             try:validate_result(packet['task'],payload,packet['input'])
             except ValueError as e:
                 emit('validation_failed',error=str(e))
-                raise TaskRejected({'error':str(e),'phase':'validation','instruction':'由任务执行器使用剩余修复预算定向修复'}) from e
+                rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload])+'.json')
+                write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(packet['input']),'payload':payload,'error':str(e)})
+                raise TaskRejected({'error':str(e),'phase':'validation','rejected_output':str(rejection.relative_to(self.root)),'instruction':'由任务执行器使用剩余修复预算定向修复'}) from e
             submitted.append(payload);emit('result_validated')
             return '结果已通过校验，任务完成。'
         submit_result=StructuredTool.from_function(func=submit,name='submit_result',
@@ -205,6 +217,10 @@ def _transport_model(client,stage):
                 if all_guidance:converted.append({'role':'user','content':'本节点业务指导（仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
             body={'model':self.scene_client.model('agent'),'messages':converted,
               'max_tokens':self.scene_client.output_limit(self.task_stage),'stream':self.scene_client.config.get('stream',True),**{k:v for k,v in kwargs.items() if k in {'tools','tool_choice','parallel_tool_calls'}}}
+            repair=session.get('repair') if session else None
+            if repair and 'truncat' in json.dumps(repair.get('failure',{})).lower():
+                ceiling=self.scene_client.config.get('max_tokens',body['max_tokens'])
+                body['max_tokens']=min(ceiling,body['max_tokens']*2**min(int(repair.get('round',1)),2))
             if self.task_stage=='components':
                 # Full positive RR/SR is already in the first message. Re-reading
                 # it inflated the real failing run by four unnecessary requests.
@@ -222,17 +238,20 @@ def _transport_model(client,stage):
             # This gateway streamed the tool name, then buffered the large
             # composition arguments until disconnect. JSON text lets actual
             # result tokens flow; the existing submit tool still validates it.
-            text_submission=self.task_stage=='components' and self.scene_client.config.get('component_submission_mode','json_text')=='json_text'
+            text_submission=submission_mode(self.scene_client.config,self.task_stage,self.scene_client.model('agent'))=='json_text'
             if text_submission:
                 result_tool=next(t for t in body['tools'] if t['function']['name']=='submit_result')
                 output_schema=result_tool['function']['parameters']['properties']['payload']
-                notice='本次使用JSON文本传输，不调用工具。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
+                notice='本次任务输入与Skill已完整提供，使用JSON文本传输，不调用工具或重复读取文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
                 converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 for key in ('tools','tool_choice','parallel_tool_calls'):body.pop(key,None)
                 body['response_format']={'type':'json_object'}
             if body['stream'] and self.scene_client.config.get('stream_usage',True):body['stream_options']={'include_usage':True}
             if stop:body['stop']=stop
             if 'extra_body' in self.scene_client.config:body.update(self.scene_client.config['extra_body'])
+            stage_options=self.scene_client.config.get('stage_extra_body',{})
+            if not isinstance(stage_options,dict) or not isinstance(stage_options.get(self.task_stage,{}),dict):raise ValueError('stage_extra_body must map task names to request options')
+            body.update(stage_options.get(self.task_stage,{}))
             limit=self.scene_client.config.get('max_context_tokens')
             if limit and len(json.dumps(body,ensure_ascii=False).encode())+body['max_tokens']>limit:
                 raise ValueError('task context exceeds configured budget; split source use cases without truncating evidence')
@@ -247,15 +266,19 @@ def _transport_model(client,stage):
                     raise
                 if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
                 emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))
+            if response['choices'][0].get('finish_reason')=='length':
+                if body['max_tokens']>=self.scene_client.config.get('max_tokens',body['max_tokens']):
+                    from .scheduler import TaskBlocked
+                    raise TaskBlocked('awaiting_configuration',{'failure_category':'output_truncated','max_output_tokens':body['max_tokens'],'configuration_required':True,'reason':'输出已达到当前配置上限，停止重复生成；请拆分任务或调整生成模式/输出预算'})
+                raise ValueError('task JSON was truncated; no artifact was published')
             message=response['choices'][0]['message'];calls=[]
             if text_submission:
-                if response['choices'][0].get('finish_reason')=='length':raise ValueError('composition JSON was truncated; no artifact was published')
                 from .http_transport import _content_from_response
                 decoded=json.loads(_content_from_response(response))
-                if not isinstance(decoded,dict):raise ValueError('composition response must be a JSON object')
+                if not isinstance(decoded,dict):raise ValueError('task response must be a JSON object')
                 if set(decoded)=={'clarification'}:
                     detail=decoded['clarification']
-                    if not isinstance(detail,dict) or set(detail)!={'question','basis','decision'} or any(not isinstance(v,str) or not v.strip() for v in detail.values()):raise ValueError('incomplete composition clarification')
+                    if not isinstance(detail,dict) or set(detail)!={'question','basis','decision'} or any(not isinstance(v,str) or not v.strip() for v in detail.values()):raise ValueError('incomplete task clarification')
                     name,args='ask_user',detail
                 else:name,args='submit_result',{'payload':decoded}
                 emit('structured_text_submission',adapter='json_text',target_tool=name)

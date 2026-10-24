@@ -30,6 +30,7 @@ import { ExecutionFlow } from "./ExecutionFlow";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { ArtifactView } from "./ArtifactView";
+import { ExecutionNavigator } from "./ExecutionNavigator";
 import { api, projectUrl, fileUrl, primaryJsonArtifact } from "./api";
 import {
   cn,
@@ -140,7 +141,13 @@ export default function App() {
   function selectNode(id: string) {
     selectedRef.current = id;
     setSelected(id);
-    setTab("stream");
+    const target = graph.nodes.find((n) => n.id === id);
+    setTab(
+      target && ["passed", "awaiting_review"].includes(target.status)
+        ? "artifacts"
+        : "stream",
+    );
+    setGraphMaximized(false);
     dirty.current = false;
     setReview(null);
     setValue(null);
@@ -427,6 +434,33 @@ export default function App() {
             <h1>{project?.name || "需求场景审核工作台"}</h1>
           </div>
           <div className="flex items-center gap-2">
+            {current && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setGraphMaximized(false);
+                  setMaximized((v) => !v);
+                }}
+              >
+                {maximized ? "显示任务导航" : "专注阅读"}
+              </Button>
+            )}
+            {current && (
+              <button
+                className="layout-reset"
+                onClick={() => {
+                  localStorage.removeItem(
+                    "react-resizable-panels:scene-workspace-panels-v4",
+                  );
+                  setPanelVersion((v) => v + 1);
+                  setMaximized(false);
+                  setGraphMaximized(false);
+                }}
+              >
+                复位布局
+              </button>
+            )}
             <span className={cn("connection", streamConnected && "online")}>
               <span />
               {streamConnected ? "事件已连接" : "本地工作台"}
@@ -561,21 +595,21 @@ export default function App() {
             <PanelGroup
               direction="horizontal"
               key={panelVersion}
-              autoSaveId="scene-workspace-panels-v3"
+              autoSaveId="scene-workspace-panels-v4"
               className={cn(
                 "main-panels",
                 maximized && "workspace-maximized",
                 graphMaximized && "graph-maximized",
               )}
             >
-              <Panel defaultSize={60} minSize={30}>
+              <Panel defaultSize={80} minSize={55}>
                 <section className="center-workspace">
                   {!selected ? (
                     <div className="overview">
                       <div className="overview-title">
                         <span className="eyebrow">PROJECT OVERVIEW</span>
                         <h2>执行概览</h2>
-                        <p>在右侧选择节点，查看实时输出与生成文件。</p>
+                        <p>从右侧任务导航选择结果；完整依赖图按需展开。</p>
                       </div>
                       <div className="overview-metrics">
                         <div>
@@ -705,21 +739,16 @@ export default function App() {
                           {phaseLabels[node?.phase || "pending"] || node?.phase}
                         </span>
                       </div>
-                      <div className="workspace-tools">
-                        <button onClick={() => setMaximized(!maximized)}>
-                          {maximized ? "恢复执行图" : "最大化工作区"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem(
-                              "react-resizable-panels:scene-workspace-panels-v3",
-                            );
-                            setPanelVersion((v) => v + 1);
-                          }}
+                      {reviewHeader?.status === "draft" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="node-review-shortcut"
+                          onClick={() => setTab("review")}
                         >
-                          恢复60 / 40布局
-                        </button>
-                      </div>
+                          结果已保存，点击审核后继续
+                        </Button>
+                      )}
                       <div className="node-meta">
                         <span>
                           目标文件{" "}
@@ -944,17 +973,29 @@ export default function App() {
               <PanelResizeHandle className="panel-handle">
                 <GripVertical size={13} />
               </PanelResizeHandle>
-              <Panel defaultSize={40} minSize={28}>
-                <ExecutionFlow
-                  maximized={graphMaximized}
-                  onMaximize={() => {
-                    setMaximized(false);
-                    setGraphMaximized((v) => !v);
-                  }}
-                  graph={graph}
-                  selected={selected}
-                  onSelect={selectNode}
-                />
+              <Panel defaultSize={20} minSize={18} maxSize={45}>
+                {graphMaximized ? (
+                  <ExecutionFlow
+                    maximized={graphMaximized}
+                    onMaximize={() => {
+                      setMaximized(false);
+                      setGraphMaximized((v) => !v);
+                    }}
+                    graph={graph}
+                    selected={selected}
+                    onSelect={selectNode}
+                  />
+                ) : (
+                  <ExecutionNavigator
+                    graph={graph}
+                    selected={selected}
+                    onSelect={selectNode}
+                    onOpenGraph={() => {
+                      setMaximized(false);
+                      setGraphMaximized(true);
+                    }}
+                  />
+                )}
               </Panel>
             </PanelGroup>
           </>

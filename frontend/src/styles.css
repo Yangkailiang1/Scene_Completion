@@ -1716,3 +1716,59 @@ body,
   color: #6e7f98;
   font-size: 12px;
 }
+
+/* Reading-first workbench: compact chrome, task navigator, optional canvas. */
+.topbar { height: 72px; min-height: 72px; padding: 12px 22px; }
+.topbar h1 { font-size: 23px; margin-top: 3px; }
+.project-statusbar { height: 42px; min-height: 42px; padding: 0 22px; font-size: 12px; }
+.node-heading { padding: 14px 20px 8px; }
+.node-heading h2 { font-size: 21px; }
+.workspace-tools { padding: 2px 22px 5px; }
+.node-meta { padding: 2px 22px 8px; font-size: 11px; min-height: 23px; }
+.node-meta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-meta code { font-size: 11px; }
+.tab-row { padding: 6px 18px; }
+.artifact-content, .evidence-content, .review-content { padding: 14px 20px 24px; }
+table { font-size: 14px; line-height: 1.65; }
+th { color: #4b5d78; font-weight: 600; }
+td { color: #26384e; }
+th, td { padding: 11px 12px; }
+.full-json { margin-top: 22px; }
+.readable-rules { margin: 0; padding-left: 15px; min-width: 150px; }
+.readable-rules li + li { margin-top: 6px; }
+.cell-details { max-width: 320px; }
+.cell-details summary { cursor: pointer; color: #456aa6; font-size: 12px; }
+.cell-details pre, .cell-details p { max-height: 200px; overflow: auto; font-size: 12px; white-space: pre-wrap; margin-top: 8px; }
+.catalog-search { display: flex; gap: 12px; align-items: center; margin: 4px 0 18px; font-size: 13px; }
+.catalog-search input { padding: 9px 12px; border: 1px solid #d5dfec; border-radius: 8px; flex: 1; min-width: 100px; color: #253a55; }
+.catalog-search button { color: #4969ad; }
+.catalog-search span { color: #667b94; white-space: nowrap; }
+.api-reader-card { border: 1px solid #dce4ef; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.api-reader-card > header { display: flex; gap: 15px; justify-content: space-between; padding: 15px 18px; background: #f6f9fd; }
+.api-reader-card header span { font-size: 12px; color: #5d7596; }
+.api-reader-card h3 { font-size: 17px; font-weight: 650; color: #273f60; margin: 4px 0 7px; }
+.api-reader-card h3 small { font-size: 12px; font-weight: 400; color: #6f8095; }
+.api-reader-card header code { font-size: 13px; color: #3e5f94; overflow-wrap: anywhere; }
+.api-reader-card header p { font-size: 12px; color: #806f3e; white-space: nowrap; }
+.api-reader-card .table-scroll { border: 0; border-radius: 0; margin: 0; }
+.execution-navigator { height: 100%; display: flex; flex-direction: column; min-height: 0; background: #f8fafd; border-left: 1px solid #e2e8f1; }
+.execution-navigator > header { padding: 17px 16px 12px; }
+.execution-navigator header > div { display: flex; gap: 8px; align-items: center; color: #2f4665; font-size: 15px; }
+.execution-navigator header button { color: #4a6cac; font-size: 12px; margin-top: 10px; }
+.execution-navigator > select { margin: 0 14px 14px; padding: 8px; border: 1px solid #d8e2ef; border-radius: 7px; background: white; font-size: 12px; color: #546a88; }
+.navigator-scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 20px; }
+.navigator-role { margin-bottom: 14px; }
+.navigator-role > summary { list-style: none; display: flex; gap: 6px; align-items: center; padding: 10px 5px; font-size: 13px; font-weight: 600; color: #354c6c; cursor: pointer; }
+.navigator-role summary span { margin-left: auto; font-size: 11px; color: #7b8aa0; font-weight: 400; }
+.navigator-role > button { display: block; width: 100%; text-align: left; border: 1px solid transparent; border-radius: 8px; padding: 11px 10px; margin: 2px 0; }
+.navigator-role > button:hover { background: #eef3fa; }
+.navigator-role > button.chosen { border-color: #a6bee9; background: #edf3ff; }
+.navigator-role button div { display: flex; gap: 7px; align-items: flex-start; }
+.navigator-role button .status-dot { flex-shrink: 0; margin-top: 6px; }
+.navigator-role button strong { font-size: 13px; line-height: 1.6; color: #344e71; font-weight: 550; }
+.navigator-role button small { display: block; margin: 5px 0 0 14px; font-size: 11px; line-height: 1.6; color: #71839b; }
+.navigator-role button em { color: #a16d24; font-size: 11px; margin-left: 14px; }
+.navigator-role > p { color: #8896aa; font-size: 12px; padding: 6px; }
+.layout-reset { color: #5f7699; font-size: 12px; padding: 6px; white-space: nowrap; }
+.diagram-view iframe { height: min(68vh, 720px); min-height: 400px; }
+.node-review-shortcut { align-self: flex-end; margin: 0 20px 8px; flex-shrink: 0; }

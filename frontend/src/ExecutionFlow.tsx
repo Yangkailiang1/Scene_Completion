@@ -56,7 +56,11 @@ function TaskCard({ data }: NodeProps<TaskNode>) {
               <code>{f}</code>
               <small>
                 {n.artifacts?.some((a) => a.name === f)
-                  ? "已保存"
+                  ? n.artifacts?.some(
+                      (a) => a.name === f && a.status === "awaiting_review",
+                    )
+                    ? "已保存 · 待审核"
+                    : "已保存"
                   : n.planned
                     ? "待展开"
                     : "待生成"}

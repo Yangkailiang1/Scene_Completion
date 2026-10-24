@@ -115,7 +115,7 @@ class Scheduler:
     def run(self):
         for t in self.tasks.values():
             if any(d not in self.tasks for d in t.deps):raise ValueError('unknown dependency')
-        remaining=set(self.tasks);active={};done=set();outputs={}
+        remaining=set(self.tasks);active={};done=set();outputs={};dispatches={}
         def job(t,deps,record):
             fn=t.repair if record['rounds'] else t.execute
             from .execution_events import bind,phase
@@ -132,7 +132,12 @@ class Scheduler:
                     self.on_update()
                     remaining.update(set(self.tasks)-done-set(active.values()))
                 progressed=False
-                for key in sorted(remaining):
+                roots={'components','api-map','use-case-extract','use-case-align','existing-branches','api-index'}
+                order={key:n for n,key in enumerate(self.tasks)}
+                # Filename sorting let api-parameters-part-* starve both use-case
+                # catalogs. Unlock project roots first, then share dispatches
+                # across stages so one large fan-out cannot monopolize slots.
+                for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 1,dispatches.get(self.tasks[k].stage,0),order[k])):
                     t=self.tasks[key]
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
@@ -153,8 +158,12 @@ class Scheduler:
                         if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
                         rec['rounds']+=1
                     if len(active)>=self.limit:continue
+                    previous_failure=rec.get('failure')
                     rec.update(status='running',started_at=time.time());rec.pop('failure',None);rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
-                    future=pool.submit(copy_context().run,job,t,deps,dict(rec));active[future]=key;remaining.remove(key);progressed=True
+                    attempt_record=dict(rec)
+                    if rec['rounds'] and previous_failure:attempt_record['failure']=previous_failure
+                    future=pool.submit(copy_context().run,job,t,deps,attempt_record);active[future]=key;remaining.remove(key);progressed=True
+                    dispatches[t.stage]=dispatches.get(t.stage,0)+1
                 self.save()
                 if not active:
                     if remaining and not progressed:raise ValueError('dependency cycle')

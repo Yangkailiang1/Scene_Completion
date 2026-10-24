@@ -22,7 +22,7 @@ INPUTS={'components':'RR＋SR正向文档','rr-use-cases':'RR正向文档','sr-u
  'existing-branches':'RR＋SR原文已有异常（独立通道）','existing-bind':'原分支＋融合SSD＋用例对应',
  'existing-extract':'已绑定分支＋接口约束＋关注点体系','test-ground-truth':'独立测试spec＋融合SSD＋正常约束',
  'gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','exception-evaluation':'独立GT与G/E对齐结果'}
-PREVIEWS=[('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','exception-generate','生成异常G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
+PREVIEWS=[('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','exception-generate','生成异常G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
 
 def expected_files(key,case,stage):
     stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -61,6 +61,11 @@ def graph_snapshot(root):
         folder=artifact_folder(root,key,node['case']);stem=(key if node['case']=='shared' else key[len(node['case'])+1:]).replace(':','--')
         for f in folder.glob(stem+'.*'):
             if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'saved'})
+        if status=='awaiting_review':
+            from .storage import fingerprint
+            preview=root/'reviews/previews'/fingerprint(key)
+            for f in preview.glob('*'):
+                if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'awaiting_review'})
         question=conversations.pending(key)
         nodes.append({**node,'planned':False,'input_summary':INPUTS.get(key,INPUTS.get(node['stage'],'依赖上游已验证产物')),'artifacts':actual,'question':question,'guidance_revision':conversations.revision(key),
           'retry_at':event.get('data',{}).get('retry_at') if event else None,'retry_count':event.get('data',{}).get('retry_count') if event else None,'label':node.get('label') or LABELS.get(node['stage'],node['stage']),'status':status,'phase':phase or 'pending',

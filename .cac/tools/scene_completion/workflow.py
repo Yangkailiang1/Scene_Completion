@@ -41,7 +41,7 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     # Exact reviewed, output-compatible runtime changes may retain paid results.
@@ -106,8 +106,18 @@ class Execution:
             # not E/GT, previous G, or semantic answers from another channel.
             p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'availability':service_exceptions(inputs),'storage':storage_exceptions(inputs),'pending':pending_rules(inputs)}
             p['tool_rule_instruction']='工具会合并上述确定性候选。模型只需返回其他有具体正常规则支持的双方/操作异常，可返回空scenarios；不要改写字段规则或编造后续行为。'
+        if task=='concern-match':
+            p['tool_rule_instruction']='程序会依照既定注册表自动继承基础、功能、技术及关系关注点，并由明确字段属性补齐数据关注点。你只补充需要语义理解的具体适用依据（如认证/授权条件、技术身份、明确的业务规则），不要穷举所有关注点或重复字段规则；没有额外依据可返回空matches，未知项写pending。'
         if record.get('rounds'):
             p['repair']={'failure':record.get('failure'),'round':record['rounds'],'rule':'仅修复本任务；不读取其他通道。'}
+            candidate=(record.get('failure') or {}).get('rejected_output')
+            if candidate:
+                path=(self.root/candidate).resolve()
+                if path.is_relative_to(self.root.resolve()) and path.is_file():
+                    previous=read_json(path)
+                    if previous.get('task')==task and previous.get('node_key')==p['node_key'] and previous.get('input_hash')==fingerprint(inputs):
+                        p['repair']['candidate']=previous['payload']
+                        p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
         batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
         raw=None
@@ -123,7 +133,11 @@ class Execution:
         elif self.mode=='external':
             if not self.client:raise ValueError('external mode needs a configured semantic client')
             try:
-                raw=self.client.agent(p) if hasattr(self.client,'post') else self.gate.call(self.client.agent,p)
+                if task in {'gap-compare','semantic-compare'}:
+                    from .comparison_batches import compare_in_batches
+                    raw=compare_in_batches(p,self.client,self.root,self.conversations.revision(p['node_key']),
+                      call=lambda child:self.client.agent(child) if hasattr(self.client,'post') else self.gate.call(self.client.agent,child))
+                else:raw=self.client.agent(p) if hasattr(self.client,'post') else self.gate.call(self.client.agent,p)
             except ValueError as exc:
                 diagnostic=getattr(exc,'response_diagnostic',None)
                 if diagnostic:
@@ -277,14 +291,18 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
     rr=current_projection(rr);sr=current_projection(sr)
     normal_rr=normal_projection(rr);normal_sr=normal_projection(sr)
-    for task,inputs in [('components',{'RR':normal_rr,'SR':normal_sr}),('api-map',{'SR':normal_sr}),('api-index',{'SR':normal_sr})]:
+    for task,inputs in [('components',{'RR':normal_rr,'SR':normal_sr}),('api-map',{'SR':normal_sr})]:
         ex.add(task,task,static=inputs)
+    from .api_documents import index_interfaces
+    ex.add('api-index','api-index',('api-map',),build=lambda d:{'SR':normal_sr,'api-map':d['api-map']},transform=index_interfaces)
     def expand_api():
         record=ex.scheduler.state['tasks'].get('api-index',{})
         if record.get('status')!='passed':
             ex.add('api-parameters','api-parameters',('api-index',),transform=lambda d:{'apis':[]})
             return
         index=payload(read_json(ex.root/record['output_file']))['apis'];keys=[]
+        mapped=payload(read_json(ex.root/ex.scheduler.state['tasks']['api-map']['output_file']))
+        interfaces={i['id']:i for s in mapped['services'] for i in s['interfaces']}
         for n,entry in enumerate(index):
             key='api-parameters-part-'+fingerprint(entry['id'])[:12]
             if key in keys:raise ValueError('duplicate API index identity')
@@ -294,7 +312,8 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
                 lines=[r for r in d['lines'] if any(span['start']<=r['number']<=span['end'] for span in ranges)]
                 if lines:docs.append({**d,'lines':lines})
             if not docs:raise ValueError('API index has no valid source range')
-            ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,entry=entry:{'SR':docs,'interface':{'id':entry['id'],'name':entry['name']}})
+            interface={**interfaces[entry['id']]}
+            ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,interface=interface:{'SR':docs,'interface':interface})
             ex.scheduler.tasks[key].display_label='接口参数 · '+entry['name']
             keys.append(key)
         def merge(d):
@@ -304,7 +323,6 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
             return {'apis':apis}
         ex.add('api-parameters','api-parameters',tuple(keys) or ('api-index',),build=lambda d:d,transform=merge)
     ex.expand_api=expand_api
-    ex.add('existing-branches','existing-branches',static={'existing-documents':rr+sr})
     ex.add('rr-use-cases','use-case-extract',static={'documents':normal_rr,'layer':'RR'})
     ex.add('sr-use-cases','use-case-extract',static={'documents':normal_sr,'layer':'SR'})
     ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
@@ -324,13 +342,14 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
 def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications):
     from .use_cases import select_documents
     from .source_documents import case_projection
+    from .api_documents import case_parameters
     cases=[g['id'] for g in groups if g['status']=='confirmed']
     extraction_jobs=[('shared',t,t) for t in ('components','api-map','api-parameters')]
     for cid in cases:
         key=lambda t:cid+':'+t
         # Translate scheduler keys to task contract names only within this case.
         def add(task,deps=(),static=None,build=None,transform=None,cid=cid):
-            local=lambda t:t if t in {'components','api-map','api-parameters','existing-branches'} else cid+':'+t
+            local=lambda t:t if t in {'components','api-map','api-parameters'} else cid+':'+t
             def construct(d):
                 values={t:d[local(t)] for t in deps}
                 return build(values) if build else deepcopy(static or {})
@@ -342,6 +361,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         scoped_test=[]
         for tid in group['rr_ids']+group['sr_ids']:scoped_test+=case_projection(tests,tid,test_ids)
         scoped_test=list({fingerprint(d):d for d in scoped_test}.values())
+        add('existing-branches',static={'existing-documents':scoped_rr+scoped_sr})
         add('fused-ssd',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
           build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g})
         for layer in ('RR','SR'):
@@ -355,18 +375,20 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         def concern_input(d,positive=positive):
             v={k:d[k] for k in normal};v=bind_resource_services(v)
             v.update(basic_views(d['interaction-enrich']))
+            v['api-parameters']=case_parameters(v,d['interaction-enrich'])
             return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry()}
         add('concern-match',normal+('interaction-enrich',),static={'normal-documents':positive},build=concern_input)
         add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
         def generation_input(d):
             v=bind_resource_services({k:d[k] for k in normal if k!='object-operations'})
             v.update(basic_views(d['enriched-view']))
+            v['api-parameters']=case_parameters(v,d['enriched-view'])
             return {**v,'enriched-interactions':actual_context(d['enriched-view']),'concern-match':d['concern-match'],'registry':registry()}
         add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input)
         add('existing-bind',('existing-branches','fused-ssd'),
             build=lambda d,g=group:{'branches':d['existing-branches'],'fused-ssd':d['fused-ssd'],'case-group':g,'registry':registry()})
-        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters'),
-            build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':d['api-parameters']})
+        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map'),
+            build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd'])})
         add('gap-compare',('exception-generate','existing-extract'),build=lambda d:{'left':d['exception-generate']['scenarios'],'right':d['existing-extract']['scenarios'],'purpose':'G_E'})
         add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind'),build=lambda d:d,
             transform=lambda d:{**missing_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['gap-compare']['decisions']),
@@ -374,7 +396,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
               'pending':d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
-        add('test-ground-truth',('api-parameters','fused-ssd'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':d['api-parameters'],'fused-ssd':d['fused-ssd'],'registry':registry()},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None)
+        add('test-ground-truth',('api-parameters','api-map','fused-ssd'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry()},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None)
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
             a,b='test-ground-truth',target
@@ -383,6 +405,10 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E'),build=lambda d:d,
                 transform=lambda d:compare_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['test-ground-truth']['scenarios'],d['gap-compare']['decisions'],d['GT_G']['decisions'],d['GT_E']['decisions']))
         for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
+    # Each checker reads only its own case, in parallel to positive modeling.
+    branch_keys=tuple(cid+':existing-branches' for cid in cases)
+    ex.add('existing-branches','existing-branches',branch_keys,build=lambda d:d,
+      transform=lambda d:{'branches':[{**b,'id':key+'::'+b['id']} for key,part in d.items() for b in part['branches']]})
     for cid,task,source in extraction_jobs:
         truth_key=task if cid=='shared' else cid+':'+task
         gt=extraction_truth.get(truth_key);decisions=adjudications.get(truth_key)

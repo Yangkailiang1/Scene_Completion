@@ -70,7 +70,13 @@ def validate_evidence(value, documents):
                 if end<start or end-start>100 or any(i not in rows for i in range(start,end+1)):
                     raise ValueError('evidence outside allowed source channel')
                 text='\n'.join(rows[i] for i in range(start,end+1))
-                if node['quote'] not in text: raise ValueError('evidence quote differs from source')
+                # Markdown indentation/CRLF is presentation. Keep all words,
+                # internal spaces, punctuation and line boundaries significant.
+                quote=node['quote']
+                if not quote.strip():raise ValueError('evidence quote must contain actual source text')
+                normalized=lambda s:'\n'.join(line.strip() for line in s.splitlines())
+                if quote not in text and normalized(quote) not in normalized(text):
+                    raise ValueError(f"evidence quote differs from source at {node['source_id']}:{start}-{end}; quote={node['quote'][:100]!r}; allowed_text={text[:240]!r}")
             else:
                 for v in node.values():visit(v)
         elif isinstance(node,list):

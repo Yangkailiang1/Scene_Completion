@@ -47,6 +47,9 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
         "request_finished",
         "request_failed",
         "stream_progress",
+        "stream_status",
+        "endpoint_wait",
+        "endpoint_admitted",
         "tool_started",
         "tool_finished",
         "tool_failed",
@@ -61,6 +64,11 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
       ].includes(e.kind)
     ) {
       let text = "";
+      if (e.kind === "stream_status") text = d.message;
+      if (e.kind === "endpoint_wait")
+        text = `等待账号并发名额（总上限${d.limit}路，包含其他项目和节点对话）`;
+      if (e.kind === "endpoint_admitted")
+        text = `已取得模型请求名额，等待${d.wait_seconds}秒`;
       if (e.kind === "rate_limit_wait")
         text = `限流冷却，${new Date(d.retry_at * 1000).toLocaleTimeString()}重试（${d.retry_count}/3）`;
       if (e.kind === "guidance_applied")
@@ -103,6 +111,9 @@ const labels: Record<string, string> = {
   request_finished: "请求结束",
   request_failed: "请求未完成",
   stream_progress: "生成进展",
+  stream_status: "模型状态",
+  endpoint_wait: "并发排队",
+  endpoint_admitted: "继续请求",
   tool_started: "调用工具",
   tool_finished: "工具返回",
   tool_failed: "工具失败",

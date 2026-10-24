@@ -134,4 +134,5 @@ def test_stream_provider_error_is_classified_without_echoing_server_body():
     assert 'private' not in str(failure.value)
 
 def test_truncated_tool_result_is_rejected_for_repair_not_connection_failure():
-    with pytest.raises(ValueError,match='truncated'):read_chat_stream(sse({'choices':[{'delta':{'tool_calls':[{'index':0,'id':'a','function':{'name':'submit_result','arguments':'{"partial":'}}]},'finish_reason':'length'}]}),time.perf_counter(),10)
+    result=read_chat_stream(sse({'choices':[{'delta':{'tool_calls':[{'index':0,'id':'a','function':{'name':'submit_result','arguments':'{"partial":'}}]},'finish_reason':'length'}]}),time.perf_counter(),10)
+    assert result['choices'][0]['finish_reason']=='length'

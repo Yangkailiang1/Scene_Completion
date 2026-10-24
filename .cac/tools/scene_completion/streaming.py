@@ -5,9 +5,9 @@ import http.client
 
 
 def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None):
-    content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started
+    content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started;preparing=False
     def consume(lines):
-        nonlocal model,finish,usage,done,events,first,size,last,last_progress
+        nonlocal model,finish,usage,done,events,first,size,last,last_progress,preparing
         data='\n'.join(lines)
         if data=='[DONE]':done=True;return
         if not data:return
@@ -33,6 +33,9 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         for choice in row.get('choices',[]) or []:
             if choice.get('index',0)!=0:continue
             delta=choice.get('delta') or {}
+            if delta.get('reasoning_content') and not preparing:
+                emit('stream_status',status='preparing_answer',message='模型正在准备回复，尚未返回正文。')
+                preparing=True
             text=delta.get('content')
             if text:
                 if not isinstance(text,str):raise ValueError('stream content must be text')
@@ -78,9 +81,11 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
           'first_event_seconds':first,'last_event_age_seconds':round(time.perf_counter()-last,3) if last else None,
           'incomplete_tools':[c['function']['name'] for c in tool_calls.values()]}
         raise error
-    if finish=='length':raise ValueError('model output was truncated before a complete task submission; review stage output budget')
     calls=[tool_calls[i] for i in sorted(tool_calls)]
     for call in calls:
+        # Keep completed transport usage; the semantic client rejects a model
+        # length ceiling before parsing or publishing partial tool arguments.
+        if finish=='length':continue
         if not call['id'] or not call['function']['name']:raise ValueError('incomplete streamed tool identity')
         try:json.loads(call['function']['arguments'])
         except json.JSONDecodeError as e:raise ValueError('completed tool stream contains invalid JSON arguments') from e

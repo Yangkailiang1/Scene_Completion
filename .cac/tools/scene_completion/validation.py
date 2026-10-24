@@ -27,10 +27,13 @@ def validate_result(task, payload, inputs):
         validate_catalogue(task,payload,inputs)
     docs=documents_in(inputs)
     allowed={fingerprint(r) for r in evidence_refs(inputs)}
+    evidence_errors=[]
     for ref in evidence_refs(payload):
         if fingerprint(ref) not in allowed:
             if not docs:raise ValueError('output uses evidence outside task dependencies')
-            validate_evidence(ref,docs)
+            try:validate_evidence(ref,docs)
+            except ValueError as e:evidence_errors.append(str(e))
+    if evidence_errors:raise ValueError('; '.join(dict.fromkeys(evidence_errors[:8])))
     refs_required(payload)
     # Numerical rule values must be traceable, even when the model cites a
     # real sentence. Citation presence alone is not a threshold source.
@@ -77,6 +80,8 @@ def validate_result(task, payload, inputs):
     visit(payload)
     if task=='api-parameters' and 'interface' in inputs:
         if len(payload['apis'])!=1 or payload['apis'][0]['id']!=inputs['interface']['id']:raise ValueError('API child must output exactly the indexed interface, preserving its ID')
+        expected=inputs['interface'].get('address')
+        if expected and payload['apis'][0]['address']!=expected:raise ValueError('接口目录已明确地址，参数表必须保留该地址，不得改为待确认')
     if task=='api-index':
         ids=set();docs={d['source_id']:d for d in inputs['SR']}
         for a in payload['apis']:

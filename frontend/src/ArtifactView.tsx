@@ -12,6 +12,13 @@ class PreviewBoundary extends Component<
   static getDerivedStateFromError() {
     return { failed: true };
   }
+  componentDidUpdate(previous: Readonly<{ children: ReactNode; value: any }>) {
+    if (
+      this.state.failed &&
+      JSON.stringify(previous.value) !== JSON.stringify(this.props.value)
+    )
+      this.setState({ failed: false });
+  }
   render() {
     return this.state.failed ? (
       <div role="alert" className="p-5 text-sm">
@@ -24,6 +31,73 @@ class PreviewBoundary extends Component<
       this.props.children
     );
   }
+}
+const ruleLabels: Record<string, string> = {
+  completeness: "完整性",
+  type: "类型",
+  format: "格式",
+  length: "长度",
+  size: "大小",
+  range: "范围",
+  enum: "枚举",
+  legality: "合法性",
+  minimum: "最小值",
+  maximum: "最大值",
+};
+function Cell({ field, value }: { field: string; value: any }) {
+  if (field === "required")
+    return (
+      <>{value === true ? "必填" : value === false ? "可选" : display(value)}</>
+    );
+  if (field === "constraints" && Array.isArray(value))
+    return value.length ? (
+      <ul className="readable-rules">
+        {value.map((r: any, i: number) => (
+          <li key={i}>
+            {ruleLabels[r.kind] || r.kind}：
+            {r.status === "pending"
+              ? "待确认具体约束"
+              : Array.isArray(r.value)
+                ? r.value.join("、")
+                : display(r.value)}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <>未明确约束</>
+    );
+  if (field === "source_ranges" && Array.isArray(value))
+    return (
+      <>
+        {value
+          .map((r: any) => `${r.source_id} · ${r.start}–${r.end}行`)
+          .join("\n")}
+      </>
+    );
+  if (field === "source_refs" && Array.isArray(value))
+    return (
+      <details className="cell-details">
+        <summary>{value.length}处原文依据</summary>
+        {value.map((r: any, i: number) => (
+          <p key={i}>
+            {r.source_id} · {r.line_start}–{r.line_end}行<br />
+            {r.quote}
+          </p>
+        ))}
+      </details>
+    );
+  if (Array.isArray(value) && value.every((r) => typeof r !== "object"))
+    return <>{value.join("、") || "—"}</>;
+  if (value && typeof value === "object") {
+    if (value.name) return <>{value.name}</>;
+    return (
+      <details className="cell-details">
+        <summary>查看结构化内容</summary>
+        <pre>{JSON.stringify(value, null, 2)}</pre>
+      </details>
+    );
+  }
+  return <>{display(value)}</>;
 }
 function Table({
   rows,
@@ -52,7 +126,9 @@ function Table({
           {rows.map((r, i) => (
             <tr key={i}>
               {columns.map(([k]) => (
-                <td key={k}>{display(r[k])}</td>
+                <td key={k}>
+                  <Cell field={k} value={r[k]} />
+                </td>
               ))}
             </tr>
           ))}
@@ -60,6 +136,89 @@ function Table({
       </table>
       {rows.length === 0 && (
         <p className="p-5 text-xs text-slate-400">当前结果为空集合</p>
+      )}
+    </div>
+  );
+}
+function CatalogTable({
+  rows,
+  selectedApis,
+}: {
+  rows: any[];
+  selectedApis: string[];
+}) {
+  const [search, setSearch] = useState("");
+  const [all, setAll] = useState(false);
+  const visible = rows.filter(
+    (r) =>
+      (all || !selectedApis.length || selectedApis.includes(r.api_id)) &&
+      (!search ||
+        [r.service, r.api_name, r.address, r.name].some((v) =>
+          String(v || "")
+            .toLowerCase()
+            .includes(search.toLowerCase()),
+        )),
+  );
+  const groups = new Map<string, any[]>();
+  visible.forEach((r) => {
+    const key = JSON.stringify([r.service, r.api_id, r.method, r.address]);
+    groups.set(key, [...(groups.get(key) || []), r]);
+  });
+  return (
+    <div className="catalog-reader">
+      <div className="catalog-search">
+        <input
+          aria-label="搜索接口或参数"
+          placeholder="搜索服务、接口、地址或参数…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {selectedApis.length > 0 && (
+          <button onClick={() => setAll((v) => !v)}>
+            {all ? "只看当前接口" : "查看全部接口"}
+          </button>
+        )}
+        <span>{groups.size}个接口</span>
+      </div>
+      {Array.from(groups, ([key, entries]) => {
+        const a = entries[0];
+        return (
+          <section key={key} className="api-reader-card">
+            <header>
+              <div>
+                <span>{a.service || "服务归属待确认"}</span>
+                <h3>
+                  {a.api_name} <small>{a.api_id}</small>
+                </h3>
+                <code>
+                  {[a.method, a.address || "地址待确认"]
+                    .filter(Boolean)
+                    .join(" ")}
+                </code>
+              </div>
+              <p>
+                {a.mapping_status} · {a.parameter_status}
+              </p>
+            </header>
+            <Table
+              rows={entries}
+              columns={[
+                ["direction", "方向"],
+                ["location", "位置"],
+                ["name", "参数"],
+                ["data_type", "数据类型"],
+                ["required", "可选／必填"],
+                ["default", "默认值"],
+                ["constraints", "约束条件"],
+              ]}
+            />
+          </section>
+        );
+      })}
+      {!groups.size && (
+        <p className="p-5 text-sm">
+          暂无匹配接口；尚未提取的结果不会显示为无参数。
+        </p>
       )}
     </div>
   );
@@ -358,7 +517,7 @@ export function ArtifactView({
       taskKey === "api-index" ||
       taskKey.startsWith("api-parameters"));
   useEffect(() => {
-    setShowCatalog(taskKey === "api-map" || taskKey === "api-parameters");
+    setShowCatalog(isApi && taskKey !== "api-index");
     setCatalog(null);
     setCatalogError("");
     if (!isApi) return;
@@ -444,26 +603,16 @@ export function ArtifactView({
                 </p>
               )}
               <PreviewBoundary
-                key={projectId + taskKey + JSON.stringify(catalog)}
+                key={projectId + taskKey + "catalog"}
                 value={catalog}
               >
-                <Table
+                <CatalogTable
                   rows={catalog.rows}
-                  columns={[
-                    ["service", "服务名称"],
-                    ["api_name", "API名称"],
-                    ["method", "方法"],
-                    ["address", "接口地址"],
-                    ["mapping_status", "归属状态"],
-                    ["parameter_status", "参数状态"],
-                    ["direction", "方向"],
-                    ["location", "位置"],
-                    ["name", "参数"],
-                    ["data_type", "数据类型"],
-                    ["required", "可选／必填"],
-                    ["default", "默认值"],
-                    ["constraints", "约束条件"],
-                  ]}
+                  selectedApis={
+                    taskKey?.startsWith("api-parameters-part-")
+                      ? (value?.apis || []).map((a: any) => a.id)
+                      : []
+                  }
                 />
               </PreviewBoundary>
               <div className="flex gap-4 p-5 text-sm text-primary">
@@ -481,10 +630,7 @@ export function ArtifactView({
           )}
         </>
       ) : (
-        <PreviewBoundary
-          key={projectId + taskKey + JSON.stringify(value)}
-          value={value}
-        >
+        <PreviewBoundary key={projectId + taskKey + "node"} value={value}>
           <PayloadView value={value} definitions={definitions} />
         </PreviewBoundary>
       )}

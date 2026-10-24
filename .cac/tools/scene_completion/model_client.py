@@ -48,6 +48,14 @@ class SemanticClient:
         return selected
 
     def post(self, endpoint: str, body: dict) -> dict:
+        if not self.base_url.startswith(('https://','http://')) or not self.api_key:raise ValueError('OpenAI-compatible endpoint or API key is not configured')
+        from .endpoint_admission import endpoint_slot
+        with endpoint_slot(self.base_url,self.api_key,limit=self.config.get('max_endpoint_concurrency',3),
+          timeout=self.config.get('endpoint_admission_timeout_seconds',300),
+          pause_file=__import__('pathlib').Path(self.config['run_root'])/'pause_requested.json' if self.config.get('run_root') else None):
+            return self._post_admitted(endpoint,body)
+
+    def _post_admitted(self, endpoint: str, body: dict) -> dict:
         if not self.base_url.startswith(("https://", "http://")) or not self.api_key:
             raise ValueError("OpenAI-compatible endpoint or API key is not configured")
         from .model_access import registry, access_category

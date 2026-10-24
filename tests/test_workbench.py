@@ -172,3 +172,10 @@ def test_catalogue_rejects_overlapping_independent_use_cases(tmp_path):
     value=m['use-case-extract']({'input':{'documents':rr,'layer':'RR'}})
     other=deepcopy(value['cases'][0]);other['id']='other';value['cases'].append(other)
     with pytest.raises(ValueError,match='overlapping'):validate_result('use-case-extract',value,{'documents':rr,'layer':'RR'})
+
+
+def test_last_case_does_not_absorb_the_global_appendix():
+    d={'source_id':'sr','channel':'existing','name':'SR.md','lines':[{'number':n,'text':t} for n,t in enumerate(['# spec','## CASE-A','normal','### 异常','case failure','## Appendix','global errors'],1)]}
+    entry={'id':'CASE-A','source_ranges':[{'source_id':'sr','start':2,'end':3}]}
+    selected=select_documents([d],[entry],[entry])
+    assert [r['number'] for r in selected[0]['lines']]==[2,3,4,5]
