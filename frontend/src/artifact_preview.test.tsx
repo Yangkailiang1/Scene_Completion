@@ -2,6 +2,15 @@ import React from "react";
 import { it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ArtifactView, PayloadView } from "./ArtifactView";
+import { primaryJsonArtifact } from "./api";
+it("selects the model data instead of drawing layout metadata", () => {
+  const files = [
+    "components.layout.json",
+    "components.metadata.json",
+    "components.json",
+  ].map((name) => ({ name, path: name, bytes: 1 }));
+  expect(primaryJsonArtifact(files)?.name).toBe("components.json");
+});
 
 it("renders an interface index without pretending it contains parameters", () => {
   render(

@@ -30,7 +30,7 @@ import { ExecutionFlow } from "./ExecutionFlow";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { ArtifactView } from "./ArtifactView";
-import { api, projectUrl, fileUrl } from "./api";
+import { api, projectUrl, fileUrl, primaryJsonArtifact } from "./api";
 import {
   cn,
   phaseColor,
@@ -233,9 +233,7 @@ export default function App() {
         );
         v = r.payload;
       } else {
-        const file = artifacts.find(
-          (a) => a.name.endsWith(".json") && !a.name.endsWith(".metadata.json"),
-        );
+        const file = primaryJsonArtifact(artifacts);
         if (file) {
           const raw = await api(fileUrl(id, file.path));
           v = raw.payload || raw;

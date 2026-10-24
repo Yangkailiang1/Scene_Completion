@@ -1,3 +1,12 @@
+import type { Artifact } from "./types";
+export function primaryJsonArtifact(artifacts: Artifact[]) {
+  return artifacts.find(
+    (a) =>
+      a.name.endsWith(".json") &&
+      !a.name.endsWith(".metadata.json") &&
+      !a.name.endsWith(".layout.json"),
+  );
+}
 export async function api<T = any>(
   path: string,
   init: RequestInit = {},
