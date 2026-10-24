@@ -49,7 +49,7 @@ def expand_inverse(value,inputs):
         if not branches or branch not in branches:raise ValueError('宽泛覆盖必须保留原始分支')
         b=branches[branch]
         import re
-        if not re.search(r'参数.{0,6}(非法|无效|错误)|invalid.{0,16}param|parameter.{0,16}(invalid|error)',b['description'],re.I):raise ValueError('原分支不支持参数非法宽泛覆盖')
+        if not re.search(r'参数.{0,6}(非法|无效|错误)|invalid.{0,16}param|parameter.{0,16}(invalid|error)',b['description'],re.I):raise ValueError('原分支 '+branch+' 不支持参数非法宽泛覆盖: '+b['description'][:180]+'。只有明确宽泛参数非法的本分支才可用input_parameters；其他分支须按自身具体原因使用exact，不能把相邻分支合并成宽泛覆盖。')
         i=next(i for i in rows if i['id']==s['interaction_id'])
         if i['direction']!='request':raise ValueError('参数非法不能覆盖输出交互')
         # The broad parent is retained for auditable one-to-many coverage.

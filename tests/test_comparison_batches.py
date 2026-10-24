@@ -29,3 +29,17 @@ def test_large_interaction_matrix_is_bounded_per_model_request(tmp_path):
     c=Client();v=compare_in_batches(p,c,tmp_path)
     assert len(v['decisions'])==170 and len(c.calls)==6
     assert all(len(x['left'])*len(x['right'])<=64 for x in c.calls)
+
+
+def test_exact_normal_rules_and_approved_broad_coverage_need_no_model(tmp_path):
+    a=scenario('g');a.update(rule_id='normal-required-id',field='id',scope='interface',data_location='query',concern_key='api.data.completeness')
+    exact=deepcopy(a);exact['id']='e-exact'
+    broad=deepcopy(a);broad.update(id='e-broad',rule_id=None,field=None,coverage_kind='input_parameters',original_branch_id='branch')
+    p=packet('gap-compare',{'left':[a],'right':[exact,broad],'purpose':'G_E'});p['node_key']='test:gap'
+    client=Client();v=compare_in_batches(p,client,tmp_path)
+    assert not client.calls and len(v['decisions'])==2 and not v['missing']
+    # A different necessary condition remains a semantic decision, despite ID.
+    exact['conditions']=['another failure condition']
+    p=packet('semantic-compare',{'left':[a],'right':[exact],'purpose':'GT_G'});p['node_key']='test:GT_G'
+    compare_in_batches(p,client,tmp_path)
+    assert len(client.calls)==1

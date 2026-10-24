@@ -172,3 +172,55 @@ def test_model_schema_disallows_response_fields_in_request_before_submission():
     assert any('location' in list(e.path) for e in errors)
     q['interactions'][0]['data']['sequence'][0]['location']='query'
     assert not list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(q))
+
+
+def test_model_format_rejection_retains_targeted_repair_candidate(tmp_path):
+    from scene_completion.deepagents_client import DeepAgentsClient
+    from scene_completion.scheduler import TaskRejected
+    p=fused_fixture();ctx=EvidenceContext(p)
+    bad=ctx.encode_output({'interactions':[exchange(sid='rr',layer='RR'),exchange(sid='sr')],'rr_sr_links':[],'pending':[]})
+    bad['interactions'][0]['reply_to']='bad-request-parent'
+    def transport(*args):return {'model':'offline','choices':[{'message':{'content':json.dumps(bad)},'finish_reason':'stop'}]}
+    client=DeepAgentsClient({'api_key':'test','base_url':'http://offline','agent_model':'test','run_root':str(tmp_path),'indexed_context':True,'submission_mode':'json_text'},transport=transport)
+    with pytest.raises(TaskRejected) as caught:client.agent(p)
+    saved=json.loads((tmp_path/caught.value.details['rejected_output']).read_text())
+    assert saved['candidate_format']=='model' and saved['payload']==bad
+    p['repair']={k:saved[k] for k in ('payload','candidate_format')};p['repair']['candidate']=p['repair'].pop('payload')
+    repaired=EvidenceContext(p).packet['repair']['candidate']
+    assert repaired['interactions'][0]['reply_to']=='bad-request-parent'
+    assert repaired['interactions'][1]['sender']['component_id']=='human'
+
+
+def test_generation_context_excludes_review_matrix_and_computed_inheritance():
+    from scene_completion.task_context import semantic_view
+    from tests.test_workflow import memory_inputs
+    from scene_completion.concern_hierarchy import resolve_matches
+    x=memory_inputs();x['concern-match']=resolve_matches(x,x['concern-match']['matches'])
+    # A semantic business rule survives; a pending/inapplicable one does not.
+    extra={'interaction_id':'req','target':'sender','object':'开发者','concern_key':'human.authentication','basis':'explicit','concrete_rule':'must own resource','status':'applicable','source_refs':R,'inheritance_paths':[['extra']],'activation_evidence':[{'kind':'authentication','value':'login required','condition':'authenticated caller required','unit':None,'status':'explicit','source_refs':R}]}
+    x['concern-match']['matches'] += [extra,{**extra,'status':'pending','concrete_rule':None}]
+    view=semantic_view('exception-generate',x)
+    assert view['concern-match']['matches']==[{k:v for k,v in extra.items() if k not in {'status','inheritance_paths'}}]
+    # Audit artifact remains intact; only the model view is projected.
+    assert len(x['concern-match']['matches'])>len(view['concern-match']['matches'])
+    x['enriched-interactions']={'interactions':[],'rr_sr_links':[],'pending':[],'resource_mappings':[]}
+    ctx=EvidenceContext(packet('exception-generate',x))
+    assert 'concern_paths' not in ctx.packet['output_schema']['properties']['scenarios']['items']['properties']
+
+
+def test_deterministic_generation_does_not_call_model_for_matrix_only_rules(tmp_path):
+    from scene_completion.workflow import Execution
+    from scene_completion.concern_hierarchy import resolve_matches
+    from tests.test_workflow import memory_inputs
+    from scene_completion.storage import read_json
+    x=memory_inputs();x['concern-match']=resolve_matches(x,x['concern-match']['matches'])
+    x['enriched-interactions']={'interactions':[],'rr_sr_links':[],'pending':[],'resource_mappings':[]}
+    class Client:
+        config={}
+        def model(self,kind):return 'offline'
+        def agent(self,p):raise AssertionError('Mechanical rules must not trigger a model call')
+    ex=Execution(tmp_path,mode='external',client=Client());ex.add('G','exception-generate',static=x)
+    result=ex.finish();assert result['complete']
+    output=read_json(tmp_path/ex.scheduler.state['tasks']['G']['output_file'])
+    assert len([s for s in output['payload']['scenarios'] if s['field']])==8
+    assert output['metadata']['execution']['provider']=='deterministic_rule_coverage'

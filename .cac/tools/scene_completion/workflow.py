@@ -13,6 +13,7 @@ from .interaction_enrichment import resource_metadata,bind_resource_services,cap
 from .exception_generation import data_exceptions,deduplicate,pending_rules,query_matches,query_exceptions,service_exceptions,storage_exceptions,attach_provenance
 from .concern_matching import complete_data_matches
 from .concern_hierarchy import resolve_matches
+from .task_context import generation_matches
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
 from .reviews import REVIEW_TASKS
@@ -41,7 +42,7 @@ def code_version(task):
     folder=Path(__file__).parent
     # Semantic contracts and validators are part of every result identity.
     names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py','model_routing.py','indexed_context.py','ssd_tools.py','task_context.py']
+           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py','model_routing.py','indexed_context.py','ssd_tools.py','task_context.py','comparison_batches.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     return implementation
@@ -118,6 +119,7 @@ class Execution:
                     previous=read_json(path)
                     if previous.get('task')==task and previous.get('node_key')==p['node_key'] and previous.get('input_hash')==fingerprint(inputs):
                         p['repair']['candidate']=previous['payload']
+                        if previous.get('candidate_format')=='model':p['repair']['candidate_format']='model'
                         p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
         batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
@@ -183,27 +185,35 @@ class Execution:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
+            elif task=='exception-generate' and not generation_matches(inputs) and not self.conversations.revision(key):
+                value={'scenarios':[],'pending':[]};proof={'provider':'deterministic_rule_coverage','reason':'没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型'}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
-            if task=='concern-match':
-                resolved=resolve_matches(inputs,value['matches'])
-                value['matches']=resolved['matches']
-                value['pending']=list({fingerprint(v):v for v in value['pending']+resolved['pending']}.values())
-            if task in {'exception-generate','existing-extract','test-ground-truth'}:
-                if task=='exception-generate':
-                    value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)))
-                    value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
-                else:value['scenarios']=deduplicate(value['scenarios'])
-            if task=='existing-extract' and 'fused-ssd' in inputs:
-                from .inverse_alignment import expand_inverse
-                value=expand_inverse(value,inputs)
-            if task=='test-ground-truth' and 'fused-ssd' in inputs:
-                from .inverse_alignment import expand_truth
-                value=expand_truth(value,inputs)
-            from .execution_events import phase
-            phase('validating')
-            if task in SCHEMAS:
-                validate_result(task,value,inputs)
+            candidate=deepcopy(value)
+            try:
+                if task=='concern-match':
+                    resolved=resolve_matches(inputs,value['matches'])
+                    value['matches']=resolved['matches']
+                    value['pending']=list({fingerprint(v):v for v in value['pending']+resolved['pending']}.values())
+                if task in {'exception-generate','existing-extract','test-ground-truth'}:
+                    if task=='exception-generate':
+                        value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)))
+                        value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
+                    else:value['scenarios']=deduplicate(value['scenarios'])
+                if task=='existing-extract' and 'fused-ssd' in inputs:
+                    from .inverse_alignment import expand_inverse
+                    value=expand_inverse(value,inputs)
+                if task=='test-ground-truth' and 'fused-ssd' in inputs:
+                    from .inverse_alignment import expand_truth
+                    value=expand_truth(value,inputs)
+                from .execution_events import phase
+                phase('validating')
+                if task in SCHEMAS:
+                    validate_result(task,value,inputs)
+            except ValueError as exc:
+                rejection=self.root/'agent_rejections'/(fingerprint([key,inputs,candidate,str(exc),'postprocess'])+'.json')
+                write_json(rejection,{'task':task,'node_key':key,'input_hash':fingerprint(inputs),'payload':candidate,'error':str(exc)})
+                raise TaskRejected({'error':str(exc),'phase':'postprocess','rejected_output':str(rejection.relative_to(self.root))}) from exc
             if reviewed is None:self.reviews.propose(key,task,inputs,value,review_identity)
             meta={'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
             if task=='components':meta.update(resource_metadata(value))

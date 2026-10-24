@@ -6,7 +6,9 @@ description: 异常场景生成。用于场景工作流中的该独立任务，�
 # 异常场景生成
 
 ## 输入
-仅使用任务包input中的 `api-map, api-parameters, components, concern-match, enriched-interactions, registry, rr-ssd, sr-ssd`。文档格式为保留原始行号及source_id的DOCUMENT JSON，正文源为Markdown；图表输入为已验证的任务JSON。字段以output_schema及当前协议文档为准。
+工作流输入为已验证的正向交互、组成、API表、适用关注点和固定注册表JSON。实际模型取片为本用例的`interactions`、有具体规则的`concern-match.matches`、相关`registry`定义及证据索引；不再次提供全量图表或审核矩阵。请求和返回、对象位置、实际操作和字段属性已在交互中关联。
+
+`tool_rule_coverage`只列工具将保存的确定候选。模型不复写这些候选，只补充当前适用列表允许的“交互—对象—关注点”组合。没有额外语义规则时工具直接完成本任务，不要求额外模型调用。
 
 ## 处理
 从本次实际交互及适用关注点生成异常G，不能读取已有异常E或测试GT。每字段、每独立明示约束一条；请求返回分开；可选缺省正常；未知具体约束待确认。模型只补充工具确定规则之外的语义异常。集合无匹配与指定资源不存在分别保留。父子同一具体失败去重，后续响应行为只有原文明示才写。

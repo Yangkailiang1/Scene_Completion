@@ -102,7 +102,13 @@ class DeepAgentsClient(SemanticClient):
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
         def submit(payload:dict) -> str:
-            if indexed:payload=indexed.expand(payload)
+            if indexed:
+                try:payload=indexed.expand(payload)
+                except (ValueError,KeyError,TypeError) as e:
+                    emit('validation_failed',error=str(e))
+                    rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload,'model-format'])+'.json')
+                    write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'candidate_format':'model','error':str(e)})
+                    raise TaskRejected({'error':str(e),'phase':'model_contract','rejected_output':str(rejection.relative_to(self.root))}) from e
             if packet['task']=='fused-ssd':
                 from .use_cases import canonical_case_ids
                 payload=canonical_case_ids(payload,packet['input'])

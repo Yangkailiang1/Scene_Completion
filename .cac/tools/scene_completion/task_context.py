@@ -29,6 +29,16 @@ def ssd_context(inputs):
       'relations':[deepcopy(r) for r in inputs['components'].get('relations',[]) if {r['from_id'],r['to_id']}<=selected]}}
 
 
+def generation_matches(inputs):
+    from .interaction_enrichment import interactions
+    from .concern_hierarchy import match_is_applicable
+    by_id={i['id']:i for i in interactions(inputs)}
+    mechanical={'service.base.availability','service.query_retrieval.resource_existence'}
+    return [deepcopy(m) for m in inputs['concern-match']['matches'] if m['interaction_id'] in by_id
+      and match_is_applicable(m,by_id[m['interaction_id']],inputs) and m.get('concrete_rule')
+      and not m['concern_key'].startswith('api.data.') and m['concern_key'] not in mechanical]
+
+
 def semantic_view(task,inputs):
     """Remove duplicate views and derived display metadata, never source facts."""
     out=deepcopy(inputs)
@@ -56,6 +66,13 @@ def semantic_view(task,inputs):
         out['interactions']=messages
         # Explicit field attributes occur once on each actual interaction.
         for key in ('rr-ssd','sr-ssd','api-map','api-parameters','object-operations','components'):out.pop(key,None)
+    if task=='exception-generate' and 'concern-match' in out:
+        # The full review matrix includes inherited, pending and inapplicable
+        # rows for every interaction. Generation receives only semantic checks
+        # with an actual rule; mechanical candidates are supplied once by tools.
+        keys={'interaction_id','target','object','concern_key','basis','concrete_rule','source_refs','activation_evidence','scope','data_location'}
+        matches=[{k:v for k,v in m.items() if k in keys} for m in generation_matches(inputs)]
+        out['concern-match']={'matches':matches}
     if 'registry' in out:
         out['registry']['definitions']={key:{k:v for k,v in row.items() if k in {'label','guard','kind','operation_kinds','technology','parents'}} for key,row in out['registry']['definitions'].items()}
     if task in {'existing-extract','test-ground-truth'}:

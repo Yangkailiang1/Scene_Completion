@@ -283,10 +283,14 @@ def test_registry_rule_changes_invalidate_concern_analysis_without_reextracting_
         return invoke
     mocks={k:capture(k,v) for k,v in m.items()};root=tmp_path/'run'
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
+    previous_g=ex.scheduler.state['tasks']['UC-X:exception-generate']['identity']
     calls.clear();full['definitions']['human.authentication']['description']='明确根据当前调用方和接口要求检查认证'
     full['hash']=fingerprint({k:v for k,v in full.items() if k!='hash'});file.write_text(json.dumps(full,ensure_ascii=False))
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert {'concern-match','exception-generate'}<=set(calls)
+    assert 'concern-match' in calls
+    assert ex.scheduler.state['tasks']['UC-X:exception-generate']['identity']!=previous_g
+    # Mechanical-only G is recomputed under the new registry without forcing
+    # an unnecessary semantic call; graph extraction remains cached.
     assert not set(calls)&{'components','rr-ssd','sr-ssd','api-map','api-parameters','test-operation-project','interaction-align'}
 
 

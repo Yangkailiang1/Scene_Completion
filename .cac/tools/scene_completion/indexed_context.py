@@ -99,6 +99,13 @@ class EvidenceContext:
         if packet['task']=='concern-match':
             fields=self.packet['output_schema']['properties']['matches']['items']
             for key in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):fields['properties'].pop(key,None)
+        if packet['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
+            fields=self.packet['output_schema']['properties']['scenarios']['items']
+            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):fields['properties'].pop(key,None)
+            if packet['task']=='exception-generate':
+                candidates=inputs['concern-match']['matches']
+                if candidates:fields['anyOf']=[{'properties':{k:{'const':m[k]} for k in ('interaction_id','object','concern_key')}} for m in candidates]
+                else:self.packet['output_schema']['properties']['scenarios']['maxItems']=0
         if self.fused:
             props=self.packet['output_schema']['properties']['interactions']['items']
             for k in ('sender','receiver'):props['properties'][k]={'type':'object','properties':{'component_id':{'enum':list(self.components)}},'required':['component_id'],'additionalProperties':False}
@@ -106,7 +113,7 @@ class EvidenceContext:
             props['properties'].pop('sequence');props['required'].remove('sequence')
             props['properties']['reply_to']=props['properties'].pop('parent_id');props['required'].remove('parent_id');props['required'].append('reply_to')
             props['properties']['operation']['required']=['name']
-            props['allOf']=[{'if':{'properties':{'direction':{'const':direction}}},'then':{'properties':{'data':{'properties':{'sequence':{'items':{'properties':{'location':{'enum':locations}}}}}}}}} for direction,locations in [('request',['header','path','query','body','business']),('return',['response','business'])]]
+            props['allOf']=[{'if':{'properties':{'direction':{'const':direction}}},'then':{'properties':{**({'reply_to':{'type':'null'}} if direction=='request' else {}),'data':{'properties':{'sequence':{'items':{'properties':{'location':{'enum':locations}}}}}}}}} for direction,locations in [('request',['header','path','query','body','business']),('return',['response','business'])]]
             # Data attributes that have not yet been associated by the API tool
             # are omitted, not regenerated as repeated null placeholders.
             p=props['properties']['data']['properties']['sequence']['items'];p['required']=['name','location']
@@ -117,7 +124,8 @@ class EvidenceContext:
             self.packet['output_schema']['properties']['refinements']=link
             self.packet['output_schema']['required']=['refinements' if k=='rr_sr_links' else k for k in self.packet['output_schema']['required']]
         if 'repair' in self.packet and 'candidate' in self.packet['repair']:
-            self.packet['repair']['candidate']=self.encode_output(self.safe_candidate(self.packet['repair']['candidate']))
+            candidate=self.safe_candidate(self.packet['repair']['candidate'])
+            self.packet['repair']['candidate']=candidate if self.packet['repair'].get('candidate_format')=='model' else self.encode_output(candidate)
             self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs}
         self.packet['instructions']+='\n模型传输契约 '+VERSION+'：source_refs只输出给定evidence_id字符串，不能复写引文、source_id或行号；程序从原始输入恢复引用。文档行标有[evidence_id]；派生产物引用见evidence_catalog。所有事实字段仍须有依据。'
         if packet['task']=='concern-match':
@@ -173,6 +181,9 @@ class EvidenceContext:
 
     def encode_output(self,value):
         result=self.encode(value)
+        if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
+            for row in result.get('scenarios',[]):
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
         if self.original['task']=='concern-match':
             for row in result.get('matches',[]):
                 for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):row.pop(k,None)
@@ -199,6 +210,9 @@ class EvidenceContext:
             if isinstance(v,list):return [decode(x) for x in v]
             return v
         result=decode(value)
+        if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
+            for row in result.get('scenarios',[]):
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
         if self.original['task']=='concern-match':
             from .concern_hierarchy import resolve_matches
             resolved=resolve_matches(self.original['input'],result.get('matches',[]))
