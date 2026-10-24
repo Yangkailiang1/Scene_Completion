@@ -65,7 +65,7 @@ def _retry_after_seconds(headers):
     return max(1.,min(300.,value))
 
 
-def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int) -> dict[str, Any]:
+def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int, *, idle_timeout=None,total_timeout=None) -> dict[str, Any]:
     request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -81,13 +81,18 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
     for attempt in range(retries + 1):
         attempt_start=time.perf_counter()
         attempt_status='failed'
-        attempt_code=None
+        attempt_code=None;transport_phase='connect_or_headers'
         if observer:observer.emit('transport_attempt_start','running',attempt=attempt+1)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 if body.get('stream') and 'application/json' not in response.headers.get('Content-Type',''):
                     from .streaming import read_chat_stream
-                    value=read_chat_stream(response,attempt_start,timeout,observer)
+                    transport_phase='stream_read'
+                    idle=float(idle_timeout if idle_timeout is not None else timeout)
+                    total=float(total_timeout if total_timeout is not None else timeout)
+                    try:set_read_timeout=response.fp.raw._sock.settimeout
+                    except AttributeError:set_read_timeout=None
+                    value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout)
                 else:value = json.loads(response.read().decode("utf-8"))
                 attempt_status='complete';attempt_code=getattr(response,'status',None)
                 if isinstance(value, dict):
@@ -113,7 +118,7 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                 break
         except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, json.JSONDecodeError) as exc:
             last_error = type(exc).__name__
-            diagnostic={'failure_category':'transport_timeout' if isinstance(exc,TimeoutError) or isinstance(getattr(exc,'reason',None),TimeoutError) else 'connection_failed'}
+            diagnostic={'failure_category':'transport_timeout' if isinstance(exc,TimeoutError) or isinstance(getattr(exc,'reason',None),TimeoutError) else 'connection_failed','phase':transport_phase,'elapsed_seconds':round(time.perf_counter()-attempt_start,3),'connect_timeout_seconds':timeout,'stream_idle_timeout_seconds':idle_timeout,'stream_total_timeout_seconds':total_timeout,**getattr(exc,'response_diagnostic',{})}
             # A disconnected/timeout POST may already have incurred inference.
             # Preserve pending work instead of blindly posting the same prompt.
             if not isinstance(exc,json.JSONDecodeError):break

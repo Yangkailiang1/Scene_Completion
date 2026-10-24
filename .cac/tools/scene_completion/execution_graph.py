@@ -53,6 +53,8 @@ def graph_snapshot(root):
         if event and event['kind']=='rate_limit_wait' and status=='running':phase='rate_limit_wait'
         if node['stage']=='gap-recommend':phase='disabled';status='disabled'
         blocked=[d for d in node['deps'] if state.get(d,{}).get('status')!='passed']
+        failure=record.get('failure',{}).get('transport_failure',{})
+        if status=='pending' and failure.get('failure_category') in {'transport_timeout','connection_failed'}:phase=failure['failure_category']
         if blocked and status in {'pending','blocked_dependency'}:phase='dependency_wait'
         started=record.get('started_at');ended=record.get('finished_at')
         actual=[]

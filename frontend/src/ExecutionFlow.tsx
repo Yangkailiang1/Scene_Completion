@@ -15,7 +15,13 @@ import {
 } from "@xyflow/react";
 import { LocateFixed, Workflow, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "./components/ui/button";
-import { phaseColor, phaseLabels, roleLabels, duration } from "./utils";
+import {
+  phaseColor,
+  phaseLabels,
+  roleLabels,
+  duration,
+  failureText,
+} from "./utils";
 import type { Graph, GraphNode } from "./types";
 import "@xyflow/react/dist/style.css";
 type TaskNode = Node<{ task: GraphNode; chosen: boolean }, "task">;
@@ -74,10 +80,7 @@ function TaskCard({ data }: NodeProps<TaskNode>) {
       )}
       {n.failure && (
         <p className="flow-error" title={JSON.stringify(n.failure)}>
-          {n.failure.error ||
-            n.failure.reason ||
-            n.failure.transport_failure?.failure_category ||
-            "查看错误详情"}
+          {failureText(n.failure)}
         </p>
       )}
       <Handle type="source" position={Position.Bottom} />

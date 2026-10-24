@@ -9,7 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Button } from "./components/ui/button";
-import { display } from "./utils";
+import { display, failureText } from "./utils";
 import type { ExecutionEvent } from "./types";
 export interface LogSegment {
   id: number;
@@ -45,6 +45,8 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
       [
         "request_started",
         "request_finished",
+        "request_failed",
+        "stream_progress",
         "tool_started",
         "tool_finished",
         "tool_failed",
@@ -65,12 +67,20 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
         text = `节点指导版本${d.revision}已生效`;
       if (e.kind === "question_asked")
         text = d.question?.text || "等待用户回答";
-      if (e.kind === "request_started") text = `请求 ${d.requested_model}`;
+      if (e.kind === "request_started")
+        text =
+          `请求 ${d.requested_model}` +
+          (d.input_bytes
+            ? ` · 输入${(d.input_bytes / 1024).toFixed(1)}KB · 输出上限${d.max_output_tokens} tokens · 生成总时限${d.stream_total_timeout_seconds}秒`
+            : "");
+      if (e.kind === "stream_progress")
+        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数`;
+      if (e.kind === "request_failed") text = failureText(d.diagnostic);
       if (e.kind === "request_finished")
         text = `实际返回模型：${d.provider_model || "未报告"}`;
       if (e.kind === "tool_started") text = d.arguments || "";
       if (e.kind === "tool_finished") text = d.result || "";
-      if (e.kind.endsWith("failed"))
+      if (e.kind.endsWith("failed") && e.kind !== "request_failed")
         text = d.error || d.failure?.error || display(d);
       if (e.kind === "artifacts_saved") text = (d.files || []).join("\n");
       if (e.kind === "result_validated") text = "产物已通过结构与来源校验";
@@ -91,6 +101,8 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
 const labels: Record<string, string> = {
   request_started: "模型请求",
   request_finished: "请求结束",
+  request_failed: "请求未完成",
+  stream_progress: "生成进展",
   tool_started: "调用工具",
   tool_finished: "工具返回",
   tool_failed: "工具失败",

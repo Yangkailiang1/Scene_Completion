@@ -4,14 +4,14 @@ import time
 import http.client
 
 
-def read_chat_stream(response, started, timeout, observer=None):
-    content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None
+def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None):
+    content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started
     def consume(lines):
-        nonlocal model,finish,usage,done,events,first,size
+        nonlocal model,finish,usage,done,events,first,size,last,last_progress
         data='\n'.join(lines)
         if data=='[DONE]':done=True;return
         if not data:return
-        row=json.loads(data);events+=1
+        row=json.loads(data);events+=1;last=time.perf_counter()
         if first is None:
             first=time.perf_counter()-started
             if observer:observer.emit('stream_first_event',duration_seconds=first)
@@ -27,6 +27,9 @@ def read_chat_stream(response, started, timeout, observer=None):
         model=row.get('model') or model
         usage=row.get('usage') or usage
         from .execution_events import emit
+        if last-last_progress>=10:
+            emit('stream_progress',elapsed_seconds=round(last-started,2),stream_events=events,output_bytes=size,provider_model=model)
+            last_progress=last
         for choice in row.get('choices',[]) or []:
             if choice.get('index',0)!=0:continue
             delta=choice.get('delta') or {}
@@ -48,14 +51,24 @@ def read_chat_stream(response, started, timeout, observer=None):
                 if size>16*1024*1024:raise ValueError('stream output exceeds bounded response size')
                 emit('stream_delta',channel='tool_arguments',tool_index=index,tool_name=fun.get('name') or '',text=fun.get('arguments') or '',tool_call_id=part.get('id'))
             finish=choice.get('finish_reason') or finish
-    for raw in response:
-        if time.perf_counter()-started>timeout:raise TimeoutError('stream deadline exceeded')
-        line=raw.decode('utf8').rstrip('\r\n')
-        if not line:
-            consume(event);event=[]
-            if done:break
-        elif line.startswith('data:'):event.append(line[5:].lstrip())
-        # SSE comments/heartbeats and reasoning text are not model answers.
+    try:
+        iterator=iter(response)
+        while True:
+            if time.perf_counter()-started>timeout:
+                err=TimeoutError('stream total deadline exceeded');err.response_diagnostic={'timeout_kind':'total_deadline'};raise err
+            if set_read_timeout:set_read_timeout(max(.001,min(idle_timeout or timeout,timeout-(time.perf_counter()-started))))
+            try:raw=next(iterator)
+            except StopIteration:break
+            line=raw.decode('utf8').rstrip('\r\n')
+            if not line:
+                consume(event);event=[]
+                if done:break
+            elif line.startswith('data:'):event.append(line[5:].lstrip())
+            # SSE comments/heartbeats and reasoning text are not model answers.
+    except TimeoutError as err:
+        now=time.perf_counter()
+        err.response_diagnostic={'failure_category':'transport_timeout','phase':'stream_read','timeout_kind':'total_deadline' if now-started>=timeout else 'idle_read','elapsed_seconds':round(now-started,3),'first_event_seconds':first,'last_event_age_seconds':round(now-last,3) if last else None,'stream_events':events,'partial_content_bytes':size,'provider_model':model,'incomplete_tools':[c['function']['name'] for c in tool_calls.values()],**getattr(err,'response_diagnostic',{})}
+        raise
     if event and not done:consume(event)
     if not done or finish is None:
         error=http.client.IncompleteRead(b'',None)

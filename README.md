@@ -28,7 +28,7 @@ npm test --prefix frontend
 npm run build --prefix frontend
 ```
 
-默认只监听127.0.0.1。服务端默认读取仓库根目录`.env`中的`ECNU_BASE_URL`、`ECNU_API_KEY`，请求模型默认`ecnu-plus`；可用`python serve.py --env-file /path/to/.env`指定。项目配置优先，未覆盖项继续读取服务端配置。密钥不返回浏览器、不进入项目或Windows导出包。请求模型与服务端实际返回模型分别保存。
+默认只监听127.0.0.1。服务端默认读取仓库根目录`.env`中的`ECNU_BASE_URL`、`ECNU_API_KEY`，请求模型默认`ecnu-plus`；可用`python serve.py --env-file /path/to/.env`指定。项目配置优先，未覆盖项继续读取服务端配置。密钥不返回浏览器、不进入项目或Windows导出包。请求模型与服务端实际返回模型分别保存。连接／首响应等待、流中无数据等待、整次生成时限可分别设置：流式默认无数据300秒、总生成900秒，不再把原120秒直接当大产物总时限。超时不自动重POST，错误显示发生阶段及已接收增量；输出上限不等于保证输出长度。
 
 ## 实际工作流
 

@@ -31,7 +31,14 @@ import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { ArtifactView } from "./ArtifactView";
 import { api, projectUrl, fileUrl } from "./api";
-import { cn, phaseColor, phaseLabels, roleLabels, duration } from "./utils";
+import {
+  cn,
+  phaseColor,
+  phaseLabels,
+  roleLabels,
+  duration,
+  failureText,
+} from "./utils";
 import type {
   Project,
   Snapshot,
@@ -311,14 +318,17 @@ export default function App() {
   const activeNodes = graph.nodes.filter(
       (n) => n.status === "running" || n.status === "awaiting_answer",
     ),
-    failedNodes = graph.nodes.filter((n) =>
-      [
-        "failed",
-        "rejected",
-        "budget_exhausted",
-        "awaiting_configuration",
-        "rate_limited",
-      ].includes(n.status),
+    failedNodes = graph.nodes.filter(
+      (n) =>
+        n.phase === "transport_timeout" ||
+        n.phase === "connection_failed" ||
+        [
+          "failed",
+          "rejected",
+          "budget_exhausted",
+          "awaiting_configuration",
+          "rate_limited",
+        ].includes(n.status),
     ),
     pendingReviews =
       snapshot?.reviews.filter(
@@ -727,11 +737,7 @@ export default function App() {
                           <AlertCircle size={14} />
                           <div>
                             <strong>当前执行未完成</strong>
-                            <p>
-                              {node.failure.error ||
-                                node.failure.reason ||
-                                JSON.stringify(node.failure)}
-                            </p>
+                            <p>{failureText(node.failure)}</p>
                           </div>
                         </div>
                       )}
@@ -1060,6 +1066,13 @@ export default function App() {
                     ...raw,
                     max_concurrency: Number(raw.max_concurrency),
                     max_tokens: Number(raw.max_tokens),
+                    timeout_seconds: Number(raw.timeout_seconds),
+                    stream_idle_timeout_seconds: Number(
+                      raw.stream_idle_timeout_seconds,
+                    ),
+                    stream_total_timeout_seconds: Number(
+                      raw.stream_total_timeout_seconds,
+                    ),
                   };
                   api(projectUrl(current, "config"), {
                     method: "PUT",
@@ -1132,6 +1145,45 @@ export default function App() {
                     />
                   </label>
                 </div>
+                <div className="form-grid mt-3">
+                  <label>
+                    连接／首响应等待（秒）
+                    <input
+                      name="timeout_seconds"
+                      type="number"
+                      min="10"
+                      max="1800"
+                      defaultValue={snapshot?.config.timeout_seconds || 120}
+                    />
+                  </label>
+                  <label>
+                    流中无数据等待（秒）
+                    <input
+                      name="stream_idle_timeout_seconds"
+                      type="number"
+                      min="10"
+                      max="1800"
+                      defaultValue={
+                        snapshot?.config.stream_idle_timeout_seconds || 300
+                      }
+                    />
+                  </label>
+                  <label>
+                    整次生成时限（秒）
+                    <input
+                      name="stream_total_timeout_seconds"
+                      type="number"
+                      min="30"
+                      max="3600"
+                      defaultValue={
+                        snapshot?.config.stream_total_timeout_seconds || 900
+                      }
+                    />
+                  </label>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  输出上限不是保证输出长度。大制品会耗时更久；连接、无数据等待和总生成时限分别生效，超时不会自动重发。
+                </p>
                 <Button type="submit" className="mt-6 w-full">
                   保存配置
                 </Button>

@@ -12,6 +12,20 @@ from .storage import write_json,fingerprint
 from contextvars import ContextVar
 _AGENT_SESSION=ContextVar('scene_agent_session',default=None)
 
+def compact_input(value):
+    """Lossless numbered document presentation; do not repeat schema in the prompt."""
+    if isinstance(value,dict):
+        if {'source_id','channel','lines'}<=value.keys():
+            return {k:value[k] for k in ('source_id','name','channel')}|{'numbered_text':'\n'.join(str(r['number'])+' | '+r['text'] for r in value['lines'])}
+        return {k:compact_input(v) for k,v in value.items()}
+    if isinstance(value,list):return [compact_input(v) for v in value]
+    return value
+
+def task_message(packet):
+    view={k:packet[k] for k in ('task','case_ids','repair','tool_rule_coverage','tool_rule_instruction') if k in packet}
+    view['input']=compact_input(packet['input'])
+    return '执行本任务。文档以原始行号 | 原文呈现；输出Schema已提供在submit_result工具，不能把Schema当结果。\n'+json.dumps(view,ensure_ascii=False,separators=(',',':'))
+
 def task_files(packet):
     from .source_documents import documents_in
     files={}
@@ -91,9 +105,9 @@ class DeepAgentsClient(SemanticClient):
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
         agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask],subagents=[],backend=StateBackend(),
-          skills=['/skills/'],system_prompt=role_text+'\n'+packet['instructions']+'\n先阅读指定Skill，再处理任务。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
+          skills=['/skills/'],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
-        inputs={'messages':[{'role':'user','content':'执行'+packet['task']+'。完整任务包：\n'+json.dumps(packet,ensure_ascii=False)}],
+        inputs={'messages':[{'role':'user','content':task_message(packet)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}
         if saved.get('status') in {'awaiting_answer','transport_wait'} and saved.get('messages'):
             from langchain_core.messages import messages_from_dict,messages_to_dict,ToolMessage
@@ -203,10 +217,11 @@ def _transport_model(client,stage):
             from .execution_events import emit,fields,phase
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
-                phase('model_wait');emit('request_started',requested_model=body['model'])
+                phase('model_wait');emit('request_started',requested_model=body['model'],input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
                 try:response=self.scene_client.post('/chat/completions',body)
                 except Exception as e:
-                    if getattr(e,'status',None)=='rate_limited' and session:session['count']-=1
+                    emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))
+                    if getattr(e,'status',None) in {'rate_limited','pending'} and session:session['count']-=1
                     raise
                 if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
                 emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))

@@ -41,3 +41,7 @@ ask_user记录问题、原文依据和待决定事项，当前节点awaiting_ans
 ## 升级
 
 旧协议运行记录保持不变。旧项目点击继续运行会创建新版项目并复制源文及本地配置，不复用旧异常/计分缓存。原项目、失败和审核历史继续可查。正文/原有文档不修改。本轮只交付网页，不创建Windows发布Tag或离线包。
+
+## 模型传输等待
+
+连接／首响应使用timeout_seconds；stream_idle_timeout_seconds默认300、stream_total_timeout_seconds默认900。流式每次读取上限取无数据等待与剩余总时限的较小值。项目显式配置优先，界面可调整。超时记录phase、timeout_kind、elapsed_seconds、first_event_seconds、last_event_age_seconds、partial_content_bytes与incomplete_tools，不包含请求头/密钥或模型隐私推理文本。输入文档以完整原行号文本呈现，Schema只通过提交工具提供；可查虚拟原文件保留。
