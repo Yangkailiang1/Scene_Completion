@@ -774,7 +774,7 @@ export default function App() {
                             </TabsTrigger>
                           </TabsList>
                         </div>
-                        <TabsContent value="stream">
+                        <TabsContent value="stream" className="stream-panel">
                           <NodeOutput
                             key={selected}
                             events={events}
