@@ -43,6 +43,36 @@ def test_cross_layer_duplicate_view_collapses_but_downstream_call_remains():
     assert {i['id'] for i in canonical['interactions']}=={'sr','down'}
     assert canonical['aliases']==[{'source_id':'rr','interaction_id':'sr'}]
 
+
+def test_repeated_actual_calls_keep_separate_chains_and_exception_units():
+    from scene_completion.ssd_tools import complete_structure
+    from scene_completion.exception_generation import deduplicate
+    rows=[];links=[]
+    for n in (1,2):
+        rr=exchange(sid=f'rr{n}',layer='RR');sr=exchange(sid=f'sr{n}')
+        downstream=deepcopy(sr);downstream.update(id=f'down{n}',parent_id=sr['id'])
+        downstream['sender']=deepcopy(sr['receiver']);downstream['receiver']['name']='DatabaseService'
+        for req in (rr,sr,downstream):
+            ret=deepcopy(req);ret.update(id=req['id']+'-return',direction='return',parent_id=req['id'])
+            ret['sender'],ret['receiver']=deepcopy(req['receiver']),deepcopy(req['sender'])
+            if req is rr:rr_return=ret
+            elif req is sr:sr_return=ret
+            else:down_return=ret
+        # Identical endpoint/operation/evidence across occurrences is intentional.
+        rows.extend([rr,rr_return,sr,downstream,down_return,sr_return])
+        links.extend([{'rr_id':rr['id'],'sr_ids':[sr['id'],downstream['id'],down_return['id']],'status':'confirmed'},
+                      {'rr_id':rr_return['id'],'sr_ids':[sr_return['id']],'status':'confirmed'}])
+    out=complete_structure({'interactions':rows,'rr_sr_links':links,'pending':[]})
+    result=canonical_fused(out)
+    assert len(out['interactions'])==12 and len(result['interactions'])==8
+    assert {i['parent_id'] for i in result['interactions'] if i['id'].startswith('down') and i['direction']=='request'}=={'sr1','sr2'}
+    assert {i['parent_id'] for i in result['interactions'] if i['id'].startswith('sr') and i['direction']=='return'}=={'sr1','sr2'}
+    assert {a['source_id']:a['interaction_id'] for a in result['aliases']}=={
+        'rr1':'sr1','rr1-return':'sr1-return','rr2':'sr2','rr2-return':'sr2-return'}
+    first=scenario('first');first.update(interaction_id='sr1',canonical_interaction_id='sr1')
+    second=deepcopy(first);second.update(id='second',interaction_id='sr2',canonical_interaction_id='sr2')
+    assert len(deduplicate([first,deepcopy(first),second]))==2
+
 def test_node_messages_questions_and_applied_status_survive_reload(tmp_path):
     store=Conversations(tmp_path);store.append('G','guidance','只分析本次查询')
     q=store.question('G','实例ID格式是什么？','文档只有必填','给出格式或确认待定')
