@@ -108,6 +108,8 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
     from .execution_events import emit,fields
     jobs=[]
     max_bytes=getattr(client,'config',{}).get('comparison_input_max_bytes',14000)
+    max_pairs=getattr(client,'config',{}).get('comparison_max_pairs',16)
+    if type(max_pairs) is not int or not 1<=max_pairs<=32:raise ValueError('comparison_max_pairs must be 1..32')
     from .task_context import semantic_view
     for (case,interaction),pairs in groups.items():
         batch=[]
@@ -115,7 +117,7 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
             proposed=batch+[pair]
             slim=semantic_view('semantic-compare',{'left':list({a['id']:a for a,b in proposed}.values()),'right':list({b['id']:b for a,b in proposed}.values())})
             import json
-            if batch and (len(proposed)>32 or len(json.dumps(slim,ensure_ascii=False).encode())>max_bytes):jobs.append((interaction,batch));batch=[]
+            if batch and (len(proposed)>max_pairs or len(json.dumps(slim,ensure_ascii=False).encode())>max_bytes):jobs.append((interaction,batch));batch=[]
             batch.append(pair)
         if batch:jobs.append((interaction,batch))
     for n,(interaction,pairs) in enumerate(jobs,1):

@@ -98,7 +98,9 @@ export function NodeConversation({
                   system: "系统",
                 }[m.kind as string] || m.kind}
                 <small>
-                  {m.kind === "guidance" || m.kind === "answer" || m.kind === "context_resolution"
+                  {m.kind === "guidance" ||
+                  m.kind === "answer" ||
+                  m.kind === "context_resolution"
                     ? m.applied
                       ? "已生效"
                       : "已接收 · 待模型调用"

@@ -103,6 +103,9 @@ export function AlignmentTable({
 const names: Record<string, string> = {
   missing_exception_miss_rate: "缺失异常漏报率 ↓",
   generation_validity: "生成有效率 ↑",
+  recommendation_adoption: "推荐GT命中率（采纳率） ↑",
+  recommendation_false_positive: "推荐误报率 ↓",
+  critical_missing_recall: "关键缺失召回率 ↑",
 };
 function Rate({ value }: { value: any }) {
   return (
@@ -168,19 +171,27 @@ export function MetricsPanel({
         {!data.complete ? " · 本轮尚未完成，中间计数不作为最终指标" : ""}
       </p>
       <div className="metric-cards">
-        {Object.keys(names).map((k) => (
-          <article key={k}>
-            <h3>{names[k]}</h3>
-            <strong>
-              <Rate value={data.metrics[k]} />
-            </strong>
-            <p>
-              {k === "missing_exception_miss_rate"
-                ? "漏掉的GT缺失项 ÷ 全部GT缺失项；越低越好"
-                : "与GT完整匹配的生成项 ÷ 全部生成项；越高越好"}
-            </p>
-          </article>
-        ))}
+        {Object.keys(names)
+          .filter((k) => data.metrics[k])
+          .map((k) => (
+            <article key={k}>
+              <h3>{names[k]}</h3>
+              <strong>
+                <Rate value={data.metrics[k]} />
+              </strong>
+              <p>
+                {k === "missing_exception_miss_rate"
+                  ? "漏掉的GT缺失项 ÷ 全部GT缺失项；越低越好"
+                  : k === "generation_validity"
+                    ? "|G∩GT|/|G|；越高越好"
+                    : k === "recommendation_adoption"
+                      ? "|Q∩GT|/|Q|；与人工采纳率分开"
+                      : k === "recommendation_false_positive"
+                        ? "|Q−GT|/|GT|；可能超过100%"
+                        : "|Q∩关键(GT−E)|/|关键(GT−E)|"}
+              </p>
+            </article>
+          ))}
       </div>
       <p className="muted">
         合并分子／分母，不取百分比平均。{data.truth_source}

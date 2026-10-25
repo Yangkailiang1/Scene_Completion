@@ -54,7 +54,8 @@ export function ExecutionNavigator({
               <summary>
                 {roleLabels[role]}
                 <span>
-                  {role === "recommender"
+                  {role === "recommender" &&
+                  all.every((n) => n.status === "disabled")
                     ? "未启用"
                     : `${all.filter((n) => n.status === "passed").length} / ${all.filter((n) => !n.planned).length}`}
                 </span>

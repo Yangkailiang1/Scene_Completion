@@ -31,6 +31,7 @@ import { sourceFile } from "./TestSources";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
+import { PatternManager } from "./PatternManager";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
 import { ConcernManager } from "./ConcernManager";
@@ -68,7 +69,7 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
 export default function App() {
   const [newTestPreview, setNewTestPreview] = useState<any>(null);
   const [management, setManagement] = useState<
-    "pending" | "concerns" | "results" | null
+    "pending" | "concerns" | "results" | "patterns" | null
   >(null);
   const jobStatusRef = useRef("ready");
   const [usageOpen, setUsageOpen] = useState(false),
@@ -648,6 +649,15 @@ export default function App() {
                   关注点设置
                 </button>
                 <button
+                  className={management === "patterns" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("patterns");
+                    setUsageOpen(false);
+                  }}
+                >
+                  模式与风险
+                </button>
+                <button
                   className={usageOpen ? "active" : ""}
                   onClick={() => {
                     setManagement(null);
@@ -673,6 +683,8 @@ export default function App() {
                 <section className="center-workspace">
                   {management === "results" && current ? (
                     <ResultsView project={current} />
+                  ) : management === "patterns" && current ? (
+                    <PatternManager project={current} />
                   ) : management === "pending" && current ? (
                     <PendingView project={current} onSelect={selectNode} />
                   ) : management === "concerns" && current ? (
@@ -814,7 +826,7 @@ export default function App() {
                             snapshot.project.case_ids.join("、")
                           : "分析所有已确认的用例对应组"}
                         <br />
-                        共享图表为项目级；推荐器当前未启用。
+                        共享图表为项目级；推荐按当前运行版本及缺失M就绪情况执行。
                       </div>
                     </div>
                   ) : (

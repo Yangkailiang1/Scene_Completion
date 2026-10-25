@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
 import { AlignmentTable, MetricsPanel } from "./ResultComparison";
 import { ArtifactView } from "./ArtifactView";
+import { RecommendationsView } from "./PatternManager";
 import { TestSources } from "./TestSources";
 
 const labels: Record<string, string> = {
@@ -65,8 +66,16 @@ function Scenario({
     <article className="result-scenario">
       <header>
         <strong>
-          {s.coverage_kind === "input_parameters"
-            ? "输入数据关注点（宽泛分支）"
+          {["input_parameters", "authentication", "authorization"].includes(
+            s.coverage_kind,
+          )
+            ? (
+                {
+                  input_parameters: "输入数据",
+                  authentication: "身份认证",
+                  authorization: "访问授权",
+                } as Record<string, string>
+              )[s.coverage_kind] + "（宽泛分支）"
             : defs[s.concern_key]?.label || s.concern_key}
         </strong>
         {missing && <span className="result-missing">文档未覆盖</span>}
@@ -85,14 +94,22 @@ function Scenario({
           : ""}
         {s.executable === false ? " · 条件级，尚不可直接执行" : ""}
       </small>
+      {s.pattern_id && (
+        <small className="scenario-pattern-badge">
+          模式 {s.pattern_id} · C={s.confidence?.score} · {s.risk?.level}风险 ·
+          关联关注点 {s.concern_origins?.length || 1}项
+        </small>
+      )}
       <details onToggle={open}>
         <summary>异常步骤与归类依据</summary>
         {loading && <p>正在读取证据…</p>}
         {failure && <p role="alert">{failure}</p>}
-        {s.coverage_kind === "input_parameters" && (
+        {["input_parameters", "authentication", "authorization"].includes(
+          s.coverage_kind,
+        ) && (
           <p>
             原记录分类：{defs[detail.concern_key]?.label || detail.concern_key}
-            ；本行按原文宽泛参数分支覆盖展示，未改写原始分类或评分。
+            ；本行按原文宽泛分支覆盖展示，未改写原始分类或评分。
           </p>
         )}
         <p>失败原因：{detail.cause}</p>
@@ -249,6 +266,12 @@ export function ResultsView({ project }: { project: string }) {
           >
             测试集
           </button>
+          <button
+            className={mode === "recommendations" ? "active" : ""}
+            onClick={() => setMode("recommendations")}
+          >
+            风险推荐
+          </button>
         </div>
         <select
           aria-label="结果测试集"
@@ -270,7 +293,9 @@ export function ResultsView({ project }: { project: string }) {
           {error}
         </div>
       )}
-      {mode === "tests" ? (
+      {mode === "recommendations" ? (
+        <RecommendationsView project={project} />
+      ) : mode === "tests" ? (
         <TestSources project={project} />
       ) : !index ? (
         <p className="management-loading">正在读取结果目录…</p>

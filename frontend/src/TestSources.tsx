@@ -96,7 +96,18 @@ export function TestSources({ project }: { project: string }) {
                 ；{supplement.tests.length} 条测试
               </p>
             )}
-            {supplement.pending?.length>0 && <details><summary>未计入GT的补充待确认项 {supplement.pending.length}</summary>{supplement.pending.map((p:any,n:number)=><p key={n}>{p.interaction_id}：{p.reason}</p>)}</details>}
+            {supplement.pending?.length > 0 && (
+              <details>
+                <summary>
+                  未计入GT的补充待确认项 {supplement.pending.length}
+                </summary>
+                {supplement.pending.map((p: any, n: number) => (
+                  <p key={n}>
+                    {p.interaction_id}：{p.reason}
+                  </p>
+                ))}
+              </details>
+            )}
             <div className="alignment-scroll">
               <table>
                 <thead>

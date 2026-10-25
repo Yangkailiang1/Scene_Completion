@@ -5,17 +5,22 @@ from .contracts import PROTOCOL,registry,validate
 from .exception_generation import deduplicate
 from .assignment import full_assignment
 def broad_covers(left,right):
-    return (right.get('coverage_kind')=='input_parameters' and right.get('original_branch_id')
-      and left['case_id']==right['case_id'] and left['interaction_id']==right['interaction_id']
-      and left.get('scope','interface')=='interface' and bool(left.get('field'))
-      and left.get('data_location') in {'header','path','query','body','business'}
-      and left['concern_key'].startswith('api.data.'))
+    if not right.get('original_branch_id') or left['case_id']!=right['case_id'] or left['interaction_id']!=right['interaction_id']:return False
+    kind=right.get('coverage_kind')
+    if kind=='input_parameters':return (left.get('scope','interface')=='interface' and bool(left.get('field')) and left.get('data_location') in {'header','path','query','body','business'} and left['concern_key'].startswith('api.data.'))
+    if kind not in {'authentication','authorization'}:return False
+    # Actual interaction identity pins both endpoints, direction and resource
+    # operation. No caller/provider/field widening beyond this interaction.
+    if not left['concern_key'].endswith('.'+kind) and not any(k.endswith('.'+kind) for k in left.get('concern_origins',[])):return False
+    if right.get('scenario_context') and left.get('scenario_context'):
+        if any(right['scenario_context'].get(k)!=left['scenario_context'].get(k) for k in ('caller','provider','direction')):return False
+    return left.get('scenario_type','exception')=='exception' and left.get('confidence',{}).get('score',.85)>=.85
 
 def coverage_assignment(decisions,left,right):
     lids={s['id'] for s in left};rids={s['id'] for s in right}
-    broad=[{'checker_scenario_id':a['id'],'generated_scenario_id':b['id'],'status':'full','coverage':'input_parameters'} for a in left for b in right if broad_covers(a,b)]
+    broad=[{'checker_scenario_id':a['id'],'generated_scenario_id':b['id'],'status':'full','coverage':b['coverage_kind']} for a in left for b in right if broad_covers(a,b)]
     covered={p['checker_scenario_id'] for p in broad}
-    exact=full_assignment(decisions,lids-covered,{s['id'] for s in right if s.get('coverage_kind')!='input_parameters'})
+    exact=full_assignment(decisions,lids-covered,{s['id'] for s in right if s.get('coverage_kind') not in {'input_parameters','authentication','authorization'}})
     return exact+broad
 
 def compare_report(g,e,gt,eg,tg,te):

@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 from .storage import fingerprint
 
-MODEL_METADATA_FIELDS=('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule')
+MODEL_METADATA_FIELDS=('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate')
 
 
 def clean_model_scenarios(value):

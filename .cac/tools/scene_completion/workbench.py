@@ -107,6 +107,12 @@ class Workbench:
         if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
         if (p/'run/registry_override.json').exists():shutil.copy2(p/'run/registry_override.json',self.run_dir(new['id'])/'run/registry_override.json')
         if (p/'concern_versions').exists():shutil.copytree(p/'concern_versions',self.run_dir(new['id'])/'concern_versions',dirs_exist_ok=True)
+        for name in ('pattern-settings.json','pattern-versions','recommendation-history.json'):
+            src=p/name;dst=self.run_dir(new['id'])/name
+            if src.is_dir():shutil.copytree(src,dst,dirs_exist_ok=True)
+            elif src.exists():shutil.copy2(src,dst)
+        from .positive_reuse import prepare
+        prepare(p,self.run_dir(new['id']))
         target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
         return new['id']
     def start(self,rid):
@@ -135,6 +141,10 @@ class Workbench:
             from .model_settings import resolve
             config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
             config.setdefault('supplement_tests',True)
+            config.setdefault('scenario_patterns',True)
+            from .pattern_settings import settings,history
+            write_json(p/'run/pattern_settings_used.json',settings(p)['settings'])
+            write_json(p/'run/recommendation_history_used.json',history(p)['items'])
             config['review_mode']=project['review_mode'];config['run_root']=str(p/'run')
             with run_lock(p/'run'):
                 client=self.client_factory(config,p/'run') if self.client_factory else client_for(config,p/'run')
@@ -315,6 +325,51 @@ def create_app(root=None,client_factory=None,env_file=None):
     def project_definitions(rid:str,version:str|None=None):
         from .project_review import registry_view
         return registry_view(service.run_dir(rid),version)
+    @app.get('/api/projects/{rid}/patterns')
+    def pattern_settings(rid:str,version:str|None=None):
+        from .pattern_settings import settings
+        return settings(service.run_dir(rid),version)
+    @app.put('/api/projects/{rid}/patterns')
+    def edit_pattern_settings(rid:str,body:dict):
+        from .pattern_settings import save_settings
+        p=service.run_dir(rid)
+        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('运行中请等待本轮结束后修改模式设置')
+        with service.lock:return save_settings(p,body)
+    @app.get('/api/projects/{rid}/recommendation-history')
+    def recommendation_history(rid:str):
+        from .pattern_settings import history
+        return history(service.run_dir(rid))
+    @app.post('/api/projects/{rid}/recommendation-history')
+    def import_recommendation_history(rid:str,body:dict):
+        from .pattern_settings import import_history
+        with service.lock:return import_history(service.run_dir(rid),body)
+    @app.get('/api/projects/{rid}/recommendations')
+    def recommendations(rid:str,case:str|None=None):
+        from .pattern_settings import settings,adoption
+        from .result_views import ResultView
+        p=service.run_dir(rid);v=ResultView(p)
+        if case and case not in {c['id'] for c in v.cases()}:raise ValueError('未知用例')
+        result=v.payload(case+':gap-recommend') if case else {}
+        matrix=v.payload(case+':pattern-applicability') if case else {}
+        return {'cases':v.cases(),'case':case,'result':result,'matrix':matrix,'current_settings_hash':settings(p)['version'],'human_adoption':adoption(p,result)}
+    @app.post('/api/projects/{rid}/recommendations/feedback')
+    def recommendation_feedback(rid:str,body:dict):
+        from .pattern_settings import feedback
+        from .result_views import ResultView
+        p=service.run_dir(rid);result=ResultView(p).payload(str(body.get('case_id',''))+':gap-recommend')
+        if not result.get('enabled'):raise ValueError('本用例尚未形成推荐')
+        with service.lock:return feedback(p,body,result)
+    @app.post('/api/projects/{rid}/patterns/review')
+    def pattern_review(rid:str,body:dict):
+        from .pattern_settings import review_candidate
+        from .result_views import ResultView
+        p=service.run_dir(rid)
+        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('请等待本轮结束后审核模式前提')
+        matrix=ResultView(p).payload(str(body.get('case_id',''))+':pattern-applicability')
+        if not matrix:raise ValueError('本用例尚未形成模式适用性产物')
+        with service.lock:return review_candidate(p,body,matrix)
     @app.get('/api/projects/{rid}/results')
     def results_index(rid:str):
         from .result_views import ResultView

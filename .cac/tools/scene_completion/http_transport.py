@@ -119,6 +119,10 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
         except (urllib.error.URLError, TimeoutError, ConnectionError, http.client.HTTPException, json.JSONDecodeError) as exc:
             last_error = type(exc).__name__
             diagnostic={'failure_category':'transport_timeout' if isinstance(exc,TimeoutError) or isinstance(getattr(exc,'reason',None),TimeoutError) else 'connection_failed','phase':transport_phase,'elapsed_seconds':round(time.perf_counter()-attempt_start,3),'connect_timeout_seconds':timeout,'stream_idle_timeout_seconds':idle_timeout,'stream_total_timeout_seconds':total_timeout,**getattr(exc,'response_diagnostic',{})}
+            import socket,errno
+            reason=getattr(exc,'reason',exc)
+            if transport_phase=='connect_or_headers' and (isinstance(reason,socket.gaierror) or isinstance(reason,OSError) and reason.errno in {errno.ECONNREFUSED,errno.ENETUNREACH,errno.EHOSTUNREACH,errno.EACCES,errno.EPERM}):
+                diagnostic['request_not_sent']=True
             # A disconnected/timeout POST may already have incurred inference.
             # Preserve pending work instead of blindly posting the same prompt.
             if not isinstance(exc,json.JSONDecodeError):break

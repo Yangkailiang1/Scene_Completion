@@ -73,7 +73,7 @@ def main(argv=None):
         from .concern_registry import registry_scope,default_registry
         with registry_scope(read_json(root/'registry_override.json') if (root/'registry_override.json').exists() else default_registry()):packet(args.task,inputs)
     config=read_json(args.config) if args.config else {}
-    if not independent:config.update(review_mode=args.review_mode,supplement_tests=not args.no_supplement_tests)
+    if not independent:config.update(review_mode=args.review_mode,supplement_tests=not args.no_supplement_tests,scenario_patterns=True)
     with run_lock(root):
         deterministic=independent and args.task in {'object-operations','gap-recommend'}
         client=client_for(config,root,args.env_file) if args.agent_mode=='external' and not deterministic else None

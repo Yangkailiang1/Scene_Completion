@@ -257,7 +257,9 @@
           "coverage_kind": {
             "enum": [
               "exact",
-              "input_parameters"
+              "input_parameters",
+              "authentication",
+              "authorization"
             ]
           },
           "canonical_interaction_id": {
@@ -387,6 +389,88 @@
               "value"
             ],
             "additionalProperties": false
+          },
+          "pattern_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "linked_pattern_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "confidence": {
+            "type": "object",
+            "properties": {
+              "score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "basis": {
+                "type": "string",
+                "minLength": 1
+              },
+              "calibrated_probability": {
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "score",
+              "basis",
+              "calibrated_probability"
+            ],
+            "additionalProperties": false
+          },
+          "risk": {
+            "type": "object",
+            "properties": {
+              "level": {
+                "enum": [
+                  "low",
+                  "normal",
+                  "high",
+                  "critical"
+                ]
+              },
+              "score": {
+                "type": "number"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "enum": [
+                  "project_override",
+                  "pattern_default"
+                ]
+              }
+            },
+            "required": [
+              "level",
+              "score",
+              "reason",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "scenario_context": {
+            "type": "object"
+          },
+          "pattern_versions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "predicate": {
+            "type": "object"
           }
         },
         "required": [

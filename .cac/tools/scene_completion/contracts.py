@@ -11,6 +11,7 @@ TASKS = {
  'object-operations': ('scene-object-operations', 'RR对象操作抽取'),
  'api-map': ('scene-api-map', 'API接口映射抽取'),
  'api-parameters': ('scene-api-parameters', 'API接口参数抽取'),
+ 'pattern-applicability': ('scene-pattern-apply','异常模式适用性'),
  'concern-match': ('scene-concern-match', '关注点匹配'),
  'exception-generate': ('scene-exception-generate', '异常场景生成'),
  'existing-branches': ('scene-existing-branches', '原文异常分支抽取'),
@@ -70,7 +71,7 @@ SCENARIO['properties'].update(concern_origins=arr(S),concern_paths=arr(arr(S)),
  scope=enum('interface','storage','context','service','relation','environment'),data_location=NULL_S)
 
 # Alignment metadata is optional for generated rules, mandatory on new inverse tasks.
-SCENARIO['properties'].update(original_branch_id=NULL_S,coverage_kind=enum('exact','input_parameters'),
+SCENARIO['properties'].update(original_branch_id=NULL_S,coverage_kind=enum('exact','input_parameters','authentication','authorization'),
  canonical_interaction_id=S,interaction_type=enum('actor_system','service_service','undetermined'))
 SCENARIO['properties'].update(resolution=enum('explicit','conditional'),executable={'type':'boolean'},pending_details=arr(S),
  normalization_origin=obj(interaction_id=S,object=S,field=NULL_S,data_location=NULL_S),source_scenario_id=S)
@@ -78,6 +79,10 @@ SCENARIO['properties'].update(source_unit_ids=arr(S),quality_notes=arr(S))
 SCENARIO['properties']['scenario_type']=enum('exception','normal','optional','pending')
 FAILURE_RULE=obj(kind=S,value=VALUE)
 SCENARIO['properties']['failure_rule']=FAILURE_RULE
+SCENARIO['properties'].update(pattern_id=S,linked_pattern_ids=arr(S),
+ confidence=obj(score={'type':'number','minimum':0,'maximum':1},basis=S,calibrated_probability=enum(False)),
+ risk=obj(level=enum('low','normal','high','critical'),score={'type':'number'},reason=S,source=enum('project_override','pattern_default')),
+ scenario_context={'type':'object'},pattern_versions={'type':'object','additionalProperties':S},predicate={'type':'object'})
 DECISION['properties'].update(concern_alignment=enum('same','different'),follow_up_comparison=enum('not_scored'))
 NORMAL_RULE=obj(id=S,interaction_id=S,owner_service=S,concern_key=S,condition=S,violation=S,
  fields=arr(S),functional_kinds=arr(enum('read','create','update','delete','display','process','publish','external_call')),
@@ -118,9 +123,11 @@ SCHEMAS = {
  'gap-compare':obj(decisions=arr(DECISION),missing=arr(SCENARIO)),
  'semantic-compare':obj(decisions=arr(DECISION)),
  'interaction-align':obj(aliases=arr(obj(name=S,component_id=S,source_refs=REFS)),links=arr(obj(rr_id=S,sr_ids=arr(S),status=enum('confirmed','pending'),basis=S,source_refs=REFS))),
- 'gap-recommend':obj(enabled=enum(False),status=enum('未启用')),
+ 'gap-recommend':{'oneOf':[obj(enabled=enum(False),status=enum('未启用')),{'type':'object','required':['enabled','status','Q','ranked','critical_review','settings_hash','history_hash'],'properties':{'enabled':enum(True),'Q':arr(SCENARIO)}}]},
  'test-operation-project':obj(objects=arr(obj(name=S,supported_operations=arr(obj(name=S,source_refs=REFS))))),
 }
+
+SCHEMAS['pattern-applicability']=obj(instances=arr(obj(id=S,pattern_id=S,status=enum('accepted','pending','excluded'),scenario=SCENARIO)),settings_hash=S,library_version=S,threshold={'type':'number','minimum':0,'maximum':1},issues=arr(PENDING))
 
 SCHEMAS['test-ground-truth']['properties']['pending']=arr(PENDING)
 SUPPLEMENT_TEST=obj(interaction_id=S,concern_key=S,field=NULL_S,scope=enum('interface','service','storage','relation','context'),data_location=NULL_S,
@@ -166,6 +173,7 @@ full表示所有必要条件完全对应，partial仅诊断，不计命中。同
 '''
 
 INPUT_KEYS = {
+ 'pattern-applicability':{'positive','settings'},
  'test-supplement':{'fused-ssd','normal-constraints','normal-rules','test-catalogue','registry'},
  'normal-rules':{'normal-documents','fused-ssd'},
  'api-index':{'SR'},

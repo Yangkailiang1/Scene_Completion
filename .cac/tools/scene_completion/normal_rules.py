@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 from .storage import fingerprint
-RULESET_VERSION='exception-only-tests-20261025-v3'
+RULESET_VERSION='scenario-patterns-recommendation-20261026-v4'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
 def identity_concern(key,interaction):

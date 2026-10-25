@@ -136,7 +136,7 @@ class EvidenceContext:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             from .normal_rules import LOCATIONS
             fields['properties']['data_location']={'enum':sorted(LOCATIONS)+[None]}
-            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):fields['properties'].pop(key,None)
+            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate'):fields['properties'].pop(key,None)
             if packet['task']=='existing-extract':
                 from .inverse_alignment import broad_input_branch
                 branches=packet['input'].get('branches',{}).get('branches',[])
@@ -236,7 +236,7 @@ class EvidenceContext:
                 for k in ('interaction_id','concern_key','field','scope','data_location','source_refs','failure_rule'):t.pop(k,None)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
             from .normal_rules import normalize_scenarios
@@ -270,9 +270,26 @@ class EvidenceContext:
         if self.original['task']=='test-supplement':
             rules={r['id']:r for r in self.original['input']['normal-rules']['rules']}
             for t in result.get('tests',[]):
+                if isinstance(t.get('test_data'),(dict,list)):
+                    t['test_data']=json.dumps(t['test_data'],ensure_ascii=False,sort_keys=True)
+                    self.normalizations.append({'field':'test_data','action':'lossless JSON serialization; no changed test values'})
                 r=rules.get(t.get('normal_rule_id'))
+                if r is None and isinstance(t.get('normal_rule_id'),str) and len(t['normal_rule_id'])>=12:
+                    choices=[v for key,v in rules.items() if key.startswith(t['normal_rule_id'])]
+                    if len(choices)==1:
+                        r=choices[0];t['normal_rule_id']=r['id']
+                        self.normalizations.append({'field':'normal_rule_id','action':'complete unique exact-prefix rule ID; no trigger/evidence changes'})
+                if r is None and not t.get('normal_rule_id') and len(rules)==1:
+                    r=next(iter(rules.values()));t['normal_rule_id']=r['id']
+                    self.normalizations.append({'field':'normal_rule_id','action':'fill sole allowed positive rule ID; candidate still fully validated'})
                 if r is None:raise ValueError('补充测试必须选择当前正常规则ID')
                 t.update(interaction_id=r['interaction_id'],concern_key=r['concern_key'],field=None,scope='service',data_location=None,source_refs=deepcopy(r['source_refs']))
+        if self.original['task']=='existing-bind':
+            branches={b['id']:b for b in self.original['input']['branches']['branches']}
+            for b in result.get('bindings',[]):
+                if not b.get('source_refs') and b['branch_id'] in branches:
+                    b['source_refs']=deepcopy(branches[b['branch_id']]['source_refs'])
+                    self.normalizations.append({'branch_id':b['branch_id'],'action':'restore selected original branch references; no binding ID/decision change'})
         if self.original['task']=='normal-rules':
             from .normal_rules import identity_concern,separate_unknown_criteria,separate_foreign_checks
             rows={i['id']:i for i in self.original['input']['fused-ssd']['interactions']}
@@ -291,7 +308,7 @@ class EvidenceContext:
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
                     if not row['concern_key'].startswith('api.data.') and row.get('field') is not None:

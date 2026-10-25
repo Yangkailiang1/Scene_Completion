@@ -40,7 +40,24 @@ def mechanical_tests(inputs):
              'preconditions':['调用方及其他依赖满足本次操作前置条件'],'trigger':i['receiver']['name']+'不可用，无法执行当前操作','test_data':'使本次被调用服务不可用',
              'steps':['准备本次合法调用','使'+i['receiver']['name']+'不可用','发起'+i['operation']['name']+'并记录调用结果'],'expected_result':'本次操作无法正常完成；具体故障原因、错误码和恢复行为未声明，不补造',
              'source_refs':i['source_refs'],'executable':True,'pending_details':[]})
-    return {'tests':out}
+    from .scenario_patterns import security_rules
+    # Independent positive-rule construction, not a call to G/matrix/ranking.
+    for rec in security_rules(inputs):
+        if not rec['supported']:continue
+        i,r=rec['interaction'],rec['rule'];trigger=rec['trigger']
+        out.append({'interaction_id':i['id'],'concern_key':r['concern_key'],'field':None,'scope':'relation' if r['concern_key'].startswith('service_relation.') else 'service','data_location':None,
+            'preconditions':[r['condition']],'trigger':trigger,'test_data':'只违反当前已确认认证/授权条件','steps':['准备合法调用环境',trigger,'发起本次操作并核查处理'],'expected_result':'不得把违反认证/授权条件的调用作为合法成功；未明确错误码或处理方式不补造','source_refs':r['source_refs'],'executable':True,'pending_details':[],'normal_rule_id':r['id']})
+    units=[]
+    for t in out:
+        rule=t.get('failure_rule',{});value=rule.get('value');kind=rule.get('kind');bounds=[]
+        if kind in {'length','size'} and isinstance(value,dict):
+            for side,aliases in [('minimum',('min','minimum','minLength','minItems','minBytes')),('maximum',('max','maximum','maxLength','maxItems','maxBytes'))]:
+                values=[value[k] for k in aliases if k in value]
+                if len(values)==1 and type(values[0]) in (int,float):bounds.append((side,values[0]))
+        if not bounds:units.append(t);continue
+        for side,number in bounds:
+            child=deepcopy(t);child['failure_rule']={'kind':kind+'.'+side,'value':number};child['trigger']=t['field']+'已提供；违反'+kind+'.'+side+'约束: '+str(number);child['test_data']=child['trigger'];child['steps']=[t['steps'][0],child['trigger'],t['steps'][-1]];units.append(child)
+    return {'tests':units}
 
 def to_truth(value,inputs):
     rows={i['id']:i for i in inputs['fused-ssd']['interactions']};out=[]

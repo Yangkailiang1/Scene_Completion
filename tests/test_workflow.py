@@ -356,7 +356,8 @@ def test_cli_default_prepares_scoped_packets_without_model(tmp_path):
     assert p.returncode==2,p.stderr
     manifest=json.loads((tmp_path/'out/run_manifest.json').read_text())
     assert manifest['protocol']==PROTOCOL and not manifest['complete']
-    assert manifest['tasks']['gap-recommend']=='passed'
+    assert 'gap-recommend' not in manifest['tasks']
+    assert manifest['recommendation']['enabled'] is True
     packets=[json.loads(x.read_text()) for x in (tmp_path/'out/packets').glob('*.json')]
     assert packets and all(x['protocol']==PROTOCOL for x in packets)
 

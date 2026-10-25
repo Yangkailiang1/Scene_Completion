@@ -57,7 +57,7 @@ def code_version(task):
       'normal-rules':['normal_rules.py','task_partitions.py'],
       'concern-match':['normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'exception-generate':['normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
-      'existing-branches':['source_documents.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'existing-branches':['source_documents.py','branch_evidence.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'existing-extract':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'test-ground-truth':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'gap-compare':['exception_comparison.py','comparison_batches.py','assignment.py','normal_rules.py'],
@@ -65,15 +65,16 @@ def code_version(task):
       'missing-report':['exception_comparison.py','artifact_exports.py'],
       'exception-evaluation':['exception_comparison.py','assignment.py'],
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
-      'test-operation-project':['source_documents.py'], 'gap-recommend':[]}
+      'test-operation-project':['source_documents.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
     names=modules.get(task,[])
-    if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py']
+    if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py','scenario_patterns.py']
     if task in {'test-expanded','test-additional-truth','test-additional-dedup'}:names=['test_supplement.py']
     if task in {'exception-generate','existing-extract','test-ground-truth','existing-branches'}:names=names+['scenario_types.py','test_sources.py']
     if task in {'existing-bind','existing-extract','test-ground-truth'}:names=names+['failure_units.py']
+    if task in {'existing-extract','test-ground-truth','test-additional-truth'}:names=names+['scenario_patterns.py']
     if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
     if task=='test-ground-truth':names=names+['validation.py']
-    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py']
+    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     return implementation
@@ -92,6 +93,9 @@ class Execution:
         self.registry_snapshot=read_json(self.root/'registry_override.json') if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
+        from .scenario_patterns import normalize_settings
+        self.pattern_settings=normalize_settings(read_json(self.root/'pattern_settings_used.json')) if (self.root/'pattern_settings_used.json').exists() else normalize_settings()
+        self.recommendation_history=read_json(self.root/'recommendation_history_used.json') if (self.root/'recommendation_history_used.json').exists() else []
         from .reviews import Reviews
         from .node_conversations import Conversations
         self.conversations=Conversations(self.root)
@@ -117,10 +121,17 @@ class Execution:
             for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
                 source=self.root/name
                 if source.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(source,archive/name)
+        if previous and self.config.get('scenario_patterns',False) and previous.get('pattern_settings_hash')!=self.pattern_settings['hash']:
+            import shutil,time
+            archive=self.root/'report_versions'/('patterns-'+str(previous.get('pattern_settings_hash','legacy'))[:16]+'-'+str(time.time_ns()))
+            for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
+                source=self.root/name
+                if source.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(source,archive/name)
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
                        'registry_hash':self.registry_snapshot['hash'],'registry_version':self.registry_snapshot['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
         from .normal_rules import RULESET_VERSION
         self.manifest['ruleset_version']=RULESET_VERSION
+        if self.config.get('scenario_patterns',False):self.manifest.update(pattern_settings_hash=self.pattern_settings['hash'],pattern_library_version=self.pattern_settings['library']['version'],recommendation={'enabled':True,'status':'等待缺失集合M'})
         write_json(manifest,self.manifest)
         self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
         import time
@@ -172,6 +183,12 @@ class Execution:
                         p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
         batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
+        if self.mode=='external' and self.mocks is None:
+            from .positive_reuse import find
+            reused=find(self.root,task,inputs,p['case_ids'],p['skill_text'])
+            if reused:
+                value,source=reused;emit('result_reused',**source,reason='unchanged positive source/contract/Skill; actual scope and evidence revalidated')
+                return value,{'provider':'verified_positive_reuse',**source}
         semantic_identity=fingerprint({'task':task,'input':inputs,'skill':p['skill_text'],'schema':p['output_schema'],
           'endpoint':self.identity['endpoint_hash'],'model':self.identity['model'],'guidance':self.conversations.revision(p['node_key'])})
         cached_response=self.root/'semantic_responses'/(semantic_identity+'.json')
@@ -262,7 +279,8 @@ class Execution:
             try:
                 if task=='existing-branches':
                     from .scenario_types import filter_branches
-                    value=filter_branches(value)
+                    from .branch_evidence import complete
+                    value=filter_branches(complete(value,inputs))
                 if task=='test-supplement':
                     from .test_supplement import mechanical_tests
                     value['tests']=list({fingerprint(t):t for t in value['tests']+mechanical_tests(inputs)['tests']}.values())
@@ -275,7 +293,7 @@ class Execution:
                     resolved=resolve_matches(inputs,value['matches'])
                     value['matches']=resolved['matches']
                     value['pending']=list({fingerprint(v):v for v in value['pending']+resolved['pending']}.values())
-                if task in {'exception-generate','existing-extract','test-ground-truth'}:
+                if task in {'exception-generate','existing-extract','test-ground-truth'} and 'pattern-applicability' not in inputs:
                     from .normal_rules import normalize_scenarios
                     value=normalize_scenarios(value,inputs,truth=task=='test-ground-truth')
                     if task=='exception-generate':
@@ -294,9 +312,12 @@ class Execution:
                 if task in {'test-ground-truth','existing-extract'}:
                     from .failure_units import normalize_inverse_units
                     value=normalize_inverse_units(value,inputs)
-                if task in {'test-ground-truth','existing-extract','exception-generate'}:
+                if task in {'test-ground-truth','existing-extract','exception-generate'} and 'pattern-applicability' not in inputs:
                     from .scenario_types import filter_scenarios
                     value=filter_scenarios(value,inputs,task)
+                if self.config.get('scenario_patterns',False) and task in {'existing-extract','test-ground-truth','test-additional-truth'}:
+                    from .scenario_patterns import inverse_metadata
+                    value=inverse_metadata(value,inputs,self.pattern_settings,truth=task=='test-ground-truth')
                 from .execution_events import phase
                 phase('validating')
                 if task in SCHEMAS:
@@ -317,6 +338,8 @@ class Execution:
                 validate_result(task,value['payload'],inputs_for(dependencies))
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
                  'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+        if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
+        if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
 
     def partitioned(self,key,task,deps,build,case):
@@ -382,7 +405,7 @@ class Execution:
         # Keep independently completed task files; failed siblings cannot erase them.
         (self.root/'missing_report.json').unlink(missing_ok=True)
         (self.root/'missing_report.md').unlink(missing_ok=True)
-        reports={};evaluations={};cases={}
+        reports={};evaluations={};cases={};recommendations={}
         records=self.scheduler.state['tasks']
         for key,record in records.items():
             if key not in self.scheduler.tasks:continue
@@ -403,14 +426,16 @@ class Execution:
             write_json(destination/(stem+'.metadata.json'),value.get('metadata',{}))
             if stage=='missing-report':reports[cid]=value['payload']
             if stage=='exception-evaluation':evaluations[cid]=value['payload']
+            if stage=='gap-recommend' and cid!='shared':recommendations[cid]=value['payload']
         if reports:
             from .artifact_exports import export_missing_report
             combined={'protocol':PROTOCOL,'cases':reports,'evaluation':evaluations,
-              'recommendation':{'enabled':False,'status':'未启用'},'evaluation_status':{
+              'recommendation':{'enabled':True,'cases':recommendations} if self.config.get('scenario_patterns',False) else {'enabled':False,'status':'未启用'},'evaluation_status':{
                   c:'已评测' if c in evaluations else '未评测或任务未完成' for c in reports}}
             export_missing_report(self.root,combined)
         analysis_stages={'fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
+        if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
         self.manifest.update(complete=result['complete'] and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
@@ -484,7 +509,7 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
           build=lambda d,docs=docs:{'documents':docs,'index':d['source-index']},transform=lambda d:catalogue_context(d['documents'],d['index']))
         ex.scheduler.tasks[k].display_label=layer+'用例元数据取片（工具）'
         ex.add(layer.lower()+'-use-cases','use-case-extract',(k,),build=lambda d,k=k,layer=layer:{**d[k],'layer':layer})
-    ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
+    if not ex.config.get('scenario_patterns',False):ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
     ex.add('use-case-align','use-case-align',('rr-use-cases','sr-use-cases'),
       build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})
     def expand():
@@ -560,7 +585,14 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             v.update(basic_views(d['enriched-view']))
             v['api-parameters']=case_parameters(v,d['enriched-view'])
             return {**v,'enriched-interactions':actual_context(d['enriched-view']),'concern-match':d['concern-match'],'registry':registry()}
-        add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input,partition=True)
+        if ex.config.get('scenario_patterns',False):
+            from .scenario_patterns import applicability,generated
+            add('pattern-applicability',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),
+                build=lambda d:{'positive':generation_input(d),'settings':ex.pattern_settings},transform=lambda d:applicability(d['positive'],d['settings']))
+            add('exception-generate',('pattern-applicability',),build=lambda d:d,transform=lambda d:generated(d['pattern-applicability']))
+        else:
+            add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input,partition=True)
+
         add('existing-bind',('existing-branches','fused-ssd','normal-rules'),
             build=lambda d,g=group:{'branches':d['existing-branches'],'fused-ssd':d['fused-ssd'],'case-group':g,'registry':registry(),'normal-rules':d['normal-rules']},partition=True)
         add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules'),
@@ -572,6 +604,11 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
               'pending':d['normal-rules']['pending']+d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
+        if ex.config.get('scenario_patterns',False):
+            from .recommendation import rank
+            add('gap-recommend',('missing-report','pattern-applicability'),
+                build=lambda d,cid=cid:{**d,'settings':ex.pattern_settings,'history':ex.recommendation_history,'case_id':cid,'run_id':ex.session_id},
+                transform=lambda d,cid=cid:rank(d['missing-report']['M'],d['pattern-applicability'],d['settings'],d['history'],case_id=d['case_id'],run_id=d['run_id']))
         add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
@@ -590,6 +627,15 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         if scoped_test or ex.config.get('supplement_tests',False):
             extra=('test-expanded','GT_expanded_G','GT_expanded_E') if ex.config.get('supplement_tests',False) else ()
             from .test_supplement import evaluate_test_sets
+            if ex.config.get('scenario_patterns',False):
+                extra=extra+('gap-recommend',)
+                from .recommendation import evaluate as evaluate_recommendation
+                base_evaluate=evaluate_test_sets
+                def evaluate_test_sets(d):
+                    report=base_evaluate(d)
+                    report=evaluate_recommendation(report,d['gap-recommend'])
+                    if 'original_evaluation' in report:report['original_evaluation']=evaluate_recommendation(report['original_evaluation'],d['gap-recommend'])
+                    return report
             add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E')+extra,build=lambda d:d,transform=evaluate_test_sets)
         for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
     # Each checker reads only its own case, in parallel to positive modeling.

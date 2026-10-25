@@ -43,10 +43,10 @@ def align_rows(channels, pairs, decisions=None):
         broad={};cells=[]
         for s in row['cells']['E']:
             branch=s.get('original_branch_id')
-            if s.get('coverage_kind')=='input_parameters' and branch:
+            if s.get('coverage_kind') in {'input_parameters','authentication','authorization'} and branch:
                 if branch in broad:
                     broad[branch].setdefault('covered_variant_ids',[broad[branch]['id']]).append(s['id']);continue
-                s=dict(s,coverage_description='原文输入参数非法分支，覆盖当前交互中有依据的输入参数约束');broad[branch]=s
+                s=dict(s,coverage_description='由宽泛原分支覆盖本交互中已确认适用的子场景；原文未逐项列出');broad[branch]=s
             cells.append(s)
         row['cells']['E']=cells
         if any(len(s.get('source_unit_ids',[]))>1 for values in row['cells'].values() for s in values):row['diagnostics'].append('重复来源已合并')
@@ -56,7 +56,9 @@ def align_rows(channels, pairs, decisions=None):
 
 def aggregate_metrics(cases):
     out={}
-    for key in ('missing_exception_miss_rate','generation_validity'):
+    keys=['missing_exception_miss_rate','generation_validity']
+    keys += [k for k in ('recommendation_adoption','recommendation_false_positive','critical_missing_recall') if any(r.get('metrics',{}).get(k,{}).get('status') in {'适用','不适用'} for r in cases)]
+    for key in keys:
         available=[r['metrics'][key] for r in cases if r.get('metrics',{}).get(key,{}).get('status')=='适用']
         n=sum(v['numerator'] for v in available);d=sum(v['denominator'] for v in available)
         out[key]={'value':100*n/d if d else None,'numerator':n,'denominator':d,'status':'适用' if d else '不适用' if any(r.get('metrics',{}).get(key) for r in cases) else '未评测'}

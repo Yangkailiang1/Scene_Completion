@@ -273,7 +273,10 @@ export function ExecutionFlow(props: {
               <span className={`role-tiny ${id}`} />
               <span>{roleLabels[id]}</span>
               <strong>
-                {id === "recommender"
+                {id === "recommender" &&
+                props.graph.nodes
+                  .filter((n) => n.role === id)
+                  .every((n) => n.status === "disabled")
                   ? "未启用"
                   : `${r?.completed || 0} / ${r?.known || 0}`}
               </strong>

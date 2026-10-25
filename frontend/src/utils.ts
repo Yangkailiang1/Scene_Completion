@@ -74,7 +74,8 @@ export function display(value: any): string {
 
 export function failureText(value: any): string {
   const d = value?.transport_failure || value?.diagnostic || value;
-  if (d?.failure_category === "output_truncated") return `模型输出达到${d.max_output_tokens} tokens上限仍未完成，已停止重复生成。需要拆分任务或调整生成模式／输出预算；已验证产物保留。`;
+  if (d?.failure_category === "output_truncated")
+    return `模型输出达到${d.max_output_tokens} tokens上限仍未完成，已停止重复生成。需要拆分任务或调整生成模式／输出预算；已验证产物保留。`;
   if (d?.failure_category === "stream_incomplete")
     return `模型流未完整返回${d.elapsed_seconds != null ? `，约${Math.round(d.elapsed_seconds)}秒后结束` : ""}，已收到${d.partial_content_bytes ?? 0}字节正文／工具参数。未生成有效产物，已有成功文件保留；可继续当前任务。`;
   if (d?.failure_category === "transport_timeout") {

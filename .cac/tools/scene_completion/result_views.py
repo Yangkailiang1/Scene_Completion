@@ -36,7 +36,7 @@ class ResultView:
 
     def catalog(self):
         out=[]
-        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded'}
+        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend'}
         for key,r in self.state.items():
             if r.get('status')!='passed' or r['stage'] not in stages or '--part-' in key:continue
             case=r['case'];stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -50,7 +50,7 @@ class ResultView:
 
     def index(self):
         return {'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
-                'registry_hash':self.manifest.get('registry_hash'),'recommendation':'未启用'}
+                'registry_hash':self.manifest.get('registry_hash'),'recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用'}
 
     def metrics(self,test_set='expanded'):
         if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
@@ -68,7 +68,7 @@ class ResultView:
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
         generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
         return {'cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
-                'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'未启用',
+                'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
                 'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
     def scenario(self,cid,channel,sid):

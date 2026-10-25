@@ -28,8 +28,8 @@ def test_large_interaction_matrix_is_bounded_per_model_request(tmp_path):
     left=[scenario('l'+str(n)) for n in range(17)];right=[scenario('r'+str(n)) for n in range(10)]
     p=packet('semantic-compare',{'left':left,'right':right,'purpose':'GT_G'});p['node_key']='case:GT_G'
     c=Client();v=compare_in_batches(p,c,tmp_path)
-    assert len(v['decisions'])==170 and len(c.calls)==6
-    assert all(len(x['candidate_pairs'])<=32 for x in c.calls)
+    assert len(v['decisions'])==170 and len(c.calls)==11
+    assert all(len(x['candidate_pairs'])<=16 for x in c.calls)
 
 
 def test_sparse_field_comparison_excludes_only_known_identifiers_and_preserves_all_pairs(tmp_path):

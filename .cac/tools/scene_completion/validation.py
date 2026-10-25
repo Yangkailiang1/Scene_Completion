@@ -21,7 +21,22 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task,payload)
-    if task=='gap-recommend':return payload
+    if task=='pattern-applicability':
+        from .scenario_patterns import applicability as pattern_applicability
+        if payload!=pattern_applicability(inputs['positive'],inputs['settings']):raise ValueError('模式适用性必须由冻结正向依赖与项目设置构造')
+        return payload
+    if task=='exception-generate' and 'pattern-applicability' in inputs:
+        from .scenario_patterns import generated
+        if payload!=generated(inputs['pattern-applicability']):raise ValueError('G只允许使用已校验且达到证据阈值的模式实例')
+        return payload
+    if task=='gap-recommend':
+        if payload.get('enabled'):
+            from .recommendation import rank
+            required={'missing-report','pattern-applicability','settings','history','case_id','run_id'}
+            if set(inputs)!=required:raise ValueError('推荐仅允许M、模式、审核历史和冻结运行标识，不接收GT')
+            expected=rank(inputs['missing-report']['M'],inputs['pattern-applicability'],inputs['settings'],inputs['history'],case_id=inputs['case_id'],run_id=inputs['run_id'])
+            if payload!=expected:raise ValueError('推荐必须与冻结M、风险及人工历史的工具排序一致')
+        return payload
     if task in {'use-case-extract','use-case-align','fused-ssd'}:
         from .use_cases import validate_catalogue
         validate_catalogue(task,payload,inputs)

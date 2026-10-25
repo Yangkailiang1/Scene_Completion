@@ -83,7 +83,7 @@ class SemanticClient:
                     if budget:
                         status = (getattr(exc, 'response_diagnostic', {}) or {}).get('http_status')
                         category = (getattr(exc, 'response_diagnostic', {}) or {}).get('failure_category')
-                        refused = status in (400, 401, 403, 404, 422, 429) or (
+                        refused = (getattr(exc,'response_diagnostic',{}) or {}).get('request_not_sent') is True or status in (400, 401, 403, 404, 422, 429) or (
                             category == 'quota_exhausted' and type(status) is int and 400 <= status < 500)
                         budget.settle(reservation, refused=refused)
                     raise

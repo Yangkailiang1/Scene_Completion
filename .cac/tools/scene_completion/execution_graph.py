@@ -9,7 +9,7 @@ LABELS={'normal-rules':'正向正常规则整理','ssd-context':'用例SSD上下
  'test-operation-project':'测试操作投影','object-operations':'对象支持操作','interaction-align':'步骤展开对应','interaction-enrich':'交互属性补全',
  'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
  'gap-compare':'缺失比较 M','missing-report':'缺失异常报告','test-ground-truth':'测试真值整理','semantic-compare':'评测语义对应',
- 'exception-evaluation':'异常评测','extraction-evaluation':'抽取 Acc','gap-recommend':'推荐器'}
+ 'exception-evaluation':'异常评测','extraction-evaluation':'抽取 Acc','pattern-applicability':'模式适用性与证据分级','gap-recommend':'风险保底推荐'}
 LABELS.update({'test-supplement':'独立异常测试补全','test-additional-truth':'补充异常测试GT（工具）','test-additional-dedup':'补充测试内部去重（工具）','test-expanded':'扩展异常测试集去重合并（工具）'})
 
 def artifact_folder(root,key,case):
@@ -22,14 +22,14 @@ INPUTS={'normal-rules':'本用例正向原文＋实际服务交互，不含E/GT'
  'concern-match':'具体交互＋接口表＋预定义关注点','exception-generate':'正向交互及已匹配关注点，隔离E/GT',
  'existing-branches':'RR＋SR原文已有异常（独立通道）','existing-bind':'原分支＋融合SSD＋用例对应',
  'existing-extract':'已绑定分支＋接口约束＋关注点体系','test-ground-truth':'独立测试spec＋融合SSD＋正常约束',
- 'test-supplement':'正向SSD＋正常规则＋接口约束，隔离G/E/比较结果','test-additional-truth':'已验证补充测试，不读取G/E','test-additional-dedup':'补充测试集内部的完整失败对应','test-expanded':'原始异常GT＋补充GT独立去重','gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','exception-evaluation':'独立GT与G/E对齐结果'}
-PREVIEWS=[('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','exception-generate','生成异常G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
+ 'test-supplement':'正向SSD＋正常规则＋接口约束，隔离G/E/比较结果','test-additional-truth':'已验证补充测试，不读取G/E','test-additional-dedup':'补充测试集内部的完整失败对应','test-expanded':'原始异常GT＋补充GT独立去重','gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','pattern-applicability':'正向交互＋规则＋模式库；不读取E/GT','gap-recommend':'缺失M＋项目已审核历史＋风险设置；不读取GT','exception-evaluation':'独立GT与G/E/Q对齐结果'}
+PREVIEWS=[('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','pattern-applicability','模式适用性与证据分级'),('modeler','exception-generate','细粒度场景生成G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
 
 def expected_files(key,case,stage):
     stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
     suffixes=['json']
     if stage in {'components','fused-ssd','rr-ssd','sr-ssd'}:suffixes+=['svg']
-    if stage in {'components','api-map','api-parameters','object-operations','concern-match','rr-ssd','sr-ssd','missing-report','existing-branches','existing-bind','existing-extract','test-ground-truth','exception-generate'}:suffixes+=['md']
+    if stage in {'components','api-map','api-parameters','object-operations','concern-match','rr-ssd','sr-ssd','missing-report','existing-branches','existing-bind','existing-extract','test-ground-truth','exception-generate','pattern-applicability','gap-recommend'}:suffixes+=['md']
     return [stem+'.'+s for s in suffixes]
 
 def graph_snapshot(root):
@@ -52,7 +52,10 @@ def graph_snapshot(root):
         elif event and event['kind']=='tool_started':phase='tool_running'
         elif event and event['kind']=='tool_finished':phase='preparing'
         if event and event['kind']=='rate_limit_wait' and status=='running':phase='rate_limit_wait'
-        if node['stage']=='gap-recommend':phase='disabled';status='disabled'
+        if node['stage']=='gap-recommend' and node.get('case','shared')=='shared':phase='disabled';status='disabled'
+        if node['stage']=='gap-recommend' and record.get('status')=='passed':
+            v=read_json(root/record['output_file']).get('payload',{}) if record.get('output_file') else {}
+            if not v.get('enabled'):phase='disabled';status='disabled'
         blocked=[d for d in node['deps'] if state.get(d,{}).get('status')!='passed']
         failure=record.get('failure',{}).get('transport_failure',{})
         if status=='pending' and failure.get('failure_category') in {'transport_timeout','connection_failed','stream_incomplete'}:phase=failure['failure_category']
@@ -77,7 +80,7 @@ def graph_snapshot(root):
         for role,stage,label in PREVIEWS:
             nodes.append({'id':'planned:'+stage,'stage':stage,'case':'待用例对应','role':role,'label':label,'planned':True,'status':'planned','phase':'planned','deps':[],'expected_files':expected_files(stage,'shared',stage),'input_summary':INPUTS.get(stage,'按用例展开'),'artifacts':[],'blocked_by':[],'failure':None,'attempt':0,'elapsed_seconds':None,'question':None})
     if not any(n['stage']=='gap-recommend' for n in nodes):
-        nodes.append({'id':'planned:gap-recommend','stage':'gap-recommend','case':'shared','role':'recommender','label':'推荐流程待定','planned':True,'status':'disabled','phase':'disabled','deps':[],'expected_files':[],'input_summary':'缺失报告M；当前不执行','artifacts':[],'blocked_by':[],'failure':None,'attempt':0,'elapsed_seconds':None})
+        nodes.append({'id':'planned:gap-recommend','stage':'gap-recommend','case':'shared','role':'recommender','label':'等待用例对应后展开推荐','planned':True,'status':'disabled','phase':'disabled','deps':[],'expected_files':[],'input_summary':'缺失报告M；当前不执行','artifacts':[],'blocked_by':[],'failure':None,'attempt':0,'elapsed_seconds':None})
     # Old runs have status records but no graph. Make that limitation explicit.
     return {'nodes':nodes,'edges':edges,'definition_available':bool(definition['nodes']),
       'case_expansion_pending':not any(n['case']!='shared' and not n.get('planned') for n in nodes),
