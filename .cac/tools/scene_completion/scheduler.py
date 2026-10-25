@@ -125,6 +125,9 @@ class Scheduler:
         for t in self.tasks.values():
             if any(d not in self.tasks for d in t.deps):raise ValueError('unknown dependency')
         remaining=set(self.tasks);active={};done=set();outputs={};dispatches={}
+        # Historical passed flags are not proof that this execution has
+        # revalidated the task's identity, dependencies and cached artifact.
+        self.resolved_tasks=done
         def job(t,deps,record):
             fn=t.repair if record['rounds'] else t.execute
             from .execution_events import bind,phase
@@ -151,6 +154,7 @@ class Scheduler:
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
                         self.state['tasks'][key]={'status':'blocked_dependency','case':t.case,'stage':t.stage,'blocked_by':[d for d in t.deps if self.state['tasks'][d]['status']!='passed']};remaining.remove(key);done.add(key);progressed=True;continue
+                    if getattr(t,'deferred',False):continue
                     deps={d:outputs[d] for d in t.deps}
                     identity=fingerprint({'version':t.version,'dependencies':{d:v.get('payload',v) if isinstance(v,dict) else v for d,v in deps.items()}})
                     rec=self.state['tasks'].get(key,{})

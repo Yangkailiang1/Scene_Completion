@@ -277,6 +277,7 @@ class Execution:
         from .task_partitions import split_task,merge_parts
         def waiting(d):raise TaskBlocked('dependency_wait',{'reason':'等待子任务展开'})
         self.add(key,task,deps,build=build,transform=waiting,case=case)
+        self.scheduler.tasks[key].deferred=True
         def expand():
             inputs=build({d:payload(read_json(self.root/self.scheduler.state['tasks'][d]['output_file'])) for d in deps})
             units=split_task(task,inputs);children=[]
@@ -296,11 +297,13 @@ class Execution:
     def finish(self):
         def update():
             records=self.scheduler.state['tasks']
+            resolved=getattr(self.scheduler,'resolved_tasks',set())
+            ready=lambda dependencies:all(d in resolved and records.get(d,{}).get('status')=='passed' for d in dependencies)
             for dependencies,expand in list(self.partitions):
-                if all(records.get(d,{}).get('status')=='passed' for d in dependencies):
+                if ready(dependencies):
                     self.partitions.remove((dependencies,expand));expand()
             api=records.get('api-index',{})
-            if self.expand_api and api.get('status')=='passed':
+            if self.expand_api and ready(('api-index',)):
                 self.scheduler.tasks.pop('api-parameters',None)
                 expand=self.expand_api;self.expand_api=None;expand()
             elif self.expand_api and api.get('status') in {'failed','rejected','pending','rate_limited','awaiting_configuration','budget_exhausted','awaiting_answer','awaiting_review'}:
@@ -310,10 +313,11 @@ class Execution:
                 if not active:
                     if 'api-parameters' not in self.scheduler.tasks:
                         self.add('api-parameters','api-parameters',('api-index',),transform=lambda d:{'apis':[]})
-            if self.expand_pipeline and records.get('use-case-align',{}).get('status')=='passed':
+                        self.scheduler.tasks['api-parameters'].deferred=True
+            if self.expand_pipeline and ready(('use-case-align',)):
                 expand=self.expand_pipeline;self.expand_pipeline=None;expand()
             for dependencies,expand in list(self.partitions):
-                if all(records.get(d,{}).get('status')=='passed' for d in dependencies):
+                if ready(dependencies):
                     self.partitions.remove((dependencies,expand));expand()
         self.scheduler.on_update=update
         result=self.scheduler.run()

@@ -126,4 +126,7 @@ def test_rule_id_cannot_silently_replace_child_field_with_parent_array():
     from tests.test_workflow import exchange
     i=exchange();s=scenario();s.update(concern_key='api.data.range',field='rows[].amount',object='rows[].amount',rule_id='parent',data_location='body')
     inputs={'fused-ssd':{'interactions':[i],'rr_sr_links':[]},'normal-rules':{'rules':[{'id':'parent','interaction_id':i['id'],'fields':['rows'],'concern_key':'api.data.completeness'}]}}
-    with pytest.raises(ValueError,match='different field'):normalize_scenarios({'scenarios':[s]},inputs,truth=True)
+    out=normalize_scenarios({'scenarios':[s]},inputs,truth=True)['scenarios'][0]
+    assert out['field']=='rows[].amount' and out['concern_key']=='api.data.range'
+    assert out['rule_id'] is None and out['cause']==s['cause'] and out['interaction_id']==s['interaction_id']
+    assert '索引对齐诊断' in out['derivation']

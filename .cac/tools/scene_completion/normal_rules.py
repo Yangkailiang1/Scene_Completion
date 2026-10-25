@@ -123,11 +123,17 @@ def normalize_scenarios(value,inputs,*,truth=False):
         s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s.get('rule_id') in rules:
             r=rules[s['rule_id']];i=rows.get(r['interaction_id'])
+            conflict=None
             if s['concern_key'].startswith('api.data.') and r['concern_key'].startswith('api.data.'):
                 f=s.get('field')
                 if f and r['fields'] and not any(f==rf or f.endswith('.'+rf) or rf.endswith('.'+f) for rf in r['fields']):
-                    raise ValueError('referenced normal rule describes a different field; do not replace '+f+' with '+str(r['fields']))
-                if s['concern_key']!=r['concern_key']:raise ValueError('referenced normal rule describes a different data failure category; preserve cause and choose the correct rule or null')
+                    conflict='规则字段'+str(r['fields'])+'与异常字段'+f+'不一致'
+                elif s['concern_key']!=r['concern_key']:conflict='规则与异常的数据失败类别不一致'
+            if conflict:
+                from .execution_events import emit
+                emit('normal_rule_reference_ignored',scenario_id=s['id'],rule_id=s['rule_id'],reason=conflict,action='保留原异常对象、字段、条件及绑定；取消无效索引引用，不替换为另一种异常')
+                s['derivation']+='；索引对齐诊断：'+conflict+'，取消该规则引用，保留原测试/分支依据，未改变异常原因和字段。'
+                s['rule_id']=None;i=None
             if i:
                 s.update(interaction_id=i['id'],canonical_interaction_id=i['id'],layer=i['layer'],operation=i['operation']['name'])
                 s['concern_key']=r['concern_key']
