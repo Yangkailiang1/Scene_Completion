@@ -73,6 +73,8 @@ SCENARIO['properties'].update(original_branch_id=NULL_S,coverage_kind=enum('exac
  canonical_interaction_id=S,interaction_type=enum('actor_system','service_service','undetermined'))
 SCENARIO['properties'].update(resolution=enum('explicit','conditional'),executable={'type':'boolean'},pending_details=arr(S),
  normalization_origin=obj(interaction_id=S,object=S,field=NULL_S,data_location=NULL_S),source_scenario_id=S)
+SCENARIO['properties'].update(source_unit_ids=arr(S),quality_notes=arr(S))
+DECISION['properties'].update(concern_alignment=enum('same','different'),follow_up_comparison=enum('not_scored'))
 NORMAL_RULE=obj(id=S,interaction_id=S,owner_service=S,concern_key=S,condition=S,violation=S,
  fields=arr(S),functional_kinds=arr(enum('read','create','update','delete','display','process','publish','external_call')),
  resolution=enum('explicit','conditional'),pending_details=arr(S),source_refs=REFS)

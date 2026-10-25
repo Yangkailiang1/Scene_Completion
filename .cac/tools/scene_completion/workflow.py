@@ -67,6 +67,8 @@ def code_version(task):
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
       'test-operation-project':['source_documents.py'], 'gap-recommend':[]}
     names=modules.get(task,[])
+    if task in {'existing-bind','existing-extract','test-ground-truth'}:names=names+['failure_units.py']
+    if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
     if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
@@ -243,6 +245,9 @@ class Execution:
             try:
                 if task=='normal-rules':
                     for rule in value['rules']:rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
+                if task=='existing-bind':
+                    from .failure_units import normalize_bindings
+                    value=normalize_bindings(value,inputs)
                 if task=='concern-match':
                     resolved=resolve_matches(inputs,value['matches'])
                     value['matches']=resolved['matches']
@@ -261,6 +266,9 @@ class Execution:
                 if task=='test-ground-truth' and 'fused-ssd' in inputs:
                     from .inverse_alignment import expand_truth
                     value=expand_truth(value,inputs)
+                if task in {'test-ground-truth','existing-extract'}:
+                    from .failure_units import normalize_inverse_units
+                    value=normalize_inverse_units(value,inputs)
                 from .execution_events import phase
                 phase('validating')
                 if task in SCHEMAS:

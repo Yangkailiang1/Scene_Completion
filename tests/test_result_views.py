@@ -45,6 +45,8 @@ def test_results_are_lazy_snapshot_based_and_do_not_reclassify_or_hide_unbound(t
     assert {k:[s['id'] for s in a] for k,a in row['channels'].items()}=={'G':['g'],'E':['e'],'GT':['gt']}
     assert row['missing_ids']==['g'] and v['unbound']['GT'][0]['id']=='unbound'
     assert v['definitions']['key']['label']=='执行时定义'
+    assert row['channels']['G'][0]['lazy_detail'] and 'source_refs' not in row['channels']['G'][0]
+    assert view.scenario('C','G','g')['id']=='g'
     with pytest.raises(ValueError,match='未知用例'):view.detail('../invalid')
 
 

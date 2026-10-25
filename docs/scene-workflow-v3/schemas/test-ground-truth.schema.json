@@ -277,6 +277,20 @@
           "source_scenario_id": {
             "type": "string",
             "minLength": 1
+          },
+          "source_unit_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "quality_notes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "required": [

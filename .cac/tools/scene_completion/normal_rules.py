@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 from .storage import fingerprint
-RULESET_VERSION='quality-rules-20261025-v1'
+RULESET_VERSION='quality-rules-20261025-v2'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
 def identity_concern(key,interaction):
@@ -61,6 +61,25 @@ def separate_unknown_criteria(value,normalizations=None):
 
 def declared_check(rule):
     return bool(re.search(r'校验|合法|有效|范围|约束|规则|valid|check|limit',' '.join(r['quote'] for r in rule['source_refs']),re.I))
+
+
+def separate_foreign_checks(value,inputs,normalizations=None):
+    """Don't assign a caller's explicit local check to its database callee."""
+    out=deepcopy(value);by_id={i['id']:i for i in inputs.get('fused-ssd',{}).get('interactions',[])};kept=[]
+    for rule in out['rules']:
+        i=by_id.get(rule['interaction_id']);refs=[]
+        if i and i['sender']['name']!=i['receiver']['name'] and rule['fields']:
+            actual={p['name'] for p in i['data']['sequence']};quoted=' '.join(r['quote'] for r in rule['source_refs'])
+            if not any(f in actual or f in quoted for f in rule['fields']):
+                refs=[r for r in i['operation']['source_refs'] if all(f in r['quote'] for f in rule['fields']) and re.search(re.escape(i['sender']['name'])+r'.*(?:校验|检查)',r['quote']) and i['receiver']['name'] not in r['quote']]
+        if refs:
+            from .source_documents import validate_evidence
+            validate_evidence(refs,inputs['normal-documents'])
+            reason='规则归属核查：明示执行者是发送方'+i['sender']['name']+'，并非当前接收方'+i['receiver']['name']+'；本子任务不代领该本地校验，需在执行者的实际接收请求核对'
+            out.setdefault('pending',[]).append({'interaction_id':i['id'],'reason':reason,'source_refs':refs})
+            if normalizations is not None:normalizations.append({'rule_id':rule['id'],'action':'keep foreign-owner check as pending, not a fabricated callee rule','source_refs':refs})
+        else:kept.append(rule)
+    out['rules']=kept;return out
 
 def validate_rules(value,inputs):
     from .contracts import registry

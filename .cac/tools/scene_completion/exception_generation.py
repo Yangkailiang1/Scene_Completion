@@ -68,7 +68,7 @@ def deduplicate(scenarios):
         rank=lambda row:(max(map(len,inheritance_paths(row['concern_key']))),row['concern_key'])
         chosen=deepcopy(max((previous,s),key=rank))
         chosen['id']=previous['id']
-        for field in ('source_refs','concern_paths','concern_origins'):
+        for field in ('source_refs','concern_paths','concern_origins','source_unit_ids','quality_notes'):
             chosen[field]=list({fingerprint(v):v for v in previous.get(field,[])+s.get(field,[])}.values())
         chosen['steps']['documented_follow_up']=list({fingerprint(v):v for v in previous['steps']['documented_follow_up']+s['steps']['documented_follow_up']}.values())
         result[key]=chosen

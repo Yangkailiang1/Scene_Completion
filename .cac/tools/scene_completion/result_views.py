@@ -50,6 +50,30 @@ class ResultView:
         return {'complete':self.manifest.get('complete',False),'cases':self.cases(),'artifacts':self.catalog(),
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'未启用'}
 
+    def metrics(self):
+        from .result_alignment import aggregate_metrics
+        rows=[]
+        for c in self.cases():
+            v=self.payload(c['id']+':exception-evaluation')
+            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测' if v else '未评测'})
+        sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
+        history=[]
+        for p in (self.root/'report_versions').glob('*/missing_report.json'):
+            summary=p.parent/'metrics_summary.json'
+            history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
+        return {'cases':rows,'metrics':aggregate_metrics(rows),'complete':self.manifest.get('complete',False),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
+                'registry_hash':self.manifest.get('registry_hash'),'truth_source':'测试文档经机器整理（含允许的框架推导）','recommendation':'未启用',
+                'history':history}
+
+    def scenario(self,cid,channel,sid):
+        if channel not in {'G','E','GT'}:raise ValueError('未知结果来源')
+        evaluation=self.payload(cid+':exception-evaluation')
+        stage={'G':'exception-generate','E':'existing-extract','GT':'test-ground-truth'}[channel]
+        values=evaluation.get(channel,self.payload(cid+':'+stage).get('scenarios',[]))
+        value=next((s for s in values if s['id']==sid),None)
+        if value is None:raise ValueError('该异常版本已变化，请刷新结果')
+        return value
+
     def detail(self, cid):
         case=next((c for c in self.cases() if c['id']==cid),None)
         if case is None:raise ValueError('未知用例')
@@ -67,15 +91,29 @@ class ResultView:
             if k in evaluation:channels[k]=evaluation[k]
             elif k in report:channels[k]=report[k]
         missing={s['id'] if isinstance(s,dict) else s for s in report.get('M',[])}
+        from .result_alignment import align_rows
+        pairs=evaluation.get('full_matches',{})
+        if not pairs:pairs={'G_E':report.get('full_matches',[])}
+        decisions={purpose:self.payload(cid+':'+stage).get('decisions',[]) for purpose,stage in [('G_E','gap-compare'),('GT_G','GT_G'),('GT_E','GT_E')]}
         rows=[];seen=set()
         for interaction in sorted(enriched.get('interactions',[]),key=lambda i:i.get('sequence',0)):
             iid=interaction['id'];seen.add(iid)
             scoped={k:[s for s in values if (s.get('canonical_interaction_id') or s.get('interaction_id'))==iid] for k,values in channels.items()}
             rows.append({'interaction':interaction,'channels':scoped,
+                         'alignment_rows':align_rows(scoped,pairs,decisions),
                          'concerns':{k:sorted({s['concern_key'] for s in values}) for k,values in scoped.items()},
                          'missing_ids':[s['id'] for s in scoped['G'] if s['id'] in missing]})
         reg_hash=self.manifest.get('registry_hash');p=self.root/'registry_used'/(str(reg_hash)+'.json')
         definitions=read_json(p).get('definitions',{}) if p.is_file() else {}
+        # The initial table carries triggers and IDs; long evidence is fetched
+        # only when a cell is expanded, from the same frozen output version.
+        def compact(s):
+            return {**{k:v for k,v in s.items() if k not in {'source_refs','derivation','steps'}},'steps':{'trigger':s.get('steps',{}).get('trigger')},'lazy_detail':True}
+        for row in rows:
+            row['channels']={k:[compact(s) for s in values] for k,values in row['channels'].items()}
+            for aligned in row['alignment_rows']:
+                aligned['anchor']=compact(aligned['anchor'])
+                aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
         return {'case':case,'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
                 'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),

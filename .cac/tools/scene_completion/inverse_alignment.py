@@ -47,7 +47,9 @@ def expand_inverse(value,inputs):
     value=normalize_scenarios(value,inputs)
     value=normalized_scenarios(value,inputs['fused-ssd'])
     branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
-    bindings={(b['branch_id'],b['interaction_id']) for b in inputs.get('bindings',{}).get('bindings',[]) if b['status']=='confirmed'}
+    from .failure_units import normalize_bindings
+    verified_bindings=normalize_bindings(inputs.get('bindings',{}),inputs)
+    bindings={(b['branch_id'],b['interaction_id']) for b in verified_bindings.get('bindings',[]) if b['status']=='confirmed'}
     rows=canonical_fused(inputs['fused-ssd'])['interactions'];out=[]
     for s in value['scenarios']:
         branch=s.get('original_branch_id')

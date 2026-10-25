@@ -260,10 +260,18 @@ def create_app(root=None,client_factory=None,env_file=None):
     def results_index(rid:str):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).index()
+    @app.get('/api/projects/{rid}/results/metrics')
+    def results_metrics(rid:str):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).metrics()
     @app.get('/api/projects/{rid}/results/{case_id}')
     def results_case(rid:str,case_id:str):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).detail(case_id)
+    @app.get('/api/projects/{rid}/results/{case_id}/scenarios/{channel}/{scenario_id}')
+    def result_scenario(rid:str,case_id:str,channel:str,scenario_id:str):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).scenario(case_id,channel,scenario_id)
     @app.put('/api/projects/{rid}/registry')
     def edit_project_definitions(rid:str,body:dict):
         from .project_review import save_registry

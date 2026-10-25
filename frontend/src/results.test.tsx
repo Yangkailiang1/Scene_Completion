@@ -1,7 +1,43 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { test, expect, vi, afterEach } from "vitest";
 import { ResultsView } from "./ResultsView";
+import { MetricsPanel } from "./ResultComparison";
 afterEach(() => vi.restoreAllMocks());
+test("metrics are visible with counts and cases can be opened without a new page", async () => {
+  const select = vi.fn();
+  const rate = {
+    value: 53.846,
+    numerator: 21,
+    denominator: 39,
+    status: "适用",
+  };
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      metrics: {
+        missing_exception_miss_rate: rate,
+        generation_validity: { value: 14.55, numerator: 55, denominator: 378 },
+      },
+      cases: [
+        {
+          id: "C",
+          name: "查询",
+          counts: { G: 10, E: 2, GT: 4, M: 8 },
+          metrics: { missing_exception_miss_rate: rate },
+          status: "已评测",
+        },
+      ],
+      history: [],
+      truth_source: "测试文档经机器整理",
+      recommendation: "未启用",
+    }),
+  } as Response);
+  render(<MetricsPanel project="p" onCase={select} />);
+  await screen.findAllByText("53.85%");
+  expect(screen.getByText("（55/378）")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "C · 查询" }));
+  expect(select).toHaveBeenCalledWith("C");
+});
 test("result view loads one case on demand and shows all three evidence channels and diagrams", async () => {
   const image = {
     name: "components.svg",
@@ -75,13 +111,32 @@ test("result view loads one case on demand and shows all three evidence channels
           },
         ],
       };
+    if (data.interactions) {
+      const r = data.interactions[0];
+      r.alignment_rows = [
+        {
+          id: "row1",
+          status: "conflict",
+          anchor: r.channels.G[0],
+          cells: r.channels,
+          matching: [],
+          shared_e_ids: [],
+        },
+      ];
+    }
     return { ok: true, json: async () => data } as Response;
   });
   render(<ResultsView project="p" />);
-  await screen.findByText("pageSize大于100");
-  expect(screen.getByRole("heading", { name: /需求文档已有 E/ })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: /本方法生成 G/ })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: /独立测试真值 GT/ })).toBeTruthy();
+  await screen.findAllByText("pageSize大于100");
+  expect(
+    screen.getByRole("columnheader", { name: /需求文档已有 E/ }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("columnheader", { name: /本方法生成 G/ }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("columnheader", { name: /独立测试真值 GT/ }),
+  ).toBeTruthy();
   expect(screen.getByText("文档未覆盖")).toBeTruthy();
   expect(requests.some((x) => x.endsWith("/results/D"))).toBe(false);
   fireEvent.click(screen.getByText("图表总览"));

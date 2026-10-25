@@ -138,6 +138,10 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
             write_json(root/'comparison_decisions'/(key+'.json'),{'identity':key,'decision':decision,'source_file':str(cache.relative_to(root))})
         decisions+=value['decisions'];proofs.append(proof)
     result={'decisions':decisions}
+    all_left={s['id']:s for s in left};all_right={s['id']:s for s in right}
+    for d in decisions:
+        d['concern_alignment']='same' if all_left[d['left_id']]['concern_key']==all_right[d['right_id']]['concern_key'] else 'different'
+        d['follow_up_comparison']='not_scored'
     order_left={s['id']:n for n,s in enumerate(left)};order_right={s['id']:n for n,s in enumerate(right)}
     decisions.sort(key=lambda d:(order_left[d['left_id']],order_right[d['right_id']]))
     if parent['task']=='gap-compare':result['missing']=missing_report(left,right,decisions)['M']

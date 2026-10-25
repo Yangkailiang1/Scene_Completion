@@ -117,7 +117,7 @@ def pending_items(project):
     def add(key,r,iid,reason,refs,category='待确认',concern=None,branch=None,subject=None):
         if not reason:return
         channel='test_gt' if r['stage']=='test-ground-truth' else 'existing_e' if r['stage'] in {'existing-bind','existing-extract'} else 'positive'
-        queue='rules' if r['stage']=='concern-match' else 'structure' if r['stage'] in {'enriched-view','fused-ssd'} else 'business'
+        queue='rules' if r['stage']=='concern-match' else 'structure' if r['stage'] in {'enriched-view','fused-ssd'} or str(reason).startswith('规则归属核查：') else 'business'
         legacy=pending_id(r['case'],iid,reason,refs,concern,subject,channel)
         identity=legacy if queue=='business' else fingerprint([legacy,queue])[:24]
         item=items.setdefault(identity,{'id':identity,'case':r['case'],'interaction_id':iid,'reason':reason,'source_refs':refs,'category':category,'queue':queue,'source_channel':channel,'concern_key':concern,'object':subject,'branch_id':branch,'origins':[]})

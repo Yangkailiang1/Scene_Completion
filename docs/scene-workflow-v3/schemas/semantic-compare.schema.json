@@ -25,6 +25,17 @@
           "reason": {
             "type": "string",
             "minLength": 1
+          },
+          "concern_alignment": {
+            "enum": [
+              "same",
+              "different"
+            ]
+          },
+          "follow_up_comparison": {
+            "enum": [
+              "not_scored"
+            ]
           }
         },
         "required": [

@@ -44,6 +44,11 @@ def generation_matches(inputs):
 
 
 def semantic_view(task,inputs):
+    if task=='semantic-compare':
+        # Classify the concrete failure first. Concern labels and documented
+        # recovery are retained in artifacts and compared separately by tools.
+        fields={'id','case_id','interaction_id','object','operation','cause','conditions','field','scope','data_location'}
+        return {**deepcopy(inputs),**{k:[{f:deepcopy(v) for f,v in s.items() if f in fields} for s in inputs[k]] for k in ('left','right')}}
     """Remove duplicate views and derived display metadata, never source facts."""
     out=deepcopy(inputs)
     relevant={'normal-rules','concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}

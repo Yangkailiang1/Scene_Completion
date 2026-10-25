@@ -248,7 +248,7 @@ class EvidenceContext:
             return v
         result=decode(value)
         if self.original['task']=='normal-rules':
-            from .normal_rules import identity_concern,separate_unknown_criteria
+            from .normal_rules import identity_concern,separate_unknown_criteria,separate_foreign_checks
             rows={i['id']:i for i in self.original['input']['fused-ssd']['interactions']}
             for r in result.get('rules',[]):
                 if r['interaction_id'] in rows:
@@ -259,6 +259,7 @@ class EvidenceContext:
                 r['condition']=' '.join(ref['quote'] for ref in r['source_refs'])
                 self.normalizations.append({'rule_id':r['id'],'field':'condition','action':'restore verbatim positive condition from selected source evidence, no generated quote'})
             result=separate_unknown_criteria(result,self.normalizations)
+            result=separate_foreign_checks(result,self.original['input'],self.normalizations)
         if self.original['task']=='semantic-compare':
             from .comparison_batches import restrict_candidate_decisions
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)

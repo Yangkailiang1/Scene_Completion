@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
+import { AlignmentTable, MetricsPanel } from "./ResultComparison";
 import { ArtifactView } from "./ArtifactView";
 
 const labels: Record<string, string> = {
@@ -37,11 +38,28 @@ function Scenario({
   s,
   defs,
   missing,
+  detailUrl,
 }: {
+  detailUrl: string;
   s: any;
   defs: any;
   missing: boolean;
 }) {
+  const [full, setFull] = useState<any>(null),
+    [loading, setLoading] = useState(false),
+    [failure, setFailure] = useState("");
+  const detail = full || s;
+  async function open(e: React.SyntheticEvent<HTMLDetailsElement>) {
+    if (!e.currentTarget.open || !s.lazy_detail || full || loading) return;
+    setLoading(true);
+    try {
+      setFull(await api(detailUrl));
+    } catch (e: any) {
+      setFailure(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
   return (
     <article className="result-scenario">
       <header>
@@ -54,29 +72,41 @@ function Scenario({
         {sourceLabels[s.source_status] || s.source_status}
         {s.executable === false ? " · 条件级，尚不可直接执行" : ""}
       </small>
-      <details>
+      <details onToggle={open}>
         <summary>异常步骤与归类依据</summary>
-        <p>失败原因：{s.cause}</p>
-        <p>正常上下文：{s.steps?.normal_context?.join("；") || "未提供"}</p>
-        <p>触发条件：{s.conditions?.join("；") || "未提供"}</p>
+        {loading && <p>正在读取证据…</p>}
+        {failure && <p role="alert">{failure}</p>}
+        <p>失败原因：{detail.cause}</p>
+        <p>
+          正常上下文：{detail.steps?.normal_context?.join("；") || "未提供"}
+        </p>
+        <p>触发条件：{detail.conditions?.join("；") || "未提供"}</p>
         <p>
           原文明示后续：
-          {s.steps?.documented_follow_up
+          {detail.steps?.documented_follow_up
             ?.map((r: any) => (typeof r === "string" ? r : r.action))
             .join("；") || "未明示，不补造"}
         </p>
-        <p>{s.derivation}</p>
+        <p>{detail.derivation}</p>
+        {detail.quality_notes?.map((n: string, index: number) => (
+          <p className="quality-note" key={index}>
+            {n}
+          </p>
+        ))}
         <small>
-          异常ID：{s.id}
-          {s.original_branch_id ? " · 原分支：" + s.original_branch_id : ""}
+          异常ID：{detail.id}
+          {detail.original_branch_id
+            ? " · 原分支：" + detail.original_branch_id
+            : ""}
         </small>
+        <Evidence rows={detail.source_refs} />
       </details>
-      <Evidence rows={s.source_refs} />
     </article>
   );
 }
 
 export function ResultsView({ project }: { project: string }) {
+  const [onlyUnmatched, setOnlyUnmatched] = useState(false);
   const [index, setIndex] = useState<any>(null),
     [cid, setCase] = useState(""),
     [detail, setDetail] = useState<any>(null),
@@ -167,7 +197,13 @@ export function ResultsView({ project }: { project: string }) {
             className={mode === "steps" ? "active" : ""}
             onClick={() => setMode("steps")}
           >
-            逐步对照
+            交互对照
+          </button>
+          <button
+            className={mode === "metrics" ? "active" : ""}
+            onClick={() => setMode("metrics")}
+          >
+            指标总览
           </button>
           <button
             className={mode === "diagrams" ? "active" : ""}
@@ -192,6 +228,15 @@ export function ResultsView({ project }: { project: string }) {
         <p className="management-loading">正在读取结果目录…</p>
       ) : !index.cases.length ? (
         <p className="management-loading">用例对应完成后显示结果。</p>
+      ) : mode === "metrics" ? (
+        <MetricsPanel
+          project={project}
+          onCase={(id) => {
+            setCase(id);
+            setMode("steps");
+            setOnlyUnmatched(true);
+          }}
+        />
       ) : mode === "diagrams" ? (
         <div className="results-diagrams">
           <div className="results-diagram-controls">
@@ -392,33 +437,35 @@ export function ResultsView({ project }: { project: string }) {
                   ))}
                   <Evidence rows={i.source_refs} />
                 </details>
-                <div className="results-comparison">
-                  {["E", "G", "GT"].map((k) => (
-                    <section key={k} className={"result-channel result-" + k}>
-                      <h3>
-                        {labels[k]} <span>{row.channels[k].length}条</span>
-                      </h3>
-                      <p className="channel-concerns">
-                        {row.concerns[k]
-                          .map((c: string) => defs[c]?.label || c)
-                          .join("、") || "无已保存的异常关注点"}
-                      </p>
-                      {row.channels[k].map((s: any) => (
-                        <Scenario
-                          key={s.id}
-                          s={s}
-                          defs={defs}
-                          missing={k === "G" && row.missing_ids.includes(s.id)}
-                        />
-                      ))}
-                      {!row.channels[k].length && (
-                        <p className="muted">
-                          该交互暂无已保存项；请结合节点是否完成判断。
-                        </p>
+                <label className="alignment-filter">
+                  <input
+                    type="checkbox"
+                    checked={onlyUnmatched}
+                    onChange={(e) => setOnlyUnmatched(e.target.checked)}
+                  />
+                  只看未完整对应／冲突项
+                </label>
+                <AlignmentTable
+                  rows={row.alignment_rows || []}
+                  missing={row.missing_ids}
+                  onlyUnmatched={onlyUnmatched}
+                  renderCell={(s: any, missing: boolean, channel: string) => (
+                    <Scenario
+                      s={s}
+                      defs={defs}
+                      missing={missing}
+                      detailUrl={projectUrl(
+                        project,
+                        "results/" +
+                          encodeURIComponent(cid) +
+                          "/scenarios/" +
+                          channel +
+                          "/" +
+                          encodeURIComponent(s.id),
                       )}
-                    </section>
-                  ))}
-                </div>
+                    />
+                  )}
+                />
                 <p className="muted">
                   E为原文已有异常的逆向归类；GT含独立测试的明示项及框架推导项，仍需审核。显示执行时的关注点版本，未重新匹配或计分。
                 </p>
