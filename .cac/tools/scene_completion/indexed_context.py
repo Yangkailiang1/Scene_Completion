@@ -119,7 +119,7 @@ class EvidenceContext:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             from .normal_rules import LOCATIONS
             fields['properties']['data_location']={'enum':sorted(LOCATIONS)+[None]}
-            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):fields['properties'].pop(key,None)
+            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):fields['properties'].pop(key,None)
             if packet['task']=='existing-extract':
                 from .inverse_alignment import broad_input_branch
                 branches=packet['input'].get('branches',{}).get('branches',[])
@@ -216,7 +216,7 @@ class EvidenceContext:
         result=self.encode(value)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
             from .normal_rules import normalize_scenarios
@@ -265,7 +265,7 @@ class EvidenceContext:
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
                     if not row['concern_key'].startswith('api.data.') and row.get('field') is not None:

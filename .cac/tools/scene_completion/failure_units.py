@@ -3,9 +3,67 @@ from copy import deepcopy
 import re
 from .storage import fingerprint
 
+MODEL_METADATA_FIELDS=('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes')
+
+
+def clean_model_scenarios(value):
+    result=deepcopy(value)
+    for s in result.get('scenarios',[]):
+        for key in MODEL_METADATA_FIELDS:s.pop(key,None)
+    return result
+
 
 def source_tests(s):
     return tuple(sorted({(r['source_id'],m) for r in s['source_refs'] for m in re.findall(r'\bTEST[-_][A-Za-z0-9_-]+',r['quote'])}))
+
+
+def normalize_test_assertions(value, inputs):
+    """Keep a test's failure trigger separate from its expected handling.
+
+    Only explicit Markdown test rows and the positive SSD are consulted. A
+    response/recovery fault explicitly injected by the test remains a failure.
+    No G, E, coverage decision or response code is used to invent a trigger.
+    """
+    out=deepcopy(value);rows=inputs.get('fused-ssd',{}).get('interactions',[])
+    by_id={i['id']:i for i in rows};groups={}
+    for s in out.get('scenarios',[]):
+        for ref in s.get('source_refs',[]):
+            cells=[v.strip() for v in ref['quote'].strip().strip('|').split('|')]
+            if len(cells)>=8 and re.fullmatch(r'TEST[-_][A-Za-z0-9_-]+',cells[0]):
+                groups.setdefault((ref['source_id'],cells[0]),{'cells':cells,'ref':ref,'units':[]})['units'].append(s)
+                break
+    removed=set()
+    for group in groups.values():
+        cells=group['cells'];trigger=cells[4];expected=cells[7];units=group['units']
+        # A test may deliberately corrupt the response or recovery itself.
+        if re.search(r'返回|响应|回滚|恢复|重试|补偿',trigger):continue
+        assertions=[]
+        for s in units:
+            i=by_id.get(s['interaction_id'],{})
+            if i.get('direction')!='return' or not re.search(r'返回|响应|提示|状态更新|重试|恢复|回滚',s['cause']):continue
+            assertions.append(s)
+        primary=[s for s in units if s not in assertions]
+        for s in assertions:
+            follow={'action':expected,'source_refs':[group['ref']]}
+            if primary:
+                for target in primary:
+                    steps=target.setdefault('steps',{});followups=steps.setdefault('documented_follow_up',[])
+                    if fingerprint(follow) not in {fingerprint(x) for x in followups}:followups.append(follow)
+                    target['source_unit_ids']=list(dict.fromkeys(target.get('source_unit_ids',[target['id']])+[s['id']]))
+                    target.setdefault('quality_notes',[]).append('handling_assertion：同一测试的预期返回/恢复是原失败的处理断言，不单独计为GT；原始单位'+s['id'])
+                removed.add(s['id'])
+            else:
+                # The model emitted only the expected handling. Recover the
+                # already explicit trigger only if it names one actual call.
+                targets={i['id']:i for i in rows if i.get('direction')=='request' and i['receiver']['name'] in trigger}
+                if len(targets)!=1 or not re.search(r'失败|超时|不可用|不存在|错误',trigger):continue
+                target=next(iter(targets.values()))
+                s.setdefault('normalization_origin',{'interaction_id':s['interaction_id'],'object':s['object'],'field':s.get('field'),'data_location':s.get('data_location')})
+                s.update(cause=trigger,conditions=[cells[3],trigger],interaction_id=target['id'],canonical_interaction_id=target['id'],layer=target['layer'],operation=target['operation']['name'],object=target['receiver']['name'],field=None,data_location=None,scope='service')
+                s['steps']={'normal_context':[target['sender']['name']+' → '+target['receiver']['name']+'：'+target['operation']['name']],'trigger':trigger,'documented_follow_up':[follow]}
+                s.setdefault('quality_notes',[]).append('handling_assertion：采用测试动作栏明示的失败原因，绑定唯一实际调用；预期恢复仅作处理断言。保留原关注点分类供分类核查，不因分类决定失败匹配')
+    out['scenarios']=[s for s in out.get('scenarios',[]) if s['id'] not in removed]
+    return out
 
 
 def normalize_bindings(value,inputs):

@@ -66,7 +66,12 @@ function Scenario({
         <strong>{defs[s.concern_key]?.label || s.concern_key}</strong>
         {missing && <span className="result-missing">文档未覆盖</span>}
       </header>
-      <p>{s.steps?.trigger || s.conditions?.join("；") || s.cause}</p>
+      <p>
+        {s.coverage_description ||
+          s.steps?.trigger ||
+          s.conditions?.join("；") ||
+          s.cause}
+      </p>
       <small>
         {s.field || s.object} ·{" "}
         {sourceLabels[s.source_status] || s.source_status}
@@ -141,7 +146,12 @@ export function ResultsView({ project }: { project: string }) {
       .then((r) => {
         if (live) {
           setDetail(r);
-          setStep(r.interactions[0]?.interaction.id || "");
+          const target = onlyUnmatched
+            ? r.interactions.find((x: any) =>
+                x.alignment_rows?.some((a: any) => a.status !== "triple"),
+              )
+            : null;
+          setStep((target || r.interactions[0])?.interaction.id || "");
         }
       })
       .catch((e) => live && setError(e.message));
@@ -235,6 +245,12 @@ export function ResultsView({ project }: { project: string }) {
             setCase(id);
             setMode("steps");
             setOnlyUnmatched(true);
+            if (id === cid && detail) {
+              const target = detail.interactions.find((x: any) =>
+                x.alignment_rows?.some((a: any) => a.status !== "triple"),
+              );
+              if (target) setStep(target.interaction.id);
+            }
           }}
         />
       ) : mode === "diagrams" ? (

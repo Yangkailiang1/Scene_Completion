@@ -67,12 +67,11 @@ export function AlignmentTable({
               ))}
               <td>
                 <strong>{titles[r.status]}</strong>
-                {r.diagnostics?.map((d: string) => (
-                  <p key={d}>{d}</p>
-                ))}
-                {r.classification_difference && (
-                  <p>关注点分类不同；失败对应单独判断</p>
-                )}
+                {r.diagnostics
+                  ?.filter((d: string) => d !== "GT未验证")
+                  .map((d: string) => (
+                    <p key={d}>{d}</p>
+                  ))}
                 {r.cells.G.length > 0 && !r.cells.GT.length && (
                   <p>未被现有GT验证，不直接判错</p>
                 )}
@@ -144,7 +143,7 @@ export function MetricsPanel({
     <section className="result-metrics">
       <p className="muted">
         全部用例合并 · 已评测{" "}
-        {data.cases.filter((c: any) => c.status === "已评测").length}/
+        {data.cases.filter((c: any) => c.status.startsWith("已评测")).length}/
         {data.cases.length}
         {!data.complete ? " · 本轮尚未完成，中间计数不作为最终指标" : ""}
       </p>
@@ -167,6 +166,25 @@ export function MetricsPanel({
         合并分子／分母，不取百分比平均。{data.truth_source}
         ；未匹配GT不等于已经证实生成错误。推荐器：{data.recommendation}。
       </p>
+      {data.diagnostic_counts?.G > 0 && (
+        <p className="muted">
+          计分集合规模：G={data.diagnostic_counts.G}，GT=
+          {data.diagnostic_counts.GT}
+          。一一匹配下，当前GT规模支持的生成有效率理论上限为{" "}
+          {data.diagnostic_counts.one_to_one_ceiling.toFixed(2)}
+          %；这不是质量结论，需结合测试覆盖范围判断。
+        </p>
+      )}
+      {data.cases.some((c: any) => c.truth_pending > 0) && (
+        <p className="management-notice">
+          GT仍有{" "}
+          {data.cases.reduce(
+            (n: number, c: any) => n + (c.truth_pending || 0),
+            0,
+          )}{" "}
+          项待确认，尚未计入分母；当前指标针对已解析的GT，不代表所有测试异常已完成对齐。
+        </p>
+      )}
       <details>
         <summary>公式及版本</summary>
         <p>漏报率＝(1−|M∩(GT−E)|/|GT−E|)×100%；生成有效率＝|G∩GT|/|G|×100%。</p>
@@ -230,6 +248,19 @@ export function MetricsPanel({
                   生成有效率 <Rate value={r.metrics.generation_validity} />
                 </span>
               )}
+            </p>
+          ))}
+        </details>
+      )}
+      {!!data.audit_files?.length && (
+        <details>
+          <summary>下载逐条质量复核与修订对照</summary>
+          {data.audit_files.map((r: any) => (
+            <p key={r.path}>
+              <a href={fileUrl(project, r.path)} download>
+                {r.name}
+              </a>
+              <small> · {(r.bytes / 1024).toFixed(0)} KB，按需下载</small>
             </p>
           ))}
         </details>

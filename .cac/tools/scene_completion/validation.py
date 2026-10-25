@@ -222,6 +222,9 @@ def validate_result(task, payload, inputs):
         for b in payload['bindings']:
             if b['branch_id'] not in branches:raise ValueError('unknown original branch')
             if b['status']=='confirmed' and b['interaction_id'] not in ids:raise ValueError('binding needs a concrete canonical interaction')
+    if task=='test-ground-truth' and not payload.get('scenarios') and not payload.get('pending'):
+        explicit=[r for d in inputs.get('test-documents',[]) for r in d['lines'] if re.search(r'\bTEST[-_][A-Za-z0-9_-]+',r['text']) and re.search(r'\|\s*异常\s*\|',r['text'])]
+        if explicit:raise ValueError('明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试')
     if task=='existing-extract' and 'fused-ssd' in inputs:
         from .inverse_alignment import normalized_scenarios
         normalized_scenarios(payload,inputs['fused-ssd'])

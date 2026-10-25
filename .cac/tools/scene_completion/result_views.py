@@ -55,15 +55,17 @@ class ResultView:
         rows=[]
         for c in self.cases():
             v=self.payload(c['id']+':exception-evaluation')
-            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测' if v else '未评测'})
+            pending=len(self.payload(c['id']+':test-ground-truth').get('pending',[]))
+            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（GT有待确认项）' if v and pending else '已评测' if v else '未评测'})
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         history=[]
         for p in (self.root/'report_versions').glob('*/missing_report.json'):
             summary=p.parent/'metrics_summary.json'
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
-        return {'cases':rows,'metrics':aggregate_metrics(rows),'complete':self.manifest.get('complete',False),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
+        generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
+        return {'cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
                 'registry_hash':self.manifest.get('registry_hash'),'truth_source':'测试文档经机器整理（含允许的框架推导）','recommendation':'未启用',
-                'history':history}
+                'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for p in sorted((self.root/'artifacts/shared/alignment-quality').glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
     def scenario(self,cid,channel,sid):
         if channel not in {'G','E','GT'}:raise ValueError('未知结果来源')

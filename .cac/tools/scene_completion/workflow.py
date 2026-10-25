@@ -69,6 +69,7 @@ def code_version(task):
     names=modules.get(task,[])
     if task in {'existing-bind','existing-extract','test-ground-truth'}:names=names+['failure_units.py']
     if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
+    if task=='test-ground-truth':names=names+['validation.py']
     if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
@@ -266,6 +267,8 @@ class Execution:
                 if task=='test-ground-truth' and 'fused-ssd' in inputs:
                     from .inverse_alignment import expand_truth
                     value=expand_truth(value,inputs)
+                    from .failure_units import normalize_test_assertions
+                    value=normalize_test_assertions(value,inputs)
                 if task in {'test-ground-truth','existing-extract'}:
                     from .failure_units import normalize_inverse_units
                     value=normalize_inverse_units(value,inputs)

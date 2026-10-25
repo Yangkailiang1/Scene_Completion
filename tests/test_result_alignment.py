@@ -78,3 +78,66 @@ def test_foreign_local_check_is_evidence_bound_pending_not_a_database_rule():
     assert out['rules']==[] and out['pending'][0]['source_refs']==[ref] and '发送方Writer' in out['pending'][0]['reason']
     i['operation']['source_refs']=[]
     assert separate_foreign_checks({'rules':[rule],'pending':[]},inputs)['rules']==[rule]  # no invented proof
+
+
+def test_explicit_test_cannot_disappear_without_a_truth_or_pending_record():
+    import pytest
+    from scene_completion.validation import validate_result
+    text='| TEST-Q-01 | 资源不存在 | 异常 | 服务可用 | 查询不存在资源 |'
+    doc={'source_id':'test','name':'test.md','channel':'test','lines':[{'number':1,'text':text}]}
+    with pytest.raises(ValueError,match='不能静默'):
+        validate_result('test-ground-truth',{'scenarios':[],'pending':[]},{'test-documents':[doc]})
+    pending={'interaction_id':'unknown','object':'资源','concern_key':'service.query_retrieval.resource_existence','reason':'无法确定执行服务','source_refs':[{'source_id':'test','line_start':1,'line_end':1,'quote':text}]}
+    validate_result('test-ground-truth',{'scenarios':[],'pending':[pending]},{'test-documents':[doc]})
+
+
+def test_broad_parent_is_canonical_once_per_original_branch():
+    from tests.test_workbench_v3 import inverse_fixture
+    from scene_completion.inverse_alignment import expand_inverse
+    x,s,inputs=inverse_fixture();other=deepcopy(s);other.update(id='other',cause='仅某字段非法',field='page')
+    result=expand_inverse({'scenarios':[s,other]},inputs)['scenarios']
+    broad=[s for s in result if s.get('coverage_kind')=='input_parameters']
+    assert len(broad)==1 and broad[0]['field'] is None and broad[0]['cause']=='输入参数非法'
+    assert other['id'] in broad[0]['source_unit_ids']
+
+
+def test_model_bookkeeping_is_not_part_of_failure_facts_or_model_schema():
+    from scene_completion.failure_units import clean_model_scenarios,MODEL_METADATA_FIELDS
+    from scene_completion.indexed_context import EvidenceContext
+    from scene_completion.contracts import packet,registry
+    s=scenario('source');s['normalization_origin']=None;s['quality_notes']=['model-made bookkeeping']
+    out=clean_model_scenarios({'scenarios':[s]})['scenarios'][0]
+    assert out['cause']==s['cause'] and out['conditions']==s['conditions'] and out['source_refs']==s['source_refs']
+    assert all(k not in out for k in MODEL_METADATA_FIELDS) and s['normalization_origin'] is None
+    context=EvidenceContext(packet('test-ground-truth',{'test-documents':[],'normal-constraints':{'apis':[]},'registry':registry()}))
+    props=context.packet['output_schema']['properties']['scenarios']['items']['properties']
+    assert not set(MODEL_METADATA_FIELDS)&set(props)
+
+
+def test_expected_response_is_folded_into_own_test_failure_not_counted_again():
+    from scene_completion.failure_units import normalize_test_assertions
+    call=exchange(sid='call');reply=deepcopy(call);reply.update(id='reply',direction='return')
+    ref={'source_id':'test','line_start':1,'line_end':1,'quote':'| TEST-A-01 | 规则失败 | 异常 | 草稿 | 缺少类目属性后发布 | API | 校验分流 | 返回409并进入审核队列 | spec |'}
+    primary=scenario('failure');primary.update(interaction_id='call',cause='缺少类目属性',source_refs=[ref])
+    handling=deepcopy(primary);handling.update(id='handling',interaction_id='reply',cause='规则失败时返回错误响应',field='status')
+    out=normalize_test_assertions({'scenarios':[primary,handling]},{'fused-ssd':{'interactions':[call,reply]}})
+    assert len(out['scenarios'])==1
+    assert out['scenarios'][0]['cause']=='缺少类目属性'
+    assert 'handling' in out['scenarios'][0]['source_unit_ids']
+    assert out['scenarios'][0]['steps']['documented_follow_up'][-1]['action']=='返回409并进入审核队列'
+    # Explicitly injecting an erroneous response is a genuine failure.
+    ref['quote']='| TEST-A-01 | 返回错误 | 异常 | 草稿 | 模拟返回status字段错误 | API | 校验响应 | 拒绝错误结果 | spec |'
+    assert len(normalize_test_assertions({'scenarios':[primary,handling]},{'fused-ssd':{'interactions':[call,reply]}})['scenarios'])==2
+
+
+def test_recovery_only_unit_uses_explicit_trigger_and_unique_call_without_new_classification():
+    from scene_completion.failure_units import normalize_test_assertions
+    call=exchange(sid='call');call['receiver']['name']='IndexService'
+    reply=deepcopy(call);reply.update(id='reply',direction='return');reply['receiver']['name']='Human'
+    s=scenario('recovery');s.update(interaction_id='reply',cause='同步失败后状态更新并重试',field=None,concern_key='service.release_activation.failure_recovery',source_refs=[{'source_id':'test','line_start':1,'line_end':1,'quote':'| TEST-A-02 | 同步失败 | 异常 | 满足发布条件 | IndexService 同步失败 | API | 验证恢复 | 记录任务并重试 | spec |'}])
+    out=normalize_test_assertions({'scenarios':[s]},{'fused-ssd':{'interactions':[call,reply]}})['scenarios'][0]
+    assert out['interaction_id']=='call' and out['cause']=='IndexService 同步失败'
+    assert out['concern_key']==s['concern_key'] and out['steps']['documented_follow_up'][0]['action']=='记录任务并重试'
+    duplicate=deepcopy(call);duplicate['id']='another'
+    unchanged=normalize_test_assertions({'scenarios':[s]},{'fused-ssd':{'interactions':[call,duplicate,reply]}})['scenarios'][0]
+    assert unchanged['cause']==s['cause']  # ambiguous ownership is not guessed

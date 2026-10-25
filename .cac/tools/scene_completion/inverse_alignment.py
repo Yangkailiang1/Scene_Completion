@@ -50,7 +50,7 @@ def expand_inverse(value,inputs):
     from .failure_units import normalize_bindings
     verified_bindings=normalize_bindings(inputs.get('bindings',{}),inputs)
     bindings={(b['branch_id'],b['interaction_id']) for b in verified_bindings.get('bindings',[]) if b['status']=='confirmed'}
-    rows=canonical_fused(inputs['fused-ssd'])['interactions'];out=[]
+    rows=canonical_fused(inputs['fused-ssd'])['interactions'];out=[];broad_parents={}
     for s in value['scenarios']:
         branch=s.get('original_branch_id')
         if branches and (branch not in branches or (branch,s['interaction_id']) not in bindings):raise ValueError('细化项必须有已确认的原分支和交互绑定')
@@ -60,8 +60,16 @@ def expand_inverse(value,inputs):
         if not broad_input_branch(b['description']):raise ValueError('原分支 '+branch+' 不支持参数非法宽泛覆盖: '+b['description'][:180]+'。只有明确宽泛参数非法的本分支才可用input_parameters；其他分支须按自身具体原因使用exact，不能把相邻分支合并成宽泛覆盖。')
         i=next(i for i in rows if i['id']==s['interaction_id'])
         if i['direction']!='request':raise ValueError('参数非法不能覆盖输出交互')
+        identity=(branch,i['id'])
+        if identity in broad_parents:
+            parent=broad_parents[identity]
+            parent['source_unit_ids']=list(dict.fromkeys(parent.get('source_unit_ids',[parent['id']])+s.get('source_unit_ids',[s['id']])))
+            continue
         # The broad parent is retained for auditable one-to-many coverage.
-        s.update(scope='interface',data_location=None);out.append(s)
+        s.update(scope='interface',data_location=None,field=None,object='请求参数',cause='输入参数非法',conditions=['当前输入参数违反原文明示约束'],source_refs=b['source_refs'])
+        s['steps']['trigger']='当前输入参数违反原文明示约束（原文宽泛分支）'
+        s['quality_notes']=list(dict.fromkeys(s.get('quality_notes',[])+['broad_branch：同一原分支和交互只保留一个宽泛父项；具体字段由正常接口约束细化']))
+        broad_parents[identity]=s;out.append(s)
         model={'rr-ssd':{'interactions':[i] if i['layer']=='RR' else []},'sr-ssd':{'interactions':[i] if i['layer']=='SR' else []},'api-parameters':inputs['normal-constraints']}
         matches=[]
         for p in parameters_for(i,model):
