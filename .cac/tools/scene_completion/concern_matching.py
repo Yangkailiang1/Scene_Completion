@@ -4,6 +4,9 @@ from .storage import fingerprint
 from .contracts import PROTOCOL,registry,validate
 from .interaction_enrichment import interactions,parameters_for
 def concern_by_label(label):
+    # Display names are editable; the seven built-in data checks use stable IDs.
+    stable={'数据完整性':'api.data.completeness','数据类型':'api.data.type','数据格式':'api.data.format','数据长度':'api.data.length','数据大小':'api.data.size','数据范围':'api.data.range','数据合法性':'api.data.legality'}
+    if label in stable:return stable[label]
     found=[k for k,v in registry()['definitions'].items() if v['label']==label]
     if len(found)!=1:raise ValueError('ambiguous concern label: '+label)
     return found[0]

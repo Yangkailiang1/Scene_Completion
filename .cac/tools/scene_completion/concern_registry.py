@@ -3,6 +3,9 @@ from pathlib import Path
 from copy import deepcopy
 import json
 from functools import lru_cache
+from contextvars import ContextVar
+from contextlib import contextmanager
+from functools import wraps
 from .storage import fingerprint
 
 
@@ -39,8 +42,25 @@ def validate_registry(value):
 def _parsed(text):
     return validate_registry(json.loads(text))
 
-def registry():
+_active_registry=ContextVar('project_concern_registry',default=None)
+
+def default_registry():
     return deepcopy(_parsed(Path(__file__).with_name('concern_registry.json').read_text(encoding='utf8')))
+
+def registry():
+    return deepcopy(_active_registry.get() or default_registry())
+
+@contextmanager
+def registry_scope(value):
+    token=_active_registry.set(validate_registry(deepcopy(value)))
+    try:yield
+    finally:_active_registry.reset(token)
+
+def scoped_execution(fn):
+    @wraps(fn)
+    def call(ex,*args,**kwargs):
+        with registry_scope(ex.registry_snapshot):return fn(ex,*args,**kwargs)
+    return call
 
 
 def inheritance_paths(key,direction=None,functional_types=None):

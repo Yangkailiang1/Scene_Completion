@@ -1777,3 +1777,41 @@ th, td { padding: 11px 12px; }
 .usage-totals {display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin:24px 0}
 .usage-totals div {padding:12px;background:#f2f6fc;border-radius:8px}.usage-totals span {display:block;color:#60748e}.usage-totals strong {display:block;font-size:22px;margin-top:8px}
 .usage-table {overflow:auto}.usage-table table {width:100%;border-collapse:collapse;white-space:nowrap}.usage-table th,.usage-table td {padding:12px;text-align:left;border-bottom:1px solid #e5eaf1;vertical-align:top}.usage-table small {display:block;color:#64748b}.usage-table button,.usage-view a {color:#3758ba}.usage-table pre,.usage-context {white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;padding:12px;background:#f5f7fb}.usage-view select,.usage-view input {padding:8px;border:1px solid #d5deec;border-radius:6px;max-width:100%}
+/* One compact project bar; management and reading use the full workspace. */
+.topbar {height:54px;min-height:54px;padding:7px 20px;gap:12px}
+.topbar h1 {font-size:19px;margin:0;line-height:1.25}
+.breadcrumb {font-size:9px;margin-bottom:2px}
+.project-statusbar {height:40px;min-height:40px;padding:0 20px;gap:13px;font-size:11px}
+.workspace-views {margin-left:auto;display:flex;gap:3px;align-items:center;height:100%;white-space:nowrap}
+.workspace-views button {padding:7px 11px;border-radius:6px;color:#687b92;font-size:12px;font-weight:550}
+.workspace-views button.active {background:#eaf1fc;color:#315bc5}
+.workspace-menu {position:relative;font-size:12px;color:#526781}
+.workspace-menu>summary {cursor:pointer;list-style:none;padding:7px 10px;border:1px solid #e3e9f1;border-radius:7px;background:white}
+.workspace-menu-content {position:absolute;right:0;top:36px;z-index:60;background:white;box-shadow:0 12px 42px #21365326;border:1px solid #e0e7f0;border-radius:10px;padding:7px;width:240px;display:flex;flex-direction:column;gap:3px}
+.workspace-menu-content>button,.workspace-menu-content>a {display:block;text-align:left;padding:9px;border-radius:5px}
+.workspace-menu-content>button:hover,.workspace-menu-content>a:hover {background:#f1f5fb}
+.workspace-menu-content label {padding:8px;display:grid;gap:6px;border-top:1px solid #e7edf4;color:#75859a}
+.node-heading {padding:14px 20px 6px;min-height:62px}
+.node-heading h2 {font-size:20px}
+.node-meta {padding:3px 20px 9px;font-size:10px}
+.management-view {height:100%;min-height:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;color:#203650}
+.management-heading {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 28px 14px;border-bottom:1px solid #edf1f6;flex-shrink:0}
+.management-heading h2 {font-size:24px;margin:3px 0 5px}.management-heading p {font-size:12px;color:#7b8ba0;margin:0}
+.management-view button {cursor:pointer;font-size:12px;border-radius:6px;padding:7px 11px}
+.management-heading>button {border:1px solid #d7e2f2;color:#315bc5}
+.management-notice {padding:10px 26px;background:#f0f5ff;color:#3e629a;font-size:12px;line-height:1.6;flex-shrink:0}
+.management-filters {padding:12px 26px;display:flex;gap:10px;align-items:center;border-bottom:1px solid #edf1f6;flex-shrink:0;flex-wrap:wrap}
+.management-view select,.management-view input:not([type=checkbox]),.management-view textarea {border:1px solid #dce4ef;border-radius:6px;padding:8px 10px;background:white;color:#29415c;max-width:100%;font-size:13px}
+.management-view select {font-size:12px}.management-view textarea {resize:vertical;min-height:90px;line-height:1.7}
+.management-view input[type=checkbox] {accent-color:#456ace}
+.view-segments {display:flex;gap:3px;background:#f4f6fa;padding:3px;border-radius:7px}.view-segments button {font-size:11px;padding:6px 9px;color:#77859a}.view-segments button.active {background:white;color:#355dc0;box-shadow:0 1px 3px #172d4b12}
+.management-body {flex:1;min-height:0;display:grid;grid-template-columns:280px minmax(0,1fr);overflow:hidden}
+.management-list {overflow:auto;min-height:0;padding:10px;border-right:1px solid #e8edf4;background:#fafbfd;display:flex;flex-direction:column;gap:5px}
+.management-list>button {display:grid;gap:5px;text-align:left;padding:12px;border:1px solid transparent;flex-shrink:0}
+.management-list>button.active {border-color:#c4d5f6;background:#eef4ff}.management-list>button:hover {background:#f0f4fa}
+.management-list small,.management-list span {font-size:10px;color:#8493a8;overflow-wrap:anywhere}.management-list strong {font-size:12px;color:#3c526e;font-weight:550;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.management-detail {overflow:auto;min-height:0;padding:26px 36px;max-width:1100px;width:100%}.management-detail h3 {font-size:19px;line-height:1.6;margin:8px 0 12px}.management-detail h4 {font-size:13px;margin:22px 0 10px;color:#455c79}.detail-kicker {font-size:11px;color:#8091a9}
+.management-detail blockquote {border-left:3px solid #cedbf2;padding:10px 14px;background:#f7f9fd;margin:12px 0}.management-detail blockquote small {font-size:10px;color:#8494a9;overflow-wrap:anywhere}.management-detail blockquote p {font-size:13px;line-height:1.7;margin:4px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.management-detail label {display:grid;gap:7px;font-size:12px;color:#61738d;margin:14px 0}.management-detail fieldset {min-width:0}.management-detail form {max-width:820px}.management-detail details {font-size:12px;color:#64758c;margin:18px 0}.management-detail summary {cursor:pointer}.management-detail .checkbox-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 12px}.management-detail .checkbox-grid label {display:flex;align-items:center;gap:7px;margin:5px 0;flex-wrap:wrap}.management-detail .parent-choices {grid-template-columns:repeat(2,minmax(0,1fr));max-height:240px;overflow:auto;padding:10px}.parent-choices small {display:block;font-size:9px;overflow-wrap:anywhere;width:100%}
+.form-columns {display:grid;grid-template-columns:1fr 1fr;gap:18px}.decision-form {border-top:1px solid #e8eef5;margin-top:25px;padding-top:6px}.management-view .primary-action {background:#4668cd;color:#fff;padding:9px 16px}.management-view .danger-action {color:#b15d68;border:1px solid #ead4d8}.decision-actions {display:flex;gap:12px;margin-top:20px}.origin-actions {display:flex;gap:8px;flex-wrap:wrap}.origin-actions button {background:#f2f5fc;color:#4769b9;font-size:11px}.management-view .muted {font-size:11px;color:#8795a8;line-height:1.7;margin-top:12px}.management-empty,.management-loading {padding:35px;color:#8b99ae;font-size:13px}.management-pagination {display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:10px;padding:12px 0;margin-top:auto}.management-pagination button {font-size:10px;border:1px solid #e0e6ef}.inline-check {font-size:11px;color:#8794a7;display:flex;gap:5px;align-items:center}
+@media(max-width:1100px){.topbar{padding:6px 14px}.project-statusbar{padding:0 14px;gap:9px}.project-statusbar>span:nth-of-type(3),.project-statusbar>span:nth-of-type(4){display:none}.workspace-views button{padding:7px 8px;font-size:11px}.management-body{grid-template-columns:235px minmax(0,1fr)}.management-detail{padding:20px 24px}.management-heading{padding:18px 24px}.management-heading p{max-width:520px}.management-detail .checkbox-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

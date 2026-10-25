@@ -6,6 +6,7 @@ from uuid import uuid4
 import io,json,zipfile,time
 from .storage import read_json,write_json,fingerprint
 from .contracts import PROTOCOL,registry
+from .project_review import project_scoped
 
 PROJECT=Path(__file__).resolve().parents[3]
 WEB=PROJECT/'web'
@@ -19,7 +20,7 @@ class Workbench:
         if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):raise ValueError('invalid project id')
         p=self.root/run_id
         if not (p/'project.json').is_file():raise ValueError('unknown project')
-        return p
+        return p.resolve()
     def create(self,body):
         name=body.get('name','').strip()
         if not name:raise ValueError('请填写项目名称')
@@ -39,7 +40,10 @@ class Workbench:
         if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         from .normal_rules import RULESET_VERSION
         meta={'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL,'ruleset_version':RULESET_VERSION}
-        write_json(p/'project.json',meta);return meta
+        write_json(p/'project.json',meta)
+        from .project_review import project_registry
+        project_registry(p)
+        return meta
     def list(self):return sorted([read_json(p) for p in self.root.glob('*/project.json')],key=lambda x:x['created_at'],reverse=True)
     def configure(self,rid,body):
         p=self.run_dir(rid)
@@ -66,6 +70,8 @@ class Workbench:
         sources={k:[{'name':d['name'],'content':(p/d['path']).read_text(encoding='utf8')} for d in rows] for k,rows in meta['sources'].items()}
         new=self.create({'name':meta['name']+' · 规则修订版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
         if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
+        if (p/'run/registry_override.json').exists():shutil.copy2(p/'run/registry_override.json',self.run_dir(new['id'])/'run/registry_override.json')
+        if (p/'concern_versions').exists():shutil.copytree(p/'concern_versions',self.run_dir(new['id'])/'concern_versions',dirs_exist_ok=True)
         target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
         return new['id']
     def start(self,rid):
@@ -82,6 +88,7 @@ class Workbench:
         write_json(p/'job.json',{'status':'running','started_at':time.time()})
         self.pool.submit(self._execute,rid)
         return {'status':'running','project_id':rid}
+    @project_scoped
     def _execute(self,rid):
         p=self.run_dir(rid)
         try:
@@ -113,7 +120,7 @@ class Workbench:
         reviews=[]
         for f in (run/'reviews').glob('*.json'):
             v=read_json(f);reviews.append({k:x for k,x in v.items() if k not in {'inputs','payload'}})
-        artifacts=[{'path':str(f.relative_to(p)).replace('\\','/'),'name':f.name,'bytes':f.stat().st_size} for folder in (run/'artifacts',run/'reviews/previews') for f in folder.rglob('*') if f.is_file()]
+        artifacts=[{'path':str(f.relative_to(p)).replace('\\','/'),'name':f.name,'bytes':f.stat().st_size} for folder in (run/'artifacts',run/'reviews/previews',run/'report_versions') for f in folder.rglob('*') if f.is_file()]
         records=read_json(run/'workflow_tasks.json')['tasks'] if (run/'workflow_tasks.json').exists() else {}
         prefixes={}
         for key,record in records.items():
@@ -147,6 +154,7 @@ class Workbench:
             store.invalidate(key)
             self.pool.submit(self._dialogue,rid,key)
         return row
+    @project_scoped
     def _dialogue(self,rid,key):
         with self.lock:
             if (rid,key) in self.dialogue_active:return
@@ -223,7 +231,14 @@ def create_app(root=None,client_factory=None,env_file=None):
             origin=request.headers.get('origin')
             if origin and origin.rstrip('/')!=str(request.base_url).rstrip('/'):
                 return Response('Origin mismatch',status_code=403)
-        try:return await call_next(request)
+        try:
+            import re
+            from contextlib import nullcontext
+            from .concern_registry import registry_scope
+            from .project_review import project_registry
+            match=re.match(r'/api/projects/([a-f0-9]{32})(?:/|$)',request.url.path)
+            scope=registry_scope(project_registry(service.run_dir(match[1]))) if match else nullcontext()
+            with scope:return await call_next(request)
         except ValueError as e:return Response(json.dumps({'detail':str(e)},ensure_ascii=False),status_code=400,media_type='application/json')
     @app.get('/')
     def index():return FileResponse(WEB/'index.html')
@@ -237,6 +252,24 @@ def create_app(root=None,client_factory=None,env_file=None):
     def definitions():return registry()
     @app.get('/api/projects/{rid}')
     def snapshot(rid:str):return service.snapshot(rid)
+    @app.get('/api/projects/{rid}/registry')
+    def project_definitions(rid:str,version:str|None=None):
+        from .project_review import registry_view
+        return registry_view(service.run_dir(rid),version)
+    @app.put('/api/projects/{rid}/registry')
+    def edit_project_definitions(rid:str,body:dict):
+        from .project_review import save_registry
+        p=service.run_dir(rid);job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('请等待当前执行轮完成再发布关注点版本')
+        with service.lock:return save_registry(p,body)
+    @app.get('/api/projects/{rid}/pending')
+    def pending_review_items(rid:str,status:str='unresolved',case:str|None=None,offset:int=0,limit:int=50,search:str='',channel:str|None=None):
+        from .project_review import pending_view
+        with service.lock:return pending_view(service.run_dir(rid),status,case,offset,limit,search,channel)
+    @app.post('/api/projects/{rid}/pending/{item_id}')
+    def review_pending_item(rid:str,item_id:str,body:dict):
+        from .project_review import decide_pending
+        with service.lock:return decide_pending(service.run_dir(rid),item_id,body)
     @app.put('/api/projects/{rid}/config')
     def configure(rid:str,body:dict):return service.configure(rid,body)
     @app.put('/api/projects/{rid}/mode')
@@ -357,7 +390,7 @@ def create_app(root=None,client_factory=None,env_file=None):
     def file(rid:str,path:str):
         p=service.run_dir(rid);f=(p/path).resolve()
         if not f.is_relative_to(p) or not f.is_file() or f.name.endswith(('.local.json','.lock')):raise HTTPException(404,'file unavailable')
-        if not (path.startswith('run/artifacts/') or path.startswith('run/reviews/previews/') or path.startswith('sources/') or path in {'run/missing_report.json','run/missing_report.md'}):raise HTTPException(404,'file unavailable')
+        if not (path.startswith('run/artifacts/') or path.startswith('run/reviews/previews/') or path.startswith('run/report_versions/') or path.startswith('sources/') or path in {'run/missing_report.json','run/missing_report.md'}):raise HTTPException(404,'file unavailable')
         return FileResponse(f)
     @app.get('/api/projects/{rid}/export')
     def export(rid:str):return Response(service.export(rid),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="scene-review.zip"'})

@@ -52,7 +52,7 @@ def _data_rule(match,interaction,inputs):
             return 'not_applicable','只读请求不检查写入存储字段约束'
         guards=explicit_guards(match,'storage_field')
         expected=match['concern_key'].split('.')[-1]
-        kinds={'completeness':{'required'},'type':{'type'},'format':{'format','pattern'},'length':{'length'},'size':{'size'},'range':{'minimum','maximum'},'legality':{'enum','other'}}[expected]
+        kinds={'completeness':{'required'},'type':{'type'},'format':{'format','pattern'},'length':{'length'},'size':{'size'},'range':{'minimum','maximum'},'legality':{'enum','other'}}.get(expected,set())
         known=[g for g in guards if g.get('field')==match['object'] and g.get('constraint_kind') in kinds]
         if expected=='completeness' and known and all(g['value'] is False for g in known):return 'not_applicable','存储字段不是必填，缺省正常'
         return ('applicable','明示存储Schema规则') if known else ('pending','存储字段的具体规则待确认')
@@ -73,6 +73,7 @@ def _data_rule(match,interaction,inputs):
 
 def applicability(match,interaction,inputs):
     definition=registry()['definitions'][match['concern_key']];ctx=context(interaction,inputs)
+    if not definition.get('enabled',True):return 'not_applicable','该关注点已在当前项目停用'
     if match['concern_key'].startswith('api.data.'):return _data_rule(match,interaction,inputs)
     if not ctx['service']:return 'not_applicable','本次对应对象不是被调用Service'
     if definition['technology'] and definition['technology'] not in ctx['technologies']:
@@ -88,11 +89,11 @@ def applicability(match,interaction,inputs):
         if interaction['direction']!=phase:return 'not_applicable','在对应请求或返回交互中检查'
         from .interaction_enrichment import parameters_for
         return ('applicable','字段检查由共享七类数据关注点细化') if parameters_for(interaction,inputs) else ('pending','具体接口字段或契约待确认')
-    if key in {'human.authentication','human.authorization','service_relation.authentication','service_relation.authorization'} and interaction['direction']!='request':
+    if (definition['layer']=='human' or definition['layer']=='relation' and definition['guard'] in {'authentication','authorization'}) and interaction['direction']!='request':
         return 'not_applicable','调用身份和权限在请求方向检查，不在返回交互重复检查'
     if key.startswith('human.') and '人类' not in interaction['sender']['position']:
         return 'not_applicable','仅适用于人类调用方'
-    guard_kind=definition['guard'];guards=explicit_guards(match,guard_kind) if guard_kind else []
+    guard_kind=definition['guard'] or 'business';guards=explicit_guards(match,guard_kind)
     if key=='service.query_retrieval.resource_existence':
         from .exception_generation import query_matches
         if any(m['interaction_id']==interaction['id'] for m in query_matches(inputs)):
@@ -171,7 +172,8 @@ def resolve_matches(inputs,matches):
         i=by_id[raw['interaction_id']];m=deepcopy(raw);ctx=context(i,inputs)
         # Authentication belongs to the incoming caller of this service. Do not
         # duplicate it once on a human and again on the provider.
-        if m['concern_key'] in {'human.authentication','human.authorization','service_relation.authentication','service_relation.authorization'} and i['direction']=='request':
+        from .normal_rules import caller_concern
+        if caller_concern(m['concern_key']) and i['direction']=='request':
             m.update(target='sender',object=i['sender']['name'])
         if m['target']=='data' and not m.get('data_location') and m.get('scope','interface')=='interface':
             from .interaction_enrichment import parameters_for
@@ -198,4 +200,4 @@ def resolve_matches(inputs,matches):
 def match_is_applicable(match,interaction,inputs):
     # Re-evaluate supplied standalone inputs, not just the claimed status.
     status,_=applicability(match,interaction,inputs)
-    return match.get('status',status)=='applicable' and status=='applicable'
+    return registry()['definitions'][match['concern_key']]['kind']=='check' and match.get('status',status)=='applicable' and status=='applicable'

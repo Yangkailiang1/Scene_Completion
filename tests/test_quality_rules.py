@@ -130,3 +130,21 @@ def test_rule_id_cannot_silently_replace_child_field_with_parent_array():
     assert out['field']=='rows[].amount' and out['concern_key']=='api.data.range'
     assert out['rule_id'] is None and out['cause']==s['cause'] and out['interaction_id']==s['interaction_id']
     assert '索引对齐诊断' in out['derivation']
+
+def test_missing_spec_threshold_is_pending_not_a_runtime_exception():
+    from scene_completion.normal_rules import separate_unknown_criteria
+    r={'id':'r','interaction_id':'req','resolution':'conditional','violation':'缺少具体阈值导致无法判定是否过期','pending_details':['文档没有阈值'],'source_refs':R}
+    logs=[];v=separate_unknown_criteria({'rules':[r],'pending':[]},logs)
+    assert not v['rules'] and len(v['pending'])==1 and logs[0]['rule_id']=='r'
+    r['violation']='超过约定阈值后未刷新数据';r['source_refs']=[{**R[0],'quote':'校验缓存是否满足约定过期规则'}]
+    assert separate_unknown_criteria({'rules':[r],'pending':[]})['rules']  # a conditional runtime failure is retained
+    r['source_refs']=[{**R[0],'quote':'判断本地数据是否过期；若过期，获取新数据'}]
+    assert separate_unknown_criteria({'rules':[r],'pending':[]})['pending']  # unsupported classification stays reviewable
+
+def test_valid_service_rule_is_applied_before_parsing_irrelevant_field_path():
+    from tests.test_workflow import exchange
+    i=exchange();i['receiver'].update(name='account表',position='内部数据库')
+    s=scenario();s.update(concern_key='service.query_retrieval.data_visibility',field='permission',data_location='account表.permission',rule_id='permission')
+    r={'id':'permission','interaction_id':'req','concern_key':s['concern_key'],'fields':['permission']}
+    v=normalize_scenarios({'scenarios':[s]},{'fused-ssd':{'interactions':[i]},'normal-rules':{'rules':[r]}})['scenarios'][0]
+    assert v['object']=='account表资源服务' and v['field'] is None and v['data_location'] is None

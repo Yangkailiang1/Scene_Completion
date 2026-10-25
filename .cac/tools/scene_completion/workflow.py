@@ -21,6 +21,7 @@ from .reviews import REVIEW_TASKS
 from .scheduler import Scheduler,Task,TaskRejected,TaskBlocked,CallGate,run_lock
 from .storage import read_json,write_json
 from .storage import fingerprint
+from .concern_registry import default_registry,scoped_execution
 
 def canonical_enrich(d):
     from .inverse_alignment import canonical_fused
@@ -82,6 +83,7 @@ def skill_path(task):
 class Execution:
     def __init__(self,root,*,mode='packets',client=None,responses_dir=None,mocks=None,config=None,case_ids=None,auto_repair='bounded',max_rounds=2):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
+        self.registry_snapshot=read_json(self.root/'registry_override.json') if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
         from .reviews import Reviews
@@ -101,8 +103,16 @@ class Execution:
         if previous and previous.get('protocol')!=PROTOCOL:raise ValueError('different protocol: use a new run directory')
         if any((self.root/n).exists() for n in ('case_tasks.json','workflow_tasks.json')) and not previous:raise ValueError('unbound/legacy scheduler cache requires a separate run directory')
         if previous and previous.get('execution_identity',{}).get('mode')=='mock' and mocks is None:raise ValueError('mock results cannot be promoted into a real run')
+        used=self.root/'registry_used'/(self.registry_snapshot['hash']+'.json')
+        if not used.exists():write_json(used,self.registry_snapshot)
+        if previous and previous.get('registry_hash') and previous['registry_hash']!=self.registry_snapshot['hash']:
+            import shutil,time
+            archive=self.root/'report_versions'/(previous['registry_hash'][:16]+'-'+str(time.time_ns()))
+            for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
+                source=self.root/name
+                if source.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(source,archive/name)
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
-                       'registry_hash':registry()['hash'],'registry_version':registry()['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
+                       'registry_hash':self.registry_snapshot['hash'],'registry_version':self.registry_snapshot['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
         from .normal_rules import RULESET_VERSION
         self.manifest['ruleset_version']=RULESET_VERSION
         write_json(manifest,self.manifest)
@@ -205,6 +215,7 @@ class Execution:
     def skill_text(self,task):
         return skill_path(task).read_text(encoding='utf8')
 
+    @scoped_execution
     def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None,skip_review=False):
         static=static or {}
         review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None,self.conversations.revision(key)])
@@ -294,6 +305,7 @@ class Execution:
               transform=lambda d,children=children:merge_parts(task,[payload(read_json(self.root/self.scheduler.state['tasks'][c]['output_file'])) for c in children]),case=case,skip_review=True)
         self.partitions.append((tuple(deps),expand))
 
+    @scoped_execution
     def finish(self):
         def update():
             records=self.scheduler.state['tasks']
@@ -489,7 +501,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         add('object-operations',('components','rr-ssd','test-operation-project'),build=lambda d:{'components':d['components'],'rr-ssd':d['rr-ssd'],'test-operations':d['test-operation-project']},transform=capability_union)
         add('interaction-align',('components','rr-ssd','sr-ssd','fused-ssd'),build=lambda d:d,transform=lambda d:{'aliases':[],'links':d['fused-ssd']['rr_sr_links']})
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
-        add('normal-rules',('fused-ssd',),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':d['fused-ssd']},partition=True)
+        add('normal-rules',('fused-ssd',),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':d['fused-ssd'],**({'registry':registry()} if registry()['hash']!=default_registry()['hash'] else {})},partition=True)
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','normal-rules')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:canonical_enrich(d))
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)

@@ -80,7 +80,7 @@ def semantic_view(task,inputs):
         matches=[{k:v for k,v in m.items() if k in keys} for m in generation_matches(inputs)]
         out['concern-match']={'matches':matches}
     if 'registry' in out:
-        out['registry']['definitions']={key:{k:v for k,v in row.items() if k in {'label','guard','kind','operation_kinds','technology','parents'}} for key,row in out['registry']['definitions'].items()}
+        out['registry']['definitions']={key:{k:v for k,v in row.items() if k in {'label','description','guard','kind','operation_kinds','technology','parents'}} for key,row in out['registry']['definitions'].items() if row.get('enabled',True)}
     if task in {'existing-extract','test-ground-truth'}:
         # Original branches/test rows are retained; no duplicate composition or
         # full API table. normal-constraints is already scoped to this use case.

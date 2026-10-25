@@ -12,13 +12,18 @@ def identity_concern(key,interaction):
     return family+'.'+key.rsplit('.',1)[1]
 
 def rule_subject(rule,interaction):
-    caller=rule['concern_key'].startswith('human.') or rule['concern_key'] in {'service_relation.authentication','service_relation.authorization'}
+    caller=caller_concern(rule['concern_key'])
     party=interaction['sender' if caller else 'receiver']
     if party.get('resource_service'):return party['resource_service']['name']
     if '数据库' in party['position']:
         from .interaction_enrichment import resource_service_name
         return resource_service_name(party['name'])
     return party['name']
+
+def caller_concern(key):
+    from .concern_registry import registry
+    d=registry()['definitions'].get(key,{})
+    return key.startswith('human.') or d.get('layer')=='relation' and d.get('guard') in {'authentication','authorization'}
 
 def normalize_location(field,location):
     if location in LOCATIONS or location is None:return field,location
@@ -41,6 +46,22 @@ def documented_normal_tolerance(inputs):
     rows=[r['text'] for d in inputs.get('test-documents',[]) for r in d['lines'] if re.match(r'^\s*\|',r['text'])]
     return bool(rows) and all(re.search(r'\|\s*可选\s*\|',r) and '容错' in r and re.search(r'隐藏|缺省|默认|忽略',r) and not re.search(r'必须|应当失败|应拒绝|崩溃',r) for r in rows)
 
+def separate_unknown_criteria(value,normalizations=None):
+    """Information missing from the spec is a pending issue, not a runtime fault."""
+    out=deepcopy(value);rules=[]
+    for r in out['rules']:
+        unknown=r['resolution']=='conditional' and r.get('pending_details') and re.search(r'(?:缺少|缺乏|未给出).*(?:具体)?(?:阈值|判定标准)|无法判定',r['violation'])
+        unsupported=r['resolution']=='conditional' and not declared_check(r)
+        if unknown or unsupported:
+            out.setdefault('pending',[]).append({'interaction_id':r['interaction_id'],'reason':'条件级异常的判定依据/关注点分类待确认：'+'；'.join(r['pending_details']),'source_refs':r['source_refs']})
+            if normalizations is not None:normalizations.append({'rule_id':r['id'],'action':'move missing-spec criterion to pending; no runtime exception inferred','original_violation':r['violation']})
+        else:rules.append(r)
+    out['rules']=rules
+    return out
+
+def declared_check(rule):
+    return bool(re.search(r'校验|合法|有效|范围|约束|规则|valid|check|limit',' '.join(r['quote'] for r in rule['source_refs']),re.I))
+
 def validate_rules(value,inputs):
     from .contracts import registry
     from .inverse_alignment import canonical_fused
@@ -51,7 +72,7 @@ def validate_rules(value,inputs):
         i=rows.get(rule['interaction_id'])
         if not i or i['direction']!='request':raise ValueError('normal rule must bind an existing actual request')
         if rule['owner_service']!=i['receiver']['name']:raise ValueError('normal rule owner must be this actual receiver')
-        if rule['concern_key'] not in registry()['definitions']:raise ValueError('unknown normal-rule concern')
+        if rule['concern_key'] not in registry()['definitions'] or not registry()['definitions'][rule['concern_key']].get('enabled',True) or registry()['definitions'][rule['concern_key']]['kind']!='check':raise ValueError('unknown, disabled or non-leaf normal-rule concern')
         if identity_concern(rule['concern_key'],i)!=rule['concern_key']:raise ValueError('authentication/authorization concern must follow this actual caller identity')
         if re.search(r'或者|或|\bor\b',rule['violation'],re.I):raise ValueError('one rule must describe one independent failure, not an OR of causes; split into separate rules: '+rule['violation'])
         if rule['concern_key'].startswith('api.data.') and len(rule['fields'])!=1:raise ValueError('one data rule requires one field; split independent fields, keep genuine relational constraints under a business concern')
@@ -67,7 +88,7 @@ def validate_rules(value,inputs):
             if leaf.isascii() and leaf not in quote and field not in actual:raise ValueError('normal-rule field absent from both cited evidence and the actual input: '+field)
         numbers=re.findall(r'(?:>=|<=|>|<|≥|≤|=)\s*(-?\d+(?:\.\d+)?)',rule['condition'])
         if any(n not in re.findall(r'-?\d+(?:\.\d+)?',quote) for n in numbers):raise ValueError('normal-rule threshold not in cited evidence')
-        if rule['resolution']=='conditional' and not re.search(r'校验|合法|有效|范围|约束|规则|valid|check|limit',quote,re.I):raise ValueError('conditional rule requires a declared normal check')
+        if rule['resolution']=='conditional' and not declared_check(rule):raise ValueError('conditional rule requires a declared normal check')
 
 def rule_matches(inputs):
     from .contracts import registry
@@ -87,7 +108,7 @@ def rule_matches(inputs):
               'basis':'独立正向正常规则索引','concrete_rule':r['condition'],'source_refs':r['source_refs'],
               'scope':'interface','data_location':p['location'],'activation_evidence':[]})
             continue
-        caller=r['concern_key'].startswith('human.') or r['concern_key'] in {'service_relation.authentication','service_relation.authorization'}
+        caller=caller_concern(r['concern_key'])
         out.append({'interaction_id':r['interaction_id'],'target':'sender' if caller else 'receiver','object':rule_subject(r,i),
           'concern_key':r['concern_key'],'basis':'独立正向正常规则索引','concrete_rule':r['condition'],'source_refs':r['source_refs'],
           'scope':'relation' if d['layer']=='relation' else 'service','data_location':None,
@@ -120,7 +141,8 @@ def normalize_scenarios(value,inputs,*,truth=False):
     rows={i['id']:i for i in fused.get('interactions',[])};result=[]
     for raw in out.get('scenarios',[]):
         s=deepcopy(raw);original={'interaction_id':s['interaction_id'],'object':s['object'],'field':s.get('field'),'data_location':s.get('data_location')}
-        s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
+        mapped_service=s.get('rule_id') in rules and not s['concern_key'].startswith('api.data.') and not rules[s['rule_id']]['concern_key'].startswith('api.data.')
+        if not mapped_service:s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s.get('rule_id') in rules:
             r=rules[s['rule_id']];i=rows.get(r['interaction_id'])
             conflict=None
@@ -143,6 +165,7 @@ def normalize_scenarios(value,inputs,*,truth=False):
                     ps=[p for p in parameters_for(i,api_inputs) if p['name'] in r['fields']]
                     if len(ps)==1:s.update(object=ps[0]['name'],field=ps[0]['name'],data_location=ps[0]['location'],scope='interface')
                 else:s.update(object=rule_subject(r,i),field=None,data_location=None,scope='service')
+        s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s['concern_key'].startswith('api.data.') and s.get('field'):s['object']=s['field']
         fields=re.split(r'\s*/\s*',s.get('field') or '')
         split=len(fields)>1 and all(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.\[\]]*',f) for f in fields) and not re.search(r'>=|<=|≥|≤|与.*(?:比较|一致)',s['cause'])

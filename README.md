@@ -100,3 +100,5 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 本轮质量修订与内嵌用量API见[规则说明](docs/scene-workflow-v3/quality-rules-20261025.md)。用量与费用在当前工作区展示，默认轻量统计，原文上下文及请求详情按需加载；单价配置仅给出估算，实际扣费无依据时显示未知。
 
 详见[协议与字段](docs/scene-workflow-v3/protocol.md)、[任务依赖](docs/scene-workflow-v3/workflow-map.md)、[关注点体系](docs/scene-workflow-v2/concern-hierarchy.md)及[验证记录](docs/scene-workflow-v3/validation.md)。
+
+项目审核新增“待确认项”和“关注点设置”：按项目保存定义版本与历史报告，支持是否为异常及分类审核；保存审核不会自动调用模型。参见 [项目审核说明](docs/scene-workflow-v3/project-review.md) 和 [质量修订验收](docs/scene-workflow-v3/quality-acceptance-20261025.md)。

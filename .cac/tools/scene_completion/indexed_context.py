@@ -101,7 +101,7 @@ class EvidenceContext:
         if packet['task']=='normal-rules':
             from .contracts import registry
             fields=self.packet['output_schema']['properties']['rules']['items']['properties']
-            fields['concern_key']={'enum':list(registry()['definitions'])}
+            fields['concern_key']={'enum':[k for k,v in registry()['definitions'].items() if v.get('enabled',True) and v['kind']=='check']}
             fields['interaction_id']={'enum':[i['id'] for i in packet['input']['fused-ssd']['interactions'] if i['direction']=='request']}
             fields['owner_service']={'enum':list({i['receiver']['name'] for i in packet['input']['fused-ssd']['interactions'] if i['direction']=='request'})}
             fields['violation']={'type':'string','minLength':1,'pattern':r'^(?!.*(?:或|\bor\b)).+$'}
@@ -117,6 +117,8 @@ class EvidenceContext:
             for key in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):fields['properties'].pop(key,None)
         if packet['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
+            from .normal_rules import LOCATIONS
+            fields['properties']['data_location']={'enum':sorted(LOCATIONS)+[None]}
             for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):fields['properties'].pop(key,None)
             if packet['task']=='existing-extract':
                 from .inverse_alignment import broad_input_branch
@@ -246,7 +248,7 @@ class EvidenceContext:
             return v
         result=decode(value)
         if self.original['task']=='normal-rules':
-            from .normal_rules import identity_concern
+            from .normal_rules import identity_concern,separate_unknown_criteria
             rows={i['id']:i for i in self.original['input']['fused-ssd']['interactions']}
             for r in result.get('rules',[]):
                 if r['interaction_id'] in rows:
@@ -256,6 +258,7 @@ class EvidenceContext:
                         r['concern_key']=key
                 r['condition']=' '.join(ref['quote'] for ref in r['source_refs'])
                 self.normalizations.append({'rule_id':r['id'],'field':'condition','action':'restore verbatim positive condition from selected source evidence, no generated quote'})
+            result=separate_unknown_criteria(result,self.normalizations)
         if self.original['task']=='semantic-compare':
             from .comparison_batches import restrict_candidate_decisions
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)

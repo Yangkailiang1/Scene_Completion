@@ -30,6 +30,8 @@ import { ExecutionFlow } from "./ExecutionFlow";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
+import { PendingView } from "./PendingView";
+import { ConcernManager } from "./ConcernManager";
 import { ArtifactView } from "./ArtifactView";
 import { ExecutionNavigator } from "./ExecutionNavigator";
 import { api, projectUrl, fileUrl, primaryJsonArtifact } from "./api";
@@ -62,7 +64,11 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
   );
 }
 export default function App() {
-  const [usageOpen, setUsageOpen] = useState(false), [usageTask, setUsageTask] = useState<string | null>(null);
+  const [management, setManagement] = useState<"pending" | "concerns" | null>(
+    null,
+  );
+  const [usageOpen, setUsageOpen] = useState(false),
+    [usageTask, setUsageTask] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false),
     [graphMaximized, setGraphMaximized] = useState(false),
     [panelVersion, setPanelVersion] = useState(0);
@@ -121,12 +127,11 @@ export default function App() {
         if (saved && list.some((p) => p.id === saved)) openProject(saved);
       })
       .catch(error);
-    api("/api/registry")
-      .then((r) => setDefinitions(r.definitions))
-      .catch(error);
   }, []);
   function openProject(id: string) {
-    setUsageOpen(false); setUsageTask(null);
+    setManagement(null);
+    setUsageOpen(false);
+    setUsageTask(null);
     currentRef.current = id;
     selectedRef.current = null;
     setCurrent(id);
@@ -140,8 +145,12 @@ export default function App() {
     setNotice("");
     localStorage.setItem("scene-selected-project", id);
     refresh(id).catch(error);
+    api(projectUrl(id, "registry"))
+      .then((r) => setDefinitions(r.registry?.definitions || {}))
+      .catch(error);
   }
   function selectNode(id: string) {
+    setManagement(null);
     setUsageOpen(false);
     selectedRef.current = id;
     setSelected(id);
@@ -438,58 +447,67 @@ export default function App() {
             <h1>{project?.name || "需求场景审核工作台"}</h1>
           </div>
           <div className="flex items-center gap-2">
-            {current && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setGraphMaximized(false);
-                  setMaximized((v) => !v);
-                }}
-              >
-                {maximized ? "显示任务导航" : "专注阅读"}
-              </Button>
-            )}
-            {current && (
-              <button
-                className="layout-reset"
-                onClick={() => {
-                  localStorage.removeItem(
-                    "react-resizable-panels:scene-workspace-panels-v4",
-                  );
-                  setPanelVersion((v) => v + 1);
-                  setMaximized(false);
-                  setGraphMaximized(false);
-                }}
-              >
-                复位布局
-              </button>
-            )}
-            <span className={cn("connection", streamConnected && "online")}>
-              <span />
-              {streamConnected ? "事件已连接" : "本地工作台"}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="模型配置"
-              aria-label="模型配置"
-              onClick={() =>
-                current
-                  ? setDialog("settings")
-                  : setNotice("请先选择或新建项目。")
-              }
+            <span
+              className={cn("connection", streamConnected && "online")}
+              title={streamConnected ? "实时事件已连接" : "本地工作台"}
             >
-              <Settings2 size={17} />
-            </Button>
-            {current && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={projectUrl(current, "export")}>
-                  <Download size={13} />
-                  导出
-                </a>
-              </Button>
-            )}
+              <span />
+            </span>
+            <details className="workspace-menu">
+              <summary aria-label="更多项目操作">更多操作</summary>
+              <div className="workspace-menu-content">
+                <button
+                  onClick={() => {
+                    setGraphMaximized(false);
+                    setMaximized((v) => !v);
+                  }}
+                >
+                  {maximized ? "显示任务导航" : "专注阅读"}
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem(
+                      "react-resizable-panels:scene-workspace-panels-v5",
+                    );
+                    setPanelVersion((v) => v + 1);
+                    setMaximized(false);
+                    setGraphMaximized(false);
+                  }}
+                >
+                  复位布局
+                </button>
+                <button
+                  onClick={() =>
+                    current ? setDialog("settings") : setNotice("请先选择项目")
+                  }
+                >
+                  模型配置
+                </button>
+                {current && (
+                  <a href={projectUrl(current, "export")}>导出项目与产物</a>
+                )}
+                <label>
+                  执行模式
+                  <select
+                    aria-label="执行模式"
+                    disabled={running}
+                    value={snapshot?.project.review_mode || "manual"}
+                    onChange={(e) =>
+                      current &&
+                      api(projectUrl(current, "mode"), {
+                        method: "PUT",
+                        body: JSON.stringify({ review_mode: e.target.value }),
+                      })
+                        .then(() => Promise.all([refresh(), loadProjects()]))
+                        .catch(error)
+                    }
+                  >
+                    <option value="manual">中间产物手动确认</option>
+                    <option value="auto">自动运行完整流程</option>
+                  </select>
+                </label>
+              </div>
+            </details>
             <Button
               size="sm"
               onClick={() => start().catch(error)}
@@ -575,41 +593,77 @@ export default function App() {
               <span>
                 待审核 <b>{pendingReviews}</b>
               </span>
-              <div className="ml-auto flex items-center gap-2">
-                {current && <button className="text-sm text-blue-700" onClick={() => { setUsageTask(null); setUsageOpen(true); }}>用量与费用</button>}
-                <span className="text-[11px] text-slate-400">执行模式</span>
-                <select
-                  aria-label="执行模式"
-                  disabled={running}
-                  value={snapshot?.project.review_mode || "manual"}
-                  onChange={(e) =>
-                    current &&
-                    api(projectUrl(current, "mode"), {
-                      method: "PUT",
-                      body: JSON.stringify({ review_mode: e.target.value }),
-                    })
-                      .then(() => Promise.all([refresh(), loadProjects()]))
-                      .catch(error)
-                  }
+              <nav className="workspace-views" aria-label="工作区视图">
+                <button
+                  className={!management && !usageOpen ? "active" : ""}
+                  onClick={() => {
+                    setManagement(null);
+                    setUsageOpen(false);
+                  }}
                 >
-                  <option value="manual">中间产物手动确认</option>
-                  <option value="auto">自动运行完整流程</option>
-                </select>
-              </div>
+                  工作区
+                </button>
+                <button
+                  className={management === "pending" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("pending");
+                    setUsageOpen(false);
+                  }}
+                >
+                  待确认项
+                </button>
+                <button
+                  className={management === "concerns" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("concerns");
+                    setUsageOpen(false);
+                  }}
+                >
+                  关注点设置
+                </button>
+                <button
+                  className={usageOpen ? "active" : ""}
+                  onClick={() => {
+                    setManagement(null);
+                    setUsageTask(null);
+                    setUsageOpen(true);
+                  }}
+                >
+                  用量与费用
+                </button>
+              </nav>
             </div>
             <PanelGroup
               direction="horizontal"
               key={panelVersion}
-              autoSaveId="scene-workspace-panels-v4"
+              autoSaveId="scene-workspace-panels-v5"
               className={cn(
                 "main-panels",
-                maximized && "workspace-maximized",
+                (maximized || management || usageOpen) && "workspace-maximized",
                 graphMaximized && "graph-maximized",
               )}
             >
-              <Panel defaultSize={80} minSize={55}>
+              <Panel defaultSize={84} minSize={55}>
                 <section className="center-workspace">
-                  {usageOpen && current ? <UsageView project={current} task={usageTask} onClose={() => setUsageOpen(false)} onSelect={selectNode} /> : !selected ? (
+                  {management === "pending" && current ? (
+                    <PendingView project={current} onSelect={selectNode} />
+                  ) : management === "concerns" && current ? (
+                    <ConcernManager
+                      project={current}
+                      onUpdated={() =>
+                        api(projectUrl(current, "registry"))
+                          .then((r) => setDefinitions(r.registry.definitions))
+                          .catch(error)
+                      }
+                    />
+                  ) : usageOpen && current ? (
+                    <UsageView
+                      project={current}
+                      task={usageTask}
+                      onClose={() => setUsageOpen(false)}
+                      onSelect={selectNode}
+                    />
+                  ) : !selected ? (
                     <div className="overview">
                       <div className="overview-title">
                         <span className="eyebrow">PROJECT OVERVIEW</span>
@@ -762,7 +816,18 @@ export default function App() {
                         <span>
                           第 {node?.attempt || 1} 次尝试 ·{" "}
                           {duration(node?.elapsed_seconds ?? null)}
-                          {current && <button className="ml-2 text-blue-700" onClick={() => { setUsageTask(selected); setUsageOpen(true); }}>token / 耗时明细</button>}
+                          {current && (
+                            <button
+                              className="ml-2 text-blue-700"
+                              onClick={() => {
+                                setManagement(null);
+                                setUsageTask(selected);
+                                setUsageOpen(true);
+                              }}
+                            >
+                              token / 耗时明细
+                            </button>
+                          )}
                         </span>
                       </div>
                       {node?.failure && (
@@ -979,7 +1044,7 @@ export default function App() {
               <PanelResizeHandle className="panel-handle">
                 <GripVertical size={13} />
               </PanelResizeHandle>
-              <Panel defaultSize={20} minSize={18} maxSize={45}>
+              <Panel defaultSize={16} minSize={14} maxSize={45}>
                 {graphMaximized ? (
                   <ExecutionFlow
                     maximized={graphMaximized}

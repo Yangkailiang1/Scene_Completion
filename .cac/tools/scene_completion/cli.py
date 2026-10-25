@@ -1,4 +1,4 @@
-"""Four public commands for the single scene-workflow-v3 protocol."""
+"""Public commands for the single scene-workflow-v3 protocol."""
 from pathlib import Path
 import argparse,json
 from .storage import read_json,write_json,fingerprint
@@ -62,12 +62,15 @@ def main(argv=None):
         from .run_inspection import inspect_run
         result=inspect_run(Path(args.run_dir));print(json.dumps(result,ensure_ascii=False,indent=2));return 0 if result['valid'] else 2
     independent=args.command=='task'
-    if independent:inputs=read_json(args.input_json);packet(args.task,inputs)
+    if independent:inputs=read_json(args.input_json)
     else:
         groups=[{str(Path(p).resolve()) for p in paths} for paths in (args.rr_spec_document,args.sr_spec_document,args.test_spec_document)]
         if groups[0]&groups[1] or groups[2]&(groups[0]|groups[1]):raise ValueError('RR/SR/test must be distinct files')
         rr=read_documents(args.rr_spec_document,'existing');sr=read_documents(args.sr_spec_document,'existing');tests=read_documents(args.test_spec_document,'test')
     root=Path(args.output_dir).resolve();root.mkdir(parents=True,exist_ok=True)
+    if independent:
+        from .concern_registry import registry_scope,default_registry
+        with registry_scope(read_json(root/'registry_override.json') if (root/'registry_override.json').exists() else default_registry()):packet(args.task,inputs)
     config=read_json(args.config) if args.config else {}
     if not independent:config['review_mode']=args.review_mode
     with run_lock(root):
