@@ -103,6 +103,12 @@ class EvidenceContext:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):fields['properties'].pop(key,None)
             if packet['task']=='exception-generate':
+                # G is always inferred from positive rules. It cannot claim an
+                # original exception branch or broad E-coverage semantics.
+                for key in ('source_status','original_branch_id','coverage_kind'):
+                    fields['properties'].pop(key,None)
+                    if key in fields['required']:fields['required'].remove(key)
+                fields['properties']['derivation']={'type':'string','minLength':1}
                 candidates=inputs['concern-match']['matches']
                 if candidates:fields['anyOf']=[{'properties':{k:{'const':m[k]} for k in ('interaction_id','object','concern_key')}} for m in candidates]
                 else:self.packet['output_schema']['properties']['scenarios']['maxItems']=0
@@ -130,6 +136,8 @@ class EvidenceContext:
         self.packet['instructions']+='\n模型传输契约 '+VERSION+'：source_refs只输出给定evidence_id字符串，不能复写引文、source_id或行号；程序从原始输入恢复引用。文档行标有[evidence_id]；派生产物引用见evidence_catalog。所有事实字段仍须有依据。'
         if packet['task']=='concern-match':
             self.packet['instructions']+='\n只返回需语义理解的额外匹配依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础继承和字段规则由工具补齐，不重复列出。'
+        if packet['task']=='exception-generate':
+            self.packet['instructions']+='\nG只能从正向规则推导。不要输出source_status、original_branch_id、coverage_kind，程序固定为framework_inferred、null、exact；derivation必须写明当前正常规则如何推出异常，不能留空。'
         if self.fused:
             self.packet['instructions']+='\nRR消息只使用RR-或DUAL-证据；SR消息只使用SR-或DUAL-证据；META-只作组件身份依据，不能当消息动作事实。'
             self.packet['instructions']+='\nSSD职责只限本用例交互与RR/SR消息对应。sender/receiver仅输出组件component_id，不重复名称和位置；不输出case_id，程序填当前对应组ID。数据只写本次实际传递的字段名和位置，不展开items数组内部对象字段；类型、默认值、必填性、约束由独立API参数任务及交互属性关联工具补齐。仅本用例额外明示的值/条件才在data中补充。source_refs在消息级提供一次，operation和各数据字段仅有额外不同依据时补充；程序默认使用消息依据。refinements.rr_message_id和sr_message_ids只能引用本次输出的交互消息id，不是用例编号。每条RR消息至多一个refinements项。request不输出reply_to，父调用由工具按实际端点和顺序确定；return的reply_to指向本层端点完全反向的原请求id。跨层对应只放refinements，不能放reply_to。RR和SR都保留明示的业务结果返回，不能只建RR入口请求。不要填空数组/空值占位可选属性。本地处理放入operation.sequence。'
@@ -184,6 +192,8 @@ class EvidenceContext:
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
+                if self.original['task']=='exception-generate':
+                    for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
         if self.original['task']=='concern-match':
             for row in result.get('matches',[]):
                 for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):row.pop(k,None)
@@ -213,6 +223,8 @@ class EvidenceContext:
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
+                if self.original['task']=='exception-generate':
+                    row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
         if self.original['task']=='concern-match':
             from .concern_hierarchy import resolve_matches
             resolved=resolve_matches(self.original['input'],result.get('matches',[]))

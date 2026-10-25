@@ -208,6 +208,29 @@ def test_generation_context_excludes_review_matrix_and_computed_inheritance():
     assert 'concern_paths' not in ctx.packet['output_schema']['properties']['scenarios']['items']['properties']
 
 
+def test_generated_source_and_coverage_are_fixed_without_relabeling_original_branches():
+    from jsonschema import Draft202012Validator
+    from tests.test_workflow import memory_inputs,scenario
+    x=memory_inputs();i=x['sr-ssd']['interactions'][0]
+    x['enriched-interactions']={'interactions':[],'rr_sr_links':[],'pending':[],'resource_mappings':[]}
+    x['concern-match']['matches']=[{'interaction_id':i['id'],'target':'sender','object':i['sender']['name'],
+      'concern_key':'human.authentication','basis':'credential must be valid','concrete_rule':'credential must be valid',
+      'source_refs':R,'activation_evidence':[{'kind':'authentication','condition':'credential must be valid','value':True,'unit':None,'status':'explicit','source_refs':R}]}]
+    ctx=EvidenceContext(packet('exception-generate',x));s=scenario(status='explicit')
+    s.update(object=i['sender']['name'],concern_key='human.authentication',derivation='Negation of the explicitly required valid credential',original_branch_id='wrong',coverage_kind='input_parameters')
+    compact=ctx.encode_output({'scenarios':[s],'pending':[]})
+    for k in ('source_status','original_branch_id','coverage_kind'):assert k not in compact['scenarios'][0]
+    Draft202012Validator(ctx.packet['output_schema']).validate(compact)
+    restored=ctx.expand(compact)['scenarios'][0]
+    assert (restored['source_status'],restored['original_branch_id'],restored['coverage_kind'])==('framework_inferred',None,'exact')
+    compact['scenarios'][0]['derivation']=''
+    assert list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(compact))
+    # Original E retains its own explicit/inferred status and broad coverage.
+    existing=deepcopy(ctx.original);existing['task']='existing-extract'
+    inverse=EvidenceContext(existing);row=inverse.expand(inverse.encode_output({'scenarios':[s],'pending':[]}))['scenarios'][0]
+    assert row['source_status']=='explicit' and row['original_branch_id']=='wrong' and row['coverage_kind']=='input_parameters'
+
+
 def test_deterministic_generation_does_not_call_model_for_matrix_only_rules(tmp_path):
     from scene_completion.workflow import Execution
     from scene_completion.concern_hierarchy import resolve_matches
