@@ -109,6 +109,8 @@ def validate_catalogue(task,value,inputs):
         if covered_rr!=rr or covered_sr!=sr:raise ValueError('catalogue entries must be matched or explicitly pending')
     elif task=='fused-ssd':
         rows=value['interactions'];ids={r['id']:r for r in rows}
+        from .ssd_tools import validate_explicit_resources
+        validate_explicit_resources(rows)
         if len(ids)!=len(rows) or not rows:raise ValueError('empty SSD or duplicate message id')
         orders=set()
         for i in rows:

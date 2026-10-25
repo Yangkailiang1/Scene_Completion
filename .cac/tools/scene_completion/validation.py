@@ -174,7 +174,7 @@ def validate_result(task, payload, inputs):
             for m in payload['matches']:
                 i=by_id[m['interaction_id']];d=definitions[m['concern_key']]
                 if m['target'] in {'sender','receiver'} and m['object']!=i[m['target']]['name']:
-                    raise ValueError('concern party must be actual sender/receiver')
+                    raise ValueError('concern party must be actual sender/receiver: '+m['interaction_id']+' target='+m['target']+' object='+m['object']+'; actual sender='+i['sender']['name']+', receiver='+i['receiver']['name']+'. Keep the evidenced object and select its actual side; do not replace it with another service.')
                 kinds=context(i,inputs)['kinds']
                 if kinds <= {'read','display'} and d['operation_kinds'] and not kinds&set(d['operation_kinds']) and m.get('status') not in {'not_applicable','pending'}:
                     raise ValueError('read-only interaction cannot activate mutation concerns')
@@ -230,7 +230,9 @@ def validate_result(task, payload, inputs):
             if len(selected)!=len(pairs) or not selected<=expected:raise ValueError('sparse candidate pairs must be unique known IDs')
             expected=selected
         got=[(d['left_id'],d['right_id']) for d in payload['decisions']]
-        if len(got)!=len(set(got)) or set(got)!=expected:raise ValueError('comparison must inspect every candidate pair exactly once')
+        if len(got)!=len(set(got)) or set(got)!=expected:
+            from collections import Counter
+            raise ValueError('comparison must inspect every candidate pair exactly once; missing='+str(sorted(expected-set(got))[:10])+'; extra='+str(sorted(set(got)-expected)[:10])+'; duplicates='+str([p for p,n in Counter(got).items() if n>1][:10])+'. When candidate_pairs is provided, emit only those pairs.')
         left={s['id']:s for s in inputs['left']}; right={s['id']:s for s in inputs['right']}
         for d in payload['decisions']:
             a,b=left[d['left_id']],right[d['right_id']]

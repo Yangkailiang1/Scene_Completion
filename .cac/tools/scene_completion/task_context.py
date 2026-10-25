@@ -16,7 +16,9 @@ def ssd_context(inputs):
     for c in components:
         if c['composition_type']=='用例':continue
         name=c['name']
-        pattern=r'(?<![\w])'+re.escape(name)+r'(?![\w])' if name.isascii() else re.escape(name)
+        table=re.fullmatch(r'([A-Za-z_][A-Za-z0-9_]*)\s*表',name)
+        pattern=(r'(?<![A-Za-z0-9_])'+re.escape(table[1])+r'\s*表' if table else
+          r'(?<![A-Za-z0-9_])'+re.escape(name)+r'(?![A-Za-z0-9_])' if name.isascii() else re.escape(name))
         if re.search(pattern,text,re.I) or any(set(range(r['line_start'],r['line_end']+1)) & ranges.get(r['source_id'],set()) for r in c['source_refs']):selected.add(c['id'])
     while True:
         parents={c['parent_id'] for c in components if c['id'] in selected and c.get('parent_id')}

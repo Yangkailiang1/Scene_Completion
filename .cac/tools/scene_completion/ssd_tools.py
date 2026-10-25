@@ -1,5 +1,23 @@
 """Deterministic SSD structure from extracted messages; no new messages or parties."""
 from copy import deepcopy
+import re
+
+
+def validate_explicit_resources(rows):
+    """Reject a named table that contradicts a unique literal table reference.
+
+    A multi-table operation or a physical database with another name cannot
+    resolve to a unique table here; leave that semantic decision to the model.
+    """
+    for row in rows:
+        if row['direction']!='request' or '数据库' not in row['receiver']['position']:continue
+        actual=re.fullmatch(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*表',row['receiver']['name'])
+        if not actual:continue
+        text=' '.join(r['quote'] for r in row['operation'].get('source_refs',[]))
+        names=set(re.findall(r'(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\s*表',text))
+        if len(names)==1 and actual[1] not in names:
+            expected=next(iter(names))+'表'
+            raise ValueError('message '+row['id']+' names '+row['receiver']['name']+' but its operation evidence explicitly names '+expected+'; select the evidenced resource identity and preserve the corresponding reverse return endpoints, without inventing a resource')
 
 
 def complete_structure(value,normalizations=None):

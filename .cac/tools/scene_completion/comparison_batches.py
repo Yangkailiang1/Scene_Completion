@@ -8,8 +8,11 @@ from .exception_comparison import missing_report
 
 def distinct_unit(a,b):
     """Only structural exclusions; uncertain names still need semantic review."""
-    for key,label in (('scope','约束作用域'),('data_location','字段位置')):
-        if a.get(key) and b.get(key) and a[key]!=b[key]:return label+'不同，无法构成完整对应'
+    constrained={'interface','storage','context'}
+    if a.get('scope') in constrained and b.get('scope') in constrained and a['scope']!=b['scope']:
+        return '约束作用域不同，无法构成完整对应'
+    if a.get('data_location') and b.get('data_location') and a['data_location']!=b['data_location']:
+        return '字段位置不同，无法构成完整对应'
     # Literal API identifiers are case-sensitive except HTTP header names.
     # Natural-language labels and absent fields do not establish inequality.
     fields=[s.get('field') for s in (a,b)]
@@ -20,6 +23,22 @@ def distinct_unit(a,b):
 
 def pair_cache_key(node,purpose,a,b,guidance,rules):
     return fingerprint({'node':node,'purpose':purpose,'left':a,'right':b,'guidance':guidance,'rules':rules})
+
+def restrict_candidate_decisions(value,inputs,normalizations):
+    """Keep requested decisions; never invent missing ones or choose conflicts."""
+    if 'candidate_pairs' not in inputs:return value
+    from copy import deepcopy
+    result=deepcopy(value);allowed={(p['left_id'],p['right_id']) for p in inputs['candidate_pairs']}
+    known={(a['id'],b['id']) for a in inputs['left'] for b in inputs['right']};rows=[];seen={}
+    for row in result['decisions']:
+        pair=(row['left_id'],row['right_id'])
+        if pair in known and pair not in allowed:
+            normalizations.append({'pair':list(pair),'action':'ignore unrequested known pair; retain separately computed decision'})
+        elif pair in seen and row==seen[pair]:
+            normalizations.append({'pair':list(pair),'action':'collapse identical duplicate decision'})
+        else:rows.append(row);seen[pair]=row
+    result['decisions']=rows
+    return result
 
 def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
     root=Path(root);inputs=parent['input'];left,right=inputs['left'],inputs['right']

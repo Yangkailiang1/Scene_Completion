@@ -96,6 +96,9 @@ class EvidenceContext:
             keys={'interaction_id','object','concern_key','field','cause','conditions','rule_id','data_location','reason'}
             self.packet['tool_rule_coverage']={k:[{a:b for a,b in row.items() if a in keys} for row in rows] for k,rows in packet['tool_rule_coverage'].items()}
         self.packet['output_schema']=self.schema(packet['output_schema'])
+        if packet['task']=='semantic-compare' and packet['input'].get('candidate_pairs'):
+            self.packet['output_schema']['properties']['decisions']['items']['anyOf']=[
+              {'properties':{k:{'const':v} for k,v in pair.items()}} for pair in packet['input']['candidate_pairs']]
         if packet['task']=='concern-match':
             fields=self.packet['output_schema']['properties']['matches']['items']
             for key in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):fields['properties'].pop(key,None)
@@ -111,7 +114,7 @@ class EvidenceContext:
                 fields['properties']['derivation']={'type':'string','minLength':1}
                 candidates=inputs['concern-match']['matches']
                 if candidates:fields['anyOf']=[{'properties':{**{k:{'const':m[k]} for k in ('interaction_id','object','concern_key')},
-                  **({'field':{'type':'null'}} if not m['concern_key'].startswith('api.data.') and m.get('scope')!='storage' else {})}} for m in candidates]
+                  **({'field':{'type':'null'}} if not m['concern_key'].startswith('api.data.') else {})}} for m in candidates]
                 else:self.packet['output_schema']['properties']['scenarios']['maxItems']=0
         if self.fused:
             props=self.packet['output_schema']['properties']['interactions']['items']
@@ -221,12 +224,15 @@ class EvidenceContext:
             if isinstance(v,list):return [decode(x) for x in v]
             return v
         result=decode(value)
+        if self.original['task']=='semantic-compare':
+            from .comparison_batches import restrict_candidate_decisions
+            result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
-                    if not row['concern_key'].startswith('api.data.') and row.get('scope')!='storage' and row.get('field') is not None:
+                    if not row['concern_key'].startswith('api.data.') and row.get('field') is not None:
                         self.normalizations.append({'scenario_id':row['id'],'field':'field','original_value':row['field'],'action':'party/operation concern uses object as unit; field annotations are not independent data exceptions'})
                         row['field']=None
         if self.original['task']=='concern-match':

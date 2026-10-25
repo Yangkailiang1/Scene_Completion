@@ -226,6 +226,10 @@ def test_generated_source_and_coverage_are_fixed_without_relabeling_original_bra
     annotated=deepcopy(compact);annotated['scenarios'][0]['field']='Authorization'
     assert ctx.expand(annotated)['scenarios'][0]['field'] is None
     assert ctx.normalizations[-1]['original_value']=='Authorization'
+    annotated['scenarios'][0].update(concern_key='database.referential_integrity',scope='storage',field='merchant_id')
+    assert ctx.expand(annotated)['scenarios'][0]['field'] is None
+    annotated['scenarios'][0]['concern_key']='api.data.legality'
+    assert ctx.expand(annotated)['scenarios'][0]['field']=='merchant_id'
     compact['scenarios'][0]['derivation']=''
     assert list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(compact))
     # Original E retains its own explicit/inferred status and broad coverage.
@@ -276,3 +280,27 @@ def test_structure_tool_assigns_duplicate_return_only_to_unique_direct_match():
     rrret2=deepcopy(rrret);rrret2['id']='rrret2';value['interactions'].append(rrret2);value['rr_sr_links'].append({'rr_id':'rrret2','sr_ids':['srret'],'status':'confirmed','source_refs':R})
     out=complete_structure(value)
     assert sum('srret' in link['sr_ids'] for link in out['rr_sr_links'])==3
+
+
+def test_case_identity_context_resolves_whitespace_table_names_and_chinese_service_suffix():
+    from scene_completion.task_context import ssd_context
+    p=fused_fixture()['input'];p['RR'][0]['lines']=[{'number':5,'text':'ProductService服务写入 product 表，不是product_item表。'}]
+    # Identity evidence is from another case, so only the actual spelling in
+    # this case may select these resources.
+    base=p['components']['components'][1]
+    p['components']['components']=[{**deepcopy(base),'id':'product','name':'product表'},
+      {**deepcopy(base),'id':'service','name':'ProductService'},
+      {**deepcopy(base),'id':'wrong','name':'product_items表'}]
+    p['SR']=[]
+    selected=ssd_context(p)['components']['components']
+    assert {r['id'] for r in selected}=={'product','service'}
+
+
+def test_unique_table_reference_rejects_wrong_resource_but_multitable_is_not_guessed():
+    from scene_completion.ssd_tools import validate_explicit_resources
+    row=exchange();row['receiver'].update(name='merchant表',position='内部数据库')
+    row['operation']['source_refs']=[{**R[0],'quote':'Service写入 product 表，保存商品草稿。'}]
+    with pytest.raises(ValueError,match='explicitly names product表'):validate_explicit_resources([row])
+    row['receiver']['name']='product表';validate_explicit_resources([row])
+    row['receiver']['name']='sku表';row['operation']['source_refs'][0]['quote']='查询 product 表和 sku 表'
+    validate_explicit_resources([row])

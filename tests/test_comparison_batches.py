@@ -65,6 +65,33 @@ def test_header_case_is_insensitive_and_sparse_decisions_reject_unrequested_pair
     with pytest.raises(ValueError,match='known IDs'):validate_result('semantic-compare',{'decisions':[]},inputs)
 
 
+def test_model_overgeneration_cannot_overwrite_known_pairs_or_supply_missing_answers():
+    import pytest
+    from scene_completion.comparison_batches import restrict_candidate_decisions
+    from scene_completion.validation import validate_result
+    a,b,c=scenario('a'),scenario('b'),scenario('c')
+    inputs={'left':[a],'right':[b,c],'purpose':'GT_G','candidate_pairs':[{'left_id':'a','right_id':'b'}]}
+    row={'left_id':'a','right_id':'b','status':'full','reason':'complete semantic match'}
+    raw={'decisions':[row,deepcopy(row),{**row,'right_id':'c'}]};log=[]
+    value=restrict_candidate_decisions(raw,inputs,log)
+    validate_result('semantic-compare',value,inputs)
+    assert value['decisions']==[row] and len(log)==2 and len(raw['decisions'])==3
+    conflict={'decisions':[row,{**row,'status':'partial'}]}
+    with pytest.raises(ValueError,match='duplicates'):validate_result('semantic-compare',restrict_candidate_decisions(conflict,inputs,[]),inputs)
+    with pytest.raises(ValueError,match='missing'):validate_result('semantic-compare',restrict_candidate_decisions({'decisions':[]},inputs,[]),inputs)
+
+
+def test_general_service_scope_keeps_semantic_comparison_with_a_specific_interface(tmp_path):
+    from scene_completion.comparison_batches import distinct_unit
+    a=scenario('a');a['scope']='service'
+    b=deepcopy(a);b.update(id='b',scope='interface')
+    assert distinct_unit(a,b) is None
+    p=packet('semantic-compare',{'left':[a],'right':[b],'purpose':'GT_G'});p['node_key']='test:scope'
+    c=Client();v=compare_in_batches(p,c,tmp_path)
+    assert len(c.calls)==1 and v['decisions'][0]['status']=='full'
+    a['scope']='storage';assert distinct_unit(a,b)
+
+
 def test_exact_normal_rules_and_approved_broad_coverage_need_no_model(tmp_path):
     a=scenario('g');a.update(rule_id='normal-required-id',field='id',scope='interface',data_location='query',concern_key='api.data.completeness')
     exact=deepcopy(a);exact['id']='e-exact'
