@@ -23,6 +23,8 @@ def export_task(root,task,payload,artifact_name=None):
     if task=='normal-rules':
         headers=['规则ID','交互','所属服务','关注点','正常条件','异常条件','精度','待确认'];rows=[[r[k] for k in ('id','interaction_id','owner_service','concern_key','condition','violation','resolution','pending_details')] for r in payload['rules']]
     if task=='existing-branches':headers=['原分支ID','用例提示','原文异常','操作提示','参与方提示'];rows=[[b[k] for k in ('id','case_hint','description','operation_hint','party_hint')] for b in payload['branches']]
+    elif task=='test-supplement':
+        headers=['交互','关注点','字段','前置条件','触发条件','测试数据','测试步骤','预期结果','可执行','待确认'];rows=[[t['interaction_id'],t['concern_key'],t['field'] or '',t['preconditions'],t['trigger'],t['test_data'],t['steps'],t['expected_result'],t['executable'],t['pending_details']] for t in payload['tests']]
     elif task=='existing-bind':headers=['原分支','具体融合交互','状态','绑定依据'];rows=[[b[k] for k in ('branch_id','interaction_id','status','basis')] for b in payload['bindings']]
     elif task in {'existing-extract','test-ground-truth','exception-generate'}:
         from .contracts import registry
@@ -32,6 +34,8 @@ def export_task(root,task,payload,artifact_name=None):
         safe=lambda x:str(x).replace('|','\\|').replace('\n','<br>')
         text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
         text+='\n'.join('| '+' | '.join(map(safe,r))+' |' for r in rows)
+        if payload.get('pending'):
+            text+='\n\n## 未计分的待确认项\n'+'\n'.join('- '+p.get('interaction_id','')+'：'+p['reason'] for p in payload['pending'])
         (root/(file_stem+'.md')).write_text(text+'\n',encoding='utf8')
     if task=='fused-ssd':
         from .ssd_drawing import render_fused_ssd

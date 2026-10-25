@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
 import { AlignmentTable, MetricsPanel } from "./ResultComparison";
 import { ArtifactView } from "./ArtifactView";
+import { TestSources } from "./TestSources";
 
 const labels: Record<string, string> = {
   E: "需求文档已有 E",
@@ -79,6 +80,9 @@ function Scenario({
       <small>
         {s.field || s.object} ·{" "}
         {sourceLabels[s.source_status] || s.source_status}
+        {s.source_scenario_id?.startsWith("SUP-") || s.id?.startsWith("SUP-")
+          ? " · 独立机器补充测试（自动GT）"
+          : ""}
         {s.executable === false ? " · 条件级，尚不可直接执行" : ""}
       </small>
       <details onToggle={open}>
@@ -122,6 +126,7 @@ function Scenario({
 
 export function ResultsView({ project }: { project: string }) {
   const [onlyUnmatched, setOnlyUnmatched] = useState(false);
+  const [testSet, setTestSet] = useState("expanded");
   const [index, setIndex] = useState<any>(null),
     [cid, setCase] = useState(""),
     [detail, setDetail] = useState<any>(null),
@@ -152,7 +157,14 @@ export function ResultsView({ project }: { project: string }) {
     if (!cid) return;
     let live = true;
     setDetail(null);
-    api(projectUrl(project, "results/" + encodeURIComponent(cid)))
+    api(
+      projectUrl(
+        project,
+        "results/" +
+          encodeURIComponent(cid) +
+          (testSet === "original" ? "?test_set=original" : ""),
+      ),
+    )
       .then((r) => {
         if (live) {
           setDetail(r);
@@ -168,7 +180,7 @@ export function ResultsView({ project }: { project: string }) {
     return () => {
       live = false;
     };
-  }, [project, cid, reload]);
+  }, [project, cid, reload, testSet]);
   const catalog =
     index?.artifacts.filter(
       (a: any) => a.case === "shared" || a.case === cid,
@@ -231,7 +243,21 @@ export function ResultsView({ project }: { project: string }) {
           >
             图表总览
           </button>
+          <button
+            className={mode === "tests" ? "active" : ""}
+            onClick={() => setMode("tests")}
+          >
+            测试集
+          </button>
         </div>
+        <select
+          aria-label="结果测试集"
+          value={testSet}
+          onChange={(e) => setTestSet(e.target.value)}
+        >
+          <option value="expanded">扩展异常测试集</option>
+          <option value="original">原始异常测试集</option>
+        </select>
         <span className="muted">
           {index?.complete
             ? "本轮执行已完成"
@@ -244,13 +270,16 @@ export function ResultsView({ project }: { project: string }) {
           {error}
         </div>
       )}
-      {!index ? (
+      {mode === "tests" ? (
+        <TestSources project={project} />
+      ) : !index ? (
         <p className="management-loading">正在读取结果目录…</p>
       ) : !index.cases.length ? (
         <p className="management-loading">用例对应完成后显示结果。</p>
       ) : mode === "metrics" ? (
         <MetricsPanel
           project={project}
+          testSet={testSet}
           onCase={(id) => {
             setCase(id);
             setMode("steps");
@@ -495,6 +524,18 @@ export function ResultsView({ project }: { project: string }) {
                 <p className="muted">
                   E为原文已有异常的逆向归类；GT含独立测试的明示项及框架推导项，仍需审核。显示执行时的关注点版本，未重新匹配或计分。
                 </p>
+                <details className="result-data">
+                  <summary>不参与计分的生成／原文场景</summary>
+                  {Object.entries(detail.excluded || {}).flatMap(
+                    ([channel, values]) =>
+                      (values as any[]).map((v: any, n: number) => (
+                        <p key={channel + n}>
+                          {channel} · {v.original_id} · {v.scenario_type}：
+                          {v.reason}
+                        </p>
+                      )),
+                  )}
+                </details>
                 <details className="result-data">
                   <summary>本用例已保存的覆盖匹配与指标</summary>
                   <pre>

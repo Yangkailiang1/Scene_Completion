@@ -10,6 +10,7 @@ LABELS={'normal-rules':'正向正常规则整理','ssd-context':'用例SSD上下
  'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
  'gap-compare':'缺失比较 M','missing-report':'缺失异常报告','test-ground-truth':'测试真值整理','semantic-compare':'评测语义对应',
  'exception-evaluation':'异常评测','extraction-evaluation':'抽取 Acc','gap-recommend':'推荐器'}
+LABELS.update({'test-supplement':'独立异常测试补全','test-additional-truth':'补充异常测试GT（工具）','test-additional-dedup':'补充测试内部去重（工具）','test-expanded':'扩展异常测试集去重合并（工具）'})
 
 def artifact_folder(root,key,case):
     from .storage import fingerprint
@@ -21,7 +22,7 @@ INPUTS={'normal-rules':'本用例正向原文＋实际服务交互，不含E/GT'
  'concern-match':'具体交互＋接口表＋预定义关注点','exception-generate':'正向交互及已匹配关注点，隔离E/GT',
  'existing-branches':'RR＋SR原文已有异常（独立通道）','existing-bind':'原分支＋融合SSD＋用例对应',
  'existing-extract':'已绑定分支＋接口约束＋关注点体系','test-ground-truth':'独立测试spec＋融合SSD＋正常约束',
- 'gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','exception-evaluation':'独立GT与G/E对齐结果'}
+ 'test-supplement':'正向SSD＋正常规则＋接口约束，隔离G/E/比较结果','test-additional-truth':'已验证补充测试，不读取G/E','test-additional-dedup':'补充测试集内部的完整失败对应','test-expanded':'原始异常GT＋补充GT独立去重','gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','exception-evaluation':'独立GT与G/E对齐结果'}
 PREVIEWS=[('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','exception-generate','生成异常G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
 
 def expected_files(key,case,stage):

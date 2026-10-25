@@ -13,12 +13,25 @@ def read_documents(paths, channel):
     docs=[]
     for path in paths:
         p=Path(path)
+        if p.suffix.lower()=='.xlsx' and channel=='test':
+            from .test_sources import xlsx_documents
+            docs.extend(xlsx_documents(p.read_bytes(),p.name,str(p.resolve())));continue
         if p.suffix.lower() not in {'.md','.markdown'}: raise ValueError('scene-workflow-v1 sources must be Markdown')
         text=p.read_text(encoding='utf-8')
         lines=text.splitlines()
         docs.append({'source_id':fingerprint(str(p.resolve()))[:20], 'name':p.name,
                      'channel':channel,'lines':[{'number':i,'text':s} for i,s in enumerate(lines,1)]})
     if len({d['source_id'] for d in docs})!=len(docs): raise ValueError('duplicate document')
+    return docs
+
+def read_project_documents(project,sources,channel):
+    docs=[]
+    for source in sources:
+        values=read_documents([Path(project)/source['path']],channel)
+        for d in values:
+            suffix='#'+d['name'].split('#',1)[1] if '#' in d['name'] else ''
+            d['name']=source['name']+suffix
+        docs.extend(values)
     return docs
 
 

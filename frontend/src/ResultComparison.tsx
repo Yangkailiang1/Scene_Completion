@@ -120,27 +120,47 @@ function Rate({ value }: { value: any }) {
 }
 export function MetricsPanel({
   project,
+  testSet = "expanded",
   onCase,
 }: {
   project: string;
+  testSet?: string;
   onCase: (id: string) => void;
 }) {
   const [data, setData] = useState<any>(null),
     [error, setError] = useState("");
   useEffect(() => {
     let live = true;
-    api(projectUrl(project, "results/metrics"))
+    setData(null);
+    api(
+      projectUrl(
+        project,
+        "results/metrics" +
+          (testSet === "original" ? "?test_set=original" : ""),
+      ),
+    )
       .then((v) => live && setData(v))
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [project]);
+  }, [project, testSet]);
   if (error) return <p role="alert">{error}</p>;
   if (!data)
     return <p className="management-loading">正在读取已保存的评测计数…</p>;
   return (
     <section className="result-metrics">
+      {data.test_source_changed && (
+        <p className="management-notice">
+          测试源已切换，尚未重算。当前数值是上次保存报告，不能当作新测试版本的指标。请继续运行。
+        </p>
+      )}
+      <p>
+        {testSet === "expanded"
+          ? "扩展异常测试集（机器补充自动计分）"
+          : "原始异常测试集"}
+        ；只计类型为异常的记录。集合扩充导致的变化不代表生成模型质量提升。
+      </p>
       <p className="muted">
         全部用例合并 · 已评测{" "}
         {data.cases.filter((c: any) => c.status.startsWith("已评测")).length}/

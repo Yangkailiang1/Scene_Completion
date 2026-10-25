@@ -19,6 +19,7 @@ TASKS = {
  'gap-compare': ('scene-gap-compare', '缺失异常比较'),
  'gap-recommend': ('scene-gap-recommend', '缺失异常推荐'),
  'normal-rules': ('scene-normal-rules', '正向正常规则整理'),
+ 'test-supplement': ('scene-test-supplement', '独立异常测试补全'),
 }
 
 def obj(**properties):
@@ -74,11 +75,15 @@ SCENARIO['properties'].update(original_branch_id=NULL_S,coverage_kind=enum('exac
 SCENARIO['properties'].update(resolution=enum('explicit','conditional'),executable={'type':'boolean'},pending_details=arr(S),
  normalization_origin=obj(interaction_id=S,object=S,field=NULL_S,data_location=NULL_S),source_scenario_id=S)
 SCENARIO['properties'].update(source_unit_ids=arr(S),quality_notes=arr(S))
+SCENARIO['properties']['scenario_type']=enum('exception','normal','optional','pending')
+FAILURE_RULE=obj(kind=S,value=VALUE)
+SCENARIO['properties']['failure_rule']=FAILURE_RULE
 DECISION['properties'].update(concern_alignment=enum('same','different'),follow_up_comparison=enum('not_scored'))
 NORMAL_RULE=obj(id=S,interaction_id=S,owner_service=S,concern_key=S,condition=S,violation=S,
  fields=arr(S),functional_kinds=arr(enum('read','create','update','delete','display','process','publish','external_call')),
  resolution=enum('explicit','conditional'),pending_details=arr(S),source_refs=REFS)
 BRANCH=obj(id=S,case_hint=STR,description=S,operation_hint=STR,party_hint=STR,source_refs=REFS)
+BRANCH['properties']['scenario_type']=enum('exception','normal','optional','pending')
 BINDING=obj(branch_id=S,interaction_id=NULL_S,status=enum('confirmed','pending','not_this_case'),basis=S,source_refs=REFS)
 
 # Strict nested enrichment contracts keep arbitrary side-channel material out.
@@ -118,6 +123,16 @@ SCHEMAS = {
 }
 
 SCHEMAS['test-ground-truth']['properties']['pending']=arr(PENDING)
+SUPPLEMENT_TEST=obj(interaction_id=S,concern_key=S,field=NULL_S,scope=enum('interface','service','storage','relation','context'),data_location=NULL_S,
+ preconditions=arr(S),trigger=S,test_data=S,steps=arr(S),expected_result=S,source_refs=REFS,executable={'type':'boolean'},pending_details=arr(S))
+SCHEMAS['test-supplement']=obj(tests=arr(SUPPLEMENT_TEST))
+SCHEMAS['test-supplement']['properties']['pending']=arr(PENDING)
+SUPPLEMENT_TEST['properties']['failure_rule']=FAILURE_RULE
+SUPPLEMENT_TEST['properties']['normal_rule_id']=NULL_S
+EXCLUSION=obj(original_id=S,scenario_type=enum('normal','optional','pending'),reason=S,source_refs=REFS)
+for task in ('test-ground-truth','existing-extract','exception-generate'):
+    SCHEMAS[task]['properties']['excluded']=arr(EXCLUSION)
+SCHEMAS['existing-branches']['properties']['excluded']=arr(EXCLUSION)
 
 def schema(task):
     return {'$schema':'https://json-schema.org/draft/2020-12/schema', **deepcopy(SCHEMAS[task])}
@@ -151,6 +166,7 @@ full表示所有必要条件完全对应，partial仅诊断，不计命中。同
 '''
 
 INPUT_KEYS = {
+ 'test-supplement':{'fused-ssd','normal-constraints','normal-rules','test-catalogue','registry'},
  'normal-rules':{'normal-documents','fused-ssd'},
  'api-index':{'SR'},
  'components': {'RR','SR'}, 'rr-ssd':{'RR'}, 'sr-ssd':{'SR'},
@@ -193,6 +209,7 @@ def packet(task, inputs, case_ids=None):
         raise ValueError('GT requires independent test channel')
     if 'registry' in inputs and inputs['registry']!=registry():raise ValueError('task registry differs from the current versioned definitions')
     for key,value in inputs.items():
+        if task=='test-supplement' and key=='normal-rules':continue
         if key in TASKS and key!='gap-recommend':validate(key,value)
     if 'enriched-interactions' in inputs:
         errors=list(Draft202012Validator(ENRICHED).iter_errors(inputs['enriched-interactions']))

@@ -67,6 +67,9 @@ def code_version(task):
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
       'test-operation-project':['source_documents.py'], 'gap-recommend':[]}
     names=modules.get(task,[])
+    if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py']
+    if task in {'test-expanded','test-additional-truth','test-additional-dedup'}:names=['test_supplement.py']
+    if task in {'exception-generate','existing-extract','test-ground-truth','existing-branches'}:names=names+['scenario_types.py','test_sources.py']
     if task in {'existing-bind','existing-extract','test-ground-truth'}:names=names+['failure_units.py']
     if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
     if task=='test-ground-truth':names=names+['validation.py']
@@ -169,6 +172,16 @@ class Execution:
                         p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
         batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
+        semantic_identity=fingerprint({'task':task,'input':inputs,'skill':p['skill_text'],'schema':p['output_schema'],
+          'endpoint':self.identity['endpoint_hash'],'model':self.identity['model'],'guidance':self.conversations.revision(p['node_key'])})
+        cached_response=self.root/'semantic_responses'/(semantic_identity+'.json')
+        if self.mode=='external' and self.mocks is None and cached_response.exists() and not record.get('rounds'):
+            cached=read_json(cached_response)
+            try:validate_result(task,cached['payload'],inputs)
+            except ValueError:pass
+            else:
+                emit('result_reused',source_file=str(cached_response.relative_to(self.root)),reason='相同语义输入、Schema、Skill、模型及指导；重新执行工具规范化')
+                return deepcopy(cached['payload']),{'semantic_response_reused':True,'original_execution':cached.get('proof')}
         raw=None
         if self.mocks is not None:
             value=self.mocks.get(record.get('stage'),self.mocks.get(task))
@@ -213,6 +226,7 @@ class Execution:
                 if task in {'rr-ssd','sr-ssd'} and set(scope)!={r['case_id'] for r in records}:
                     raise ValueError('selected SSD cases incomplete')
         except ValueError as exc:raise TaskRejected({'error':str(exc),'rejected_output':str(attempt.relative_to(self.root))}) from exc
+        if self.mode=='external' and self.mocks is None:write_json(cached_response,{'identity':semantic_identity,'payload':value,'proof':proof})
         return value,proof
 
     def skill_text(self,task):
@@ -234,6 +248,8 @@ class Execution:
                 value=transform(inputs);proof={}
             elif task=='test-ground-truth' and documented_normal_tolerance(inputs):
                 value={'scenarios':[],'pending':[]};proof={'provider':'documented_normal_tolerance','reason':'本测试明确为可选容错且预期允许隐藏/缺省，不违反约定，不进入异常GT；测试原文保存在任务输入'}
+            elif task=='test-supplement' and not any(not r['concern_key'].startswith('api.data.') for r in inputs['normal-rules']['rules']):
+                value={'tests':[]};proof={'provider':'independent_positive_contract_tests','reason':'明确字段约束和服务可用性由独立测试工具补全，不读取G/E'}
             elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
                 value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
             elif task=='concern-match' and 'normal-rules' in inputs and not self.conversations.revision(key):
@@ -244,6 +260,12 @@ class Execution:
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
             candidate=deepcopy(value)
             try:
+                if task=='existing-branches':
+                    from .scenario_types import filter_branches
+                    value=filter_branches(value)
+                if task=='test-supplement':
+                    from .test_supplement import mechanical_tests
+                    value['tests']=list({fingerprint(t):t for t in value['tests']+mechanical_tests(inputs)['tests']}.values())
                 if task=='normal-rules':
                     for rule in value['rules']:rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
                 if task=='existing-bind':
@@ -272,6 +294,9 @@ class Execution:
                 if task in {'test-ground-truth','existing-extract'}:
                     from .failure_units import normalize_inverse_units
                     value=normalize_inverse_units(value,inputs)
+                if task in {'test-ground-truth','existing-extract','exception-generate'}:
+                    from .scenario_types import filter_scenarios
+                    value=filter_scenarios(value,inputs,task)
                 from .execution_events import phase
                 phase('validating')
                 if task in SCHEMAS:
@@ -403,6 +428,9 @@ def safe_case(case):
 
 
 def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
+    ex.manifest.update(test_policy='exception-only-v1',test_source_hash=fingerprint(tests),test_supplement_enabled=bool(ex.config.get('supplement_tests',False)))
+    if (ex.root.parent/'project.json').exists():
+        project=read_json(ex.root.parent/'project.json');ex.manifest['test_source_version']=project.get('test_source_version',fingerprint(project['sources']['test'])[:20])
     from .source_documents import discover_cases,case_projection,current_projection
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
     from .indexed_context import markdown_index,task_document_view,catalogue_context
@@ -501,6 +529,10 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
                 rows[row['number']]=row
             part['lines']=[rows[n] for n in sorted(rows)]
         scoped_test=list(merged_test.values())
+        from .test_sources import exception_documents,records
+        test_catalogue=records(scoped_test)
+        write_json(ex.root/'test_catalogues'/(cid+'.json'),{'records':test_catalogue,'policy':'exception-only','version':'exception-test-sources-v1'})
+        abnormal_test=exception_documents(scoped_test)
         add('existing-branches',static={'existing-documents':scoped_rr+scoped_sr})
         from .task_context import ssd_context
         add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
@@ -540,14 +572,25 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
               'pending':d['normal-rules']['pending']+d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
-        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None,partition=bool(scoped_test))
+        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
             a,b='test-ground-truth',target
             ex.add(key(task),'semantic-compare',(key(a),key(b)),build=lambda d,a=key(a),b=key(b),task=task:{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':task},case=cid)
-        if scoped_test:
-            add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E'),build=lambda d:d,
-                transform=lambda d:compare_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['test-ground-truth']['scenarios'],d['gap-compare']['decisions'],d['GT_G']['decisions'],d['GT_E']['decisions']))
+        if ex.config.get('supplement_tests',False):
+            from .test_supplement import positive_inputs,to_truth,combine_truth,dedup_candidates,deduplicate_truth
+            add('test-supplement',('fused-ssd','api-parameters','normal-rules'),build=lambda d,cat=test_catalogue:positive_inputs(d['fused-ssd'],case_parameters(d,d['fused-ssd']),d['normal-rules'],cat,registry()),partition=True)
+            add('test-additional-truth',('test-supplement','fused-ssd'),build=lambda d:d,transform=lambda d:to_truth(d['test-supplement'],{'fused-ssd':d['fused-ssd']}))
+            ex.add(key('GT_self'),'semantic-compare',(key('test-additional-truth'),),build=lambda d,a=key('test-additional-truth'):{'left':dedup_candidates(d[a]),'right':dedup_candidates(d[a]),'purpose':'GT_self'},case=cid)
+            add('test-additional-dedup',('test-additional-truth','GT_self'),build=lambda d:d,transform=lambda d:deduplicate_truth(d['test-additional-truth'],d['GT_self']['decisions']))
+            ex.add(key('GT_dedup'),'semantic-compare',(key('test-additional-dedup'),key('test-ground-truth')),build=lambda d,a=key('test-additional-dedup'),b=key('test-ground-truth'):{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':'GT_dedup'},case=cid)
+            add('test-expanded',('test-ground-truth','test-additional-dedup','GT_dedup'),build=lambda d:d,transform=lambda d:combine_truth(d['test-ground-truth'],d['test-additional-dedup'],d['GT_dedup']['decisions']))
+            for task,target in [('GT_expanded_G','exception-generate'),('GT_expanded_E','existing-extract')]:
+                ex.add(key(task),'semantic-compare',(key('test-expanded'),key(target)),build=lambda d,a=key('test-expanded'),b=key(target),target=target:{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':'GT_G' if target=='exception-generate' else 'GT_E'},case=cid)
+        if scoped_test or ex.config.get('supplement_tests',False):
+            extra=('test-expanded','GT_expanded_G','GT_expanded_E') if ex.config.get('supplement_tests',False) else ()
+            from .test_supplement import evaluate_test_sets
+            add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E')+extra,build=lambda d:d,transform=evaluate_test_sets)
         for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
     # Each checker reads only its own case, in parallel to positive modeling.
     branch_keys=tuple(cid+':existing-branches' for cid in cases)

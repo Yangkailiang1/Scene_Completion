@@ -41,6 +41,30 @@ def validate_result(task, payload, inputs):
     if task=='normal-rules':
         from .normal_rules import validate_rules
         validate_rules(payload,inputs)
+    if task=='test-supplement':
+        import re
+        from .test_supplement import mechanical_tests
+        mechanical={fingerprint(t) for t in mechanical_tests(inputs)['tests']}
+        rules={r['id']:r for r in inputs['normal-rules']['rules']}
+        if any('violation' in r for r in inputs['normal-rules']['rules']):raise ValueError('测试补全禁止读取正向异常反面候选')
+        by_id={i['id']:i for i in inputs['fused-ssd']['interactions']}
+        for t in payload['tests']:
+            if t['interaction_id'] not in by_id:raise ValueError('补充测试必须绑定本片实际交互')
+            if not t['steps'] or not t['trigger']:raise ValueError('补充测试必须包含触发条件及步骤')
+            definition=registry()['definitions'].get(t['concern_key'],{})
+            if definition.get('kind')!='check' or not definition.get('enabled',True):raise ValueError('补充测试必须使用启用的具体关注点')
+            if fingerprint(t) in mechanical:continue
+            r=rules.get(t.get('normal_rule_id'))
+            if r is None or r['interaction_id']!=t['interaction_id'] or r['concern_key']!=t['concern_key']:raise ValueError('业务补充测试必须引用本交互同一关注点的normal_rule_id，不得从原文邻近句扩写规则')
+            if t['concern_key'].startswith('api.data.') or t['concern_key']=='service.base.availability':raise ValueError('字段及基础可用性测试由工具负责，模型不得补造已未知的类型/阈值或重复工具测试')
+            if t['field'] is not None or t['scope']!='service' or t['data_location'] is not None:raise ValueError('业务测试使用服务失败单元；字段名写在触发和数据中，不冒充接口属性规则')
+            if not {fingerprint(x) for x in t['source_refs']}<={fingerprint(x) for x in r['source_refs']}:raise ValueError('补充测试引文必须来自所选正常规则，不能借用相邻定义')
+            if re.search(r'或者|或|\bor\b',t['trigger'],re.I):raise ValueError('独立失败原因必须拆开，不可用OR合成一条补充测试')
+            if r['resolution']=='conditional' and t['executable']:raise ValueError('正常规则的具体标准待确认，补充测试也必须为不可直接执行的条件级')
+            if re.search(r'重复(?:提交|请求)|相同.*(?:idempotencyKey|幂等键)',t['trigger'],re.I) and not re.search(r'错误|失败|不一致|未|不满足|未满足|重复(?:写|创|扣|增)|多次(?:写|创|扣)|破坏',t['trigger']):raise ValueError('重复请求本身是正常输入，只有违反幂等保证的结果才是异常')
+            quote=' '.join(x['quote'] for x in t['source_refs'])
+            for code in re.findall(r'HTTP\s*([1-5]\d\d)',t['expected_result'],re.I):
+                if code not in quote:raise ValueError('不得补造正常规则未声明的错误响应码')
     if task=='api-map':
         from .api_documents import explicit_http_interfaces
         declared=explicit_http_interfaces(inputs['SR'])
@@ -213,6 +237,11 @@ def validate_result(task, payload, inputs):
         for s in payload['scenarios']:
             if task=='test-ground-truth' and not any(r['source_id'] in test_ids for r in s['source_refs']):
                 raise ValueError('each GT unit must cite its independent test description')
+            if task=='test-ground-truth':
+                from .test_sources import records
+                kinds={r['id']:r['scenario_type'] for r in records(inputs['test-documents'])}
+                ids={m for r in s['source_refs'] for m in re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['quote'])}
+                if any(kinds.get(i)!='exception' for i in ids if i in kinds):raise ValueError('正常/可选/未知类型测试不得进入异常GT')
             if task=='existing-extract' and s['source_status']=='framework_inferred' and not s.get('original_branch_id'):raise ValueError('E inference requires original branch provenance')
             if s['source_status']=='framework_inferred' and not s['derivation']:raise ValueError('GT inference needs derivation')
     if task=='existing-bind':
@@ -223,7 +252,7 @@ def validate_result(task, payload, inputs):
             if b['branch_id'] not in branches:raise ValueError('unknown original branch')
             if b['status']=='confirmed' and b['interaction_id'] not in ids:raise ValueError('binding needs a concrete canonical interaction')
     if task=='test-ground-truth' and not payload.get('scenarios') and not payload.get('pending'):
-        explicit=[r for d in inputs.get('test-documents',[]) for r in d['lines'] if re.search(r'\bTEST[-_][A-Za-z0-9_-]+',r['text']) and re.search(r'\|\s*异常\s*\|',r['text'])]
+        explicit=[r for d in inputs.get('test-documents',[]) for r in d['lines'] if re.search(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['text']) and re.search(r'\|\s*异常\s*\|',r['text'])]
         if explicit:raise ValueError('明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试')
     if task=='existing-extract' and 'fused-ssd' in inputs:
         from .inverse_alignment import normalized_scenarios

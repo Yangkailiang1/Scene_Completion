@@ -31,11 +31,14 @@ class Workbench:
         for role in ('RR','SR','test'):
             saved[role]=[]
             for idx,d in enumerate(sources.get(role,[])):
-                if Path(d.get('name','')).suffix.lower() not in {'.md','.markdown'}:raise ValueError('仅支持Markdown')
-                content=d.get('content','')
-                if not isinstance(content,str) or len(content.encode('utf8'))>5_000_000:raise ValueError('文档为空或超过5MB')
-                filename=f'sources/{role}-{idx}.md';target=p/filename;target.parent.mkdir(exist_ok=True);target.write_text(content,encoding='utf8')
+                from .test_sources import decode_source
+                content,suffix=decode_source(d,role)
+                filename=f'sources/{role}-{idx}{suffix}';target=p/filename;target.parent.mkdir(exist_ok=True);target.write_bytes(content)
                 saved[role].append({'path':filename,'name':Path(d['name']).name})
+        from .source_documents import read_project_documents
+        from .test_sources import preview
+        imported=preview(read_project_documents(p,saved['test'],'test'))
+        if not imported['valid']:raise ValueError('测试文件存在重复ID或必填缺项，请修正导入预览')
         case_ids=body.get('case_ids',[])
         if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         from .normal_rules import RULESET_VERSION
@@ -44,6 +47,37 @@ class Workbench:
         from .project_review import project_registry
         project_registry(p)
         return meta
+    def test_sources(self,rid,body=None):
+        from .source_documents import read_documents,read_project_documents
+        from .test_sources import preview,decode_source
+        p=self.run_dir(rid);meta=read_json(p/'project.json');history=p/'test_source_versions.json'
+        versions=read_json(history) if history.exists() else [{'id':fingerprint(meta['sources']['test'])[:20],'sources':meta['sources']['test'],'created_at':meta['created_at']}]
+        current=meta.get('test_source_version',versions[-1]['id'])
+        if body is not None:
+            if rid in self.active or (p/'job.json').exists() and read_json(p/'job.json').get('status')=='running':raise ValueError('运行期间不能切换测试集')
+            if body.get('expected_version')!=current:raise ValueError('测试集已变化，请刷新')
+            if body.get('version'):
+                selected=next((x for x in versions if x['id']==body['version']),None)
+                if selected is None:raise ValueError('未知测试集版本')
+                sources=selected['sources'];current=selected['id']
+            else:
+                raw=body.get('sources',[])
+                if not raw:raise ValueError('请上传测试文件')
+                decoded=[(d,decode_source(d,'test')) for d in raw];current=fingerprint([(d['name'],fingerprint(data.hex())) for d,(data,suffix) in decoded])[:20]
+                sources=[]
+                for idx,(d,(data,suffix)) in enumerate(decoded):
+                    filename=f'sources/tests-{current}/test-{idx}{suffix}';target=p/filename;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+                    sources.append({'path':filename,'name':Path(d['name']).name})
+                checked=preview(read_project_documents(p,sources,'test'))
+                if not checked['valid']:raise ValueError('测试导入有缺项或重复ID，请先修正预览问题')
+                if not any(x['id']==current for x in versions):versions.append({'id':current,'sources':sources,'created_at':time.time()})
+            import shutil
+            archive=p/'run/report_versions'/('test-source-'+str(time.time_ns()))
+            for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
+                f=p/'run'/name
+                if f.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(f,archive/name)
+            meta['sources']['test']=sources;meta['test_source_version']=current;write_json(p/'project.json',meta);write_json(history,versions)
+        return {'version':current,'versions':versions,'preview':preview(read_project_documents(p,meta['sources']['test'],'test')),'sources':meta['sources']['test']}
     def list(self):return sorted([read_json(p) for p in self.root.glob('*/project.json')],key=lambda x:x['created_at'],reverse=True)
     def configure(self,rid,body):
         p=self.run_dir(rid)
@@ -67,7 +101,8 @@ class Workbench:
         from .normal_rules import RULESET_VERSION
         manifest=read_json(p/'run/run_manifest.json') if (p/'run/run_manifest.json').exists() else {}
         if meta.get('protocol')==PROTOCOL and (meta.get('ruleset_version')==RULESET_VERSION or manifest.get('ruleset_version')==RULESET_VERSION):return rid
-        sources={k:[{'name':d['name'],'content':(p/d['path']).read_text(encoding='utf8')} for d in rows] for k,rows in meta['sources'].items()}
+        import base64
+        sources={k:[{'name':d['name'],**({'content_base64':base64.b64encode((p/d['path']).read_bytes()).decode()} if d['path'].endswith('.xlsx') else {'content':(p/d['path']).read_text(encoding='utf8')})} for d in rows] for k,rows in meta['sources'].items()}
         new=self.create({'name':meta['name']+' · 规则修订版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
         if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
         if (p/'run/registry_override.json').exists():shutil.copy2(p/'run/registry_override.json',self.run_dir(new['id'])/'run/registry_override.json')
@@ -93,18 +128,19 @@ class Workbench:
         p=self.run_dir(rid)
         try:
             from .workflow import Execution,build_pipeline
-            from .source_documents import read_documents
+            from .source_documents import read_documents,read_project_documents
             from .cli import client_for
             from .scheduler import run_lock
             project=read_json(p/'project.json')
             from .model_settings import resolve
             config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+            config.setdefault('supplement_tests',True)
             config['review_mode']=project['review_mode'];config['run_root']=str(p/'run')
             with run_lock(p/'run'):
                 client=self.client_factory(config,p/'run') if self.client_factory else client_for(config,p/'run')
                 ex=Execution(p/'run',mode='external',client=client,config=config,case_ids=project.get('case_ids'))
                 self.gates[rid]=ex.gate
-                docs={role:read_documents([p/d['path'] for d in project['sources'][role]],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
+                docs={role:read_project_documents(p,project['sources'][role],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
                 build_pipeline(ex,docs['RR'],docs['SR'],docs['test']);manifest=ex.finish()
                 write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'waiting','finished_at':time.time()})
         except Exception as e:
@@ -248,6 +284,29 @@ def create_app(root=None,client_factory=None,env_file=None):
     def projects():return service.list()
     @app.post('/api/projects')
     def create(body:dict):return service.create(body)
+    @app.post('/api/test-sources/preview')
+    def preview_tests(body:dict):
+        from .test_sources import decode_source,xlsx_documents,preview
+        docs=[]
+        for d in body.get('sources',[]):
+            data,suffix=decode_source(d,'test');identity=fingerprint([d['name'],data.hex()])
+            docs.extend(xlsx_documents(data,d['name'],identity) if suffix=='.xlsx' else [{'source_id':identity[:20],'name':d['name'],'channel':'test','lines':[{'number':n,'text':t} for n,t in enumerate(data.decode('utf8').splitlines(),1)]}])
+        return preview(docs)
+    @app.get('/api/test-sources/template')
+    def test_template():
+        path=PROJECT/'examples/tests/mall-exception-tests.xlsx'
+        if not path.exists():raise HTTPException(404,'测试示例尚未安装')
+        return FileResponse(path,filename='mall-exception-tests.xlsx')
+    @app.get('/api/projects/{rid}/test-sources')
+    def get_test_sources(rid:str):return service.test_sources(rid)
+    @app.get('/api/projects/{rid}/test-sources/supplement')
+    def get_test_supplement(rid:str,case:str|None=None):
+        from .result_views import ResultView
+        v=ResultView(service.run_dir(rid));cases=v.cases()
+        if case and case not in {c['id'] for c in cases}:raise ValueError('未知用例')
+        return {'cases':cases,'case':case,'status':v.state.get((case or '')+':test-supplement',{}).get('status','not_ready'),'tests':v.payload(case+':test-supplement').get('tests',[]) if case else [],'pending':v.payload(case+':test-supplement').get('pending',[]) if case else [],'source':'独立正向材料补全，自动GT；未读取G/E'}
+    @app.put('/api/projects/{rid}/test-sources')
+    def put_test_sources(rid:str,body:dict):return service.test_sources(rid,body)
     @app.get('/api/registry')
     def definitions():return registry()
     @app.get('/api/projects/{rid}')
@@ -261,13 +320,13 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).index()
     @app.get('/api/projects/{rid}/results/metrics')
-    def results_metrics(rid:str):
+    def results_metrics(rid:str,test_set:str='expanded'):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).metrics()
+        return ResultView(service.run_dir(rid)).metrics(test_set)
     @app.get('/api/projects/{rid}/results/{case_id}')
-    def results_case(rid:str,case_id:str):
+    def results_case(rid:str,case_id:str,test_set:str='expanded'):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).detail(case_id)
+        return ResultView(service.run_dir(rid)).detail(case_id,test_set)
     @app.get('/api/projects/{rid}/results/{case_id}/scenarios/{channel}/{scenario_id}')
     def result_scenario(rid:str,case_id:str,channel:str,scenario_id:str):
         from .result_views import ResultView

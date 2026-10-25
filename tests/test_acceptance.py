@@ -253,4 +253,5 @@ def test_complete_offline_memory_example_is_executable_and_has_no_fake_metrics(t
     assert report['evaluation_status']['SC002-UC002']=='未评测或任务未完成'
     g=report['cases']['SC002-UC002']['G']
     assert len([s for s in g if s['layer']=='SR' and s['field'] is not None])==8
-    assert {'no_matching_records','requested_resource_not_found'}<={s['cause'] for s in g}
+    assert 'requested_resource_not_found' in {s['cause'] for s in g}
+    assert 'no_matching_records' not in {s['cause'] for s in g}  # no required nonempty contract

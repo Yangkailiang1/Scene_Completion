@@ -31,6 +31,7 @@ def data_exceptions(inputs):
                    'concern_origins':[key],'concern_paths':inheritance_paths(key,i['direction'])}
                 conditional=any(r['kind']==kind and conditional_constraint(r) for r in p['constraints'])
                 s.update(resolution='conditional' if conditional else 'explicit',executable=not conditional,pending_details=[kind+'具体约束待确认'] if conditional else [])
+                s['failure_rule']={'kind':kind,'value':value}
                 if conditional:
                     s['conditions']=[p['name']+'已提供','不满足原文明示的'+kind+'规则（具体标准待确认）'];s['steps']=scenario_steps(i,s['conditions'])
                 output.append(s)

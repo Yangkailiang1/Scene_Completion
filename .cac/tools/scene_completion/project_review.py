@@ -106,17 +106,17 @@ def pending_items(project):
     project=Path(project);root=project/'run';statefile=root/'workflow_tasks.json';graphfile=root/'workflow_graph.json'
     if not statefile.exists():return []
     state=read_json(statefile)['tasks'];active={n['id'] for n in read_json(graphfile)['nodes']} if graphfile.exists() else set(state)
-    signature=fingerprint({'version':'pending-review-v4','tasks':[(k,r.get('status'),r.get('output_hash'),r.get('failure')) for k,r in state.items() if k in active]})
+    signature=fingerprint({'version':'pending-review-v5','tasks':[(k,r.get('status'),r.get('output_hash'),r.get('failure')) for k,r in state.items() if k in active]})
     cache=root/'pending_index.json'
     if cache.exists():
         saved=read_json(cache)
         if saved['signature']==signature:return saved['items']
-    stages={'normal-rules','concern-match','enriched-view','existing-bind','existing-extract','test-ground-truth','fused-ssd'}
+    stages={'normal-rules','concern-match','enriched-view','existing-bind','existing-extract','test-ground-truth','test-supplement','fused-ssd'}
     partitioned={k.split('--part-',1)[0] for k in active if '--part-' in k}
     items={}
     def add(key,r,iid,reason,refs,category='待确认',concern=None,branch=None,subject=None):
         if not reason:return
-        channel='test_gt' if r['stage']=='test-ground-truth' else 'existing_e' if r['stage'] in {'existing-bind','existing-extract'} else 'positive'
+        channel='test_gt' if r['stage'] in {'test-ground-truth','test-supplement'} else 'existing_e' if r['stage'] in {'existing-bind','existing-extract'} else 'positive'
         queue='rules' if r['stage']=='concern-match' else 'structure' if r['stage'] in {'enriched-view','fused-ssd'} or str(reason).startswith('规则归属核查：') else 'business'
         legacy=pending_id(r['case'],iid,reason,refs,concern,subject,channel)
         identity=legacy if queue=='business' else fingerprint([legacy,queue])[:24]

@@ -44,6 +44,19 @@ def generation_matches(inputs):
 
 
 def semantic_view(task,inputs):
+    if task=='test-supplement':
+        out=deepcopy(inputs)
+        out['normal-constraints']={'apis':[]}  # typed contract mutations are tools
+        out['normal-rules']['rules']=[r for r in out['normal-rules']['rules'] if not r['concern_key'].startswith('api.data.')]
+        out['normal-rules']['pending']=[]
+        out['fused-ssd']={'interactions':[{k:deepcopy(i[k]) for k in ('id','case_id','direction','parent_id','sender','receiver','operation')} for i in out['fused-ssd']['interactions']]}
+        for i in out['fused-ssd']['interactions']:
+            i['sender']={k:i['sender'][k] for k in ('name','position')}
+            i['receiver']={k:i['receiver'][k] for k in ('name','position')}
+            i['operation']={k:i['operation'][k] for k in ('name','kinds')}
+        keys={r['concern_key'] for r in out['normal-rules']['rules']}
+        out['registry']={'version':out['registry']['version'],'definitions':{k:{f:v[f] for f in ('label','description')} for k,v in out['registry']['definitions'].items() if k in keys}}
+        return out
     if task=='semantic-compare':
         # Classify the concrete failure first. Concern labels and documented
         # recovery are retained in artifacts and compared separately by tools.
@@ -95,11 +108,33 @@ def semantic_view(task,inputs):
         # Inverse tasks receive positive facts, never the positive generator's
         # derived negative candidates through a shared-rule side channel.
         for rule in out.get('normal-rules',{}).get('rules',[]):rule.pop('violation',None)
+        if task=='existing-bind':
+            out.pop('normal-rules',None)
+            out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','direction','sender','receiver','operation','data')} for i in out['fused-ssd']['interactions']]
         if task=='existing-extract' and 'bindings' in out:
             ids={b['interaction_id'] for b in out['bindings']['bindings'] if b['status']=='confirmed'}
+            # The validated ID is authoritative. Historical reasoning may
+            # describe a propagation step before tool normalization; retain
+            # it in the artifact, not as a contradictory modelling directive.
+            out['bindings']={'bindings':[{k:b[k] for k in ('branch_id','interaction_id','status')} for b in out['bindings']['bindings']]}
             if ids:
                 out['fused-ssd']['interactions']=[i for i in out['fused-ssd']['interactions'] if i['id'] in ids]
                 out['normal-rules']['rules']=[r for r in out.get('normal-rules',{}).get('rules',[]) if r['interaction_id'] in ids]
+                fields={p['name'] for i in out['fused-ssd']['interactions'] for p in i['data']['sequence']}
+                out['normal-constraints']={'apis':[{**a,'parameters':[p for p in a['parameters'] if p['name'] in fields]} for a in out.get('normal-constraints',{}).get('apis',[]) if any(p['name'] in fields for p in a['parameters'])]}
+        if task=='test-ground-truth':
+            from .test_sources import records
+            tests=records(out['test-documents']);text=' '.join(r['触发条件']+' '+r['测试名称'] for r in tests)
+            # Keep an identity/operation index for every call. Detailed normal
+            # rules/attributes are scoped to literal tested fields/services;
+            # no candidate interaction disappears, and no G/E is consulted.
+            selected={i['id'] for i in out.get('fused-ssd',{}).get('interactions',[]) if i['receiver']['name'] in text or i['sender']['name'] in text or any(p['name'] in text for p in i['data']['sequence'])}
+            if selected:
+                for i in out['fused-ssd']['interactions']:
+                    if i['id'] not in selected:i['data']={'sequence':[]}
+                out['normal-rules']['rules']=[r for r in out.get('normal-rules',{}).get('rules',[]) if r['interaction_id'] in selected]
+                fields={p['name'] for i in out['fused-ssd']['interactions'] if i['id'] in selected for p in i['data']['sequence']}
+                out['normal-constraints']={'apis':[{**a,'parameters':[p for p in a['parameters'] if p['name'] in fields]} for a in out.get('normal-constraints',{}).get('apis',[]) if any(p['name'] in fields for p in a['parameters'])]}
         for i in out.get('fused-ssd',{}).get('interactions',[]):
             for side in ('sender','receiver'):i[side]={k:i[side][k] for k in ('name','position')}
             i['operation']={k:i['operation'][k] for k in ('name','kinds','sequence')}

@@ -44,8 +44,10 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     statefile=root/'workflow_tasks.json';graphfile=root/'workflow_graph.json'
     states=json.loads(statefile.read_text()).get('tasks',{}) if statefile.exists() else {}
     nodes=json.loads(graphfile.read_text()).get('nodes',[]) if graphfile.exists() else []
-    metadata={n['id']:n for n in nodes}
     from .execution_graph import LABELS
+    from .deepagents_client import role_for
+    metadata={key:{'id':key,'stage':r.get('stage'),'case':r.get('case'),'role':role_for(r.get('stage','')),'label':LABELS.get(r.get('stage'),r.get('stage'))} for key,r in states.items()}
+    metadata.update({n['id']:n for n in nodes})
     for key,t in report['tasks'].items():
         n=metadata.get(key,{});t.update(label=n.get('label') or LABELS.get(n.get('stage'),key),
             stage=n.get('stage'),case=n.get('case'),role=n.get('role'),status=states.get(key,{}).get('status','historical'))
@@ -76,17 +78,25 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     estimates=[r['estimated_cost'] for r in requests if r['estimated_cost'] is not None]
     totals.update(actual_cost=None,estimated_cost=sum(estimates) if estimates else None,cost_status='部分估算' if estimates and len(estimates)<sum(bool(r.get('usage')) for r in requests) else '估算' if estimates else '未知')
     groups={}
-    for dimension in ('account','role','model','case'):
+    for dimension in ('account','role','model','case','stage'):
         parts={}
         for r in requests:
             name=r.get(dimension) or metadata.get(r['task_key'],{}).get(dimension) or '未分类'
-            p=parts.setdefault(name,{'name':name,'requests':0,'tokens':0,'seconds':0})
+            p=parts.setdefault(name,{'name':name,'requests':0,'tokens':0,'seconds':0,'input_tokens':0,'output_tokens':0,'reasoning_tokens':0})
             p['requests']+=r['status']!='not_sent';p['tokens']+=(r.get('usage') or {}).get('total_tokens',0);p['seconds']+=r['seconds'] if r['status']!='not_sent' else 0
+            u=r.get('usage') or {};p['input_tokens']+=u.get('prompt_tokens',0);p['output_tokens']+=u.get('completion_tokens',0);p['reasoning_tokens']+=(u.get('completion_tokens_details') or {}).get('reasoning_tokens',0)
         groups[dimension]=list(parts.values())
     items=sorted(requests,key=lambda r:r['started_at'],reverse=True) if view=='requests' else sorted(tasks,key=lambda r:r['reported_total_tokens'],reverse=True)
     result={'totals':totals,'groups':groups,'sessions':sessions,'prices':prices or {},'revision':cursor,'generated_at':time.time(),
             'count':len(items),'offset':offset,'limit':limit,'items':items[offset:offset+limit] if view in {'tasks','requests'} else [],
             'notes':['输出已包含思考；缓存输入是输入子集。','累计请求耗时不是并行运行墙钟时间。','失败无usage为未知，不记为0；预留额度不是扣费。']}
+    with sqlite3.connect('file:'+str(source)+'?mode=ro',uri=True) as db:
+        sql="SELECT COUNT(*) FROM events WHERE kind='result_reused'";args=[]
+        if session_id:sql+=' AND at>=? AND at<=?';args=[session['started_at'],session['finished_at'] or time.time()]
+        elif after is not None:sql+=' AND at>=?';args=[after]
+        if task_key:sql+=' AND task_key=?';args.append(task_key)
+        result['reuse_events']=db.execute(sql,args).fetchone()[0]
+    result['reuse_note']='复用事件次数，不是扣费请求数；复用产物的原始历史成本仍可在历史累计中查看'
     if view=='export':result.update(tasks=tasks,requests=requests)
     return result
 

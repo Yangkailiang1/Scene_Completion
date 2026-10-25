@@ -45,6 +45,8 @@ def broad_input_branch(description):
 def expand_inverse(value,inputs):
     from .normal_rules import normalize_scenarios
     value=normalize_scenarios(value,inputs)
+    from .failure_units import normalize_inverse_units
+    value=normalize_inverse_units(value,inputs)
     value=normalized_scenarios(value,inputs['fused-ssd'])
     branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
     from .failure_units import normalize_bindings

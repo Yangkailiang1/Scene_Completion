@@ -16,6 +16,8 @@ class ResultView:
         active=set(self.nodes) if graph.exists() else set(self.state)
         self.state={k:r for k,r in self.state.items() if k in active}
         self.manifest=read_json(self.root/'run_manifest.json') if (self.root/'run_manifest.json').exists() else {}
+        project=read_json(self.project/'project.json') if (self.project/'project.json').exists() else {}
+        self.test_source_changed=bool(project.get('test_source_version') and project['test_source_version']!=self.manifest.get('test_source_version'))
 
     def payload(self, key):
         r=self.state.get(key,{})
@@ -34,7 +36,7 @@ class ResultView:
 
     def catalog(self):
         out=[]
-        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation'}
+        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded'}
         for key,r in self.state.items():
             if r.get('status')!='passed' or r['stage'] not in stages or '--part-' in key:continue
             case=r['case'];stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -47,15 +49,17 @@ class ResultView:
         return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
     def index(self):
-        return {'complete':self.manifest.get('complete',False),'cases':self.cases(),'artifacts':self.catalog(),
+        return {'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'未启用'}
 
-    def metrics(self):
+    def metrics(self,test_set='expanded'):
+        if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
         from .result_alignment import aggregate_metrics
         rows=[]
         for c in self.cases():
             v=self.payload(c['id']+':exception-evaluation')
-            pending=len(self.payload(c['id']+':test-ground-truth').get('pending',[]))
+            if test_set=='original':v=v.get('original_evaluation',v)
+            pending=len(self.payload(c['id']+(':'+('test-expanded' if test_set=='expanded' and v.get('test_set')=='expanded' else 'test-ground-truth'))).get('pending',[]))
             rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（GT有待确认项）' if v and pending else '已评测' if v else '未评测'})
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         history=[]
@@ -63,9 +67,9 @@ class ResultView:
             summary=p.parent/'metrics_summary.json'
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
         generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
-        return {'cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
-                'registry_hash':self.manifest.get('registry_hash'),'truth_source':'测试文档经机器整理（含允许的框架推导）','recommendation':'未启用',
-                'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for p in sorted((self.root/'artifacts/shared/alignment-quality').glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
+        return {'cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
+                'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'未启用',
+                'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
     def scenario(self,cid,channel,sid):
         if channel not in {'G','E','GT'}:raise ValueError('未知结果来源')
@@ -76,7 +80,8 @@ class ResultView:
         if value is None:raise ValueError('该异常版本已变化，请刷新结果')
         return value
 
-    def detail(self, cid):
+    def detail(self, cid,test_set='expanded'):
+        if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
         case=next((c for c in self.cases() if c['id']==cid),None)
         if case is None:raise ValueError('未知用例')
         enriched=self.payload(cid+':enriched-view')
@@ -85,6 +90,8 @@ class ResultView:
             from .inverse_alignment import canonical_fused
             enriched=canonical_fused(fused)
         evaluation=self.payload(cid+':exception-evaluation')
+        expanded=evaluation.get('test_set')=='expanded' and test_set=='expanded'
+        if test_set=='original':evaluation=evaluation.get('original_evaluation',evaluation)
         report=self.payload(cid+':missing-report')
         channels={k:self.payload(cid+':'+stage).get('scenarios',[]) for k,stage in [('G','exception-generate'),('E','existing-extract'),('GT','test-ground-truth')]}
         # Report/evaluation snapshots contain the exact normalized units used
@@ -96,7 +103,7 @@ class ResultView:
         from .result_alignment import align_rows
         pairs=evaluation.get('full_matches',{})
         if not pairs:pairs={'G_E':report.get('full_matches',[])}
-        decisions={purpose:self.payload(cid+':'+stage).get('decisions',[]) for purpose,stage in [('G_E','gap-compare'),('GT_G','GT_G'),('GT_E','GT_E')]}
+        decisions={purpose:self.payload(cid+':'+stage).get('decisions',[]) for purpose,stage in [('G_E','gap-compare'),('GT_G','GT_expanded_G' if expanded else 'GT_G'),('GT_E','GT_expanded_E' if expanded else 'GT_E')]}
         rows=[];seen=set()
         for interaction in sorted(enriched.get('interactions',[]),key=lambda i:i.get('sequence',0)):
             iid=interaction['id'];seen.add(iid)
@@ -117,6 +124,7 @@ class ResultView:
                 aligned['anchor']=compact(aligned['anchor'])
                 aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
         return {'case':case,'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
+                'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract')]},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
                 'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),
                 'partial_diagnostics':evaluation.get('partial_diagnostics',report.get('partial_diagnostics',{})),

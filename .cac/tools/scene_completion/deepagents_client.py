@@ -41,7 +41,7 @@ def task_files(packet):
         files[path]='source_id='+doc['source_id']+'\n'+'\n'.join(str(line['number'])+' | '+line['text'] for line in doc['lines'])
     return files
 
-CHECKER_TASKS={'existing-branches','existing-bind','existing-extract','gap-compare','semantic-compare','test-ground-truth','missing-report','exception-evaluation','extraction-evaluation'}
+CHECKER_TASKS={'existing-branches','existing-bind','existing-extract','gap-compare','semantic-compare','test-ground-truth','test-supplement','test-additional-truth','test-additional-dedup','test-expanded','missing-report','exception-evaluation','extraction-evaluation'}
 def role_for(task):
     if task=='gap-recommend':return 'recommender'
     return 'checker' if task in CHECKER_TASKS else 'modeler'
@@ -116,6 +116,10 @@ class DeepAgentsClient(SemanticClient):
             if any(not r['applied'] for r in conversations.list(task_key) if r['kind'] in {'guidance','answer','context_resolution'}):
                 emit('guidance_pending',message='新指导尚未进入本次请求，请下一轮模型调用后重新提交')
                 return '用户在本次HTTP输出期间补充了指导；结果尚未保存。请在下一轮读取节点指导后提交。'
+            if original_packet['task']=='test-supplement' and attempt>=3:
+                from .test_supplement import quarantine_invalid_tests
+                payload=quarantine_invalid_tests(payload,original_packet['input'])
+                if payload.get('pending'):emit('test_candidates_quarantined',count=len(payload['pending']),reason='有界修复后仍不符合异常测试约束；候选保留待确认，不计入GT')
             phase('validating')
             try:validate_result(original_packet['task'],payload,original_packet['input'])
             except ValueError as e:

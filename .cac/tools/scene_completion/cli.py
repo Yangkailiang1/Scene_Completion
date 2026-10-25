@@ -33,6 +33,7 @@ def parser():
     pipe.add_argument('--sr-spec-document',action='append',required=True);pipe.add_argument('--test-spec-document',action='append',default=[])
     pipe.add_argument('--use-case-id',action='append');pipe.add_argument('--extraction-truth',help='JSON map of task/case:task to manual GT payload')
     pipe.add_argument('--review-mode',choices=('manual','auto'),default='auto');pipe.add_argument('--adjudications',help='JSON map to input-bound confirmed semantic extraction decisions')
+    pipe.add_argument('--no-supplement-tests',action='store_true',help='仅用原始异常测试计分，不补充独立异常测试')
     task=sub.add_parser('task');task.add_argument('--task',choices=TASKS,required=True);task.add_argument('--input-json',required=True)
     for a in (pipe,task):
         a.add_argument('--output-dir',required=True);a.add_argument('--agent-mode',choices=('packets','external'),default='packets')
@@ -72,7 +73,7 @@ def main(argv=None):
         from .concern_registry import registry_scope,default_registry
         with registry_scope(read_json(root/'registry_override.json') if (root/'registry_override.json').exists() else default_registry()):packet(args.task,inputs)
     config=read_json(args.config) if args.config else {}
-    if not independent:config['review_mode']=args.review_mode
+    if not independent:config.update(review_mode=args.review_mode,supplement_tests=not args.no_supplement_tests)
     with run_lock(root):
         deterministic=independent and args.task in {'object-operations','gap-recommend'}
         client=client_for(config,root,args.env_file) if args.agent_mode=='external' and not deterministic else None

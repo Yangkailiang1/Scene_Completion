@@ -3,7 +3,7 @@ from copy import deepcopy
 import re
 from .storage import fingerprint
 
-MODEL_METADATA_FIELDS=('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes')
+MODEL_METADATA_FIELDS=('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule')
 
 
 def clean_model_scenarios(value):
@@ -26,15 +26,25 @@ def normalize_test_assertions(value, inputs):
     """
     out=deepcopy(value);rows=inputs.get('fused-ssd',{}).get('interactions',[])
     by_id={i['id']:i for i in rows};groups={}
+    from .test_sources import records
+    test_docs=inputs.get('test-documents',[])
+    if not test_docs:
+        # Legacy tool callers supply only the already retained nine-column
+        # test citation. The parser applies the same exact type-column rule.
+        test_docs=[{'source_id':r['source_id'],'name':'retained-test-citation','channel':'test','lines':[{'number':r['line_start'],'text':r['quote']}]} for s in out.get('scenarios',[]) for r in s.get('source_refs',[])]
+    typed={}
+    for r in records(test_docs):typed.setdefault((r['source_id'],r['id']),r)
+    by_location={(r['source_id'],r['row']):r for r in typed.values()}
     for s in out.get('scenarios',[]):
         for ref in s.get('source_refs',[]):
-            cells=[v.strip() for v in ref['quote'].strip().strip('|').split('|')]
-            if len(cells)>=8 and re.fullmatch(r'TEST[-_][A-Za-z0-9_-]+',cells[0]):
-                groups.setdefault((ref['source_id'],cells[0]),{'cells':cells,'ref':ref,'units':[]})['units'].append(s)
+            record=by_location.get((ref['source_id'],ref['line_start']))
+            if record:
+                groups.setdefault((ref['source_id'],record['id']),{'record':record,'ref':ref,'units':[]})['units'].append(s)
                 break
     removed=set()
     for group in groups.values():
-        cells=group['cells'];trigger=cells[4];expected=cells[7];units=group['units']
+        record=group['record']
+        trigger=record['触发条件'];expected=record['预期结果'];precondition=record['前置条件'];units=group['units']
         # A test may deliberately corrupt the response or recovery itself.
         if re.search(r'返回|响应|回滚|恢复|重试|补偿',trigger):continue
         assertions=[]
@@ -59,7 +69,7 @@ def normalize_test_assertions(value, inputs):
                 if len(targets)!=1 or not re.search(r'失败|超时|不可用|不存在|错误',trigger):continue
                 target=next(iter(targets.values()))
                 s.setdefault('normalization_origin',{'interaction_id':s['interaction_id'],'object':s['object'],'field':s.get('field'),'data_location':s.get('data_location')})
-                s.update(cause=trigger,conditions=[cells[3],trigger],interaction_id=target['id'],canonical_interaction_id=target['id'],layer=target['layer'],operation=target['operation']['name'],object=target['receiver']['name'],field=None,data_location=None,scope='service')
+                s.update(cause=trigger,conditions=[precondition,trigger],interaction_id=target['id'],canonical_interaction_id=target['id'],layer=target['layer'],operation=target['operation']['name'],object=target['receiver']['name'],field=None,data_location=None,scope='service')
                 s['steps']={'normal_context':[target['sender']['name']+' → '+target['receiver']['name']+'：'+target['operation']['name']],'trigger':trigger,'documented_follow_up':[follow]}
                 s.setdefault('quality_notes',[]).append('handling_assertion：采用测试动作栏明示的失败原因，绑定唯一实际调用；预期恢复仅作处理断言。保留原关注点分类供分类核查，不因分类决定失败匹配')
     out['scenarios']=[s for s in out.get('scenarios',[]) if s['id'] not in removed]

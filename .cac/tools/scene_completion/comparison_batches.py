@@ -9,6 +9,9 @@ from .exception_comparison import missing_report
 def exact_failure_signature(s):
     """Narrow, auditable aliases; never equate timeout and unavailability."""
     text=s['cause']+' '+' '.join(s['conditions']);field=s.get('field')
+    if field and s.get('failure_rule'):
+        import json
+        return ('explicit_field_rule',s.get('scope'),s.get('data_location'),field,json.dumps(s['failure_rule'],ensure_ascii=False,sort_keys=True))
     if s['concern_key']=='service.base.availability' and not re.search(r'超时|timeout|deadline',text,re.I):
         if re.search(r'不可用|无法执行|service_unavailable',text,re.I):return ('unavailable',s['object'])
     if field and s['concern_key']=='api.data.range':
@@ -28,6 +31,8 @@ def distinct_unit(a,b):
         return '约束作用域不同，无法构成完整对应'
     if a.get('data_location') and b.get('data_location') and a['data_location']!=b['data_location']:
         return '字段位置不同，无法构成完整对应'
+    if a.get('failure_rule') and b.get('failure_rule') and a.get('field')==b.get('field') and a['failure_rule']!=b['failure_rule']:
+        return '同一字段的不同独立契约约束，不是同一个失败单元'
     # Literal API identifiers are case-sensitive except HTTP header names.
     # Natural-language labels and absent fields do not establish inequality.
     fields=[s.get('field') for s in (a,b)]
@@ -38,7 +43,9 @@ def distinct_unit(a,b):
 
 def pair_cache_key(node,purpose,a,b,guidance,rules):
     from .normal_rules import RULESET_VERSION
-    return fingerprint({'node':node,'purpose':purpose,'left':a,'right':b,'guidance':guidance,'rules':rules,'ruleset':RULESET_VERSION})
+    from .task_context import semantic_view
+    facts=semantic_view('semantic-compare',{'left':[a],'right':[b]})
+    return fingerprint({'node':node if guidance else None,'purpose':purpose,'facts':facts,'guidance':guidance,'rules':rules,'ruleset':RULESET_VERSION})
 
 def restrict_candidate_decisions(value,inputs,normalizations):
     """Keep requested decisions; never invent missing ones or choose conflicts."""
@@ -67,7 +74,9 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
         unresolved=[]
         for b in right:
             reason=None;status='full'
-            if (a['case_id'],a['interaction_id'])!=(b['case_id'],b['interaction_id']):
+            if inputs['purpose']=='GT_self' and a['id']>=b['id']:
+                status='unmatched';reason='补充集内部去重只比较一次无序候选对；自对与镜像对不计匹配'
+            elif (a['case_id'],a['interaction_id'])!=(b['case_id'],b['interaction_id']):
                 status='unmatched';reason='不同用例或不同融合交互，不能互相覆盖'
             elif inputs['purpose'] in {'G_E','GT_E'} and broad_covers(a,b):
                 reason='已确认的同交互宽泛输入参数分支覆盖本字段规则'
@@ -98,8 +107,17 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
             groups.setdefault(key,[]).extend((a,b) for b in unresolved)
     from .execution_events import emit,fields
     jobs=[]
+    max_bytes=getattr(client,'config',{}).get('comparison_input_max_bytes',14000)
+    from .task_context import semantic_view
     for (case,interaction),pairs in groups.items():
-        for i in range(0,len(pairs),32):jobs.append((interaction,pairs[i:i+32]))
+        batch=[]
+        for pair in pairs:
+            proposed=batch+[pair]
+            slim=semantic_view('semantic-compare',{'left':list({a['id']:a for a,b in proposed}.values()),'right':list({b['id']:b for a,b in proposed}.values())})
+            import json
+            if batch and (len(proposed)>32 or len(json.dumps(slim,ensure_ascii=False).encode())>max_bytes):jobs.append((interaction,batch));batch=[]
+            batch.append(pair)
+        if batch:jobs.append((interaction,batch))
     for n,(interaction,pairs) in enumerate(jobs,1):
         a=list({x['id']:x for x,_ in pairs}.values());b=list({y['id']:y for _,y in pairs}.values())
         child_input={'left':a,'right':b,'purpose':inputs['purpose'],

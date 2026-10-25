@@ -27,6 +27,7 @@ import {
 import { Button } from "./components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { ExecutionFlow } from "./ExecutionFlow";
+import { sourceFile } from "./TestSources";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
@@ -65,6 +66,7 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
   );
 }
 export default function App() {
+  const [newTestPreview, setNewTestPreview] = useState<any>(null);
   const [management, setManagement] = useState<
     "pending" | "concerns" | "results" | null
   >(null);
@@ -1144,10 +1146,7 @@ export default function App() {
                       sources[role] = await Promise.all(
                         (form.getAll(role) as File[])
                           .filter((v) => v.name)
-                          .map(async (v) => ({
-                            name: v.name,
-                            content: await v.text(),
-                          })),
+                          .map(sourceFile),
                       );
                     const p = await api<Project>("/api/projects", {
                       method: "POST",
@@ -1187,12 +1186,49 @@ export default function App() {
                     <input
                       type="file"
                       name={name}
-                      accept=".md,.markdown"
+                      accept={
+                        name === "test"
+                          ? ".md,.markdown,.xlsx"
+                          : ".md,.markdown"
+                      }
                       multiple
                       required={name !== "test"}
+                      onChange={
+                        name === "test"
+                          ? async (e) => {
+                              setNewTestPreview(null);
+                              try {
+                                const sources = await Promise.all(
+                                  Array.from(e.target.files || []).map(
+                                    sourceFile,
+                                  ),
+                                );
+                                setNewTestPreview(
+                                  await api("/api/test-sources/preview", {
+                                    method: "POST",
+                                    body: JSON.stringify({ sources }),
+                                  }),
+                                );
+                              } catch (err) {
+                                error(err);
+                              }
+                            }
+                          : undefined
+                      }
                     />
                   </label>
                 ))}
+                {newTestPreview && (
+                  <p>
+                    测试导入预览：异常 {newTestPreview.counts?.exception || 0} /
+                    正常 {newTestPreview.counts?.normal || 0} / 可选{" "}
+                    {newTestPreview.counts?.optional || 0} / 待确认{" "}
+                    {newTestPreview.counts?.pending || 0}。
+                    {newTestPreview.issues
+                      ?.map((x: any) => x.id + "：" + x.reason)
+                      .join("；")}
+                  </p>
+                )}
                 <div className="form-grid">
                   <label>
                     执行模式

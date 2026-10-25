@@ -98,6 +98,23 @@ class EvidenceContext:
             keys={'interaction_id','object','concern_key','field','cause','conditions','rule_id','data_location','reason'}
             self.packet['tool_rule_coverage']={k:[{a:b for a,b in row.items() if a in keys} for row in rows] for k,rows in packet['tool_rule_coverage'].items()}
         self.packet['output_schema']=self.schema(packet['output_schema'])
+        if packet['task']=='test-supplement':
+            self.packet['output_schema']['properties'].pop('pending',None)
+            t=self.packet['output_schema']['properties']['tests']['items'];t['properties'].pop('failure_rule',None)
+            t['required'].append('normal_rule_id')
+            rules=[r for r in inputs['normal-rules']['rules'] if not r['concern_key'].startswith('api.data.')]
+            t['properties']['normal_rule_id']={'enum':[r['id'] for r in rules]}
+            if len(rules)==1:t['properties']['normal_rule_id']={'const':rules[0]['id']}
+            self.packet['output_schema']['properties']['tests']['maxItems']=1
+            t['properties']['field']={'type':'null'}
+            t['properties']['concern_key']={'enum':list({r['concern_key'] for r in rules})}
+            t['properties']['scope']={'const':'service'}
+            t['properties']['data_location']={'type':'null'}
+            for field in ('interaction_id','concern_key','field','scope','data_location','source_refs'):
+                t['properties'].pop(field,None)
+                if field in t['required']:t['required'].remove(field)
+            t['properties']['trigger']['pattern']=r'^(?!.*(?:或者|或|\bor\b)).+$'
+            self.packet['instructions']+='\n业务补充测试仅输出Schema要求的normal_rule_id及新测试内容。交互、关注点、作用域和引文由工具从该正常规则回填；不要输出这些已知字段。trigger直接描述违反所选规则的失败，不附带多个错误取值的举例；重复请求本身是正常输入，只有导致重复业务副作用等违反幂等要求才是异常。未声明的错误码、格式、数量、性能阈值不得生成。'
         if packet['task']=='normal-rules':
             from .contracts import registry
             fields=self.packet['output_schema']['properties']['rules']['items']['properties']
@@ -119,7 +136,7 @@ class EvidenceContext:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             from .normal_rules import LOCATIONS
             fields['properties']['data_location']={'enum':sorted(LOCATIONS)+[None]}
-            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):fields['properties'].pop(key,None)
+            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):fields['properties'].pop(key,None)
             if packet['task']=='existing-extract':
                 from .inverse_alignment import broad_input_branch
                 branches=packet['input'].get('branches',{}).get('branches',[])
@@ -214,9 +231,12 @@ class EvidenceContext:
 
     def encode_output(self,value):
         result=self.encode(value)
+        if self.original['task']=='test-supplement':
+            for t in result.get('tests',[]):
+                for k in ('interaction_id','concern_key','field','scope','data_location','source_refs','failure_rule'):t.pop(k,None)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
             from .normal_rules import normalize_scenarios
@@ -247,6 +267,12 @@ class EvidenceContext:
             if isinstance(v,list):return [decode(x) for x in v]
             return v
         result=decode(value)
+        if self.original['task']=='test-supplement':
+            rules={r['id']:r for r in self.original['input']['normal-rules']['rules']}
+            for t in result.get('tests',[]):
+                r=rules.get(t.get('normal_rule_id'))
+                if r is None:raise ValueError('补充测试必须选择当前正常规则ID')
+                t.update(interaction_id=r['interaction_id'],concern_key=r['concern_key'],field=None,scope='service',data_location=None,source_refs=deepcopy(r['source_refs']))
         if self.original['task']=='normal-rules':
             from .normal_rules import identity_concern,separate_unknown_criteria,separate_foreign_checks
             rows={i['id']:i for i in self.original['input']['fused-ssd']['interactions']}
@@ -265,7 +291,7 @@ class EvidenceContext:
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
-                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes'):row.pop(k,None)
+                for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
                     if not row['concern_key'].startswith('api.data.') and row.get('field') is not None:

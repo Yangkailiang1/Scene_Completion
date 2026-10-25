@@ -44,3 +44,12 @@ def test_accounts_with_same_model_have_independent_usage_filters(tmp_path):
     assert indexed_usage(tmp_path)['totals']['reported_total_tokens']==200
     one=indexed_usage(tmp_path,account='account-one',view='tasks')
     assert one['totals']['reported_total_tokens']==100 and one['items'][0]['accounts']==['account-one']
+
+def test_historical_task_keeps_stage_when_absent_from_current_graph(tmp_path):
+    from scene_completion.storage import write_json
+    store=EventStore(tmp_path);add(store,'one',task='C:existing-extract--part-old')
+    write_json(tmp_path/'workflow_tasks.json',{'tasks':{'C:existing-extract--part-old':{'stage':'existing-extract','case':'C','status':'passed'}}})
+    write_json(tmp_path/'workflow_graph.json',{'nodes':[]})
+    report=indexed_usage(tmp_path)
+    assert report['groups']['stage'][0]['name']=='existing-extract'
+    assert report['groups']['stage'][0]['input_tokens']==80

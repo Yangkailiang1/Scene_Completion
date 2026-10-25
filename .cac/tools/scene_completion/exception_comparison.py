@@ -20,7 +20,7 @@ def coverage_assignment(decisions,left,right):
 
 def compare_report(g,e,gt,eg,tg,te):
     """Only complete pairs score. Reassign after restricting to missing truth/G."""
-    g,e,gt=map(deduplicate,(g,e,gt))
+    g,e,gt=(deduplicate([s for s in xs if s.get('scenario_type','exception')=='exception']) for xs in (g,e,gt))
     # Semantic duplicate edges to one target cannot score twice (one-to-one).
     gids,eids,tids=({s['id'] for s in xs} for xs in (g,e,gt))
     covered_g={p['checker_scenario_id'] for p in coverage_assignment(eg,g,e)}
@@ -46,7 +46,7 @@ def compare_report(g,e,gt,eg,tg,te):
 
 
 def missing_report(g,e,decisions):
-    g,e=map(deduplicate,(g,e));pairs=coverage_assignment(decisions,g,e)
+    g,e=(deduplicate([s for s in xs if s.get('scenario_type','exception')=='exception']) for xs in (g,e));pairs=coverage_assignment(decisions,g,e)
     covered={p['checker_scenario_id'] for p in pairs}
     return {'protocol':PROTOCOL,'G':g,'E':e,'M':[s for s in g if s['id'] not in covered],
             'full_matches':pairs,'partial_diagnostics':[d for d in decisions if d['status']=='partial'],

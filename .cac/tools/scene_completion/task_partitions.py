@@ -10,6 +10,19 @@ def _documents_at(documents,refs):
     return [{**d,'lines':[r for r in d['lines'] if r['number'] in ranges.get(d['source_id'],set())]} for d in documents if any(r['number'] in ranges.get(d['source_id'],set()) for r in d['lines'])]
 
 def split_task(task,inputs):
+    if task=='test-supplement':
+        units=[]
+        for i in inputs['fused-ssd']['interactions']:
+            if i['direction']!='request':continue
+            ids={i['id']}|{x['id'] for x in inputs['fused-ssd']['interactions'] if x.get('parent_id')==i['id']}
+            base=deepcopy(inputs);base['fused-ssd']['interactions']=[x for x in base['fused-ssd']['interactions'] if x['id'] in ids]
+            rules=[r for r in base['normal-rules']['rules'] if r['interaction_id']==i['id'] and not r['concern_key'].startswith('api.data.') and r['concern_key']!='service.base.availability']
+            tool=deepcopy(base);tool['normal-rules']={'rules':[],'pending':[]}
+            units.append(('contracts:'+i['id'],tool))
+            for rule in rules:
+                q=deepcopy(base);q['normal-rules']={'rules':[rule],'pending':[]};q['normal-constraints']={'apis':[]}
+                units.append(('business:'+rule['id'],q))
+        return units
     if task=='normal-rules':
         from .inverse_alignment import canonical_fused
         units=[]
@@ -48,17 +61,22 @@ def split_task(task,inputs):
             units.append((branch['id'],q))
         return units
     if task=='test-ground-truth':
+        from .test_sources import exception_documents
+        inputs={**inputs,'test-documents':exception_documents(inputs['test-documents'])}
         units=[]
         for d in inputs['test-documents']:
-            rows=[r for r in d['lines'] if re.match(r'^\s*\|',r['text']) and re.search(r'\bTEST[-_][A-Za-z0-9_-]+',r['text'])]
+            rows=[r for r in d['lines'] if re.match(r'^\s*\|',r['text']) and re.search(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['text'])]
             for row in rows:
-                if not re.search(r'异常|可选|exception|optional',row['text'],re.I):continue
-                q=deepcopy(inputs);q['test-documents']=[{**d,'lines':[row]}]
+                from .test_sources import ALIASES,HEADERS,cells
+                headers=[r for r in d['lines'] if any(h in cells(r['text']) for h in ALIASES['测试ID'])]
+                if headers and len(cells(headers[-1]['text']))==9 and all(h in ALIASES[HEADERS[n]] for n,h in enumerate(cells(headers[-1]['text']))):headers=[]
+                q=deepcopy(inputs);q['test-documents']=[{**d,'lines':headers+[row]}]
                 units.append((d['source_id']+':'+str(row['number']),q))
         return units or ([('document',deepcopy(inputs))] if inputs['test-documents'] else [])
     return [('all',deepcopy(inputs))]
 
 def merge_parts(task,parts):
+    if task=='test-supplement':return {'tests':list({fingerprint(t):t for p in parts for t in p['tests']}.values()),'pending':list({fingerprint(t):t for p in parts for t in p.get('pending',[])}.values())}
     from .exception_generation import deduplicate
     if task in {'exception-generate','existing-extract','test-ground-truth'}:
         out={'scenarios':deduplicate([s for p in parts for s in p.get('scenarios',[])])}
@@ -67,6 +85,7 @@ def merge_parts(task,parts):
             s.setdefault('source_scenario_id',s['id'])
             s['id']=task+'-'+fingerprint([scenario_key(s),s.get('field'),s.get('rule_id')])[:20]
         if task in {'exception-generate','test-ground-truth'}:out['pending']=list({fingerprint(p):p for v in parts for p in v.get('pending',[])}.values())
+        out['excluded']=[x for p in parts for x in p.get('excluded',[])]
         return out
     keys={'normal-rules':('rules','pending'),'concern-match':('matches','pending'),'existing-bind':('bindings',)}[task]
     return {key:list({fingerprint(r):r for p in parts for r in p.get(key,[])}.values()) for key in keys}

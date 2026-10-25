@@ -94,7 +94,7 @@ def test_channel_isolation_and_operation_projection():
 def test_positive_projection_excludes_extension_section(tmp_path):
     p=tmp_path/'rr.md';p.write_text('# UC-1\n5. 主成功路径：\n①查询\n6. 扩展路径：\n1.a 无匹配项\n1.b 错误码404\n### UC-2\n5. 主成功路径：\n查询其他对象\n')
     normal=normal_projection(read_documents([p],'existing'))
-    text=str(normal)
+    text='\n'.join(r['text'] for d in normal for r in d['lines'])
     assert '404' not in text and '无匹配项' not in text and '查询其他对象' in text
 
 
@@ -149,13 +149,13 @@ def fake_pipeline(tmp_path,mocks=None):
     def doc(name,text,channel):
         p=tmp_path/name;p.write_text(text);return read_documents([p],channel)
     rr=doc('rr.md','# UC-X\nnormal request\n6. 扩展路径：\nexisting empty result\n','existing')
-    sr=doc('sr.md','# UC-X\nnormal call\n','existing');tests=doc('test.md','# UC-X\ncheck read\n','test')
+    sr=doc('sr.md','# UC-X\nnormal call\n','existing');tests=doc('test.md','# UC-X\n| TEST-UC-X-A01 | failed read | 异常 | available | invalid request | UC-X | check | reject | spec |\n','test')
     empty={
       'components':{'components':[],'relations':[]},'rr-ssd':{'interactions':[]},'sr-ssd':{'interactions':[]},
       'api-map':{'services':[]},'api-parameters':{'apis':[]},'test-operation-project':{'objects':[]},
       'object-operations':{'objects':[]},'concern-match':{'matches':[],'pending':[]},
       'exception-generate':{'scenarios':[],'pending':[]},'existing-extract':{'scenarios':[]},
-      'test-ground-truth':{'scenarios':[]},'gap-compare':{'decisions':[],'missing':[]},'interaction-align':{'aliases':[],'links':[]}}
+      'test-ground-truth':{'scenarios':[],'pending':[{'interaction_id':'sr-call','object':'Platform','concern_key':'service.query_retrieval.resource_existence','reason':'fixture: explicit test needs binding','source_refs':[{'source_id':tests[0]['source_id'],'line_start':2,'line_end':2,'quote':tests[0]['lines'][1]['text']}]}]},'gap-compare':{'decisions':[],'missing':[]},'interaction-align':{'aliases':[],'links':[]}}
     def ref(doc):return [{'source_id':doc[0]['source_id'],'line_start':2,'line_end':2,'quote':doc[0]['lines'][1]['text']}]
     def rewrite(v,refs):
         if isinstance(v,dict):
@@ -264,7 +264,7 @@ def test_dependency_local_retry_test_change_cannot_invalidate_G(tmp_path):
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
     calls.clear();t[0]['lines'].append({'number':3,'text':'new test exception, private expected response'})
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert 'test-ground-truth' in calls and 'test-operation-project' in calls
+    assert calls==[]  # unrelated prose outside the typed test rows is not a task input
     assert not set(calls)&{'components','rr-ssd','sr-ssd','api-map','api-parameters','concern-match','exception-generate','existing-extract'}
 
 
@@ -380,4 +380,5 @@ def test_bad_input_shape_is_a_contract_error():
 def test_unmarked_exception_section_is_excluded_conservatively(tmp_path):
     p=tmp_path/'rr.md';p.write_text('# UC-1\n主成功请求\n**扩展路径**\n返回未找到\n错误码404\n## UC-2\n正常请求\n')
     result=normal_projection(read_documents([p],'existing'))
-    assert '未找到' not in str(result) and '404' not in str(result) and '正常请求' in str(result)
+    text='\n'.join(r['text'] for d in result for r in d['lines'])
+    assert '未找到' not in text and '404' not in text and '正常请求' in text

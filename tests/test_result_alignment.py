@@ -51,6 +51,14 @@ def test_binding_and_refinement_use_the_same_unique_failure_owner():
         {'branches':{'branches':[{'id':'B','description':'LookupService 查询超时，系统返回504'}]},'fused-ssd':{'interactions':[request]}})
     assert result['bindings'][0]['interaction_id']=='call' and '唯一' in result['bindings'][0]['basis']
 
+def test_transport_owner_is_normalized_before_inverse_binding_validation():
+    from scene_completion.inverse_alignment import expand_inverse
+    request=exchange(sid='call');request['receiver']['name']='LookupService'
+    reply=deepcopy(request);reply.update(id='reply',direction='return');reply['receiver']['name']='Boundary';reply['sender']['name']='LookupService'
+    s=scenario('s');s.update(interaction_id='reply',object='Boundary',cause='LookupService查询超时',field=None,original_branch_id='B',coverage_kind='exact')
+    result=expand_inverse({'scenarios':[s]},{'fused-ssd':{'interactions':[request,reply]},'branches':{'branches':[{'id':'B','description':'LookupService查询超时','source_refs':s['source_refs']}]},'bindings':{'bindings':[{'branch_id':'B','interaction_id':'call','status':'confirmed','basis':'named unique call'}]}})
+    assert result['scenarios'][0]['interaction_id']=='call'
+
 
 def test_same_test_tautological_duplicate_merges_but_different_fields_do_not():
     a=scenario('a');a.update(field='id',data_location='path',cause='标识格式错误',source_refs=[{'source_id':'test','line_start':1,'line_end':1,'quote':'| TEST-ID-A | 标识格式错误 |'}])
