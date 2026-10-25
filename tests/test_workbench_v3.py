@@ -196,7 +196,7 @@ def test_node_feedback_invalidates_only_target_and_downstream(tmp_path):
     root=tmp_path/'run';ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
     calls.clear();Conversations(root).append('UC-X:exception-generate','guidance','仍按只读操作分析，重新核对')
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert 'UC-X:exception-generate' in calls
+    assert any(k.startswith('UC-X:exception-generate--part-') for k in calls)
     assert not set(calls)&{'components','api-map','api-index','rr-use-cases','sr-use-cases','existing-branches','UC-X:fused-ssd','UC-X:existing-extract'}
 
 def test_conversation_api_is_task_scoped_and_export_keeps_history(tmp_path):

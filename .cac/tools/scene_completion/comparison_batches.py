@@ -6,6 +6,21 @@ from .storage import fingerprint,read_json,write_json
 from .validation import validate_result
 from .exception_comparison import missing_report
 
+def exact_failure_signature(s):
+    """Narrow, auditable aliases; never equate timeout and unavailability."""
+    text=s['cause']+' '+' '.join(s['conditions']);field=s.get('field')
+    if s['concern_key']=='service.base.availability' and not re.search(r'超时|timeout|deadline',text,re.I):
+        if re.search(r'不可用|无法执行|service_unavailable',text,re.I):return ('unavailable',s['object'])
+    if field and s['concern_key']=='api.data.range':
+        if s['cause']=='minimum':
+            m=re.search(r'minimum约束:\s*(-?\d+(?:\.\d+)?)',text)
+            if m:return ('below',field,float(m[1]))
+        if s['cause']=='maximum':
+            m=re.search(r'maximum约束:\s*(-?\d+(?:\.\d+)?)',text)
+            if m:return ('above',field,float(m[1]))
+        if re.search(r'负数|<\s*0',text):return ('below',field,0.)
+    return None
+
 def distinct_unit(a,b):
     """Only structural exclusions; uncertain names still need semantic review."""
     constrained={'interface','storage','context'}
@@ -22,7 +37,8 @@ def distinct_unit(a,b):
     return None
 
 def pair_cache_key(node,purpose,a,b,guidance,rules):
-    return fingerprint({'node':node,'purpose':purpose,'left':a,'right':b,'guidance':guidance,'rules':rules})
+    from .normal_rules import RULESET_VERSION
+    return fingerprint({'node':node,'purpose':purpose,'left':a,'right':b,'guidance':guidance,'rules':rules,'ruleset':RULESET_VERSION})
 
 def restrict_candidate_decisions(value,inputs,normalizations):
     """Keep requested decisions; never invent missing ones or choose conflicts."""
@@ -58,6 +74,8 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
             elif a.get('rule_id') and a['rule_id']==b.get('rule_id') and a.get('field')==b.get('field') and scenario_key(a)==scenario_key(b):
                 reason='同一正常约束ID及完整失败单元逐字段一致'
             elif distinct_unit(a,b):status='unmatched';reason=distinct_unit(a,b)
+            elif exact_failure_signature(a) is not None and exact_failure_signature(a)==exact_failure_signature(b):
+                reason='同一交互、对象/字段及可判定失败条件一致；响应及后续行为不作为失败命中必要条件'
             if reason:
                 decisions.append({'left_id':a['id'],'right_id':b['id'],'status':status,'reason':reason})
                 programmatic_unmatched+=status=='unmatched'

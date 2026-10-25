@@ -67,6 +67,7 @@ class DeepAgentsClient(SemanticClient):
         # Persist the actual model-facing, credential-free packet for inspection.
         context_id=fingerprint({'task':packet['task'],'input':packet['input'],'schema':packet['output_schema']})
         write_json(self.root/'model_contexts'/(context_id+'.json'),{'task':packet['task'],'node_key':packet.get('node_key'),'input':packet['input'],'output_schema':packet['output_schema'],'context_version': 'indexed-evidence-v1' if indexed else 'raw'})
+        if packet.get('node_key'):write_json(self.root/'context_index'/(fingerprint(packet['node_key'])+'.json'),{'path':'model_contexts/'+context_id+'.json'})
         from deepagents import create_deep_agent
         from deepagents.backends import StateBackend
         from deepagents.middleware.filesystem import FilesystemPermission

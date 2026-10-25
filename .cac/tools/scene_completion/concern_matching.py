@@ -11,6 +11,7 @@ def concern_by_label(label):
 
 def complete_data_matches(inputs, matches):
     """Known parameter properties have deterministic matches to fixed definitions."""
+    from .normal_rules import conditional_constraint,descriptive_constraint
     matches=deepcopy(matches)
     kinds={'type':'数据类型','enum':'数据合法性','minimum':'数据范围','maximum':'数据范围','format':'数据格式',
            'length':'数据长度','size':'数据大小','pattern':'数据格式','other':'数据合法性'}
@@ -19,7 +20,7 @@ def complete_data_matches(inputs, matches):
             rules=[]
             if p['required'] is True:rules.append(('数据完整性','required',True,p['source_refs']))
             if p['data_type'] is not None:rules.append(('数据类型','type',p['data_type'],p['source_refs']))
-            rules += [(kinds[r['kind']],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if r['status']=='explicit']
+            rules += [(kinds[r['kind']],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if (r['status']=='explicit' or conditional_constraint(r)) and not descriptive_constraint(r)]
             for label,rule,value,refs in rules:
                 matches.append({'interaction_id':i['id'],'target':'data','object':p['name'],'concern_key':concern_by_label(label),
                                 'basis':'当前请求/返回接口的明示字段属性','concrete_rule':rule+'='+json.dumps(value,ensure_ascii=False),'source_refs':refs,

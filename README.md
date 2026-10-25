@@ -36,7 +36,7 @@ npm run build --prefix frontend
 2. 建立RR/SR用例对应：支持编号不同和一对多；未对应项明确pending，项目不能标为完成。
 3. 对每个confirmed用例组，将两层正向描述一起交给建模器，生成完整SSD及RR步骤—SR展开关系。保留整体系统边界、层级、实际调用及逐层返回；没有AR材料不生成AR。
 4. 从完整SSD投影RR/SR视图，整理名称—支持操作，再结合API表、组成身份补全交互。
-5. 匹配双方及输入/输出数据的关注点，按本次实际操作组合五类功能与数据库/LLM扩展；生成有明确规则的异常G。
+5. 按实际请求整理独立正向正常规则，再匹配双方及输入/输出关注点，按本次实际操作组合功能与技术扩展。规则、关注点按交互，逆向处理按原分支拆分缓存与审核；生成可执行项和有明示依据的条件级异常G。
 6. 检查器并行提取原文异常分支，再绑定融合SSD具体交互、逆向归类和细化E。参数非法可覆盖同交互多个请求细项（含缺失），不覆盖输出。G/E比较输出M及JSON/Markdown报告。测试GT独立绑定、细化后评测。
 7. 可选测试GT及抽取Acc评测独立运行。测试操作仅投影对象和支持操作，不向G提供异常答案。推荐器未启用，不生成Q。
 
@@ -96,5 +96,7 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 组成绘图恢复历史分区参与关系设计，适配当前JSON；用例为椭圆、人类Actor旁带小人。不会恢复旧CRUD推导或部署猜测。示例明确使用mock，不代表真实模型效果。
 
 协议为 `scene-workflow-v3`，关注点版本为 `interaction-concerns-v3`。旧协议项目升级时创建新版本，原记录保留，旧缓存不直接复用。关注点依据用户2026-10-24新版分类图，当前40个定义（含输入/输出两个抽象族及共享七类数据），不再沿用旧45项。
+
+本轮质量修订与内嵌用量API见[规则说明](docs/scene-workflow-v3/quality-rules-20261025.md)。用量与费用在当前工作区展示，默认轻量统计，原文上下文及请求详情按需加载；单价配置仅给出估算，实际扣费无依据时显示未知。
 
 详见[协议与字段](docs/scene-workflow-v3/protocol.md)、[任务依赖](docs/scene-workflow-v3/workflow-map.md)、[关注点体系](docs/scene-workflow-v2/concern-hierarchy.md)及[验证记录](docs/scene-workflow-v3/validation.md)。

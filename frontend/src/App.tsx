@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
 import { ExecutionFlow } from "./ExecutionFlow";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
+import { UsageView } from "./UsageView";
 import { ArtifactView } from "./ArtifactView";
 import { ExecutionNavigator } from "./ExecutionNavigator";
 import { api, projectUrl, fileUrl, primaryJsonArtifact } from "./api";
@@ -61,6 +62,7 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
   );
 }
 export default function App() {
+  const [usageOpen, setUsageOpen] = useState(false), [usageTask, setUsageTask] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false),
     [graphMaximized, setGraphMaximized] = useState(false),
     [panelVersion, setPanelVersion] = useState(0);
@@ -124,6 +126,7 @@ export default function App() {
       .catch(error);
   }, []);
   function openProject(id: string) {
+    setUsageOpen(false); setUsageTask(null);
     currentRef.current = id;
     selectedRef.current = null;
     setCurrent(id);
@@ -139,6 +142,7 @@ export default function App() {
     refresh(id).catch(error);
   }
   function selectNode(id: string) {
+    setUsageOpen(false);
     selectedRef.current = id;
     setSelected(id);
     const target = graph.nodes.find((n) => n.id === id);
@@ -572,7 +576,7 @@ export default function App() {
                 待审核 <b>{pendingReviews}</b>
               </span>
               <div className="ml-auto flex items-center gap-2">
-                {current && <a className="text-sm text-blue-700" href={projectUrl(current,"usage")+"?format=html"} target="_blank" rel="noreferrer">用量与上下文</a>}
+                {current && <button className="text-sm text-blue-700" onClick={() => { setUsageTask(null); setUsageOpen(true); }}>用量与费用</button>}
                 <span className="text-[11px] text-slate-400">执行模式</span>
                 <select
                   aria-label="执行模式"
@@ -605,7 +609,7 @@ export default function App() {
             >
               <Panel defaultSize={80} minSize={55}>
                 <section className="center-workspace">
-                  {!selected ? (
+                  {usageOpen && current ? <UsageView project={current} task={usageTask} onClose={() => setUsageOpen(false)} onSelect={selectNode} /> : !selected ? (
                     <div className="overview">
                       <div className="overview-title">
                         <span className="eyebrow">PROJECT OVERVIEW</span>
@@ -758,7 +762,7 @@ export default function App() {
                         <span>
                           第 {node?.attempt || 1} 次尝试 ·{" "}
                           {duration(node?.elapsed_seconds ?? null)}
-                          {current && <a className="ml-2 text-blue-700" href={projectUrl(current,"usage")+"?format=html#"+encodeURIComponent(selected || "")} target="_blank" rel="noreferrer">token / 耗时明细</a>}
+                          {current && <button className="ml-2 text-blue-700" onClick={() => { setUsageTask(selected); setUsageOpen(true); }}>token / 耗时明细</button>}
                         </span>
                       </div>
                       {node?.failure && (

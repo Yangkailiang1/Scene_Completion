@@ -1,0 +1,32 @@
+# 异常质量修订与用量工作区
+
+规则版本 quality-rules-20261025-v1；协议仍为scene-workflow-v3。旧项目、旧指标和原始事件保留。代码/Skill/Schema及规则版本均纳入缓存身份，旧匹配决策不直接复用。
+
+## 独立正常规则
+
+normal-rules读取单个用例正向原文与融合SSD，按实际接收请求拆分执行，输出rules/pending。规则包含稳定ID、owner_service、interaction_id、concern_key、逐字正常condition、独立violation、fields、functional_kinds、resolution、pending_details、source_refs。规则引用不得仅存在而不支持条件；独立原因不得用OR合并。发布任务按确实执行的更新/版本检查组合功能；能力并集不作为本次操作。
+
+规则事实供G/E/GT独立定位，G仍不读取E、测试异常或匹配结果。原文委托乙服务校验时，不将校验失败挂到调用甲服务的入口。服务本地处理放operation.sequence，不生成无依据自调用。
+
+条件级规则只在原文明示校验而具体标准未知时进入G：resolution=conditional、executable=false及pending_details。没有正常规则依据仍待确认。其他确定规则为explicit。数据位置与字段路径分别保存，拆独立字段/原因，真正跨字段关系不机械拆分。
+
+检查器和测试任务引用rule_id时必须原因、条件一致，程序再按该正常规则统一责任交互，保留normalization_origin追溯。不因为同链、同关注点就直接命中。响应码及后续处理不作为异常原因命中必备字段；不可用不自动替代超时。允许缺省的正常容错不进入异常GT。
+
+## 子任务
+
+正向规则和关注点按交互、E绑定与细化按原分支、GT按测试分支，独立保存、审核、缓存和定向修复。父节点合并已验证子项；子项未完成不能发布完整父结果。父节点指导仅传播同任务子节点，不跨角色。SSD仍按配对用例一次完整建模，避免拆断链。
+
+## 内嵌用量接口
+
+- GET /api/projects/{id}/usage：轻量汇总。view=tasks或requests分页；支持offset、limit（最多200）、task_key、role、model、case、search、session_id、after。
+- GET同路径format=csv或download：导出JSON/CSV；不再使用html外链。
+- GET /api/projects/{id}/context?task_key=...：按需取单节点上下文；后续读取走指针索引。
+- PUT /api/projects/{id}/usage/prices：按模型配置input/output及可选cached_input每百万Token人民币单价；仅用于估算，不代表实际账单或免费额度。
+
+usage_index.sqlite3由请求事件增量建立；不扫描全部任务包和上下文。execution_sessions.json保存本规则版本起的执行轮，无法可靠分轮的旧历史不冒充当前执行轮。输入/缓存输入、输出/其中思考不重复相加；失败无usage为未知；预算预留不是实际费用。页面按需分页，节点入口在同一工作区打开，15秒只在页面可见时更新。
+
+## 基线核查
+
+2026-10-25旧验收4个0%用例：66条G、24条GT、404个对应判定。quality_audit.audit_run可从原始任务输出逐条导出G/GT、原文、全部匹配理由和结构诊断；诊断不改写旧分数。重新计分必须使用独立修订运行。
+
+同一旧项目实测统计索引首次0.191秒、暖缓存0.018–0.020秒，轻量汇总约3KB；旧include_context扫描约4.766秒。测量是本地接口处理时间，不等于客户浏览器端到端性能。

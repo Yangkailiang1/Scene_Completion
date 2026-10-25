@@ -31,6 +31,8 @@ def context(interaction,inputs):
     service=not human and (database or llm or any(s in position for s in ('服务','系统边界','外部Actor（系统）','AI模型','UI/前端')) or
         any(s['name']==name for s in inputs.get('api-map',{}).get('services',[])))
     kinds=set(request['operation']['kinds'])
+    for rule in inputs.get('normal-rules',{}).get('rules',[]):
+        if rule['interaction_id']==request['id']:kinds.update(rule['functional_kinds'])
     return {'view':view,'request':request,'role':role,'party':party,'service':service,'name':name,
       'functions':[k for k,v in FUNCTION_KINDS.items() if kinds&v],
       'technologies':(['database'] if database else [])+(['llm'] if llm else []),'kinds':kinds}
@@ -57,10 +59,14 @@ def _data_rule(match,interaction,inputs):
     params=[p for p in parameters_for(interaction,inputs) if p['name']==match['object'] and (not match.get('data_location') or p['location']==match['data_location'])]
     if len(params)!=1:return 'pending','字段位置或参数定义待确认'
     p=params[0];kind=match['concern_key'].split('.')[-1]
+    indexed=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==interaction['id'] and r['concern_key']==match['concern_key'] and p['name'] in r['fields']]
+    if indexed:return 'applicable','本交互的独立正向规则明确声明该字段校验，具体标准可标条件级'
     known={'completeness':p['required'] is True,'type':p['data_type'] is not None,
       'range':any(r['kind'] in {'minimum','maximum'} and r['status']=='explicit' for r in p['constraints']),
       'legality':any(r['kind'] in {'enum','other'} and r['status']=='explicit' for r in p['constraints'])}
-    if kind not in known:known[kind]=any(r['kind'] in ({'format','pattern'} if kind=='format' else {kind}) and r['status']=='explicit' for r in p['constraints'])
+    if kind not in known:
+        from .normal_rules import conditional_constraint
+        known[kind]=any(r['kind'] in ({'format','pattern'} if kind=='format' else {kind}) and (r['status']=='explicit' or conditional_constraint(r)) for r in p['constraints'])
     if kind=='completeness' and p['required'] is False:return 'not_applicable','可选字段缺省正常'
     return ('applicable','接口中有对应的明示字段约束') if known.get(kind) else ('pending','该字段的具体约束待确认')
 
@@ -142,7 +148,8 @@ def resolve_matches(inputs,matches):
     from .interaction_enrichment import interactions
     from .concern_matching import complete_data_matches
     from .exception_generation import query_matches
-    reg=registry();by_id={i['id']:i for i in interactions(inputs)};rows=complete_data_matches(inputs,matches)+query_matches(inputs)
+    from .normal_rules import rule_matches
+    reg=registry();by_id={i['id']:i for i in interactions(inputs)};rows=complete_data_matches(inputs,matches)+query_matches(inputs)+rule_matches(inputs)
     # Each *actual provider* inherits the same base profile. Conditional and
     # technology checks are visible in the matrix even when pending/inapplicable.
     for i in by_id.values():

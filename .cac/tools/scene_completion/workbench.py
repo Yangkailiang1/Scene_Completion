@@ -250,18 +250,36 @@ def create_app(root=None,client_factory=None,env_file=None):
     @app.get('/api/projects/{rid}/context')
     def model_context(rid:str,task_key:str):
         root=service.run_dir(rid)/'run';chosen=None
-        for f in sorted((root/'model_contexts').glob('*.json'),key=lambda f:f.stat().st_mtime,reverse=True):
-            v=read_json(f)
-            if v.get('node_key')==task_key:chosen=v;break
+        pointer=root/'context_index'/(fingerprint(task_key)+'.json')
+        if pointer.exists():
+            relative=read_json(pointer).get('path','');target=(root/relative).resolve()
+            if target.is_relative_to(root.resolve()) and target.is_file():chosen=read_json(target)
+        if chosen is None:
+            for f in sorted((root/'model_contexts').glob('*.json'),key=lambda f:f.stat().st_mtime,reverse=True):
+                v=read_json(f)
+                if v.get('node_key')==task_key:
+                    chosen=v;write_json(pointer,{'path':str(f.relative_to(root))});break
         if chosen is None:return Response(json.dumps({'status':'未准备模型上下文','task_key':task_key},ensure_ascii=False),media_type='application/json')
         return Response(json.dumps(chosen,ensure_ascii=False,indent=2),media_type='application/json')
     @app.get('/api/projects/{rid}/usage')
-    def usage(rid:str,format:str='json'):
-        from .usage_audit import project_usage,usage_html
-        report=project_usage(service.run_dir(rid)/'run',include_context=True)
-        if format=='html':return Response(usage_html(report),media_type='text/html')
-        if format!='json':raise ValueError('usage format must be html or json')
+    def usage(rid:str,format:str='json',view:str='summary',task_key:str|None=None,role:str|None=None,model:str|None=None,case:str|None=None,search:str='',offset:int=0,limit:int=50,after:float|None=None,session_id:str|None=None):
+        from .usage_index import indexed_usage,usage_csv
+        project=service.run_dir(rid);prices=read_json(project/'usage_prices.json') if (project/'usage_prices.json').exists() else {}
+        report=indexed_usage(project/'run',view='export' if format in {'csv','download'} else view,
+            task_key=task_key,role=role,model=model,case=case,search=search,offset=offset,limit=limit,after=after,prices=prices,session_id=session_id)
+        if format=='csv':return Response(usage_csv(report),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="task-usage.csv"'})
+        if format not in {'json','download'}:raise ValueError('usage format must be json, download or csv; use the embedded workbench view')
         return Response(json.dumps(report,ensure_ascii=False),media_type='application/json')
+    @app.put('/api/projects/{rid}/usage/prices')
+    def usage_prices(rid:str,body:dict):
+        import math
+        project=service.run_dir(rid);prices={}
+        for model,price in body.items():
+            if not isinstance(model,str) or not model.strip() or not isinstance(price,dict) or set(price)-{'input','cached_input','output'} or not {'input','output'}<=set(price):raise ValueError('按模型填写每百万Token输入/输出单价，币种为人民币')
+            if any(type(v) not in (int,float) or not math.isfinite(v) or v<0 for v in price.values()):raise ValueError('单价必须是非负有限数值')
+            prices[model]=price
+        write_json(project/'usage_prices.json',prices)
+        return {'prices':prices,'currency':'CNY','unit':'每百万Token','status':'仅用于估算，不是实际账单'}
     @app.get('/api/projects/{rid}/events/history')
     def history(rid:str,after:int=0,task_key:str|None=None,limit:int=500):
         from .execution_events import EventStore

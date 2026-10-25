@@ -2,3 +2,7 @@
 只选择registry.definitions中的活跃键，按本次操作选功能和技术扩展；身份失败不归可用性，数据错误不归LLM事实错误。父子定义同一失败只保留一项并保存concern_origins/concern_paths；明示的字段作用域和位置分别记录。不将legacy_mapping当作输出键。
 
 原测试只有参数非法这类宽泛输入描述时，先绑定请求交互并设置coverage_kind=input_parameters，保留original_branch_id（可使用测试异常ID），程序只根据该测试描述和正常接口约束展开细项。具体输出字段异常必须绑定返回交互。不同时提交同一测试分支的宽泛父项和相同细项。
+
+normal-rules是独立正向事实，不是G。测试失败对应某正常规则时填写其rule_id，并绑定该规则实际校验位置，入口请求只作为传播上下文；同链不同失败不得混合。位置仅为header/path/query/body/response/business/storage等，字段路径放field，不写body.version。独立字段和OR失败拆开，真正跨字段关系保持整体。请求数组重复是输入合法性，不因“唯一”二字归数据库唯一键。允许缺省的非关键字段缺失是正常容错，不进入异常GT；是否允许未明确则pending。只有违约才是异常，不按测试行“可选”标签直接决定。
+
+若某原文/测试分支在当前SSD找不到负责实际检查的交互，列pending说明缺失，不硬绑到入口以求通过。rule_id只能在对象、条件和原因均对应时引用，不能仅凭同一关注点选取。

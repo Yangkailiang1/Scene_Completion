@@ -96,6 +96,17 @@ class EvidenceContext:
             keys={'interaction_id','object','concern_key','field','cause','conditions','rule_id','data_location','reason'}
             self.packet['tool_rule_coverage']={k:[{a:b for a,b in row.items() if a in keys} for row in rows] for k,rows in packet['tool_rule_coverage'].items()}
         self.packet['output_schema']=self.schema(packet['output_schema'])
+        if packet['task']=='normal-rules':
+            from .contracts import registry
+            fields=self.packet['output_schema']['properties']['rules']['items']['properties']
+            fields['concern_key']={'enum':list(registry()['definitions'])}
+            fields['interaction_id']={'enum':[i['id'] for i in packet['input']['fused-ssd']['interactions'] if i['direction']=='request']}
+            fields['owner_service']={'enum':list({i['receiver']['name'] for i in packet['input']['fused-ssd']['interactions'] if i['direction']=='request'})}
+            fields['violation']={'type':'string','minLength':1,'pattern':r'^(?!.*(?:或|\bor\b)).+$'}
+            self.packet['output_schema']['properties']['rules']['items']['allOf']=[{'if':{'properties':{'concern_key':{'pattern':r'^api\.data\.'}}},'then':{'properties':{'fields':{'type':'array','minItems':1,'maxItems':1,'items':{'type':'string'}}}}}]
+            fields.pop('condition',None)
+            self.packet['output_schema']['properties']['rules']['items']['required'].remove('condition')
+            self.packet['instructions']+='\n不输出condition。正常条件由程序从你选择的source_refs恢复原文；只判断独立violation、责任服务、字段、关注点和功能类别。引用必须直接支持该反面条件。独立原因逐条输出，不用或连接。'
         if packet['task']=='semantic-compare' and packet['input'].get('candidate_pairs'):
             self.packet['output_schema']['properties']['decisions']['items']['anyOf']=[
               {'properties':{k:{'const':v} for k,v in pair.items()}} for pair in packet['input']['candidate_pairs']]
@@ -198,6 +209,8 @@ class EvidenceContext:
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
+            from .normal_rules import normalize_scenarios
+            result=normalize_scenarios(result,self.original['input'],truth=self.original['task']=='test-ground-truth')
         if self.original['task']=='concern-match':
             for row in result.get('matches',[]):
                 for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):row.pop(k,None)
@@ -224,6 +237,10 @@ class EvidenceContext:
             if isinstance(v,list):return [decode(x) for x in v]
             return v
         result=decode(value)
+        if self.original['task']=='normal-rules':
+            for r in result.get('rules',[]):
+                r['condition']=' '.join(ref['quote'] for ref in r['source_refs'])
+                self.normalizations.append({'rule_id':r['id'],'field':'condition','action':'restore verbatim positive condition from selected source evidence, no generated quote'})
         if self.original['task']=='semantic-compare':
             from .comparison_batches import restrict_candidate_decisions
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)

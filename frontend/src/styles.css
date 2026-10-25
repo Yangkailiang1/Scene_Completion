@@ -1772,3 +1772,8 @@ th, td { padding: 11px 12px; }
 .layout-reset { color: #5f7699; font-size: 12px; padding: 6px; white-space: nowrap; }
 .diagram-view iframe { height: min(68vh, 720px); min-height: 400px; }
 .node-review-shortcut { align-self: flex-end; margin: 0 20px 8px; flex-shrink: 0; }
+.usage-view {padding:24px;min-height:0;flex:1;font-size:14px}
+.usage-view h2 {font-size:22px;font-weight:600}.usage-view p {margin:12px 0;color:#52657a}
+.usage-totals {display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px;margin:24px 0}
+.usage-totals div {padding:12px;background:#f2f6fc;border-radius:8px}.usage-totals span {display:block;color:#60748e}.usage-totals strong {display:block;font-size:22px;margin-top:8px}
+.usage-table {overflow:auto}.usage-table table {width:100%;border-collapse:collapse;white-space:nowrap}.usage-table th,.usage-table td {padding:12px;text-align:left;border-bottom:1px solid #e5eaf1;vertical-align:top}.usage-table small {display:block;color:#64748b}.usage-table button,.usage-view a {color:#3758ba}.usage-table pre,.usage-context {white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;padding:12px;background:#f5f7fb}.usage-view select,.usage-view input {padding:8px;border:1px solid #d5deec;border-radius:6px;max-width:100%}

@@ -259,6 +259,58 @@
               "service_service",
               "undetermined"
             ]
+          },
+          "resolution": {
+            "enum": [
+              "explicit",
+              "conditional"
+            ]
+          },
+          "executable": {
+            "type": "boolean"
+          },
+          "pending_details": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "normalization_origin": {
+            "type": "object",
+            "properties": {
+              "interaction_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "object": {
+                "type": "string",
+                "minLength": 1
+              },
+              "field": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "data_location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "interaction_id",
+              "object",
+              "field",
+              "data_location"
+            ],
+            "additionalProperties": false
+          },
+          "source_scenario_id": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

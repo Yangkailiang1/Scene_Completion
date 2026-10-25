@@ -38,6 +38,9 @@ def validate_result(task, payload, inputs):
             except ValueError as e:evidence_errors.append(str(e))
     if evidence_errors:raise ValueError('; '.join(dict.fromkeys(evidence_errors[:8])))
     refs_required(payload)
+    if task=='normal-rules':
+        from .normal_rules import validate_rules
+        validate_rules(payload,inputs)
     if task=='api-map':
         from .api_documents import explicit_http_interfaces
         declared=explicit_http_interfaces(inputs['SR'])
@@ -191,11 +194,12 @@ def validate_result(task, payload, inputs):
                 if s['operation']!=i['operation']['name'] or s['case_id']!=i['case_id'] or s['layer']!=i['layer']:
                     raise ValueError('G must use this SSD operation, case and layer')
                 if (s['interaction_id'],s['object'],s['concern_key']) not in matches:
-                    raise ValueError('G must have an applicable matched concern')
+                    raise ValueError('G must have an applicable matched concern: '+s['id']+' '+str((s['interaction_id'],s['object'],s['concern_key']))+'; applicable='+str(sorted(matches)[:40]))
                 if s['source_status']!='framework_inferred' or not s['derivation']:
                     raise ValueError('G requires recorded positive-rule derivation')
                 if s['field'] is not None:
-                    expected={scenario_key(x) for x in data_exceptions(inputs)+storage_exceptions(inputs)}
+                    from .normal_rules import rule_exceptions
+                    expected={scenario_key(x) for x in data_exceptions(inputs)+storage_exceptions(inputs)+rule_exceptions(inputs)}
                     if scenario_key(s) not in expected: raise ValueError('unsupported or invented field exception')
                 else:
                     match=[m for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key']) and match_is_applicable(m,i,inputs)]

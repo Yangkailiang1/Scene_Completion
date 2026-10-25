@@ -20,6 +20,8 @@ def export_task(root,task,payload,artifact_name=None):
     elif task=='concern-match':
         from .contracts import registry
         defs=registry()['definitions'];headers=['交互','Service','系统组成/数据','关注点','状态','继承路径','规则或待确认原因'];rows=[[m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),m.get('status','待确认')),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason','')] for m in payload['matches']]
+    if task=='normal-rules':
+        headers=['规则ID','交互','所属服务','关注点','正常条件','异常条件','精度','待确认'];rows=[[r[k] for k in ('id','interaction_id','owner_service','concern_key','condition','violation','resolution','pending_details')] for r in payload['rules']]
     if task=='existing-branches':headers=['原分支ID','用例提示','原文异常','操作提示','参与方提示'];rows=[[b[k] for k in ('id','case_hint','description','operation_hint','party_hint')] for b in payload['branches']]
     elif task=='existing-bind':headers=['原分支','具体融合交互','状态','绑定依据'];rows=[[b[k] for k in ('branch_id','interaction_id','status','basis')] for b in payload['bindings']]
     elif task in {'existing-extract','test-ground-truth','exception-generate'}:

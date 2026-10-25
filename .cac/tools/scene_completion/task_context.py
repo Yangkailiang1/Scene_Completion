@@ -36,7 +36,8 @@ def generation_matches(inputs):
     from .concern_hierarchy import match_is_applicable
     by_id={i['id']:i for i in interactions(inputs)}
     mechanical={'service.base.availability','service.query_retrieval.resource_existence'}
-    return [deepcopy(m) for m in inputs['concern-match']['matches'] if m['interaction_id'] in by_id
+    indexed={(r['interaction_id'],r['owner_service'],r['concern_key']) for r in inputs.get('normal-rules',{}).get('rules',[])}
+    return [deepcopy(m) for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key']) not in indexed and m['interaction_id'] in by_id
       and match_is_applicable(m,by_id[m['interaction_id']],inputs) and m.get('concrete_rule')
       and not m['concern_key'].startswith('api.data.') and m['concern_key'] not in mechanical]
 
@@ -44,13 +45,15 @@ def generation_matches(inputs):
 def semantic_view(task,inputs):
     """Remove duplicate views and derived display metadata, never source facts."""
     out=deepcopy(inputs)
-    relevant={'concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}
+    relevant={'normal-rules','concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}
     if task not in relevant:return out
     from .inverse_alignment import canonical_fused
     if 'fused-ssd' in out:
         # Inverse binding accepts only canonical interaction IDs, not aliases.
         out['fused-ssd']=canonical_fused(out['fused-ssd'])
         out['fused-ssd'].pop('aliases',None)
+        if task=='normal-rules':
+            out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','direction','sender','receiver','operation','data','source_refs')} for i in out['fused-ssd']['interactions'] if i['direction']=='request']
     if 'enriched-interactions' in out:
         rows=out.pop('enriched-interactions')['interactions']
         messages=[]
@@ -81,4 +84,22 @@ def semantic_view(task,inputs):
         # Original branches/test rows are retained; no duplicate composition or
         # full API table. normal-constraints is already scoped to this use case.
         out.pop('components',None);out.pop('api-map',None)
+        if 'normal-rules' in out and task=='existing-extract':out.pop('existing-documents',None)
+    if task in {'existing-bind','existing-extract','test-ground-truth'}:
+        # Inverse tasks receive positive facts, never the positive generator's
+        # derived negative candidates through a shared-rule side channel.
+        for rule in out.get('normal-rules',{}).get('rules',[]):rule.pop('violation',None)
+        if task=='existing-extract' and 'bindings' in out:
+            ids={b['interaction_id'] for b in out['bindings']['bindings'] if b['status']=='confirmed'}
+            if ids:
+                out['fused-ssd']['interactions']=[i for i in out['fused-ssd']['interactions'] if i['id'] in ids]
+                out['normal-rules']['rules']=[r for r in out.get('normal-rules',{}).get('rules',[]) if r['interaction_id'] in ids]
+        for i in out.get('fused-ssd',{}).get('interactions',[]):
+            for side in ('sender','receiver'):i[side]={k:i[side][k] for k in ('name','position')}
+            i['operation']={k:i['operation'][k] for k in ('name','kinds','sequence')}
+            i['data']={'sequence':[{k:p[k] for k in ('name','location')} for p in i['data']['sequence']]}
+        if 'registry' in out:
+            text=str(out.get('fused-ssd',{}))
+            techs=({'database'} if '数据库' in text else set())|({'llm'} if any(k in text.lower() for k in ('llm','大语言','large language')) else set())
+            out['registry']['definitions']={k:v for k,v in out['registry']['definitions'].items() if not v.get('technology') or v['technology'] in techs}
     return out

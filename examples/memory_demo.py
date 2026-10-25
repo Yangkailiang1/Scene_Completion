@@ -76,6 +76,7 @@ pageSize：可选整数，默认20，范围1-100。
     mocks['existing-branches']={'branches':[{'id':'empty','case_hint':'SC002-UC002','description':rr_text.splitlines()[3],'operation_hint':'查询记忆库列表','party_hint':'WiseCloudMemoryPlatformService','source_refs':refs(rr,4)}]}
     mocks['existing-bind']={'bindings':[{'branch_id':'empty','interaction_id':'SR-request','status':'confirmed','basis':'本用例同一次查询请求的RR/SR视图','source_refs':refs(rr,4)}]}
     mocks['existing-extract']['scenarios'][0].update(interaction_id='SR-request',original_branch_id='empty',coverage_kind='exact')
+    mocks['normal-rules']={'rules':[],'pending':[]}
     ex=Execution(root/'run',mocks=mocks,config={'max_concurrency':2,'fixture_version':'memory-demo-1.1'},case_ids=['SC002-UC002'])
     build_pipeline(ex,rr,sr,[]);result=ex.finish();print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result['complete'] else 2

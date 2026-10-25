@@ -8,6 +8,7 @@ from .concern_registry import inheritance_paths,failure_family
 from .concern_hierarchy import match_is_applicable,context
 def data_exceptions(inputs):
     """One known violation per field/rule. Missing optional parameters never fail."""
+    from .normal_rules import conditional_constraint,descriptive_constraint
     output=[]
     labels={'required':'数据完整性','type':'数据类型','enum':'数据合法性','minimum':'数据范围','maximum':'数据范围',
             'format':'数据格式','length':'数据长度','size':'数据大小','pattern':'数据格式','other':'数据合法性'}
@@ -17,7 +18,7 @@ def data_exceptions(inputs):
             rules=[]
             if p['required'] is True:rules.append(('required','missing_required',True,p['source_refs']))
             if p['data_type'] is not None:rules.append(('type','type',p['data_type'],p['source_refs']))
-            rules += [(r['kind'],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if r['status']=='explicit' and r['kind']!='type']
+            rules += [(r['kind'],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if (r['status']=='explicit' or conditional_constraint(r)) and r['kind']!='type' and not descriptive_constraint(r)]
             for kind,cause,value,refs in rules:
                 key=concern_by_label(labels[kind])
                 if (p['location'],p['name'],key) not in matches and (None,p['name'],key) not in matches: continue
@@ -28,6 +29,10 @@ def data_exceptions(inputs):
                    'concern_key':key,'field':p['name'],'rule_id':rule_id,'source_status':'framework_inferred',
                    'derivation':f'字段{p["name"]}的明示{kind}规则取反；可选字段仅在提供时检查。','source_refs':refs,'steps':scenario_steps(i,conditions),'scope':'interface','data_location':p['location'],
                    'concern_origins':[key],'concern_paths':inheritance_paths(key,i['direction'])}
+                conditional=any(r['kind']==kind and conditional_constraint(r) for r in p['constraints'])
+                s.update(resolution='conditional' if conditional else 'explicit',executable=not conditional,pending_details=[kind+'具体约束待确认'] if conditional else [])
+                if conditional:
+                    s['conditions']=[p['name']+'已提供','不满足原文明示的'+kind+'规则（具体标准待确认）'];s['steps']=scenario_steps(i,s['conditions'])
                 output.append(s)
     return deduplicate(output)
 
@@ -72,13 +77,14 @@ def deduplicate(scenarios):
 
 def pending_rules(inputs):
     """Unknown positive properties are diagnostic, never failure scenarios."""
+    from .normal_rules import conditional_constraint
     out=[]
     for i in interactions(inputs):
         for p in parameters_for(i,inputs):
             for rule in p['constraints']:
-                if rule['status']=='pending':out.append({'interaction_id':i['id'],'object':p['name'],
+                if rule['status']=='pending' or conditional_constraint(rule):out.append({'interaction_id':i['id'],'object':p['name'],
                   'concern_key':{'format':'api.data.format','length':'api.data.length','size':'api.data.size','type':'api.data.type'}.get(rule['kind'],'api.data.legality'),
-                  'reason':f'{rule["kind"]}具体约束待确认，不进入G','source_refs':rule['source_refs'] or p['source_refs']})
+                  'reason':f'{rule["kind"]}具体约束待确认，已有条件级异常，不能直接执行' if conditional_constraint(rule) else f'{rule["kind"]}具体约束待确认，不进入G','source_refs':rule['source_refs'] or p['source_refs']})
             if p['required'] is True and p['data_type'] is None and not any(r['status']=='explicit' for r in p['constraints']):
                 out.append({'interaction_id':i['id'],'object':p['name'],'concern_key':'api.data.legality',
                   'reason':'必填字段已提供但违反约束：具体类型、格式或取值规则待确认，不进入G','source_refs':p['source_refs']})

@@ -2,6 +2,41 @@
 from copy import deepcopy
 import re
 
+def collapse_local_processing(value,normalizations=None):
+    """Move evidenced local validations into their unique owning request.
+
+    Explicit recursion/self-calls remain messages. No call is created or renamed.
+    """
+    out=deepcopy(value);rows=out['interactions'];removed={};by_id={i['id']:i for i in rows}
+    for n,row in enumerate(rows):
+        if row['direction']!='request' or row.get('api_id') or row['sender']['name']!=row['receiver']['name']:continue
+        text=' '.join(r['quote'] for r in row['source_refs'])
+        if not re.search(r'校验|验证|validate',row['operation']['name'],re.I) or re.search(r'递归|自身调用|调用自身|recursive|self.call',text,re.I):continue
+        previous=[i for i in rows[:n] if i['layer']==row['layer'] and i['direction']=='request' and i['id'] not in removed and i['sender']['name']!=i['receiver']['name'] and i['receiver']['name']==row['receiver']['name']]
+        if not previous:continue
+        owner=next((i for i in previous if i['id']==row.get('parent_id')),None)
+        if owner is None:
+            # Prefer the most recent still-open call; repeated executions stay separate.
+            closed={i.get('parent_id') for i in rows[:n] if i['direction']=='return'}
+            active=[i for i in previous if i['id'] not in closed]
+            if len(active)!=1:continue
+            owner=active[0]
+        steps=[row['operation']['name']]+row['operation']['sequence']
+        owner['operation']['sequence']=list(dict.fromkeys(owner['operation']['sequence']+steps))
+        refs=owner['operation']['source_refs']+row['operation']['source_refs']+row['source_refs']
+        from .storage import fingerprint
+        owner['operation']['source_refs']=list({fingerprint(r):r for r in refs}.values())
+        owner['source_refs']=list({fingerprint(r):r for r in owner['source_refs']+row['source_refs']}.values())
+        removed[row['id']]=owner['id']
+        if normalizations is not None:normalizations.append({'message_id':row['id'],'owner_message_id':owner['id'],'action':'move local validation to operation.sequence; preserve source evidence'})
+    out['interactions']=[i for i in rows if i['id'] not in removed]
+    for row in out['interactions']:
+        if row.get('parent_id') in removed:row['parent_id']=removed[row['parent_id']]
+    for link in out.get('rr_sr_links',[]):link['sr_ids']=list(dict.fromkeys(removed.get(s,s) for s in link['sr_ids']))
+    for layer in ('RR','SR'):
+        for sequence,row in enumerate((r for r in out['interactions'] if r['layer']==layer),1):row['sequence']=sequence
+    return out
+
 
 def validate_explicit_resources(rows):
     """Reject a named table that contradicts a unique literal table reference.
@@ -10,6 +45,10 @@ def validate_explicit_resources(rows):
     resolve to a unique table here; leave that semantic decision to the model.
     """
     for row in rows:
+        if row['direction']=='request' and row['sender']['name']==row['receiver']['name'] and not row.get('api_id'):
+            text=' '.join(r['quote'] for r in row.get('source_refs',[]))
+            if re.search(r'校验|验证|validate',row['operation']['name'],re.I) and not re.search(r'递归|自身调用|调用自身|recursive|self.call',text,re.I):
+                raise ValueError('local validation must be operation.sequence of the owning incoming call, not an invented self-service message: '+row['id'])
         if row['direction']!='request' or '数据库' not in row['receiver']['position']:continue
         actual=re.fullmatch(r'\s*([A-Za-z_][A-Za-z0-9_]*)\s*表',row['receiver']['name'])
         if not actual:continue
@@ -21,7 +60,7 @@ def validate_explicit_resources(rows):
 
 
 def complete_structure(value,normalizations=None):
-    out=deepcopy(value);rows=out['interactions'];by_id={i['id']:i for i in rows}
+    out=collapse_local_processing(value,normalizations);rows=out['interactions'];by_id={i['id']:i for i in rows}
     for layer in ('RR','SR'):
         opened=[]
         for i in (r for r in rows if r['layer']==layer):

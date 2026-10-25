@@ -4,7 +4,7 @@ import time
 from .storage import read_json
 from .deepagents_client import role_for
 
-LABELS={'ssd-context':'用例SSD上下文取片（工具）','source-index':'Markdown章节与证据索引（工具）','components':'系统组成','use-case-extract':'用例目录抽取','use-case-align':'RR / SR 用例对应',
+LABELS={'normal-rules':'正向正常规则整理','ssd-context':'用例SSD上下文取片（工具）','source-index':'Markdown章节与证据索引（工具）','components':'系统组成','use-case-extract':'用例目录抽取','use-case-align':'RR / SR 用例对应',
  'api-index':'接口目录与参数任务拆分','existing-branches':'原文已有异常分支','existing-bind':'异常与融合交互绑定','api-map':'API 接口映射','api-parameters':'API 参数','fused-ssd':'完整 SSD 建模','rr-ssd':'RR SSD 视图','sr-ssd':'SR SSD 视图',
  'test-operation-project':'测试操作投影','object-operations':'对象支持操作','interaction-align':'步骤展开对应','interaction-enrich':'交互属性补全',
  'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
@@ -15,7 +15,7 @@ def artifact_folder(root,key,case):
     from .storage import fingerprint
     return Path(root)/'artifacts'/('shared' if case=='shared' else fingerprint(case)[:12])
 
-INPUTS={'components':'RR＋SR正向文档','rr-use-cases':'RR正向文档','sr-use-cases':'SR正向文档',
+INPUTS={'normal-rules':'本用例正向原文＋实际服务交互，不含E/GT','components':'RR＋SR正向文档','rr-use-cases':'RR正向文档','sr-use-cases':'SR正向文档',
  'api-index':'SR接口定义','api-map':'SR服务及接口定义','api-parameters':'SR接口定义与约束（按接口分任务）',
  'fused-ssd':'对应RR/SR用例＋系统组成','object-operations':'组成＋RR视图＋测试操作投影',
  'concern-match':'具体交互＋接口表＋预定义关注点','exception-generate':'正向交互及已匹配关注点，隔离E/GT',

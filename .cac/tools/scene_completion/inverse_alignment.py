@@ -30,7 +30,8 @@ def canonical_fused(value):
 
 def normalized_scenarios(value,fused):
     canonical=canonical_fused(fused);aliases={x['source_id']:x['interaction_id'] for x in canonical['aliases']};by_id={i['id']:i for i in canonical['interactions']}
-    out=deepcopy(value)
+    from .normal_rules import normalize_scenarios
+    out=normalize_scenarios(value,{'fused-ssd':fused})
     for s in out.get('scenarios',[]):
         iid=aliases.get(s['interaction_id'],s['interaction_id']);i=by_id.get(iid)
         if not i:raise ValueError('异常必须绑定本用例融合SSD中的具体交互')
@@ -38,6 +39,8 @@ def normalized_scenarios(value,fused):
     out['scenarios']=deduplicate(out.get('scenarios',[]));return out
 
 def expand_inverse(value,inputs):
+    from .normal_rules import normalize_scenarios
+    value=normalize_scenarios(value,inputs)
     value=normalized_scenarios(value,inputs['fused-ssd'])
     branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
     bindings={(b['branch_id'],b['interaction_id']) for b in inputs.get('bindings',{}).get('bindings',[]) if b['status']=='confirmed'}
@@ -68,7 +71,8 @@ def expand_inverse(value,inputs):
 
 def expand_truth(value,inputs):
     """Broad test descriptions expand against normal rules, independent of G/E."""
-    value=normalized_scenarios(value,inputs['fused-ssd']);out=[];pending=[]
+    from .normal_rules import normalize_scenarios
+    value=normalized_scenarios(normalize_scenarios(value,inputs,truth=True),inputs['fused-ssd']);out=[];pending=[]
     for s in value['scenarios']:
         if s.get('coverage_kind')!='input_parameters':out.append(s);continue
         bid=s.get('original_branch_id') or s['id']

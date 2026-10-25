@@ -168,6 +168,7 @@ def fake_pipeline(tmp_path,mocks=None):
     empty['components']={'components':[{'id':'actor','name':'开发者','composition_type':'外部Actor（人类）','parent_id':None,'source_status':'explicit','source_refs':ref(rr)},
       {'id':'platform','name':'Platform','composition_type':'系统边界','parent_id':None,'source_status':'explicit','source_refs':ref(rr)}],'relations':[]}
     if mocks is not None:empty=mocks
+    empty.setdefault('normal-rules', {'rules':[],'pending':[]})
     install_catalogue_mocks(empty)
     return rr,sr,tests,empty
 

@@ -40,9 +40,32 @@ def payload(value):
 
 def code_version(task):
     folder=Path(__file__).parent
-    # Semantic contracts and validators are part of every result identity.
-    names=['contracts.py','validation.py','interaction_enrichment.py','exception_generation.py',
-           'exception_comparison.py','concern_matching.py','assignment.py','workflow.py','source_documents.py','concern_registry.py','concern_hierarchy.py','model_client.py','native_client.py','use_cases.py','reviews.py','deepagents_client.py','execution_events.py','execution_graph.py','streaming.py','inverse_alignment.py','node_conversations.py','api_documents.py','model_routing.py','indexed_context.py','ssd_tools.py','task_context.py','comparison_batches.py']
+    # The output schema, actual dependency payloads and cache validation already
+    # guard shared contracts. Unrelated task implementations must not trigger
+    # paid re-extraction of successfully verified upstream models.
+    modules={
+      'components':['composition_drawing.py'], 'api-map':['api_documents.py'],
+      'api-index':['api_documents.py'], 'api-parameters':['api_documents.py'],
+      'source-index':['indexed_context.py','source_documents.py'], 'document-context':['indexed_context.py'],
+      'use-case-extract':['use_cases.py'], 'use-case-align':['use_cases.py'],
+      'fused-ssd':['ssd_tools.py','use_cases.py'], 'ssd-context':['task_context.py'],
+      'rr-ssd':['ssd_tools.py'], 'sr-ssd':['ssd_tools.py'],
+      'object-operations':['interaction_enrichment.py'], 'interaction-align':['ssd_tools.py'],
+      'interaction-enrich':['interaction_enrichment.py','inverse_alignment.py'],
+      'normal-rules':['normal_rules.py','task_partitions.py'],
+      'concern-match':['normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
+      'exception-generate':['normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
+      'existing-branches':['source_documents.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'existing-extract':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'test-ground-truth':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'gap-compare':['exception_comparison.py','comparison_batches.py','assignment.py','normal_rules.py'],
+      'semantic-compare':['comparison_batches.py','assignment.py','normal_rules.py'],
+      'missing-report':['exception_comparison.py','artifact_exports.py'],
+      'exception-evaluation':['exception_comparison.py','assignment.py'],
+      'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
+      'test-operation-project':['source_documents.py'], 'gap-recommend':[]}
+    names=modules.get(task,[])
+    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     return implementation
@@ -66,6 +89,7 @@ class Execution:
         self.reviews=Reviews(self.root,self.config.get('review_mode','auto'))
         self.expand_pipeline=None
         self.expand_api=None
+        self.partitions=[]
         if self.config.get('structured_output','json_object') not in {'json_object','json_schema'}:
             raise ValueError('structured_output must be json_object or configured json_schema')
         self.identity={'mode':'mock' if mocks is not None else mode,'model':client.model('agent') if client else None,
@@ -78,8 +102,15 @@ class Execution:
         if previous and previous.get('execution_identity',{}).get('mode')=='mock' and mocks is None:raise ValueError('mock results cannot be promoted into a real run')
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
                        'registry_hash':registry()['hash'],'registry_version':registry()['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
+        from .normal_rules import RULESET_VERSION
+        self.manifest['ruleset_version']=RULESET_VERSION
         write_json(manifest,self.manifest)
         self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
+        import time
+        self.session_id=fingerprint([time.time_ns(),str(self.root)])[:20]
+        sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
+        sessions.append({'id':self.session_id,'started_at':time.time(),'finished_at':None,'status':'running'})
+        write_json(self.root/'execution_sessions.json',sessions)
         self.gate=CallGate(self.config.get('max_concurrency',1),adaptive=self.config.get('adaptive_concurrency',True),on_change=lambda s:write_json(self.root/'concurrency_status.json',s),pause_file=self.root/'pause_requested.json')
         prior_limit=self.root/'concurrency_status.json'
         if prior_limit.exists():
@@ -106,7 +137,8 @@ class Execution:
         if task=='exception-generate':
             # These are derived only from this task's positive inputs. They are
             # not E/GT, previous G, or semantic answers from another channel.
-            p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'availability':service_exceptions(inputs),'storage':storage_exceptions(inputs),'pending':pending_rules(inputs)}
+            from .normal_rules import rule_exceptions
+            p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'availability':service_exceptions(inputs),'storage':storage_exceptions(inputs),'normal_rules':rule_exceptions(inputs),'pending':pending_rules(inputs)}
             p['tool_rule_instruction']='工具会合并上述确定性候选。模型只需返回其他有具体正常规则支持的双方/操作异常，可返回空scenarios；不要改写字段规则或编造后续行为。'
         if task=='concern-match':
             p['tool_rule_instruction']='程序会依照既定注册表自动继承基础、功能、技术及关系关注点，并由明确字段属性补齐数据关注点。你只补充需要语义理解的具体适用依据（如认证/授权条件、技术身份、明确的业务规则），不要穷举所有关注点或重复字段规则；没有额外依据可返回空matches，未知项写pending。'
@@ -172,7 +204,7 @@ class Execution:
     def skill_text(self,task):
         return skill_path(task).read_text(encoding='utf8')
 
-    def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None):
+    def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None,skip_review=False):
         static=static or {}
         review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None,self.conversations.revision(key)])
         def inputs_for(dependencies):
@@ -180,24 +212,31 @@ class Execution:
             return build(values) if build else deepcopy(static)
         def execute(dependencies,record):
             inputs=inputs_for(dependencies)
-            reviewed=self.reviews.cached(key,task,inputs,review_identity) if task in REVIEW_TASKS else None
+            reviewed=self.reviews.cached(key,task,inputs,review_identity) if task in REVIEW_TASKS and not skip_review else None
             if reviewed is not None:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
+            elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
+                value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
             elif task=='exception-generate' and not generation_matches(inputs) and not self.conversations.revision(key):
                 value={'scenarios':[],'pending':[]};proof={'provider':'deterministic_rule_coverage','reason':'没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型'}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
             candidate=deepcopy(value)
             try:
+                if task=='normal-rules':
+                    for rule in value['rules']:rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
                 if task=='concern-match':
                     resolved=resolve_matches(inputs,value['matches'])
                     value['matches']=resolved['matches']
                     value['pending']=list({fingerprint(v):v for v in value['pending']+resolved['pending']}.values())
                 if task in {'exception-generate','existing-extract','test-ground-truth'}:
+                    from .normal_rules import normalize_scenarios
+                    value=normalize_scenarios(value,inputs,truth=task=='test-ground-truth')
                     if task=='exception-generate':
-                        value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)))
+                        from .normal_rules import rule_exceptions
+                        value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)+rule_exceptions(inputs)))
                         value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
                     else:value['scenarios']=deduplicate(value['scenarios'])
                 if task=='existing-extract' and 'fused-ssd' in inputs:
@@ -214,7 +253,7 @@ class Execution:
                 rejection=self.root/'agent_rejections'/(fingerprint([key,inputs,candidate,str(exc),'postprocess'])+'.json')
                 write_json(rejection,{'task':task,'node_key':key,'input_hash':fingerprint(inputs),'payload':candidate,'error':str(exc)})
                 raise TaskRejected({'error':str(exc),'phase':'postprocess','rejected_output':str(rejection.relative_to(self.root))}) from exc
-            if reviewed is None:self.reviews.propose(key,task,inputs,value,review_identity)
+            if reviewed is None and not skip_review:self.reviews.propose(key,task,inputs,value,review_identity)
             meta={'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
             if task=='components':meta.update(resource_metadata(value))
             return {'protocol':PROTOCOL,'task':task,'payload':value,'metadata':meta}
@@ -228,9 +267,33 @@ class Execution:
                  'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
 
+    def partitioned(self,key,task,deps,build,case):
+        """Expand after inputs validate; each child has its own review/cache/retry."""
+        from .task_partitions import split_task,merge_parts
+        def waiting(d):raise TaskBlocked('dependency_wait',{'reason':'等待子任务展开'})
+        self.add(key,task,deps,build=build,transform=waiting,case=case)
+        def expand():
+            inputs=build({d:payload(read_json(self.root/self.scheduler.state['tasks'][d]['output_file'])) for d in deps})
+            units=split_task(task,inputs);children=[]
+            for unit,part in units:
+                child=key+'--part-'+fingerprint(unit)[:10];children.append(child)
+                inherited={m['detail'].get('parent_message_id') for m in self.conversations.list(child)}
+                for message in self.conversations.list(key):
+                    if message['kind']=='guidance' and message['id'] not in inherited:
+                        self.conversations.append(child,'guidance',message['text'],{'parent_message_id':message['id'],'parent_task':key})
+                self.add(child,task,deps,static=part,build=lambda d,part=part:deepcopy(part),case=case)
+                self.scheduler.tasks[child].display_label=TASKS.get(task,('',task))[1]+' · '+unit
+            self.scheduler.tasks.pop(key)
+            self.add(key,task,tuple(children) or deps,build=lambda d,inputs=inputs:inputs,
+              transform=lambda d,children=children:merge_parts(task,[payload(read_json(self.root/self.scheduler.state['tasks'][c]['output_file'])) for c in children]),case=case,skip_review=True)
+        self.partitions.append((tuple(deps),expand))
+
     def finish(self):
         def update():
             records=self.scheduler.state['tasks']
+            for dependencies,expand in list(self.partitions):
+                if all(records.get(d,{}).get('status')=='passed' for d in dependencies):
+                    self.partitions.remove((dependencies,expand));expand()
             api=records.get('api-index',{})
             if self.expand_api and api.get('status')=='passed':
                 self.scheduler.tasks.pop('api-parameters',None)
@@ -244,14 +307,19 @@ class Execution:
                         self.add('api-parameters','api-parameters',('api-index',),transform=lambda d:{'apis':[]})
             if self.expand_pipeline and records.get('use-case-align',{}).get('status')=='passed':
                 expand=self.expand_pipeline;self.expand_pipeline=None;expand()
+            for dependencies,expand in list(self.partitions):
+                if all(records.get(d,{}).get('status')=='passed' for d in dependencies):
+                    self.partitions.remove((dependencies,expand));expand()
         self.scheduler.on_update=update
         result=self.scheduler.run()
-        self.scheduler.on_update=None
         if self.expand_api:
             self.scheduler.tasks.pop('api-parameters',None)
             expand=self.expand_api;self.expand_api=None;expand();result=self.scheduler.run()
         if self.expand_pipeline and self.scheduler.state['tasks'].get('use-case-align',{}).get('status')=='passed':
             expand=self.expand_pipeline;self.expand_pipeline=None;expand();result=self.scheduler.run()
+        before=set(self.scheduler.tasks);update()
+        if before!=set(self.scheduler.tasks):result=self.scheduler.run()
+        self.scheduler.on_update=None
         artifact_root=self.root/'artifacts'
         import shutil
         # Keep independently completed task files; failed siblings cannot erase them.
@@ -290,6 +358,11 @@ class Execution:
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
+        import time
+        sessions=read_json(self.root/'execution_sessions.json')
+        for session in sessions:
+            if session['id']==self.session_id:session.update(finished_at=time.time(),status='complete' if self.manifest['complete'] else 'waiting')
+        write_json(self.root/'execution_sessions.json',sessions)
         return self.manifest
 
 
@@ -374,12 +447,13 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
     for cid in cases:
         key=lambda t:cid+':'+t
         # Translate scheduler keys to task contract names only within this case.
-        def add(task,deps=(),static=None,build=None,transform=None,cid=cid):
+        def add(task,deps=(),static=None,build=None,transform=None,cid=cid,partition=False):
             local=lambda t:t if t in {'components','api-map','api-parameters'} else cid+':'+t
             def construct(d):
                 values={t:d[local(t)] for t in deps}
                 return build(values) if build else deepcopy(static or {})
-            ex.add(cid+':'+task,task,tuple(local(t) for t in deps),static=static,build=construct,transform=transform,case=cid)
+            if partition and ex.config.get('partition_tasks',True):ex.partitioned(cid+':'+task,task,tuple(local(t) for t in deps),construct,cid)
+            else:ex.add(cid+':'+task,task,tuple(local(t) for t in deps),static=static,build=construct,transform=transform,case=cid)
         group=next(g for g in groups if g['id']==cid)
         scoped_rr=select_documents(rr,[c for c in catalogue['RR'] if c['id'] in group['rr_ids']],catalogue['RR'])
         scoped_sr=select_documents(sr,[c for c in catalogue['SR'] if c['id'] in group['sr_ids']],catalogue['SR'])
@@ -405,7 +479,9 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         add('test-operation-project',static={'test-operation-source':scoped_test},transform=(lambda d:{'objects':[]}) if not scoped_test else None)
         add('object-operations',('components','rr-ssd','test-operation-project'),build=lambda d:{'components':d['components'],'rr-ssd':d['rr-ssd'],'test-operations':d['test-operation-project']},transform=capability_union)
         add('interaction-align',('components','rr-ssd','sr-ssd','fused-ssd'),build=lambda d:d,transform=lambda d:{'aliases':[],'links':d['fused-ssd']['rr_sr_links']})
-        normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations')
+        positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
+        add('normal-rules',('fused-ssd',),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':d['fused-ssd']},partition=True)
+        normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','normal-rules')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:canonical_enrich(d))
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
         def concern_input(d,positive=positive):
@@ -413,18 +489,18 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             v.update(basic_views(d['interaction-enrich']))
             v['api-parameters']=case_parameters(v,d['interaction-enrich'])
             return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry()}
-        add('concern-match',normal+('interaction-enrich',),static={'normal-documents':positive},build=concern_input)
+        add('concern-match',normal+('interaction-enrich',),static={'normal-documents':positive},build=concern_input,partition=True)
         add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
         def generation_input(d):
             v=bind_resource_services({k:d[k] for k in normal if k!='object-operations'})
             v.update(basic_views(d['enriched-view']))
             v['api-parameters']=case_parameters(v,d['enriched-view'])
             return {**v,'enriched-interactions':actual_context(d['enriched-view']),'concern-match':d['concern-match'],'registry':registry()}
-        add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input)
-        add('existing-bind',('existing-branches','fused-ssd'),
-            build=lambda d,g=group:{'branches':d['existing-branches'],'fused-ssd':d['fused-ssd'],'case-group':g,'registry':registry()})
-        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map'),
-            build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd'])})
+        add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input,partition=True)
+        add('existing-bind',('existing-branches','fused-ssd','normal-rules'),
+            build=lambda d,g=group:{'branches':d['existing-branches'],'fused-ssd':d['fused-ssd'],'case-group':g,'registry':registry(),'normal-rules':d['normal-rules']},partition=True)
+        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules'),
+            build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd']),'normal-rules':d['normal-rules']},partition=True)
         add('gap-compare',('exception-generate','existing-extract'),build=lambda d:{'left':d['exception-generate']['scenarios'],'right':d['existing-extract']['scenarios'],'purpose':'G_E'})
         add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind'),build=lambda d:d,
             transform=lambda d:{**missing_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['gap-compare']['decisions']),
@@ -432,7 +508,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
               'pending':d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
-        add('test-ground-truth',('api-parameters','api-map','fused-ssd'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry()},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None)
+        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None,partition=bool(scoped_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
             a,b='test-ground-truth',target
