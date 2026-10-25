@@ -124,7 +124,7 @@ class ResultView:
                 aligned['anchor']=compact(aligned['anchor'])
                 aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
         return {'case':case,'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
-                'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract')]},
+                'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract'),('GT','test-ground-truth')]},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
                 'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),
                 'partial_diagnostics':evaluation.get('partial_diagnostics',report.get('partial_diagnostics',{})),

@@ -10,6 +10,9 @@ def similarity(a,b):
     for key in FEATURES:
         x,y=a.get(key),b.get(key)
         if x in (None,[], '') or y in (None,[], ''):continue
+        if key=='functional_types':
+            aliases={'read':'query_retrieval','display':'display_interaction','create':'resource_mutation','update':'resource_mutation','delete':'resource_mutation','process':'analysis_generation','publish':'release_activation'}
+            x=[aliases.get(v,v) for v in x] if isinstance(x,list) else x;y=[aliases.get(v,v) for v in y] if isinstance(y,list) else y
         if isinstance(x,list) and isinstance(y,list):values.append(len(set(x)&set(y))/len(set(x)|set(y)))
         else:values.append(float(x==y))
     return sum(values)/len(values) if values else 0.
@@ -18,7 +21,7 @@ def historical_score(s,history,case_id,run_id,library_version=None):
     numerator=1.;denominator=2.;proof=[]
     for row in history:
         if row.get('source_channel') in {'test_gt','automatic_gt','machine_unreviewed'} or not row.get('human_reviewed') or row.get('decision') not in {'adopt','not_needed'}:continue
-        if row.get('run_id')==run_id or row.get('case_id')==case_id:continue
+        if row.get('run_id')==run_id:continue
         if library_version and row.get('library_version')!=library_version:continue
         if row['pattern_id'] not in s.get('linked_pattern_ids',[s['pattern_id']]):continue
         if library_version and row.get('pattern_hash')!=s.get('pattern_versions',{}).get(row['pattern_id']):continue

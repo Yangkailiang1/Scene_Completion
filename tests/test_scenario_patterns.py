@@ -99,7 +99,8 @@ def test_history_human_version_case_run_isolation_and_neutral_prior(tmp_path):
     row={'id':'h','pattern_id':s['pattern_id'],'pattern_hash':s['pattern_versions'][s['pattern_id']],'library_version':VERSION,'context':s['scenario_context'],'human_reviewed':True,'decision':'adopt','source_channel':'business_review','case_id':'old-case','run_id':'old-run','reviewed_at':1,'source':'人工复核'}
     h=import_history(tmp_path,{'revision':0,'items':[row]})
     score,proof=historical_score(s,h['items'],'new-case','new-run',VERSION);assert score> .5 and proof
-    for patch in [{'case_id':'new-case'},{'run_id':'new-run'},{'source_channel':'automatic_gt'},{'human_reviewed':False},{'library_version':'old'}]:
+    assert historical_score(s,[{**row,'case_id':'new-case'}],'new-case','new-run',VERSION)[0]>.5
+    for patch in [{'run_id':'new-run'},{'source_channel':'automatic_gt'},{'human_reviewed':False},{'library_version':'old'}]:
         assert historical_score(s,[{**row,**patch}],'new-case','new-run',VERSION)==(.5,[])
     with pytest.raises(ValueError):import_history(tmp_path,{'revision':1,'items':[{**row,'id':'gt','source_channel':'test_gt'}]})
 
@@ -203,12 +204,63 @@ def test_metadata_migration_pins_new_hash_without_overwriting_old_snapshot(tmp_p
     assert read_json(tmp_path/'pattern-versions'/(old+'.json'))==raw
 
 def test_positive_reuse_never_reads_E_GT_and_revalidates_contract(tmp_path):
-    from scene_completion.positive_reuse import find,normalized_skill
+    from scene_completion.positive_reuse import find,normalized_skill,input_identity
     from scene_completion.storage import write_json,fingerprint
     from scene_completion.contracts import schema
-    row={'task':'api-map','skill':'same','schema_hash':fingerprint(schema('api-map')),'payload':{'services':[]},'source_project':'old','source_key':'api-map','source_output_hash':'proof'}
+    row={'input_hash':input_identity({'SR':[]}),'task':'api-map','skill':'same','schema_hash':fingerprint(schema('api-map')),'payload':{'services':[]},'source_project':'old','source_key':'api-map','source_output_hash':'proof'}
     write_json(tmp_path/'positive_reuse.json',{'seeds':[row]})
     assert find(tmp_path,'api-map',{'SR':[]},[],'same')[0]=={'services':[]}
     assert find(tmp_path,'api-map',{'SR':[]},[],'changed') is None
     assert find(tmp_path,'existing-extract',{},[],'same') is None
+    assert find(tmp_path,'api-map',{'SR':[{'source_id':'s','channel':'normal','lines':[{'number':1,'text':'different source slice'}]}]},[],'same') is None
     row['schema_hash']='wrong';write_json(tmp_path/'positive_reuse.json',{'seeds':[row]});assert find(tmp_path,'api-map',{'SR':[]},[],'same') is None
+
+def test_normal_idempotent_replay_is_not_failure_even_when_type_mislabeled():
+    from scene_completion.scenario_types import normal_replay
+    assert normal_replay({'触发条件':'重复提交退款申请','预期结果':'返回已有退款单，不重复创建'})
+    assert not normal_replay({'触发条件':'相同幂等键失效，重复创建退款单','预期结果':'返回已有退款单，不重复创建'})
+
+def test_concrete_truth_does_not_inherit_E_broad_parameter_coverage():
+    from scene_completion.inverse_alignment import expand_truth
+    x=positive();s=scenario('format',status='explicit');s.update(field='memoryType',concern_key='api.data.format',coverage_kind='input_parameters',source_refs=[{**R[0],'quote':'格式不合法'}])
+    out=expand_truth({'scenarios':[s]},{'fused-ssd':x['enriched-interactions'],'normal-constraints':x['api-parameters'],'normal-rules':x['normal-rules']})
+    assert len(out['scenarios'])==1 and out['scenarios'][0]['coverage_kind']=='exact'
+
+def test_history_features_use_five_functions_and_explicit_positive_timing():
+    from scene_completion.recommendation import similarity
+    x=positive();auth(x,condition='请求必须携带有效Token，接口应在200毫秒内响应')
+    g=accepted(applicability(x));assert all(s['scenario_context']['functional_types']==['query_retrieval'] for s in g)
+    assert all(s['scenario_context']['timeliness']=='explicit' for s in g)
+    assert similarity({'functional_types':['read']},{'functional_types':['query_retrieval']})==1
+
+def test_positive_identity_keeps_real_material_ignores_confirmed_alignment_explanation():
+    from scene_completion.positive_reuse import input_identity
+    x={'RR':[],'SR':[],'case-group':{'id':'g','rr_ids':['r'],'sr_ids':['s'],'status':'confirmed','reason':'same names','source_refs':R}}
+    y=deepcopy(x);y['case-group']['reason']='same explicit IDs';y['case-group']['source_refs']=[]
+    assert input_identity(x)==input_identity(y)
+    y['case-group']['sr_ids']=['other'];assert input_identity(x)!=input_identity(y)
+
+
+def test_local_numeric_rule_duplicate_merges_only_same_field_boundary_and_call():
+    from scene_completion.scenario_patterns import coalesce_explicit_data_rules
+    rows=accepted(applicability(positive()));bound=next(s for s in rows if s['pattern_id']=='data.minimum' and s['field']=='pageSize')
+    local=deepcopy(bound);local.pop('failure_rule');local['pattern_id']='rule.api.data.range';local['linked_pattern_ids']=['rule.api.data.range'];local['pattern_versions']={'rule.api.data.range':'rule-hash'};local['cause']='pageSize小于1';local['conditions']=[local['cause']];local['id']='local'
+    merged=canonical_instances(coalesce_explicit_data_rules([bound,local]));assert len(merged)==1 and 'rule.api.data.range' in merged[0]['linked_pattern_ids']
+    upper=next(s for s in rows if s['pattern_id']=='data.maximum' and s['field']=='pageSize')
+    local['cause']='pageSize不在1到100范围内';assert len(canonical_instances(coalesce_explicit_data_rules([bound,upper,local])))==2
+    for change in [{'cause':'pageSize小于2'},{'interaction_id':'other','cause':'pageSize小于1'},{'cause':'pageSize小于1或服务故障'}]:
+        assert len(canonical_instances(coalesce_explicit_data_rules([bound,{**local,**change}])))==2
+
+
+def test_correspondence_ids_are_tool_owned_independent_of_model_naming_and_order():
+    from scene_completion.use_cases import canonical_correspondence
+    x={'rr-cases':{'cases':[{'id':'r1','source_ranges':[{'source_id':'rr','start':10}]},{'id':'r2','source_ranges':[{'source_id':'rr','start':20}]}]},'sr-cases':{'cases':[{'id':'s1','source_ranges':[{'source_id':'sr','start':10}]},{'id':'s2','source_ranges':[{'source_id':'sr','start':20}]}]}}
+    groups=[{'id':'arbitrary1','rr_ids':['r2'],'sr_ids':['s2'],'status':'confirmed','reason':'matched','source_refs':R},{'id':'other','rr_ids':['r1'],'sr_ids':['s1'],'status':'confirmed','reason':'matched','source_refs':R}]
+    a=canonical_correspondence({'groups':groups},x);groups.reverse();groups[0]['id']='model-renamed';b=canonical_correspondence({'groups':groups},x)
+    assert a==b and [(g['id'],g['rr_ids']) for g in a['groups']]==[('G-001',['r1']),('G-002',['r2'])]
+
+
+def test_structured_semantic_other_constraint_is_not_mechanically_executable():
+    from scene_completion.scenario_patterns import annotate
+    x=positive();i=x['enriched-interactions']['interactions'][0];s=scenario('semantic');s.update(concern_key='api.data.legality',failure_rule={'kind':'other','value':'分类必须有效'},field='categoryId')
+    row=annotate(s,i,normalize_settings());assert row['confidence']['score']==.85 and not row['executable'] and row['resolution']=='conditional'

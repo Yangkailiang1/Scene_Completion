@@ -142,14 +142,17 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
             try:
                 v=read_json(cache)
                 if isinstance(v,dict) and v.get('protocol')==PROTOCOL:
-                    validate_result('semantic-compare',v['payload'],child_input);value=v['payload'];proof={**v.get('execution',{}),'reused':True}
+                    clean={**v['payload'],'decisions':[{k:x for k,x in d.items() if k not in {'follow_up_comparison','concern_alignment'}} for d in v['payload']['decisions']]}
+                    validate_result('semantic-compare',clean,child_input);value=clean;proof={**v.get('execution',{}),'reused':True}
             except (ValueError,KeyError,OSError):pass
         emit('comparison_partition',index=n,total=len(jobs),interaction_id=interaction,reused=value is not None)
         if value is None:
             child['batch_id']=fingerprint(child);write_json(root/'packets'/(child['batch_id']+'.json'),child)
             with fields(comparison_partition=interaction):raw=(call or client.agent)(child)
             proof={k:raw[k] for k in ('execution_model_evidence','native_execution') if k in raw}
-            value={k:v for k,v in raw.items() if k not in proof};validate_result('semantic-compare',value,child_input)
+            value={k:v for k,v in raw.items() if k not in proof}
+            value['decisions']=[{k:v for k,v in d.items() if k not in {'follow_up_comparison','concern_alignment'}} for d in value['decisions']]
+            validate_result('semantic-compare',value,child_input)
             write_json(cache,{'protocol':PROTOCOL,'payload':value,'execution':proof})
         left_ids={x['id']:x for x in a};right_ids={x['id']:x for x in b}
         for decision in value['decisions']:

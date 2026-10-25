@@ -268,7 +268,11 @@ def validate_result(task, payload, inputs):
             if b['status']=='confirmed' and b['interaction_id'] not in ids:raise ValueError('binding needs a concrete canonical interaction')
     if task=='test-ground-truth' and not payload.get('scenarios') and not payload.get('pending'):
         explicit=[r for d in inputs.get('test-documents',[]) for r in d['lines'] if re.search(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['text']) and re.search(r'\|\s*异常\s*\|',r['text'])]
-        if explicit:raise ValueError('明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试')
+        from .scenario_types import normal_replay
+        from .test_sources import records
+        actual=records(inputs.get('test-documents',[]))
+        excluded_normal=bool(payload.get('excluded')) and bool(actual) and all(normal_replay(r) for r in actual if r['scenario_type']=='exception')
+        if explicit and not excluded_normal:raise ValueError('明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试')
     if task=='existing-extract' and 'fused-ssd' in inputs:
         from .inverse_alignment import normalized_scenarios
         normalized_scenarios(payload,inputs['fused-ssd'])

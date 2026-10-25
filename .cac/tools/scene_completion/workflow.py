@@ -67,6 +67,7 @@ def code_version(task):
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
       'test-operation-project':['source_documents.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
     names=modules.get(task,[])
+    if task in {'components','api-map','api-parameters','use-case-extract','use-case-align','fused-ssd','normal-rules','test-operation-project'}:names=names+['positive_reuse.py']
     if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py','scenario_patterns.py']
     if task in {'test-expanded','test-additional-truth','test-additional-dedup'}:names=['test_supplement.py']
     if task in {'exception-generate','existing-extract','test-ground-truth','existing-branches'}:names=names+['scenario_types.py','test_sources.py']
@@ -284,6 +285,9 @@ class Execution:
                 if task=='test-supplement':
                     from .test_supplement import mechanical_tests
                     value['tests']=list({fingerprint(t):t for t in value['tests']+mechanical_tests(inputs)['tests']}.values())
+                if task=='use-case-align' and self.mocks is None:
+                    from .use_cases import canonical_correspondence
+                    value=canonical_correspondence(value,inputs)
                 if task=='normal-rules':
                     for rule in value['rules']:rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
                 if task=='existing-bind':

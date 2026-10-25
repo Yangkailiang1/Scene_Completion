@@ -30,6 +30,23 @@ def canonical_case_ids(value,inputs):
         aliases=group.get('rr_ids' if row.get('layer')=='RR' else 'sr_ids',[]) if row.get('layer') in ('RR','SR') else []
         if row.get('case_id') in aliases:row['case_id']=group['id']
     return result
+def canonical_correspondence(value,inputs):
+    """Tool-owned group IDs are stable for the same declared case catalogue.
+
+    Models decide correspondence, never cache/metric identity. Order by RR
+    source position (then declared IDs); unmatched SR groups follow. Do not
+    change membership, confirmation, reasons, source ranges or evidence.
+    """
+    result=deepcopy(value)
+    def positions(name):
+        return {c['id']:min(((r['source_id'],r['start'],c['id']) for r in c['source_ranges']),default=('',0,c['id'])) for c in inputs[name]['cases']}
+    rr,sr=positions('rr-cases'),positions('sr-cases')
+    def order(g):
+        return (0 if g['rr_ids'] else 1,min((rr[x] for x in g['rr_ids']),default=('',0,'')),min((sr[x] for x in g['sr_ids']),default=('',0,'')),tuple(sorted(g['rr_ids'])),tuple(sorted(g['sr_ids'])))
+    result['groups']=sorted(result['groups'],key=order)
+    for n,g in enumerate(result['groups'],1):g['id']='G-'+str(n).zfill(3)
+    return result
+
 CASE_GROUP=obj(id=S,rr_ids=arr(S),sr_ids=arr(S),status=enum('confirmed','pending'),reason=S,source_refs=REFS)
 FUSED_LINK=obj(rr_id=S,sr_ids=arr(S),status=enum('confirmed','pending'),basis=S,source_refs=REFS)
 

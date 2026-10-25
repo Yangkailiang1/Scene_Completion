@@ -9,7 +9,21 @@ ALLOWED={'components','api-map','api-parameters','use-case-extract','use-case-al
 
 def normalized_skill(text):return text.replace('推荐任务始终停用。','推荐仅由风险保底工具在缺失M就绪后执行。').strip()
 
+def input_identity(value):
+    # Document display names are not semantic material. Preserve every actual
+    # line, source identity, case, object, operation, constraint and registry.
+    def clean(v):
+        if isinstance(v,list):return [clean(x) for x in v]
+        if isinstance(v,dict):
+            out={k:clean(x) for k,x in v.items() if not (k=='name' and 'source_id' in v and 'lines' in v)}
+            if {'RR','SR','case-group'}<=v.keys() and v['case-group'].get('status')=='confirmed':
+                out['case-group']={k:x for k,x in out['case-group'].items() if k not in {'reason','source_refs'}}
+            return out
+        return v
+    return fingerprint(clean(value))
+
 def prepare(old,new):
+    from . import use_cases  # registers the extended public extraction contracts
     old,new=Path(old),Path(new);a,b=read_json(old/'project.json'),read_json(new/'project.json');mapping={}
     for role in ('RR','SR','test'):
         if len(a['sources'][role])!=len(b['sources'][role]):return
@@ -30,15 +44,17 @@ def prepare(old,new):
         if not f.is_relative_to((old/'run').resolve()):continue
         v=read_json(f);q=packets.get((v['task'],v.get('metadata',{}).get('input_hash')))
         if not q or q.get('output_schema')!=schema(v['task']):continue
-        seeds.append({'task':v['task'],'skill':normalized_skill(q.get('skill_text','')),'schema_hash':fingerprint(schema(v['task'])),'payload':rebind(v['payload']),'source_project':a['id'],'source_key':key,'source_output_hash':fingerprint(v)})
+        seeds.append({'task':v['task'],'skill':normalized_skill(q.get('skill_text','')),'schema_hash':fingerprint(schema(v['task'])),'input_hash':input_identity(rebind(q['input'])),'payload':rebind(v['payload']),'source_project':a['id'],'source_key':key,'source_output_hash':fingerprint(v)})
     write_json(new/'run/positive_reuse.json',{'source_project':a['id'],'policy':'unchanged source bytes and public contract; revalidate actual task scope and evidence before reuse','seeds':seeds})
 
 def find(root,task,inputs,scope,skill):
+    from . import use_cases
     from .validation import validate_result
     if task not in ALLOWED:return None
     file=Path(root)/'positive_reuse.json'
     if not file.exists():return None
     for row in read_json(file)['seeds']:
+        if row.get('input_hash')!=input_identity(inputs):continue
         if row['task']!=task or row['schema_hash']!=fingerprint(schema(task)) or row['skill']!=normalized_skill(skill):continue
         v=deepcopy(row['payload'])
         if task=='api-parameters' and inputs.get('interface'):v={'apis':[a for a in v['apis'] if a['id']==inputs['interface']['id']]}

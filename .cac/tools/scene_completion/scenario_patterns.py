@@ -72,7 +72,8 @@ def normalize_settings(value=None):
 
 def context_for(i):
     position=i['sender'].get('position','')+' '+i['receiver'].get('position','')
-    return {'functional_types':sorted(i['operation']['kinds']),'technologies':sorted(t for t,word in [('database','数据库'),('llm','AI模型')] if word in position),'actual_operation':i['operation']['name'],'boundary':i['sender'].get('position','')+'→'+i['receiver'].get('position',''),'direction':i['direction'],'timeliness':'explicit' if re.search(r'实时|时限|截止|超时|deadline',' '.join(r['quote'] for r in i['source_refs'])) else None,'caller':i['sender']['name'],'provider':i['receiver']['name']}
+    functions={'display':'display_interaction','read':'query_retrieval','create':'resource_mutation','update':'resource_mutation','delete':'resource_mutation','process':'analysis_generation','publish':'release_activation'}
+    return {'functional_types':sorted({functions[k] for k in i['operation']['kinds'] if k in functions}),'technologies':sorted(t for t,word in [('database','数据库'),('llm','AI模型')] if word in position),'actual_operation':i['operation']['name'],'boundary':i['sender'].get('position','')+'→'+i['receiver'].get('position',''),'direction':i['direction'],'timeliness':'explicit' if re.search(r'实时|时限|截止|超时|deadline',' '.join(r['quote'] for r in i['source_refs'])) else None,'caller':i['sender']['name'],'provider':i['receiver']['name']}
 
 def choose_pattern(s):
     key=s['concern_key'];text=s['cause']+' '+' '.join(s.get('conditions',[]))
@@ -97,8 +98,11 @@ def annotate(s,i,settings,score=None,reason=None,pattern_id=None):
     s=deepcopy(s);patterns={p['id']:p for p in settings['library']['patterns'] if p['enabled']};pid=pattern_id or choose_pattern(s);p=patterns.get(pid)
     if p is None:return None
     if score is None:
-        score=1.0 if s.get('failure_rule') and s.get('resolution')!='conditional' else .85
+        rule=s.get('failure_rule',{});mechanical=rule.get('kind') in {'required','not_empty','type','enum','minimum','maximum','exclusiveMinimum','exclusiveMaximum','pattern','length.minimum','length.maximum','size.minimum','size.maximum'}
+        score=1.0 if mechanical and s.get('resolution')!='conditional' else .85
         reason='结构化明示约束，工具构造违例' if score==1 else '明确正常规则/实际服务调用与适用前提；未知具体标准仍独立标可执行性'
+        if rule.get('kind')=='other':
+            s.update(executable=False,resolution='conditional');s['pending_details']=list(dict.fromkeys(s.get('pending_details',[])+['语义关系约束有依据；具体违例测试数据和判定方式待准备']))
     s.update(pattern_id=pid,linked_pattern_ids=[pid],confidence=confidence(score,reason),risk=risk_for(p,settings),scenario_context=context_for(i),pattern_versions={pid:p['definition_hash']})
     s['concern_origins']=list(dict.fromkeys(s.get('concern_origins',[])+p['concern_keys']+[s['concern_key']]))
     s['predicate']={'scope':s.get('scope','service'),'location':s.get('data_location'),'field':s.get('field'),'operator':(s.get('failure_rule') or {}).get('kind',s['cause']),'value':(s.get('failure_rule') or {}).get('value')}
@@ -164,6 +168,36 @@ def canonical_instances(rows):
         else:result[key]=deepcopy(s)
     return list(result.values())
 
+
+def coalesce_explicit_data_rules(rows):
+    """Merge only fully parsed numeric failure predicates, never label-only matches.
+
+    A local rule may repeat a structured interface bound. Match its entire
+    single-field failure phrase and the already evidenced bound/direction;
+    preserve all evidence/mode links while keeping one independent failure.
+    """
+    numeric=r'(-?\d+(?:\.\d+)?)';out=[]
+    for s in rows:
+        if s.get('failure_rule') or not s.get('field') or s.get('concern_key')!='api.data.range':out.append(s);continue
+        field=re.escape(s['field']);text=re.sub(r'\s+','',s['cause']).rstrip('。；;')
+        bounds=[]
+        for word,kind in [('小于等于','exclusiveMinimum'),('大于等于','exclusiveMaximum'),('小于','minimum'),('低于','minimum'),('大于','maximum'),('超过','maximum'),('<','minimum'),('>','maximum'),('<=','exclusiveMinimum'),('>=','exclusiveMaximum')]:
+            m=re.fullmatch(field+re.escape(word)+numeric,text)
+            if m:bounds=[(kind,float(m[1]))];break
+        if not bounds:
+            m=re.fullmatch(field+r'不在'+numeric+r'(?:到|至|~|～|—|-)'+numeric+r'(?:范围内|之间)',text)
+            if m:bounds=[('minimum',float(m[1])),('maximum',float(m[2]))]
+        matches=[]
+        for kind,value in bounds:
+            found=next((r for r in rows if (r.get('interaction_id'),r.get('object'),r.get('field'),r.get('data_location'),r.get('scope'))==(s['interaction_id'],s['object'],s['field'],s.get('data_location'),s.get('scope')) and r.get('failure_rule',{}).get('kind')==kind and type(r['failure_rule'].get('value')) in (int,float) and r['failure_rule']['value']==value),None)
+            if found is not None:matches.append(found)
+        if not bounds or len(matches)!=len(bounds):out.append(s);continue
+        for r in matches:
+            child=deepcopy(s);child['failure_rule']=deepcopy(r['failure_rule']);child['predicate']=deepcopy(r['predicate'])
+            child['linked_pattern_ids']=list(dict.fromkeys(child['linked_pattern_ids']+r['linked_pattern_ids']))
+            child['pattern_versions'].update(r['pattern_versions']);out.append(child)
+    return out
+
 def applicability(inputs,settings=None):
     from .exception_generation import data_exceptions,query_exceptions,service_exceptions,storage_exceptions,attach_provenance
     from .normal_rules import rule_exceptions
@@ -195,7 +229,13 @@ def applicability(inputs,settings=None):
             value=annotate(scenario_from_rule({'pattern_id':pattern['id'],'rule':rule,'interaction':i,'trigger':pattern['trigger_template']}),i,settings,.85,'项目审核模式前提与明示正常规则对应',pattern_id=pattern['id'])
             value.update(executable=False,resolution='conditional',pending_details=['自定义模式的具体执行数据待准备'])
             candidates.append(value)
-    candidates=canonical_instances(candidates);instances=[]
+    for scenario in candidates:
+        rules=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==scenario['interaction_id']]
+        text=' '.join(r['condition'] for r in rules)
+        if re.search(r'实时|时限|截止|超时|deadline|\d+(?:\.\d+)?\s*(?:毫秒|秒|ms)\s*(?:内|以内|返回|响应)',text,re.I):scenario['scenario_context']['timeliness']='explicit'
+        for technology,prefix in [('llm','llm.'),('database','database.')]:
+            if any(r['concern_key'].startswith(prefix) for r in rules):scenario['scenario_context']['technologies']=sorted(set(scenario['scenario_context']['technologies'])|{technology})
+    candidates=canonical_instances(coalesce_explicit_data_rules(candidates));instances=[]
     for s in candidates:
         sid='candidate-'+fingerprint([s['case_id'],s['interaction_id'],s['pattern_id'],s['predicate'],s.get('conditions'),s['source_refs'],s.get('pattern_versions')])[:24]
         review=settings['reviews'].get(sid)

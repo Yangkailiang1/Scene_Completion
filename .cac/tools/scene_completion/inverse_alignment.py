@@ -89,6 +89,8 @@ def expand_truth(value,inputs):
     from .normal_rules import normalize_scenarios
     value=normalized_scenarios(normalize_scenarios(value,inputs,truth=True),inputs['fused-ssd']);out=[];pending=[]
     for s in value['scenarios']:
+        if s.get('coverage_kind')=='input_parameters' and not broad_input_branch(' '.join(r['quote'] for r in s['source_refs'])):
+            s['coverage_kind']='exact';s.setdefault('quality_notes',[]).append('具体测试不是宽泛参数分支；移除错误覆盖标签，保留触发条件与测试原文')
         if s.get('coverage_kind')!='input_parameters':out.append(s);continue
         bid=s.get('original_branch_id') or s['id']
         branch={'id':bid,'description':' '.join(r['quote'] for r in s['source_refs']),'source_refs':s['source_refs']}

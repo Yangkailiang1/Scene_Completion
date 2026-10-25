@@ -550,7 +550,7 @@ export function ResultsView({ project }: { project: string }) {
                   E为原文已有异常的逆向归类；GT含独立测试的明示项及框架推导项，仍需审核。显示执行时的关注点版本，未重新匹配或计分。
                 </p>
                 <details className="result-data">
-                  <summary>不参与计分的生成／原文场景</summary>
+                  <summary>不参与计分的生成／原文／测试场景</summary>
                   {Object.entries(detail.excluded || {}).flatMap(
                     ([channel, values]) =>
                       (values as any[]).map((v: any, n: number) => (

@@ -16,6 +16,10 @@ def filter_branches(value):
         else:excluded.append({'original_id':b['id'],'scenario_type':kind,'reason':reason,'source_refs':b['source_refs']})
     out['branches']=kept;return out
 
+def normal_replay(record):
+    trigger=record.get('触发条件','');expected=record.get('预期结果','')
+    return bool(re.search(r'重复(?:提交|请求)|相同幂等键',trigger) and not re.search(r'失败|错误|失效|不一致|未|多次|重复(?:创建|扣款|写入|生成)',trigger) and re.search(r'返回已有.*不重复|幂等命中.*不重复',expected))
+
 def filter_scenarios(value,inputs,task):
     out=deepcopy(value);kept=[];excluded=out.setdefault('excluded',[])
     tests={r['id']:r for r in records(inputs.get('test-documents',[]))}
@@ -25,6 +29,8 @@ def filter_scenarios(value,inputs,task):
             ids={m for r in s.get('source_refs',[]) for m in re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['quote'])}
             kinds={tests[x]['scenario_type'] for x in ids if x in tests}
             kind=next(iter(kinds)) if len(kinds)==1 else 'pending';reason='测试类型字段严格筛选'
+            selected=[tests[x] for x in ids if x in tests]
+            if selected and all(normal_replay(r) for r in selected):kind='normal';reason='源表标为异常，但触发仅正常幂等重放且预期返回已有、不重复创建；没有违约失败，不计分，保留原始来源'
         text=s.get('cause','')
         if task=='exception-generate' and text in {'no_matching_records','empty_list'}:
             required=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==s['interaction_id'] and re.search(r'非空|至少(?:一|1)|必须存在|必须.*匹配|不得为空',r.get('condition',''))]

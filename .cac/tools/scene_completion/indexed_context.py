@@ -304,6 +304,8 @@ class EvidenceContext:
             result=separate_unknown_criteria(result,self.normalizations)
             result=separate_foreign_checks(result,self.original['input'],self.normalizations)
         if self.original['task']=='semantic-compare':
+            for decision in result.get('decisions',[]):
+                decision.pop('follow_up_comparison',None);decision.pop('concern_alignment',None)
             from .comparison_batches import restrict_candidate_decisions
             result=restrict_candidate_decisions(result,self.original['input'],self.normalizations)
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:

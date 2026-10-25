@@ -578,6 +578,14 @@ export function RecommendationsView({ project }: { project: string }) {
           {result.critical_review.map((r: any) => (
             <article className="pattern-review" key={r.candidate_id}>
               <b>{r.scenario?.pattern_id || "模式缺项"}</b>
+              {r.scenario && (
+                <p>
+                  交互 {r.scenario.interaction_id} ·{" "}
+                  {r.scenario.scenario_context?.caller} →{" "}
+                  {r.scenario.scenario_context?.provider} ·{" "}
+                  {r.scenario.operation}
+                </p>
+              )}
               <p>{r.scenario?.conditions.join("；") || r.issue?.reason}</p>
               <small>{r.reason}</small>
               {r.scenario && (
