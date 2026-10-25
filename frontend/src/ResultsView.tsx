@@ -294,7 +294,7 @@ export function ResultsView({ project }: { project: string }) {
         </div>
       )}
       {mode === "recommendations" ? (
-        <RecommendationsView project={project} />
+        <RecommendationsView project={project} caseId={cid} />
       ) : mode === "tests" ? (
         <TestSources project={project} />
       ) : !index ? (

@@ -74,3 +74,32 @@ it("old run does not claim recommendation is completed", async () => {
   await screen.findByText(/旧版本报告仍为/);
   expect(screen.queryByText("已推荐")).toBeNull();
 });
+
+it("recommendations follow the final-results case without a second selector", async () => {
+  const mock = vi.mocked(api);
+  mock.mockImplementation(async (path: any) =>
+    path.includes("recommendation-history")
+      ? { revision: 0, items: [] }
+      : {
+          cases: [
+            { id: "c1", name: "one" },
+            { id: "c2", name: "two" },
+          ],
+          result: {},
+          human_adoption: { value: null },
+        },
+  );
+  const { rerender } = render(<RecommendationsView project="p" caseId="c1" />);
+  await waitFor(() =>
+    expect(mock).toHaveBeenCalledWith(
+      "/api/projects/p/recommendations?case=c1",
+    ),
+  );
+  expect(screen.queryByLabelText("推荐用例")).toBeNull();
+  rerender(<RecommendationsView project="p" caseId="c2" />);
+  await waitFor(() =>
+    expect(mock).toHaveBeenCalledWith(
+      "/api/projects/p/recommendations?case=c2",
+    ),
+  );
+});

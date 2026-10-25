@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, projectUrl } from "./api";
 const risks: Record<string, string> = {
   low: "低",
@@ -334,14 +334,29 @@ export function PatternManager({ project }: { project: string }) {
     </section>
   );
 }
-export function RecommendationsView({ project }: { project: string }) {
+export function RecommendationsView({
+  project,
+  caseId,
+}: {
+  project: string;
+  caseId?: string;
+}) {
   const [data, setData] = useState<any>(null),
-    [cid, setCid] = useState(""),
+    [localCase, setLocalCase] = useState(""),
     [hist, setHist] = useState<any>(null),
     [msg, setMsg] = useState(""),
     [notes, setNotes] = useState<Record<string, string>>({}),
     [premises, setPremises] = useState<Record<string, string>>({});
+  const cid = caseId ?? localCase;
+  const contextKey = project + "\0" + cid;
+  const activeContext = useRef(contextKey);
+  activeContext.current = contextKey;
+  const requestVersion = useRef(0);
   const load = async () => {
+    if (activeContext.current !== contextKey) return;
+    const version = ++requestVersion.current;
+    setData(null);
+    setMsg("");
     try {
       const [d, h] = await Promise.all([
         api(
@@ -352,15 +367,28 @@ export function RecommendationsView({ project }: { project: string }) {
         ),
         api(projectUrl(project, "recommendation-history")),
       ]);
+      if (
+        activeContext.current !== contextKey ||
+        version !== requestVersion.current
+      )
+        return;
       setData(d);
       setHist(h);
-      if (!cid && d.cases.length) setCid(d.cases[0].id);
+      if (caseId === undefined && !cid && d.cases.length)
+        setLocalCase(d.cases[0].id);
     } catch (e: any) {
-      setMsg(e.message);
+      if (
+        activeContext.current === contextKey &&
+        version === requestVersion.current
+      )
+        setMsg(e.message);
     }
   };
   useEffect(() => {
     load();
+    return () => {
+      ++requestVersion.current;
+    };
   }, [project, cid]);
   const act = async (path: string, body: any) => {
     try {
@@ -379,21 +407,25 @@ export function RecommendationsView({ project }: { project: string }) {
     <section className="recommendations-view">
       <div className="pattern-toolbar">
         <b>风险保底推荐</b>
-        <select
-          aria-label="推荐用例"
-          value={cid}
-          onChange={(e) => setCid(e.target.value)}
-        >
-          {data?.cases.map((c: any) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {caseId === undefined && (
+          <select
+            aria-label="推荐用例"
+            value={cid}
+            onChange={(e) => setLocalCase(e.target.value)}
+          >
+            {data?.cases.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button onClick={load}>刷新</button>
       </div>
       {msg && <p role="status">{msg}</p>}
-      {!result?.enabled ? (
+      {!data ? (
+        <p>正在读取当前用例的推荐…</p>
+      ) : !result?.enabled ? (
         <p>
           本运行尚未形成推荐。旧版本报告仍为“未启用”；新版本在缺失比较后执行推荐。
         </p>
