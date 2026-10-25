@@ -5,6 +5,12 @@ from .storage import fingerprint
 RULESET_VERSION='quality-rules-20261025-v1'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
+def identity_concern(key,interaction):
+    """Authentication taxonomy follows the explicit caller identity, not wording."""
+    if key not in {'human.authentication','human.authorization','service_relation.authentication','service_relation.authorization'}:return key
+    family='human' if '人类' in interaction['sender']['position'] else 'service_relation'
+    return family+'.'+key.rsplit('.',1)[1]
+
 def rule_subject(rule,interaction):
     caller=rule['concern_key'].startswith('human.') or rule['concern_key'] in {'service_relation.authentication','service_relation.authorization'}
     party=interaction['sender' if caller else 'receiver']
@@ -26,9 +32,14 @@ def descriptive_constraint(rule):
 
 def conditional_constraint(rule):
     if rule.get('kind') not in {'format','pattern','length','size','minimum','maximum'}:return False
-    if rule.get('status')!='pending' and str(rule.get('value') or '').strip() not in {'','合法','有效','格式合法','长度合法','允许范围','格式有效'}:return False
+    if rule.get('status')!='pending' and str(rule.get('value') if rule.get('value') is not None else '').strip() not in {'','合法','有效','格式合法','长度合法','允许范围','格式有效'}:return False
     text=' '.join(r['quote'] for r in rule.get('source_refs',[]))
     return bool(re.search(r'格式(?:合法|有效|校验)|URL.*(?:合法|有效|格式)|长度(?:合法|有效|限制)|数量.*(?:范围|限制)|允许范围|上限|下限|format.*(?:valid|check)|size.*limit',text,re.I))
+
+def documented_normal_tolerance(inputs):
+    """Only explicit optional tolerance with normal fallback, never all optional tests."""
+    rows=[r['text'] for d in inputs.get('test-documents',[]) for r in d['lines'] if re.match(r'^\s*\|',r['text'])]
+    return bool(rows) and all(re.search(r'\|\s*可选\s*\|',r) and '容错' in r and re.search(r'隐藏|缺省|默认|忽略',r) and not re.search(r'必须|应当失败|应拒绝|崩溃',r) for r in rows)
 
 def validate_rules(value,inputs):
     from .contracts import registry
@@ -41,6 +52,7 @@ def validate_rules(value,inputs):
         if not i or i['direction']!='request':raise ValueError('normal rule must bind an existing actual request')
         if rule['owner_service']!=i['receiver']['name']:raise ValueError('normal rule owner must be this actual receiver')
         if rule['concern_key'] not in registry()['definitions']:raise ValueError('unknown normal-rule concern')
+        if identity_concern(rule['concern_key'],i)!=rule['concern_key']:raise ValueError('authentication/authorization concern must follow this actual caller identity')
         if re.search(r'或者|或|\bor\b',rule['violation'],re.I):raise ValueError('one rule must describe one independent failure, not an OR of causes; split into separate rules: '+rule['violation'])
         if rule['concern_key'].startswith('api.data.') and len(rule['fields'])!=1:raise ValueError('one data rule requires one field; split independent fields, keep genuine relational constraints under a business concern')
         validate_evidence(rule['source_refs'],inputs['normal-documents'])
@@ -111,6 +123,11 @@ def normalize_scenarios(value,inputs,*,truth=False):
         s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s.get('rule_id') in rules:
             r=rules[s['rule_id']];i=rows.get(r['interaction_id'])
+            if s['concern_key'].startswith('api.data.') and r['concern_key'].startswith('api.data.'):
+                f=s.get('field')
+                if f and r['fields'] and not any(f==rf or f.endswith('.'+rf) or rf.endswith('.'+f) for rf in r['fields']):
+                    raise ValueError('referenced normal rule describes a different field; do not replace '+f+' with '+str(r['fields']))
+                if s['concern_key']!=r['concern_key']:raise ValueError('referenced normal rule describes a different data failure category; preserve cause and choose the correct rule or null')
             if i:
                 s.update(interaction_id=i['id'],canonical_interaction_id=i['id'],layer=i['layer'],operation=i['operation']['name'])
                 s['concern_key']=r['concern_key']

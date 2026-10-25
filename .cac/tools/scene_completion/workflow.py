@@ -14,6 +14,7 @@ from .exception_generation import data_exceptions,deduplicate,pending_rules,quer
 from .concern_matching import complete_data_matches
 from .concern_hierarchy import resolve_matches
 from .task_context import generation_matches
+from .normal_rules import documented_normal_tolerance
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
 from .reviews import REVIEW_TASKS
@@ -217,6 +218,8 @@ class Execution:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
+            elif task=='test-ground-truth' and documented_normal_tolerance(inputs):
+                value={'scenarios':[],'pending':[]};proof={'provider':'documented_normal_tolerance','reason':'本测试明确为可选容错且预期允许隐藏/缺省，不违反约定，不进入异常GT；测试原文保存在任务输入'}
             elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
                 value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
             elif task=='concern-match' and 'normal-rules' in inputs and not self.conversations.revision(key):

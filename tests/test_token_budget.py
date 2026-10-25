@@ -53,6 +53,15 @@ def test_ledger_limit_cannot_be_reset_on_resume(tmp_path):
     b = TokenBudget(settings(tmp_path)); b.reserve(body())
     with pytest.raises(ValueError): TokenBudget(settings(tmp_path, 20000)).reserve(body())
 
+def test_same_model_uses_independent_account_allowances_without_resetting_history(tmp_path):
+    a=TokenBudget(settings(tmp_path/'account-one',500))
+    key=a.reserve(body());a.settle(key,usage={'prompt_tokens':450,'completion_tokens':40,'total_tokens':490})
+    with pytest.raises(TokenBudgetBlocked):a.reserve(body())
+    b=TokenBudget(settings(tmp_path/'account-two',500));second=b.reserve(body())
+    b.settle(second,usage={'prompt_tokens':10,'completion_tokens':7,'total_tokens':17})
+    assert a._read()['committed_tokens']==490 and b._read()['committed_tokens']==17
+    with pytest.raises(TokenBudgetBlocked):TokenBudget(settings(tmp_path/'account-one',500)).reserve(body())
+
 
 def test_separate_reasoning_allowance_is_reserved(tmp_path):
     b = TokenBudget({**settings(tmp_path), 'token_budget_reasoning_reserve': 4096})

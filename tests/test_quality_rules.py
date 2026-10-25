@@ -100,3 +100,30 @@ def test_rule_subject_keeps_physical_resource_mapping_and_human_caller():
     assert rule_subject(r,i)==i['sender']['name']
     i['receiver'].update(name='records表',position='外部数据库');r['concern_key']='database.uniqueness'
     assert rule_subject(r,i)=='records表资源服务'
+
+def test_authentication_taxonomy_follows_actual_caller_without_changing_trigger():
+    from scene_completion.normal_rules import identity_concern
+    from tests.test_workflow import exchange
+    i=exchange()
+    assert identity_concern('service_relation.authentication',i)=='human.authentication'
+    i['sender'].update(name='OtherService',position='内部服务')
+    assert identity_concern('human.authorization',i)=='service_relation.authorization'
+    assert identity_concern('api.data.legality',i)=='api.data.legality'
+
+def test_zero_is_an_explicit_boundary_not_an_unknown_constraint():
+    from scene_completion.normal_rules import conditional_constraint
+    rule={'kind':'minimum','status':'explicit','value':0,'source_refs':[{**R[0],'quote':'stock>=0，数量在允许范围内'}]}
+    assert not conditional_constraint(rule)
+
+def test_explicit_normal_tolerance_does_not_become_anomaly_truth():
+    from scene_completion.normal_rules import documented_normal_tolerance
+    d={'lines':[{'text':'| TEST-X | 非关键字段缺失 | 可选 | 验证部分详情容错 | 返回已有字段，缺失区域隐藏或使用缺省值 |'}]}
+    assert documented_normal_tolerance({'test-documents':[d]})
+    d['lines'][0]['text']='| TEST-X | 字段缺失 | 异常 | 必须拒绝 |'
+    assert not documented_normal_tolerance({'test-documents':[d]})
+
+def test_rule_id_cannot_silently_replace_child_field_with_parent_array():
+    from tests.test_workflow import exchange
+    i=exchange();s=scenario();s.update(concern_key='api.data.range',field='rows[].amount',object='rows[].amount',rule_id='parent',data_location='body')
+    inputs={'fused-ssd':{'interactions':[i],'rr_sr_links':[]},'normal-rules':{'rules':[{'id':'parent','interaction_id':i['id'],'fields':['rows'],'concern_key':'api.data.completeness'}]}}
+    with pytest.raises(ValueError,match='different field'):normalize_scenarios({'scenarios':[s]},inputs,truth=True)

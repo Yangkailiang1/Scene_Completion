@@ -118,6 +118,12 @@ class EvidenceContext:
         if packet['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):fields['properties'].pop(key,None)
+            if packet['task']=='existing-extract':
+                from .inverse_alignment import broad_input_branch
+                branches=packet['input'].get('branches',{}).get('branches',[])
+                if branches and not any(broad_input_branch(b['description']) for b in branches):
+                    fields['properties']['coverage_kind']={'const':'exact'}
+                    self.packet['instructions']+='\n本分支不是宽泛参数非法分支：coverage_kind只能为exact。不要把具体原因扩大为全部输入参数错误。'
             if packet['task']=='exception-generate':
                 # G is always inferred from positive rules. It cannot claim an
                 # original exception branch or broad E-coverage semantics.
@@ -240,7 +246,14 @@ class EvidenceContext:
             return v
         result=decode(value)
         if self.original['task']=='normal-rules':
+            from .normal_rules import identity_concern
+            rows={i['id']:i for i in self.original['input']['fused-ssd']['interactions']}
             for r in result.get('rules',[]):
+                if r['interaction_id'] in rows:
+                    key=identity_concern(r['concern_key'],rows[r['interaction_id']])
+                    if key!=r['concern_key']:
+                        self.normalizations.append({'rule_id':r['id'],'field':'concern_key','original_value':r['concern_key'],'value':key,'action':'apply confirmed human/service caller taxonomy; no change to trigger or evidence'})
+                        r['concern_key']=key
                 r['condition']=' '.join(ref['quote'] for ref in r['source_refs'])
                 self.normalizations.append({'rule_id':r['id'],'field':'condition','action':'restore verbatim positive condition from selected source evidence, no generated quote'})
         if self.original['task']=='semantic-compare':
