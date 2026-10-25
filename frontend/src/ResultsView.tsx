@@ -63,7 +63,11 @@ function Scenario({
   return (
     <article className="result-scenario">
       <header>
-        <strong>{defs[s.concern_key]?.label || s.concern_key}</strong>
+        <strong>
+          {s.coverage_kind === "input_parameters"
+            ? "输入数据关注点（宽泛分支）"
+            : defs[s.concern_key]?.label || s.concern_key}
+        </strong>
         {missing && <span className="result-missing">文档未覆盖</span>}
       </header>
       <p>
@@ -81,6 +85,12 @@ function Scenario({
         <summary>异常步骤与归类依据</summary>
         {loading && <p>正在读取证据…</p>}
         {failure && <p role="alert">{failure}</p>}
+        {s.coverage_kind === "input_parameters" && (
+          <p>
+            原记录分类：{defs[detail.concern_key]?.label || detail.concern_key}
+            ；本行按原文宽泛参数分支覆盖展示，未改写原始分类或评分。
+          </p>
+        )}
         <p>失败原因：{detail.cause}</p>
         <p>
           正常上下文：{detail.steps?.normal_context?.join("；") || "未提供"}
