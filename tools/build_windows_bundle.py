@@ -5,6 +5,7 @@ win_amd64 / universal wheels; never copies the builder's virtualenv.
 """
 from pathlib import Path
 import argparse,subprocess,sys,urllib.request,zipfile,hashlib,json,shutil
+from datetime import datetime,timezone
 PYTHON_VERSION='3.12.10'
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -31,14 +32,19 @@ def build(output):
         raise RuntimeError('Build frontend first: npm ci --prefix frontend && npm run build --prefix frontend')
     # Deliberately allow-list runtime sources. No local configuration, original
     # customer documents, caches or Git history enter the distributable.
-    for name in ('.cac','web','docs','tests','examples'):
+    for name in ('.cac','web','docs','tests','examples','tools','deployment'):
         shutil.copytree(ROOT/name,stage/'app'/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.local.json','.env','scene_completion_output'))
-    for name in ('serve.py','README.md','requirements-windows.lock','workflow.config.example.json','requirements.txt','requirements-dev.txt','THIRD_PARTY_NOTICES.md'):
+    for name in ('serve.py','README.md','pytest.ini','requirements-windows.lock','workflow.config.example.json','requirements.txt','requirements-dev.txt','THIRD_PARTY_NOTICES.md'):
         shutil.copy2(ROOT/name,stage/'app'/name)
+    shutil.copy2(ROOT/'deployment/launcher.py',stage/'launcher.py')
+    shutil.copy2(ROOT/'deployment/env.example',stage/'.env.example')
+    commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    version={'source_commit':commit,'platform':'windows-x64','python':PYTHON_VERSION,'built_at':datetime.now(timezone.utc).isoformat(),'dependency_lock_sha256':hashlib.sha256(lock.read_bytes()).hexdigest(),'requires_node':False,'requires_network_install':False}
+    (stage/'VERSION.json').write_text(json.dumps(version,indent=2)+'\n',encoding='utf8')
     for name in ('start.cmd','check.cmd'):
         shutil.copy2(ROOT/'deployment'/name,stage/name)
-    (stage/'使用说明.txt').write_text('解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。\n在界面配置内网API及客户实际模型标识。业务文档、密钥及运行结果只存本地。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n',encoding='utf8')
-    manifest={'platform':'windows-x64','python':PYTHON_VERSION,'requires_network_install':False,'files':{}}
+    (stage/'使用说明.txt').write_text('解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n',encoding='utf8')
+    manifest={**version,'files':{}}
     for f in stage.rglob('*'):
         if f.is_file():manifest['files'][str(f.relative_to(stage)).replace('\\','/')]=hashlib.sha256(f.read_bytes()).hexdigest()
     (stage/'SHA256SUMS.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf8')

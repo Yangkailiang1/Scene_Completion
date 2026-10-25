@@ -4,9 +4,11 @@
 
 ## Windows x64离线使用
 
-下载Release中的 `scene-completion-windows-x64.zip`，完整解压后双击 `start.cmd`，访问 `http://127.0.0.1:8765`。包内包含CPython 3.12.10、全部Windows依赖、后端、前端和测试，不需要客户联网下载Python或环境包。模型通过内网API提供，不携带模型权重。
+下载Release中的 `scene-completion-windows-x64.zip`，完整解压后双击 `start.cmd`；启动器就绪后会打开浏览器，访问 `http://127.0.0.1:8765`。包内包含CPython 3.12.10、全部Windows依赖、后端、前端和测试，不需要客户联网下载Python或环境包。模型通过内网API提供，不携带模型权重。
 
 在界面新建项目，导入RR、SR及可选测试Markdown；填写OpenAI兼容Base URL、实际模型标识、凭证和并发。客户提供的Qwen/DeepSeek部署须支持tool_calls；名称以其API实际公布的标识为准。模型配置只保存在本地，项目导出不包含密钥。
+
+端口占用时可运行`start.cmd --port 8766`。模型可在网页配置，也可复制包根目录`.env.example`为`.env`后填写。数据保存在包根目录`data/`，源码提交见`VERSION.json`。
 
 `check.cmd`检查离线依赖并运行测试。构建包时已经验证Windows wheel匹配及包内文件摘要；原生Windows启动验证应以GitHub Actions记录或客户机器结果为准，不能以macOS测试代替。
 
