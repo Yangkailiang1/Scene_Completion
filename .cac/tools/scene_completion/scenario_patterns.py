@@ -103,6 +103,9 @@ def annotate(s,i,settings,score=None,reason=None,pattern_id=None):
         reason='结构化明示约束，工具构造违例' if score==1 else '明确正常规则/实际服务调用与适用前提；未知具体标准仍独立标可执行性'
         if rule.get('kind')=='other':
             s.update(executable=False,resolution='conditional');s['pending_details']=list(dict.fromkeys(s.get('pending_details',[])+['语义关系约束有依据；具体违例测试数据和判定方式待准备']))
+    if 'executable' not in s:
+        s['executable']=False;s.setdefault('resolution','conditional');s.setdefault('pending_details',[])
+        s['pending_details']=list(dict.fromkeys(s['pending_details']+['模式与交互已有依据；具体故障注入方式或测试数据尚未准备']))
     s.update(pattern_id=pid,linked_pattern_ids=[pid],confidence=confidence(score,reason),risk=risk_for(p,settings),scenario_context=context_for(i),pattern_versions={pid:p['definition_hash']})
     s['concern_origins']=list(dict.fromkeys(s.get('concern_origins',[])+p['concern_keys']+[s['concern_key']]))
     s['predicate']={'scope':s.get('scope','service'),'location':s.get('data_location'),'field':s.get('field'),'operator':(s.get('failure_rule') or {}).get('kind',s['cause']),'value':(s.get('failure_rule') or {}).get('value')}

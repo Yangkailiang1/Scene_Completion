@@ -303,3 +303,10 @@ def test_failure_callee_excludes_service_only_mentioned_in_recovery():
     assert v['bindings'][0]['interaction_id']=='sync'
     assert set(failed_requests('CatalogService同步失败，MerchantService也不可用',rows))=={'sync','entry'}
     assert set(failed_requests('CatalogService同步失败，MerchantService不可用',rows))=={'sync','entry'}
+
+
+def test_every_instance_has_explicit_executability_without_guessing_test_fixtures():
+    from scene_completion.scenario_patterns import annotate
+    x=positive();i=x['enriched-interactions']['interactions'][0];s=scenario('framework');s.update(concern_key='service.base.availability');s.pop('executable',None);s.pop('resolution',None);s.pop('pending_details',None)
+    row=annotate(s,i,normalize_settings());assert row['executable'] is False and row['resolution']=='conditional' and row['pending_details']
+    assert all(type(s['executable']) is bool for s in accepted(applicability(x)))
