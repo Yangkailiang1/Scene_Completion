@@ -223,6 +223,12 @@ def validate_result(task, payload, inputs):
         normalized_scenarios(payload,inputs['fused-ssd'])
     if task in {'gap-compare','semantic-compare'}:
         expected={(a['id'],b['id']) for a in inputs['left'] for b in inputs['right']}
+        if task=='semantic-compare' and 'candidate_pairs' in inputs:
+            pairs=inputs['candidate_pairs']
+            if not isinstance(pairs,list) or not pairs or any(not isinstance(p,dict) or set(p)!={'left_id','right_id'} or not all(isinstance(v,str) for v in p.values()) for p in pairs):raise ValueError('invalid sparse candidate pairs')
+            selected={(p['left_id'],p['right_id']) for p in pairs}
+            if len(selected)!=len(pairs) or not selected<=expected:raise ValueError('sparse candidate pairs must be unique known IDs')
+            expected=selected
         got=[(d['left_id'],d['right_id']) for d in payload['decisions']]
         if len(got)!=len(set(got)) or set(got)!=expected:raise ValueError('comparison must inspect every candidate pair exactly once')
         left={s['id']:s for s in inputs['left']}; right={s['id']:s for s in inputs['right']}

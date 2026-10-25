@@ -110,7 +110,8 @@ class EvidenceContext:
                     if key in fields['required']:fields['required'].remove(key)
                 fields['properties']['derivation']={'type':'string','minLength':1}
                 candidates=inputs['concern-match']['matches']
-                if candidates:fields['anyOf']=[{'properties':{k:{'const':m[k]} for k in ('interaction_id','object','concern_key')}} for m in candidates]
+                if candidates:fields['anyOf']=[{'properties':{**{k:{'const':m[k]} for k in ('interaction_id','object','concern_key')},
+                  **({'field':{'type':'null'}} if not m['concern_key'].startswith('api.data.') and m.get('scope')!='storage' else {})}} for m in candidates]
                 else:self.packet['output_schema']['properties']['scenarios']['maxItems']=0
         if self.fused:
             props=self.packet['output_schema']['properties']['interactions']['items']
@@ -225,6 +226,9 @@ class EvidenceContext:
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     row.update(source_status='framework_inferred',original_branch_id=None,coverage_kind='exact')
+                    if not row['concern_key'].startswith('api.data.') and row.get('scope')!='storage' and row.get('field') is not None:
+                        self.normalizations.append({'scenario_id':row['id'],'field':'field','original_value':row['field'],'action':'party/operation concern uses object as unit; field annotations are not independent data exceptions'})
+                        row['field']=None
         if self.original['task']=='concern-match':
             from .concern_hierarchy import resolve_matches
             resolved=resolve_matches(self.original['input'],result.get('matches',[]))

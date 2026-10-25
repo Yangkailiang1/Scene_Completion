@@ -223,6 +223,9 @@ def test_generated_source_and_coverage_are_fixed_without_relabeling_original_bra
     Draft202012Validator(ctx.packet['output_schema']).validate(compact)
     restored=ctx.expand(compact)['scenarios'][0]
     assert (restored['source_status'],restored['original_branch_id'],restored['coverage_kind'])==('framework_inferred',None,'exact')
+    annotated=deepcopy(compact);annotated['scenarios'][0]['field']='Authorization'
+    assert ctx.expand(annotated)['scenarios'][0]['field'] is None
+    assert ctx.normalizations[-1]['original_value']=='Authorization'
     compact['scenarios'][0]['derivation']=''
     assert list(Draft202012Validator(ctx.packet['output_schema']).iter_errors(compact))
     # Original E retains its own explicit/inferred status and broad coverage.

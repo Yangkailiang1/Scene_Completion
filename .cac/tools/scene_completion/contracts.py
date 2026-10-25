@@ -160,7 +160,7 @@ INPUT_KEYS = {
 
 def packet(task, inputs, case_ids=None):
     if not isinstance(inputs,dict):raise ValueError('task input must be a named JSON object')
-    optional={'source-index'} if task=='use-case-extract' else {'normal-documents'} if task=='concern-match' else {'branches','bindings','fused-ssd','normal-constraints'} if task=='existing-extract' else {'fused-ssd'} if task=='test-ground-truth' else {'interface'} if task=='api-parameters' else set()
+    optional={'source-index'} if task=='use-case-extract' else {'normal-documents'} if task=='concern-match' else {'branches','bindings','fused-ssd','normal-constraints'} if task=='existing-extract' else {'fused-ssd'} if task=='test-ground-truth' else {'interface'} if task=='api-parameters' else {'candidate_pairs'} if task=='semantic-compare' else set()
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
     for key in ('documents','RR','SR','existing-documents','test-documents','test-operation-source','normal-documents'):
