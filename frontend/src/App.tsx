@@ -68,6 +68,7 @@ export default function App() {
   const [management, setManagement] = useState<
     "pending" | "concerns" | "results" | null
   >(null);
+  const jobStatusRef = useRef("ready");
   const [usageOpen, setUsageOpen] = useState(false),
     [usageTask, setUsageTask] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false),
@@ -118,6 +119,7 @@ export default function App() {
       api<Graph>(projectUrl(id, "graph")),
     ]);
     if (currentRef.current !== id) return;
+    jobStatusRef.current = s.job.status;
     setSnapshot(s);
     setGraph(g);
   }
@@ -130,6 +132,7 @@ export default function App() {
       .catch(error);
   }, []);
   function openProject(id: string) {
+    jobStatusRef.current = "ready";
     setManagement(null);
     setUsageOpen(false);
     setUsageTask(null);
@@ -168,10 +171,18 @@ export default function App() {
     setEvents([]);
   }
   useEffect(() => {
-    if (!current) return;
+    if (!current || !snapshot || snapshot.job.status === "complete") return;
     const id = current;
     const cursor = sessionStorage.getItem("scene-cursor-" + id) || "0";
-    const source = new EventSource(projectUrl(id, "events?after=" + cursor));
+    const source = new EventSource(
+      projectUrl(id, "events?after=" + cursor + "&tail=1"),
+    );
+    source.addEventListener("cursor", (message) => {
+      sessionStorage.setItem(
+        "scene-cursor-" + id,
+        String(JSON.parse((message as MessageEvent).data).id),
+      );
+    });
     source.onopen = () => setStreamConnected(true);
     source.onerror = () => setStreamConnected(false);
     source.addEventListener("execution", (message) => {
@@ -195,7 +206,10 @@ export default function App() {
         );
       }
     }, 100);
-    const poll = setInterval(() => refresh(id).catch(() => {}), 4000);
+    const poll = setInterval(() => {
+      if (jobStatusRef.current !== "complete" && !document.hidden)
+        refresh(id).catch(() => {});
+    }, 4000);
     return () => {
       source.close();
       clearInterval(flush);
@@ -205,7 +219,7 @@ export default function App() {
       buffer.current = [];
       setStreamConnected(false);
     };
-  }, [current]);
+  }, [current, !!snapshot, snapshot?.job.status === "complete"]);
   useEffect(() => {
     if (!current || !selected || selected.startsWith("planned:")) return;
     let active = true;

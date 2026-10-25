@@ -35,6 +35,8 @@ class EventStore:
         sql+=' ORDER BY id LIMIT ?';args.append(limit)
         with self.connect() as db:rows=db.execute(sql,args).fetchall()
         return [{**json.loads(payload),'id':seq} for seq,payload in rows]
+    def latest_id(self):
+        with self.connect() as db:return db.execute('SELECT COALESCE(MAX(id),0) FROM events').fetchone()[0]
     def latest_phases(self):
         with self.connect() as db:
             rows=db.execute("SELECT e.id,e.payload FROM events e INNER JOIN (SELECT task_key,MAX(id) id FROM events WHERE kind IN ('phase','task_status','tool_started','tool_finished','request_started','stream_delta','rate_limit_wait','question_asked') GROUP BY task_key) a ON a.id=e.id").fetchall()

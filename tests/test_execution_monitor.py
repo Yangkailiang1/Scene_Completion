@@ -89,6 +89,30 @@ def test_settings_precedence_and_public_whitelist(tmp_path,monkeypatch):
     assert result['api_key']=='secret' and result['agent_model']=='explicit' and result['base_url']=='https://project.test/v1'
     assert 'secret' not in str(public_settings(result))
 
+def test_new_global_stream_starts_at_tail_but_reconnect_replays_unseen_events(tmp_path):
+    app=create_app(tmp_path/'projects');client=TestClient(app)
+    rid=client.post('/api/projects',json={'name':'stream','sources':{k:[{'name':k+'.md','content':'# 用例'}] for k in ['RR','SR']}}).json()['id']
+    store=EventStore(app.state.workbench.run_dir(rid)/'run')
+    for n in range(5):store.append('stream_delta',task_key='a',text=str(n))
+    assert store.latest_id()==5
+    endpoint=next(r.endpoint for r in app.routes if getattr(r,'path',None)=='/api/projects/{rid}/events')
+    class Request:
+        headers={}
+        async def is_disconnected(self):return False
+    async def check():
+        response=await endpoint(rid,Request(),tail=True)
+        stream=response.body_iterator
+        assert (await anext(stream)).startswith('id: 5\nevent: cursor\n')
+        store.append('phase',task_key='a',phase='saved')
+        assert (await anext(stream)).startswith('id: 6\nevent: execution\n')
+        await stream.aclose()
+        request=Request();request.headers={'Last-Event-ID':'4'}
+        response=await endpoint(rid,request,tail=True)
+        assert (await anext(response.body_iterator)).startswith('id: 5\nevent: execution\n')
+        await response.body_iterator.aclose()
+    asyncio.run(check())
+    assert len(store.read(task_key='a'))==6  # history remains complete
+
 def test_invalid_deepagent_submission_escapes_for_bounded_repair(tmp_path):
     from scene_completion.deepagents_client import DeepAgentsClient
     from scene_completion.contracts import packet

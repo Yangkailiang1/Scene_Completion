@@ -329,15 +329,21 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .execution_events import EventStore
         return {'events':EventStore(service.run_dir(rid)/'run').read(after,task_key=task_key,limit=limit)}
     @app.get('/api/projects/{rid}/events')
-    async def events(rid:str,request:Request,after:int=0):
+    async def events(rid:str,request:Request,after:int=0,tail:bool=False):
         from .execution_events import EventStore
         from fastapi.responses import StreamingResponse
         import asyncio
         store=EventStore(service.run_dir(rid)/'run')
         try:cursor=max(after,int(request.headers.get('Last-Event-ID','0')))
         except ValueError:raise HTTPException(400,'invalid event cursor')
+        fresh_tail=tail and cursor==0
+        if fresh_tail:cursor=store.latest_id()
         async def stream():
             nonlocal cursor
+            if fresh_tail:
+                # Establish a resume cursor without replaying all model deltas.
+                # Node history is loaded separately when a node is selected.
+                yield 'id: '+str(cursor)+'\nevent: cursor\ndata: '+json.dumps({'id':cursor})+'\n\n'
             heartbeat=time.monotonic()
             while not await request.is_disconnected():
                 rows=store.read(cursor)
