@@ -106,7 +106,7 @@ def pending_items(project):
     project=Path(project);root=project/'run';statefile=root/'workflow_tasks.json';graphfile=root/'workflow_graph.json'
     if not statefile.exists():return []
     state=read_json(statefile)['tasks'];active={n['id'] for n in read_json(graphfile)['nodes']} if graphfile.exists() else set(state)
-    signature=fingerprint({'version':'pending-review-v1','tasks':[(k,r.get('status'),r.get('output_hash'),r.get('failure')) for k,r in state.items() if k in active]})
+    signature=fingerprint({'version':'pending-review-v4','tasks':[(k,r.get('status'),r.get('output_hash'),r.get('failure')) for k,r in state.items() if k in active]})
     cache=root/'pending_index.json'
     if cache.exists():
         saved=read_json(cache)
@@ -117,8 +117,11 @@ def pending_items(project):
     def add(key,r,iid,reason,refs,category='待确认',concern=None,branch=None,subject=None):
         if not reason:return
         channel='test_gt' if r['stage']=='test-ground-truth' else 'existing_e' if r['stage'] in {'existing-bind','existing-extract'} else 'positive'
-        identity=pending_id(r['case'],iid,reason,refs,concern,subject,channel)
-        item=items.setdefault(identity,{'id':identity,'case':r['case'],'interaction_id':iid,'reason':reason,'source_refs':refs,'category':category,'source_channel':channel,'concern_key':concern,'object':subject,'branch_id':branch,'origins':[]})
+        queue='rules' if r['stage']=='concern-match' else 'structure' if r['stage'] in {'enriched-view','fused-ssd'} else 'business'
+        legacy=pending_id(r['case'],iid,reason,refs,concern,subject,channel)
+        identity=legacy if queue=='business' else fingerprint([legacy,queue])[:24]
+        item=items.setdefault(identity,{'id':identity,'case':r['case'],'interaction_id':iid,'reason':reason,'source_refs':refs,'category':category,'queue':queue,'source_channel':channel,'concern_key':concern,'object':subject,'branch_id':branch,'origins':[]})
+        if identity!=legacy:item['legacy_id']=legacy
         if key not in item['origins']:item['origins'].append(key)
         return item
     for key,r in state.items():
@@ -126,10 +129,10 @@ def pending_items(project):
         failure=r.get('failure') or {}
         if r.get('status')=='awaiting_answer' and failure.get('question'):
             q=failure['question'];reason=q.get('text') or '模型等待补充信息'
-            add(key,r,'unbound',reason,[],'模型提问')['question']=True
+            item=add(key,r,'unbound',reason,[],'模型提问');item.update(question=True,queue='technical')
         elif r.get('status') in {'failed','rejected','awaiting_configuration','budget_exhausted'}:
             reason=failure.get('error') or failure.get('failure_category') or (failure.get('transport_failure') or {}).get('failure_category') or '节点执行未完成，请查看原始诊断'
-            add(key,r,'unbound',str(reason),[],'执行问题')['technical']=True
+            item=add(key,r,'unbound',str(reason),[],'执行问题');item.update(technical=True,queue='technical')
         if r.get('status')!='passed' or r.get('stage') not in stages or key in partitioned:continue
         v=read_json(root/r['output_file'])['payload']
         for item in v.get('pending',[]):add(key,r,item.get('interaction_id') or 'unbound',item.get('reason') or item.get('basis'),item.get('source_refs',[]),concern=item.get('concern_key'),subject=item.get('object'))
@@ -147,20 +150,34 @@ def decisions(project):
     return read_json(path) if path.exists() else {'revision':0,'items':{},'history':[]}
 
 
-def pending_view(project,status='unresolved',case=None,offset=0,limit=50,search='',channel=None):
+def item_decision(saved,item):
+    current=saved['items'].get(item['id'])
+    if current:return current
+    old=saved['items'].get(item.get('legacy_id'))
+    # Preserve pre-queue reviews only for the actual originating node; never
+    # copy a decision to a different diagnostic which happens to share text.
+    return old if old and set(old.get('origins',[]))&set(item['origins']) else None
+
+
+def pending_view(project,status='unresolved',case=None,offset=0,limit=50,search='',channel=None,queue='business'):
     if status not in {'all','unresolved','anomaly','not_anomaly','needs_info'} or offset<0 or not 1<=limit<=200:raise ValueError('无效待确认项筛选')
     rows=pending_items(project);saved=decisions(project)
-    for row in rows:row['decision']=saved['items'].get(row['id'])
+    for row in rows:row['decision']=item_decision(saved,row)
+    if queue not in {'all','business','rules','structure','technical'}:raise ValueError('无效审核类型')
+    queue_counts={q:{'total':sum(r['queue']==q for r in rows),'unresolved':sum(r['queue']==q and not r['decision'] for r in rows)} for q in ('business','structure','rules','technical')}
+    cases=sorted({r['case'] for r in rows})
+    rows=[r for r in rows if queue=='all' or r['queue']==queue]
     counts={k:sum((r.get('decision') or {}).get('choice','unresolved')==k for r in rows) for k in ('unresolved','anomaly','not_anomaly','needs_info')}
     found=[r for r in rows if (status=='all' or (r.get('decision') or {}).get('choice','unresolved')==status) and (not case or r['case']==case) and (not channel or r['source_channel']==channel) and (not search or search.casefold() in json.dumps(r,ensure_ascii=False).casefold())]
-    return {'items':found[offset:offset+limit],'count':len(found),'counts':counts,'revision':saved['revision'],'cases':sorted({r['case'] for r in rows})}
+    return {'items':found[offset:offset+limit],'count':len(found),'counts':counts,'queue_counts':queue_counts,'queue':queue,'revision':saved['revision'],'cases':cases}
 
 
 def decide_pending(project,item_id,body):
     project=Path(project);item=next((i for i in pending_items(project) if i['id']==item_id),None)
     if item is None:raise ValueError('待确认项已变化，请刷新')
     if item.get('question') or item.get('technical'):raise ValueError('请在来源节点处理提问或执行错误，不能把技术问题直接判成异常场景')
-    saved=decisions(project);previous=saved['items'].get(item_id)
+    if item['queue']!='business':raise ValueError('这是规则或结构诊断，请在来源节点补充依据或核对模型，不直接判作异常场景')
+    saved=decisions(project);previous=item_decision(saved,item)
     if body.get('revision',0)!=(previous or {}).get('revision',0):raise ValueError('审核已变化，请刷新')
     choice=body.get('choice');key=body.get('concern_key')
     if len(str(body.get('note') or ''))>8000:raise ValueError('审核说明最多8000字符')

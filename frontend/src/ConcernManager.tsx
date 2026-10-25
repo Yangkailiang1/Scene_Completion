@@ -151,24 +151,15 @@ export function ConcernManager({
     readOnly = view?.read_only;
   return (
     <div className="management-view concern-manager">
-      <header className="management-heading">
-        <div>
-          <span className="eyebrow">项目设置 · 独立版本</span>
-          <h2>异常关注点</h2>
-          <p>
-            编辑当前项目的分类、定义和适用范围；不会修改其他项目或覆盖旧报告。
-          </p>
-        </div>
-        <button disabled={readOnly} onClick={add}>
-          ＋ 新增关注点
-        </button>
-      </header>
       {notice && (
         <div role="status" className="management-notice">
           {notice}
         </div>
       )}
       <div className="management-filters">
+        <button className="primary-action" disabled={readOnly} onClick={add}>
+          ＋ 新增关注点
+        </button>
         <input
           aria-label="搜索关注点"
           placeholder="搜索名称、定义或ID"

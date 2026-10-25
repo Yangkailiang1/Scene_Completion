@@ -256,6 +256,14 @@ def create_app(root=None,client_factory=None,env_file=None):
     def project_definitions(rid:str,version:str|None=None):
         from .project_review import registry_view
         return registry_view(service.run_dir(rid),version)
+    @app.get('/api/projects/{rid}/results')
+    def results_index(rid:str):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).index()
+    @app.get('/api/projects/{rid}/results/{case_id}')
+    def results_case(rid:str,case_id:str):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).detail(case_id)
     @app.put('/api/projects/{rid}/registry')
     def edit_project_definitions(rid:str,body:dict):
         from .project_review import save_registry
@@ -263,9 +271,9 @@ def create_app(root=None,client_factory=None,env_file=None):
         if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('请等待当前执行轮完成再发布关注点版本')
         with service.lock:return save_registry(p,body)
     @app.get('/api/projects/{rid}/pending')
-    def pending_review_items(rid:str,status:str='unresolved',case:str|None=None,offset:int=0,limit:int=50,search:str='',channel:str|None=None):
+    def pending_review_items(rid:str,status:str='unresolved',case:str|None=None,offset:int=0,limit:int=50,search:str='',channel:str|None=None,queue:str='business'):
         from .project_review import pending_view
-        with service.lock:return pending_view(service.run_dir(rid),status,case,offset,limit,search,channel)
+        with service.lock:return pending_view(service.run_dir(rid),status,case,offset,limit,search,channel,queue)
     @app.post('/api/projects/{rid}/pending/{item_id}')
     def review_pending_item(rid:str,item_id:str,body:dict):
         from .project_review import decide_pending

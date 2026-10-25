@@ -30,6 +30,7 @@ import { ExecutionFlow } from "./ExecutionFlow";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
+import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
 import { ConcernManager } from "./ConcernManager";
 import { ArtifactView } from "./ArtifactView";
@@ -64,9 +65,9 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
   );
 }
 export default function App() {
-  const [management, setManagement] = useState<"pending" | "concerns" | null>(
-    null,
-  );
+  const [management, setManagement] = useState<
+    "pending" | "concerns" | "results" | null
+  >(null);
   const [usageOpen, setUsageOpen] = useState(false),
     [usageTask, setUsageTask] = useState<string | null>(null);
   const [maximized, setMaximized] = useState(false),
@@ -604,6 +605,15 @@ export default function App() {
                   工作区
                 </button>
                 <button
+                  className={management === "results" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("results");
+                    setUsageOpen(false);
+                  }}
+                >
+                  最终结果
+                </button>
+                <button
                   className={management === "pending" ? "active" : ""}
                   onClick={() => {
                     setManagement("pending");
@@ -645,7 +655,9 @@ export default function App() {
             >
               <Panel defaultSize={84} minSize={55}>
                 <section className="center-workspace">
-                  {management === "pending" && current ? (
+                  {management === "results" && current ? (
+                    <ResultsView project={current} />
+                  ) : management === "pending" && current ? (
                     <PendingView project={current} onSelect={selectNode} />
                   ) : management === "concerns" && current ? (
                     <ConcernManager
@@ -668,7 +680,21 @@ export default function App() {
                       <div className="overview-title">
                         <span className="eyebrow">PROJECT OVERVIEW</span>
                         <h2>执行概览</h2>
-                        <p>从右侧任务导航选择结果；完整依赖图按需展开。</p>
+                        <p>
+                          {snapshot?.manifest?.complete
+                            ? "本轮执行已完成，可按用例、交互查看三方异常对照及全部已保存图表。"
+                            : "从右侧任务导航选择结果；完整依赖图按需展开。"}
+                        </p>
+                        {snapshot?.manifest?.complete && (
+                          <Button
+                            onClick={() => {
+                              setManagement("results");
+                              setUsageOpen(false);
+                            }}
+                          >
+                            查看最终结果与图表
+                          </Button>
+                        )}
                       </div>
                       <div className="overview-metrics">
                         <div>
@@ -702,7 +728,9 @@ export default function App() {
                         <div className="info-card">
                           {pendingReviews
                             ? "有产物等待审核。点击右侧黄色节点，查看结果并确认。"
-                            : "点击“开始运行”建立任务计划。用例对应确认后展开各用例流程。"}
+                            : snapshot?.manifest?.complete
+                              ? "本轮没有正在执行或失败的节点。"
+                              : "点击“开始运行”建立任务计划。用例对应确认后展开各用例流程。"}
                         </div>
                       ) : (
                         [...activeNodes, ...failedNodes]

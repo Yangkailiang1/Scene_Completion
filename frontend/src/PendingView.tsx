@@ -26,6 +26,7 @@ export function PendingView({
   const [data, setData] = useState<any>(null),
     [defs, setDefs] = useState<Record<string, any>>({}),
     [status, setStatus] = useState("unresolved"),
+    [queue, setQueue] = useState("business"),
     [caseId, setCase] = useState(""),
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
@@ -38,14 +39,20 @@ export function PendingView({
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [reload, setReload] = useState(0);
-  useEffect(() => {const timer=setTimeout(()=>{setSearch(query);setOffset(0)},250);return()=>clearTimeout(timer)},[query]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(query);
+      setOffset(0);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
   useEffect(() => {
     let active = true;
     setData(null);
     api(
       projectUrl(
         project,
-        `pending?status=${status}&offset=${offset}&limit=40&search=${encodeURIComponent(search)}${channel ? "&channel="+channel : ""}${caseId ? "&case=" + encodeURIComponent(caseId) : ""}`,
+        `pending?queue=${queue}&status=${status}&offset=${offset}&limit=40&search=${encodeURIComponent(search)}${channel ? "&channel=" + channel : ""}${caseId ? "&case=" + encodeURIComponent(caseId) : ""}`,
       ),
     )
       .then((d) => {
@@ -58,7 +65,7 @@ export function PendingView({
     return () => {
       active = false;
     };
-  }, [project, status, caseId, offset, reload, search, channel]);
+  }, [project, status, caseId, offset, reload, search, channel, queue]);
   useEffect(() => {
     api(projectUrl(project, "registry"))
       .then((d) => setDefs(d.registry.definitions))
@@ -95,22 +102,26 @@ export function PendingView({
   }
   return (
     <div className="management-view pending-review-view">
-      <header className="management-heading">
-        <div>
-          <span className="eyebrow">业务审核</span>
-          <h2>待确认项</h2>
-          <p>
-            区分建模、已有异常和测试来源，逐项判断，不把不确定项强行算作异常。
-          </p>
-        </div>
-        <button onClick={() => setReload((x) => x + 1)}>刷新</button>
-      </header>
       {notice && (
         <div role="status" className="management-notice">
           {notice}
         </div>
       )}
       <div className="management-filters">
+        <select
+          aria-label="待确认类型"
+          value={queue}
+          onChange={(e) => {
+            setQueue(e.target.value);
+            setOffset(0);
+          }}
+        >
+          <option value="business">异常与归类疑问</option>
+          <option value="structure">模型／操作结构核查</option>
+          <option value="rules">规则未声明（诊断）</option>
+          <option value="technical">执行问题与模型提问</option>
+          <option value="all">全部记录</option>
+        </select>
         <div className="view-segments">
           {Object.entries(choices).map(([k, v]) => (
             <button
@@ -141,9 +152,35 @@ export function PendingView({
             <option key={c}>{c}</option>
           ))}
         </select>
-        <select aria-label="待确认来源通道" value={channel} onChange={e=>{setChannel(e.target.value);setOffset(0)}}><option value="">全部来源</option><option value="positive">正向建模</option><option value="existing_e">原文已有异常</option><option value="test_gt">独立测试GT</option></select>
-        <input aria-label="搜索待确认项" placeholder="搜索原因、对象或字段" value={query} onChange={e=>setQuery(e.target.value)}/>
+        <select
+          aria-label="待确认来源通道"
+          value={channel}
+          onChange={(e) => {
+            setChannel(e.target.value);
+            setOffset(0);
+          }}
+        >
+          <option value="">全部来源</option>
+          <option value="positive">正向建模</option>
+          <option value="existing_e">原文已有异常</option>
+          <option value="test_gt">独立测试GT</option>
+        </select>
+        <input
+          aria-label="搜索待确认项"
+          placeholder="搜索原因、对象或字段"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
+      {data?.queue_counts && (
+        <div className="pending-count-note">
+          异常／归类疑问 {data.queue_counts.business.unresolved} · 结构核查{" "}
+          {data.queue_counts.structure.unresolved} · 规则未声明{" "}
+          {data.queue_counts.rules.unresolved}
+          <span>规则未声明不代表已发现异常；所有原始记录均保留。</span>
+          <button onClick={() => setReload((x) => x + 1)}>刷新</button>
+        </div>
+      )}
       {!data ? (
         <p className="management-loading">正在整理待确认项…</p>
       ) : (
@@ -227,7 +264,14 @@ export function PendingView({
                 ) : (
                   <p className="muted">暂无明确原文依据，应先补充材料。</p>
                 )}
-                {selected.question || selected.technical ? (
+                {selected.queue &&
+                selected.queue !== "business" &&
+                !selected.question &&
+                !selected.technical ? (
+                  <div className="management-notice">
+                    这是规则或结构诊断，尚不是异常场景。可通过来源节点补充正常约束、核对组成与操作；不要求逐条做“是否异常”的判定。
+                  </div>
+                ) : selected.question || selected.technical ? (
                   <div className="management-notice">
                     这是
                     {selected.question ? "模型的阻断提问" : "执行或配置问题"}
