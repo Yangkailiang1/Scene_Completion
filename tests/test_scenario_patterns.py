@@ -264,3 +264,42 @@ def test_structured_semantic_other_constraint_is_not_mechanically_executable():
     from scene_completion.scenario_patterns import annotate
     x=positive();i=x['enriched-interactions']['interactions'][0];s=scenario('semantic');s.update(concern_key='api.data.legality',failure_rule={'kind':'other','value':'分类必须有效'},field='categoryId')
     row=annotate(s,i,normalize_settings());assert row['confidence']['score']==.85 and not row['executable'] and row['resolution']=='conditional'
+
+
+def test_ordered_state_or_later_is_one_condition_but_independent_causes_split():
+    from scene_completion.normal_rules import has_compound_failure
+    assert not has_compound_failure('订单状态未达到 SHIPPED 或更后状态')
+    assert not has_compound_failure('state is not SHIPPED or later')
+    assert has_compound_failure('订单不存在或订单状态未达到SHIPPED或更后状态')
+    assert has_compound_failure('库存小于0或销售价格小于0')
+
+
+def test_explicit_delegated_rule_preserved_pending_without_fabricated_receiver_check():
+    from scene_completion.normal_rules import separate_foreign_checks
+    x=positive();i=x['enriched-interactions']['interactions'][0];quote='CallerService调用ValidatorService校验数据是否合法。';ref={**R[0],'quote':quote};r={'id':'r','interaction_id':i['id'],'owner_service':i['receiver']['name'],'condition':quote,'fields':[],'source_refs':[ref]}
+    docs=[{'source_id':ref['source_id'],'channel':'normal','lines':[{'number':ref['line_start'],'text':quote}]}]
+    result=separate_foreign_checks({'rules':[r],'pending':[]},{'fused-ssd':{'interactions':[i]},'normal-documents':docs});assert not result['rules'] and 'ValidatorService' in result['pending'][0]['reason']
+
+
+def test_project_custom_concern_pattern_and_historical_definition_snapshot(tmp_path):
+    from scene_completion.project_review import registry_view,save_registry
+    from scene_completion.storage import fingerprint
+    view=registry_view(tmp_path);reg=deepcopy(view['registry']);key='service.query_retrieval.custom_filter'
+    reg['definitions'][key]={**reg['definitions']['service.query_retrieval.resource_existence'],'key':key,'label':'项目自定义筛选','description':'项目当前过滤约束','failure_family':key}
+    view=save_registry(tmp_path,{'expected_hash':view['current_hash'],'registry':reg})
+    v=settings(tmp_path);assert any(key in p['concern_keys'] for p in v['settings']['library']['patterns'])
+    old=v['version'];before=deepcopy(v['settings']);reg=deepcopy(view['registry']);reg['definitions'][key]['description']='项目新过滤约束'
+    save_registry(tmp_path,{'expected_hash':view['current_hash'],'registry':reg});new=settings(tmp_path)
+    assert new['version']!=old and settings(tmp_path,old)['settings']==before
+    assert settings(tmp_path,old)['settings']['hash']==old
+
+
+def test_failure_callee_excludes_service_only_mentioned_in_recovery():
+    from scene_completion.failure_units import normalize_bindings,failed_requests
+    rows=[{'id':'entry','direction':'request','receiver':{'name':'MerchantService'}},{'id':'sync','direction':'request','receiver':{'name':'CatalogService'}}]
+    text='CatalogService同步失败，MerchantService记录待同步任务并自动重试'
+    x={'branches':{'branches':[{'id':'b','description':text}]},'fused-ssd':{'interactions':rows}}
+    v=normalize_bindings({'bindings':[{'branch_id':'b','interaction_id':'return','status':'confirmed','basis':'原始结果传播'}]},x)
+    assert v['bindings'][0]['interaction_id']=='sync'
+    assert set(failed_requests('CatalogService同步失败，MerchantService也不可用',rows))=={'sync','entry'}
+    assert set(failed_requests('CatalogService同步失败，MerchantService不可用',rows))=={'sync','entry'}

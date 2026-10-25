@@ -76,13 +76,20 @@ def normalize_test_assertions(value, inputs):
     return out
 
 
+
+def failed_requests(text,rows):
+    requests=[i for i in rows if i.get('direction')=='request']
+    explicit=[i for i in requests if re.search(re.escape(i['receiver']['name'])+r'\s*(?:也|同时)?\s*(?:发生)?(?:同步失败|连接失败|不可用|超时|unavailable|timeout)',text,re.I)]
+    # Handling may mention a second service. It is not a second failed callee.
+    return {i['id']:i for i in (explicit or [i for i in requests if i['receiver']['name'] in text])}
+
 def normalize_bindings(value,inputs):
     out=deepcopy(value);branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
     rows=inputs.get('fused-ssd',{}).get('interactions',[])
     for b in out.get('bindings',[]):
         branch=branches.get(b['branch_id'],{});text=branch.get('description','')
         if b['status']!='confirmed' or not re.search(r'超时|timeout|不可用|unavailable|连接失败|同步失败',text,re.I):continue
-        requests={i['id']:i for i in rows if i.get('direction')=='request' and i['receiver']['name'] in text}
+        requests=failed_requests(text,rows)
         if len(requests)==1:
             iid=next(iter(requests))
             if b['interaction_id']!=iid:b['interaction_id']=iid;b['basis']+='；根据原分支明示的故障服务与本用例唯一实际请求统一失败位置，传播步骤另保留'
@@ -97,8 +104,7 @@ def normalize_inverse_units(value, inputs):
         # A named callee's transport failure belongs to its actual request,
         # not a later HTTP response propagated by a different service.
         if not current or s.get('field') or not re.search(r'超时|timeout|不可用|unavailable|连接失败|同步失败',s['cause'],re.I):continue
-        named=[i for i in rows if i.get('direction')=='request' and i['receiver']['name'] in s['cause']]
-        unique={i['id']:i for i in named}
+        unique=failed_requests(s['cause'],rows)
         if len(unique)!=1:continue
         target=next(iter(unique.values()))
         if current['id']==target['id']:continue

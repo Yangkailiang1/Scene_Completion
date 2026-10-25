@@ -68,6 +68,16 @@ def separate_foreign_checks(value,inputs,normalizations=None):
     out=deepcopy(value);by_id={i['id']:i for i in inputs.get('fused-ssd',{}).get('interactions',[])};kept=[]
     for rule in out['rules']:
         i=by_id.get(rule['interaction_id']);refs=[]
+        invoked=re.search(r'调用\s*([A-Za-z_][A-Za-z0-9_]*Service)\s*(?:的)?(?:校验|验证)',rule.get('condition',''))
+        if i and invoked and rule['owner_service']!=invoked[1]:
+            from .source_documents import validate_evidence
+            validate_evidence(rule['source_refs'],inputs['normal-documents'])
+            quote=' '.join(r['quote'] for r in rule['source_refs'])
+            if re.sub(r'\s+','',rule['condition']) in re.sub(r'\s+','',quote):
+                reason='原文明示将校验委托给'+invoked[1]+'，当前接收方为'+i['receiver']['name']+'；保留待确认，不把委托的业务判断视为当前资源服务已执行。请在对应实际服务交互核对。'
+                out.setdefault('pending',[]).append({'interaction_id':i['id'],'reason':reason,'source_refs':rule['source_refs']})
+                if normalizations is not None:normalizations.append({'rule_id':rule['id'],'action':'retain delegated validation as pending; do not claim foreign ownership','source_refs':rule['source_refs']})
+                continue
         if i and i['sender']['name']!=i['receiver']['name'] and rule['fields']:
             actual={p['name'] for p in i['data']['sequence']};quoted=' '.join(r['quote'] for r in rule['source_refs'])
             if not any(f in actual or f in quoted for f in rule['fields']):
@@ -81,6 +91,13 @@ def separate_foreign_checks(value,inputs,normalizations=None):
         else:kept.append(rule)
     out['rules']=kept;return out
 
+
+def has_compound_failure(text):
+    # “SHIPPED or later” describes one ordered-state predicate, not two
+    # independently triggered failures. Other OR causes still require splits.
+    predicate=re.sub(r'(?:或者|或)\s*(?:更(?:后|前|高|低)(?:状态|阶段|等级)?|以上|以下)|\bor\s+(?:later|earlier|higher|lower)\b','',text,flags=re.I)
+    return bool(re.search(r'或者|或|\bor\b',predicate,re.I))
+
 def validate_rules(value,inputs):
     from .contracts import registry
     from .inverse_alignment import canonical_fused
@@ -93,7 +110,7 @@ def validate_rules(value,inputs):
         if rule['owner_service']!=i['receiver']['name']:raise ValueError('normal rule owner must be this actual receiver')
         if rule['concern_key'] not in registry()['definitions'] or not registry()['definitions'][rule['concern_key']].get('enabled',True) or registry()['definitions'][rule['concern_key']]['kind']!='check':raise ValueError('unknown, disabled or non-leaf normal-rule concern')
         if identity_concern(rule['concern_key'],i)!=rule['concern_key']:raise ValueError('authentication/authorization concern must follow this actual caller identity')
-        if re.search(r'或者|或|\bor\b',rule['violation'],re.I):raise ValueError('one rule must describe one independent failure, not an OR of causes; split into separate rules: '+rule['violation'])
+        if has_compound_failure(rule['violation']):raise ValueError('one rule must describe one independent failure, not an OR of causes; split into separate rules: '+rule['violation'])
         if rule['concern_key'].startswith('api.data.') and len(rule['fields'])!=1:raise ValueError('one data rule requires one field; split independent fields, keep genuine relational constraints under a business concern')
         validate_evidence(rule['source_refs'],inputs['normal-documents'])
         quote=' '.join(r['quote'] for r in rule['source_refs'])

@@ -3,10 +3,23 @@ from pathlib import Path
 from threading import RLock
 from copy import deepcopy
 import time
+from functools import wraps
+from .concern_registry import registry_scope,default_registry
 from .storage import read_json,write_json,fingerprint
 from .scenario_patterns import normalize_settings,VERSION
 _LOCK=RLock()
 
+
+def project_scoped(fn):
+    @wraps(fn)
+    def scoped(project,*args,**kwargs):
+        from .project_review import project_registry
+        snapshot=project_registry(project);file=Path(project)/'run/registry_used'/(snapshot['hash']+'.json')
+        if not file.exists():write_json(file,snapshot)
+        with registry_scope(snapshot):return fn(project,*args,**kwargs)
+    return scoped
+
+@project_scoped
 def settings(project,version=None):
     root=Path(project);pointer=root/'pattern-settings.json'
     with _LOCK:
@@ -14,12 +27,19 @@ def settings(project,version=None):
             v=normalize_settings();initial=v['hash'];write_json(root/'pattern-versions'/(initial+'.json'),v);write_json(pointer,{'version':initial,'history':[{'version':initial,'at':time.time()}]})
         index=read_json(pointer);selected=version or index['version'];f=root/'pattern-versions'/(selected+'.json')
         if not f.exists() or selected not in {h['version'] for h in index['history']}:raise ValueError('未知模式设置版本')
-        value=normalize_settings(read_json(f))
+        raw=read_json(f)
+        if version:
+            registry_file=root/'run/registry_used'/(str(raw.get('concern_registry_hash'))+'.json')
+            pinned=read_json(registry_file) if registry_file.exists() else default_registry()
+            with registry_scope(pinned):value=normalize_settings(raw)
+            if 'concern_registry_hash' not in raw:value=deepcopy(raw)
+        else:value=normalize_settings(raw)
         if version is None and value['hash']!=selected:
             selected=value['hash'];write_json(root/'pattern-versions'/(selected+'.json'),value)
             index['version']=selected;index['history'].append({'version':selected,'at':time.time(),'note':'模式结构元数据升级，旧快照保留'});write_json(pointer,index)
         return {'version':selected,'history':index['history'],'settings':value}
 
+@project_scoped
 def save_settings(project,body):
     with _LOCK:
         old=settings(project)
@@ -32,6 +52,7 @@ def save_settings(project,body):
 def history(project):
     f=Path(project)/'recommendation-history.json';return read_json(f) if f.exists() else {'revision':0,'items':[],'feedback':[]}
 
+@project_scoped
 def import_history(project,body):
     with _LOCK:
         old=history(project)

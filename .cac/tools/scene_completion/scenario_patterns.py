@@ -38,7 +38,7 @@ def default_library():
     return {'version':VERSION,'patterns':result}
 
 def normalize_settings(value=None):
-    v=deepcopy(value or {});v.setdefault('library',default_library());v.setdefault('threshold',.85);v.setdefault('top_k',10);v.setdefault('risk_weight',.7);v.setdefault('history_weight',.3);v.setdefault('overrides',{});v.setdefault('reviews',{})
+    v=deepcopy(value or {});v['concern_registry_hash']=registry()['hash'];v.setdefault('library',default_library());v.setdefault('threshold',.85);v.setdefault('top_k',10);v.setdefault('risk_weight',.7);v.setdefault('history_weight',.3);v.setdefault('overrides',{});v.setdefault('reviews',{})
     if type(v['threshold']) not in (int,float) or not math.isfinite(v['threshold']) or not 0<=v['threshold']<=1:raise ValueError('证据阈值必须为0至1')
     if type(v['top_k']) is not int or not 1<=v['top_k']<=1000:raise ValueError('K必须为1至1000的整数')
     if any(type(v[x]) not in (int,float) or (not math.isfinite(v[x]) or v[x]<0) for x in ('risk_weight','history_weight')) or abs(v['risk_weight']+v['history_weight']-1)>1e-9:raise ValueError('排序权重非负且合计为1')

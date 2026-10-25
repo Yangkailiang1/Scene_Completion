@@ -95,7 +95,9 @@ class Execution:
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
         from .scenario_patterns import normalize_settings
-        self.pattern_settings=normalize_settings(read_json(self.root/'pattern_settings_used.json')) if (self.root/'pattern_settings_used.json').exists() else normalize_settings()
+        from .concern_registry import registry_scope
+        with registry_scope(self.registry_snapshot):
+            self.pattern_settings=normalize_settings(read_json(self.root/'pattern_settings_used.json')) if (self.root/'pattern_settings_used.json').exists() else normalize_settings()
         self.recommendation_history=read_json(self.root/'recommendation_history_used.json') if (self.root/'recommendation_history_used.json').exists() else []
         from .reviews import Reviews
         from .node_conversations import Conversations
