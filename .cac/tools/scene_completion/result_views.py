@@ -3,7 +3,7 @@
 No model calls, new matching, or reclassification happen in this module.
 """
 from pathlib import Path
-from .storage import read_json, fingerprint
+from .storage import read_json
 from .execution_graph import LABELS, artifact_folder
 
 
@@ -12,7 +12,8 @@ class ResultView:
         self.project=Path(project);self.root=self.project/'run'
         self.state=read_json(self.root/'workflow_tasks.json').get('tasks',{}) if (self.root/'workflow_tasks.json').exists() else {}
         graph=self.root/'workflow_graph.json'
-        active={n['id'] for n in read_json(graph).get('nodes',[])} if graph.exists() else set(self.state)
+        self.nodes={n['id']:n for n in read_json(graph).get('nodes',[])} if graph.exists() else {}
+        active=set(self.nodes) if graph.exists() else set(self.state)
         self.state={k:r for k,r in self.state.items() if k in active}
         self.manifest=read_json(self.root/'run_manifest.json') if (self.root/'run_manifest.json').exists() else {}
 
@@ -41,8 +42,9 @@ class ResultView:
             for ext in ('svg','json','md','dot'):
                 p=artifact_folder(self.root,key,case)/(stem+'.'+ext)
                 if p.is_file():files.append({'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size,'task_key':key})
-            if files:out.append({'key':key,'case':case,'label':LABELS.get(r['stage'],r['stage']),'stage':r['stage'],'files':files})
-        return sorted(out,key=lambda x:(x['case']!='shared',x['case'],x['label']))
+            if files:out.append({'key':key,'case':case,'label':self.nodes.get(key,{}).get('label') or LABELS.get(r['stage'],r['stage']),'stage':r['stage'],'files':files})
+        priority={'components':0,'fused-ssd':1,'rr-ssd':2,'sr-ssd':3,'object-operations':4,'api-map':5,'api-parameters':6}
+        return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
     def index(self):
         return {'complete':self.manifest.get('complete',False),'cases':self.cases(),'artifacts':self.catalog(),
