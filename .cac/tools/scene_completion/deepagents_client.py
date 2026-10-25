@@ -113,7 +113,7 @@ class DeepAgentsClient(SemanticClient):
             if packet['task']=='fused-ssd':
                 from .use_cases import canonical_case_ids
                 payload=canonical_case_ids(payload,packet['input'])
-            if any(not r['applied'] for r in conversations.list(task_key) if r['kind'] in {'guidance','answer'}):
+            if any(not r['applied'] for r in conversations.list(task_key) if r['kind'] in {'guidance','answer','context_resolution'}):
                 emit('guidance_pending',message='新指导尚未进入本次请求，请下一轮模型调用后重新提交')
                 return '用户在本次HTTP输出期间补充了指导；结果尚未保存。请在下一轮读取节点指导后提交。'
             phase('validating')
@@ -224,7 +224,7 @@ def _transport_model(client,stage):
             self.request_count+=1
             if session:session['count']=self.request_count
             limit=int(self.scene_client.config.get('agent_max_model_calls',5))
-            if session:limit+=min(int(self.scene_client.config.get('agent_max_questions',3)),sum(m['kind']=='answer' for m in session['conversations'].list(session['task_key'])))
+            if session:limit+=min(int(self.scene_client.config.get('agent_max_questions',3)),sum(m['kind'] in {'answer','context_resolution'} for m in session['conversations'].list(session['task_key'])))
             if self.request_count>limit:raise ValueError('task model-call budget exhausted without a validated submission')
             converted=[]
             for m in messages:
@@ -235,9 +235,9 @@ def _transport_model(client,stage):
                     row['tool_calls']=[{'id':t['id'],'type':'function','function':{'name':t['name'],'arguments':json.dumps(t['args'],ensure_ascii=False)}} for t in m.tool_calls]
                 converted.append(row)
             if session:
-                guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer'} and not r['applied']]
-                all_guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer'}]
-                if all_guidance:converted.append({'role':'user','content':'本节点业务指导（仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
+                guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer','context_resolution'} and not r['applied']]
+                all_guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer','context_resolution'}]
+                if all_guidance:converted.append({'role':'user','content':'本节点指导及明确标注的系统依据补充（后者不是用户新决定；仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
             body={'model':self.scene_client.model('agent'),'messages':converted,
               'max_tokens':self.scene_client.output_limit(self.task_stage),'stream':self.scene_client.config.get('stream',True),**{k:v for k,v in kwargs.items() if k in {'tools','tool_choice','parallel_tool_calls'}}}
             repair=session.get('repair') if session else None
@@ -281,7 +281,7 @@ def _transport_model(client,stage):
             from .execution_events import emit,fields,phase
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
-                phase('model_wait');emit('request_started',requested_model=body['model'],input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
+                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
                 try:response=self.scene_client.post('/chat/completions',body)
                 except Exception as e:
                     emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))

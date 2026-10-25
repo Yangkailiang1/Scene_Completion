@@ -5,6 +5,15 @@ from .storage import fingerprint
 RULESET_VERSION='quality-rules-20261025-v1'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
+def rule_subject(rule,interaction):
+    caller=rule['concern_key'].startswith('human.') or rule['concern_key'] in {'service_relation.authentication','service_relation.authorization'}
+    party=interaction['sender' if caller else 'receiver']
+    if party.get('resource_service'):return party['resource_service']['name']
+    if '数据库' in party['position']:
+        from .interaction_enrichment import resource_service_name
+        return resource_service_name(party['name'])
+    return party['name']
+
 def normalize_location(field,location):
     if location in LOCATIONS or location is None:return field,location
     prefix,sep,tail=location.partition('.')
@@ -53,6 +62,9 @@ def rule_matches(inputs):
     out=[];definitions=registry()['definitions']
     for r in inputs.get('normal-rules',{}).get('rules',[]):
         d=definitions[r['concern_key']]
+        from .interaction_enrichment import interactions
+        i=next((i for i in interactions(inputs) if i['id']==r['interaction_id']),None)
+        if not i:continue
         if r['concern_key'].startswith('api.data.'):
             from .interaction_enrichment import interactions,parameters_for
             i=next((i for i in interactions(inputs) if i['id']==r['interaction_id']),None)
@@ -63,7 +75,8 @@ def rule_matches(inputs):
               'basis':'独立正向正常规则索引','concrete_rule':r['condition'],'source_refs':r['source_refs'],
               'scope':'interface','data_location':p['location'],'activation_evidence':[]})
             continue
-        out.append({'interaction_id':r['interaction_id'],'target':'receiver','object':r['owner_service'],
+        caller=r['concern_key'].startswith('human.') or r['concern_key'] in {'service_relation.authentication','service_relation.authorization'}
+        out.append({'interaction_id':r['interaction_id'],'target':'sender' if caller else 'receiver','object':rule_subject(r,i),
           'concern_key':r['concern_key'],'basis':'独立正向正常规则索引','concrete_rule':r['condition'],'source_refs':r['source_refs'],
           'scope':'relation' if d['layer']=='relation' else 'service','data_location':None,
           'activation_evidence':[{'kind':d.get('guard') or 'business','condition':r['condition'],'value':r['condition'],'unit':None,'status':'explicit','source_refs':r['source_refs'],'field':None,'constraint_kind':None}]})
@@ -77,7 +90,7 @@ def rule_exceptions(inputs):
     for r in inputs.get('normal-rules',{}).get('rules',[]):
         i=rows.get(r['interaction_id'])
         if not i:continue
-        data=r['concern_key'].startswith('api.data.');obj=r['fields'][0] if data else r['owner_service']
+        data=r['concern_key'].startswith('api.data.');obj=r['fields'][0] if data else rule_subject(r,i)
         matches=[m for m in inputs.get('concern-match',{}).get('matches',[]) if (m['interaction_id'],m['object'],m['concern_key'])==(i['id'],obj,r['concern_key']) and match_is_applicable(m,i,inputs)]
         if not matches:continue
         out.append({'id':'G-rule-'+fingerprint([i['id'],r['id']])[:20],
@@ -106,7 +119,7 @@ def normalize_scenarios(value,inputs,*,truth=False):
                     api_inputs={**inputs,'api-parameters':inputs.get('api-parameters',inputs.get('normal-constraints',{'apis':[]}))}
                     ps=[p for p in parameters_for(i,api_inputs) if p['name'] in r['fields']]
                     if len(ps)==1:s.update(object=ps[0]['name'],field=ps[0]['name'],data_location=ps[0]['location'],scope='interface')
-                else:s.update(object=r['owner_service'],field=None,data_location=None,scope='service')
+                else:s.update(object=rule_subject(r,i),field=None,data_location=None,scope='service')
         if s['concern_key'].startswith('api.data.') and s.get('field'):s['object']=s['field']
         fields=re.split(r'\s*/\s*',s.get('field') or '')
         split=len(fields)>1 and all(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.\[\]]*',f) for f in fields) and not re.search(r'>=|<=|≥|≤|与.*(?:比较|一致)',s['cause'])

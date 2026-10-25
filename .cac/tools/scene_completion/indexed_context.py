@@ -53,7 +53,9 @@ class EvidenceContext:
                 reg=inputs['registry'];rows=inputs.get('fused-ssd',{}).get('interactions',[])
                 rows+=inputs.get('rr-ssd',{}).get('interactions',[])+inputs.get('sr-ssd',{}).get('interactions',[])
                 kinds={k for i in rows for k in i['operation']['kinds']}
-                defs={k:v for k,v in reg['definitions'].items() if not kinds or not v['operation_kinds'] or kinds&set(v['operation_kinds'])}
+                for rule in inputs.get('normal-rules',{}).get('rules',[]):kinds.update(rule['functional_kinds'])
+                referenced={r['concern_key'] for r in inputs.get('normal-rules',{}).get('rules',[])}
+                defs={k:v for k,v in reg['definitions'].items() if k in referenced or not kinds or not v['operation_kinds'] or kinds&set(v['operation_kinds'])}
                 # Historical migrations and unrelated capability categories are
                 # audit metadata, not model context for this actual operation.
                 inputs['registry']={k:reg[k] for k in ('version','hash')}

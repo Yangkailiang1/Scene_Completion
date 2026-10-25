@@ -219,6 +219,8 @@ class Execution:
                 value=transform(inputs);proof={}
             elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
                 value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
+            elif task=='concern-match' and 'normal-rules' in inputs and not self.conversations.revision(key):
+                value={'matches':[],'pending':[]};proof={'provider':'indexed_positive_rule_matching','reason':'正向语义规则已独立提取；此步骤只按注册表、实际操作与字段属性匹配，不重复调用模型复制已知事实'}
             elif task=='exception-generate' and not generation_matches(inputs) and not self.conversations.revision(key):
                 value={'scenarios':[],'pending':[]};proof={'provider':'deterministic_rule_coverage','reason':'没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型'}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
@@ -264,7 +266,7 @@ class Execution:
                 dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
                 validate_result(task,value['payload'],inputs_for(dependencies))
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
-                 'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+                 'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
 
     def partitioned(self,key,task,deps,build,case):
@@ -502,12 +504,12 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules'),
             build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd']),'normal-rules':d['normal-rules']},partition=True)
         add('gap-compare',('exception-generate','existing-extract'),build=lambda d:{'left':d['exception-generate']['scenarios'],'right':d['existing-extract']['scenarios'],'purpose':'G_E'})
-        add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind'),build=lambda d:d,
+        add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind','normal-rules'),build=lambda d:d,
             transform=lambda d:{**missing_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['gap-compare']['decisions']),
               'interactions':d['enriched-view'],'concerns':d['concern-match']['matches'],
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
-              'pending':d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
+              'pending':d['normal-rules']['pending']+d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
         add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':scoped_test},build=lambda d,tt=scoped_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[]}) if not scoped_test else None,partition=bool(scoped_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task

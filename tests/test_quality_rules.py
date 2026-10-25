@@ -92,3 +92,11 @@ def test_local_validation_moves_into_owner_without_new_calls():
     log=[];out=complete_structure({'interactions':[root,local],'rr_sr_links':[],'pending':[]},log)
     assert [i['id'] for i in out['interactions']]==['entry']
     assert '校验请求参数' in out['interactions'][0]['operation']['sequence'] and log
+
+def test_rule_subject_keeps_physical_resource_mapping_and_human_caller():
+    from scene_completion.normal_rules import rule_subject
+    from tests.test_workflow import exchange
+    i=exchange();r={'concern_key':'human.authentication'}
+    assert rule_subject(r,i)==i['sender']['name']
+    i['receiver'].update(name='records表',position='外部数据库');r['concern_key']='database.uniqueness'
+    assert rule_subject(r,i)=='records表资源服务'

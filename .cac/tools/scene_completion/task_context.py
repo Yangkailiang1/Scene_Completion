@@ -36,7 +36,8 @@ def generation_matches(inputs):
     from .concern_hierarchy import match_is_applicable
     by_id={i['id']:i for i in interactions(inputs)}
     mechanical={'service.base.availability','service.query_retrieval.resource_existence'}
-    indexed={(r['interaction_id'],r['owner_service'],r['concern_key']) for r in inputs.get('normal-rules',{}).get('rules',[])}
+    from .normal_rules import rule_matches
+    indexed={(r['interaction_id'],r['object'],r['concern_key']) for r in rule_matches(inputs)}
     return [deepcopy(m) for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key']) not in indexed and m['interaction_id'] in by_id
       and match_is_applicable(m,by_id[m['interaction_id']],inputs) and m.get('concrete_rule')
       and not m['concern_key'].startswith('api.data.') and m['concern_key'] not in mechanical]

@@ -24,3 +24,23 @@ def test_unknown_usage_and_estimates_stay_separate_from_actual_cost(tmp_path):
     v=indexed_usage(tmp_path,prices={'m':{'input':1,'output':2}})
     assert v['totals']['actual_cost'] is None and v['totals']['estimated_cost']==.00012
     assert v['totals']['unknown_usage_calls']==1 and v['totals']['reported_total_tokens']==100
+
+def test_old_rule_run_upgrades_to_new_project_without_overwriting_history(tmp_path):
+    from scene_completion.workbench import Workbench
+    from scene_completion.storage import read_json,write_json
+    w=Workbench(tmp_path);meta=w.create({'name':'old','sources':{'RR':[{'name':'rr.md','content':'RR'}],'SR':[{'name':'sr.md','content':'SR'}]}})
+    old=w.run_dir(meta['id']);meta.pop('ruleset_version');write_json(old/'project.json',meta)
+    write_json(old/'run/run_manifest.json',{'protocol':'scene-workflow-v3','complete':True})
+    upgraded=w.upgrade(meta['id'])
+    assert upgraded!=meta['id'] and read_json(old/'run/run_manifest.json')['complete']
+    assert read_json(w.run_dir(upgraded)/'project.json')['previous_project_id']==meta['id']
+    assert w.upgrade(upgraded)==upgraded
+
+def test_accounts_with_same_model_have_independent_usage_filters(tmp_path):
+    store=EventStore(tmp_path)
+    for i,account in enumerate(('account-one','account-two')):
+        store.append('request_started',task_key='task',role='modeler',case='C',model_call_id=str(i),requested_model='same-model',account=account,account_id=str(i))
+        store.append('request_finished',task_key='task',model_call_id=str(i),usage={'prompt_tokens':80,'completion_tokens':20,'total_tokens':100})
+    assert indexed_usage(tmp_path)['totals']['reported_total_tokens']==200
+    one=indexed_usage(tmp_path,account='account-one',view='tasks')
+    assert one['totals']['reported_total_tokens']==100 and one['items'][0]['accounts']==['account-one']

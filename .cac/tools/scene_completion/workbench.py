@@ -37,7 +37,8 @@ class Workbench:
                 saved[role].append({'path':filename,'name':Path(d['name']).name})
         case_ids=body.get('case_ids',[])
         if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
-        meta={'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL}
+        from .normal_rules import RULESET_VERSION
+        meta={'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL,'ruleset_version':RULESET_VERSION}
         write_json(p/'project.json',meta);return meta
     def list(self):return sorted([read_json(p) for p in self.root.glob('*/project.json')],key=lambda x:x['created_at'],reverse=True)
     def configure(self,rid,body):
@@ -59,9 +60,11 @@ class Workbench:
     def upgrade(self,rid):
         import shutil
         p=self.run_dir(rid);meta=read_json(p/'project.json')
-        if meta.get('protocol')==PROTOCOL:return rid
+        from .normal_rules import RULESET_VERSION
+        manifest=read_json(p/'run/run_manifest.json') if (p/'run/run_manifest.json').exists() else {}
+        if meta.get('protocol')==PROTOCOL and (meta.get('ruleset_version')==RULESET_VERSION or manifest.get('ruleset_version')==RULESET_VERSION):return rid
         sources={k:[{'name':d['name'],'content':(p/d['path']).read_text(encoding='utf8')} for d in rows] for k,rows in meta['sources'].items()}
-        new=self.create({'name':meta['name']+' · 融合交互新版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
+        new=self.create({'name':meta['name']+' · 规则修订版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
         if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
         target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
         return new['id']
@@ -262,11 +265,11 @@ def create_app(root=None,client_factory=None,env_file=None):
         if chosen is None:return Response(json.dumps({'status':'未准备模型上下文','task_key':task_key},ensure_ascii=False),media_type='application/json')
         return Response(json.dumps(chosen,ensure_ascii=False,indent=2),media_type='application/json')
     @app.get('/api/projects/{rid}/usage')
-    def usage(rid:str,format:str='json',view:str='summary',task_key:str|None=None,role:str|None=None,model:str|None=None,case:str|None=None,search:str='',offset:int=0,limit:int=50,after:float|None=None,session_id:str|None=None):
+    def usage(rid:str,format:str='json',view:str='summary',task_key:str|None=None,role:str|None=None,model:str|None=None,case:str|None=None,search:str='',offset:int=0,limit:int=50,after:float|None=None,session_id:str|None=None,account:str|None=None):
         from .usage_index import indexed_usage,usage_csv
         project=service.run_dir(rid);prices=read_json(project/'usage_prices.json') if (project/'usage_prices.json').exists() else {}
         report=indexed_usage(project/'run',view='export' if format in {'csv','download'} else view,
-            task_key=task_key,role=role,model=model,case=case,search=search,offset=offset,limit=limit,after=after,prices=prices,session_id=session_id)
+            task_key=task_key,role=role,model=model,case=case,search=search,offset=offset,limit=limit,after=after,prices=prices,session_id=session_id,account=account)
         if format=='csv':return Response(usage_csv(report),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="task-usage.csv"'})
         if format not in {'json','download'}:raise ValueError('usage format must be json, download or csv; use the embedded workbench view')
         return Response(json.dumps(report,ensure_ascii=False),media_type='application/json')

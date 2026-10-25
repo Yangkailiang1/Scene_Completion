@@ -90,6 +90,7 @@ export function NodeConversation({
             <article key={m.id} className={"chat-message " + m.kind}>
               <strong>
                 {{
+                  context_resolution: "系统依据补充（非用户决定）",
                   guidance: "我的指导",
                   answer: "我的回答",
                   assistant: "模型回复",
@@ -97,7 +98,7 @@ export function NodeConversation({
                   system: "系统",
                 }[m.kind as string] || m.kind}
                 <small>
-                  {m.kind === "guidance" || m.kind === "answer"
+                  {m.kind === "guidance" || m.kind === "answer" || m.kind === "context_resolution"
                     ? m.applied
                       ? "已生效"
                       : "已接收 · 待模型调用"

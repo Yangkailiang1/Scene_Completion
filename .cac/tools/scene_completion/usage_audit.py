@@ -27,7 +27,7 @@ def summarize_requests(events,now=None):
         kind=event['kind'];d=event['data'];node=event.get('task_key');key=d.get('model_call_id')
         if kind=='request_started':
             key=key or str(event['id']);last[node]=key
-            calls[key]={'id':key,'task_key':node,'role':event.get('role'),'case':event.get('case'),'model':d.get('requested_model'),'started_at':event['at'],'input_bytes':d.get('input_bytes'),'output_limit':d.get('max_output_tokens'),'status':'in_flight','usage':None}
+            calls[key]={'id':key,'task_key':node,'role':event.get('role'),'case':event.get('case'),'account_id':d.get('account_id'),'account':d.get('account','历史未标注账号'),'model':d.get('requested_model'),'started_at':event['at'],'input_bytes':d.get('input_bytes'),'output_limit':d.get('max_output_tokens'),'status':'in_flight','usage':None}
         elif kind in {'request_finished','request_failed'}:
             key=key or last.get(node)
             if key not in calls:continue

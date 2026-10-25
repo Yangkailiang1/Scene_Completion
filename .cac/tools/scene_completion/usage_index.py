@@ -4,7 +4,7 @@ import csv, io, json, sqlite3, time
 from .usage_audit import summarize_requests
 
 def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
-                  case=None, search='', offset=0, limit=50, after=None, prices=None, session_id=None):
+                  case=None, search='', offset=0, limit=50, after=None, prices=None, session_id=None, account=None):
     if view not in {'summary','tasks','requests','export'}:raise ValueError('invalid usage view')
     if offset<0 or not 1<=limit<=200:raise ValueError('invalid usage pagination')
     root=Path(root);source=root/'execution_events.sqlite3'
@@ -59,7 +59,7 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
             row['cost_status']='估算，未扣除免费额度；不是实际账单'
     def accepts(row):
         n=metadata.get(row.get('task_key'),{});models=row.get('models',[row.get('model')])
-        return (not task_key or row.get('task_key')==task_key) and (not role or row.get('role',n.get('role'))==role) and (not model or model in models) and (not case or row.get('case',n.get('case'))==case) and (not search or search.casefold() in json.dumps(row,ensure_ascii=False).casefold())
+        return (not account or row.get('account')==account) and (not task_key or row.get('task_key')==task_key) and (not role or row.get('role',n.get('role'))==role) and (not model or model in models) and (not case or row.get('case',n.get('case'))==case) and (not search or search.casefold() in json.dumps(row,ensure_ascii=False).casefold())
     requests=[r for r in request_rows if accepts(r)]
     # Filters, including model, must apply to requests before totals aggregation.
     selected_ids={r['id'] for r in requests}
@@ -69,13 +69,14 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     for t in tasks:
         n=metadata.get(t['task_key'],{});t.update(label=n.get('label') or LABELS.get(n.get('stage'),t['task_key']),stage=n.get('stage'),case=n.get('case'),role=n.get('role'),status=states.get(t['task_key'],{}).get('status','historical'))
         costs=[r['estimated_cost'] for r in requests if r['task_key']==t['task_key'] and r['estimated_cost'] is not None]
+        t['accounts']=list(dict.fromkeys(r.get('account','历史未标注账号') for r in requests if r['task_key']==t['task_key']))
         t.update(estimated_cost=sum(costs) if costs else None,actual_cost=None,cost_status='估算，非实际账单' if costs else '未知：未配置单价或用量未知')
     keys=('calls','completed_calls','not_sent_calls','unknown_usage_calls','in_flight_calls','input_tokens','cached_input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds')
     totals={k:sum(t.get(k,0) for t in filtered['tasks'].values()) for k in keys}
     estimates=[r['estimated_cost'] for r in requests if r['estimated_cost'] is not None]
     totals.update(actual_cost=None,estimated_cost=sum(estimates) if estimates else None,cost_status='部分估算' if estimates and len(estimates)<sum(bool(r.get('usage')) for r in requests) else '估算' if estimates else '未知')
     groups={}
-    for dimension in ('role','model','case'):
+    for dimension in ('account','role','model','case'):
         parts={}
         for r in requests:
             name=r.get(dimension) or metadata.get(r['task_key'],{}).get(dimension) or '未分类'

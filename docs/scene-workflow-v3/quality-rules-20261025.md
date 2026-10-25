@@ -8,6 +8,8 @@ normal-rules读取单个用例正向原文与融合SSD，按实际接收请求�
 
 规则事实供G/E/GT独立定位，G仍不读取E、测试异常或匹配结果。原文委托乙服务校验时，不将校验失败挂到调用甲服务的入口。服务本地处理放operation.sequence，不生成无依据自调用。
 
+正常规则已整理时，关注点匹配由工具依据规则、注册表及实际操作完成，不重复调用模型复制事实；有节点指导时仍可进行语义补充。人类身份规则针对发送方；数据库物理对象按既有映射定位逻辑资源服务。检查器/GT的模型输入不包含正常规则的violation（取反答案），只读取正向事实和自身原文。
+
 条件级规则只在原文明示校验而具体标准未知时进入G：resolution=conditional、executable=false及pending_details。没有正常规则依据仍待确认。其他确定规则为explicit。数据位置与字段路径分别保存，拆独立字段/原因，真正跨字段关系不机械拆分。
 
 检查器和测试任务引用rule_id时必须原因、条件一致，程序再按该正常规则统一责任交互，保留normalization_origin追溯。不因为同链、同关注点就直接命中。响应码及后续处理不作为异常原因命中必备字段；不可用不自动替代超时。允许缺省的正常容错不进入异常GT。
@@ -18,12 +20,16 @@ normal-rules读取单个用例正向原文与融合SSD，按实际接收请求�
 
 ## 内嵌用量接口
 
-- GET /api/projects/{id}/usage：轻量汇总。view=tasks或requests分页；支持offset、limit（最多200）、task_key、role、model、case、search、session_id、after。
+- GET /api/projects/{id}/usage：轻量汇总。view=tasks或requests分页；支持offset、limit（最多200）、task_key、role、model、account、case、search、session_id、after。
 - GET同路径format=csv或download：导出JSON/CSV；不再使用html外链。
 - GET /api/projects/{id}/context?task_key=...：按需取单节点上下文；后续读取走指针索引。
 - PUT /api/projects/{id}/usage/prices：按模型配置input/output及可选cached_input每百万Token人民币单价；仅用于估算，不代表实际账单或免费额度。
 
 usage_index.sqlite3由请求事件增量建立；不扫描全部任务包和上下文。execution_sessions.json保存本规则版本起的执行轮，无法可靠分轮的旧历史不冒充当前执行轮。输入/缓存输入、输出/其中思考不重复相加；失败无usage为未知；预算预留不是实际费用。页面按需分页，节点入口在同一工作区打开，15秒只在页面可见时更新。
+
+新请求记录账号别名及不可逆凭证指纹，浏览器和导出不包含密钥。不同账号的同名模型必须使用不同账本路径，额度不相加为单池。额度快照和安全预留是本地调用保护，不代表供应商实时剩余额度；403免费额度耗尽时停止该账号/模型，不自动打开付费模式。历史请求没有账号标记的保持“未分类”，不猜测归属，也不清零旧账本。
+
+模型因输入裁剪缺陷而提出的问题，修正上下文后可记录context_resolution，必须附明确仓库/原文依据，页面标为“系统依据补充（非用户决定）”。真正业务不确定仍等待用户回答；两者都保留事件和修复预算。分支合并重新分配稳定机器ID，保留source_scenario_id，防止不同子任务都输出GT-1导致覆盖或计分冲突。
 
 ## 基线核查
 

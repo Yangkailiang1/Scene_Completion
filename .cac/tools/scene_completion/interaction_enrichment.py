@@ -4,6 +4,8 @@ from .storage import fingerprint
 from .contracts import PROTOCOL,registry,validate
 def stable(prefix, value): return prefix+'-'+fingerprint(value)[:20]
 
+def resource_service_name(name):return name+'资源服务'
+
 
 def interactions(inputs):
     return [i for layer in ('rr-ssd','sr-ssd') for i in inputs.get(layer,{}).get('interactions',[])]
@@ -95,7 +97,7 @@ def resource_metadata(payload):
     for c in payload['components']:
         if c['composition_type'] not in {'内部数据库','外部数据库'}:continue
         sid=stable('resource-service',c['id'])
-        services.append({'node_id':sid,'name':c['name']+'资源服务','kind':'internal_service',
+        services.append({'node_id':sid,'name':resource_service_name(c['name']),'kind':'internal_service',
          'service_role':'resource_service','physical_resource_id':c['id'],'logical_only':True,
          'resource_origin':'internal' if c['composition_type']=='内部数据库' else 'external','source_refs':c['source_refs']})
         mappings.append({'physical_resource_id':c['id'],'logical_service_id':sid,'source_refs':c['source_refs']})
