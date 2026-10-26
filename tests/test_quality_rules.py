@@ -36,12 +36,13 @@ def test_conditional_rule_needs_declared_check_never_invents_a_limit():
     x=memory_inputs();p=x['api-parameters']['apis'][0]['parameters'][2]
     p['constraints']=[{'id':'size','kind':'size','value':None,'status':'pending','source_refs':[{**R[0],'quote':'校验图片数量在允许范围内'}]}]
     x['concern-match']=resolve_matches(x,[])
-    result=[s for s in data_exceptions(x) if s['cause']=='size']
-    assert len(result)==1 and result[0]['resolution']=='conditional' and not result[0]['executable']
+    result=[s for s in data_exceptions(x) if s['cause'].startswith('size.')]
+    assert {s['cause'] for s in result}=={'size.minimum','size.maximum'}
+    assert all(s['resolution']=='conditional' and not s['executable'] for s in result)
     assert result[0]['pending_details'] and not any('100' in c for c in result[0]['conditions'])
     p['constraints'][0]['source_refs']=[{**R[0],'quote':'图片信息'}]
     x['concern-match']=resolve_matches(x,[])
-    assert not any(s['cause']=='size' for s in data_exceptions(x))
+    assert not any(s['cause'].startswith('size') for s in data_exceptions(x))
 
 def test_descriptions_are_not_constraints():
     x=memory_inputs();p=x['api-parameters']['apis'][0]['parameters'][1]

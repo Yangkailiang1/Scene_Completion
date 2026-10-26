@@ -78,6 +78,7 @@ def code_version(task):
     if task in {'existing-bind','existing-extract','test-ground-truth'}:names=names+['failure_units.py']
     if task in {'existing-extract','test-ground-truth','test-additional-truth'}:names=names+['scenario_patterns.py']
     if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
+    if task in {'interaction-enrich','exception-generate','pattern-applicability','existing-extract','test-ground-truth','test-supplement','test-additional-truth'}:names=names+['data_requirements.py']
     if task=='test-ground-truth':names=names+['validation.py']
     if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py']
     skill=skill_path(task)
@@ -134,10 +135,20 @@ class Execution:
             for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
                 source=self.root/name
                 if source.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(source,archive/name)
+        from .normal_rules import RULESET_VERSION
+        if previous and previous.get('ruleset_version') and previous['ruleset_version']!=RULESET_VERSION:
+            import shutil,time
+            archive=self.root/'report_versions'/('rules-'+previous['ruleset_version']+'-'+str(time.time_ns()))
+            archive.mkdir(parents=True,exist_ok=True)
+            from .result_views import ResultView
+            old_metrics=ResultView(self.root.parent).metrics()
+            write_json(archive/'metrics_summary.json',{k:old_metrics.get(k) for k in ('metrics','ruleset_version','matching_version','cases','test_set')})
+            for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
+                if (self.root/name).exists():shutil.copy2(self.root/name,archive/name)
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
                        'registry_hash':self.registry_snapshot['hash'],'registry_version':self.registry_snapshot['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
-        from .normal_rules import RULESET_VERSION
         self.manifest['ruleset_version']=RULESET_VERSION
+        self.manifest['evaluation_version']=RULESET_VERSION
         from .concern_alignment import VERSION
         self.manifest['matching_version']=VERSION
         if self.config.get('scenario_patterns',False):self.manifest.update(pattern_settings_hash=self.pattern_settings['hash'],pattern_library_version=self.pattern_settings['library']['version'],recommendation={'enabled':True,'status':'等待缺失集合M'})

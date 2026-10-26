@@ -269,6 +269,13 @@ class EvidenceContext:
         return result
 
     def expand(self,value):
+        if not isinstance(value,dict):raise ValueError('task result must be a JSON object')
+        # Reject malformed containers before accessing row attributes. Do not
+        # coerce strings into records or accept partial model output.
+        for key,definition in self.original['output_schema'].get('properties',{}).items():
+            if key not in value or definition.get('type')!='array' or definition.get('items',{}).get('type')!='object':continue
+            if not isinstance(value[key],list) or any(not isinstance(row,dict) for row in value[key]):
+                raise ValueError(key+' must be an array of JSON objects; retain the task schema')
         def decode(v,key=None):
             if key=='source_refs':
                 if not isinstance(v,list) or any(not isinstance(r,str) or r not in self.pool for r in v):raise ValueError('unknown evidence_id; select only IDs supplied in this task input')

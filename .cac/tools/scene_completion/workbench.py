@@ -127,6 +127,12 @@ class Workbench:
         from .normal_rules import RULESET_VERSION
         manifest=read_json(p/'run/run_manifest.json') if (p/'run/run_manifest.json').exists() else {}
         if meta.get('protocol')==PROTOCOL and (meta.get('ruleset_version')==RULESET_VERSION or manifest.get('ruleset_version')==RULESET_VERSION):return rid
+        from .concern_alignment import VERSION
+        if meta.get('protocol')==PROTOCOL and manifest.get('protocol')==PROTOCOL and manifest.get('matching_version')==VERSION:
+            # Same two-layer contract: Execution archives old reports before
+            # invalidating only changed tool/input versions. Preserve verified
+            # per-node responses, conversations and the request usage audit.
+            return rid
         import base64
         sources={k:[{'name':d['name'],**({'content_base64':base64.b64encode((p/d['path']).read_bytes()).decode()} if d['path'].endswith('.xlsx') else {'content':(p/d['path']).read_text(encoding='utf8')})} for d in rows] for k,rows in meta['sources'].items()}
         new=self.create({'name':meta['name']+' · 规则修订版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})

@@ -632,6 +632,34 @@ export function ResultsView({ project }: { project: string }) {
                               {p.constraints
                                 ?.map((c: any) => `${c.kind}：${show(c.value)}`)
                                 .join("；") || "未明示"}
+                              {(i.parameter_requirement_sources || [])
+                                .filter(
+                                  (r: any) =>
+                                    r.name === p.name &&
+                                    r.location === p.location,
+                                )
+                                .map((r: any) => (
+                                  <details key={r.location + r.name}>
+                                    <summary>
+                                      要求来源（{r.sources.length}）
+                                    </summary>
+                                    {r.sources.map((s: any, j: number) => (
+                                      <div key={j} className="muted">
+                                        <strong>{s.origin}</strong> · 类型{" "}
+                                        {show(s.data_type)} · 必填{" "}
+                                        {show(s.required)} · 默认值{" "}
+                                        {show(s.default)}
+                                        {(s.source_refs || []).map(
+                                          (ref: any, k: number) => (
+                                            <blockquote key={k}>
+                                              {ref.quote}
+                                            </blockquote>
+                                          ),
+                                        )}
+                                      </div>
+                                    ))}
+                                  </details>
+                                ))}
                             </td>
                           </tr>
                         ))}

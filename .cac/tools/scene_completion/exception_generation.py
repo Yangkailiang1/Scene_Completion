@@ -14,25 +14,24 @@ def data_exceptions(inputs):
             'format':'数据格式','length':'数据长度','size':'数据大小','pattern':'数据格式','other':'数据合法性'}
     for i in interactions(inputs):
         matches={(m.get('data_location'),m['object'],m['concern_key']) for m in inputs.get('concern-match',{}).get('matches',[]) if m['interaction_id']==i['id'] and m['target']=='data' and m.get('scope','interface')=='interface' and match_is_applicable(m,i,inputs)}
-        for p in parameters_for(i,inputs):
-            rules=[]
-            if p['required'] is True:rules.append(('required','missing_required',True,p['source_refs']))
-            if p['data_type'] is not None:rules.append(('type','type',p['data_type'],p['source_refs']))
-            rules += [(r['kind'],r['kind'],r['value'],r['source_refs']) for r in p['constraints'] if (r['status']=='explicit' or conditional_constraint(r)) and r['kind']!='type' and not descriptive_constraint(r)]
-            for kind,cause,value,refs in rules:
-                key=concern_by_label(labels[kind])
+        from .data_requirements import positive_parameters,field_requirements,trigger
+        for p in positive_parameters(i,inputs):
+            for requirement in field_requirements(p):
+                kind,value,refs=requirement['kind'],requirement['value'],requirement['source_refs'];cause='missing_required' if kind=='required' else kind
+                key=concern_by_label(labels[kind.split('.')[0]])
                 if (p['location'],p['name'],key) not in matches and (None,p['name'],key) not in matches: continue
                 rule_id=stable('rule',[resolved_api_id(i,inputs),p['location'],p['name'],kind,value])
-                conditions=([p['name']+'未提供'] if cause=='missing_required' else [p['name']+'已提供',f'违反{kind}约束: '+json.dumps(value,ensure_ascii=False,sort_keys=True)])
+                conditions=[trigger(p['name'],requirement)]
                 s={'id':stable('G',[i['id'],rule_id]),'case_id':i['case_id'],'interaction_id':i['id'],'layer':i['layer'],
                    'object':p['name'],'operation':i['operation']['name'],'cause':cause,'conditions':conditions,
                    'concern_key':key,'field':p['name'],'rule_id':rule_id,'source_status':'framework_inferred',
                    'derivation':f'字段{p["name"]}的明示{kind}规则取反；可选字段仅在提供时检查。','source_refs':refs,'steps':scenario_steps(i,conditions),'scope':'interface','data_location':p['location'],
                    'concern_origins':[key],'concern_paths':inheritance_paths(key,i['direction'])}
-                conditional=any(r['kind']==kind and conditional_constraint(r) for r in p['constraints'])
+                conditional=requirement['conditional']
                 s.update(resolution='conditional' if conditional else 'explicit',executable=not conditional,pending_details=[kind+'具体约束待确认'] if conditional else [])
                 s['failure_rule']={'kind':kind,'value':value}
-                if conditional:
+                if kind.startswith('size.'):s['predicate']={'measure':requirement['measure']}
+                if conditional and not kind.startswith('size.'):
                     s['conditions']=[p['name']+'已提供','不满足原文明示的'+kind+'规则（具体标准待确认）'];s['steps']=scenario_steps(i,s['conditions'])
                 output.append(s)
     return deduplicate(output)

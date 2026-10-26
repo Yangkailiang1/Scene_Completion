@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 from .storage import fingerprint
-RULESET_VERSION='two-level-concern-scenario-20261026-v1'
+RULESET_VERSION='two-level-concern-scenario-20261026-v2-union-size'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
 def identity_concern(key,interaction):
@@ -39,7 +39,7 @@ def conditional_constraint(rule):
     if rule.get('kind') not in {'format','pattern','length','size','minimum','maximum'}:return False
     if rule.get('status')!='pending' and str(rule.get('value') if rule.get('value') is not None else '').strip() not in {'','合法','有效','格式合法','长度合法','允许范围','格式有效'}:return False
     text=' '.join(r['quote'] for r in rule.get('source_refs',[]))
-    return bool(re.search(r'格式(?:合法|有效|校验)|URL.*(?:合法|有效|格式)|长度(?:合法|有效|限制)|数量.*(?:范围|限制)|允许范围|上限|下限|format.*(?:valid|check)|size.*limit',text,re.I))
+    return bool(re.search(r'格式(?:合法|有效|校验)|URL.*(?:合法|有效|格式)|长度(?:合法|有效|限制)|数量.*(?:范围|限制)|大小.*(?:要求|范围|限制|约束|符合)|校验.*大小|允许范围|上限|下限|format.*(?:valid|check)|size.*limit',text,re.I))
 
 def documented_normal_tolerance(inputs):
     """Only explicit optional tolerance with normal fallback, never all optional tests."""

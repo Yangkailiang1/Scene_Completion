@@ -11,7 +11,7 @@ def exact_failure_signature(s):
     text=s['cause']+' '+' '.join(s['conditions']);field=s.get('field')
     if field and s.get('failure_rule'):
         import json
-        return ('explicit_field_rule',s.get('scope'),s.get('data_location'),field,json.dumps(s['failure_rule'],ensure_ascii=False,sort_keys=True))
+        return ('explicit_field_rule',s.get('scope'),s.get('data_location'),field,json.dumps(s['failure_rule'],ensure_ascii=False,sort_keys=True),(s.get('predicate') or {}).get('measure') if s['failure_rule']['kind'].startswith('size') else None)
     if s['concern_key']=='service.base.availability' and not re.search(r'超时|timeout|deadline',text,re.I):
         if re.search(r'不可用|无法执行|service_unavailable',text,re.I):return ('unavailable',s['object'])
     if field and s['concern_key']=='api.data.range':
@@ -31,6 +31,10 @@ def distinct_unit(a,b):
         return '约束作用域不同，无法构成完整对应'
     if a.get('data_location') and b.get('data_location') and a['data_location']!=b['data_location']:
         return '字段位置不同，无法构成完整对应'
+    if a.get('concern_key')==b.get('concern_key')=='api.data.size':
+        from .data_requirements import measure
+        units=[(s.get('predicate') or {}).get('measure') or measure(' '.join(s['conditions'])) for s in (a,b)]
+        if units[0]!=units[1]:return '大小约束的数据属性不同或尚未统一；文件大小与数量不能互相命中'
     if a.get('failure_rule') and b.get('failure_rule') and a.get('field')==b.get('field') and a['failure_rule']!=b['failure_rule']:
         return '同一字段的不同独立契约约束，不是同一个失败单元'
     # Literal API identifiers are case-sensitive except HTTP header names.

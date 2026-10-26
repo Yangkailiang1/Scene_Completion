@@ -18,19 +18,16 @@ def mechanical_tests(inputs):
     from .normal_rules import conditional_constraint,descriptive_constraint
     out=[]
     suffix={'required':'completeness','type':'type','enum':'legality','minimum':'range','maximum':'range','format':'format','pattern':'format','length':'length','size':'size','other':'legality'}
+    from .data_requirements import positive_parameters,field_requirements,trigger as requirement_trigger
     for i in inputs['fused-ssd']['interactions']:
-        ps=parameters_for(i,{'api-parameters':inputs['normal-constraints']})
+        ps=positive_parameters(i,inputs)
         for p in ps:
-            constraints=[]
-            if p['required'] is True:constraints.append({'kind':'required','value':True,'status':'explicit','source_refs':p['source_refs']})
-            if p['data_type']:constraints.append({'kind':'type','value':p['data_type'],'status':'explicit','source_refs':p['source_refs']})
-            constraints += [r for r in p['constraints'] if r['kind']!='type' and (r['status']=='explicit' or conditional_constraint(r)) and not descriptive_constraint(r)]
-            for r in constraints:
-                kind=r['kind'];conditional=conditional_constraint(r) if kind!='required' else False
+            for r in field_requirements(p):
+                kind=r['kind'];conditional=r['conditional']
                 name=p['name'];value=json.dumps(r['value'],ensure_ascii=False,sort_keys=True)
-                trigger=name+'未提供' if kind=='required' else name+'已提供；违反'+kind+'约束: '+value
-                if conditional:trigger=name+'已提供；不满足原文明示的'+kind+'规则（具体标准待确认）'
-                out.append({'interaction_id':i['id'],'concern_key':'api.data.'+suffix[kind],'field':name,'scope':'interface','data_location':p['location'],
+                trigger=requirement_trigger(name,r)
+                if conditional and not kind.startswith('size.'):trigger=name+'已提供；不满足原文明示的'+kind+'规则（具体标准待确认）'
+                out.append({'interaction_id':i['id'],'concern_key':'api.data.'+suffix[kind.split('.')[0]],'field':name,'scope':'interface','data_location':p['location'],
                  'preconditions':['其他字段及前置业务条件满足正常要求'], 'trigger':trigger,'test_data':trigger,
                  'steps':['准备满足正常约束的'+('请求' if i['direction']=='request' else '响应'),'仅对'+name+'施加上述失败条件','执行'+i['operation']['name']+'并核查约束处理'],
                  'expected_result':'识别该字段违反明示约束；具体错误响应未在本正向依据中声明，不补造',

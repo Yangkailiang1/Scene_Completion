@@ -108,7 +108,10 @@ def annotate(s,i,settings,score=None,reason=None,pattern_id=None):
         s['pending_details']=list(dict.fromkeys(s['pending_details']+['模式与交互已有依据；具体故障注入方式或测试数据尚未准备']))
     s.update(pattern_id=pid,linked_pattern_ids=[pid],confidence=confidence(score,reason),risk=risk_for(p,settings),scenario_context=context_for(i),pattern_versions={pid:p['definition_hash']})
     s['concern_origins']=list(dict.fromkeys(s.get('concern_origins',[])+p['concern_keys']+[s['concern_key']]))
-    s['predicate']={'scope':s.get('scope','service'),'location':s.get('data_location'),'field':s.get('field'),'operator':(s.get('failure_rule') or {}).get('kind',s['cause']),'value':(s.get('failure_rule') or {}).get('value')}
+    s['predicate']={**s.get('predicate',{}),'scope':s.get('scope','service'),'location':s.get('data_location'),'field':s.get('field'),'operator':(s.get('failure_rule') or {}).get('kind',s['cause']),'value':(s.get('failure_rule') or {}).get('value')}
+    if s['concern_key']=='api.data.size':
+        from .data_requirements import measure
+        s['predicate'].setdefault('measure',measure(' '.join(s['conditions'])))
     return s
 
 def security_rules(inputs,library=None):
@@ -263,6 +266,8 @@ def generated(matrix):
 def inverse_metadata(value,inputs,settings=None,*,truth=False):
     """Annotate independent inverse channel; generic coverage belongs to E only."""
     settings=normalize_settings(settings);out=deepcopy(value)
+    from .data_requirements import split_size_scenarios
+    out['scenarios']=split_size_scenarios(out['scenarios'])
     rows={i['id']:i for i in inputs.get('fused-ssd',{}).get('interactions',[])}
     branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
     for s in out['scenarios']:
@@ -284,7 +289,8 @@ def inverse_metadata(value,inputs,settings=None,*,truth=False):
 
 def split_structured_bounds(rows):
     """Structured length/size intervals only; arbitrary prose is not a parser."""
-    out=[]
+    from .data_requirements import split_size_scenarios
+    rows=split_size_scenarios(rows);out=[]
     for s in rows:
         rule=s.get('failure_rule',{});value=rule.get('value');kind=rule.get('kind')
         if kind not in {'length','size'} or not isinstance(value,dict):out.append(s);continue

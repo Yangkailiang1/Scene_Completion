@@ -43,17 +43,47 @@ def parameters_for(i, inputs):
         apis=[a for a in inputs.get('api-parameters',{}).get('apis',[]) if a['id']==api_id]
         if len(apis)>1:raise ValueError('duplicate API identity')
         if apis:
-            # API contract wins over an incomplete interaction presentation.
+            # Use the evidenced union, not a requirements-consistency check.
+            # API-only and SSD-only fields/constraints both remain available.
             by_name={(p['location'],p['name']):p for p in params}
             for p in apis[0]['parameters']:
                 if not valid(p):continue
                 p=deepcopy(p);actual=by_name.get((p['location'],p['name']))
                 if actual:
-                    p['constraints']=list({fingerprint(r):r for r in p['constraints']+actual['constraints']}.values())
+                    if p['data_type'] is None:p['data_type']=actual['data_type']
+                    elif actual['data_type'] is not None and p['data_type']!=actual['data_type']:
+                        p['constraints'].append({'id':stable('source-type',[p['location'],p['name'],actual['data_type']]),'kind':'type','value':actual['data_type'],'status':'explicit','source_refs':deepcopy(actual['source_refs'])})
+                    p['required']=True if p['required'] is True or actual['required'] is True else p['required'] if p['required'] is not None else actual['required']
+                    if p['default'] is None:p['default']=deepcopy(actual['default'])
+                    merged={}
+                    for r in p['constraints']+actual['constraints']:
+                        key=fingerprint([r['kind'],r['value']])
+                        if key not in merged:merged[key]=deepcopy(r)
+                        else:
+                            row=merged[key]
+                            row['source_refs']=list({fingerprint(x):x for x in row['source_refs']+r['source_refs']}.values())
+                            if r['status']=='explicit':row['status']='explicit'
+                    p['constraints']=list(merged.values())
                     p['source_refs']=list({fingerprint(r):r for r in p['source_refs']+actual['source_refs']}.values())
                 by_name[(p['location'],p['name'])]=p
             params=list(by_name.values())
     return params
+
+
+def requirement_sources(i,inputs):
+    """Display-only provenance; differing requirements are not new faults."""
+    groups={}
+    def add(p,origin):
+        if i['direction']=='return':
+            if p['location'] not in ({'response','business'} if origin=='SSD' else {'response'}):return
+        elif p['location']=='response':return
+        groups.setdefault((p['location'],p['name']),[]).append({'origin':origin,**{k:deepcopy(p[k]) for k in ('data_type','required','default','constraints','source_refs')}})
+    for p in i['data']['sequence']:add(p,'SSD')
+    api_id=resolved_api_id(i,inputs)
+    for a in inputs.get('api-parameters',{}).get('apis',[]):
+        if a['id']==api_id:
+            for p in a['parameters']:add(p,'API')
+    return [{'name':name,'location':location,'sources':rows} for (location,name),rows in groups.items()]
 
 
 def bind_resource_services(inputs):
@@ -132,7 +162,9 @@ def enrich(inputs,alignment):
             for service in value['api-map']['services']:
                 if service['name']==i['receiver']['name']:
                     i['receiver']['supported_operations'] += [{'name':a['name'],'source_refs':a['source_refs']} for a in service['interfaces']]
-        i['data']['sequence']=parameters_for(i,value)
+        i['parameter_requirement_sources']=requirement_sources(i,value)
+        from .data_requirements import positive_parameters
+        i['data']['sequence']=positive_parameters(i,value)
         i['associated_api']=resolved_api_id(i,value)
         if i['api_id'] and not i['associated_api']:
             pending.append({'interaction_id':i['id'],'reason':'API标识未能唯一关联已验证接口表；不以全量接口表兜底，相关属性待确认','source_refs':i['source_refs']})

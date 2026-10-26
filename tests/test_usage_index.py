@@ -82,3 +82,23 @@ def test_usage_search_accepts_human_node_labels_and_requests_can_sort_by_tokens(
     write_json(tmp_path/'workflow_graph.json',{'nodes':[{'id':'a','label':'查询记忆库的规则','stage':'normal-rules','role':'modeler','case':'C'}]})
     assert indexed_usage(tmp_path,search='记忆库')['totals']['reported_total_tokens']==100
     assert indexed_usage(tmp_path,view='requests',sort='tokens')['items'][0]['task_key']=='b'
+
+
+def test_same_two_layer_tool_upgrade_archives_reports_without_losing_node_history(tmp_path):
+    from scene_completion.workbench import Workbench
+    from scene_completion.workflow import Execution
+    from scene_completion.contracts import PROTOCOL
+    from scene_completion.concern_alignment import VERSION
+    from scene_completion.storage import read_json,write_json
+    w=Workbench(tmp_path);meta=w.create({'name':'two-layer','sources':{'RR':[{'name':'rr.md','content':'RR'}],'SR':[{'name':'sr.md','content':'SR'}]}})
+    p=w.run_dir(meta['id']);meta['ruleset_version']='prior-tool-rule';write_json(p/'project.json',meta)
+    write_json(p/'run/run_manifest.json',{'protocol':PROTOCOL,'ruleset_version':'prior-tool-rule','matching_version':VERSION,'complete':True})
+    write_json(p/'run/missing_report.json',{'sentinel':'old report'})
+    EventStore(p/'run').append('user_guidance',task_key='node',text='preserve')
+    assert w.upgrade(meta['id'])==meta['id']
+    ex=Execution(p/'run')
+    assert ex.manifest['evaluation_version']!= 'prior-tool-rule'
+    archives=list((p/'run/report_versions').glob('rules-*'))
+    assert len(archives)==1 and read_json(archives[0]/'missing_report.json')['sentinel']=='old report'
+    assert (archives[0]/'metrics_summary.json').exists()
+    assert EventStore(p/'run').latest_id()>=1

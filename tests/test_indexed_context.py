@@ -39,6 +39,13 @@ def test_unused_null_commentary_is_normalized_but_nonempty_unknown_data_is_retai
     assert ctx.expand(q)['bindings_note']=='待确认的具体决定'
 
 
+def test_invalid_row_container_is_rejected_before_identity_expansion():
+    ctx=EvidenceContext(fused_fixture())
+    with pytest.raises(ValueError,match='JSON object'):ctx.expand('not an object')
+    for value in ({'interactions':['broken row']},{'interactions':'broken array'}):
+        with pytest.raises(ValueError,match='array of JSON objects'):ctx.expand(value)
+
+
 def test_index_keeps_excluded_sections_but_default_projection_omits_them():
     lines=['# Current','real','## V5 历史映射，非抽取权威章节','old','## 关联实现接口OpenAPI文件','AR','## Current again','new']
     d={'source_id':'s','channel':'existing','name':'sr.md','lines':[{'number':n,'text':s} for n,s in enumerate(lines,1)]}
