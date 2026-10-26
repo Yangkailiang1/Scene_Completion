@@ -99,7 +99,7 @@ class Workbench:
         if not body.get('agent_model','').strip():raise ValueError('请选择实际模型标识')
         if not body.get('model_account_id') and not body.get('base_url','').startswith(('http://','https://')):raise ValueError('请选择模型连接或填写API地址')
         previous=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
-        config={**previous,**{k:body[k] for k in ('model_account_id','base_url','agent_model','api_key','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
+        config={**previous,**{k:body[k] for k in ('model_account_id','base_url','agent_model','api_key','max_concurrency','max_tokens','max_context_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
         if body.get('model_account_id')!=previous.get('model_account_id'):
             # A changed key/model must not inherit another account's routing,
             # request options or quota path. Ledger files themselves stay intact.
@@ -109,10 +109,11 @@ class Workbench:
                 config.update({k:body[k] for k in ('api_key','base_url') if k in body})
         elif not config.get('api_key'):config['api_key']=previous.get('api_key','')
         config.update(agent_runtime='deepagents',structured_output='json_object',max_retries=0,adaptive_concurrency=True)
-        for k,default,lo,hi in [('max_concurrency',2,1,8),('max_tokens',12000,256,64000),('timeout_seconds',120,10,1800),('stream_idle_timeout_seconds',300,10,1800),('stream_total_timeout_seconds',900,30,3600)]:
+        for k,default,lo,hi in [('max_concurrency',2,1,8),('max_tokens',12000,256,64000),('max_context_tokens',200000,1024,2000000),('timeout_seconds',120,10,1800),('stream_idle_timeout_seconds',300,10,1800),('stream_total_timeout_seconds',900,30,3600)]:
             v=config.get(k,default)
             if type(v) is not int or not lo<=v<=hi:raise ValueError('invalid '+k)
             config[k]=v
+        if config['max_tokens']>=config['max_context_tokens']:raise ValueError('输出预留必须小于上下文上限')
         if config['stream_total_timeout_seconds']<config['stream_idle_timeout_seconds']:raise ValueError('流式总时限不能小于无数据等待时限')
         from .model_settings import resolve
         validated=resolve(config,self.env_file,self.root)

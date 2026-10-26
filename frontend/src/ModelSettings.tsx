@@ -53,6 +53,7 @@ export function ModelSettings({
     for (const k of [
       "max_concurrency",
       "max_tokens",
+      "max_context_tokens",
       "timeout_seconds",
       "stream_idle_timeout_seconds",
       "stream_total_timeout_seconds",
@@ -201,6 +202,13 @@ export function ModelSettings({
             {[
               ["max_concurrency", "并发任务数", 2, 1, 8],
               ["max_tokens", "输出Token上限", 12000, 256, 64000],
+              [
+                "max_context_tokens",
+                "上下文总上限（含输出预留）",
+                200000,
+                1024,
+                2000000,
+              ],
               ["timeout_seconds", "连接等待（秒）", 120, 10, 1800],
               [
                 "stream_idle_timeout_seconds",

@@ -147,11 +147,15 @@ def semantic_view(task,inputs):
             text=str(out.get('fused-ssd',{}))
             techs=({'database'} if '数据库' in text else set())|({'llm'} if any(k in text.lower() for k in ('llm','大语言','large language')) else set())
             out['registry']['definitions']={k:v for k,v in out['registry']['definitions'].items() if not v.get('technology') or v['technology'] in techs}
+    if task in {'existing-extract','test-ground-truth'} and 'identified-concerns' in inputs:
+        from .refinement_context import narrow
+        out=narrow(out,inputs)
+
     if 'identified-concerns' in out:
         # Recognition prose is saved for review, not a second source of facts.
         # The selected element/category and its evidence already scope the
         # next stage. Rewording its explanation must not retrigger a paid call.
-        out['identified-concerns']={'matches':[{k:m[k] for k in ('interaction_id','target','object','concern_key','data_location','operation_index','source_refs') if k in m} for m in out['identified-concerns']['matches'] if m.get('status')=='applicable'],'pending':out['identified-concerns'].get('pending',[])}
+        out['identified-concerns']={'matches':[{k:m[k] for k in ('binding_ref','interaction_id','target','object','concern_key','data_location','operation_index','source_refs') if k in m} for m in out['identified-concerns']['matches'] if m.get('status','applicable')=='applicable'],'pending':out['identified-concerns'].get('pending',[])}
     return out
 
 

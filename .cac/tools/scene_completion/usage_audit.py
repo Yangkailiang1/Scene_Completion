@@ -27,14 +27,14 @@ def summarize_requests(events,now=None):
         kind=event['kind'];d=event['data'];node=event.get('task_key');key=d.get('model_call_id')
         if kind=='request_started':
             key=key or str(event['id']);last[node]=key
-            calls[key]={'id':key,'task_key':node,'role':event.get('role'),'case':event.get('case'),'account_id':d.get('account_id'),'account':d.get('account','历史未标注账号'),'model':d.get('requested_model'),'started_at':event['at'],'input_bytes':d.get('input_bytes'),'output_limit':d.get('max_output_tokens'),'status':'in_flight','usage':None}
+            calls[key]={'id':key,'task_key':node,'role':event.get('role'),'case':event.get('case'),'account_id':d.get('account_id'),'account':d.get('account','历史未标注账号'),'model':d.get('requested_model'),'started_at':event['at'],'attempt':event.get('attempt'),'input_bytes':d.get('input_bytes'),'output_limit':d.get('max_output_tokens'),'status':'in_flight','usage':None}
         elif kind in {'request_finished','request_failed'}:
             key=key or last.get(node)
             if key not in calls:continue
             row=calls[key];row['finished_at']=event['at'];row['status']='completed' if kind=='request_finished' else 'failed'
             row['usage']=d.get('usage');row['provider_model']=d.get('provider_model');row['diagnostic']=d.get('diagnostic')
             reason=(d.get('diagnostic') or {})
-            if reason.get('admission_paused') or reason.get('quota') or reason.get('failure_category')=='budget_exhausted':row['status']='not_sent'
+            if reason.get('not_sent') or reason.get('admission_paused') or reason.get('quota') or reason.get('failure_category')=='budget_exhausted':row['status']='not_sent'
     for row in calls.values():row['seconds']=max(0,(row.get('finished_at') or now)-row['started_at'])
     by_node={}
     for row in calls.values():

@@ -50,6 +50,10 @@ class SemanticClient:
     def post(self, endpoint: str, body: dict) -> dict:
         if self.config.get('allowed_models') and body.get('model') not in self.config['allowed_models']:raise ValueError('requested model is not allowed for this API key')
         if not self.base_url.startswith(('https://','http://')) or not self.api_key:raise ValueError('OpenAI-compatible endpoint or API key is not configured')
+        if endpoint=='/chat/completions':
+            body={**body,'max_tokens':body.get('max_tokens',self.output_limit('agent'))}
+            from .context_budget import check
+            check(body,self.config)
         from .endpoint_admission import endpoint_slot
         with endpoint_slot(self.base_url,self.api_key,limit=self.config.get('max_endpoint_concurrency',3),
           timeout=self.config.get('endpoint_admission_timeout_seconds',300),
@@ -133,17 +137,6 @@ class SemanticClient:
             error = RuntimeError('request exceeds stage_request_bytes; split without truncating evidence')
             error.response_diagnostic = {'failure_category': 'context_budget_exceeded', 'configuration_required': True}
             raise error
-        context_limit=self.config.get('max_context_tokens')
-        if context_limit is not None:
-            if type(context_limit) is not int or context_limit<1:raise ValueError('max_context_tokens must be a positive integer')
-            # UTF-8 byte length is a conservative local proxy, not provider
-            # tokenization. Account for output reserve and chat framing.
-            estimated=sum(len(m['content'].encode('utf8'))+256 for m in body['messages'])
-            if estimated+body['max_tokens']>context_limit:
-                error=RuntimeError('packet exceeds configured context budget; split the batch without truncating evidence')
-                error.response_diagnostic={'failure_category':'context_budget_exceeded','configuration_required':True,
-                    'estimated_input_tokens_upper_bound':estimated,'output_reserve':body['max_tokens'],'max_context_tokens':context_limit}
-                raise error
         thinking_api = self.config.get('thinking_api', 'legacy')
         if thinking_api not in ('legacy', 'enable_thinking'):
             raise ValueError('thinking_api must be legacy or enable_thinking')

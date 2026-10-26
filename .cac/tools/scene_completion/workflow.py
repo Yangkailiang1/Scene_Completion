@@ -79,6 +79,7 @@ def code_version(task):
     if task in {'existing-extract','test-ground-truth','test-additional-truth'}:names=names+['scenario_patterns.py']
     if task in {'gap-compare','semantic-compare'}:names=names+['task_context.py']
     if task in {'interaction-enrich','exception-generate','pattern-applicability','existing-extract','test-ground-truth','test-supplement','test-additional-truth'}:names=names+['data_requirements.py']
+    if task in {'existing-extract','test-ground-truth'}:names=names+['refinement_context.py']
     if task=='test-ground-truth':names=names+['validation.py']
     if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py']
     skill=skill_path(task)
@@ -305,8 +306,8 @@ class Execution:
                 value={'tests':[]};proof={'provider':'independent_positive_contract_tests','reason':'明确字段约束和服务可用性由独立测试工具补全，不读取G/E'}
             elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
                 value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
-            elif task=='test-concerns' and (source:=normal_replay_record(inputs)) is not None:
-                value={'matches':[],'pending':[],'excluded':[{'original_id':source['id'],'scenario_type':'normal','reason':'原始表标为异常，但触发仅相同幂等键正常重试、预期返回已有且不重复创建；不计关注点或异常场景','source_refs':source['source_refs']}]};proof={'provider':'documented_normal_replay'}
+            elif task in {'test-concerns','test-ground-truth'} and (source:=normal_replay_record(inputs)) is not None:
+                value={('matches' if task=='test-concerns' else 'scenarios'):[],'pending':[],'excluded':[{'original_id':source['id'],'scenario_type':'normal','reason':'原始表标为异常，但触发仅相同幂等键正常重试、预期返回已有且不重复创建；不计关注点或异常场景','source_refs':source['source_refs']}]};proof={'provider':'documented_normal_replay'}
             elif task in {'existing-extract','test-ground-truth'} and 'identified-concerns' in inputs and not any(m.get('status')=='applicable' for m in inputs['identified-concerns']['matches']):
                 from .source_documents import evidence_refs
                 source=inputs.get('test-documents',inputs.get('existing-documents',[]))

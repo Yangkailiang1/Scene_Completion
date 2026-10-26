@@ -124,13 +124,17 @@ class ResultView:
         if test_set=='original':concern=concern.get('original_evaluation',concern)
         recommendation=self.payload(cid+':gap-recommend')
         ranking={r['scenario_id']:{k:v for k,v in r.items() if k!='scenario'} for r in recommendation.get('ranked',[])}
+        from .concern_presentation import paths
+        from .concern_registry import default_registry
+        registry_file=self.root/'registry_used'/(str(self.manifest.get('registry_hash'))+'.json')
+        definitions=read_json(registry_file)['definitions'] if registry_file.exists() else default_registry()['definitions']
         rows=[];seen=set()
         for interaction in sorted(enriched.get('interactions',[]),key=lambda i:i.get('sequence',0)):
             iid=interaction['id'];seen.add(iid)
             scoped={k:[s for s in values if (s.get('canonical_interaction_id') or s.get('interaction_id'))==iid] for k,values in channels.items()}
             rows.append({'interaction':interaction,'channels':scoped,
                          'alignment_rows':align_rows(scoped,pairs,decisions),
-                         'concern_rows':[{**r,'generated_scenario_ids':[s['id'] for s in scoped['G'] if r['id'] in s.get('concern_binding_ids',[])]} for r in concern.get('rows',[]) if r['anchor']['interaction_id']==iid],
+                         'concern_rows':[{**r,'classification_paths':paths(r['anchor']['concern_key'],definitions,interaction['direction']),'generated_scenario_ids':[s['id'] for s in scoped['G'] if r['id'] in s.get('concern_binding_ids',[])]} for r in concern.get('rows',[]) if r['anchor']['interaction_id']==iid],
                          'concerns':{k:sorted({s['concern_key'] for s in values}) for k,values in scoped.items()},
                          'missing_ids':[s['id'] for s in scoped['G'] if s['id'] in missing]})
         reg_hash=self.manifest.get('registry_hash');p=self.root/'registry_used'/(str(reg_hash)+'.json')

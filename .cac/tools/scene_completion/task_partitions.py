@@ -10,6 +10,32 @@ def _documents_at(documents,refs):
     return [{**d,'lines':[r for r in d['lines'] if r['number'] in ranges.get(d['source_id'],set())]} for d in documents if any(r['number'] in ranges.get(d['source_id'],set()) for r in d['lines'])]
 
 def split_task(task,inputs):
+    if task in {'existing-extract','test-ground-truth'} and inputs.get('identified-concerns'):
+        # Keep the existing source-unit partition, then refine independent
+        # located object groups. Never split a cross-field constraint itself.
+        base={k:v for k,v in inputs.items() if k!='identified-concerns'}
+        source_units=split_task(task,base);out=[]
+        for unit,q in source_units:
+            selected=deepcopy(inputs['identified-concerns'])
+            if task=='existing-extract':
+                ids={b['id'] for b in q['branches']['branches']}
+                selected['matches']=[m for m in selected['matches'] if not m.get('source_branch_ids') or ids & set(m['source_branch_ids'])]
+            else:
+                refs={(d['source_id'],r['number']) for d in q['test-documents'] for r in d['lines']}
+                source_ids=set(re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',' '.join(r['text'] for d in q['test-documents'] for r in d['lines'])))
+                selected['matches']=[m for m in selected['matches'] if (bool(set(m['source_unit_ids']) & source_ids) if m.get('source_unit_ids') else any((r['source_id'],n) in refs for r in m['source_refs'] for n in range(r['line_start'],r['line_end']+1)))]
+                if 'excluded' in selected:selected['excluded']=[m for m in selected['excluded'] if m.get('original_id') in source_ids]
+            groups={}
+            for m in selected['matches']:
+                if m.get('status')!='applicable':continue
+                key=(m['interaction_id'],m['target'],m['object'],m.get('data_location'))
+                groups.setdefault(key,[]).append(m)
+            if len(groups)<=1:
+                q['identified-concerns']=selected;out.append((unit,q));continue
+            for key,matches in groups.items():
+                child=deepcopy(q);child['identified-concerns']={**selected,'matches':matches}
+                out.append((unit+':object:'+fingerprint(key)[:12],child))
+        return out
     if task=='test-supplement':
         units=[]
         for i in inputs['fused-ssd']['interactions']:

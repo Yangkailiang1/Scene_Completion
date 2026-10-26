@@ -43,7 +43,8 @@ def registry_view(project,version=None):
     selected=next((v['registry'] for v in versions if v['hash']==version),None) if version else current
     if selected is None:raise ValueError('未知关注点版本')
     reports=[{'name':p.name,'path':str(p.relative_to(project)).replace('\\','/')} for p in (project/'run/report_versions').glob('*/missing_report.md') if (p.parent/'run_manifest.json').exists() and read_json(p.parent/'run_manifest.json').get('registry_hash')==selected['hash']]
-    return {'registry':selected,'current_hash':current['hash'],'revision':max([v['revision'] for v in versions] or [0]),'reports':reports,
+    from .concern_presentation import presentation
+    return {'presentation':presentation(selected['definitions']),'registry':selected,'current_hash':current['hash'],'revision':max([v['revision'] for v in versions] or [0]),'reports':reports,
       'versions':[{k:v for k,v in row.items() if k!='registry'} for row in versions], 'read_only':bool(version and version!=current['hash'])}
 
 

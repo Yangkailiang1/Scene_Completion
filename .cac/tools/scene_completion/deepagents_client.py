@@ -100,6 +100,11 @@ class DeepAgentsClient(SemanticClient):
             emit('question_asked',question=q)
             raise TaskBlocked('awaiting_answer',{'question':q})
         ask=StructuredTool.from_function(func=ask_user,name='ask_user',description='仅在缺少会影响结果的业务决定时提问。包含问题、已有依据、待决定事项。暂停当前节点，其他任务继续。')
+        def lookup_evidence(evidence_ids:list[str])->dict:
+            if indexed is None:raise ValueError('this task has no indexed evidence')
+            return indexed.lookup(evidence_ids)
+        lookup=StructuredTool.from_function(func=lookup_evidence,name='lookup_evidence',description='仅按当前任务给定evidence_id补取原文依据，最多8条；不会访问其他任务、G/E/GT结果或本机文件。')
+
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
         def submit(payload:dict) -> str:
@@ -146,8 +151,8 @@ class DeepAgentsClient(SemanticClient):
         file=lambda content:{'content':content.splitlines(),'created_at':now,'modified_at':now}
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
-        agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask],subagents=[],backend=StateBackend(),
-          skills=['/skills/'] if packet['skill_text'].lstrip().startswith('---') else [],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。完整input已经随用户消息提供，不需要反复读取大任务包。原文行号可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
+        agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask,lookup],subagents=[],backend=StateBackend(),
+          skills=['/skills/'] if packet['skill_text'].lstrip().startswith('---') else [],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包；其余规则可按给定evidence_id使用lookup_evidence查证。原文行号也可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
         inputs={'messages':[{'role':'user','content':task_message(packet)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}
@@ -269,7 +274,8 @@ def _transport_model(client,stage):
             if text_submission:
                 result_tool=next(t for t in body['tools'] if t['function']['name']=='submit_result')
                 output_schema=result_tool['function']['parameters']['properties']['payload']
-                notice='本次任务输入与Skill已完整提供，使用JSON文本传输，不调用工具或重复读取文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
+                notice='本次任务输入与Skill已提供，使用JSON文本传输，不重复读取大文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
+                if self.request_count<limit and self.task_stage in {'existing-extract','test-ground-truth'}:notice+='若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
                 converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 for key in ('tools','tool_choice','parallel_tool_calls'):body.pop(key,None)
                 body['response_format']={'type':'json_object'}
@@ -279,13 +285,12 @@ def _transport_model(client,stage):
             stage_options=self.scene_client.config.get('stage_extra_body',{})
             if not isinstance(stage_options,dict) or not isinstance(stage_options.get(self.task_stage,{}),dict):raise ValueError('stage_extra_body must map task names to request options')
             body.update(stage_options.get(self.task_stage,{}))
-            limit=self.scene_client.config.get('max_context_tokens')
-            if limit and len(json.dumps(body,ensure_ascii=False).encode())+body['max_tokens']>limit:
-                raise ValueError('task context exceeds configured budget; split source use cases without truncating evidence')
+            from .context_budget import check
+            context_bound=check(body,self.scene_client.config)
             from .execution_events import emit,fields,phase
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
-                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
+                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],context_budget=context_bound,input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
                 try:response=self.scene_client.post('/chat/completions',body)
                 except Exception as e:
                     emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))
@@ -307,6 +312,9 @@ def _transport_model(client,stage):
                     detail=decoded['clarification']
                     if not isinstance(detail,dict) or set(detail)!={'question','basis','decision'} or any(not isinstance(v,str) or not v.strip() for v in detail.values()):raise ValueError('incomplete task clarification')
                     name,args='ask_user',detail
+                elif set(decoded)=={'evidence_request'}:
+                    if self.request_count>=limit:raise ValueError('evidence lookup budget exhausted')
+                    name,args='lookup_evidence',{'evidence_ids':decoded['evidence_request']}
                 else:name,args='submit_result',{'payload':decoded}
                 emit('structured_text_submission',adapter='json_text',target_tool=name)
                 calls.append({'name':name,'args':args,'id':'json-adapter-'+uuid4().hex})

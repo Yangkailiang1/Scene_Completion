@@ -72,14 +72,19 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     tasks=list(filtered['tasks'].values())
     request_stats={}
     for r in requests:
-        bucket=request_stats.setdefault(r['task_key'],{'costs':[],'accounts':{},'max_seconds':0})
+        bucket=request_stats.setdefault(r['task_key'],{'costs':[],'accounts':{},'max_seconds':0,'max_input':None,'max_total':None,'sent':0,'failed':0,'repair':0,'unknown_attempt':0})
         if r['estimated_cost'] is not None:bucket['costs'].append(r['estimated_cost'])
         bucket['accounts'][r.get('account','历史未标注账号')]=None
-        if r['status']!='not_sent':bucket['max_seconds']=max(bucket['max_seconds'],r['seconds'])
+        if r['status']!='not_sent':
+            bucket['max_seconds']=max(bucket['max_seconds'],r['seconds']);bucket['sent']+=1
+            bucket['failed']+=r['status']=='failed';bucket['repair']+=bool(r.get('attempt') and r['attempt']>1);bucket['unknown_attempt']+=r.get('attempt') is None
+            for field,target in [('prompt_tokens','max_input'),('total_tokens','max_total')]:
+                value=(r.get('usage') or {}).get(field)
+                if isinstance(value,int):bucket[target]=max(bucket[target] or 0,value)
     for t in tasks:
         n=metadata.get(t['task_key'],{});t.update(label=n.get('label') or LABELS.get(n.get('stage'),t['task_key']),stage=n.get('stage'),case=n.get('case'),role=n.get('role'),status=states.get(t['task_key'],{}).get('status','historical'))
         bucket=request_stats[t['task_key']];costs=bucket['costs']
-        t['max_request_seconds']=bucket['max_seconds']
+        t.update(max_request_seconds=bucket['max_seconds'],max_input_tokens=bucket['max_input'],max_total_tokens=bucket['max_total'],sent_calls=bucket['sent'],failed_calls=bucket['failed'],repair_calls=bucket['repair'],unknown_attempt_calls=bucket['unknown_attempt'])
         t['accounts']=list(bucket['accounts'])
         t.update(estimated_cost=sum(costs) if costs else None,actual_cost=None,cost_status='估算，非实际账单' if costs else '未知：未配置单价或用量未知')
     keys=('calls','completed_calls','not_sent_calls','unknown_usage_calls','in_flight_calls','input_tokens','cached_input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds')
@@ -102,7 +107,7 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
         return row.get('reported_total_tokens',(row.get('usage') or {}).get('total_tokens',0))
     items=sorted(requests if view=='requests' else tasks,key=lambda r:(-score(r),r.get('task_key','')))
     # Rank the entire filtered task set before pagination, never just the displayed page.
-    rank_fields=('task_key','label','case','role','stage','status','calls','not_sent_calls','input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds','max_request_seconds','unknown_usage_calls','models','accounts')
+    rank_fields=('task_key','label','case','role','stage','status','calls','not_sent_calls','input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds','max_request_seconds','max_input_tokens','max_total_tokens','sent_calls','failed_calls','repair_calls','unknown_attempt_calls','unknown_usage_calls','models','accounts')
     ranking=lambda field:[{k:t.get(k) for k in rank_fields} for t in sorted(tasks,key=lambda t:(-t.get(field,0),t['task_key']))[:5]]
     rankings={'tokens':ranking('reported_total_tokens'),'seconds':ranking('request_seconds')}
 
@@ -120,7 +125,7 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     return result
 
 def usage_csv(report):
-    out=io.StringIO();cols=['task_key','label','role','case','models','calls','not_sent_calls','input_tokens','cached_input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','unknown_usage_calls','request_seconds','estimated_cost','actual_cost','cost_status']
+    out=io.StringIO();cols=['task_key','label','role','case','models','calls','not_sent_calls','input_tokens','cached_input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','unknown_usage_calls','sent_calls','failed_calls','repair_calls','max_input_tokens','max_total_tokens','max_request_seconds','request_seconds','estimated_cost','actual_cost','cost_status']
     w=csv.DictWriter(out,fieldnames=cols,extrasaction='ignore');w.writeheader()
     for row in report['tasks']:w.writerow(row)
     return '\ufeff'+out.getvalue()

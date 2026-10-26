@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
 const titles: Record<string, string> = {
   triple: "三方完整对应",
@@ -26,7 +26,11 @@ export function ConcernAlignmentTable({
   onSelect: (id: string) => void;
   truthReady?: boolean;
 }) {
-  const shown = rows.filter((r) => !onlyUnmatched || r.status !== "triple");
+  const group = (r: any) =>
+    (r.classification_paths?.[0] || ["待归类"]).join(" › ");
+  const shown = rows
+    .filter((r) => !onlyUnmatched || r.status !== "triple")
+    .sort((a, b) => group(a).localeCompare(group(b)));
   return (
     <div className="alignment-scroll">
       <table className="alignment-table concern-alignment-table">
@@ -44,89 +48,99 @@ export function ConcernAlignmentTable({
           </tr>
         </thead>
         <tbody>
-          {shown.map((r) => (
-            <tr key={r.id} className={"alignment-" + r.status}>
-              <td>
-                <small>
-                  {elementNames[r.anchor.target]}
-                  {r.anchor.target === "operation" &&
-                  r.anchor.operation_index != null
-                    ? ` · 第${r.anchor.operation_index + 1}项`
-                    : ""}
-                  {r.anchor.data_location ? " · " + r.anchor.data_location : ""}
-                </small>
-                <strong>{r.anchor.object}</strong>
-                <p>
-                  {definitions[r.anchor.concern_key]?.label ||
-                    r.anchor.concern_key}
-                </p>
-              </td>
-              {["E", "G", "GT"].map((ch) => (
-                <td key={ch}>
-                  {r.cells[ch].length ? (
-                    r.cells[ch].map((m: any) => (
-                      <article key={m.binding_id} className="concern-cell">
-                        <strong>
-                          {definitions[m.concern_key]?.label || m.concern_key}
-                        </strong>
-                        <p>{m.basis || m.status_reason}</p>
-                        {ch === "E" &&
-                          m.source_branch_ids?.length > 0 &&
-                          m.coverage_kind &&
-                          m.coverage_kind !== "exact" && (
-                            <small className="shared-branch">
-                              由宽泛原分支覆盖
-                            </small>
-                          )}
-                        <details>
-                          <summary>识别依据与定位</summary>
-                          <small>{m.binding_id}</small>
-                          {m.element_origin && (
-                            <p>
-                              原定位：{elementNames[m.element_origin.target]} ·{" "}
-                              {m.element_origin.object}；按Service职责归一为
-                              {elementNames[m.target]} · {m.object}
-                            </p>
-                          )}
-                          {m.source_refs?.map((ref: any, n: number) => (
-                            <blockquote key={n}>
-                              <small>
-                                {ref.source_id} · 第{ref.line_start}–
-                                {ref.line_end}行
-                              </small>
-                              <p>{ref.quote}</p>
-                            </blockquote>
-                          ))}
-                        </details>
-                      </article>
-                    ))
-                  ) : (
-                    <span className="alignment-empty">
-                      {ch === "GT" && !truthReady
-                        ? "独立测试识别尚未完成"
-                        : "未识别到对应关注点"}
-                    </span>
-                  )}
-                </td>
-              ))}
-              <td>
-                <strong>{titles[r.status]}</strong>
-                <p>{r.reason}</p>
-                {!!r.cells.G.length && (
+          {shown.map((r, index) => (
+            <Fragment key={r.id}>
+              {(index === 0 || group(shown[index - 1]) !== group(r)) && (
+                <tr className="concern-group-heading">
+                  <td colSpan={5}>{group(r)}</td>
+                </tr>
+              )}
+              <tr className={"alignment-" + r.status}>
+                <td>
+                  <div className="concern-path">{group(r)}</div>
+                  <small>
+                    {elementNames[r.anchor.target]}
+                    {r.anchor.target === "operation" &&
+                    r.anchor.operation_index != null
+                      ? ` · 第${r.anchor.operation_index + 1}项`
+                      : ""}
+                    {r.anchor.data_location
+                      ? " · " + r.anchor.data_location
+                      : ""}
+                  </small>
+                  <strong>{r.anchor.object}</strong>
                   <p>
-                    {r.generated_scenario_ids?.length
-                      ? `已生成 ${r.generated_scenario_ids.length} 条具体场景`
-                      : "已识别关注点，尚无确定场景；请查看生成节点或待确认项"}
+                    {definitions[r.anchor.concern_key]?.label ||
+                      r.anchor.concern_key}
                   </p>
-                )}
-                <button
-                  className="concern-drilldown"
-                  onClick={() => onSelect(r.id)}
-                >
-                  查看该关注点的场景 →
-                </button>
-              </td>
-            </tr>
+                </td>
+                {["E", "G", "GT"].map((ch) => (
+                  <td key={ch}>
+                    {r.cells[ch].length ? (
+                      r.cells[ch].map((m: any) => (
+                        <article key={m.binding_id} className="concern-cell">
+                          <strong>
+                            {definitions[m.concern_key]?.label || m.concern_key}
+                          </strong>
+                          <p>{m.basis || m.status_reason}</p>
+                          {ch === "E" &&
+                            m.source_branch_ids?.length > 0 &&
+                            m.coverage_kind &&
+                            m.coverage_kind !== "exact" && (
+                              <small className="shared-branch">
+                                由宽泛原分支覆盖
+                              </small>
+                            )}
+                          <details>
+                            <summary>识别依据与定位</summary>
+                            <small>{m.binding_id}</small>
+                            {m.element_origin && (
+                              <p>
+                                原定位：{elementNames[m.element_origin.target]}{" "}
+                                · {m.element_origin.object}；按Service职责归一为
+                                {elementNames[m.target]} · {m.object}
+                              </p>
+                            )}
+                            {m.source_refs?.map((ref: any, n: number) => (
+                              <blockquote key={n}>
+                                <small>
+                                  {ref.source_id} · 第{ref.line_start}–
+                                  {ref.line_end}行
+                                </small>
+                                <p>{ref.quote}</p>
+                              </blockquote>
+                            ))}
+                          </details>
+                        </article>
+                      ))
+                    ) : (
+                      <span className="alignment-empty">
+                        {ch === "GT" && !truthReady
+                          ? "独立测试识别尚未完成"
+                          : "未识别到对应关注点"}
+                      </span>
+                    )}
+                  </td>
+                ))}
+                <td>
+                  <strong>{titles[r.status]}</strong>
+                  <p>{r.reason}</p>
+                  {!!r.cells.G.length && (
+                    <p>
+                      {r.generated_scenario_ids?.length
+                        ? `已生成 ${r.generated_scenario_ids.length} 条具体场景`
+                        : "已识别关注点，尚无确定场景；请查看生成节点或待确认项"}
+                    </p>
+                  )}
+                  <button
+                    className="concern-drilldown"
+                    onClick={() => onSelect(r.id)}
+                  >
+                    查看该关注点的场景 →
+                  </button>
+                </td>
+              </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>

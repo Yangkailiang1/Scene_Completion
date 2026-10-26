@@ -92,7 +92,15 @@ class EvidenceContext:
                 rid=self.register(ref);row['evidence_id']=rid;self.doc_refs.add(rid)
         for r in evidence_refs(inputs):self.register(r)
         self.input=self.encode(inputs)
-        self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs}
+        self.deferred_ids=set();initial_evidence=set(self.pool)
+        if packet['task'] in {'existing-extract','test-ground-truth'}:
+            present={r['id'] for r in inputs.get('normal-rules',{}).get('rules',[])};index=[]
+            for r in packet['input'].get('normal-rules',{}).get('rules',[]):
+                if r['id'] in present:continue
+                ids=[self.register(ref) for ref in r['source_refs']];self.deferred_ids.update(k for k in ids if k not in initial_evidence)
+                index.append({k:r[k] for k in ('id','interaction_id','concern_key','fields')}|{'evidence_ids':ids})
+            if index:self.input['deferred_rule_index']=index
+        self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs and k not in self.deferred_ids}
         self.packet=deepcopy(packet);self.packet['input']=self.input
         if 'tool_rule_coverage' in self.packet:
             keys={'interaction_id','object','concern_key','field','cause','conditions','rule_id','data_location','reason'}
@@ -115,6 +123,11 @@ class EvidenceContext:
                 if field in t['required']:t['required'].remove(field)
             t['properties']['trigger']['pattern']=r'^(?!.*(?:或者|或|\bor\b)).+$'
             self.packet['instructions']+='\n业务补充测试仅输出Schema要求的normal_rule_id及新测试内容。交互、关注点、作用域和引文由工具从该正常规则回填；不要输出这些已知字段。trigger直接描述违反所选规则的失败，不附带多个错误取值的举例；重复请求本身是正常输入，只有导致重复业务副作用等违反幂等要求才是异常。未声明的错误码、格式、数量、性能阈值不得生成。'
+        from .refinement_context import bindings,compact_schema
+        self.compact_refinement=packet['task'] in {'existing-extract','test-ground-truth'} and bool(bindings(packet['input']))
+        if self.compact_refinement:
+            self.packet['output_schema']=compact_schema(self.packet['output_schema'],packet['input'])
+            self.packet['instructions']+='\n场景细化只输出binding_ref和新的失败判断。定位、四要素对象、关注点、正常交互和来源身份由工具从该独立识别项回填。禁止自行切换交互或关注点。原文明示后续处理保留documented_follow_up；无依据则为空，不重复抄写已知元数据。'
         if packet['task']=='normal-rules':
             from .contracts import registry
             fields=self.packet['output_schema']['properties']['rules']['items']['properties']
@@ -184,7 +197,7 @@ class EvidenceContext:
         if 'repair' in self.packet and 'candidate' in self.packet['repair']:
             candidate=self.safe_candidate(self.packet['repair']['candidate'])
             self.packet['repair']['candidate']=candidate if self.packet['repair'].get('candidate_format')=='model' else self.encode_output(candidate)
-            self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs}
+            self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs and k not in self.deferred_ids}
         self.packet['instructions']+='\n模型传输契约 '+VERSION+'：source_refs只输出给定evidence_id字符串，不能复写引文、source_id或行号；程序从原始输入恢复引用。文档行标有[evidence_id]；派生产物引用见evidence_catalog。所有事实字段仍须有依据。'
         if packet['task'] in {'concern-match','existing-concerns','test-concerns'}:
             self.packet['instructions']+='\n识别本片实际适用的全部具体关注点并返回依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础可用性和字段规则也要由本次识别明确提交；工具只校验，不自动补入识别结果。'
@@ -194,6 +207,10 @@ class EvidenceContext:
             self.packet['instructions']+='\nRR消息只使用RR-或DUAL-证据；SR消息只使用SR-或DUAL-证据；META-只作组件身份依据，不能当消息动作事实。'
             self.packet['instructions']+='\nSSD职责只限本用例交互与RR/SR消息对应。sender/receiver仅输出组件component_id，不重复名称和位置；不输出case_id，程序填当前对应组ID。数据只写本次实际传递的字段名和位置，不展开items数组内部对象字段；类型、默认值、必填性、约束由独立API参数任务及交互属性关联工具补齐。仅本用例额外明示的值/条件才在data中补充。source_refs在消息级提供一次，operation和各数据字段仅有额外不同依据时补充；程序默认使用消息依据。refinements.rr_message_id和sr_message_ids只能引用本次输出的交互消息id，不是用例编号。每条RR消息至多一个refinements项。request不输出reply_to，父调用由工具按实际端点和顺序确定；return的reply_to指向本层端点完全反向的原请求id。跨层对应只放refinements，不能放reply_to。RR和SR都保留明示的业务结果返回，不能只建RR入口请求。不要填空数组/空值占位可选属性。本地处理放入operation.sequence。'
             self.packet['instructions']+='\n按实际先后顺序输出interactions数组，层内sequence由程序编号，不要填写。request不输出reply_to；即使误填，工具也不采用此提示建立关系。request必须识别operation.kinds（read/create/update/delete/display/process/publish/external_call）；return不填写kinds，由工具继承原请求操作类别，return是方向而不是功能类别。数据字段不填写data_type/required/default，这三项由API属性关联工具补齐。'
+
+    def lookup(self,evidence_ids):
+        if not isinstance(evidence_ids,list) or not 1<=len(evidence_ids)<=8 or any(not isinstance(k,str) or k not in self.pool for k in evidence_ids):raise ValueError('select 1..8 evidence IDs from this isolated task')
+        return {k:deepcopy(self.pool[k]) for k in evidence_ids}
 
     def register(self,ref):
         layers=self.source_layers.get(ref['source_id'],set())
@@ -244,13 +261,16 @@ class EvidenceContext:
         if self.original['task']=='test-supplement':
             for t in result.get('tests',[]):
                 for k in ('interaction_id','concern_key','field','scope','data_location','source_refs','failure_rule'):t.pop(k,None)
+        if self.compact_refinement:
+            from .refinement_context import encode
+            result['scenarios']=[encode(row,self.original['input']) for row in result.get('scenarios',[])]
         if self.original['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             for row in result.get('scenarios',[]):
                 for k in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate'):row.pop(k,None)
                 if self.original['task']=='exception-generate':
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
             from .normal_rules import normalize_scenarios
-            result=normalize_scenarios(result,self.original['input'],truth=self.original['task']=='test-ground-truth')
+            if not self.compact_refinement:result=normalize_scenarios(result,self.original['input'],truth=self.original['task']=='test-ground-truth')
         if self.original['task'] in {'concern-match','existing-concerns','test-concerns'}:
             for row in result.get('matches',[]):
                 for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies','element_id','binding_id','case_id','direction','identification','classification_origin','caller','callee','element_origin'):row.pop(k,None)
@@ -311,6 +331,9 @@ class EvidenceContext:
                     self.normalizations.append({'field':'normal_rule_id','action':'fill sole allowed positive rule ID; candidate still fully validated'})
                 if r is None:raise ValueError('补充测试必须选择当前正常规则ID')
                 t.update(interaction_id=r['interaction_id'],concern_key=r['concern_key'],field=None,scope='service',data_location=None,source_refs=deepcopy(r['source_refs']))
+        if self.compact_refinement:
+            from .refinement_context import expand
+            result['scenarios']=[expand(row,self.original['input'],self.original['task']) for row in result.get('scenarios',[])]
         if self.original['task']=='existing-bind':
             branches={b['id']:b for b in self.original['input']['branches']['branches']}
             for b in result.get('bindings',[]):

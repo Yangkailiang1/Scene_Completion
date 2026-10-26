@@ -4116,3 +4116,29 @@ td {
 .concern-drilldown {padding:7px 10px; color:#3562bc; border:1px solid #cfdbf1; border-radius:7px; background:white;}
 .scenario-ancestry {display:block; color:#5e75a0; font-size:12px; overflow-wrap:anywhere; margin-bottom:5px;}
 .recommendation-inline {font-size:12px; color:#326655; background:#edf8f3; padding:6px; border-radius:5px;}
+
+/* One page scroll: headings, totals, filters and all rankings move together. */
+.center-workspace > .usage-view {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.usage-view .insights-header, .usage-view .usage-filters { position: static; }
+.usage-view .usage-rankings { flex-shrink: 0; overflow: visible; }
+.usage-view .usage-table { max-height: none; overflow-x: auto; }
+.usage-view .usage-context { max-height: none; overflow-x: auto; }
+.rank-description .rank-diagnostic { white-space: normal; line-height: 1.6; color: #6b7f95; margin-top: 5px; }
+.concern-tree { padding: 12px; }
+.concern-tree details { padding-left: 12px; border-left: 1px solid #e2e9f2; }
+.concern-tree summary { cursor: pointer; padding: 10px 4px; color: #294566; font-weight: 600; }
+.concern-tree summary small { font-size: 11px; color: #7c8da3; margin-left: 8px; }
+.concern-tree button { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; text-align: left; border-radius: 7px; cursor: pointer; }
+.concern-tree button.active { background: #edf3ff; color: #315dcc; }
+.concern-tree button:hover { background: #f1f5fb; }
+.concern-tree button span { display: block; font-size: 11px; color: #7a8ca5; margin-top: 4px; overflow-wrap: anywhere; }
+.concern-group-heading td { background: #f4f7fc; color: #4c6484; padding: 10px 14px; font-size: 12px; }
+.concern-path { color: #7387a0; font-size: 11px; margin-bottom: 6px; }

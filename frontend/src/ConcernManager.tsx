@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ConcernTree } from "./ConcernTree";
 import { api, projectUrl, fileUrl } from "./api";
 const layers: Record<string, string> = {
   human: "人类Actor",
@@ -218,31 +219,18 @@ export function ConcernManager({
       ) : (
         <div className="management-body">
           <aside className="management-list" aria-label="关注点列表">
-            {Object.entries(defs)
-              .filter(
-                ([k, d]: any) =>
+            <ConcernTree
+              project={project}
+              selected={selected}
+              query={query}
+              pick={pick}
+              paths={view.presentation?.paths || {}}
+              definitions={Object.entries(defs).filter(
+                ([, d]: any) =>
                   (showDeleted || d.enabled !== false) &&
-                  (!layer || d.layer === layer) &&
-                  (k + " " + d.label + " " + d.description)
-                    .toLowerCase()
-                    .includes(query.toLowerCase()),
-              )
-              .map(([k, d]: any) => (
-                <button
-                  key={k}
-                  className={selected === k ? "active" : ""}
-                  onClick={() => pick(k, d)}
-                >
-                  <small>
-                    {layers[d.layer]} · {groups[d.layer]?.[d.group]}
-                  </small>
-                  <strong>
-                    {d.label}
-                    {d.enabled === false ? "（已停用）" : ""}
-                  </strong>
-                  <span>{k}</span>
-                </button>
-              ))}
+                  (!layer || d.layer === layer),
+              )}
+            />
           </aside>
           <section className="management-detail">
             {form ? (

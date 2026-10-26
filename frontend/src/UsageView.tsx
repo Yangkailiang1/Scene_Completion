@@ -294,6 +294,20 @@ export function UsageView({
                               "历史任务"}{" "}
                             · {r.task_key}
                           </small>
+                          <small className="rank-diagnostic">
+                            发送 {r.sent_calls ?? r.calls - r.not_sent_calls} ·
+                            传输失败 {r.failed_calls ?? "未记录"} · 语义修复请求{" "}
+                            {r.repair_calls ?? "未记录"}
+                            <br />
+                            单次最大输入{" "}
+                            {r.max_input_tokens == null
+                              ? "未知"
+                              : number(r.max_input_tokens)}{" "}
+                            Token · 单次最长{" "}
+                            {r.max_request_seconds == null
+                              ? "未知"
+                              : duration(r.max_request_seconds)}
+                          </small>
                           <span className="rank-track">
                             <span
                               style={{ width: Math.min(100, share) + "%" }}

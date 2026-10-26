@@ -75,41 +75,39 @@ test("bottleneck rankings select concrete nodes and sort requests on the server"
     output_tokens: 100,
     request_seconds: 65,
   };
-  const fetcher = vi
-    .spyOn(globalThis, "fetch")
-    .mockImplementation(
-      async () =>
-        ({
-          ok: true,
-          json: async () => ({
-            totals: base,
-            groups: {},
-            sessions: [],
-            count: 0,
-            items: [],
-            rankings: {
-              tokens: [
-                {
-                  ...base,
-                  task_key: "C:big",
-                  label: "具体大任务",
-                  role: "modeler",
-                  case: "C",
-                },
-              ],
-              seconds: [
-                {
-                  ...base,
-                  task_key: "D:slow",
-                  label: "具体慢任务",
-                  role: "checker",
-                  case: "D",
-                },
-              ],
-            },
-          }),
-        }) as Response,
-    );
+  const fetcher = vi.spyOn(globalThis, "fetch").mockImplementation(
+    async () =>
+      ({
+        ok: true,
+        json: async () => ({
+          totals: base,
+          groups: {},
+          sessions: [],
+          count: 0,
+          items: [],
+          rankings: {
+            tokens: [
+              {
+                ...base,
+                task_key: "C:big",
+                label: "具体大任务",
+                role: "modeler",
+                case: "C",
+              },
+            ],
+            seconds: [
+              {
+                ...base,
+                task_key: "D:slow",
+                label: "具体慢任务",
+                role: "checker",
+                case: "D",
+              },
+            ],
+          },
+        }),
+      }) as Response,
+  );
   render(
     <UsageView
       project="ranked"
@@ -130,4 +128,47 @@ test("bottleneck rankings select concrete nodes and sort requests on the server"
     ).toBe(true),
   );
   expect(screen.getByText("最耗Token的节点")).toBeTruthy();
+});
+
+test("the usage page has a single scroll surface containing heading and last rank", async () => {
+  const rows = Array.from({ length: 5 }, (_, n) => ({
+    task_key: `node-${n}`,
+    label: `第${n + 1}个节点`,
+    case: "C",
+    calls: 8,
+    not_sent_calls: 1,
+    sent_calls: 7,
+    failed_calls: 1,
+    repair_calls: 2,
+    reported_total_tokens: 76221,
+    input_tokens: 69435,
+    request_seconds: 12,
+    max_input_tokens: 16084,
+    max_request_seconds: 4,
+  }));
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      totals: { reported_total_tokens: 76221 },
+      rankings: { tokens: rows, seconds: [] },
+      items: [],
+      count: 0,
+      sessions: [],
+    }),
+  } as Response);
+  const { container } = render(
+    <UsageView
+      project="scroll-proof"
+      task={null}
+      onClose={vi.fn()}
+      onSelect={vi.fn()}
+    />,
+  );
+  await screen.findByText("第5个节点");
+  const scroll = container.querySelector(".usage-view.panel-scroll")!;
+  expect(
+    scroll.contains(screen.getByRole("heading", { name: "用量与费用" })),
+  ).toBe(true);
+  expect(scroll.contains(screen.getByText("第5个节点"))).toBe(true);
+  expect(screen.getAllByText(/单次最大输入 16,084 Token/)).toHaveLength(5);
 });

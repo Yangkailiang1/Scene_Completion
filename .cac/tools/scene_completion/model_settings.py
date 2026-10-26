@@ -28,11 +28,11 @@ def resolve(overrides,env_path,accounts_root=None):
     else:config['api_key']=env.get('SCENE_API_KEY') or env.get('ECNU_API_KEY') or env.get('ECNU_MAX_API_KEY') or ''
     config['agent_model']=expand(config.get('agent_model')) or env.get('SCENE_AGENT_MODEL') or 'ecnu-plus'
     config.setdefault('agent_runtime','deepagents');config.setdefault('structured_output','json_object');config.setdefault('stream',True)
-    config.setdefault('indexed_context',True)
+    config.setdefault('indexed_context',True);config.setdefault('max_context_tokens',200000)
     config.setdefault('max_retries',0)
     config.setdefault('stream_idle_timeout_seconds',300);config.setdefault('stream_total_timeout_seconds',900)
     return config
 
 def public_settings(config):
-    return {**{k:config[k] for k in ('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream','model_account_id','model_account_name','allowed_models') if k in config},
+    return {**{k:config[k] for k in ('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream','max_context_tokens','model_account_id','model_account_name','allowed_models') if k in config},
       'credential_configured':bool(config.get('api_key'))}
