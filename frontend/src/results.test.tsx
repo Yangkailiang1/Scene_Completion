@@ -127,6 +127,8 @@ test("result view loads one case on demand and shows all three evidence channels
     return { ok: true, json: async () => data } as Response;
   });
   render(<ResultsView project="p" />);
+  expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "测试集" })).toBeNull();
   await screen.findAllByText("pageSize大于100");
   expect(
     screen.getByRole("columnheader", { name: /需求文档已有 E/ }),

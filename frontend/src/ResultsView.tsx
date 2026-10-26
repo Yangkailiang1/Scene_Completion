@@ -1,4 +1,15 @@
 import { useEffect, useState } from "react";
+import {
+  RefreshCw,
+  Download,
+  CheckCircle2,
+  GitCompareArrows,
+  ChartNoAxesCombined,
+  Network,
+  FlaskConical,
+  ShieldCheck,
+  FileStack,
+} from "lucide-react";
 import { api, projectUrl, fileUrl } from "./api";
 import { AlignmentTable, MetricsPanel } from "./ResultComparison";
 import { ArtifactView } from "./ArtifactView";
@@ -227,66 +238,95 @@ export function ResultsView({ project }: { project: string }) {
   return (
     <div className="management-view results-view">
       <div className="results-toolbar">
-        <select
-          aria-label="结果用例"
-          value={cid}
-          onChange={(e) => setCase(e.target.value)}
-        >
-          <option value="" disabled>
-            选择用例
-          </option>
-          {index?.cases.map((c: any) => (
-            <option key={c.id} value={c.id}>
-              {c.id} · {c.name}
+        <label className="results-case-picker">
+          <span>当前用例</span>
+          <select
+            aria-label="结果用例"
+            value={cid}
+            onChange={(e) => setCase(e.target.value)}
+          >
+            <option value="" disabled>
+              选择用例
             </option>
-          ))}
-        </select>
-        <div className="view-segments">
+            {index?.cases.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.id} · {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div
+          className="view-segments results-view-tabs"
+          role="navigation"
+          aria-label="结果视图"
+        >
           <button
             className={mode === "steps" ? "active" : ""}
             onClick={() => setMode("steps")}
           >
+            <GitCompareArrows size={15} aria-hidden="true" />
             交互对照
           </button>
           <button
             className={mode === "metrics" ? "active" : ""}
             onClick={() => setMode("metrics")}
           >
+            <ChartNoAxesCombined size={15} aria-hidden="true" />
             指标总览
           </button>
           <button
             className={mode === "diagrams" ? "active" : ""}
             onClick={() => setMode("diagrams")}
           >
+            <Network size={15} aria-hidden="true" />
             图表总览
           </button>
           <button
             className={mode === "tests" ? "active" : ""}
             onClick={() => setMode("tests")}
           >
-            测试集
+            <FlaskConical size={15} aria-hidden="true" />
+            测试场景
           </button>
           <button
             className={mode === "recommendations" ? "active" : ""}
             onClick={() => setMode("recommendations")}
           >
+            <ShieldCheck size={15} aria-hidden="true" />
             风险推荐
           </button>
         </div>
-        <select
-          aria-label="结果测试集"
-          value={testSet}
-          onChange={(e) => setTestSet(e.target.value)}
+        <label className="results-truth-picker">
+          <span>评测依据</span>
+          <select
+            aria-label="结果测试集"
+            value={testSet}
+            onChange={(e) => setTestSet(e.target.value)}
+          >
+            <option value="expanded">扩展异常测试场景</option>
+            <option value="original">原始异常测试场景</option>
+          </select>
+        </label>
+        <span
+          className={
+            "results-run-state " + (index?.complete ? "is-complete" : "")
+          }
+          title={
+            index?.complete
+              ? "全部可执行节点已完成；业务待确认项单独保留"
+              : "当前展示已保存产物，未完成不视为空集合"
+          }
         >
-          <option value="expanded">扩展异常测试集</option>
-          <option value="original">原始异常测试集</option>
-        </select>
-        <span className="muted">
-          {index?.complete
-            ? "本轮执行已完成"
-            : "展示已保存的结果，未完成项不视为空集合"}
+          {index?.complete && <CheckCircle2 size={14} aria-hidden="true" />}
+          {index?.complete ? "已完成" : "已保存结果"}
         </span>
-        <button onClick={() => setReload((x) => x + 1)}>刷新</button>
+        <button
+          className="results-refresh"
+          onClick={() => setReload((x) => x + 1)}
+        >
+          <RefreshCw size={14} aria-hidden="true" />
+          刷新
+        </button>
       </div>
       {error && (
         <div role="alert" className="management-notice">
@@ -320,32 +360,50 @@ export function ResultsView({ project }: { project: string }) {
       ) : mode === "diagrams" ? (
         <div className="results-diagrams">
           <div className="results-diagram-controls">
-            <select
-              aria-label="结果图表"
-              value={artifact?.key || ""}
-              onChange={(e) => setArtifact(e.target.value)}
-            >
-              {catalog.map((a: any) => (
-                <option key={a.key} value={a.key}>
-                  {a.case === "shared" ? "项目共享" : cid} · {a.label}
-                </option>
-              ))}
-            </select>
-            {artifact?.files.map((f: any) => (
-              <a key={f.path} href={fileUrl(project, f.path)} download={f.name}>
-                下载{f.name.split(".").pop()?.toUpperCase()}
-              </a>
-            ))}
-            {diagram && (
+            <label className="results-artifact-picker">
+              <span>
+                <FileStack size={14} aria-hidden="true" />
+                当前图表 / 产物
+              </span>
               <select
-                aria-label="图形缩放"
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
+                aria-label="结果图表"
+                value={artifact?.key || ""}
+                onChange={(e) => setArtifact(e.target.value)}
               >
-                <option value={1}>适应宽度</option>
-                <option value={2}>放大2倍</option>
-                <option value={4}>放大4倍</option>
+                {catalog.map((a: any) => (
+                  <option key={a.key} value={a.key}>
+                    {a.case === "shared" ? "项目共享" : cid} · {a.label}
+                  </option>
+                ))}
               </select>
+            </label>
+            <div className="results-file-actions" aria-label="下载当前产物">
+              {artifact?.files.map((f: any) => (
+                <a
+                  key={f.path}
+                  aria-label={"下载" + f.name.split(".").pop()?.toUpperCase()}
+                  title={"下载 " + f.name}
+                  href={fileUrl(project, f.path)}
+                  download={f.name}
+                >
+                  <Download size={14} aria-hidden="true" />
+                  {f.name.split(".").pop()?.toUpperCase()}
+                </a>
+              ))}
+            </div>
+            {diagram && (
+              <label className="results-zoom-picker">
+                <span>图形显示</span>
+                <select
+                  aria-label="图形缩放"
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                >
+                  <option value={1}>适应宽度</option>
+                  <option value={2}>放大2倍</option>
+                  <option value={4}>放大4倍</option>
+                </select>
+              </label>
             )}
           </div>
           {diagram ? (

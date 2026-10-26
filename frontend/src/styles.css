@@ -3245,3 +3245,207 @@ td {
   font-size: 11px;
   margin-top: 6px;
 }
+
+/* Results controls: compact hierarchy with predictable wrapping. */
+.results-toolbar {
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fff;
+  align-items: flex-end;
+}
+.results-toolbar label,
+.results-diagram-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+}
+.results-toolbar label > span,
+.results-diagram-controls label > span {
+  color: #72849a;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.results-toolbar select,
+.results-diagram-controls select {
+  height: 36px;
+  border: 1px solid #dce5f0;
+  background-color: #fff;
+  border-radius: 8px;
+  color: #344e6d;
+  padding: 0 30px 0 11px;
+  font-size: 12px;
+  margin: 0;
+  box-shadow: 0 1px 2px #233b5b04;
+}
+.results-case-picker {
+  flex: 0 1 235px;
+}
+.results-case-picker select {
+  width: 100%;
+  max-width: none;
+}
+.results-truth-picker {
+  flex: 0 1 178px;
+  margin-left: auto !important;
+}
+.results-view-tabs {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+  border-radius: 10px;
+  background: #f2f5fa;
+  height: 40px;
+  flex-shrink: 0;
+}
+.results-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px;
+  color: #75869e;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  font-size: 12px;
+  white-space: nowrap;
+  margin: 0;
+}
+.results-view-tabs button.active {
+  background: #fff;
+  border-color: #e4eaf3;
+  color: #315bd9;
+  box-shadow: 0 2px 5px #233b5b09;
+}
+.results-run-state {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8b9bb0;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.results-run-state.is-complete {
+  color: #278a70;
+}
+.results-toolbar > button.results-refresh {
+  margin-left: 0;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid #e1e8f2;
+  border-radius: 8px;
+  color: #60758f;
+  font-size: 12px;
+}
+.results-diagram-controls {
+  padding: 11px 20px;
+  background: #f8fafd;
+  gap: 16px;
+  align-items: flex-end;
+}
+.results-artifact-picker {
+  flex: 1 1 360px;
+  max-width: 650px;
+}
+.results-artifact-picker select {
+  width: 100%;
+  max-width: none;
+}
+.results-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  flex-wrap: wrap;
+}
+.results-diagram-controls .results-file-actions a {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid #dfe7f2;
+  border-radius: 7px;
+  font-size: 11px;
+  color: #456487;
+  line-height: 18px;
+  text-decoration: none;
+}
+.results-diagram-controls .results-file-actions a:hover {
+  color: #315bd9;
+  border-color: #aec0ee;
+}
+.results-zoom-picker {
+  margin-left: auto !important;
+  flex: 0 0 140px;
+}
+@media (max-width: 1400px) {
+  .results-toolbar {
+    gap: 9px;
+  }
+  .results-view-tabs button {
+    padding: 0 8px;
+  }
+  .results-run-state {
+    display: none;
+  }
+}
+@media (max-width: 1120px) {
+  .results-case-picker {
+    flex-basis: 210px;
+  }
+  .results-truth-picker {
+    flex-basis: 168px;
+    margin-left: 0 !important;
+  }
+  .results-view-tabs {
+    order: 3;
+    flex: 1 0 100%;
+  }
+  .results-view-tabs button {
+    flex: 1;
+  }
+  .results-toolbar > button.results-refresh {
+    margin-left: auto;
+  }
+  .results-diagram-controls {
+    gap: 10px;
+  }
+}
+@media (max-width: 700px) {
+  .results-toolbar,
+  .results-diagram-controls {
+    padding: 9px 12px;
+  }
+  .results-case-picker {
+    flex: 1 1 180px;
+  }
+  .results-truth-picker {
+    flex: 1 1 160px;
+  }
+  .results-file-actions {
+    flex: 1;
+  }
+  .results-artifact-picker {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .results-view-tabs button {
+    gap: 4px;
+    padding: 0 5px;
+  }
+  .results-view-tabs button svg {
+    display: none;
+  }
+}
