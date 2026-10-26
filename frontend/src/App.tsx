@@ -32,6 +32,7 @@ import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
 import { PatternManager } from "./PatternManager";
+import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
 import { ConcernManager } from "./ConcernManager";
@@ -1259,137 +1260,15 @@ export default function App() {
                 </Button>
               </form>
             ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!current) return;
-                  const raw = Object.fromEntries(new FormData(e.currentTarget));
-                  const body = {
-                    ...raw,
-                    max_concurrency: Number(raw.max_concurrency),
-                    max_tokens: Number(raw.max_tokens),
-                    timeout_seconds: Number(raw.timeout_seconds),
-                    stream_idle_timeout_seconds: Number(
-                      raw.stream_idle_timeout_seconds,
-                    ),
-                    stream_total_timeout_seconds: Number(
-                      raw.stream_total_timeout_seconds,
-                    ),
-                  };
-                  api(projectUrl(current, "config"), {
-                    method: "PUT",
-                    body: JSON.stringify(body),
-                  })
-                    .then(() => {
-                      setDialog(null);
-                      refresh();
-                      setNotice("模型配置已保存。");
-                    })
-                    .catch(error);
+              <ModelSettings
+                project={current!}
+                config={snapshot?.config || {}}
+                onSaved={() => {
+                  setDialog(null);
+                  refresh();
+                  setNotice("模型配置已保存。");
                 }}
-              >
-                <span className="eyebrow">MODEL CONNECTION</span>
-                <h2>模型配置</h2>
-                <p>
-                  优先使用项目配置，未覆盖项读取服务端
-                  .env。密钥不会返回浏览器。
-                </p>
-                {snapshot?.config.credential_configured && (
-                  <div className="credential-note">
-                    ✓ 服务端已配置凭证，可直接运行
-                  </div>
-                )}
-                <label>
-                  OpenAI 兼容 Base URL
-                  <input
-                    name="base_url"
-                    required
-                    defaultValue={snapshot?.config.base_url || ""}
-                    placeholder="https://服务地址/v1"
-                  />
-                </label>
-                <label>
-                  请求模型
-                  <input
-                    name="agent_model"
-                    defaultValue={snapshot?.config.agent_model || "ecnu-plus"}
-                    required
-                  />
-                </label>
-                <label>
-                  API Key
-                  <input
-                    type="password"
-                    name="api_key"
-                    autoComplete="off"
-                    placeholder="留空继续使用服务端已配置密钥"
-                  />
-                </label>
-                <div className="form-grid">
-                  <label>
-                    并发任务数
-                    <input
-                      type="number"
-                      name="max_concurrency"
-                      min="1"
-                      max="8"
-                      defaultValue={snapshot?.config.max_concurrency || 2}
-                    />
-                  </label>
-                  <label>
-                    输出 Token 上限
-                    <input
-                      type="number"
-                      name="max_tokens"
-                      min="256"
-                      max="64000"
-                      defaultValue={snapshot?.config.max_tokens || 12000}
-                    />
-                  </label>
-                </div>
-                <div className="form-grid mt-3">
-                  <label>
-                    连接／首响应等待（秒）
-                    <input
-                      name="timeout_seconds"
-                      type="number"
-                      min="10"
-                      max="1800"
-                      defaultValue={snapshot?.config.timeout_seconds || 120}
-                    />
-                  </label>
-                  <label>
-                    流中无数据等待（秒）
-                    <input
-                      name="stream_idle_timeout_seconds"
-                      type="number"
-                      min="10"
-                      max="1800"
-                      defaultValue={
-                        snapshot?.config.stream_idle_timeout_seconds || 300
-                      }
-                    />
-                  </label>
-                  <label>
-                    整次生成时限（秒）
-                    <input
-                      name="stream_total_timeout_seconds"
-                      type="number"
-                      min="30"
-                      max="3600"
-                      defaultValue={
-                        snapshot?.config.stream_total_timeout_seconds || 900
-                      }
-                    />
-                  </label>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  输出上限不是保证输出长度。大制品会耗时更久；连接、无数据等待和总生成时限分别生效，超时不会自动重发。
-                </p>
-                <Button type="submit" className="mt-6 w-full">
-                  保存配置
-                </Button>
-              </form>
+              />
             )}
           </div>
         </div>

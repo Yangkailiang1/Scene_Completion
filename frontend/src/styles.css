@@ -3449,3 +3449,113 @@ td {
     display: none;
   }
 }
+
+.results-toolbar[hidden],
+.results-diagram-controls[hidden] {
+  display: none;
+}
+.results-compact-controls {
+  min-height: 38px;
+  padding: 5px 18px;
+  gap: 10px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-bottom: 1px solid #e7edf5;
+  color: #71849a;
+  font-size: 12px;
+  background: #fff;
+}
+.results-compact-controls select {
+  height: 30px;
+  max-width: 250px;
+  border: 1px solid #e1e8f1;
+  border-radius: 7px;
+  padding: 0 26px 0 9px;
+  font-size: 12px;
+  color: #38536f;
+  background: #fbfcfe;
+}
+.results-compact-controls button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  color: #526d91;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.results-compact-description {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .results-compact-controls {
+    padding: 5px 8px;
+    gap: 5px;
+  }
+  .results-compact-controls select {
+    max-width: 140px;
+  }
+  .results-compact-description {
+    display: none;
+  }
+}
+
+.model-account-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+  color: #48617e;
+  font-size: 13px;
+}
+.model-account-settings input,
+.model-account-settings select,
+.model-account-settings textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #dce5ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #263d59;
+}
+.model-account-settings button {
+  border: 1px solid #d9e4f2;
+  border-radius: 7px;
+  padding: 7px 12px;
+  color: #365ba8;
+  margin-top: 8px;
+}
+.model-account-settings button.model-primary-button {
+  background: #4264d7;
+  color: #fff;
+  width: 100%;
+  padding: 10px;
+}
+.model-account-settings .credential-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.model-advanced,
+.model-account-editor {
+  border-top: 1px solid #e4ebf4;
+  padding-top: 12px;
+  margin-top: 16px;
+}
+.model-account-settings summary {
+  cursor: pointer;
+  color: #43648d;
+  font-size: 13px;
+}
+.model-account-settings p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #7a8da5;
+}

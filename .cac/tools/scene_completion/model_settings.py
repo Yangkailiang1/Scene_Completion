@@ -15,13 +15,15 @@ def read_env(path):
             values[key]=value
     return values
 
-def resolve(overrides,env_path):
-    env={**read_env(env_path),**os.environ};config=dict(overrides)
+def resolve(overrides,env_path,accounts_root=None):
+    from .model_accounts import apply_account
+    env={**read_env(env_path),**os.environ};config=apply_account(overrides,accounts_root,env_path)
     def expand(v):
         m=re.fullmatch(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}',str(v or ''))
         return env.get(m[1],'') if m else v
     config['base_url']=expand(config.get('base_url')) or env.get('SCENE_API_BASE_URL') or env.get('ECNU_BASE_URL') or env.get('ECNU_MAX_BASE_URL') or ''
-    if config.get('api_key'):config['api_key']=expand(config['api_key'])
+    if config.get('model_account_id'):pass  # Never fall back to a different key when the selected account is unconfigured.
+    elif config.get('api_key'):config['api_key']=expand(config['api_key'])
     elif config.get('api_key_env'):config['api_key']=env.get(config['api_key_env'],'')
     else:config['api_key']=env.get('SCENE_API_KEY') or env.get('ECNU_API_KEY') or env.get('ECNU_MAX_API_KEY') or ''
     config['agent_model']=expand(config.get('agent_model')) or env.get('SCENE_AGENT_MODEL') or 'ecnu-plus'
@@ -32,5 +34,5 @@ def resolve(overrides,env_path):
     return config
 
 def public_settings(config):
-    return {**{k:config[k] for k in ('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream') if k in config},
+    return {**{k:config[k] for k in ('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream','model_account_id','model_account_name','allowed_models') if k in config},
       'credential_configured':bool(config.get('api_key'))}

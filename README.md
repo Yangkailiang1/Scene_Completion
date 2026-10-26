@@ -113,3 +113,9 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 新版网页增加“模式与风险”和“最终结果 → 风险推荐”。关注点下可以有多个异常模式，按具体交互与正向约束实例化；关键低置信候选先待审。推荐只使用缺失M、风险及项目已人工审核历史，不使用测试GT排序。原始/扩展测试分别评测，人工采纳率单列。
 
 详见 [方法、接口、版本与审核边界](docs/scenario-pattern-recommender.md)。旧Windows Release及旧报告保持可读，本轮不制作新Windows包。
+
+## Code Agent CLI与多API Key模型配置
+
+启动`serve.py`后，可用`python scene.py projects/create/configure/run/status/events/artifacts`操作同一个网页工作台。`run --wait`输出JSONL进度，网页实时查看同一节点、事件和文件。更多操作中的模型设置支持多个API Key连接，每个连接维护独立模型允许列表；项目从对应下拉框选模型。
+
+命令示例、凭证保存方式和运行边界见[CLI与模型连接说明](docs/workbench-cli-model-accounts.md)。结果控制区可收起，默认保留紧凑的快捷选择栏。

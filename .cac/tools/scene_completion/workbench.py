@@ -79,22 +79,48 @@ class Workbench:
             meta['sources']['test']=sources;meta['test_source_version']=current;write_json(p/'project.json',meta);write_json(history,versions)
         return {'version':current,'versions':versions,'preview':preview(read_project_documents(p,meta['sources']['test'],'test')),'sources':meta['sources']['test']}
     def list(self):return sorted([read_json(p) for p in self.root.glob('*/project.json')],key=lambda x:x['created_at'],reverse=True)
+    def model_config(self,rid):
+        from .model_settings import resolve
+        p=self.run_dir(rid)
+        return resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file,self.root)
+    def model_accounts(self,body=None):
+        from .model_accounts import public_accounts,save_account
+        if body is not None:
+            aid=body.get('id')
+            for m in self.list():
+                p=self.run_dir(m['id']);c=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {};j=read_json(p/'job.json') if (p/'job.json').exists() else {}
+                if aid and c.get('model_account_id')==aid and (m['id'] in self.active or j.get('status')=='running' and j.get('worker_heartbeat',0)>time.time()-30):raise ValueError('此连接正在执行项目，请结束本轮后修改')
+            return save_account(self.root,body,self.env_file)
+        return public_accounts(self.root,self.env_file)
     def configure(self,rid,body):
         p=self.run_dir(rid)
-        if rid in self.active:raise ValueError('运行期间不能修改模型配置')
-        if not body.get('base_url','').startswith(('http://','https://')) or not body.get('agent_model','').strip():raise ValueError('请填写内网API地址和实际模型标识')
+        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        if rid in self.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('运行期间不能修改模型配置')
+        if not body.get('agent_model','').strip():raise ValueError('请选择实际模型标识')
+        if not body.get('model_account_id') and not body.get('base_url','').startswith(('http://','https://')):raise ValueError('请选择模型连接或填写API地址')
         previous=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
-        config={**previous,**{k:body[k] for k in ('base_url','agent_model','api_key','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
-        if not config.get('api_key'):config['api_key']=previous.get('api_key','')
+        config={**previous,**{k:body[k] for k in ('model_account_id','base_url','agent_model','api_key','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
+        if body.get('model_account_id')!=previous.get('model_account_id'):
+            # A changed key/model must not inherit another account's routing,
+            # request options or quota path. Ledger files themselves stay intact.
+            for k in ('api_key','api_key_env','base_url','extra_body','stage_extra_body','thinking','thinking_api','task_models','role_models','model_profiles','stage_max_tokens','token_budget_ledger','token_budget_limit','provider_token_budget_limit','provider_token_budget_ledgers','provider_token_budget_lock','token_budget_reasoning_reserve'):
+                config.pop(k,None)
+            if not body.get('model_account_id'):
+                config.update({k:body[k] for k in ('api_key','base_url') if k in body})
+        elif not config.get('api_key'):config['api_key']=previous.get('api_key','')
         config.update(agent_runtime='deepagents',structured_output='json_object',max_retries=0,adaptive_concurrency=True)
         for k,default,lo,hi in [('max_concurrency',2,1,8),('max_tokens',12000,256,64000),('timeout_seconds',120,10,1800),('stream_idle_timeout_seconds',300,10,1800),('stream_total_timeout_seconds',900,30,3600)]:
             v=config.get(k,default)
             if type(v) is not int or not lo<=v<=hi:raise ValueError('invalid '+k)
             config[k]=v
         if config['stream_total_timeout_seconds']<config['stream_idle_timeout_seconds']:raise ValueError('流式总时限不能小于无数据等待时限')
+        from .model_settings import resolve
+        validated=resolve(config,self.env_file,self.root)
         write_json(p/'model.local.json',config)
+        try:(p/'model.local.json').chmod(0o600)
+        except OSError:pass
         from .model_settings import public_settings
-        return public_settings(config)
+        return public_settings(validated)
     def upgrade(self,rid):
         import shutil
         p=self.run_dir(rid);meta=read_json(p/'project.json')
@@ -121,7 +147,7 @@ class Workbench:
         job=read_json(p/'job.json') if (p/'job.json').exists() else {}
         if job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('项目正在由联调工作进程执行')
         from .model_settings import resolve
-        config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+        config=self.model_config(rid)
         if not self.client_factory and (not config['api_key'] or not config['base_url']):raise ValueError('请在.env或项目中配置模型地址和密钥')
         with self.lock:
             if rid in self.active:raise ValueError('项目正在运行')
@@ -139,7 +165,7 @@ class Workbench:
             from .scheduler import run_lock
             project=read_json(p/'project.json')
             from .model_settings import resolve
-            config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+            config=self.model_config(rid)
             config.setdefault('supplement_tests',True)
             config.setdefault('scenario_patterns',True)
             from .pattern_settings import settings,history
@@ -160,6 +186,15 @@ class Workbench:
             (p/'error.log').write_text(traceback.format_exc(),encoding='utf8')
         finally:
             with self.lock:self.active.discard(rid)
+    def execution_status(self,rid):
+        p=self.run_dir(rid);r=p/'run';project=read_json(p/'project.json')
+        graph=read_json(r/'workflow_graph.json') if (r/'workflow_graph.json').exists() else {'nodes':[]};nodes={n['id']:n for n in graph['nodes']}
+        records=read_json(r/'workflow_tasks.json').get('tasks',{}) if (r/'workflow_tasks.json').exists() else {};active={k:v for k,v in records.items() if k in nodes}
+        job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
+        if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'执行进程已退出，可继续运行'}
+        manifest=read_json(r/'run_manifest.json') if (r/'run_manifest.json').exists() else {}
+        from .execution_events import EventStore
+        return {'project':rid,'name':project['name'],'job':job,'complete':bool(manifest.get('complete')),'completed':sum(v['status']=='passed' for v in active.values()),'total':len(nodes),'event_cursor':EventStore(r).latest_id(),'pending_nodes':[{'id':k,'stage':v['stage'],'status':v['status'],'failure':v.get('failure'),'expected_files':nodes[k].get('expected_files',[])} for k,v in active.items() if v['status']!='passed']}
     def snapshot(self,rid):
         p=self.run_dir(rid);run=p/'run'
         from .reviews import Reviews
@@ -182,10 +217,14 @@ class Workbench:
         job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
         if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'上次进程已退出，可继续运行并复用成功结果'}
         from .model_settings import resolve,public_settings
-        config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+        try:config=public_settings(self.model_config(rid))
+        except ValueError as e:
+            raw=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
+            config={k:raw[k] for k in ('model_account_id','agent_model','max_concurrency','max_tokens') if k in raw}
+            config.update(credential_configured=False,configuration_error=str(e))
         return {'project':read_json(p/'project.json'),'job':job,'manifest':read_json(run/'run_manifest.json') if (run/'run_manifest.json').exists() else None,
           'tasks':read_json(run/'workflow_tasks.json') if (run/'workflow_tasks.json').exists() else {'tasks':{},'events':[]},'reviews':reviews,'artifacts':artifacts,
-          'config':public_settings(config)}
+          'config':config}
     def conversation(self,rid,key):
         from .node_conversations import Conversations
         p=self.run_dir(rid)
@@ -217,7 +256,7 @@ class Workbench:
             task_packet=max(packets,key=lambda a:a[0])[1] if packets else None
             if not task_packet:
                 store.append(key,'assistant','指导已保存，将在该节点下一次模型调用时生效。');return
-            config=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file)
+            config=self.model_config(rid)
             from .model_routing import routed_config
             from .deepagents_client import role_for
             config=routed_config(config,task_packet['task'],role_for(task_packet['task'])) or config
@@ -400,6 +439,11 @@ def create_app(root=None,client_factory=None,env_file=None):
     def review_pending_item(rid:str,item_id:str,body:dict):
         from .project_review import decide_pending
         with service.lock:return decide_pending(service.run_dir(rid),item_id,body)
+    @app.get('/api/model-accounts')
+    def model_accounts():return service.model_accounts()
+    @app.put('/api/model-accounts')
+    def save_model_account(body:dict):
+        with service.lock:return service.model_accounts(body)
     @app.put('/api/projects/{rid}/config')
     def configure(rid:str,body:dict):return service.configure(rid,body)
     @app.put('/api/projects/{rid}/mode')
@@ -409,6 +453,8 @@ def create_app(root=None,client_factory=None,env_file=None):
         p=service.run_dir(rid);v=read_json(p/'project.json');v['review_mode']=body['review_mode'];write_json(p/'project.json',v);return v
     @app.post('/api/projects/{rid}/run')
     def start(rid:str):return service.start(rid)
+    @app.get('/api/projects/{rid}/execution-status')
+    def execution_status(rid:str):return service.execution_status(rid)
     @app.get('/api/projects/{rid}/graph')
     def graph(rid:str):
         from .execution_graph import graph_snapshot

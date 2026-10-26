@@ -48,6 +48,7 @@ class SemanticClient:
         return selected
 
     def post(self, endpoint: str, body: dict) -> dict:
+        if self.config.get('allowed_models') and body.get('model') not in self.config['allowed_models']:raise ValueError('requested model is not allowed for this API key')
         if not self.base_url.startswith(('https://','http://')) or not self.api_key:raise ValueError('OpenAI-compatible endpoint or API key is not configured')
         from .endpoint_admission import endpoint_slot
         with endpoint_slot(self.base_url,self.api_key,limit=self.config.get('max_endpoint_concurrency',3),

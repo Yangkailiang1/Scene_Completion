@@ -9,6 +9,8 @@ import {
   FlaskConical,
   ShieldCheck,
   FileStack,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { api, projectUrl, fileUrl } from "./api";
 import { AlignmentTable, MetricsPanel } from "./ResultComparison";
@@ -153,6 +155,14 @@ function Scenario({
 }
 
 export function ResultsView({ project }: { project: string }) {
+  const [controlsCollapsed, setControlsCollapsed] = useState(
+    () => localStorage.getItem("scene-result-controls-collapsed") !== "false",
+  );
+  const toggleControls = () =>
+    setControlsCollapsed((old) => {
+      localStorage.setItem("scene-result-controls-collapsed", String(!old));
+      return !old;
+    });
   const [onlyUnmatched, setOnlyUnmatched] = useState(false);
   const [testSet, setTestSet] = useState("expanded");
   const [index, setIndex] = useState<any>(null),
@@ -237,7 +247,66 @@ export function ResultsView({ project }: { project: string }) {
     detail && Object.values(detail.unbound).some((a: any) => a.length);
   return (
     <div className="management-view results-view">
-      <div className="results-toolbar">
+      <div className="results-compact-controls" aria-label="结果快捷控制">
+        {controlsCollapsed ? (
+          <>
+            <select
+              aria-label="快捷用例"
+              value={cid}
+              onChange={(e) => setCase(e.target.value)}
+            >
+              <option value="" disabled>
+                选择用例
+              </option>
+              {index?.cases.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.id} · {c.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="快捷结果视图"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+            >
+              <option value="steps">交互对照</option>
+              <option value="metrics">指标总览</option>
+              <option value="diagrams">图表总览</option>
+              <option value="tests">测试场景</option>
+              <option value="recommendations">风险推荐</option>
+            </select>
+            <span
+              className="results-compact-description"
+              title={mode === "diagrams" ? artifact?.label : undefined}
+            >
+              {mode === "diagrams"
+                ? artifact?.label
+                : testSet === "expanded"
+                  ? "扩展异常测试场景"
+                  : "原始异常测试场景"}
+            </span>
+          </>
+        ) : (
+          <span>结果显示与产物设置</span>
+        )}
+        <button
+          onClick={toggleControls}
+          aria-expanded={!controlsCollapsed}
+          aria-controls="results-main-controls"
+        >
+          {controlsCollapsed ? (
+            <ChevronDown size={14} />
+          ) : (
+            <ChevronUp size={14} />
+          )}{" "}
+          {controlsCollapsed ? "展开工具栏" : "收起工具栏"}
+        </button>
+      </div>
+      <div
+        id="results-main-controls"
+        className="results-toolbar"
+        hidden={controlsCollapsed}
+      >
         <label className="results-case-picker">
           <span>当前用例</span>
           <select
@@ -359,7 +428,7 @@ export function ResultsView({ project }: { project: string }) {
         />
       ) : mode === "diagrams" ? (
         <div className="results-diagrams">
-          <div className="results-diagram-controls">
+          <div className="results-diagram-controls" hidden={controlsCollapsed}>
             <label className="results-artifact-picker">
               <span>
                 <FileStack size={14} aria-hidden="true" />

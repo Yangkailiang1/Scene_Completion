@@ -127,6 +127,7 @@ test("result view loads one case on demand and shows all three evidence channels
     return { ok: true, json: async () => data } as Response;
   });
   render(<ResultsView project="p" />);
+  fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
   expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "测试集" })).toBeNull();
   await screen.findAllByText("pageSize大于100");
@@ -152,4 +153,21 @@ test("result view loads one case on demand and shows all three evidence channels
   await waitFor(() =>
     expect(requests.some((x) => x.endsWith("/results/D"))).toBe(true),
   );
+});
+
+test("results controls collapse to a compact bar and persist the choice", async () => {
+  localStorage.setItem("scene-result-controls-collapsed", "true");
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({ complete: true, cases: [], artifacts: [] }),
+  } as Response);
+  render(<ResultsView project="compact" />);
+  expect(screen.getByLabelText("快捷结果视图")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "测试场景" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
+  expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();
+  expect(localStorage.getItem("scene-result-controls-collapsed")).toBe("false");
+  fireEvent.click(screen.getByRole("button", { name: "收起工具栏" }));
+  expect(screen.getByLabelText("快捷结果视图")).toBeTruthy();
+  expect(localStorage.getItem("scene-result-controls-collapsed")).toBe("true");
 });
