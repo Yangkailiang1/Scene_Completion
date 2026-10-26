@@ -139,6 +139,18 @@ def test_tool_only_schema_changes_do_not_require_paid_recognition_again():
     assert identity(*args,old,'model','endpoint',0)!=identity('concern-match',changed,'same Skill',new,'model','endpoint',0)
 
 
+def test_recognition_explanation_does_not_invalidate_scene_semantics_but_field_does():
+    from scene_completion.semantic_reuse import identity
+    from scene_completion.contracts import schema
+    x=memory_inputs();x['identified-concerns']=recognized(x,[raw()]);y=deepcopy(x)
+    y['identified-concerns']['matches'][0]['basis']='同一依据的另一种说法'
+    args=('existing-extract','same Skill',schema('existing-extract'),'model','endpoint',0)
+    key=lambda v:identity(args[0],v,*args[1:])
+    assert key(x)==key(y)
+    y['identified-concerns']['matches'][0]['object']='page'
+    assert key(x)!=key(y)
+
+
 def test_single_test_partition_does_not_receive_other_test_concern_answers():
     from scene_completion.task_partitions import split_task
     doc={'source_id':'s','name':'test.md','channel':'test','lines':[

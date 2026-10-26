@@ -375,12 +375,17 @@ export function MetricsPanel({
         (c: any) => c.truth_pending > 0 || c.concern_pending > 0,
       ) && (
         <p className="management-notice">
-          GT仍有{" "}
+          场景GT待确认{" "}
           {data.cases.reduce(
             (n: number, c: any) => n + (c.truth_pending || 0),
             0,
           )}{" "}
-          项待确认，尚未计入分母；当前指标针对已解析的GT，不代表所有测试异常已完成对齐。
+          项；关注点待确认{" "}
+          {data.cases.reduce(
+            (n: number, c: any) => n + (c.concern_pending || 0),
+            0,
+          )}
+          项（两层可能对应同一来源，不相加）。待确认不计分，正常、可选及明确不适用项另列为排除项。当前指标不代表全部来源已完成确认。
         </p>
       )}
       <details>

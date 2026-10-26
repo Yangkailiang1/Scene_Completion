@@ -1,3 +1,4 @@
+import json
 import pytest
 from scene_completion.result_views import ResultView
 from scene_completion.storage import write_json, fingerprint
@@ -76,3 +77,17 @@ def test_results_http_returns_only_selected_case_and_real_downloads(tmp_path):
     image=next(a for a in index.json()['artifacts'] if a['stage']=='fused-ssd')['files'][0]
     assert client.get(base+'/file',params={'path':image['path']}).status_code==200
     assert client.get(base+'/results/unknown').status_code==400
+
+
+def test_normal_exclusions_are_not_presented_as_unresolved_concerns(tmp_path):
+    fixture(tmp_path);root=tmp_path/'run';state=json.loads((root/'workflow_tasks.json').read_text())
+    key='C:concern-evaluation';file='task_outputs/concerns.json'
+    value={'version':'two-level-concern-scenario-v1','metrics':{},'excluded':{'GT':[{'scenario_type':'normal'},{'status':'not_applicable'}]}}
+    write_json(root/file,{'payload':value});state['tasks'][key]={'stage':'concern-evaluation','case':'C','status':'passed','output_file':file}
+    write_json(root/'workflow_tasks.json',state);write_json(root/'workflow_graph.json',{'nodes':[{'id':k} for k in state['tasks']]})
+    c=ResultView(tmp_path).metrics()['cases'][0]
+    assert c['concern_excluded_count']==2 and c['concern_pending']==0 and c['status']=='已评测'
+    value['excluded']['GT'].append({'reason':'字段位置待确认'});write_json(root/file,{'payload':value})
+    assert ResultView(tmp_path).metrics()['cases'][0]['concern_pending']==1
+    value['excluded']['GT'].append({'status':'pending','status_reason':'字段位置待确认'});write_json(root/file,{'payload':value})
+    assert ResultView(tmp_path).metrics()['cases'][0]['concern_pending']==1

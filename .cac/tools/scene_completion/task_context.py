@@ -148,7 +148,10 @@ def semantic_view(task,inputs):
             techs=({'database'} if '数据库' in text else set())|({'llm'} if any(k in text.lower() for k in ('llm','大语言','large language')) else set())
             out['registry']['definitions']={k:v for k,v in out['registry']['definitions'].items() if not v.get('technology') or v['technology'] in techs}
     if 'identified-concerns' in out:
-        out['identified-concerns']={'matches':[{k:m[k] for k in ('interaction_id','target','object','concern_key','data_location','operation_index','basis','source_refs') if k in m} for m in out['identified-concerns']['matches'] if m.get('status')=='applicable'],'pending':out['identified-concerns'].get('pending',[])}
+        # Recognition prose is saved for review, not a second source of facts.
+        # The selected element/category and its evidence already scope the
+        # next stage. Rewording its explanation must not retrigger a paid call.
+        out['identified-concerns']={'matches':[{k:m[k] for k in ('interaction_id','target','object','concern_key','data_location','operation_index','source_refs') if k in m} for m in out['identified-concerns']['matches'] if m.get('status')=='applicable'],'pending':out['identified-concerns'].get('pending',[])}
     return out
 
 
