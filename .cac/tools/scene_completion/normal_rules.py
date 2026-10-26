@@ -2,7 +2,7 @@
 from copy import deepcopy
 import re
 from .storage import fingerprint
-RULESET_VERSION='scenario-patterns-recommendation-20261026-v4'
+RULESET_VERSION='two-level-concern-scenario-20261026-v1'
 LOCATIONS={'header','path','query','body','response','business','storage','context'}
 
 def identity_concern(key,interaction):
@@ -176,7 +176,9 @@ def normalize_scenarios(value,inputs,*,truth=False):
     fused=inputs.get('fused-ssd') or inputs.get('enriched-interactions',{})
     rows={i['id']:i for i in fused.get('interactions',[])};result=[]
     for raw in out.get('scenarios',[]):
-        s=deepcopy(raw);original={'interaction_id':s['interaction_id'],'object':s['object'],'field':s.get('field'),'data_location':s.get('data_location')}
+        s=deepcopy(raw)
+        if s.get('scope')=='business':s['scope']='interface' if s['concern_key'].startswith('api.data.') else 'service'
+        original={'interaction_id':s['interaction_id'],'object':s['object'],'field':s.get('field'),'data_location':s.get('data_location')}
         mapped_service=s.get('rule_id') in rules and not s['concern_key'].startswith('api.data.') and not rules[s['rule_id']]['concern_key'].startswith('api.data.')
         if not mapped_service:s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s.get('rule_id') in rules:

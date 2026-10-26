@@ -4106,3 +4106,13 @@ td {
     flex-basis: 100%;
   }
 }
+
+/* Shared three-channel comparison at two distinct units. */
+.comparison-layer-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:10px 0; }
+.comparison-layer-toolbar p { font-size:13px; color:#64748b; margin:0; }
+.concern-cell strong,.concern-alignment-table td>strong {display:block; margin:5px 0;}
+.concern-cell p {font-size:13px; line-height:1.65;}
+.concern-cell blockquote {margin:8px 0; padding:8px 10px; border-left:3px solid #b8cced; background:#f4f7fc;}
+.concern-drilldown {padding:7px 10px; color:#3562bc; border:1px solid #cfdbf1; border-radius:7px; background:white;}
+.scenario-ancestry {display:block; color:#5e75a0; font-size:12px; overflow-wrap:anywhere; margin-bottom:5px;}
+.recommendation-inline {font-size:12px; color:#326655; background:#edf8f3; padding:6px; border-radius:5px;}

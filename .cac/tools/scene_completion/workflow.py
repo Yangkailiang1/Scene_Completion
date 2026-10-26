@@ -1,4 +1,4 @@
-"""Independent tasks and a fixed, resumable DAG for scene-workflow-v3.
+"""Independent tasks and a fixed, resumable DAG for scene-workflow-v4.
 
 No legacy packets, history vectors, recommendations or external paid calls in
 packet/mock mode. Semantic results are evidence-checked before cache promotion.
@@ -15,6 +15,7 @@ from .concern_matching import complete_data_matches
 from .concern_hierarchy import resolve_matches
 from .task_context import generation_matches
 from .normal_rules import documented_normal_tolerance
+from .scenario_types import normal_replay_record
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
 from .reviews import REVIEW_TASKS
@@ -36,7 +37,7 @@ def canonical_enrich(d):
 
 
 def payload(value):
-    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v3')
+    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v4')
     return value['payload']
 
 
@@ -55,11 +56,14 @@ def code_version(task):
       'object-operations':['interaction_enrichment.py'], 'interaction-align':['ssd_tools.py'],
       'interaction-enrich':['interaction_enrichment.py','inverse_alignment.py'],
       'normal-rules':['normal_rules.py','task_partitions.py'],
-      'concern-match':['normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
-      'exception-generate':['normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
+      'existing-concerns':['concern_alignment.py','task_partitions.py','task_context.py'],
+      'test-concerns':['scenario_types.py','concern_alignment.py','task_partitions.py','task_context.py'],
+      'concern-compare':['concern_alignment.py'], 'concern-evaluation':['concern_alignment.py'],
+      'concern-match':['concern_alignment.py','normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
+      'exception-generate':['concern_alignment.py','normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'existing-branches':['source_documents.py','branch_evidence.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
-      'existing-extract':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
-      'test-ground-truth':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'existing-extract':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'test-ground-truth':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'gap-compare':['exception_comparison.py','comparison_batches.py','assignment.py','normal_rules.py'],
       'semantic-compare':['comparison_batches.py','assignment.py','normal_rules.py'],
       'missing-report':['exception_comparison.py','artifact_exports.py'],
@@ -134,6 +138,8 @@ class Execution:
                        'registry_hash':self.registry_snapshot['hash'],'registry_version':self.registry_snapshot['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
         from .normal_rules import RULESET_VERSION
         self.manifest['ruleset_version']=RULESET_VERSION
+        from .concern_alignment import VERSION
+        self.manifest['matching_version']=VERSION
         if self.config.get('scenario_patterns',False):self.manifest.update(pattern_settings_hash=self.pattern_settings['hash'],pattern_library_version=self.pattern_settings['library']['version'],recommendation={'enabled':True,'status':'等待缺失集合M'})
         write_json(manifest,self.manifest)
         self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
@@ -172,7 +178,7 @@ class Execution:
             p['tool_rule_coverage']={'data':data_exceptions(inputs),'query':query_exceptions(inputs),'availability':service_exceptions(inputs),'storage':storage_exceptions(inputs),'normal_rules':rule_exceptions(inputs),'pending':pending_rules(inputs)}
             p['tool_rule_instruction']='工具会合并上述确定性候选。模型只需返回其他有具体正常规则支持的双方/操作异常，可返回空scenarios；不要改写字段规则或编造后续行为。'
         if task=='concern-match':
-            p['tool_rule_instruction']='程序会依照既定注册表自动继承基础、功能、技术及关系关注点，并由明确字段属性补齐数据关注点。你只补充需要语义理解的具体适用依据（如认证/授权条件、技术身份、明确的业务规则），不要穷举所有关注点或重复字段规则；没有额外依据可返回空matches，未知项写pending。'
+            p['tool_rule_instruction']='本任务先独立识别本片四要素对象上的全部适用具体关注点，包括可用性和明示字段约束。注册表只是候选，工具不会补成识别结果。逐项返回证据；未知规则写pending，不输出具体异常场景。'
         if record.get('rounds'):
             p['repair']={'failure':record.get('failure'),'round':record['rounds'],'rule':'仅修复本任务；不读取其他通道。'}
             candidate=(record.get('failure') or {}).get('rejected_output')
@@ -202,6 +208,22 @@ class Execution:
             else:
                 emit('result_reused',source_file=str(cached_response.relative_to(self.root)),reason='相同语义输入、Schema、Skill、模型及指导；重新执行工具规范化')
                 return deepcopy(cached['payload']),{'semantic_response_reused':True,'original_execution':cached.get('proof')}
+        if self.mode=='external' and self.mocks is None and task in {'concern-match','existing-concerns','test-concerns','existing-extract','test-ground-truth'}:
+            from .semantic_reuse import identity as reuse_identity,index as reuse_index
+            if not hasattr(self,'_semantic_seeds'):
+                self._semantic_seeds=reuse_index(self.root,self.identity['model'],self.identity['endpoint_hash'],self.conversations)
+            projected=reuse_identity(task,inputs,p['skill_text'],p['output_schema'],self.identity['model'],self.identity['endpoint_hash'],self.conversations.revision(p['node_key']))
+            seed=self._semantic_seeds.get(projected)
+            if seed:
+                cached=read_json(seed);value=deepcopy(cached['payload'])
+                if task in {'concern-match','existing-concerns','test-concerns'}:
+                    from .concern_alignment import recognize
+                    value=recognize(inputs,value,inverse=task!='concern-match')
+                try:validate_result(task,value,inputs)
+                except (ValueError,KeyError,TypeError):pass
+                else:
+                    emit('result_reused',source_file=str(seed.relative_to(self.root)),reason='同一识别输入与Skill，工具定位/展示字段变化；已重新规范化及校验，不重复调用模型')
+                    return value,{'semantic_response_reused':True,'tool_only_reprocessing':True,'original_execution':cached.get('proof')}
         raw=None
         if self.mocks is not None:
             value=self.mocks.get(record.get('stage'),self.mocks.get(task))
@@ -272,8 +294,17 @@ class Execution:
                 value={'tests':[]};proof={'provider':'independent_positive_contract_tests','reason':'明确字段约束和服务可用性由独立测试工具补全，不读取G/E'}
             elif task=='existing-extract' and 'bindings' in inputs and not any(b['status']=='confirmed' for b in inputs['bindings']['bindings']):
                 value={'scenarios':[]};proof={'provider':'unconfirmed_branch','reason':'没有已确认的异常交互绑定；保留待确认分支，不调用模型补造'}
-            elif task=='concern-match' and 'normal-rules' in inputs and not self.conversations.revision(key):
-                value={'matches':[],'pending':[]};proof={'provider':'indexed_positive_rule_matching','reason':'正向语义规则已独立提取；此步骤只按注册表、实际操作与字段属性匹配，不重复调用模型复制已知事实'}
+            elif task=='test-concerns' and (source:=normal_replay_record(inputs)) is not None:
+                value={'matches':[],'pending':[],'excluded':[{'original_id':source['id'],'scenario_type':'normal','reason':'原始表标为异常，但触发仅相同幂等键正常重试、预期返回已有且不重复创建；不计关注点或异常场景','source_refs':source['source_refs']}]};proof={'provider':'documented_normal_replay'}
+            elif task in {'existing-extract','test-ground-truth'} and 'identified-concerns' in inputs and not any(m.get('status')=='applicable' for m in inputs['identified-concerns']['matches']):
+                from .source_documents import evidence_refs
+                source=inputs.get('test-documents',inputs.get('existing-documents',[]))
+                pending=deepcopy(inputs['identified-concerns'].get('pending',[]))
+                excluded=deepcopy(inputs['identified-concerns'].get('excluded',[]))
+                if not pending and not excluded:
+                    pending=[{'interaction_id':'unbound','object':'待定位对象','concern_key':'未识别',
+                              'reason':'本片异常来源尚未识别到确定关注点，场景细化暂缓；未将其视为正常或已覆盖','source_refs':[{'source_id':d['source_id'],'line_start':r['number'],'line_end':r['number'],'quote':r['text']} for d in source for r in d['lines'] if r['text'].strip()]}]
+                value={'scenarios':[],'pending':pending,'excluded':excluded};proof={'provider':'awaiting_identified_concerns'}
             elif task=='exception-generate' and not generation_matches(inputs) and not self.conversations.revision(key):
                 value={'scenarios':[],'pending':[]};proof={'provider':'deterministic_rule_coverage','reason':'没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型'}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
@@ -295,6 +326,9 @@ class Execution:
                 if task=='existing-bind':
                     from .failure_units import normalize_bindings
                     value=normalize_bindings(value,inputs)
+                if task in {'existing-concerns','test-concerns'}:
+                    from .concern_alignment import recognize
+                    value=recognize(inputs,value,inverse=True)
                 if task=='concern-match':
                     resolved=resolve_matches(inputs,value['matches'])
                     value['matches']=resolved['matches']
@@ -326,6 +360,11 @@ class Execution:
                     value=inverse_metadata(value,inputs,self.pattern_settings,truth=task=='test-ground-truth')
                 from .execution_events import phase
                 phase('validating')
+                if task in {'exception-generate','existing-extract','test-ground-truth'}:
+                    from .concern_alignment import bind_scenarios
+                    identified=inputs.get('concern-match') if task=='exception-generate' else inputs.get('identified-concerns')
+                    if identified is not None:
+                        value=bind_scenarios(value,inputs,identified,gate=True)
                 if task in SCHEMAS:
                     validate_result(task,value,inputs)
             except ValueError as exc:
@@ -343,7 +382,7 @@ class Execution:
                 dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
                 validate_result(task,value['payload'],inputs_for(dependencies))
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
-                 'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+                 'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'existing-concerns','test-concerns','concern-compare','concern-evaluation','normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
         if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
@@ -439,7 +478,7 @@ class Execution:
               'recommendation':{'enabled':True,'cases':recommendations} if self.config.get('scenario_patterns',False) else {'enabled':False,'status':'未启用'},'evaluation_status':{
                   c:'已评测' if c in evaluations else '未评测或任务未完成' for c in reports}}
             export_missing_report(self.root,combined)
-        analysis_stages={'fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
+        analysis_stages={'existing-concerns','concern-compare','fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
         if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
         self.manifest.update(complete=result['complete'] and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
@@ -601,12 +640,16 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
 
         add('existing-bind',('existing-branches','fused-ssd','normal-rules'),
             build=lambda d,g=group:{'branches':d['existing-branches'],'fused-ssd':d['fused-ssd'],'case-group':g,'registry':registry(),'normal-rules':d['normal-rules']},partition=True)
-        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules'),
+        add('existing-concerns',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules'),
             build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd']),'normal-rules':d['normal-rules']},partition=True)
+        from .concern_alignment import compare as compare_concerns,attach_report,bind_scenarios
+        add('concern-compare',('concern-match','existing-concerns'),build=lambda d:d,transform=lambda d:compare_concerns(d['concern-match'],d['existing-concerns']))
+        add('existing-extract',('existing-branches','existing-bind','fused-ssd','api-parameters','api-map','normal-rules','existing-concerns'),
+            build=lambda d,docs=scoped_rr+scoped_sr:{'existing-documents':docs,'registry':registry(),'branches':d['existing-branches'],'bindings':d['existing-bind'],'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd']),'normal-rules':d['normal-rules'],'identified-concerns':d['existing-concerns']},partition=True)
         add('gap-compare',('exception-generate','existing-extract'),build=lambda d:{'left':d['exception-generate']['scenarios'],'right':d['existing-extract']['scenarios'],'purpose':'G_E'})
-        add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind','normal-rules'),build=lambda d:d,
+        add('missing-report',('exception-generate','existing-extract','gap-compare','enriched-view','concern-match','existing-branches','existing-bind','normal-rules','concern-compare'),build=lambda d:d,
             transform=lambda d:{**missing_report(d['exception-generate']['scenarios'],d['existing-extract']['scenarios'],d['gap-compare']['decisions']),
-              'interactions':d['enriched-view'],'concerns':d['concern-match']['matches'],
+              'interactions':d['enriched-view'],'concerns':d['concern-match']['matches'],'concern_level':d['concern-compare'],
               'original_branches':[b for b in d['existing-branches']['branches'] if b['id'] in {v['branch_id'] for v in d['existing-bind']['bindings'] if v['status']!='not_this_case'}],
               'inverse_bindings':d['existing-bind']['bindings'],
               'pending':d['normal-rules']['pending']+d['enriched-view']['pending']+d['concern-match']['pending']+d['exception-generate']['pending']+[{'interaction_id':b.get('interaction_id') or ('unbound:'+b['branch_id']),'reason':b['basis'],'source_refs':b['source_refs']} for b in d['existing-bind']['bindings'] if b['status']=='pending']})
@@ -615,7 +658,8 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             add('gap-recommend',('missing-report','pattern-applicability'),
                 build=lambda d,cid=cid:{**d,'settings':ex.pattern_settings,'history':ex.recommendation_history,'case_id':cid,'run_id':ex.session_id},
                 transform=lambda d,cid=cid:rank(d['missing-report']['M'],d['pattern-applicability'],d['settings'],d['history'],case_id=d['case_id'],run_id=d['run_id']))
-        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
+        add('test-concerns',('api-parameters','api-map','fused-ssd','normal-rules'),build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'matches':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
+        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules','test-concerns'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules'],'identified-concerns':d['test-concerns']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
             a,b='test-ground-truth',target
@@ -623,13 +667,22 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         if ex.config.get('supplement_tests',False):
             from .test_supplement import positive_inputs,to_truth,combine_truth,dedup_candidates,deduplicate_truth
             add('test-supplement',('fused-ssd','api-parameters','normal-rules'),build=lambda d,cat=test_catalogue:positive_inputs(d['fused-ssd'],case_parameters(d,d['fused-ssd']),d['normal-rules'],cat,registry()),partition=True)
-            add('test-additional-truth',('test-supplement','fused-ssd'),build=lambda d:d,transform=lambda d:to_truth(d['test-supplement'],{'fused-ssd':d['fused-ssd']}))
+            from .concern_alignment import supplemental_concerns
+            add('test-additional-concerns',('test-supplement','fused-ssd','api-parameters','api-map'),build=lambda d:d,transform=lambda d:supplemental_concerns(d['test-supplement'],d['fused-ssd'],case_parameters(d,d['fused-ssd'])))
+            add('test-additional-truth',('test-supplement','fused-ssd','test-additional-concerns','api-parameters','api-map'),build=lambda d:d,transform=lambda d:bind_scenarios(to_truth(d['test-supplement'],{'fused-ssd':d['fused-ssd']}),{'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd'])},d['test-additional-concerns'],gate=True))
             ex.add(key('GT_self'),'semantic-compare',(key('test-additional-truth'),),build=lambda d,a=key('test-additional-truth'):{'left':dedup_candidates(d[a]),'right':dedup_candidates(d[a]),'purpose':'GT_self'},case=cid)
             add('test-additional-dedup',('test-additional-truth','GT_self'),build=lambda d:d,transform=lambda d:deduplicate_truth(d['test-additional-truth'],d['GT_self']['decisions']))
             ex.add(key('GT_dedup'),'semantic-compare',(key('test-additional-dedup'),key('test-ground-truth')),build=lambda d,a=key('test-additional-dedup'),b=key('test-ground-truth'):{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':'GT_dedup'},case=cid)
             add('test-expanded',('test-ground-truth','test-additional-dedup','GT_dedup'),build=lambda d:d,transform=lambda d:combine_truth(d['test-ground-truth'],d['test-additional-dedup'],d['GT_dedup']['decisions']))
             for task,target in [('GT_expanded_G','exception-generate'),('GT_expanded_E','existing-extract')]:
                 ex.add(key(task),'semantic-compare',(key('test-expanded'),key(target)),build=lambda d,a=key('test-expanded'),b=key(target),target=target:{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':'GT_G' if target=='exception-generate' else 'GT_E'},case=cid)
+        concern_extra=('test-additional-concerns',) if ex.config.get('supplement_tests',False) else ()
+        def concern_evaluation(d):
+            original=compare_concerns(d['concern-match'],d['existing-concerns'],d['test-concerns'])
+            expanded={**d['test-concerns'],'matches':d['test-concerns']['matches']+d.get('test-additional-concerns',{}).get('matches',[])}
+            value=compare_concerns(d['concern-match'],d['existing-concerns'],expanded) if 'test-additional-concerns' in d else original
+            return {**value,'original_evaluation':original}
+        add('concern-evaluation',('concern-match','existing-concerns','test-concerns')+concern_extra,build=lambda d:d,transform=concern_evaluation)
         if scoped_test or ex.config.get('supplement_tests',False):
             extra=('test-expanded','GT_expanded_G','GT_expanded_E') if ex.config.get('supplement_tests',False) else ()
             from .test_supplement import evaluate_test_sets
@@ -642,7 +695,10 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
                     report=evaluate_recommendation(report,d['gap-recommend'])
                     if 'original_evaluation' in report:report['original_evaluation']=evaluate_recommendation(report['original_evaluation'],d['gap-recommend'])
                     return report
-            add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E')+extra,build=lambda d:d,transform=evaluate_test_sets)
+            scene_evaluate=evaluate_test_sets
+            def evaluate_two_levels(d,fn=scene_evaluate):
+                return attach_report(fn(d),d['concern-evaluation'],original=d['concern-evaluation']['original_evaluation'])
+            add('exception-evaluation',('exception-generate','existing-extract','test-ground-truth','gap-compare','GT_G','GT_E','concern-evaluation')+extra,build=lambda d:d,transform=evaluate_two_levels)
         for task in ('rr-ssd','sr-ssd','object-operations'):extraction_jobs.append((cid,task,key(task)))
     # Each checker reads only its own case, in parallel to positive modeling.
     branch_keys=tuple(cid+':existing-branches' for cid in cases)

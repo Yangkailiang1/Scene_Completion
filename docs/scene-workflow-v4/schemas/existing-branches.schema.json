@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "case_hint": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operation_hint": {
+            "type": "string"
+          },
+          "party_hint": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_id",
+                "line_start",
+                "line_end",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "scenario_type": {
+            "enum": [
+              "exception",
+              "normal",
+              "optional",
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "case_hint",
+          "description",
+          "operation_hint",
+          "party_hint",
+          "source_refs"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "original_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario_type": {
+            "enum": [
+              "normal",
+              "optional",
+              "pending"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "line_start": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "line_end": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "quote": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "source_id",
+                "line_start",
+                "line_end",
+                "quote"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "interaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "object": {
+            "type": "string",
+            "minLength": 1
+          },
+          "concern_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "original_id",
+          "scenario_type",
+          "reason",
+          "source_refs"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "branches"
+  ],
+  "additionalProperties": false
+}

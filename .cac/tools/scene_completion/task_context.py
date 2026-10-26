@@ -44,6 +44,8 @@ def generation_matches(inputs):
 
 
 def semantic_view(task,inputs):
+    if task in {'existing-concerns','test-concerns'}:
+        return inverse_concern_context(inputs)
     if task=='test-supplement':
         out=deepcopy(inputs)
         out['normal-constraints']={'apis':[]}  # typed contract mutations are tools
@@ -64,7 +66,7 @@ def semantic_view(task,inputs):
         return {**deepcopy(inputs),**{k:[{f:deepcopy(v) for f,v in s.items() if f in fields} for s in inputs[k]] for k in ('left','right')}}
     """Remove duplicate views and derived display metadata, never source facts."""
     out=deepcopy(inputs)
-    relevant={'normal-rules','concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}
+    relevant={'existing-concerns','test-concerns','normal-rules','concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}
     if task not in relevant:return out
     from .inverse_alignment import canonical_fused
     if 'fused-ssd' in out:
@@ -99,19 +101,19 @@ def semantic_view(task,inputs):
         out['concern-match']={'matches':matches}
     if 'registry' in out:
         out['registry']['definitions']={key:{k:v for k,v in row.items() if k in {'label','description','guard','kind','operation_kinds','technology','parents'}} for key,row in out['registry']['definitions'].items() if row.get('enabled',True)}
-    if task in {'existing-extract','test-ground-truth'}:
+    if task in {'existing-extract','test-ground-truth','existing-concerns','test-concerns'}:
         # Original branches/test rows are retained; no duplicate composition or
         # full API table. normal-constraints is already scoped to this use case.
         out.pop('components',None);out.pop('api-map',None)
-        if 'normal-rules' in out and task=='existing-extract':out.pop('existing-documents',None)
-    if task in {'existing-bind','existing-extract','test-ground-truth'}:
+        if 'normal-rules' in out and task in {'existing-extract','existing-concerns'}:out.pop('existing-documents',None)
+    if task in {'existing-bind','existing-extract','test-ground-truth','existing-concerns','test-concerns'}:
         # Inverse tasks receive positive facts, never the positive generator's
         # derived negative candidates through a shared-rule side channel.
         for rule in out.get('normal-rules',{}).get('rules',[]):rule.pop('violation',None)
         if task=='existing-bind':
             out.pop('normal-rules',None)
             out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','direction','sender','receiver','operation','data')} for i in out['fused-ssd']['interactions']]
-        if task=='existing-extract' and 'bindings' in out:
+        if task in {'existing-extract','existing-concerns'} and 'bindings' in out:
             ids={b['interaction_id'] for b in out['bindings']['bindings'] if b['status']=='confirmed'}
             # The validated ID is authoritative. Historical reasoning may
             # describe a propagation step before tool normalization; retain
@@ -122,14 +124,16 @@ def semantic_view(task,inputs):
                 out['normal-rules']['rules']=[r for r in out.get('normal-rules',{}).get('rules',[]) if r['interaction_id'] in ids]
                 fields={p['name'] for i in out['fused-ssd']['interactions'] for p in i['data']['sequence']}
                 out['normal-constraints']={'apis':[{**a,'parameters':[p for p in a['parameters'] if p['name'] in fields]} for a in out.get('normal-constraints',{}).get('apis',[]) if any(p['name'] in fields for p in a['parameters'])]}
-        if task=='test-ground-truth':
+        if task in {'test-ground-truth','test-concerns'}:
             from .test_sources import records
             tests=records(out['test-documents']);text=' '.join(r['触发条件']+' '+r['测试名称'] for r in tests)
             # Keep an identity/operation index for every call. Detailed normal
             # rules/attributes are scoped to literal tested fields/services;
             # no candidate interaction disappears, and no G/E is consulted.
             selected={i['id'] for i in out.get('fused-ssd',{}).get('interactions',[]) if i['receiver']['name'] in text or i['sender']['name'] in text or any(p['name'] in text for p in i['data']['sequence'])}
-            if selected:
+            if 'identified-concerns' in out:
+                selected={m['interaction_id'] for m in out['identified-concerns']['matches'] if m.get('status')=='applicable'}
+            if selected or 'identified-concerns' in out:
                 for i in out['fused-ssd']['interactions']:
                     if i['id'] not in selected:i['data']={'sequence':[]}
                 out['normal-rules']['rules']=[r for r in out.get('normal-rules',{}).get('rules',[]) if r['interaction_id'] in selected]
@@ -143,4 +147,45 @@ def semantic_view(task,inputs):
             text=str(out.get('fused-ssd',{}))
             techs=({'database'} if '数据库' in text else set())|({'llm'} if any(k in text.lower() for k in ('llm','大语言','large language')) else set())
             out['registry']['definitions']={k:v for k,v in out['registry']['definitions'].items() if not v.get('technology') or v['technology'] in techs}
+    if 'identified-concerns' in out:
+        out['identified-concerns']={'matches':[{k:m[k] for k in ('interaction_id','target','object','concern_key','data_location','operation_index','basis','source_refs') if k in m} for m in out['identified-concerns']['matches'] if m.get('status')=='applicable'],'pending':out['identified-concerns'].get('pending',[])}
+    return out
+
+
+def inverse_concern_context(inputs):
+    """Recognize before refinement using an identity index, not all case rules.
+
+    Every possible call identity remains selectable. Detailed field constraints
+    are carried only for literal source fields or a confirmed broad E branch.
+    A test is never narrowed using G/E or previous semantic pair decisions.
+    """
+    from .inverse_alignment import canonical_fused
+    out=deepcopy(inputs)
+    docs=out.get('test-documents',out.get('existing-documents',[]))
+    text=' '.join(r['text'] for d in docs for r in d['lines'])
+    branches=out.get('branches',{}).get('branches',[])
+    bound={b['interaction_id'] for b in out.get('bindings',{}).get('bindings',[]) if b['status']=='confirmed'}
+    from .inverse_alignment import broad_input_branch
+    broad=any(broad_input_branch(b['description']) for b in branches)
+    rows=canonical_fused(out['fused-ssd'])['interactions']
+    if bound:rows=[i for i in rows if i['id'] in bound]
+    # Explicit source identifiers establish relevance. Generic actor/system
+    # names shared by every message do not select every local business rule.
+    fields={p['name'] for i in rows for p in i['data']['sequence'] if p['name'] in text}
+    fields|={p['name'] for a in out['normal-constraints']['apis'] for p in a['parameters'] if p['name'] in text}
+    selected=[r for r in out.get('normal-rules',{}).get('rules',[]) if
+              (not bound or r['interaction_id'] in bound) and
+              (set(r['fields']) & fields or r.get('owner_service','') and r['owner_service'] in text or bound)]
+    out['normal-rules']={'rules':[{k:r[k] for k in ('id','interaction_id','concern_key','condition','fields','source_refs')} for r in selected]}
+    out['normal-constraints']={'apis':[{k:a[k] for k in ('id','name','address')}|{'parameters':[
+        {k:p[k] for k in ('name','location','required','data_type','constraints')} for p in a['parameters'] if p['name'] in fields or broad]}
+        for a in out['normal-constraints']['apis'] if broad or any(p['name'] in fields for p in a['parameters'])]}
+    out['fused-ssd']={'interactions':[{k:i[k] for k in ('id','direction','sender','receiver','operation','data')} for i in rows]}
+    for i in out['fused-ssd']['interactions']:
+        for side in ('sender','receiver'):i[side]={k:i[side][k] for k in ('name','position')}
+        i['operation']={k:i['operation'][k] for k in ('name','kinds','sequence')}
+        i['data']={'sequence':[{k:p[k] for k in ('name','location')} for p in i['data']['sequence']]}
+    if 'registry' in out:
+        out['registry']={'version':out['registry']['version'],'definitions':{k:{f:v[f] for f in ('label','description','layer')} for k,v in out['registry']['definitions'].items() if v.get('enabled',True) and v.get('kind')=='check'}}
+    if branches:out.pop('existing-documents',None)
     return out

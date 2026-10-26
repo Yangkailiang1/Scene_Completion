@@ -1,7 +1,7 @@
 from copy import deepcopy
 import pytest
 from scene_completion.normal_rules import normalize_scenarios,validate_rules,rule_matches,rule_exceptions
-from scene_completion.concern_hierarchy import resolve_matches
+from scene_completion.concern_hierarchy import candidate_matches as resolve_matches
 from scene_completion.exception_generation import data_exceptions
 from scene_completion.comparison_batches import compare_in_batches
 from scene_completion.contracts import packet

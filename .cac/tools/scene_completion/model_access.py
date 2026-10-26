@@ -22,7 +22,8 @@ class AccessRegistry:
             fingerprint(getattr(self.client, 'api_key', 'local-cli-auth')),
             self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),
             self.client.config.get('thinking_api','legacy'),self.client.config.get('stream',False), self.client.config.get('include_usage',False),
-            self.client.config.get('send_reasoning_effort', True), self.client.config.get('thinking_budget')])
+            self.client.config.get('send_reasoning_effort', True), self.client.config.get('thinking_budget'),
+            fingerprint(self.client.config.get('extra_body',{})),self.client.config.get('submission_mode'),self.client.config.get('structured_output')])
 
     def key(self, kind, model):
         return fingerprint([self.scope(), kind, model])
@@ -66,7 +67,7 @@ def registry(client):
 def access_category(exc):
     diagnostic = getattr(exc, 'response_diagnostic', {}) or {}
     category = diagnostic.get('failure_category')
-    if category in ('model_unavailable', 'authentication_failed', 'access_denied'):
+    if category in ('model_unavailable', 'authentication_failed', 'access_denied','invalid_configuration'):
         return category
     status = diagnostic.get('http_status')
     return {401: 'authentication_failed', 403: 'access_denied', 404: 'model_unavailable'}.get(status)

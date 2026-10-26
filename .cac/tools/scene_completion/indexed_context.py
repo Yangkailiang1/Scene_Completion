@@ -129,14 +129,24 @@ class EvidenceContext:
         if packet['task']=='semantic-compare' and packet['input'].get('candidate_pairs'):
             self.packet['output_schema']['properties']['decisions']['items']['anyOf']=[
               {'properties':{k:{'const':v} for k,v in pair.items()}} for pair in packet['input']['candidate_pairs']]
-        if packet['task']=='concern-match':
+        if packet['task'] in {'concern-match','existing-concerns','test-concerns'}:
             fields=self.packet['output_schema']['properties']['matches']['items']
-            for key in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):fields['properties'].pop(key,None)
+            for key in ('status','status_reason','inheritance_paths','service','functional_types','technologies','element_id','binding_id','case_id','direction','identification','classification_origin','caller','callee','element_origin'):fields['properties'].pop(key,None)
+        if 'excluded' in self.packet['output_schema'].get('properties',{}):
+            for key in ('interaction_id','object','concern_key'):
+                self.packet['output_schema']['properties']['excluded']['items']['properties'].pop(key,None)
+        if packet['task'] in {'concern-match','existing-concerns','test-concerns'}:
+            self.packet['output_schema']['properties'].pop('excluded',None)
+        if packet['task'] in {'existing-concerns','test-concerns'}:
+            props=self.packet['output_schema']['properties']['matches']['items']['properties']
+            keep={'interaction_id','target','object','concern_key','basis','concrete_rule','source_refs','data_location','scope','operation_index','coverage_kind'}
+            for key in list(props):
+                if key not in keep:props.pop(key,None)
         if packet['task'] in {'exception-generate','existing-extract','test-ground-truth'}:
             fields=self.packet['output_schema']['properties']['scenarios']['items']
             from .normal_rules import LOCATIONS
             fields['properties']['data_location']={'enum':sorted(LOCATIONS)+[None]}
-            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate'):fields['properties'].pop(key,None)
+            for key in ('concern_origins','concern_paths','canonical_interaction_id','interaction_type','normalization_origin','source_scenario_id','source_unit_ids','quality_notes','failure_rule','pattern_id','linked_pattern_ids','confidence','risk','scenario_context','pattern_versions','predicate','concern_binding_ids','element_anchors','matching_version'):fields['properties'].pop(key,None)
             if packet['task']=='existing-extract':
                 from .inverse_alignment import broad_input_branch
                 branches=packet['input'].get('branches',{}).get('branches',[])
@@ -176,8 +186,8 @@ class EvidenceContext:
             self.packet['repair']['candidate']=candidate if self.packet['repair'].get('candidate_format')=='model' else self.encode_output(candidate)
             self.input['evidence_catalog']={k:v for k,v in self.pool.items() if k not in self.doc_refs}
         self.packet['instructions']+='\n模型传输契约 '+VERSION+'：source_refs只输出给定evidence_id字符串，不能复写引文、source_id或行号；程序从原始输入恢复引用。文档行标有[evidence_id]；派生产物引用见evidence_catalog。所有事实字段仍须有依据。'
-        if packet['task']=='concern-match':
-            self.packet['instructions']+='\n只返回需语义理解的额外匹配依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础继承和字段规则由工具补齐，不重复列出。'
+        if packet['task'] in {'concern-match','existing-concerns','test-concerns'}:
+            self.packet['instructions']+='\n识别本片实际适用的全部具体关注点并返回依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础可用性和字段规则也要由本次识别明确提交；工具只校验，不自动补入识别结果。'
         if packet['task']=='exception-generate':
             self.packet['instructions']+='\nG只能从正向规则推导。不要输出source_status、original_branch_id、coverage_kind，程序固定为framework_inferred、null、exact；derivation必须写明当前正常规则如何推出异常，不能留空。'
         if self.fused:
@@ -241,9 +251,9 @@ class EvidenceContext:
                     for k in ('source_status','original_branch_id','coverage_kind'):row.pop(k,None)
             from .normal_rules import normalize_scenarios
             result=normalize_scenarios(result,self.original['input'],truth=self.original['task']=='test-ground-truth')
-        if self.original['task']=='concern-match':
+        if self.original['task'] in {'concern-match','existing-concerns','test-concerns'}:
             for row in result.get('matches',[]):
-                for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies'):row.pop(k,None)
+                for k in ('status','status_reason','inheritance_paths','service','functional_types','technologies','element_id','binding_id','case_id','direction','identification','classification_origin','caller','callee','element_origin'):row.pop(k,None)
         if self.fused:
             for row in result.get('interactions',[]):
                 row.pop('case_id',None)
@@ -267,6 +277,16 @@ class EvidenceContext:
             if isinstance(v,list):return [decode(x) for x in v]
             return v
         result=decode(value)
+        # Some providers append unused null commentary keys. They carry no
+        # fact or decision. Retain the normalization in the execution proof;
+        # non-null unknown fields still fail the strict public contract.
+        properties=self.original['output_schema'].get('properties',{})
+        for key in list(result):
+            if key not in properties and result[key] is None:
+                result.pop(key)
+                self.normalizations.append({'field':key,'action':'omit undeclared null root placeholder; no binding, fact or decision changed'})
+        for excluded in result.get('excluded',[]):
+            for key in ('interaction_id','object','concern_key'):excluded.pop(key,None)
         if self.original['task']=='test-supplement':
             rules={r['id']:r for r in self.original['input']['normal-rules']['rules']}
             for t in result.get('tests',[]):
@@ -316,6 +336,9 @@ class EvidenceContext:
                     if not row['concern_key'].startswith('api.data.') and row.get('field') is not None:
                         self.normalizations.append({'scenario_id':row['id'],'field':'field','original_value':row['field'],'action':'party/operation concern uses object as unit; field annotations are not independent data exceptions'})
                         row['field']=None
+        if self.original['task'] in {'existing-concerns','test-concerns'}:
+            from .concern_alignment import recognize
+            result=recognize(self.original['input'],result,inverse=True)
         if self.original['task']=='concern-match':
             from .concern_hierarchy import resolve_matches
             resolved=resolve_matches(self.original['input'],result.get('matches',[]))

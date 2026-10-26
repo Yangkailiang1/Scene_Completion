@@ -7,10 +7,14 @@ from .deepagents_client import role_for
 LABELS={'normal-rules':'正向正常规则整理','ssd-context':'用例SSD上下文取片（工具）','source-index':'Markdown章节与证据索引（工具）','components':'系统组成','use-case-extract':'用例目录抽取','use-case-align':'RR / SR 用例对应',
  'api-index':'接口目录与参数任务拆分','existing-branches':'原文已有异常分支','existing-bind':'异常与融合交互绑定','api-map':'API 接口映射','api-parameters':'API 参数','fused-ssd':'完整 SSD 建模','rr-ssd':'RR SSD 视图','sr-ssd':'SR SSD 视图',
  'test-operation-project':'测试操作投影','object-operations':'对象支持操作','interaction-align':'步骤展开对应','interaction-enrich':'交互属性补全',
- 'concern-match':'关注点匹配','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
+ 'concern-match':'LLM识别关注点 G_c','enriched-view':'交互与关注点','exception-generate':'生成异常 G','existing-extract':'关注点逆向归类与细化 E',
  'gap-compare':'缺失比较 M','missing-report':'缺失异常报告','test-ground-truth':'测试真值整理','semantic-compare':'评测语义对应',
  'exception-evaluation':'异常评测','extraction-evaluation':'抽取 Acc','pattern-applicability':'模式适用性与证据分级','gap-recommend':'风险保底推荐'}
 LABELS.update({'test-supplement':'独立异常测试补全','test-additional-truth':'补充异常测试GT（工具）','test-additional-dedup':'补充测试内部去重（工具）','test-expanded':'扩展异常测试集去重合并（工具）'})
+
+LABELS.update({'existing-concerns':'独立识别原文关注点 E_c','test-concerns':'独立识别测试关注点 GT_c',
+ 'test-additional-concerns':'补充测试关注点（独立结构化识别）','concern-compare':'关注点规则比较 M_c','concern-evaluation':'关注点层评测',
+ 'exception-evaluation':'两层指标汇总','gap-compare':'具体场景比较 M_s','existing-extract':'已有异常场景细化 E_s','test-ground-truth':'测试异常场景细化 GT_s'})
 
 def artifact_folder(root,key,case):
     from .storage import fingerprint
@@ -23,13 +27,14 @@ INPUTS={'normal-rules':'本用例正向原文＋实际服务交互，不含E/GT'
  'existing-branches':'RR＋SR原文已有异常（独立通道）','existing-bind':'原分支＋融合SSD＋用例对应',
  'existing-extract':'已绑定分支＋接口约束＋关注点体系','test-ground-truth':'独立测试spec＋融合SSD＋正常约束',
  'test-supplement':'正向SSD＋正常规则＋接口约束，隔离G/E/比较结果','test-additional-truth':'已验证补充测试，不读取G/E','test-additional-dedup':'补充测试集内部的完整失败对应','test-expanded':'原始异常GT＋补充GT独立去重','gap-compare':'生成G＋逆向细化E','missing-report':'G/E覆盖明细＋具体交互','pattern-applicability':'正向交互＋规则＋模式库；不读取E/GT','gap-recommend':'缺失M＋项目已审核历史＋风险设置；不读取GT','exception-evaluation':'独立GT与G/E/Q对齐结果'}
-PREVIEWS=[('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','concern-match','交互与关注点匹配'),('modeler','pattern-applicability','模式适用性与证据分级'),('modeler','exception-generate','细粒度场景生成G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
+INPUTS.update({'existing-concerns':'已绑定原文异常＋正向交互／约束；隔离G/GT','test-concerns':'独立异常测试＋正向交互／约束；隔离G/E','concern-compare':'已识别G_c＋E_c，稳定ID规则比较，不调用LLM','concern-evaluation':'独立G_c/E_c/GT_c，按关注点绑定计分','test-additional-concerns':'独立补充测试中已经识别的关注点，不读取G/E'})
+PREVIEWS=[('modeler','concern-match','LLM识别四要素上的关注点 G_c'),('checker','existing-concerns','原文已有关注点 E_c'),('checker','test-concerns','独立测试关注点 GT_c'),('checker','concern-compare','关注点层精确规则比较'),('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','pattern-applicability','模式适用性与证据分级'),('modeler','exception-generate','细粒度场景生成G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
 
 def expected_files(key,case,stage):
     stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
     suffixes=['json']
     if stage in {'components','fused-ssd','rr-ssd','sr-ssd'}:suffixes+=['svg']
-    if stage in {'components','api-map','api-parameters','object-operations','concern-match','rr-ssd','sr-ssd','missing-report','existing-branches','existing-bind','existing-extract','test-ground-truth','exception-generate','pattern-applicability','gap-recommend'}:suffixes+=['md']
+    if stage in {'components','api-map','api-parameters','object-operations','concern-match','existing-concerns','test-concerns','concern-compare','concern-evaluation','rr-ssd','sr-ssd','missing-report','existing-branches','existing-bind','existing-extract','test-ground-truth','exception-generate','pattern-applicability','gap-recommend'}:suffixes+=['md']
     return [stem+'.'+s for s in suffixes]
 
 def graph_snapshot(root):

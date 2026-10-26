@@ -6,6 +6,136 @@ const titles: Record<string, string> = {
   single: "单方独有",
   conflict: "两两匹配冲突",
 };
+const elementNames: Record<string, string> = {
+  sender: "发送方",
+  receiver: "接收方",
+  operation: "操作序列",
+  data: "数据序列",
+};
+
+export function ConcernAlignmentTable({
+  rows,
+  definitions,
+  onlyUnmatched,
+  onSelect,
+  truthReady = true,
+}: {
+  rows: any[];
+  definitions: any;
+  onlyUnmatched: boolean;
+  onSelect: (id: string) => void;
+  truthReady?: boolean;
+}) {
+  const shown = rows.filter((r) => !onlyUnmatched || r.status !== "triple");
+  return (
+    <div className="alignment-scroll">
+      <table className="alignment-table concern-alignment-table">
+        <thead>
+          <tr>
+            {[
+              "四要素对象／关注点",
+              "需求文档已有 E_c",
+              "LLM识别 G_c",
+              "独立测试 GT_c",
+              "规则对应／场景展开",
+            ].map((t) => (
+              <th key={t}>{t}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((r) => (
+            <tr key={r.id} className={"alignment-" + r.status}>
+              <td>
+                <small>
+                  {elementNames[r.anchor.target]}
+                  {r.anchor.target === "operation" &&
+                  r.anchor.operation_index != null
+                    ? ` · 第${r.anchor.operation_index + 1}项`
+                    : ""}
+                  {r.anchor.data_location ? " · " + r.anchor.data_location : ""}
+                </small>
+                <strong>{r.anchor.object}</strong>
+                <p>
+                  {definitions[r.anchor.concern_key]?.label ||
+                    r.anchor.concern_key}
+                </p>
+              </td>
+              {["E", "G", "GT"].map((ch) => (
+                <td key={ch}>
+                  {r.cells[ch].length ? (
+                    r.cells[ch].map((m: any) => (
+                      <article key={m.binding_id} className="concern-cell">
+                        <strong>
+                          {definitions[m.concern_key]?.label || m.concern_key}
+                        </strong>
+                        <p>{m.basis || m.status_reason}</p>
+                        {ch === "E" &&
+                          m.source_branch_ids?.length > 0 &&
+                          m.coverage_kind &&
+                          m.coverage_kind !== "exact" && (
+                            <small className="shared-branch">
+                              由宽泛原分支覆盖
+                            </small>
+                          )}
+                        <details>
+                          <summary>识别依据与定位</summary>
+                          <small>{m.binding_id}</small>
+                          {m.element_origin && (
+                            <p>
+                              原定位：{elementNames[m.element_origin.target]} ·{" "}
+                              {m.element_origin.object}；按Service职责归一为
+                              {elementNames[m.target]} · {m.object}
+                            </p>
+                          )}
+                          {m.source_refs?.map((ref: any, n: number) => (
+                            <blockquote key={n}>
+                              <small>
+                                {ref.source_id} · 第{ref.line_start}–
+                                {ref.line_end}行
+                              </small>
+                              <p>{ref.quote}</p>
+                            </blockquote>
+                          ))}
+                        </details>
+                      </article>
+                    ))
+                  ) : (
+                    <span className="alignment-empty">
+                      {ch === "GT" && !truthReady
+                        ? "独立测试识别尚未完成"
+                        : "未识别到对应关注点"}
+                    </span>
+                  )}
+                </td>
+              ))}
+              <td>
+                <strong>{titles[r.status]}</strong>
+                <p>{r.reason}</p>
+                {!!r.cells.G.length && (
+                  <p>
+                    {r.generated_scenario_ids?.length
+                      ? `已生成 ${r.generated_scenario_ids.length} 条具体场景`
+                      : "已识别关注点，尚无确定场景；请查看生成节点或待确认项"}
+                  </p>
+                )}
+                <button
+                  className="concern-drilldown"
+                  onClick={() => onSelect(r.id)}
+                >
+                  查看该关注点的场景 →
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!shown.length && (
+        <p className="muted">本交互暂无已保存的关注点识别对应项。</p>
+      )}
+    </div>
+  );
+}
 export function AlignmentTable({
   rows,
   missing,
@@ -38,6 +168,16 @@ export function AlignmentTable({
           {shown.map((r) => (
             <tr key={r.id} className={"alignment-" + r.status}>
               <td>
+                {r.anchor.element_anchors?.map((a: any) => (
+                  <small className="scenario-ancestry" key={a.binding_id}>
+                    {elementNames[a.target]}
+                    {a.target === "operation" && a.operation_index != null
+                      ? `第${a.operation_index + 1}项`
+                      : ""}{" "}
+                    · {a.data_location ? a.data_location + "." : ""}
+                    {a.object} → {a.concern_key}
+                  </small>
+                ))}
                 <strong>{r.anchor.field || r.anchor.object}</strong>
                 <p>
                   {r.anchor.steps?.trigger ||
@@ -91,6 +231,18 @@ export function AlignmentTable({
                     </p>
                   ))}
                 </details>
+                {r.cells.G.map(
+                  (s: any) =>
+                    s.recommendation && (
+                      <p key={s.id} className="recommendation-inline">
+                        {s.recommendation.selected
+                          ? "已纳入 Q_s"
+                          : "未纳入 Q_s"}{" "}
+                        · 第{s.recommendation.rank}位 ·{" "}
+                        {s.recommendation.reason}
+                      </p>
+                    ),
+                )}
               </td>
             </tr>
           ))}
@@ -153,6 +305,11 @@ export function MetricsPanel({
     return <p className="management-loading">正在读取已保存的评测计数…</p>;
   return (
     <section className="result-metrics">
+      <p className="management-notice">
+        {data.matching_version
+          ? "两层计分：漏报率与生成有效率按关注点绑定计算；推荐采纳率与误报率按独立异常场景计算。"
+          : "历史评测：以下前两项仍按旧版异常场景计数，不能作为新版关注点层指标。升级运行后显示两层结果。"}
+      </p>
       {data.test_source_changed && (
         <p className="management-notice">
           测试源已切换，尚未重算。当前数值是上次保存报告，不能当作新测试版本的指标。请继续运行。
@@ -176,6 +333,14 @@ export function MetricsPanel({
           .map((k) => (
             <article key={k}>
               <h3>{names[k]}</h3>
+              <small>
+                {k.startsWith("recommendation_") ||
+                k === "critical_missing_recall"
+                  ? "场景层 · 独立失败条件"
+                  : data.matching_version
+                    ? "关注点层 · 四要素对象—关注点"
+                    : "历史场景层"}
+              </small>
               <strong>
                 <Rate value={data.metrics[k]} />
               </strong>
@@ -197,7 +362,7 @@ export function MetricsPanel({
         合并分子／分母，不取百分比平均。{data.truth_source}
         ；未匹配GT不等于已经证实生成错误。推荐器：{data.recommendation}。
       </p>
-      {data.diagnostic_counts?.G > 0 && (
+      {!data.matching_version && data.diagnostic_counts?.G > 0 && (
         <p className="muted">
           计分集合规模：G={data.diagnostic_counts.G}，GT=
           {data.diagnostic_counts.GT}
@@ -206,7 +371,9 @@ export function MetricsPanel({
           %；这不是质量结论，需结合测试覆盖范围判断。
         </p>
       )}
-      {data.cases.some((c: any) => c.truth_pending > 0) && (
+      {data.cases.some(
+        (c: any) => c.truth_pending > 0 || c.concern_pending > 0,
+      ) && (
         <p className="management-notice">
           GT仍有{" "}
           {data.cases.reduce(
@@ -220,7 +387,9 @@ export function MetricsPanel({
         <summary>公式及版本</summary>
         <p>漏报率＝(1−|M∩(GT−E)|/|GT−E|)×100%；生成有效率＝|G∩GT|/|G|×100%。</p>
         <p>
-          G：生成异常；E：文档已有异常；GT：测试真值；M：G中未被E覆盖的异常。交集使用已保存的完整语义对应；空分母不适用。
+          {data.matching_version
+            ? "关注点层G_c为LLM识别结果，E_c为文档已有异常的独立归类，GT_c为独立测试归类，M_c=G_c−E_c。交集按用例、交互、方向、四要素对象和关注点ID精确匹配；场景层比较独立失败条件。空分母不适用。"
+            : "G：生成异常；E：文档已有异常；GT：测试真值；M：G中未被E覆盖的异常。交集使用已保存的完整语义对应；空分母不适用。"}
         </p>
         <p>
           执行版本：{data.execution_id} · 规则版本：{data.ruleset_version} ·

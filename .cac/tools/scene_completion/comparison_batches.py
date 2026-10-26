@@ -78,6 +78,8 @@ def compare_in_batches(parent,client,root,guidance_revision=0,call=None):
                 status='unmatched';reason='补充集内部去重只比较一次无序候选对；自对与镜像对不计匹配'
             elif (a['case_id'],a['interaction_id'])!=(b['case_id'],b['interaction_id']):
                 status='unmatched';reason='不同用例或不同融合交互，不能互相覆盖'
+            elif (a.get('matching_version') or b.get('matching_version')) and (not a.get('concern_binding_ids') or not b.get('concern_binding_ids') or not set(a['concern_binding_ids']) & set(b['concern_binding_ids'])):
+                status='unmatched';reason='四要素对象或关注点ID不同，须先独立统一分类；不跨关注点匹配'
             elif inputs['purpose'] in {'G_E','GT_E'} and broad_covers(a,b):
                 reason='已确认的同交互宽泛输入参数分支覆盖本字段规则'
             elif a.get('rule_id') and a['rule_id']==b.get('rule_id') and a.get('field')==b.get('field') and scenario_key(a)==scenario_key(b):

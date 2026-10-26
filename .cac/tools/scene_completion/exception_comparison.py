@@ -5,6 +5,8 @@ from .contracts import PROTOCOL,registry,validate
 from .exception_generation import deduplicate
 from .assignment import full_assignment
 def broad_covers(left,right):
+    if left.get('matching_version') or right.get('matching_version'):
+        if not set(left.get('concern_binding_ids',[])) & set(right.get('concern_binding_ids',[])):return False
     if not right.get('original_branch_id') or left['case_id']!=right['case_id'] or left['interaction_id']!=right['interaction_id']:return False
     kind=right.get('coverage_kind')
     if kind=='input_parameters':return (left.get('scope','interface')=='interface' and bool(left.get('field')) and left.get('data_location') in {'header','path','query','body','business'} and left['concern_key'].startswith('api.data.'))

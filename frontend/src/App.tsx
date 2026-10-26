@@ -577,9 +577,9 @@ export default function App() {
         ) : (
           <>
             {snapshot?.project.protocol &&
-              snapshot.project.protocol !== "scene-workflow-v3" && (
+              snapshot.project.protocol !== "scene-workflow-v4" && (
                 <div className="upgrade-banner">
-                  当前是旧版运行记录。继续运行会创建融合交互新版项目；原项目与失败记录保留。
+                  当前是旧版运行记录。继续运行会创建关注点与场景两层新版项目；原项目与失败记录保留。
                 </div>
               )}
             <div className="project-statusbar">

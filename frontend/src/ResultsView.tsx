@@ -13,7 +13,11 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { api, projectUrl, fileUrl } from "./api";
-import { AlignmentTable, MetricsPanel } from "./ResultComparison";
+import {
+  AlignmentTable,
+  ConcernAlignmentTable,
+  MetricsPanel,
+} from "./ResultComparison";
 import { ArtifactView } from "./ArtifactView";
 import { RecommendationsView } from "./PatternManager";
 import { TestSources } from "./TestSources";
@@ -164,6 +168,8 @@ export function ResultsView({ project }: { project: string }) {
       return !old;
     });
   const [onlyUnmatched, setOnlyUnmatched] = useState(false);
+  const [comparisonLayer, setComparisonLayer] = useState("concerns");
+  const [selectedConcern, setSelectedConcern] = useState("");
   const [testSet, setTestSet] = useState("expanded");
   const [index, setIndex] = useState<any>(null),
     [cid, setCase] = useState(""),
@@ -511,7 +517,10 @@ export function ResultsView({ project }: { project: string }) {
                 <button
                   key={x.id}
                   className={step === x.id ? "active" : ""}
-                  onClick={() => setStep(x.id)}
+                  onClick={() => {
+                    setStep(x.id);
+                    setSelectedConcern("");
+                  }}
                 >
                   <small>
                     步骤{x.sequence} · {x.id} ·{" "}
@@ -522,8 +531,11 @@ export function ResultsView({ project }: { project: string }) {
                     {x.sender.name} → {x.receiver.name}
                   </span>
                   <small>
-                    E {r.channels.E.length} · G {r.channels.G.length} · GT{" "}
+                    场景 E {r.channels.E.length} · G {r.channels.G.length} · GT{" "}
                     {r.channels.GT.length}
+                    {detail.matching_version && (
+                      <> · 关注点 {(r.concern_rows || []).length}</>
+                    )}
                   </small>
                 </button>
               );
@@ -644,6 +656,46 @@ export function ResultsView({ project }: { project: string }) {
                   ))}
                   <Evidence rows={i.source_refs} />
                 </details>
+                <div className="comparison-layer-toolbar">
+                  <div
+                    className="view-segments"
+                    role="group"
+                    aria-label="匹配层级"
+                  >
+                    <button
+                      className={comparisonLayer === "concerns" ? "active" : ""}
+                      onClick={() => {
+                        setComparisonLayer("concerns");
+                        setSelectedConcern("");
+                      }}
+                    >
+                      关注点层
+                    </button>
+                    <button
+                      className={
+                        comparisonLayer === "scenarios" ? "active" : ""
+                      }
+                      onClick={() => setComparisonLayer("scenarios")}
+                    >
+                      场景层
+                    </button>
+                  </div>
+                  <p>
+                    {comparisonLayer === "concerns"
+                      ? "先识别关注点，再按统一四要素标识规则匹配"
+                      : "一个关注点可有多个独立失败场景；按具体条件匹配与推荐"}
+                  </p>
+                  {selectedConcern && (
+                    <button onClick={() => setSelectedConcern("")}>
+                      清除关注点筛选
+                    </button>
+                  )}
+                </div>
+                {!detail.matching_version && (
+                  <p className="management-notice">
+                    当前为历史场景结果，尚无新版独立关注点识别；请继续运行生成新版结果。旧场景不反推为关注点层G。
+                  </p>
+                )}
                 <label className="alignment-filter">
                   <input
                     type="checkbox"
@@ -652,30 +704,79 @@ export function ResultsView({ project }: { project: string }) {
                   />
                   只看未完整对应／冲突项
                 </label>
-                <AlignmentTable
-                  rows={row.alignment_rows || []}
-                  missing={row.missing_ids}
-                  onlyUnmatched={onlyUnmatched}
-                  renderCell={(s: any, missing: boolean, channel: string) => (
-                    <Scenario
-                      s={s}
-                      defs={defs}
-                      missing={missing}
-                      detailUrl={projectUrl(
-                        project,
-                        "results/" +
-                          encodeURIComponent(cid) +
-                          "/scenarios/" +
-                          channel +
-                          "/" +
-                          encodeURIComponent(s.id),
-                      )}
-                    />
-                  )}
-                />
+                {comparisonLayer === "concerns" && detail.matching_version ? (
+                  <ConcernAlignmentTable
+                    rows={row.concern_rows || []}
+                    definitions={defs}
+                    onlyUnmatched={onlyUnmatched}
+                    truthReady={detail.concern_truth_ready}
+                    onSelect={(id) => {
+                      setSelectedConcern(id);
+                      setComparisonLayer("scenarios");
+                    }}
+                  />
+                ) : (
+                  <AlignmentTable
+                    rows={(row.alignment_rows || []).filter(
+                      (r: any) =>
+                        !selectedConcern ||
+                        Object.values(r.cells).some((values: any) =>
+                          values.some((s: any) =>
+                            s.concern_binding_ids?.includes(selectedConcern),
+                          ),
+                        ),
+                    )}
+                    missing={row.missing_ids}
+                    onlyUnmatched={onlyUnmatched}
+                    renderCell={(s: any, missing: boolean, channel: string) => (
+                      <Scenario
+                        s={s}
+                        defs={defs}
+                        missing={missing}
+                        detailUrl={projectUrl(
+                          project,
+                          "results/" +
+                            encodeURIComponent(cid) +
+                            "/scenarios/" +
+                            channel +
+                            "/" +
+                            encodeURIComponent(s.id),
+                        )}
+                      />
+                    )}
+                  />
+                )}
                 <p className="muted">
-                  E为原文已有异常的逆向归类；GT含独立测试的明示项及框架推导项，仍需审核。显示执行时的关注点版本，未重新匹配或计分。
+                  E为原文已有异常的独立逆向归类；GT含独立测试的明示项及框架推导项，仍需审核。显示执行时的关注点版本，未重新匹配或计分。
                 </p>
+                {detail.matching_version && (
+                  <details className="result-data">
+                    <summary>
+                      不参与确定计分的关注点（
+                      {
+                        Object.values(detail.concern_excluded || {}).reduce(
+                          (n: number, v: any) => n + v.length,
+                          0,
+                        ) as number
+                      }
+                      项）
+                    </summary>
+                    {Object.entries(detail.concern_excluded || {}).map(
+                      ([channel, values]) => (
+                        <div key={channel}>
+                          <strong>{channel}</strong>
+                          {(values as any[]).map((v, n) => (
+                            <p key={n}>
+                              {v.interaction_id} · {v.object} ·{" "}
+                              {defs[v.concern_key]?.label || v.concern_key}：
+                              {v.reason || v.status_reason}
+                            </p>
+                          ))}
+                        </div>
+                      ),
+                    )}
+                  </details>
+                )}
                 <details className="result-data">
                   <summary>不参与计分的生成／原文／测试场景</summary>
                   {Object.entries(detail.excluded || {}).flatMap(
@@ -693,6 +794,8 @@ export function ResultsView({ project }: { project: string }) {
                   <pre>
                     {JSON.stringify(
                       {
+                        metric_units: detail.metric_units,
+                        concern_metrics: detail.concern_metrics,
                         metrics: detail.metrics,
                         full_matches: detail.full_matches,
                         partial_diagnostics: detail.partial_diagnostics,

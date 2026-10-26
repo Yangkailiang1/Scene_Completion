@@ -198,6 +198,7 @@ def install_catalogue_mocks(m):
         v=m.get('api-parameters',{'apis':[]});v=v(p) if callable(v) else v
         docs=p['input']['SR']
         return {'apis':[{'id':a['id'],'name':a['name'],'source_ranges':[{'source_id':d['source_id'],'start':d['lines'][0]['number'],'end':d['lines'][-1]['number']} for d in docs], 'source_refs':a['source_refs']} for a in v.get('apis',[])]}
+    m.setdefault('existing-concerns',{'matches':[],'pending':[]});m.setdefault('test-concerns',{'matches':[],'pending':[]})
     m.setdefault('existing-branches',{'branches':[]});m.setdefault('existing-bind',{'bindings':[]})
     m.setdefault('api-index',api_index)
     m.update({'use-case-extract':catalogue,'use-case-align':align,'fused-ssd':fused})
@@ -307,7 +308,7 @@ def test_gt_unknown_ssd_attribute_not_required_to_match():
 
 def test_checked_in_schema_matches_runtime():
     from scene_completion.contracts import SCHEMAS,schema
-    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v3/schemas'
+    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v4/schemas'
     for key in SCHEMAS:assert json.loads((folder/(key+'.schema.json')).read_text())==schema(key)
 
 

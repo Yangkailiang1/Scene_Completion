@@ -164,7 +164,7 @@ def canonical_instances(rows):
         key=fingerprint([s['case_id'],s['interaction_id'],s.get('scope') if not missing else 'credential',s.get('data_location') if not missing else 'header',token])
         if key in result:
             old=result[key]
-            for field in ('concern_origins','linked_pattern_ids','source_refs','source_unit_ids'):old[field]=list({fingerprint(x):x for x in old.get(field,[])+s.get(field,[])}.values())
+            for field in ('concern_origins','linked_pattern_ids','source_refs','source_unit_ids','concern_binding_ids','element_anchors'):old[field]=list({fingerprint(x):x for x in old.get(field,[])+s.get(field,[])}.values())
             old.setdefault('pattern_versions',{}).update(s.get('pattern_versions',{}))
             if s['confidence']['score']>old['confidence']['score']:old['confidence']=s['confidence']
             if s['risk']['score']>old['risk']['score']:old['risk']=s['risk']
@@ -238,7 +238,9 @@ def applicability(inputs,settings=None):
         if re.search(r'实时|时限|截止|超时|deadline|\d+(?:\.\d+)?\s*(?:毫秒|秒|ms)\s*(?:内|以内|返回|响应)',text,re.I):scenario['scenario_context']['timeliness']='explicit'
         for technology,prefix in [('llm','llm.'),('database','database.')]:
             if any(r['concern_key'].startswith(prefix) for r in rules):scenario['scenario_context']['technologies']=sorted(set(scenario['scenario_context']['technologies'])|{technology})
-    candidates=canonical_instances(coalesce_explicit_data_rules(candidates));instances=[]
+    from .concern_alignment import bind_scenarios
+    scoped=bind_scenarios({'scenarios':candidates},inputs,inputs.get('concern-match',{}),gate=True)
+    candidates=canonical_instances(coalesce_explicit_data_rules(scoped['scenarios']));instances=[]
     for s in candidates:
         sid='candidate-'+fingerprint([s['case_id'],s['interaction_id'],s['pattern_id'],s['predicate'],s.get('conditions'),s['source_refs'],s.get('pattern_versions')])[:24]
         review=settings['reviews'].get(sid)
@@ -248,14 +250,14 @@ def applicability(inputs,settings=None):
             s['source_refs']=s['source_refs']+[ref];s['confidence']=confidence(.85,'项目审核补充正常规则：'+review['positive_condition']);s['scenario_type']='exception';s['executable']=False;s['resolution']='conditional';s['pending_details']=['业务确认适用；执行数据仍需准备']
         status='accepted' if s['confidence']['score']>=settings['threshold'] and s['confidence']['score']>0 else 'excluded' if s['confidence']['score']==0 else 'pending'
         s['scenario_type']='exception' if status=='accepted' else 'pending';instances.append({'id':sid,'pattern_id':s['pattern_id'],'status':status,'scenario':s})
-    return {'instances':instances,'settings_hash':settings['hash'],'library_version':VERSION,'threshold':settings['threshold'],'issues':issues}
+    return {'instances':instances,'settings_hash':settings['hash'],'library_version':VERSION,'threshold':settings['threshold'],'issues':issues,'excluded':scoped['excluded']}
 
 def generated(matrix):
     rows=[i['scenario'] for i in matrix['instances'] if i['status']=='accepted'];pending=list(matrix['issues'])
     for item in matrix['instances']:
         if item['status']=='pending':
             s=item['scenario'];pending.append({'interaction_id':s['interaction_id'],'object':s['object'],'concern_key':s['concern_key'],'reason':s['confidence']['basis']+'；候选 '+item['id'],'source_refs':s['source_refs']})
-    return {'scenarios':rows,'pending':pending}
+    return {'scenarios':rows,'pending':pending,'excluded':matrix.get('excluded',[])}
 
 
 def inverse_metadata(value,inputs,settings=None,*,truth=False):

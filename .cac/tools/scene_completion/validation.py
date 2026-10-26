@@ -40,6 +40,14 @@ def validate_result(task, payload, inputs):
     if task in {'use-case-extract','use-case-align','fused-ssd'}:
         from .use_cases import validate_catalogue
         validate_catalogue(task,payload,inputs)
+    if task in {'existing-concerns','test-concerns'}:
+        own_sources={d['source_id'] for d in inputs.get('test-documents' if task=='test-concerns' else 'existing-documents',[])}
+        for m in payload['matches']:
+            if not any(r['source_id'] in own_sources for r in m['source_refs']):
+                raise ValueError('逆向关注点必须引用本来源的异常分支/测试，不能仅引用正向规则')
+        from .inverse_alignment import canonical_fused
+        actual=canonical_fused(inputs['fused-ssd'])['interactions']
+        inputs={**inputs,'rr-ssd':{'interactions':[]},'sr-ssd':{'interactions':actual},'api-parameters':inputs['normal-constraints']}
     docs=documents_in(inputs)
     allowed={fingerprint(r) for r in evidence_refs(inputs)}
     evidence_errors=[]
@@ -124,7 +132,7 @@ def validate_result(task, payload, inputs):
                 if key not in definitions:raise ValueError('unregistered concern origin')
             for path in v.get('concern_paths',v.get('inheritance_paths',[])):
                 if not path or any(k not in definitions for k in path) or path not in inheritance_paths(path[-1]):raise ValueError('invalid concern inheritance path')
-            if 'concern_key' in v and v['concern_key'] not in definitions:raise ValueError('unregistered concern')
+            if 'concern_key' in v and v['concern_key'] not in definitions and not ('reason' in v and 'source_refs' in v):raise ValueError('unregistered concern')
             for x in v.values():visit(x)
         elif isinstance(v,list):
             for x in v:visit(x)
@@ -208,11 +216,12 @@ def validate_result(task, payload, inputs):
                 for sid in link['sr_ids']:
                     if sid in used or rr[link['rr_id']]['case_id']!=sr[sid]['case_id']:raise ValueError('conflicting expansion')
                     used.add(sid)
-    if task in {'concern-match','exception-generate'}:
-        by_id={i['id']:i for i in interactions(inputs)}
+    if task in {'concern-match','existing-concerns','test-concerns','exception-generate'}:
+        from .concern_alignment import interaction_rows
+        by_id={i['id']:i for i in interaction_rows(inputs)}
         for x in payload.get('matches',[])+payload.get('scenarios',[])+payload.get('pending',[]):
-            if x['interaction_id'] not in by_id:raise ValueError('unknown actual interaction')
-        if task=='concern-match':
+            if x['interaction_id'] not in by_id and (task not in {'existing-concerns','test-concerns'} or x in payload.get('matches',[])):raise ValueError('unknown actual interaction')
+        if task in {'concern-match','existing-concerns','test-concerns'}:
             for m in payload['matches']:
                 i=by_id[m['interaction_id']];d=definitions[m['concern_key']]
                 if m['target'] in {'sender','receiver'} and m['object']!=i[m['target']]['name']:
@@ -224,7 +233,7 @@ def validate_result(task, payload, inputs):
                     raise ValueError('availability belongs to this actual called service')
                 if m['target']=='data' and m.get('scope','interface') not in {'storage','context'} and m['object'] not in {p['name'] for p in parameters_for(i,inputs)}:
                     raise ValueError('data concern must identify an actual field')
-                status,reason=applicability(m,i,inputs)
+                status,reason=applicability(m,i,inputs) if task=='concern-match' else ('applicable','逆向独立来源')
                 if m.get('status')=='applicable' and status!='applicable':raise ValueError('concern applicability lacks evidence: '+reason)
         else:
             matches={(m['interaction_id'],m['object'],m['concern_key']) for m in inputs['concern-match']['matches'] if match_is_applicable(m,by_id[m['interaction_id']],inputs)}
@@ -232,7 +241,7 @@ def validate_result(task, payload, inputs):
                 i=by_id[s['interaction_id']]
                 if s['operation']!=i['operation']['name'] or s['case_id']!=i['case_id'] or s['layer']!=i['layer']:
                     raise ValueError('G must use this SSD operation, case and layer')
-                if (s['interaction_id'],s['object'],s['concern_key']) not in matches:
+                if not s.get('concern_binding_ids') and (s['interaction_id'],s['object'],s['concern_key']) not in matches:
                     raise ValueError('G must have an applicable matched concern: '+s['id']+' '+str((s['interaction_id'],s['object'],s['concern_key']))+'; applicable='+str(sorted(matches)[:40]))
                 if s['source_status']!='framework_inferred' or not s['derivation']:
                     raise ValueError('G requires recorded positive-rule derivation')
@@ -241,7 +250,7 @@ def validate_result(task, payload, inputs):
                     expected={scenario_key(x) for x in data_exceptions(inputs)+storage_exceptions(inputs)+rule_exceptions(inputs)}
                     if scenario_key(s) not in expected: raise ValueError('unsupported or invented field exception')
                 else:
-                    match=[m for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key']) and match_is_applicable(m,i,inputs)]
+                    match=[m for m in inputs['concern-match']['matches'] if ((m['interaction_id'],m['object'],m['concern_key'])==(s['interaction_id'],s['object'],s['concern_key']) or m.get('binding_id') in s.get('concern_binding_ids',[])) and match_is_applicable(m,i,inputs)]
                     if definitions[s['concern_key']]['kind']=='family':raise ValueError('abstract concern family cannot generate an independent exception')
                     if not any(m['concrete_rule'] for m in match):raise ValueError('no concrete rule; move to pending')
                 if s['concern_key']=='service.base.availability':
@@ -277,6 +286,13 @@ def validate_result(task, payload, inputs):
         from .inverse_alignment import normalized_scenarios
         normalized_scenarios(payload,inputs['fused-ssd'])
     if task in {'gap-compare','semantic-compare'}:
+        a={s['id']:s for s in inputs['left']};b={s['id']:s for s in inputs['right']}
+        for d in payload['decisions']:
+            x,y=a.get(d['left_id']),b.get(d['right_id'])
+            if x and y and d['status']=='full' and (x.get('matching_version') or y.get('matching_version')):
+                if not set(x.get('concern_binding_ids',[])) & set(y.get('concern_binding_ids',[])):
+                    raise ValueError('场景完整匹配必须先有同一四要素关注点绑定；分类冲突不能跨键计分')
+
         expected={(a['id'],b['id']) for a in inputs['left'] for b in inputs['right']}
         if task=='semantic-compare' and 'candidate_pairs' in inputs:
             pairs=inputs['candidate_pairs']

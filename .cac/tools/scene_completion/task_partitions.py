@@ -52,15 +52,16 @@ def split_task(task,inputs):
                 if key in q:q[key]['interactions']=[i for i in q[key]['interactions'] if i['id'] in {m['id'] for m in missing}]
             units.append(('unpaired-returns',q))
         return units
-    if task in {'existing-bind','existing-extract'}:
+    if task in {'existing-bind','existing-extract','existing-concerns'}:
         units=[]
         for branch in inputs.get('branches',{}).get('branches',[]):
             q=deepcopy(inputs);q['branches']={'branches':[deepcopy(branch)]}
+            if 'identified-concerns' in q:q['identified-concerns']={**q['identified-concerns'],'matches':[m for m in q['identified-concerns']['matches'] if not m.get('source_branch_ids') or branch['id'] in m['source_branch_ids']]}
             if 'bindings' in q:q['bindings']={'bindings':[b for b in q['bindings']['bindings'] if b['branch_id']==branch['id']]}
             if 'existing-documents' in q:q['existing-documents']=_documents_at(q['existing-documents'],branch['source_refs'])
             units.append((branch['id'],q))
         return units
-    if task=='test-ground-truth':
+    if task in {'test-ground-truth','test-concerns'}:
         from .test_sources import exception_documents
         inputs={**inputs,'test-documents':exception_documents(inputs['test-documents'])}
         units=[]
@@ -71,6 +72,12 @@ def split_task(task,inputs):
                 headers=[r for r in d['lines'] if any(h in cells(r['text']) for h in ALIASES['测试ID'])]
                 if headers and len(cells(headers[-1]['text']))==9 and all(h in ALIASES[HEADERS[n]] for n,h in enumerate(cells(headers[-1]['text']))):headers=[]
                 q=deepcopy(inputs);q['test-documents']=[{**d,'lines':headers+[row]}]
+                if 'identified-concerns' in q:
+                    ids=set(re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',row['text']))
+                    def own(m):
+                        if m.get('source_unit_ids'):return bool(set(m['source_unit_ids']) & ids)
+                        return any(ref['source_id']==d['source_id'] and ref['line_start']<=row['number']<=ref['line_end'] for ref in m.get('source_refs',[]))
+                    q['identified-concerns']={k:[m for m in values if own(m) or m.get('original_id') in ids] for k,values in q['identified-concerns'].items() if k in {'matches','pending','excluded'}}
                 units.append((d['source_id']+':'+str(row['number']),q))
         return units or ([('document',deepcopy(inputs))] if inputs['test-documents'] else [])
     return [('all',deepcopy(inputs))]
@@ -84,8 +91,10 @@ def merge_parts(task,parts):
         for s in out['scenarios']:
             s.setdefault('source_scenario_id',s['id'])
             s['id']=task+'-'+fingerprint([scenario_key(s),s.get('field'),s.get('rule_id')])[:20]
-        if task in {'exception-generate','test-ground-truth'}:out['pending']=list({fingerprint(p):p for v in parts for p in v.get('pending',[])}.values())
+        if task in {'exception-generate','test-ground-truth','existing-extract'}:out['pending']=list({fingerprint(p):p for v in parts for p in v.get('pending',[])}.values())
         out['excluded']=[x for p in parts for x in p.get('excluded',[])]
         return out
-    keys={'normal-rules':('rules','pending'),'concern-match':('matches','pending'),'existing-bind':('bindings',)}[task]
-    return {key:list({fingerprint(r):r for p in parts for r in p.get(key,[])}.values()) for key in keys}
+    keys={'normal-rules':('rules','pending'),'concern-match':('matches','pending'),'existing-concerns':('matches','pending'),'test-concerns':('matches','pending'),'existing-bind':('bindings',)}[task]
+    result={key:list({fingerprint(r):r for p in parts for r in p.get(key,[])}.values()) for key in keys}
+    if task in {'concern-match','existing-concerns','test-concerns'} and any(p.get('excluded') for p in parts):result['excluded']=[r for p in parts for r in p.get('excluded',[])]
+    return result

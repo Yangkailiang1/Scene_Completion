@@ -11,10 +11,14 @@ from scene_completion.workflow import Execution,build_pipeline
 from scene_completion.exception_comparison import coverage_assignment,compare_report
 
 def positive():
-    x=memory_inputs();x['enriched-interactions']={'interactions':deepcopy(x['sr-ssd']['interactions'])};x['normal-rules']={'rules':[],'pending':[]};return x
+    x=memory_inputs();x['enriched-interactions']={'interactions':deepcopy(x['sr-ssd']['interactions'])};x['normal-rules']={'rules':[],'pending':[]};
+    from scene_completion.concern_alignment import recognize
+    x['concern-match']=recognize(x,x['concern-match']);return x
 
 def auth(x,key='human.authentication',condition='请求必须携带有效Token，校验Token有效期，过期不可使用'):
     x['normal-rules']['rules'].append({'id':'nr-'+key,'interaction_id':'req','owner_service':'Platform','concern_key':key,'condition':condition,'violation':'SECRET_INVERSE_NOT_READ','fields':[],'functional_kinds':['read'],'resolution':'explicit','pending_details':[],'source_refs':R})
+    from scene_completion.concern_alignment import recognize
+    x['concern-match']=recognize(x,{'matches':x['concern-match']['matches']+[{'interaction_id':'req','target':'sender','object':'开发者','concern_key':key,'basis':condition,'concrete_rule':condition,'source_refs':R,'activation_evidence':[{'kind':'authentication' if key.endswith('authentication') else 'authorization','value':True,'condition':condition,'unit':None,'status':'explicit','source_refs':R}]}]})
 
 def accepted(matrix):return generated(matrix)['scenarios']
 
@@ -45,7 +49,7 @@ def test_security_one_to_many_and_unknown_critical_separate():
 def test_missing_premise_framework_only_never_enters_G():
     x=positive();x['concern-match']['matches'].append({'interaction_id':'req','target':'sender','object':'开发者','concern_key':'human.authorization','status':'pending','source_refs':R})
     m=applicability(x);assert not any(s['pattern_id'].startswith('human.authorization') for s in accepted(m))
-    assert any(i['scenario']['confidence']['score']==.6 for i in m['instances'])
+    assert any('已识别关注点' in i['reason'] for i in m['excluded'])  # pending recognition cannot create a definite scene
 
 def test_project_confirmation_requires_premise_and_versions(tmp_path):
     x=positive();auth(x,'human.authorization','执行本次操作需要权限');m=applicability(x);item=next(i for i in m['instances'] if i['pattern_id']=='human.authorization.tenant')
@@ -79,6 +83,8 @@ def test_generic_E_auth_covers_children_only_same_interaction_and_not_GT():
     e=scenario('e',status='explicit');e.update(object='开发者',concern_key='human.authentication',original_branch_id='b',coverage_kind='exact')
     inputs={'fused-ssd':x['enriched-interactions'],'branches':{'branches':[{'id':'b','description':'认证失败'}]}}
     annotated=inverse_metadata({'scenarios':[e]},inputs)['scenarios'][0]
+    from scene_completion.concern_alignment import bind_scenarios
+    annotated=bind_scenarios({'scenarios':[annotated]},x)['scenarios'][0]
     assert annotated['coverage_kind']=='authentication'
     pairs=coverage_assignment([],g,[annotated]);ids={p['checker_scenario_id'] for p in pairs}
     assert ids=={s['id'] for s in g if s['concern_key']=='human.authentication'}
@@ -131,6 +137,8 @@ def test_structured_length_bounds_and_test_samples_do_not_inflate_count():
     from scene_completion.test_supplement import mechanical_tests
     x=positive();p=parameter('name','query',False,'string',rules=[('length',{'min':1,'max':20})]);x['api-parameters']['apis'][0]['parameters'].append(p)
     x['concern-match']['matches'].append({'interaction_id':'req','target':'data','object':'name','concern_key':'api.data.length','basis':'明确区间','concrete_rule':'length','source_refs':R})
+    from scene_completion.concern_alignment import recognize
+    x['concern-match']=recognize(x,x['concern-match'])
     rows=[s for s in accepted(applicability(x)) if s['field']=='name' and s['concern_key']=='api.data.length']
     assert len(rows)==2 and {s['pattern_id'] for s in rows}=={'data.length.minimum','data.length.maximum'}
     tests=mechanical_tests({'fused-ssd':x['enriched-interactions'],'normal-constraints':x['api-parameters'],'normal-rules':{'rules':[]}})['tests']

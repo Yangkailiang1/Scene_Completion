@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "left_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "right_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "full",
+              "partial",
+              "unmatched"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "concern_alignment": {
+            "enum": [
+              "same",
+              "different"
+            ]
+          },
+          "follow_up_comparison": {
+            "enum": [
+              "not_scored"
+            ]
+          }
+        },
+        "required": [
+          "left_id",
+          "right_id",
+          "status",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "decisions"
+  ],
+  "additionalProperties": false
+}

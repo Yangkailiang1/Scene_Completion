@@ -77,6 +77,15 @@ pageSize：可选整数，默认20，范围1-100。
     mocks['existing-bind']={'bindings':[{'branch_id':'empty','interaction_id':'SR-request','status':'confirmed','basis':'本用例同一次查询请求的RR/SR视图','source_refs':refs(rr,4)}]}
     mocks['existing-extract']['scenarios'][0].update(interaction_id='SR-request',original_branch_id='empty',coverage_kind='exact')
     mocks['normal-rules']={'rules':[],'pending':[]}
+    # Explicit simulated recognition response; this is an offline fixture,
+    # not a registry fill used by the production recognizer.
+    from scene_completion.concern_matching import complete_data_matches
+    def recognize_fixture(packet):
+        from scene_completion.exception_generation import query_matches
+        return {'matches':complete_data_matches(packet['input'],[])+query_matches(packet['input']),'pending':[]}
+    mocks['concern-match']=recognize_fixture
+    mocks['existing-concerns']={'matches':[],'pending':[]}
+    mocks['test-concerns']={'matches':[],'pending':[]}
     ex=Execution(root/'run',mocks=mocks,config={'max_concurrency':2,'fixture_version':'memory-demo-1.1'},case_ids=['SC002-UC002'])
     build_pipeline(ex,rr,sr,[]);result=ex.finish();print(json.dumps(result,ensure_ascii=False,indent=2))
     return 0 if result['complete'] else 2

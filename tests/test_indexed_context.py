@@ -29,6 +29,16 @@ def test_indexed_ssd_round_trip_fills_only_trusted_identity_and_omitted_unknowns
     with pytest.raises(ValueError,match='unknown evidence_id'):ctx.expand(q)
 
 
+def test_unused_null_commentary_is_normalized_but_nonempty_unknown_data_is_retained_for_validation():
+    ctx=EvidenceContext(fused_fixture())
+    value={'interactions':[exchange(sid='rr',layer='RR'),exchange(sid='sr')],'rr_sr_links':[],'pending':[]}
+    q=ctx.encode_output(value);q['bindings_note']=None
+    assert 'bindings_note' not in ctx.expand(q)
+    assert any(n['field']=='bindings_note' for n in ctx.normalizations)
+    q['bindings_note']='待确认的具体决定'
+    assert ctx.expand(q)['bindings_note']=='待确认的具体决定'
+
+
 def test_index_keeps_excluded_sections_but_default_projection_omits_them():
     lines=['# Current','real','## V5 历史映射，非抽取权威章节','old','## 关联实现接口OpenAPI文件','AR','## Current again','new']
     d={'source_id':'s','channel':'existing','name':'sr.md','lines':[{'number':n,'text':s} for n,s in enumerate(lines,1)]}
@@ -128,13 +138,13 @@ def test_concern_model_does_not_author_applicability_or_receive_duplicate_views(
     from scene_completion.concern_hierarchy import resolve_matches
     from scene_completion.interaction_enrichment import enrich
     from tests.test_workflow import memory_inputs
-    # Empty semantic extras remain valid: inheritance is owned by the tool.
+    # Empty recognition remains empty: candidates must not silently enter G_c.
     inp=memory_inputs();inp.pop('concern-match');inp['components']=fused_fixture()['input']['components'];inp['object-operations']={'objects':[]};inp['enriched-interactions']={'interactions':[],'rr_sr_links':[],'pending':[],'resource_mappings':[]}
     ctx=EvidenceContext(packet('concern-match',inp))
     props=ctx.packet['output_schema']['properties']['matches']['items']['properties']
     assert 'status' not in props and 'functional_types' not in props
     result=ctx.expand({'matches':[],'pending':[]})
-    assert any(m['concern_key']=='service.base.availability' and m['status']=='applicable' for m in result['matches'])
+    assert result['matches']==[]
 
 
 def test_case_index_prefers_formal_details_over_duplicate_brief_summary():

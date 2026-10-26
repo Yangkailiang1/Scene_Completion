@@ -6,6 +6,7 @@ PROCESSOR_VERSION='exception-only-post-response-v1'
 
 def filter_branches(value):
     out=deepcopy(value);kept=[];excluded=out.setdefault('excluded',[])
+    out['excluded']=excluded=[{k:x[k] for k in ('original_id','scenario_type','reason','source_refs')} for x in excluded]
     for b in out['branches']:
         kind=b.get('scenario_type','exception');text=b['description'];reason='独立原文分支类型判断'
         normal_cancel=re.search(r'(?:顾客|用户|商家)(?:主动)?取消支付',text) and not re.search(r'取消.*(?:失败|错误|拒绝)',text)
@@ -18,10 +19,16 @@ def filter_branches(value):
 
 def normal_replay(record):
     trigger=record.get('触发条件','');expected=record.get('预期结果','')
-    return bool(re.search(r'重复(?:提交|请求)|相同幂等键',trigger) and not re.search(r'失败|错误|失效|不一致|未|多次|重复(?:创建|扣款|写入|生成)',trigger) and re.search(r'返回已有.*不重复|幂等命中.*不重复',expected))
+    return bool(re.search(r'重复(?:提交|请求)|相同\s*(?:幂等键|idempotencyKey|requestId)',trigger,re.I) and not re.search(r'失败|错误|异常|失效|冲突|不同|不一致|越权|未|多次|重复(?:创建|扣款|写入|生成)',trigger) and re.search(r'返回已有.*不重复|幂等命中.*不重复',expected))
+
+def normal_replay_record(inputs):
+    rows=records(inputs.get('test-documents',[]))
+    return rows[0] if len(rows)==1 and normal_replay(rows[0]) else None
+
 
 def filter_scenarios(value,inputs,task):
     out=deepcopy(value);kept=[];excluded=out.setdefault('excluded',[])
+    out['excluded']=excluded=[{k:x[k] for k in ('original_id','scenario_type','reason','source_refs')} for x in excluded]
     tests={r['id']:r for r in records(inputs.get('test-documents',[]))}
     for s in out.get('scenarios',[]):
         kind=s.get('scenario_type','exception');reason='模型明确的场景类型'

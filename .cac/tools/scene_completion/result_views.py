@@ -37,7 +37,7 @@ class ResultView:
 
     def catalog(self):
         out=[]
-        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend'}
+        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend','existing-concerns','test-concerns','concern-compare','concern-evaluation'}
         for key,r in self.state.items():
             if r.get('status')!='passed' or r['stage'] not in stages or '--part-' in key:continue
             case=r['case'];stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -69,15 +69,19 @@ class ResultView:
         for c in self.cases():
             v=self.payload(c['id']+':exception-evaluation')
             if test_set=='original':v=v.get('original_evaluation',v)
+            concern=self.payload(c['id']+':concern-evaluation')
+            if test_set=='original':concern=concern.get('original_evaluation',concern)
+            if concern and not v:
+                v={'metrics':concern['metrics'],'concern_level':concern,'matching_version':concern['version']}
             pending=len(self.payload(c['id']+(':'+('test-expanded' if test_set=='expanded' and v.get('test_set')=='expanded' else 'test-ground-truth'))).get('pending',[]))
-            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（GT有待确认项）' if v and pending else '已评测' if v else '未评测'})
+            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(concern.get(k+'_c',[])) if concern else len(v.get(k,[])) for k in ('G','E','GT','M')},'metric_units':v.get('metric_units',{}),'matching_version':v.get('matching_version'),'scenario_counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'concern_pending':sum(len(x) for x in concern.get('excluded',{}).values()),'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（关注点或GT有待确认项）' if v and (pending or any(concern.get('excluded',{}).values())) else '已评测' if v else '未评测'})
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         history=[]
         for p in (self.root/'report_versions').glob('*/missing_report.json'):
             summary=p.parent/'metrics_summary.json'
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
         generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
-        return {'cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
+        return {'matching_version':self.manifest.get('matching_version'),'unit':'关注点绑定' if self.manifest.get('matching_version') else '历史异常场景','cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
                 'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
                 'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
@@ -114,12 +118,17 @@ class ResultView:
         pairs=evaluation.get('full_matches',{})
         if not pairs:pairs={'G_E':report.get('full_matches',[])}
         decisions={purpose:self.payload(cid+':'+stage).get('decisions',[]) for purpose,stage in [('G_E','gap-compare'),('GT_G','GT_expanded_G' if expanded else 'GT_G'),('GT_E','GT_expanded_E' if expanded else 'GT_E')]}
+        concern=evaluation.get('concern_level') or self.payload(cid+':concern-evaluation') or self.payload(cid+':concern-compare')
+        if test_set=='original':concern=concern.get('original_evaluation',concern)
+        recommendation=self.payload(cid+':gap-recommend')
+        ranking={r['scenario_id']:{k:v for k,v in r.items() if k!='scenario'} for r in recommendation.get('ranked',[])}
         rows=[];seen=set()
         for interaction in sorted(enriched.get('interactions',[]),key=lambda i:i.get('sequence',0)):
             iid=interaction['id'];seen.add(iid)
             scoped={k:[s for s in values if (s.get('canonical_interaction_id') or s.get('interaction_id'))==iid] for k,values in channels.items()}
             rows.append({'interaction':interaction,'channels':scoped,
                          'alignment_rows':align_rows(scoped,pairs,decisions),
+                         'concern_rows':[{**r,'generated_scenario_ids':[s['id'] for s in scoped['G'] if r['id'] in s.get('concern_binding_ids',[])]} for r in concern.get('rows',[]) if r['anchor']['interaction_id']==iid],
                          'concerns':{k:sorted({s['concern_key'] for s in values}) for k,values in scoped.items()},
                          'missing_ids':[s['id'] for s in scoped['G'] if s['id'] in missing]})
         reg_hash=self.manifest.get('registry_hash');p=self.root/'registry_used'/(str(reg_hash)+'.json')
@@ -127,13 +136,13 @@ class ResultView:
         # The initial table carries triggers and IDs; long evidence is fetched
         # only when a cell is expanded, from the same frozen output version.
         def compact(s):
-            return {**{k:v for k,v in s.items() if k not in {'source_refs','derivation','steps'}},'steps':{'trigger':s.get('steps',{}).get('trigger')},'lazy_detail':True}
+            return {**({'recommendation':ranking[s['id']]} if s['id'] in ranking else {}),**{k:v for k,v in s.items() if k not in {'source_refs','derivation','steps'}},'steps':{'trigger':s.get('steps',{}).get('trigger')},'lazy_detail':True}
         for row in rows:
             row['channels']={k:[compact(s) for s in values] for k,values in row['channels'].items()}
             for aligned in row['alignment_rows']:
                 aligned['anchor']=compact(aligned['anchor'])
                 aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
-        return {'case':case,'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
+        return {'case':case,'matching_version':concern.get('version') or self.manifest.get('matching_version'),'concern_truth_ready':'GT_c' in concern,'concern_excluded':concern.get('excluded',{}),'concern_metrics':concern.get('metrics',{}),'metric_units':evaluation.get('metric_units',{}),'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
                 'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract'),('GT','test-ground-truth')]},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
                 'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),

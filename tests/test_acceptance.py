@@ -101,7 +101,7 @@ def test_gap_skill_returns_M_and_rejects_wrong_M():
 
 def test_missing_report_survives_GT_failure_and_internal_prompts_differ(tmp_path):
     rr,sr,t,m=fake_pipeline(tmp_path)
-    m['test-ground-truth']={'invalid':'not a GT result'}
+    m['test-concerns']={'invalid':'not a GT recognition result'}  # fail the independent GT chain before scenario refinement
     ex=Execution(tmp_path/'run',mocks=m);build_pipeline(ex,rr,sr,t)
     state=ex.finish()
     assert not state['complete'] and state['analysis_complete']

@@ -145,7 +145,7 @@ def decorate(match,interaction,inputs):
     return m
 
 
-def resolve_matches(inputs,matches):
+def candidate_matches(inputs,matches):
     from .interaction_enrichment import interactions
     from .concern_matching import complete_data_matches
     from .exception_generation import query_matches
@@ -201,3 +201,9 @@ def match_is_applicable(match,interaction,inputs):
     # Re-evaluate supplied standalone inputs, not just the claimed status.
     status,_=applicability(match,interaction,inputs)
     return registry()['definitions'][match['concern_key']]['kind']=='check' and match.get('status',status)=='applicable' and status=='applicable'
+
+
+def resolve_matches(inputs,matches):
+    """Only actual model recognitions; inheritance is not a recognition source."""
+    from .concern_alignment import recognize
+    return recognize(inputs,{"matches":matches})

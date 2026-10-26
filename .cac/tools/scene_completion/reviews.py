@@ -7,7 +7,7 @@ from .scheduler import TaskBlocked
 from .validation import validate_result
 from .contracts import SCHEMAS
 
-REVIEW_TASKS={'existing-branches','existing-bind','use-case-extract','use-case-align','components','api-map','api-parameters','fused-ssd','object-operations','concern-match','exception-generate','existing-extract','gap-compare'}
+REVIEW_TASKS={'existing-concerns','test-concerns','existing-branches','existing-bind','use-case-extract','use-case-align','components','api-map','api-parameters','fused-ssd','object-operations','concern-match','exception-generate','existing-extract','gap-compare'}
 class Reviews:
     def __init__(self,root,mode='auto'):
         if mode not in {'auto','manual'}:raise ValueError('review mode must be auto or manual')

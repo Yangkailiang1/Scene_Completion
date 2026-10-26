@@ -111,6 +111,11 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                 ('model_not_found', 'model_not_supported', 'model not found', 'unsupported model', 'model is not available', '模型不存在', '模型不可用'))
             diagnostic={'http_status':exc.code,'failure_category':'quota_exhausted' if exhausted else
                 ('model_unavailable' if missing_model else {401:'authentication_failed',403:'access_denied',404:'model_unavailable',408:'transport_timeout',504:'transport_timeout',429:'rate_limited'}.get(exc.code,'transport_error'))}
+            invalid_config=exc.code in (400,422) and any(term in error_body for term in ('invalid_parameter','invalid parameter','unsupported parameter','parameter is restricted'))
+            if invalid_config and not missing_model and not exhausted:
+                diagnostic.update(failure_category='invalid_configuration',configuration_required=True)
+                parameter=next((name for name in ('enable_thinking','response_format','tool_choice','max_tokens','thinking_budget') if name in error_body),None)
+                if parameter:diagnostic['parameter']=parameter
             retry_delay=_retry_after_seconds(exc.headers)
             if retry_delay is not None:diagnostic['retry_after_seconds']=retry_delay
             if exhausted or exc.code in (408,504,429):break

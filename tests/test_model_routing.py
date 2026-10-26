@@ -16,3 +16,24 @@ def test_model_switch_cannot_share_spent_allowance_or_change_material_channels()
     with pytest.raises(ValueError,match='independent'):routed_config(c,'existing-extract','checker')
     c['model_profiles']={'glm':{'token_budget_ledger':'glm.json','api_key':'wrong'}}
     with pytest.raises(ValueError,match='unsupported'):routed_config(c,'existing-extract','checker')
+
+
+def test_invalid_model_parameter_blocks_siblings_but_corrected_config_can_run(tmp_path):
+    from scene_completion.model_client import SemanticClient
+    from scene_completion.model_access import ModelUnavailable
+    calls=[]
+    def transport(url,key,body,timeout,retries):
+        calls.append(body)
+        if body.get('enable_thinking') is False:
+            error=ValueError('provider rejects this configuration')
+            error.response_diagnostic={'http_status':400,'failure_category':'invalid_configuration','configuration_required':True,'parameter':'enable_thinking'}
+            raise error
+        return {'choices':[{'message':{'content':'ok'}}]}
+    config={'base_url':'http://example.invalid/v1','api_key':'test-only','agent_model':'preview','cache_dir':str(tmp_path),'extra_body':{'enable_thinking':False}}
+    a=SemanticClient(config,transport)
+    for _ in range(2):
+        with pytest.raises(ModelUnavailable):a.post('/chat/completions',{'model':'preview','enable_thinking':False})
+    assert len(calls)==1  # independent sibling cannot repeat the same invalid request
+    b=SemanticClient({**config,'extra_body':{'enable_thinking':True}},transport)
+    assert b.post('/chat/completions',{'model':'preview','enable_thinking':True})['choices']
+    assert len(calls)==2

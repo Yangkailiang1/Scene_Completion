@@ -1,4 +1,4 @@
-"""Public commands for the single scene-workflow-v3 protocol."""
+"""Public commands for the single scene-workflow-v4 protocol."""
 from pathlib import Path
 import argparse,json
 from .storage import read_json,write_json,fingerprint

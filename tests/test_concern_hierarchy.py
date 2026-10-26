@@ -1,4 +1,4 @@
-"""Behavioral acceptance for inherited concerns and evidence-gated generation."""
+"""Candidate-profile acceptance (not actual LLM recognition) and evidence guards."""
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ import pytest
 from tests.test_workflow import memory_inputs,exchange,parameter,R,scenario,decision,fake_pipeline
 from scene_completion.contracts import registry,packet
 from scene_completion.concern_registry import inheritance_paths,validate_registry
-from scene_completion.concern_hierarchy import resolve_matches,applicability,match_is_applicable
+from scene_completion.concern_hierarchy import candidate_matches as resolve_matches,applicability,match_is_applicable
 from scene_completion.exception_generation import data_exceptions,query_exceptions,service_exceptions,storage_exceptions,deduplicate
 from scene_completion.validation import validate_result
 from scene_completion.workflow import Execution,build_pipeline
@@ -207,12 +207,12 @@ def test_pipeline_exports_applicability_and_passes_only_positive_rule_documents(
     def collect_normal(p):normal_seen.append(p);return {'rules':[],'pending':[]}
     m['concern-match']=collect;m['normal-rules']=collect_normal
     ex=Execution(tmp_path/'run',mocks=m);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert not seen  # indexed facts are matched by the tool, without another model call
+    assert seen  # actual recognition must run; indexed facts only validate its evidence
     assert normal_seen and all(d['channel']=='normal' for d in normal_seen[0]['input']['normal-documents'])
     assert 'existing empty result' not in json.dumps(normal_seen[0])
     manifest=read_json(ex.root/'run_manifest.json');assert manifest['registry_version']=='interaction-concerns-v3'
     report=read_json(ex.root/'missing_report.json')['cases']['UC-X']
-    assert {'applicable','pending','not_applicable'}<={m['status'] for m in report['concerns']}
+    assert report['concerns']==[]  # empty model recognition stays empty in the report
     assert all(m['inheritance_paths'] for m in report['concerns'])
 
 
@@ -291,7 +291,7 @@ def test_registry_rule_changes_invalidate_concern_analysis_without_reextracting_
     calls.clear();full['definitions']['human.authentication']['description']='明确根据当前调用方和接口要求检查认证'
     full['hash']=fingerprint({k:v for k,v in full.items() if k!='hash'});file.write_text(json.dumps(full,ensure_ascii=False))
     ex=Execution(root,mocks=mocks);build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert 'normal-rules' in calls and 'concern-match' not in calls
+    assert 'normal-rules' in calls and 'concern-match' in calls
     assert ex.scheduler.state['tasks']['UC-X:concern-match']['identity']!=previous_match
     assert ex.scheduler.state['tasks']['UC-X:exception-generate']['identity']!=previous_g
     # Mechanical-only G is recomputed under the new registry without forcing

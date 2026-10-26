@@ -153,7 +153,7 @@ def with_concerns(enriched,matches):
         for m in matches['matches']:
             if m['interaction_id']==i['id']:
                 target=i['data'] if m['target']=='data' else i[m['target']]
-                target['concerns'].append(m)
+                target.setdefault('concerns',[]).append(m)
     return view
 
 def actual_context(enriched):

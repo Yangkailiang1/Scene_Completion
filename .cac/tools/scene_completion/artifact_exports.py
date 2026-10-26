@@ -17,9 +17,12 @@ def export_task(root,task,payload,artifact_name=None):
         rows=[[a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
     elif task in {'rr-ssd','sr-ssd'}:
         headers=['顺序','发送方','操作','数据','接收方'];rows=[[i['sequence'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']] for i in payload['interactions']]
-    elif task=='concern-match':
+    elif task in {'concern-match','existing-concerns','test-concerns','test-additional-concerns'}:
         from .contracts import registry
         defs=registry()['definitions'];headers=['交互','Service','系统组成/数据','关注点','状态','继承路径','规则或待确认原因'];rows=[[m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),m.get('status','待确认')),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason','')] for m in payload['matches']]
+    if task in {'concern-compare','concern-evaluation'}:
+        headers=['交互','方向','四要素','具体对象','关注点','E_c','G_c','GT_c','匹配依据']
+        rows=[[r['anchor'].get(k,'') for k in ('interaction_id','direction','target','object','concern_key')]+[bool(r['cells'][ch]) for ch in ('E','G','GT')]+[r['reason']] for r in payload['rows']]
     if task=='pattern-applicability':
         headers=['关注点','模式','交互','失败条件','证据分级','适用结论','风险']
         rows=[[x['scenario']['concern_key'],x['pattern_id'],x['scenario']['interaction_id'],'；'.join(x['scenario']['conditions']),x['scenario']['confidence']['score'],x['status'],x['scenario']['risk']['level']] for x in payload['instances']]
@@ -40,6 +43,8 @@ def export_task(root,task,payload,artifact_name=None):
         safe=lambda x:str(x).replace('|','\\|').replace('\n','<br>')
         text='| '+' | '.join(headers)+' |\n| '+' | '.join(['---']*len(headers))+' |\n'
         text+='\n'.join('| '+' | '.join(map(safe,r))+' |' for r in rows)
+        if task in {'concern-compare','concern-evaluation'}:
+            text='# 关注点层对照\n\n计分单位：用例＋实际交互＋方向＋四要素对象＋关注点。具体场景另行计数。\n\n'+text
         if payload.get('pending'):
             text+='\n\n## 未计分的待确认项\n'+'\n'.join('- '+p.get('interaction_id','')+'：'+p['reason'] for p in payload['pending'])
         (root/(file_stem+'.md')).write_text(text+'\n',encoding='utf8')
@@ -95,7 +100,7 @@ def export_sequence_svg(root,task,payload):
 def export_missing_report(root,combined):
     root=Path(root);write_json(root/'missing_report.json',combined)
     from .contracts import registry
-    defs=registry()['definitions'];lines=['# 缺失异常报告','', '推荐：未启用。具体异常按完整对应；同一交互的参数非法原分支可覆盖多个输入细项，不覆盖输出。','']
+    defs=registry()['definitions'];lines=['# 缺失异常报告','', '两层计数：关注点按四要素对象绑定规则匹配，具体场景按独立失败条件匹配。推荐：'+('风险保底已启用' if combined.get('recommendation',{}).get('enabled') else '未启用')+'。','']
     def cell(v):return str(v).replace('|','\\|').replace('\n','<br>')
     for cid,report in combined['cases'].items():
         lines+=['## '+cid,'', '评测：'+combined['evaluation_status'][cid],'','### 交互及关注点','',
@@ -104,6 +109,12 @@ def export_missing_report(root,combined):
             lines.append('| '+' | '.join(cell(v) for v in (i['id'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']))+' |')
         lines+=['','| 交互 | Service | 对象/数据 | 关注点 | 状态 | 继承路径 | 规则或待确认原因 |','| --- | --- | --- | --- | --- | --- | --- |']
         for m in report['concerns']:lines.append('| '+' | '.join(cell(x) for x in (m['interaction_id'],m.get('service') or '',m['object'],defs[m['concern_key']]['label'],{'applicable':'适用','pending':'待确认','not_applicable':'不适用'}.get(m.get('status'),'待确认'),'；'.join(' → '.join(defs[k]['label'] for k in path) for path in m.get('inheritance_paths',[])),m.get('concrete_rule') or m.get('status_reason') or m['basis']))+' |')
+        concern=report.get('concern_level',{})
+        if concern:
+            lines+=['','### 关注点层对照（不是场景条数）','','| 交互 | 四要素 | 对象 | 关注点 | E_c | G_c | GT_c |','| --- | --- | --- | --- | --- | --- | --- |']
+            evaluation=combined.get('evaluation',{}).get(cid,{}).get('concern_level',concern)
+            for r in evaluation.get('rows',[]):
+                a=r['anchor'];lines.append('| '+' | '.join(cell(x) for x in (a['interaction_id'],a['target'],a['object'],a['concern_key'],bool(r['cells']['E']),bool(r['cells']['G']),bool(r['cells']['GT'])))+' |')
         missing={s['id'] for s in report['M']};existing={s['id']:s for s in report['E']}
         lines+=['','### 异常、已有覆盖及缺失原因','']
         for s in report['G']:
