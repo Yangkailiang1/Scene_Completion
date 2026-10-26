@@ -171,3 +171,46 @@ test("results controls collapse to a compact bar and persist the choice", async 
   expect(screen.getByLabelText("快捷结果视图")).toBeTruthy();
   expect(localStorage.getItem("scene-result-controls-collapsed")).toBe("true");
 });
+
+test("BDD is selectable with SVG preview and editable PlantUML download", async () => {
+  localStorage.setItem("scene-result-controls-collapsed", "false");
+  const files = ["svg", "json", "puml"].map((ext) => ({
+    name: "system-bdd." + ext,
+    path: "run/artifacts/shared/system-bdd." + ext,
+    bytes: 10,
+  }));
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    async (url) =>
+      ({
+        ok: true,
+        json: async () =>
+          String(url).endsWith("/results")
+            ? {
+                cases: [{ id: "C", name: "查询" }],
+                artifacts: [
+                  {
+                    key: "components:bdd",
+                    label: "BDD 块定义图（系统上下文）",
+                    case: "shared",
+                    stage: "bdd",
+                    files,
+                  },
+                ],
+              }
+            : {
+                interactions: [],
+                unbound: {},
+                definitions: {},
+                payload: { blocks: [] },
+              },
+      }) as Response,
+  );
+  render(<ResultsView project="bdd-view" />);
+  await screen.findByRole("button", { name: "图表总览" });
+  fireEvent.click(screen.getByRole("button", { name: "图表总览" }));
+  const img = await screen.findByAltText("BDD 块定义图（系统上下文）");
+  expect(img.getAttribute("src")).toContain("system-bdd.svg");
+  expect(
+    screen.getByRole("link", { name: "下载PUML" }).getAttribute("download"),
+  ).toBe("system-bdd.puml");
+});

@@ -49,7 +49,7 @@ it("edits threshold/K and saves an optimistic project version", async () => {
   fireEvent.change(screen.getByLabelText("每用例K"), {
     target: { value: "5" },
   });
-  fireEvent.click(screen.getByText("下界违反"));
+  fireEvent.click(screen.getByRole("button", { name: /下界违反/ }));
   expect(screen.getByDisplayValue("低于下界")).toBeTruthy();
   fireEvent.click(screen.getByText("保存版本"));
   await waitFor(() =>
@@ -102,4 +102,24 @@ it("recommendations follow the final-results case without a second selector", as
       "/api/projects/p/recommendations?case=c2",
     ),
   );
+});
+
+it("keeps policy controls compact and filters the pattern library by risk", async () => {
+  vi.mocked(api).mockImplementation(async (path: any) =>
+    path.includes("recommendation-history")
+      ? { revision: 0, items: [] }
+      : { version: "one", history: [], settings },
+  );
+  render(<PatternManager project="layout" />);
+  await screen.findByText("模式库");
+  const policy = screen.getByText("推荐策略").closest("details");
+  expect(policy?.open).toBe(false);
+  fireEvent.change(screen.getByLabelText("模式风险筛选"), {
+    target: { value: "critical" },
+  });
+  expect(screen.queryByRole("button", { name: /下界违反/ })).toBeNull();
+  fireEvent.change(screen.getByLabelText("模式风险筛选"), {
+    target: { value: "" },
+  });
+  expect(screen.getByRole("button", { name: /下界违反/ })).toBeTruthy();
 });

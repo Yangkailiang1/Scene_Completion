@@ -474,11 +474,11 @@ def create_app(root=None,client_factory=None,env_file=None):
         if chosen is None:return Response(json.dumps({'status':'未准备模型上下文','task_key':task_key},ensure_ascii=False),media_type='application/json')
         return Response(json.dumps(chosen,ensure_ascii=False,indent=2),media_type='application/json')
     @app.get('/api/projects/{rid}/usage')
-    def usage(rid:str,format:str='json',view:str='summary',task_key:str|None=None,role:str|None=None,model:str|None=None,case:str|None=None,search:str='',offset:int=0,limit:int=50,after:float|None=None,session_id:str|None=None,account:str|None=None):
+    def usage(rid:str,format:str='json',view:str='summary',task_key:str|None=None,role:str|None=None,model:str|None=None,case:str|None=None,search:str='',offset:int=0,limit:int=50,after:float|None=None,session_id:str|None=None,account:str|None=None,sort:str='tokens'):
         from .usage_index import indexed_usage,usage_csv
         project=service.run_dir(rid);prices=read_json(project/'usage_prices.json') if (project/'usage_prices.json').exists() else {}
         report=indexed_usage(project/'run',view='export' if format in {'csv','download'} else view,
-            task_key=task_key,role=role,model=model,case=case,search=search,offset=offset,limit=limit,after=after,prices=prices,session_id=session_id,account=account)
+            task_key=task_key,role=role,model=model,case=case,search=search,offset=offset,limit=limit,after=after,prices=prices,session_id=session_id,account=account,sort=sort)
         if format=='csv':return Response(usage_csv(report),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="task-usage.csv"'})
         if format not in {'json','download'}:raise ValueError('usage format must be json, download or csv; use the embedded workbench view')
         return Response(json.dumps(report,ensure_ascii=False),media_type='application/json')

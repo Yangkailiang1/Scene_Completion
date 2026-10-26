@@ -49,6 +49,8 @@ def export_task(root,task,payload,artifact_name=None):
     if task=='components':
         from .composition_drawing import render_composition
         render_composition(payload,root/(file_stem+'.svg'))
+        from .bdd_drawing import export_bdd
+        export_bdd(payload,root)
     if task in {'components','rr-ssd','sr-ssd'}:
         # Native vector text/shapes; source .dot is also supplied for editing.
         if task=='components':

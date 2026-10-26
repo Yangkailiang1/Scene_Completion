@@ -1,6 +1,7 @@
 """Read-only, use-case/interaction views of persisted execution results.
 
 No model calls, new matching, or reclassification happen in this module.
+BDD files may be materialized as versioned presentation derivatives of saved facts.
 """
 from pathlib import Path
 from .storage import read_json
@@ -45,7 +46,16 @@ class ResultView:
                 p=artifact_folder(self.root,key,case)/(stem+'.'+ext)
                 if p.is_file():files.append({'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size,'task_key':key})
             if files:out.append({'key':key,'case':case,'label':self.nodes.get(key,{}).get('label') or LABELS.get(r['stage'],r['stage']),'stage':r['stage'],'files':files})
-        priority={'components':0,'fused-ssd':1,'rr-ssd':2,'sr-ssd':3,'object-operations':4,'api-map':5,'api-parameters':6}
+        # Existing successful runs receive the additional view without rerunning models.
+        if any(a['stage']=='components' for a in out):
+            payload=self.payload('components')
+            if payload.get('components'):
+                from .bdd_drawing import export_bdd
+                folder=artifact_folder(self.root,'components','shared');export_bdd(payload,folder)
+                files=[{'name':'system-bdd.'+ext,'path':(folder/('system-bdd.'+ext)).relative_to(self.project).as_posix(),
+                        'bytes':(folder/('system-bdd.'+ext)).stat().st_size,'task_key':'components'} for ext in ('svg','json','puml','dot','md')]
+                out.append({'key':'components:bdd','case':'shared','label':'BDD 块定义图（系统上下文）','stage':'bdd','source_task_key':'components','files':files})
+        priority={'bdd':0.5,'components':0,'fused-ssd':1,'rr-ssd':2,'sr-ssd':3,'object-operations':4,'api-map':5,'api-parameters':6}
         return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
     def index(self):

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { api, projectUrl } from "./api";
+import { ArrowDownWideNarrow, Coins, Timer, ArrowUpRight } from "lucide-react";
 import { duration } from "./utils";
 
 const number = (n: number | undefined) => (n || 0).toLocaleString();
@@ -18,6 +19,7 @@ export function UsageView({
 }) {
   const [session, setSession] = useState(""),
     [account, setAccount] = useState("");
+  const [sort, setSort] = useState("tokens");
   const [view, setView] = useState("tasks"),
     [scope, setScope] = useState(task || ""),
     [role, setRole] = useState(""),
@@ -32,11 +34,13 @@ export function UsageView({
     [round, setRound] = useState("");
   useEffect(() => {
     setScope(task || "");
+    setData(null);
     setOffset(0);
     setContext(null);
     setSession("");
   }, [project, task]);
   useEffect(() => {
+    setSummary(null);
     const controller = new AbortController();
     api(projectUrl(project, "usage"), { signal: controller.signal })
       .then(setSummary)
@@ -50,6 +54,7 @@ export function UsageView({
     const timer = setTimeout(() => {
       const p = new URLSearchParams({
         view,
+        sort,
         offset: String(offset),
         limit: "50",
         search: query,
@@ -83,6 +88,7 @@ export function UsageView({
   }, [
     project,
     view,
+    sort,
     scope,
     role,
     model,
@@ -107,11 +113,15 @@ export function UsageView({
   }
   return (
     <div className="usage-view panel-scroll">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="insights-header">
         <Button variant="ghost" onClick={onClose}>
           返回工作区
         </Button>
-        <h2>用量与费用</h2>
+        <div className="insights-heading">
+          <span className="eyebrow">USAGE & PERFORMANCE</span>
+          <h2>用量与费用</h2>
+          <p>定位具体节点的成本与耗时，再决定优化顺序。</p>
+        </div>
         <Button variant="outline" onClick={() => setReload((v) => v + 1)}>
           刷新统计
         </Button>
@@ -150,11 +160,17 @@ export function UsageView({
         次；发送前阻止 {number(totals.not_sent_calls)} 次；累计请求耗时{" "}
         {duration(totals.request_seconds)}。累计请求时间不是项目墙钟时间。
       </p>
-      <div className="flex flex-wrap gap-2 my-4">
+      <div className="usage-filters">
         <select
           aria-label="用量视图"
           value={view}
-          onChange={(e) => filter(() => setView(e.target.value))}
+          onChange={(e) =>
+            filter(() => {
+              setView(e.target.value);
+              if (e.target.value === "tasks" && sort === "recent")
+                setSort("tokens");
+            })
+          }
         >
           <option value="tasks">按任务</option>
           <option value="requests">逐请求明细</option>
@@ -230,7 +246,103 @@ export function UsageView({
           </Button>
         )}
       </div>
-      <details className="my-4">
+      <section className="usage-rankings" aria-label="任务瓶颈排行">
+        {(
+          [
+            ["tokens", "最耗Token的节点", totals.reported_total_tokens],
+            ["seconds", "累计请求耗时最长的节点", totals.request_seconds],
+          ] as const
+        ).map(([metric, title, total]) => (
+          <article className="usage-ranking" key={metric}>
+            <header>
+              {metric === "tokens" ? <Coins size={17} /> : <Timer size={17} />}
+              <h3>{title}</h3>
+              <span>TOP 5 · 当前筛选</span>
+            </header>
+            <p>
+              {metric === "tokens"
+                ? "包含失败、重试及修复的已报告Token；未知用量单列。"
+                : "按节点全部请求累计，含重试；不是并行项目的总历时。"}
+            </p>
+            {(data?.rankings?.[metric] || []).length ? (
+              <ol>
+                {data.rankings[metric].map((r: any, n: number) => {
+                  const value =
+                    metric === "tokens"
+                      ? r.reported_total_tokens
+                      : r.request_seconds;
+                  const share = total ? (100 * value) / total : 0;
+                  return (
+                    <li key={r.task_key}>
+                      <button
+                        title={r.task_key}
+                        onClick={() => onSelect(r.task_key)}
+                      >
+                        <span className="rank-position">{n + 1}</span>
+                        <span className="rank-description">
+                          <b>{r.label || r.task_key}</b>
+                          <small>
+                            {r.case || "项目共享"} ·{" "}
+                            {(
+                              {
+                                modeler: "建模器",
+                                checker: "检查器",
+                                recommender: "推荐器",
+                              } as any
+                            )[r.role] ||
+                              r.role ||
+                              "历史任务"}{" "}
+                            · {r.task_key}
+                          </small>
+                          <span className="rank-track">
+                            <span
+                              style={{ width: Math.min(100, share) + "%" }}
+                            />
+                          </span>
+                        </span>
+                        <span className="rank-value">
+                          <b>
+                            {metric === "tokens"
+                              ? number(value)
+                              : duration(value)}
+                          </b>
+                          <small>
+                            {share.toFixed(1)}% · {r.calls - r.not_sent_calls}
+                            次请求
+                          </small>
+                        </span>
+                        <ArrowUpRight size={14} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <div className="insights-empty">当前范围暂无已记录请求</div>
+            )}
+          </article>
+        ))}
+      </section>
+      <div className="usage-table-heading">
+        <h3>
+          节点与请求明细 <small>{data?.count || 0} 项</small>
+        </h3>
+        <label>
+          <ArrowDownWideNarrow size={15} />
+          排序
+          <select
+            aria-label="用量排序"
+            value={sort}
+            onChange={(e) => filter(() => setSort(e.target.value))}
+          >
+            <option value="tokens">总Token从高到低</option>
+            <option value="seconds">累计耗时从长到短</option>
+            <option value="longest">单次最长请求</option>
+            {view === "requests" && <option value="recent">最新请求</option>}
+          </select>
+        </label>
+      </div>
+      <details className="usage-secondary">
         <summary>按任务／角色／模型／用例汇总</summary>
         {Object.entries(data?.groups || summary?.groups || {}).map(
           ([dimension, rows]) => (
@@ -260,7 +372,7 @@ export function UsageView({
           ),
         )}
       </details>
-      <details className="my-4">
+      <details className="usage-secondary">
         <summary>配置估算单价（人民币／百万Token）</summary>
         <form
           className="flex flex-wrap gap-2 my-4"
@@ -337,7 +449,7 @@ export function UsageView({
                 <th>其中思考</th>
                 <th>总Token</th>
                 <th>请求／未发出</th>
-                <th>累计耗时</th>
+                <th>累计请求耗时 / 单次最长</th>
                 <th>估算费用（元）</th>
                 <th>详情</th>
               </tr>
@@ -360,15 +472,29 @@ export function UsageView({
                     </small>
                   </td>
                   <td>{r.status}</td>
-                  <td>{number(r.usage?.prompt_tokens ?? r.input_tokens)}</td>
                   <td>
-                    {number(r.usage?.completion_tokens ?? r.output_tokens)}
+                    {view === "requests" && !r.usage
+                      ? r.status === "not_sent"
+                        ? "—"
+                        : "未知"
+                      : number(r.usage?.prompt_tokens ?? r.input_tokens)}
                   </td>
                   <td>
-                    {number(
-                      r.usage?.completion_tokens_details?.reasoning_tokens ??
-                        r.reasoning_tokens,
-                    )}
+                    {view === "requests" && !r.usage
+                      ? r.status === "not_sent"
+                        ? "—"
+                        : "未知"
+                      : number(r.usage?.completion_tokens ?? r.output_tokens)}
+                  </td>
+                  <td>
+                    {view === "requests" && !r.usage
+                      ? r.status === "not_sent"
+                        ? "—"
+                        : "未知"
+                      : number(
+                          r.usage?.completion_tokens_details
+                            ?.reasoning_tokens ?? r.reasoning_tokens,
+                        )}
                   </td>
                   <td>
                     {r.usage
@@ -384,7 +510,12 @@ export function UsageView({
                         ? "未发出"
                         : "1"}
                   </td>
-                  <td>{duration(r.seconds ?? r.request_seconds)}</td>
+                  <td>
+                    {duration(r.seconds ?? r.request_seconds)}
+                    {r.max_request_seconds != null && (
+                      <small>单次最长 {duration(r.max_request_seconds)}</small>
+                    )}
+                  </td>
                   <td>
                     {r.estimated_cost == null
                       ? "未知"

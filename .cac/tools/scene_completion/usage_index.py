@@ -4,7 +4,8 @@ import csv, io, json, sqlite3, time
 from .usage_audit import summarize_requests
 
 def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
-                  case=None, search='', offset=0, limit=50, after=None, prices=None, session_id=None, account=None):
+                  case=None, search='', offset=0, limit=50, after=None, prices=None, session_id=None, account=None, sort='tokens'):
+    if sort not in {'tokens','seconds','longest','recent'}:raise ValueError('invalid usage sort')
     if view not in {'summary','tasks','requests','export'}:raise ValueError('invalid usage view')
     if offset<0 or not 1<=limit<=200:raise ValueError('invalid usage pagination')
     root=Path(root);source=root/'execution_events.sqlite3'
@@ -53,6 +54,7 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
             stage=n.get('stage'),case=n.get('case'),role=n.get('role'),status=states.get(key,{}).get('status','historical'))
     request_rows=report['requests']
     for row in request_rows:
+        n=metadata.get(row['task_key'],{});row.update(label=n.get('label') or row['task_key'],stage=n.get('stage'),role=row.get('role') or n.get('role'),case=row.get('case') or n.get('case'))
         price=(prices or {}).get(row['model']);u=row.get('usage') or {}
         row.update(estimated_cost=None,cost_status='未知：未提供实际扣费或估算单价')
         if price and u:
@@ -68,10 +70,17 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
     selected_events=[e for e in events if (e['data'].get('model_call_id') or str(e['id'])) in selected_ids]
     filtered=summarize_requests(selected_events)
     tasks=list(filtered['tasks'].values())
+    request_stats={}
+    for r in requests:
+        bucket=request_stats.setdefault(r['task_key'],{'costs':[],'accounts':{},'max_seconds':0})
+        if r['estimated_cost'] is not None:bucket['costs'].append(r['estimated_cost'])
+        bucket['accounts'][r.get('account','历史未标注账号')]=None
+        if r['status']!='not_sent':bucket['max_seconds']=max(bucket['max_seconds'],r['seconds'])
     for t in tasks:
         n=metadata.get(t['task_key'],{});t.update(label=n.get('label') or LABELS.get(n.get('stage'),t['task_key']),stage=n.get('stage'),case=n.get('case'),role=n.get('role'),status=states.get(t['task_key'],{}).get('status','historical'))
-        costs=[r['estimated_cost'] for r in requests if r['task_key']==t['task_key'] and r['estimated_cost'] is not None]
-        t['accounts']=list(dict.fromkeys(r.get('account','历史未标注账号') for r in requests if r['task_key']==t['task_key']))
+        bucket=request_stats[t['task_key']];costs=bucket['costs']
+        t['max_request_seconds']=bucket['max_seconds']
+        t['accounts']=list(bucket['accounts'])
         t.update(estimated_cost=sum(costs) if costs else None,actual_cost=None,cost_status='估算，非实际账单' if costs else '未知：未配置单价或用量未知')
     keys=('calls','completed_calls','not_sent_calls','unknown_usage_calls','in_flight_calls','input_tokens','cached_input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds')
     totals={k:sum(t.get(k,0) for t in filtered['tasks'].values()) for k in keys}
@@ -86,8 +95,18 @@ def indexed_usage(root, *, view='summary', task_key=None, role=None, model=None,
             p['requests']+=r['status']!='not_sent';p['tokens']+=(r.get('usage') or {}).get('total_tokens',0);p['seconds']+=r['seconds'] if r['status']!='not_sent' else 0
             u=r.get('usage') or {};p['input_tokens']+=u.get('prompt_tokens',0);p['output_tokens']+=u.get('completion_tokens',0);p['reasoning_tokens']+=(u.get('completion_tokens_details') or {}).get('reasoning_tokens',0)
         groups[dimension]=list(parts.values())
-    items=sorted(requests,key=lambda r:r['started_at'],reverse=True) if view=='requests' else sorted(tasks,key=lambda r:r['reported_total_tokens'],reverse=True)
-    result={'totals':totals,'groups':groups,'sessions':sessions,'prices':prices or {},'revision':cursor,'generated_at':time.time(),
+    def score(row):
+        if sort=='recent':return row.get('started_at',0)
+        if sort=='seconds':return row.get('request_seconds',row.get('seconds',0))
+        if sort=='longest':return row.get('max_request_seconds',row.get('seconds',0))
+        return row.get('reported_total_tokens',(row.get('usage') or {}).get('total_tokens',0))
+    items=sorted(requests if view=='requests' else tasks,key=lambda r:(-score(r),r.get('task_key','')))
+    # Rank the entire filtered task set before pagination, never just the displayed page.
+    rank_fields=('task_key','label','case','role','stage','status','calls','not_sent_calls','input_tokens','output_tokens','reasoning_tokens','reported_total_tokens','request_seconds','max_request_seconds','unknown_usage_calls','models','accounts')
+    ranking=lambda field:[{k:t.get(k) for k in rank_fields} for t in sorted(tasks,key=lambda t:(-t.get(field,0),t['task_key']))[:5]]
+    rankings={'tokens':ranking('reported_total_tokens'),'seconds':ranking('request_seconds')}
+
+    result={'rankings':rankings,'sort':sort,'task_count':len(tasks),'totals':totals,'groups':groups,'sessions':sessions,'prices':prices or {},'revision':cursor,'generated_at':time.time(),
             'count':len(items),'offset':offset,'limit':limit,'items':items[offset:offset+limit] if view in {'tasks','requests'} else [],
             'notes':['输出已包含思考；缓存输入是输入子集。','累计请求耗时不是并行运行墙钟时间。','失败无usage为未知，不记为0；预留额度不是扣费。']}
     with sqlite3.connect('file:'+str(source)+'?mode=ro',uri=True) as db:

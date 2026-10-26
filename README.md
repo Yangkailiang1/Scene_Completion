@@ -119,3 +119,5 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 启动`serve.py`后，可用`python scene.py projects/create/configure/run/status/events/artifacts`操作同一个网页工作台。`run --wait`输出JSONL进度，网页实时查看同一节点、事件和文件。更多操作中的模型设置支持多个API Key连接，每个连接维护独立模型允许列表；项目从对应下拉框选模型。
 
 命令示例、凭证保存方式和运行边界见[CLI与模型连接说明](docs/workbench-cli-model-accounts.md)。结果控制区可收起，默认保留紧凑的快捷选择栏。
+
+“模式与风险”和“用量与费用”提供紧凑配置及具体任务瓶颈排行；最终图表增加可下载的SysML BDD。[BDD及用量排行说明](docs/bdd-and-usage-rankings.md)。

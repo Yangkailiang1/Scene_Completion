@@ -3559,3 +3559,550 @@ td {
   line-height: 1.7;
   color: #7a8da5;
 }
+
+/* Cost and model governance: shared compact heading, readable work surfaces. */
+.insights-header,
+.pattern-manager > .pattern-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.insights-heading {
+  flex: 1;
+  min-width: 220px;
+}
+.insights-heading h2 {
+  margin: 3px 0 5px;
+  font-size: 23px;
+  color: #19334f;
+  letter-spacing: -0.02em;
+}
+.insights-heading p {
+  margin: 0;
+  font-size: 13px;
+  color: #73849a;
+}
+.insights-heading .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: #7b8ca3;
+}
+.usage-view,
+.pattern-manager {
+  background: #f7f9fc;
+  padding: 20px 24px 32px;
+}
+.usage-totals {
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.usage-totals > div {
+  background: white;
+  border: 1px solid #e3e9f2;
+  border-radius: 12px;
+  padding: 15px 16px;
+  box-shadow: 0 2px 6px #233d5c03;
+}
+.usage-totals strong {
+  font-size: 23px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-view > p {
+  font-size: 12px;
+  margin: 5px 0;
+  color: #75849a;
+}
+.usage-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 14px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e4eaf3;
+  border-radius: 12px;
+}
+.usage-filters input,
+.usage-filters select {
+  height: 35px;
+  font-size: 12px;
+  max-width: 230px;
+  background: #fff;
+  border: 1px solid #dfe7f1;
+  border-radius: 7px;
+  padding: 0 9px;
+}
+.usage-filters input[aria-label="搜索用量任务"] {
+  flex: 1;
+  min-width: 180px;
+}
+.usage-rankings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0 24px;
+}
+.usage-ranking {
+  min-width: 0;
+  border: 1px solid #e0e7f1;
+  background: white;
+  border-radius: 13px;
+  overflow: hidden;
+}
+.usage-ranking header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 17px 18px 0;
+  color: #4d6cc1;
+}
+.usage-ranking header h3 {
+  font-size: 14px;
+  color: #203a56;
+  margin: 0;
+  flex: 1;
+}
+.usage-ranking header > span {
+  font-size: 10px;
+  color: #91a0b3;
+  white-space: nowrap;
+}
+.usage-ranking > p {
+  margin: 8px 18px 10px;
+  font-size: 11px;
+  color: #8090a3;
+}
+.usage-ranking ol {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 8px;
+}
+.usage-ranking li + li {
+  border-top: 1px solid #f0f3f8;
+}
+.usage-ranking li > button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  width: 100%;
+  padding: 12px 10px;
+  background: none;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  color: #526e9c;
+}
+.usage-ranking li > button:hover {
+  background: #f4f7fd;
+}
+.rank-position {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9aaac0;
+  width: 14px;
+}
+.usage-ranking li:first-child .rank-position {
+  color: #4e6fe7;
+}
+.rank-description {
+  flex: 1;
+  min-width: 0;
+}
+.rank-description > b {
+  font-size: 12px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #31465f;
+}
+.rank-description small {
+  display: block;
+  font-size: 10px;
+  color: #8c9bb0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 4px 0;
+}
+.rank-value {
+  text-align: right;
+  flex-shrink: 0;
+}
+.rank-value > b {
+  font-size: 14px;
+  color: #2f4672;
+  font-variant-numeric: tabular-nums;
+}
+.rank-value small {
+  display: block;
+  font-size: 10px;
+  color: #8c9bb0;
+  margin-top: 4px;
+}
+.rank-track {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: #f0f3fa;
+  max-width: 300px;
+  margin-top: 7px;
+}
+.rank-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: #8ea4ef;
+}
+.insights-empty {
+  padding: 25px 18px;
+  color: #8b9bb0;
+  font-size: 12px;
+}
+.usage-table-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+.usage-table-heading h3 {
+  font-size: 15px;
+  margin: 0;
+}
+.usage-table-heading h3 small {
+  font-size: 12px;
+  font-weight: 400;
+  color: #8b9aae;
+  margin-left: 8px;
+}
+.usage-table-heading label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #73849c;
+}
+.usage-table-heading select {
+  border: 1px solid #dae3f0;
+  border-radius: 7px;
+  padding: 7px 9px;
+  background: white;
+}
+.usage-secondary {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0 12px 12px 0;
+  font-size: 12px;
+  color: #60768f;
+}
+.usage-secondary[open] {
+  display: block;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #e0e7f2;
+  border-radius: 10px;
+}
+.usage-secondary summary {
+  cursor: pointer;
+}
+.usage-table {
+  background: white;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  overflow: auto;
+}
+.usage-table table {
+  font-size: 12px;
+}
+.usage-table th {
+  background: #f1f5fb;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #75869d;
+  position: sticky;
+  top: 0;
+}
+.usage-table td {
+  font-variant-numeric: tabular-nums;
+}
+.usage-table tbody tr:hover {
+  background: #f8faff;
+}
+.usage-context {
+  padding: 16px;
+  background: white;
+  border: 1px solid #e1e8f2;
+  border-radius: 10px;
+}
+.pattern-version {
+  font-size: 11px;
+  color: #8b9bb0;
+  background: #eef2f8;
+  padding: 6px 9px;
+  border-radius: 6px;
+}
+.pattern-manager > .pattern-toolbar > button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 15px;
+  border-radius: 8px;
+}
+.pattern-overview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.pattern-overview > div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e9f3;
+  border-radius: 10px;
+  padding: 12px 18px;
+  min-width: 155px;
+  color: #7b93c4;
+}
+.pattern-overview > div span {
+  font-size: 11px;
+  color: #8b9aaf;
+}
+.pattern-overview strong {
+  display: block;
+  font-size: 22px;
+  font-weight: 650;
+  margin-top: 2px;
+  color: #253d60;
+}
+.pattern-overview > p {
+  color: #8492a6;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0 5px;
+  max-width: 390px;
+}
+.pattern-policy {
+  border: 1px solid #e0e7f2;
+  border-radius: 10px;
+  background: #fff;
+  margin-bottom: 18px;
+}
+.pattern-policy > summary {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  cursor: pointer;
+  padding: 13px 15px;
+  color: #526987;
+  font-size: 12px;
+  list-style: none;
+}
+.pattern-policy > summary:after {
+  content: "展开";
+  margin-left: auto;
+  font-size: 11px;
+  color: #8a9ab0;
+}
+.pattern-policy[open] > summary:after {
+  content: "收起";
+}
+.pattern-policy > summary > span {
+  color: #8a98ac;
+  font-size: 11px;
+  margin-left: 8px;
+}
+.pattern-policy .pattern-controls {
+  margin: 0;
+  padding: 14px 16px;
+  border-top: 1px solid #edf1f7;
+}
+.pattern-columns {
+  grid-template-columns: minmax(235px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.pattern-columns > aside,
+.pattern-columns > main {
+  border: 1px solid #dfe7f1;
+  border-radius: 12px;
+  background: white;
+  padding: 16px;
+}
+.pattern-columns > aside {
+  max-height: calc(100vh - 340px);
+  min-height: 360px;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+}
+.pattern-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.pattern-list-header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.pattern-list-header > span {
+  font-size: 11px;
+  color: #8d9bb0;
+}
+.pattern-list-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+}
+.pattern-list-title > b {
+  font-size: 12px;
+}
+.pattern-list-title i,
+.risk-pill {
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 5px;
+  background: #eef3fa;
+  color: #6b7f9d;
+  padding: 3px 6px;
+}
+.pattern-list-title i[data-risk="critical"],
+.risk-pill[data-risk="critical"] {
+  background: #fff0f1;
+  color: #c74d64;
+}
+.pattern-list-title i[data-risk="high"],
+.risk-pill[data-risk="high"] {
+  background: #fff5e8;
+  color: #b47d37;
+}
+.pattern-columns aside > button {
+  border-color: #edf1f7;
+  padding: 11px 10px;
+  border-radius: 8px;
+  background: white;
+}
+.pattern-columns aside > button.active {
+  box-shadow: inset 3px 0 #607ef2;
+  background: #f3f6ff;
+  border-color: #d6dff8;
+}
+.pattern-columns aside > button.pattern-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #f2f6fd;
+  color: #5270bc;
+}
+.pattern-columns aside small {
+  font-size: 10px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.pattern-columns main {
+  padding: 22px;
+  min-height: 480px;
+}
+.pattern-detail-heading h3 {
+  font-size: 21px;
+  margin: 5px 0 8px;
+}
+.pattern-detail-heading .risk-pill {
+  display: inline-block;
+  margin: 0 0 10px;
+}
+.pattern-columns main > small {
+  font-size: 10px;
+  color: #98a5b6;
+  border-bottom: 1px solid #edf1f7;
+  padding-bottom: 14px;
+  overflow-wrap: anywhere;
+}
+.pattern-columns main > label {
+  margin: 18px 0;
+  color: #5d7088;
+  font-size: 12px;
+}
+.pattern-columns main input:not([type="checkbox"]),
+.pattern-columns main textarea,
+.pattern-columns main select {
+  background: #fafbfd;
+  border-color: #e0e7f0;
+  font-size: 13px;
+  padding: 10px;
+}
+.pattern-history-panel {
+  margin-top: 18px;
+  background: white;
+  border: 1px solid #e1e8f1;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 12px;
+  color: #6a7e97;
+}
+.pattern-history-panel p {
+  max-width: 950px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1150px) {
+  .usage-totals {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .usage-rankings {
+    grid-template-columns: 1fr;
+  }
+  .pattern-overview {
+    flex-wrap: wrap;
+  }
+  .pattern-overview > p {
+    max-width: none;
+    flex: 1;
+  }
+  .pattern-policy > summary > span {
+    white-space: normal;
+  }
+  .pattern-columns {
+    grid-template-columns: 245px minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .usage-view,
+  .pattern-manager {
+    padding: 14px;
+  }
+  .usage-totals {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pattern-columns {
+    grid-template-columns: 1fr;
+  }
+  .pattern-columns > aside {
+    position: static;
+    max-height: 290px;
+    min-height: 0;
+  }
+  .pattern-overview > div {
+    min-width: 125px;
+    flex: 1;
+  }
+  .pattern-policy > summary {
+    flex-wrap: wrap;
+  }
+  .pattern-policy > summary > span {
+    margin: 0;
+    flex-basis: 100%;
+  }
+}

@@ -53,3 +53,32 @@ def test_historical_task_keeps_stage_when_absent_from_current_graph(tmp_path):
     report=indexed_usage(tmp_path)
     assert report['groups']['stage'][0]['name']=='existing-extract'
     assert report['groups']['stage'][0]['input_tokens']==80
+
+
+def test_rankings_cover_all_filtered_nodes_before_pagination_and_keep_time_units(tmp_path,monkeypatch):
+    import time
+    clock=[1000.];monkeypatch.setattr(time,'time',lambda:clock[0])
+    store=EventStore(tmp_path)
+    for n in range(7):
+        key='task-'+str(n)
+        store.append('request_started',task_key=key,role='modeler',case='C',model_call_id=key,requested_model='m',account='A')
+        clock[0]+=80 if n==0 else 5
+        store.append('request_finished',task_key=key,model_call_id=key,usage={'prompt_tokens':100+n*100,'completion_tokens':20,'total_tokens':120+n*100})
+    report=indexed_usage(tmp_path,view='tasks',offset=6,limit=1,sort='seconds')
+    assert report['count']==7 and report['task_count']==7
+    assert report['rankings']['tokens'][0]['task_key']=='task-6'
+    slow=report['rankings']['seconds'][0]
+    assert slow['task_key']=='task-0' and slow['request_seconds']==80 and slow['max_request_seconds']==80
+    assert len(report['rankings']['tokens'])==5
+    assert indexed_usage(tmp_path,task_key='task-3')['rankings']['tokens'][0]['task_key']=='task-3'
+    assert not indexed_usage(tmp_path,account='B')['rankings']['tokens']
+    import pytest
+    with pytest.raises(ValueError):indexed_usage(tmp_path,sort='unsupported')
+
+
+def test_usage_search_accepts_human_node_labels_and_requests_can_sort_by_tokens(tmp_path):
+    from scene_completion.storage import write_json
+    store=EventStore(tmp_path);add(store,'one',task='a',tokens=100);add(store,'two',task='b',tokens=300)
+    write_json(tmp_path/'workflow_graph.json',{'nodes':[{'id':'a','label':'查询记忆库的规则','stage':'normal-rules','role':'modeler','case':'C'}]})
+    assert indexed_usage(tmp_path,search='记忆库')['totals']['reported_total_tokens']==100
+    assert indexed_usage(tmp_path,view='requests',sort='tokens')['items'][0]['task_key']=='b'

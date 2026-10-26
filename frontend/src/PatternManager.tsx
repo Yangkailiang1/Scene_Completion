@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  ShieldCheck,
+  Layers,
+  SlidersHorizontal,
+  Save,
+  Plus,
+} from "lucide-react";
 import { api, projectUrl } from "./api";
 const risks: Record<string, string> = {
   low: "低",
@@ -16,6 +23,7 @@ const feedbacks: Record<string, string> = {
 export function PatternManager({ project }: { project: string }) {
   const [view, setView] = useState<any>(null),
     [selected, setSelected] = useState(""),
+    [riskFilter, setRiskFilter] = useState(""),
     [search, setSearch] = useState(""),
     [msg, setMsg] = useState(""),
     [hist, setHist] = useState<any>(null),
@@ -28,6 +36,7 @@ export function PatternManager({ project }: { project: string }) {
     ])
       .then(([v, h]) => {
         setView(v);
+        setSelected(v.settings.library.patterns[0]?.id || "");
         setHist(h);
       })
       .catch((e) => setMsg(e.message));
@@ -62,84 +71,152 @@ export function PatternManager({ project }: { project: string }) {
   return (
     <section className="pattern-manager">
       <div className="pattern-toolbar">
-        <b>模式与风险</b>
-        <small>
-          关注点 → 异常模式 → 交互场景 · {view.version.slice(0, 10)}
-        </small>
-        <button onClick={save}>保存版本</button>
+        <div className="insights-heading">
+          <span className="eyebrow">PATTERNS & RISK</span>
+          <h2>模式与风险</h2>
+          <p>关注点 → 异常模式 → 具体交互场景</p>
+        </div>
+        <span className="pattern-version">
+          项目版本 {view.version.slice(0, 10)}
+        </span>
+        <button onClick={save}>
+          <Save size={15} />
+          保存版本
+        </button>
       </div>
       {msg && <p role="status">{msg}</p>}
-      <div className="pattern-controls">
-        <label>
-          证据阈值
-          <input
-            aria-label="证据阈值"
-            type="number"
-            min="0"
-            max="1"
-            step=".05"
-            value={s.threshold}
-            onChange={(e) => edit({ threshold: +e.target.value })}
-          />
-        </label>
-        <label>
-          每用例K
-          <input
-            aria-label="每用例K"
-            type="number"
-            min="1"
-            value={s.top_k}
-            onChange={(e) => edit({ top_k: +e.target.value })}
-          />
-        </label>
-        <label>
-          风险权重
-          <input
-            type="number"
-            min="0"
-            max="1"
-            step=".1"
-            value={s.risk_weight}
-            onChange={(e) =>
-              edit({
-                risk_weight: +e.target.value,
-                history_weight: +(1 - Number(e.target.value)).toFixed(6),
-              })
-            }
-          />
-        </label>
-        <span>历史权重 {s.history_weight} · 零历史H=0.5；关键项可超过K。</span>
-        <select
-          aria-label="设置历史"
-          value=""
-          onChange={async (e) => {
-            if (e.target.value) {
-              const v = await api(
-                projectUrl(project, "patterns?version=" + e.target.value),
-              );
-              edit(v.settings);
-              setMsg("已载入历史内容，保存后切换设置版本。");
-            }
-          }}
-        >
-          <option value="">载入历史</option>
-          {view.history.map((h: any, i: number) => (
-            <option key={i} value={h.version}>
-              {h.version.slice(0, 10)} ·{" "}
-              {new Date(h.at * 1000).toLocaleString()}
-            </option>
-          ))}
-        </select>
+      <div className="pattern-overview">
+        <div>
+          <Layers size={18} />
+          <span>
+            异常模式<strong>{ps.length}</strong>
+          </span>
+        </div>
+        <div>
+          <ShieldCheck size={18} />
+          <span>
+            已启用<strong>{ps.filter((r: any) => r.enabled).length}</strong>
+          </span>
+        </div>
+        <div>
+          <ShieldCheck size={18} />
+          <span>
+            关键风险模式
+            <strong>
+              {
+                ps.filter(
+                  (r: any) =>
+                    (s.overrides[r.id]?.risk_level || r.risk_level) ===
+                      "critical" && r.enabled,
+                ).length
+              }
+            </strong>
+          </span>
+        </div>
+        <p>
+          适用依据不足的候选进入待确认；关键风险优先保底。修改保存为新版本，旧报告保留原快照。
+        </p>
       </div>
+      <details className="pattern-policy">
+        <summary>
+          <SlidersHorizontal size={16} />
+          推荐策略
+          <span>
+            证据阈值 {s.threshold} · 每用例 {s.top_k} 项 · 风险/历史{" "}
+            {s.risk_weight}/{s.history_weight}
+          </span>
+        </summary>
+        <div className="pattern-controls">
+          <label>
+            证据阈值
+            <input
+              aria-label="证据阈值"
+              type="number"
+              min="0"
+              max="1"
+              step=".05"
+              value={s.threshold}
+              onChange={(e) => edit({ threshold: +e.target.value })}
+            />
+          </label>
+          <label>
+            每用例K
+            <input
+              aria-label="每用例K"
+              type="number"
+              min="1"
+              value={s.top_k}
+              onChange={(e) => edit({ top_k: +e.target.value })}
+            />
+          </label>
+          <label>
+            风险权重
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step=".1"
+              value={s.risk_weight}
+              onChange={(e) =>
+                edit({
+                  risk_weight: +e.target.value,
+                  history_weight: +(1 - Number(e.target.value)).toFixed(6),
+                })
+              }
+            />
+          </label>
+          <span>
+            历史权重 {s.history_weight} · 零历史H=0.5；关键项可超过K。
+          </span>
+          <select
+            aria-label="设置历史"
+            value=""
+            onChange={async (e) => {
+              if (e.target.value) {
+                const v = await api(
+                  projectUrl(project, "patterns?version=" + e.target.value),
+                );
+                edit(v.settings);
+                setMsg("已载入历史内容，保存后切换设置版本。");
+              }
+            }}
+          >
+            <option value="">载入历史</option>
+            {view.history.map((h: any, i: number) => (
+              <option key={i} value={h.version}>
+                {h.version.slice(0, 10)} ·{" "}
+                {new Date(h.at * 1000).toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </div>
+      </details>
       <div className="pattern-columns">
         <aside>
+          <div className="pattern-list-header">
+            <h3>模式库</h3>
+            <span>{ps.length}项</span>
+          </div>
           <input
             aria-label="搜索模式"
             value={search}
             placeholder="搜索关注点、模式"
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            aria-label="模式风险筛选"
+            value={riskFilter}
+            onChange={(e) => setRiskFilter(e.target.value)}
+          >
+            <option value="">全部风险等级</option>
+            {Object.entries(risks).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}风险
+              </option>
+            ))}
+          </select>
           <button
+            className="pattern-add"
             onClick={() => {
               const n = {
                 ...ps[0],
@@ -159,9 +236,15 @@ export function PatternManager({ project }: { project: string }) {
               setSelected(n.id);
             }}
           >
+            <Plus size={15} />
             新增模式
           </button>
           {ps
+            .filter(
+              (r: any) =>
+                !riskFilter ||
+                (s.overrides[r.id]?.risk_level || r.risk_level) === riskFilter,
+            )
             .filter((r: any) =>
               JSON.stringify([r.id, r.label, r.concern_keys])
                 .toLowerCase()
@@ -173,7 +256,12 @@ export function PatternManager({ project }: { project: string }) {
                 className={r.id === selected ? "active" : ""}
                 onClick={() => setSelected(r.id)}
               >
-                <b>{r.label}</b>
+                <span className="pattern-list-title">
+                  <b>{r.label}</b>
+                  <i data-risk={s.overrides[r.id]?.risk_level || r.risk_level}>
+                    {risks[s.overrides[r.id]?.risk_level || r.risk_level]}
+                  </i>
+                </span>
                 <small>
                   {r.id} ·{" "}
                   {risks[s.overrides[r.id]?.risk_level || r.risk_level]}
@@ -185,7 +273,16 @@ export function PatternManager({ project }: { project: string }) {
         <main>
           {p ? (
             <>
-              <h3>{p.label}</h3>
+              <div className="pattern-detail-heading">
+                <span className="eyebrow">PATTERN DEFINITION</span>
+                <h3>{p.label}</h3>
+                <span
+                  className="risk-pill"
+                  data-risk={s.overrides[p.id]?.risk_level || p.risk_level}
+                >
+                  {risks[s.overrides[p.id]?.risk_level || p.risk_level]}风险
+                </span>
+              </div>
               <small>
                 {p.id} · 修订{p.version} · 定义{" "}
                 {p.definition_hash?.slice(0, 12) || "旧快照"}
@@ -298,7 +395,7 @@ export function PatternManager({ project }: { project: string }) {
           )}
         </main>
       </div>
-      <details>
+      <details className="pattern-history-panel">
         <summary>导入已审核业务历史 · {hist?.items.length || 0}条</summary>
         <p>
           仅人工审核记录。必需字段：id、pattern_id、pattern_hash（模式definition_hash）、library_version、context、human_reviewed=true、decision(adopt/not_needed)、source_channel(business_review/business_adoption)、case_id、run_id、reviewed_at、source。禁止GT或未经确认的机器结果。
