@@ -139,7 +139,7 @@ def test_excel_header_order_and_invalid_ids_are_not_silently_ignored():
  values=[v[1:]+v[:1] for v in values]
  parsed=xlsx_documents(workbook(values),'reordered.xlsx','id')
  assert preview(parsed)['counts']['exception']==1
- values[1][-1]='T001'
+ values[1][-1]=''
  bad=preview(xlsx_documents(workbook(values),'bad-id.xlsx','id'))
  assert not bad['valid'] and any('格式无效' in x['reason'] for x in bad['issues'])
 
@@ -176,3 +176,74 @@ def test_rejected_supplement_is_quarantined_not_counted_as_truth():
  validate_result('test-supplement',out,inputs)
  assert len(out['tests'])==1 and len(out['pending'])==1
  assert len(to_truth(out,inputs)['scenarios'])==1 and to_truth(out,inputs)['pending']==out['pending']
+
+
+def recovered_document():
+ text='''# 恢复测试用例
+| 变更类型 | 用例编号 | 用例名称 | 用例描述 |
+| --- | --- | --- | --- |
+| 未提供 | RUC-001 | 查询资源 | 正常及异常分支 |
+
+### RUC-001：查询资源
+1. Actor：开发者
+2. 前置条件：
+   系统可访问。
+3. 后置条件：返回结果。
+5. 主成功路径：〔SC@SPEC-MAIN〕
+   ① 开发者查询。
+6. 扩展路径：
+- EXT：exception：参数不合法〔SC@TC-INVALID〕 → 拒绝请求
+- EXT：alternative_success：异常后重新查询成功〔SC@TC-RECOVER〕 → 返回结果
+- EXT：undetermined：未明确的降级〔SC@TC-PENDING〕 → 处理方式待确认
+'''
+ return {'source_id':'recovered','name':'recovered.md','channel':'test','lines':[{'number':n,'text':t} for n,t in enumerate(text.splitlines(),1)]}
+
+
+def test_recovered_usecase_overview_is_not_a_test_table_and_types_are_explicit():
+ d=recovered_document();p=preview([d])
+ assert p['valid'] and p['counts']=={'exception':1,'normal':2,'optional':0,'pending':1}
+ assert not any('ID缺少' in x['reason'] for x in p['issues'])
+ assert next(r for r in p['records'] if r['id']=='SC@TC-INVALID')['关联需求']=='RUC-001：查询资源'
+ assert all(r['source_refs'][0]['quote']==d['lines'][r['row']-1]['text'] for r in p['records'])
+
+
+def test_recovered_exception_projection_partition_and_gt_type_filter_use_original_ids():
+ from scene_completion.task_partitions import split_task
+ d=recovered_document();selected=exception_documents([d])
+ assert [r['id'] for r in records(selected)]==['SC@TC-INVALID']
+ units=split_task('test-ground-truth',{'test-documents':[d]})
+ assert len(units)==1
+ parsed=records(units[0][1]['test-documents']);assert parsed[0]['前置条件']=='系统可访问。'
+ m={'interaction_id':'req','target':'receiver','object':'Platform','concern_key':'service.base.availability','status':'applicable','binding_id':'b','source_unit_ids':['SC@TC-INVALID'],'source_refs':parsed[0]['source_refs']}
+ units=split_task('test-ground-truth',{'test-documents':[d],'identified-concerns':{'matches':[m],'pending':[]}})
+ assert units[0][1]['identified-concerns']['matches']==[m]
+ for sid,kind in [('SC@TC-INVALID','exception'),('SC@TC-RECOVER','normal'),('SC@TC-PENDING','pending')]:
+  record=next(r for r in records([d]) if r['id']==sid);s=scenario('test');s['source_refs']=record['source_refs']
+  filtered=filter_scenarios({'scenarios':[s]},{'test-documents':[d]},'test-ground-truth')
+  assert bool(filtered['scenarios'])==(kind=='exception')
+
+
+def test_markdown_test_header_does_not_leak_to_unrelated_tables_or_code_examples():
+ d=docs()[0];d['lines']=d['lines'][:2]
+ extra=['','## 接口说明','| 字段 | 描述 |','| --- | --- |','| page | 页码 |','```markdown',d['lines'][0]['text'],'| bad | example |','```']
+ d['lines'] += [{'number':n,'text':v} for n,v in enumerate(extra,3)]
+ assert preview([d])['valid'] and len(records([d]))==1
+
+
+def test_create_recovered_markdown_preserves_original_and_detailed_errors_leave_no_project(tmp_path):
+ from fastapi.testclient import TestClient
+ from scene_completion.workbench import create_app
+ c=TestClient(create_app(tmp_path));d=recovered_document();text='\n'.join(r['text'] for r in d['lines'])
+ body={'name':'导入测试','sources':{'RR':[{'name':'rr.md','content':'RR'}],'SR':[{'name':'sr.md','content':'SR'}],'test':[{'name':'recovered.md','content':text}]}}
+ created=c.post('/api/projects',json=body);assert created.status_code==200
+ rid=created.json()['id'];assert (tmp_path/rid/'sources/test-0.md').read_text()==text
+ assert c.get(f'/api/projects/{rid}/test-sources').json()['preview']['counts']['exception']==1
+ body['sources']['test'][0]['content']=text+'\n'+d['lines'][-3]['text']
+ failed=c.post('/api/projects',json=body);assert failed.status_code==400
+ error=failed.json();assert 'recovered.md 第' in error['detail'] and error['import_preview']['valid'] is False
+ assert len(list(tmp_path.glob('*/sources')))==1
+
+
+def test_recovered_duplicate_scene_ids_are_still_blocking():
+ d=recovered_document();d['lines'].append({**d['lines'][-3],'number':99})
+ assert not preview([d])['valid'] and any('重复' in x['reason'] for x in preview([d])['issues'])

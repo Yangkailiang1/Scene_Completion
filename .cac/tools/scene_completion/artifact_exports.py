@@ -9,7 +9,9 @@ def export_task(root,task,payload,artifact_name=None):
     write_json(root/(file_stem+'.json'),{'protocol':PROTOCOL,'task':task,'payload':payload})
     def show(x):return '待确认' if x is None else str(x)
     rows=[]; headers=[]
-    if task=='components':headers=['名称','系统组成'];rows=[[x['name'],x['composition_type']] for x in payload['components']]
+    if task=='test-catalogue':headers=['测试用例','场景编号','场景名称','类型','触发条件','预期结果'];rows=[[t['case_id'],t['id'],t['name'],t['scenario_type'],t['trigger'],t['expected_result']] for t in payload['tests']]
+    elif task=='test-case-align':headers=['测试用例','RR/SR用例组','状态','对应依据'];rows=[[m['test_case_id'],m['case_group_id'],m['status'],m['basis']] for m in payload['matches']]
+    elif task=='components':headers=['名称','系统组成'];rows=[[x['name'],x['composition_type']] for x in payload['components']]
     elif task=='object-operations':headers=['名称','支持的操作'];rows=[[x['name'],'、'.join(o['name'] for o in x['supported_operations'])] for x in payload['objects']]
     elif task=='api-map':headers=['服务名称','对应接口列表'];rows=[[s['name'],'；'.join(' '.join(filter(None,[i['id'],i['method'],i['address']])) for i in s['interfaces'])] for s in payload['services']]
     elif task=='api-parameters':

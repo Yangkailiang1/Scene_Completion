@@ -20,3 +20,7 @@ test-documents、fused-ssd、normal-constraints、normal-rules、registry。文�
 根JSON为matches、pending，严格遵循任务output_schema。每项提供interaction_id、target、object、concern_key、basis、concrete_rule、source_refs、data_location及适用的activation_evidence。source_unit_ids保留本片测试行或分支证据身份。工具负责稳定ID、去重、定位校验和后续集合匹配，不由模型逐对打分。
 
 GT只使用本测试触发条件及允许的正向依据推导，不使用E的宽泛覆盖捷径。未标注异常的测试不得擅自纳入。
+
+
+## 恢复式Markdown测试输入
+除测试表格外，也支持用例标题与EXT扩展分支：保留SC@场景原编号，按显式exception/alternative_success/undetermined分别识别为异常/正常/待确认。主成功路径仅保留查看，不进入GT。test_record_index为同一原文的工具索引，不是新增事实；source_refs仍引用上传文件原始行。不能把运行说明中的converged/pending统计替代具体分支类型。

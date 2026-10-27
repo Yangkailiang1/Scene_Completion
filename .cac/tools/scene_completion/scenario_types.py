@@ -1,7 +1,7 @@
 """Exception-only evaluation eligibility; exclusions remain auditable."""
 from copy import deepcopy
 import re
-from .test_sources import records
+from .test_sources import records_for_inputs,referenced_record_ids
 PROCESSOR_VERSION='exception-only-post-response-v1'
 
 def filter_branches(value):
@@ -22,18 +22,18 @@ def normal_replay(record):
     return bool(re.search(r'重复(?:提交|请求)|相同\s*(?:幂等键|idempotencyKey|requestId)',trigger,re.I) and not re.search(r'失败|错误|异常|失效|冲突|不同|不一致|越权|未|多次|重复(?:创建|扣款|写入|生成)',trigger) and re.search(r'返回已有.*不重复|幂等命中.*不重复',expected))
 
 def normal_replay_record(inputs):
-    rows=records(inputs.get('test-documents',[]))
+    rows=records_for_inputs(inputs)
     return rows[0] if len(rows)==1 and normal_replay(rows[0]) else None
 
 
 def filter_scenarios(value,inputs,task):
     out=deepcopy(value);kept=[];excluded=out.setdefault('excluded',[])
     out['excluded']=excluded=[{k:x[k] for k in ('original_id','scenario_type','reason','source_refs')} for x in excluded]
-    tests={r['id']:r for r in records(inputs.get('test-documents',[]))}
+    tests={r['id']:r for r in records_for_inputs(inputs)}
     for s in out.get('scenarios',[]):
         kind=s.get('scenario_type','exception');reason='模型明确的场景类型'
         if task=='test-ground-truth':
-            ids={m for r in s.get('source_refs',[]) for m in re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['quote'])}
+            ids=referenced_record_ids(s.get('source_refs',[]),tests.values())
             kinds={tests[x]['scenario_type'] for x in ids if x in tests}
             kind=next(iter(kinds)) if len(kinds)==1 else 'pending';reason='测试类型字段严格筛选'
             selected=[tests[x] for x in ids if x in tests]

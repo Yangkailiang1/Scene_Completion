@@ -214,6 +214,7 @@ def packet(task, inputs, case_ids=None):
     if task in {'concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}:optional=optional|{'normal-rules'}
     if task=='normal-rules':optional=optional|{'registry'}
     if task in {'existing-extract','test-ground-truth'}:optional=optional|{'identified-concerns'}
+    if task in {'test-concerns','test-ground-truth'}:optional=optional|{'test-inventory'}
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
     for key in ('documents','RR','SR','existing-documents','test-documents','test-operation-source','normal-documents'):
@@ -230,7 +231,7 @@ def packet(task, inputs, case_ids=None):
     if task == 'object-operations': validate('test-operation-project', inputs['test-operations'])
     if task in {'existing-extract','existing-concerns'} and any(d.get('channel')!='existing' for d in inputs['existing-documents']):
         raise ValueError('E requires independent original document channel')
-    if task in {'test-ground-truth','test-concerns'} and any(d.get('channel')!='test' for d in inputs['test-documents']):
+    if task in {'test-inventory','test-ground-truth','test-concerns'} and any(d.get('channel')!='test' for d in inputs['test-documents']):
         raise ValueError('GT requires independent test channel')
     if 'registry' in inputs and inputs['registry']!=registry():raise ValueError('task registry differs from the current versioned definitions')
     for key,value in inputs.items():
@@ -258,3 +259,5 @@ def packet(task, inputs, case_ids=None):
 
 # Register use-case discovery and joint RR/SR modelling after common schemas.
 from . import use_cases
+from . import test_alignment
+test_alignment.register()

@@ -61,14 +61,48 @@ def evaluate(report,recommendation):
     from .assignment import full_assignment
     from .exception_comparison import coverage_assignment
     out=deepcopy(report)
-    if not recommendation.get('enabled'):return out
-    ids={s['id'] for s in recommendation['Q']};truth={s['id'] for s in report['GT']}
-    pairs=[{'left_id':p['checker_scenario_id'],'right_id':p['generated_scenario_id'],'status':'full','reason':'已保存完整失败对应'} for p in report['full_matches']['GT_G']]
-    hits=full_assignment(pairs,truth,ids)
+    if not {'GT','M','full_matches'}<=set(report):
+        out['recommendation_comparison']={'status':'未评测','unit':'独立异常场景'}
+        return out
+    truth={s['id'] for s in report['GT'] if s.get('scenario_type','exception')=='exception'}
+    pairs=report.get('full_candidate_pairs_GT_G',[{'left_id':p['checker_scenario_id'],'right_id':p['generated_scenario_id'],'status':'full','reason':'已保存完整失败对应'} for p in report['full_matches']['GT_G']])
     rate=lambda n,d:{'value':100*n/d if d else None,'numerator':n,'denominator':d,'status':'适用' if d else '不适用'}
+    def snapshot(ids):
+        hits=full_assignment(pairs,truth,ids)
+        return {'candidate_count':len(ids),'gt_count':len(truth),'matched':len(hits),'metrics':{'recommendation_adoption':rate(len(hits),len(ids)),'recommendation_false_positive':rate(len(ids)-len(hits),len(truth))}}
+    mids={s['id'] for s in report.get('M',[]) if s.get('scenario_type','exception')=='exception'}
+    out['recommendation_comparison']={'baseline':{'set':'M','label':'推荐前：全部缺失场景',**snapshot(mids)},'recommended':{'set':'Q','status':'未启用'},'unit':'独立异常场景','basis':'同一冻结GT与已保存完整匹配；推荐排序不读取GT'}
+    if not recommendation.get('enabled'):return out
+    ids={s['id'] for s in recommendation['Q']};hits=full_assignment(pairs,truth,ids)
+    if not ids<=mids:raise ValueError('推荐结果Q必须是缺失场景M的子集')
+    out['recommendation_comparison']['recommended']={'set':'Q','label':'推荐后：算法筛选场景',**snapshot(ids)}
     out['metrics']['recommendation_adoption']=rate(len(hits),len(ids));out['metrics']['recommendation_false_positive']=rate(len(ids)-len(hits),len(truth))
     covered={p['checker_scenario_id'] for p in report['full_matches']['GT_E']};critical={s['id'] for s in report['GT'] if s.get('risk',{}).get('level')=='critical'}-covered
     out['metrics']['critical_missing_recall']=rate(len(full_assignment(pairs,critical,ids)),len(critical))
     out['recommendation']={k:v for k,v in recommendation.items() if k not in {'ranked','critical_review'}};out['full_matches']['GT_Q']=hits
     out.setdefault('formula_notes',{}).update(recommendation_adoption='|Q∩GT|/|Q|×100%；GT命中率，不等于人工采纳率',recommendation_false_positive='|Q−GT|/|GT|×100%；分母为GT，可能超过100%',critical_missing_recall='|Q∩关键(GT−E)|/|关键(GT−E)|×100%')
+    return out
+
+
+def comparison_for_view(report,recommendation):
+    """Read saved results without merging incompatible historical snapshots."""
+    saved=report.get('recommendation_comparison')
+    if saved:return deepcopy(saved)
+    try:return evaluate(report,recommendation).get('recommendation_comparison')
+    except ValueError as error:
+        value=evaluate(report,{'enabled':False})['recommendation_comparison']
+        value['recommended']={'set':'Q','status':'版本不一致，待重算','reason':str(error)}
+        return value
+
+
+def aggregate_comparison(comparisons):
+    out={'unit':'独立异常场景','basis':'按用例合并分子分母；推荐前取完整M，推荐后取Q'}
+    for side in ('baseline','recommended'):
+        rows=[c[side] for c in comparisons if c and c.get(side,{}).get('metrics')]
+        value={'set':'M' if side=='baseline' else 'Q','label':'推荐前：全部缺失场景' if side=='baseline' else '推荐后：算法筛选场景','evaluated_cases':len(rows),'metrics':{}}
+        for key in ('candidate_count','gt_count','matched'):value[key]=sum(r[key] for r in rows)
+        for metric in ('recommendation_adoption','recommendation_false_positive'):
+            items=[r['metrics'][metric] for r in rows];n=sum(v['numerator'] for v in items);d=sum(v['denominator'] for v in items)
+            value['metrics'][metric]={'value':100*n/d if d else None,'numerator':n,'denominator':d,'status':'适用' if d else '不适用' if rows else '未评测'}
+        out[side]=value
     return out

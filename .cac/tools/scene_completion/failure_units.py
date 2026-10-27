@@ -14,7 +14,9 @@ def clean_model_scenarios(value):
 
 
 def source_tests(s):
-    return tuple(sorted({(r['source_id'],m) for r in s['source_refs'] for m in re.findall(r'\bTEST[-_][A-Za-z0-9_-]+',r['quote'])}))
+    from .test_sources import test_ids
+    explicit={(r['source_id'],m) for r in s['source_refs'] for m in test_ids(r['quote'])}
+    return tuple(sorted(explicit or {(r['source_id'],'line:'+str(r['line_start'])+':'+str(r['line_end'])) for r in s['source_refs']}))
 
 
 def normalize_test_assertions(value, inputs):
@@ -26,14 +28,14 @@ def normalize_test_assertions(value, inputs):
     """
     out=deepcopy(value);rows=inputs.get('fused-ssd',{}).get('interactions',[])
     by_id={i['id']:i for i in rows};groups={}
-    from .test_sources import records
+    from .test_sources import records,records_for_inputs
     test_docs=inputs.get('test-documents',[])
     if not test_docs:
         # Legacy tool callers supply only the already retained nine-column
         # test citation. The parser applies the same exact type-column rule.
         test_docs=[{'source_id':r['source_id'],'name':'retained-test-citation','channel':'test','lines':[{'number':r['line_start'],'text':r['quote']}]} for s in out.get('scenarios',[]) for r in s.get('source_refs',[])]
     typed={}
-    for r in records(test_docs):typed.setdefault((r['source_id'],r['id']),r)
+    for r in records_for_inputs(inputs) if inputs.get('test-documents') else records(test_docs):typed.setdefault((r['source_id'],r['id']),r)
     by_location={(r['source_id'],r['row']):r for r in typed.values()}
     for s in out.get('scenarios',[]):
         for ref in s.get('source_refs',[]):

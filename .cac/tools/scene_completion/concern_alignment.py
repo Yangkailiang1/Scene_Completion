@@ -145,8 +145,8 @@ def recognize(inputs,raw,*,inverse=False):
             if len(branches)==1:
                 m['source_branch_ids']=[branches[0]['id']]
             if inputs.get('test-documents'):
-                from .test_sources import records
-                source_units=records(inputs['test-documents'])
+                from .test_sources import records_for_inputs
+                source_units=records_for_inputs(inputs)
                 own=[r['id'] for r in source_units if any(ref['source_id']==r.get('source_id') and
                      ref['line_start']<=r.get('row',-1)<=ref['line_end'] for ref in m['source_refs'])]
                 if len(source_units)==1:own=[source_units[0]['id']]

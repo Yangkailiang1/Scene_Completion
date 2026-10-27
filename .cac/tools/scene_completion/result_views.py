@@ -37,7 +37,7 @@ class ResultView:
 
     def catalog(self):
         out=[]
-        stages={'components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend','existing-concerns','test-concerns','concern-compare','concern-evaluation'}
+        stages={'test-inventory','test-case-align','components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend','existing-concerns','test-concerns','concern-compare','concern-evaluation'}
         for key,r in self.state.items():
             if r.get('status')!='passed' or r['stage'] not in stages or '--part-' in key:continue
             case=r['case'];stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -65,6 +65,7 @@ class ResultView:
     def metrics(self,test_set='expanded'):
         if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
         from .result_alignment import aggregate_metrics
+        from .recommendation import aggregate_comparison
         rows=[]
         for c in self.cases():
             v=self.payload(c['id']+':exception-evaluation')
@@ -76,14 +77,16 @@ class ResultView:
             pending=len(self.payload(c['id']+(':'+('test-expanded' if test_set=='expanded' and v.get('test_set')=='expanded' else 'test-ground-truth'))).get('pending',[]))
             excluded=[x for values in concern.get('excluded',{}).values() for x in values]
             concern_pending=len({(x.get('interaction_id'),x.get('object'),x.get('concern_key'),x.get('reason') or x.get('status_reason')) for x in excluded if x.get('scenario_type') not in {'normal','optional'} and x.get('status')!='not_applicable'})
-            rows.append({**c,'metrics':v.get('metrics',{}),'counts':{k:len(concern.get(k+'_c',[])) if concern else len(v.get(k,[])) for k in ('G','E','GT','M')},'metric_units':v.get('metric_units',{}),'matching_version':v.get('matching_version'),'scenario_counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'concern_pending':concern_pending,'concern_excluded_count':len(excluded),'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（关注点或GT有待确认项）' if v and (pending or concern_pending) else '已评测' if v else '未评测'})
+            from .recommendation import comparison_for_view
+            comparison=comparison_for_view(v,self.payload(c['id']+':gap-recommend'))
+            rows.append({**c,'metrics':v.get('metrics',{}),'recommendation_comparison':comparison,'counts':{k:len(concern.get(k+'_c',[])) if concern else len(v.get(k,[])) for k in ('G','E','GT','M')},'metric_units':v.get('metric_units',{}),'matching_version':v.get('matching_version'),'scenario_counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'concern_pending':concern_pending,'concern_excluded_count':len(excluded),'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（关注点或GT有待确认项）' if v and (pending or concern_pending) else '已评测' if v else '未评测'})
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         history=[]
         for p in (self.root/'report_versions').glob('*/missing_report.json'):
             summary=p.parent/'metrics_summary.json'
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
         generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
-        return {'matching_version':self.manifest.get('matching_version'),'unit':'关注点绑定' if self.manifest.get('matching_version') else '历史异常场景','cases':rows,'metrics':aggregate_metrics(rows),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
+        return {'test_alignment_pending':self.manifest.get('test_import_pending_count',0)+sum(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),'matching_version':self.manifest.get('matching_version'),'unit':'关注点绑定' if self.manifest.get('matching_version') else '历史异常场景','cases':rows,'metrics':aggregate_metrics(rows),'recommendation_comparison':aggregate_comparison([r['recommendation_comparison'] for r in rows]),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
                 'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
                 'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 

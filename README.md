@@ -125,3 +125,5 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 “模式与风险”和“用量与费用”提供紧凑配置及具体任务瓶颈排行；最终图表增加可下载的SysML BDD。[BDD及用量排行说明](docs/bdd-and-usage-rankings.md)。
 
 当前两层流程使用 `scene-workflow-v4`，此前v2/v3说明及报告保留为历史记录。用量页可整页滚动，并区分累计成本与单次请求峰值；关注点设置按分类树组织，输入/输出共用稳定定义。默认请求上下文上限为200,000 Token，完整请求及输出预留在发送前检查。定向样本对比、质量门禁及未启用的测试补全实验见[上下文优化与网页验收](docs/scene-workflow-v4/context-optimization.md)。
+
+测试Markdown恢复格式、测试与需求用例对应及推荐前后指标，见[说明](docs/test-markdown-alignment.md)。

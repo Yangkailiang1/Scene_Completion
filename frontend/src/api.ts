@@ -17,11 +17,13 @@ export async function api<T = any>(
   });
   if (!r.ok) {
     let error = `请求失败（${r.status}）`;
+    let preview: any;
     try {
       const b = await r.json();
       error = typeof b.detail === "string" ? b.detail : error;
+      preview = b.import_preview;
     } catch {}
-    throw new Error(error);
+    throw Object.assign(new Error(error), { importPreview: preview });
   }
   return r.json();
 }

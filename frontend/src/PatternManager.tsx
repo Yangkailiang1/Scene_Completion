@@ -7,6 +7,7 @@ import {
   Plus,
 } from "lucide-react";
 import { api, projectUrl } from "./api";
+import { RecommendationComparison } from "./ResultComparison";
 const risks: Record<string, string> = {
   low: "低",
   normal: "普通",
@@ -434,9 +435,11 @@ export function PatternManager({ project }: { project: string }) {
 export function RecommendationsView({
   project,
   caseId,
+  testSet = "expanded",
 }: {
   project: string;
   caseId?: string;
+  testSet?: string;
 }) {
   const [data, setData] = useState<any>(null),
     [localCase, setLocalCase] = useState(""),
@@ -445,7 +448,7 @@ export function RecommendationsView({
     [notes, setNotes] = useState<Record<string, string>>({}),
     [premises, setPremises] = useState<Record<string, string>>({});
   const cid = caseId ?? localCase;
-  const contextKey = project + "\0" + cid;
+  const contextKey = project + "\0" + cid + "\0" + testSet;
   const activeContext = useRef(contextKey);
   activeContext.current = contextKey;
   const requestVersion = useRef(0);
@@ -459,7 +462,7 @@ export function RecommendationsView({
         api(
           projectUrl(
             project,
-            "recommendations" + (cid ? "?case=" + encodeURIComponent(cid) : ""),
+            "recommendations" + (cid ? "?case=" + encodeURIComponent(cid) : "") + (testSet === "original" ? (cid ? "&" : "?") + "test_set=original" : ""),
           ),
         ),
         api(projectUrl(project, "recommendation-history")),
@@ -486,7 +489,7 @@ export function RecommendationsView({
     return () => {
       ++requestVersion.current;
     };
-  }, [project, cid]);
+  }, [project, cid, testSet]);
   const act = async (path: string, body: any) => {
     try {
       await api(projectUrl(project, path), {
@@ -520,6 +523,7 @@ export function RecommendationsView({
         <button onClick={load}>刷新</button>
       </div>
       {msg && <p role="status">{msg}</p>}
+      {data && <RecommendationComparison data={data.comparison} />}
       {!data ? (
         <p>正在读取当前用例的推荐…</p>
       ) : !result?.enabled ? (

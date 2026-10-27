@@ -27,6 +27,11 @@ class Workbench:
         if body.get('review_mode','manual') not in {'manual','auto'}:raise ValueError('invalid review mode')
         sources=body.get('sources',{});saved={}
         if not sources.get('RR') or not sources.get('SR'):raise ValueError('请提供RR和SR Markdown文档')
+        from .test_sources import preview_sources,ImportValidationError
+        imported=preview_sources(sources.get('test',[]))
+        if not imported['valid']:raise ImportValidationError(imported)
+        case_ids=body.get('case_ids',[])
+        if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         rid=uuid4().hex;p=self.root/rid;p.mkdir()
         for role in ('RR','SR','test'):
             saved[role]=[]
@@ -35,12 +40,6 @@ class Workbench:
                 content,suffix=decode_source(d,role)
                 filename=f'sources/{role}-{idx}{suffix}';target=p/filename;target.parent.mkdir(exist_ok=True);target.write_bytes(content)
                 saved[role].append({'path':filename,'name':Path(d['name']).name})
-        from .source_documents import read_project_documents
-        from .test_sources import preview
-        imported=preview(read_project_documents(p,saved['test'],'test'))
-        if not imported['valid']:raise ValueError('测试文件存在重复ID或必填缺项，请修正导入预览')
-        case_ids=body.get('case_ids',[])
-        if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         from .normal_rules import RULESET_VERSION
         meta={'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL,'ruleset_version':RULESET_VERSION}
         write_json(p/'project.json',meta)
@@ -69,7 +68,9 @@ class Workbench:
                     filename=f'sources/tests-{current}/test-{idx}{suffix}';target=p/filename;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
                     sources.append({'path':filename,'name':Path(d['name']).name})
                 checked=preview(read_project_documents(p,sources,'test'))
-                if not checked['valid']:raise ValueError('测试导入有缺项或重复ID，请先修正预览问题')
+                if not checked['valid']:
+                    from .test_sources import ImportValidationError
+                    raise ImportValidationError(checked)
                 if not any(x['id']==current for x in versions):versions.append({'id':current,'sources':sources,'created_at':time.time()})
             import shutil
             archive=p/'run/report_versions'/('test-source-'+str(time.time_ns()))
@@ -77,7 +78,9 @@ class Workbench:
                 f=p/'run'/name
                 if f.exists():archive.mkdir(parents=True,exist_ok=True);shutil.copy2(f,archive/name)
             meta['sources']['test']=sources;meta['test_source_version']=current;write_json(p/'project.json',meta);write_json(history,versions)
-        return {'version':current,'versions':versions,'preview':preview(read_project_documents(p,meta['sources']['test'],'test')),'sources':meta['sources']['test']}
+        from .result_views import ResultView
+        results=ResultView(p)
+        return {'version':current,'versions':versions,'preview':preview(read_project_documents(p,meta['sources']['test'],'test')),'sources':meta['sources']['test'],'catalogue':results.payload('test-inventory'),'alignment':results.payload('test-case-align'),'alignment_stale':results.test_source_changed,'requirement_cases':results.cases()}
     def list(self):return sorted([read_json(p) for p in self.root.glob('*/project.json')],key=lambda x:x['created_at'],reverse=True)
     def model_config(self,rid):
         from .model_settings import resolve
@@ -331,7 +334,7 @@ def create_app(root=None,client_factory=None,env_file=None):
             match=re.match(r'/api/projects/([a-f0-9]{32})(?:/|$)',request.url.path)
             scope=registry_scope(project_registry(service.run_dir(match[1]))) if match else nullcontext()
             with scope:return await call_next(request)
-        except ValueError as e:return Response(json.dumps({'detail':str(e)},ensure_ascii=False),status_code=400,media_type='application/json')
+        except ValueError as e:return Response(json.dumps({'detail':str(e),**({'import_preview':e.import_preview} if hasattr(e,'import_preview') else {})},ensure_ascii=False),status_code=400,media_type='application/json')
     @app.get('/')
     def index():return FileResponse(WEB/'index.html')
     if (WEB/'assets').exists():app.mount('/assets',StaticFiles(directory=WEB/'assets'),name='assets')
@@ -342,12 +345,8 @@ def create_app(root=None,client_factory=None,env_file=None):
     def create(body:dict):return service.create(body)
     @app.post('/api/test-sources/preview')
     def preview_tests(body:dict):
-        from .test_sources import decode_source,xlsx_documents,preview
-        docs=[]
-        for d in body.get('sources',[]):
-            data,suffix=decode_source(d,'test');identity=fingerprint([d['name'],data.hex()])
-            docs.extend(xlsx_documents(data,d['name'],identity) if suffix=='.xlsx' else [{'source_id':identity[:20],'name':d['name'],'channel':'test','lines':[{'number':n,'text':t} for n,t in enumerate(data.decode('utf8').splitlines(),1)]}])
-        return preview(docs)
+        from .test_sources import preview_sources
+        return preview_sources(body.get('sources',[]))
     @app.get('/api/test-sources/template')
     def test_template():
         path=PROJECT/'examples/tests/mall-exception-tests.xlsx'
@@ -391,14 +390,19 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .pattern_settings import import_history
         with service.lock:return import_history(service.run_dir(rid),body)
     @app.get('/api/projects/{rid}/recommendations')
-    def recommendations(rid:str,case:str|None=None):
+    def recommendations(rid:str,case:str|None=None,test_set:str='expanded'):
         from .pattern_settings import settings,adoption
         from .result_views import ResultView
         p=service.run_dir(rid);v=ResultView(p)
         if case and case not in {c['id'] for c in v.cases()}:raise ValueError('未知用例')
         result=v.payload(case+':gap-recommend') if case else {}
         matrix=v.payload(case+':pattern-applicability') if case else {}
-        return {'cases':v.cases(),'case':case,'result':result,'matrix':matrix,'current_settings_hash':settings(p)['version'],'human_adoption':adoption(p,result)}
+        if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
+        evaluation=v.payload(case+':exception-evaluation') if case else {}
+        if test_set=='original':evaluation=evaluation.get('original_evaluation',evaluation)
+        from .recommendation import comparison_for_view
+        comparison=comparison_for_view(evaluation,result)
+        return {'cases':v.cases(),'case':case,'result':result,'matrix':matrix,'comparison':comparison,'test_set':test_set,'current_settings_hash':settings(p)['version'],'human_adoption':adoption(p,result)}
     @app.post('/api/projects/{rid}/recommendations/feedback')
     def recommendation_feedback(rid:str,body:dict):
         from .pattern_settings import feedback

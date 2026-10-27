@@ -16,6 +16,7 @@ from .concern_hierarchy import resolve_matches
 from .task_context import generation_matches
 from .normal_rules import documented_normal_tolerance
 from .scenario_types import normal_replay_record
+from .test_alignment import known_catalogue,exact_alignment
 from .exception_comparison import compare_report,missing_report
 from .artifact_exports import export_task
 from .reviews import REVIEW_TASKS
@@ -58,6 +59,7 @@ def code_version(task):
       'normal-rules':['normal_rules.py','task_partitions.py'],
       'existing-concerns':['concern_alignment.py','task_partitions.py','task_context.py'],
       'test-concerns':['scenario_types.py','concern_alignment.py','task_partitions.py','task_context.py'],
+      'test-inventory':['test_alignment.py','test_sources.py'], 'test-case-align':['test_alignment.py'],
       'concern-compare':['concern_alignment.py'], 'concern-evaluation':['concern_alignment.py'],
       'concern-match':['concern_alignment.py','normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'exception-generate':['concern_alignment.py','normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
@@ -300,6 +302,10 @@ class Execution:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
+            elif task=='test-inventory' and (known:=known_catalogue(inputs['test-documents'])) is not None:
+                value=known;proof={'provider':'explicit_test_structure','reason':'按原文明示字段/EXT标签整理，不改变场景类型'}
+            elif task=='test-case-align' and (aligned:=exact_alignment(inputs)) is not None:
+                value=aligned;proof={'provider':'explicit_case_identifiers'}
             elif task=='test-ground-truth' and documented_normal_tolerance(inputs):
                 value={'scenarios':[],'pending':[]};proof={'provider':'documented_normal_tolerance','reason':'本测试明确为可选容错且预期允许隐藏/缺省，不违反约定，不进入异常GT；测试原文保存在任务输入'}
             elif task=='test-supplement' and not any(not r['concern_key'].startswith('api.data.') for r in inputs['normal-rules']['rules']):
@@ -442,7 +448,7 @@ class Execution:
                     if 'api-parameters' not in self.scheduler.tasks:
                         self.add('api-parameters','api-parameters',('api-index',),transform=lambda d:{'apis':[]})
                         self.scheduler.tasks['api-parameters'].deferred=True
-            if self.expand_pipeline and ready(('use-case-align',)):
+            if self.expand_pipeline and ready(('use-case-align','test-case-align')):
                 expand=self.expand_pipeline;self.expand_pipeline=None;expand()
             for dependencies,expand in list(self.partitions):
                 if ready(dependencies):
@@ -452,7 +458,7 @@ class Execution:
         if self.expand_api:
             self.scheduler.tasks.pop('api-parameters',None)
             expand=self.expand_api;self.expand_api=None;expand();result=self.scheduler.run()
-        if self.expand_pipeline and self.scheduler.state['tasks'].get('use-case-align',{}).get('status')=='passed':
+        if self.expand_pipeline and all(self.scheduler.state['tasks'].get(k,{}).get('status')=='passed' for k in ('use-case-align','test-case-align')):
             expand=self.expand_pipeline;self.expand_pipeline=None;expand();result=self.scheduler.run()
         before=set(self.scheduler.tasks);update()
         if before!=set(self.scheduler.tasks):result=self.scheduler.run()
@@ -493,7 +499,7 @@ class Execution:
         analysis_stages={'existing-concerns','concern-compare','fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
         if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
-        self.manifest.update(complete=result['complete'] and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
+        self.manifest.update(complete=result['complete'] and not self.manifest.get('test_import_pending_count',0) and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])) and not any(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
@@ -569,6 +575,9 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
     if not ex.config.get('scenario_patterns',False):ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
     ex.add('use-case-align','use-case-align',('rr-use-cases','sr-use-cases'),
       build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})
+    ex.add('test-inventory','test-inventory',static={'test-documents':tests})
+    ex.add('test-case-align','test-case-align',('test-inventory','rr-use-cases','sr-use-cases','use-case-align'),
+      build=lambda d:{'test-inventory':{**d['test-inventory'],'tests':[]},'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases'],'case-groups':d['use-case-align']})
     def expand():
         state=ex.scheduler.state['tasks']
         get=lambda key:payload(read_json(ex.root/state[key]['output_file']))
@@ -576,11 +585,14 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
         groups=get('use-case-align')['groups']
         if ex.case_ids:groups=[g for g in groups if g['id'] in ex.case_ids or set(ex.case_ids)&set(g['rr_ids']+g['sr_ids'])]
         ex.manifest['case_correspondence']=groups
-        _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
+        test_catalogue=get('test-inventory');test_alignment=get('test-case-align')
+        ex.manifest['test_case_correspondence']=test_alignment['matches']
+        ex.manifest['test_import_pending_count']=len(test_catalogue.get('pending',[]))
+        _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue,test_alignment)
     ex.expand_pipeline=expand
 
 
-def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications):
+def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue=None,test_alignment=None):
     from .use_cases import select_documents
     from .source_documents import case_projection
     from .api_documents import case_parameters
@@ -602,6 +614,9 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
         test_ids=list(dict.fromkeys(x for g in groups for x in g['rr_ids']+g['sr_ids']))
         scoped_test=[]
         for tid in group['rr_ids']+group['sr_ids']:scoped_test+=case_projection(tests,tid,test_ids)
+        if test_catalogue is not None:
+            from .test_alignment import scoped_tests
+            scoped_test,case_test_catalogue=scoped_tests(test_catalogue,test_alignment,tests,cid)
         merged_test={}
         for document in scoped_test:
             part=merged_test.setdefault(document['source_id'],{**document,'lines':[]})
@@ -612,9 +627,14 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             part['lines']=[rows[n] for n in sorted(rows)]
         scoped_test=list(merged_test.values())
         from .test_sources import exception_documents,records
-        test_catalogue=records(scoped_test)
-        write_json(ex.root/'test_catalogues'/(cid+'.json'),{'records':test_catalogue,'policy':'exception-only','version':'exception-test-sources-v1'})
-        abnormal_test=exception_documents(scoped_test)
+        if test_catalogue is not None:
+            from .test_alignment import as_records
+            test_records=as_records(case_test_catalogue,scoped_test)
+            abnormal_catalogue={**case_test_catalogue,'tests':[t for t in case_test_catalogue['tests'] if t['scenario_type']=='exception']}
+            abnormal_test=scoped_test if abnormal_catalogue['tests'] else []
+            test_input={'test-inventory':abnormal_catalogue}
+        else:test_records=records(scoped_test);abnormal_test=exception_documents(scoped_test);test_input={}
+        write_json(ex.root/'test_catalogues'/(cid+'.json'),{'records':test_records,'policy':'exception-only','version':'exception-test-sources-v1'})
         add('existing-branches',static={'existing-documents':scoped_rr+scoped_sr})
         from .task_context import ssd_context
         add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
@@ -670,15 +690,15 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications)
             add('gap-recommend',('missing-report','pattern-applicability'),
                 build=lambda d,cid=cid:{**d,'settings':ex.pattern_settings,'history':ex.recommendation_history,'case_id':cid,'run_id':ex.session_id},
                 transform=lambda d,cid=cid:rank(d['missing-report']['M'],d['pattern-applicability'],d['settings'],d['history'],case_id=d['case_id'],run_id=d['run_id']))
-        add('test-concerns',('api-parameters','api-map','fused-ssd','normal-rules'),build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'matches':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
-        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules','test-concerns'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test:{'test-documents':tt,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules'],'identified-concerns':d['test-concerns']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
+        add('test-concerns',('api-parameters','api-map','fused-ssd','normal-rules'),build=lambda d,tt=abnormal_test,ti=test_input:{'test-documents':tt,**ti,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules']},transform=(lambda d:{'matches':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
+        add('test-ground-truth',('api-parameters','api-map','fused-ssd','normal-rules','test-concerns'),static={'tests':abnormal_test},build=lambda d,tt=abnormal_test,ti=test_input:{'test-documents':tt,**ti,'normal-constraints':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd'],'registry':registry(),'normal-rules':d['normal-rules'],'identified-concerns':d['test-concerns']},transform=(lambda d:{'scenarios':[],'pending':[]}) if not abnormal_test else None,partition=bool(abnormal_test))
         for task,target in [('GT_G','exception-generate'),('GT_E','existing-extract')]:
             # internal semantic comparison, not the public missing-report task
             a,b='test-ground-truth',target
             ex.add(key(task),'semantic-compare',(key(a),key(b)),build=lambda d,a=key(a),b=key(b),task=task:{'left':d[a]['scenarios'],'right':d[b]['scenarios'],'purpose':task},case=cid)
         if ex.config.get('supplement_tests',False):
             from .test_supplement import positive_inputs,to_truth,combine_truth,dedup_candidates,deduplicate_truth
-            add('test-supplement',('fused-ssd','api-parameters','normal-rules'),build=lambda d,cat=test_catalogue:positive_inputs(d['fused-ssd'],case_parameters(d,d['fused-ssd']),d['normal-rules'],cat,registry()),partition=True)
+            add('test-supplement',('fused-ssd','api-parameters','normal-rules'),build=lambda d,cat=test_records:positive_inputs(d['fused-ssd'],case_parameters(d,d['fused-ssd']),d['normal-rules'],cat,registry()),partition=True)
             from .concern_alignment import supplemental_concerns
             add('test-additional-concerns',('test-supplement','fused-ssd','api-parameters','api-map'),build=lambda d:d,transform=lambda d:supplemental_concerns(d['test-supplement'],d['fused-ssd'],case_parameters(d,d['fused-ssd'])))
             add('test-additional-truth',('test-supplement','fused-ssd','test-additional-concerns','api-parameters','api-map'),build=lambda d:d,transform=lambda d:bind_scenarios(to_truth(d['test-supplement'],{'fused-ssd':d['fused-ssd']}),{'fused-ssd':d['fused-ssd'],'normal-constraints':case_parameters(d,d['fused-ssd'])},d['test-additional-concerns'],gate=True))

@@ -69,6 +69,10 @@ function mergeEvents(a: ExecutionEvent[], b: ExecutionEvent[]) {
 }
 export default function App() {
   const [newTestPreview, setNewTestPreview] = useState<any>(null);
+  const [newTestError, setNewTestError] = useState("");
+  const [newTestLoading, setNewTestLoading] = useState(false);
+  const [newCreating, setNewCreating] = useState(false);
+  const newTestRequest = useRef(0);
   const [management, setManagement] = useState<
     "pending" | "concerns" | "results" | "patterns" | null
   >(null);
@@ -111,6 +115,14 @@ export default function App() {
     running = snapshot?.job.status === "running";
   const error = (e: any) =>
     setNotice(e instanceof Error ? e.message : String(e));
+  useEffect(() => {
+    if (dialog === "new") {
+      newTestRequest.current += 1;
+      setNewTestPreview(null);
+      setNewTestError("");
+      setNewTestLoading(false);
+    }
+  }, [dialog]);
   async function loadProjects() {
     const list = await api<Project[]>("/api/projects");
     setProjects(list);
@@ -1154,6 +1166,8 @@ export default function App() {
                   const f = e.currentTarget;
                   const form = new FormData(f);
                   (async () => {
+                    setNewCreating(true);
+                    setNewTestError("");
                     const sources: Record<string, any[]> = {};
                     for (const role of ["RR", "SR", "test"])
                       sources[role] = await Promise.all(
@@ -1161,6 +1175,15 @@ export default function App() {
                           .filter((v) => v.name)
                           .map(sourceFile),
                       );
+                    const checked = await api("/api/test-sources/preview", {
+                      method: "POST",
+                      body: JSON.stringify({ sources: sources.test }),
+                    });
+                    setNewTestPreview(checked);
+                    if (!checked.valid) {
+                      setNewTestError("请先修正下面列出的测试导入问题，文件仍保留在当前表单。");
+                      return;
+                    }
                     const p = await api<Project>("/api/projects", {
                       method: "POST",
                       body: JSON.stringify({
@@ -1175,7 +1198,10 @@ export default function App() {
                     await loadProjects();
                     openProject(p.id);
                     setDialog(null);
-                  })().catch(error);
+                  })().catch((err: any) => {
+                    if (err.importPreview) setNewTestPreview(err.importPreview);
+                    setNewTestError(err.message);
+                  }).finally(() => setNewCreating(false));
                 }}
               >
                 <span className="eyebrow">NEW PROJECT</span>
@@ -1209,21 +1235,25 @@ export default function App() {
                       onChange={
                         name === "test"
                           ? async (e) => {
+                              const request = ++newTestRequest.current;
                               setNewTestPreview(null);
+                              setNewTestError("");
+                              setNewTestLoading(true);
                               try {
                                 const sources = await Promise.all(
                                   Array.from(e.target.files || []).map(
                                     sourceFile,
                                   ),
                                 );
-                                setNewTestPreview(
-                                  await api("/api/test-sources/preview", {
+                                const result = await api("/api/test-sources/preview", {
                                     method: "POST",
                                     body: JSON.stringify({ sources }),
-                                  }),
-                                );
-                              } catch (err) {
-                                error(err);
+                                  });
+                                if (request === newTestRequest.current) setNewTestPreview(result);
+                              } catch (err: any) {
+                                if (request === newTestRequest.current) setNewTestError(err.message);
+                              } finally {
+                                if (request === newTestRequest.current) setNewTestLoading(false);
                               }
                             }
                           : undefined
@@ -1231,16 +1261,24 @@ export default function App() {
                     />
                   </label>
                 ))}
+                {newTestError && <p role="alert">{newTestError}</p>}
+                {newTestLoading && <p role="status">正在检查测试文件…</p>}
                 {newTestPreview && (
+                  <section className="test-import-preview" aria-label="测试导入预览">
                   <p>
                     测试导入预览：异常 {newTestPreview.counts?.exception || 0} /
                     正常 {newTestPreview.counts?.normal || 0} / 可选{" "}
                     {newTestPreview.counts?.optional || 0} / 待确认{" "}
                     {newTestPreview.counts?.pending || 0}。
-                    {newTestPreview.issues
-                      ?.map((x: any) => x.id + "：" + x.reason)
-                      .join("；")}
                   </p>
+                  {!!newTestPreview.semantic_index_required?.length && <p>以下文件将在运行时独立整理测试用例与场景，并与RR/SR用例对齐：{newTestPreview.semantic_index_required.join("、")}。当前尚未计入上述结构化预览数量。</p>}
+                  {!!newTestPreview.issues?.length && (
+                    <details open={!newTestPreview.valid}>
+                      <summary>{newTestPreview.valid ? "不参与计分的待确认提示" : "需要修正的导入问题"}（{newTestPreview.issues.length}项）</summary>
+                      <ul>{newTestPreview.issues.map((x: any, n: number) => <li key={n}>{x.source} 第{x.row}行 {x.id}：{x.reason}</li>)}</ul>
+                    </details>
+                  )}
+                  </section>
                 )}
                 <div className="form-grid">
                   <label>
@@ -1255,8 +1293,8 @@ export default function App() {
                     <input name="case_ids" placeholder="留空分析所有用例" />
                   </label>
                 </div>
-                <Button className="mt-5 w-full" type="submit">
-                  创建项目
+                <Button className="mt-5 w-full" type="submit" disabled={newTestLoading || newCreating || newTestPreview?.valid === false}>
+                  {newCreating ? "正在创建…" : "创建项目"}
                 </Button>
               </form>
             ) : (

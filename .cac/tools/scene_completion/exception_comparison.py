@@ -45,6 +45,7 @@ def compare_report(g,e,gt,eg,tg,te):
       'recommendation_false_positive':{'value':None,'status':'未启用'}},
       'generation_breakdown':{kind:{'count':sum(s.get('resolution','explicit')==kind for s in g),'matched':sum(next(s for s in g if s['id']==p['generated_scenario_id']).get('resolution','explicit')==kind for p in valid)} for kind in ('explicit','conditional')},
       'truth_breakdown':breakdown,'full_matches':{'G_E':coverage_assignment(eg,g,e),'GT_G':valid,'GT_E':coverage_assignment(te,gt,e)},
+      'full_candidate_pairs_GT_G':[d for d in tg if d['status']=='full' and d['left_id'] in tids and d['right_id'] in gids],
       'partial_diagnostics':[d for ds in (eg,tg,te) for d in ds if d['status']=='partial'],
       'recommendation':{'enabled':False,'status':'未启用'},'formula_notes':{
        'GT':'人工测试真值（含单列的框架推导项）','G':'生成异常集合','E':'文档已有异常集合','M':'G减去被E覆盖的细项（宽泛输入参数分支可覆盖同交互多项）',

@@ -22,7 +22,8 @@ def split_task(task,inputs):
                 selected['matches']=[m for m in selected['matches'] if not m.get('source_branch_ids') or ids & set(m['source_branch_ids'])]
             else:
                 refs={(d['source_id'],r['number']) for d in q['test-documents'] for r in d['lines']}
-                source_ids=set(re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',' '.join(r['text'] for d in q['test-documents'] for r in d['lines'])))
+                from .test_sources import records_for_inputs
+                source_ids={r['id'] for r in records_for_inputs(q)}
                 selected['matches']=[m for m in selected['matches'] if (bool(set(m['source_unit_ids']) & source_ids) if m.get('source_unit_ids') else any((r['source_id'],n) in refs for r in m['source_refs'] for n in range(r['line_start'],r['line_end']+1)))]
                 if 'excluded' in selected:selected['excluded']=[m for m in selected['excluded'] if m.get('original_id') in source_ids]
             groups={}
@@ -88,18 +89,28 @@ def split_task(task,inputs):
             units.append((branch['id'],q))
         return units
     if task in {'test-ground-truth','test-concerns'}:
-        from .test_sources import exception_documents
-        inputs={**inputs,'test-documents':exception_documents(inputs['test-documents'])}
+        from .test_sources import exception_documents,records,records_for_inputs,is_test_header,ALIASES,HEADERS,cells
+        if 'test-inventory' not in inputs:inputs={**inputs,'test-documents':exception_documents(inputs['test-documents'])}
         units=[]
-        for d in inputs['test-documents']:
-            rows=[r for r in d['lines'] if re.match(r'^\s*\|',r['text']) and re.search(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['text'])]
-            for row in rows:
-                from .test_sources import ALIASES,HEADERS,cells
-                headers=[r for r in d['lines'] if any(h in cells(r['text']) for h in ALIASES['测试ID'])]
-                if headers and len(cells(headers[-1]['text']))==9 and all(h in ALIASES[HEADERS[n]] for n,h in enumerate(cells(headers[-1]['text']))):headers=[]
-                q=deepcopy(inputs);q['test-documents']=[{**d,'lines':headers+[row]}]
+        if 'test-inventory' in inputs:
+            for record in records_for_inputs(inputs):
+                if record['scenario_type']!='exception':continue
+                q=deepcopy(inputs);cat=q['test-inventory'];cat['tests']=[t for t in cat['tests'] if t['id']==record['id']];owners={t['case_id'] for t in cat['tests']};cat['cases']=[c for c in cat['cases'] if c['id'] in owners]
+                q['test-documents']=_documents_at(inputs['test-documents'],record['source_refs']+[r for c in cat['cases'] for r in c['source_refs']])
                 if 'identified-concerns' in q:
-                    ids=set(re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',row['text']))
+                    selected=q['identified-concerns'];selected['matches']=[m for m in selected['matches'] if record['id'] in m.get('source_unit_ids',[]) or not m.get('source_unit_ids') and any(a['source_id']==b['source_id'] and a['line_start']<=b['line_end'] and b['line_start']<=a['line_end'] for a in m['source_refs'] for b in record['source_refs'])]
+                units.append((record['source_id']+':'+record['id'],q))
+            return units
+        for d in inputs['test-documents']:
+            for record in records([d]):
+                if record['scenario_type']!='exception':continue
+                row=next(r for r in d['lines'] if r['number']==record['row'])
+                headers=[r for r in d['lines'] if r['number']<row['number'] and is_test_header(cells(r['text']))][-1:]
+                if headers and len(cells(headers[-1]['text']))==9 and all(h in ALIASES[HEADERS[n]] for n,h in enumerate(cells(headers[-1]['text']))):headers=[]
+                context=[r for r in d['lines'] if r['number'] in record.get('context_rows',[])]
+                q=deepcopy(inputs);q['test-documents']=[{**d,'lines':headers+context+[row]}]
+                if 'identified-concerns' in q:
+                    ids={record['id']}
                     def own(m):
                         if m.get('source_unit_ids'):return bool(set(m['source_unit_ids']) & ids)
                         return any(ref['source_id']==d['source_id'] and ref['line_start']<=row['number']<=ref['line_end'] for ref in m.get('source_refs',[]))

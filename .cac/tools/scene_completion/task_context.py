@@ -125,8 +125,10 @@ def semantic_view(task,inputs):
                 fields={p['name'] for i in out['fused-ssd']['interactions'] for p in i['data']['sequence']}
                 out['normal-constraints']={'apis':[{**a,'parameters':[p for p in a['parameters'] if p['name'] in fields]} for a in out.get('normal-constraints',{}).get('apis',[]) if any(p['name'] in fields for p in a['parameters'])]}
         if task in {'test-ground-truth','test-concerns'}:
-            from .test_sources import records
-            tests=records(out['test-documents']);text=' '.join(r['触发条件']+' '+r['测试名称'] for r in tests)
+            from .test_sources import records_for_inputs
+            tests=records_for_inputs(out);text=' '.join(r['触发条件']+' '+r['测试名称'] for r in tests)
+            if any(r.get('source_format')=='recovered_usecase' for r in tests):
+                out['test_record_index']=[{k:r[k] for k in ('id','scenario_type','关联需求','row')} for r in tests]
             # Keep an identity/operation index for every call. Detailed normal
             # rules/attributes are scoped to literal tested fields/services;
             # no candidate interaction disappears, and no G/E is consulted.

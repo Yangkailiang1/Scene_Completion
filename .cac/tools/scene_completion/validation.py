@@ -21,6 +21,9 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task,payload)
+    if task in {'test-inventory','test-case-align'}:
+        from .test_alignment import validate_test_task
+        validate_test_task(task,payload,inputs)
     if task=='pattern-applicability':
         from .scenario_patterns import applicability as pattern_applicability
         if payload!=pattern_applicability(inputs['positive'],inputs['settings']):raise ValueError('模式适用性必须由冻结正向依赖与项目设置构造')
@@ -262,9 +265,9 @@ def validate_result(task, payload, inputs):
             if task=='test-ground-truth' and not any(r['source_id'] in test_ids for r in s['source_refs']):
                 raise ValueError('each GT unit must cite its independent test description')
             if task=='test-ground-truth':
-                from .test_sources import records
-                kinds={r['id']:r['scenario_type'] for r in records(inputs['test-documents'])}
-                ids={m for r in s['source_refs'] for m in re.findall(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['quote'])}
+                from .test_sources import records_for_inputs,referenced_record_ids
+                typed=records_for_inputs(inputs);kinds={r['id']:r['scenario_type'] for r in typed}
+                ids=referenced_record_ids(s['source_refs'],typed)
                 if any(kinds.get(i)!='exception' for i in ids if i in kinds):raise ValueError('正常/可选/未知类型测试不得进入异常GT')
             if task=='existing-extract' and s['source_status']=='framework_inferred' and not s.get('original_branch_id'):raise ValueError('E inference requires original branch provenance')
             if s['source_status']=='framework_inferred' and not s['derivation']:raise ValueError('GT inference needs derivation')
@@ -276,10 +279,10 @@ def validate_result(task, payload, inputs):
             if b['branch_id'] not in branches:raise ValueError('unknown original branch')
             if b['status']=='confirmed' and b['interaction_id'] not in ids:raise ValueError('binding needs a concrete canonical interaction')
     if task=='test-ground-truth' and not payload.get('scenarios') and not payload.get('pending'):
-        explicit=[r for d in inputs.get('test-documents',[]) for r in d['lines'] if re.search(r'\b(?:TEST|SUP)[-_][A-Za-z0-9_-]+',r['text']) and re.search(r'\|\s*异常\s*\|',r['text'])]
         from .scenario_types import normal_replay
-        from .test_sources import records
-        actual=records(inputs.get('test-documents',[]))
+        from .test_sources import records_for_inputs
+        actual=records_for_inputs(inputs)
+        explicit=[r for r in actual if r['scenario_type']=='exception']
         excluded_normal=bool(payload.get('excluded')) and bool(actual) and all(normal_replay(r) for r in actual if r['scenario_type']=='exception')
         if explicit and not excluded_normal:raise ValueError('明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试')
     if task=='existing-extract' and 'fused-ssd' in inputs:
