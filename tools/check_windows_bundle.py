@@ -32,7 +32,7 @@ def verify_files(bundle):
         path=(bundle/name).resolve()
         if not path.is_relative_to(bundle):raise ValueError('Manifest path escapes bundle')
         if hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError('File digest mismatch: '+name)
-    forbidden={'.env','.git','.venv','.workbench','node_modules','model.local.json'}
+    forbidden={'.env','.git','.venv','.workbench','node_modules','model.local.json','.DS_Store','__pycache__'}
     for name in manifest['files']:
         if forbidden.intersection(Path(name).parts):raise ValueError('Private or builder-only path in distribution: '+name)
     return manifest

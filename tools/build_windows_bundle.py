@@ -37,7 +37,7 @@ def build(output,offline=False):
     # Deliberately allow-list runtime sources. No local configuration, original
     # customer documents, caches or Git history enter the distributable.
     for name in ('.cac','web','docs','tests','examples','tools','deployment'):
-        shutil.copytree(ROOT/name,stage/'app'/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.local.json','.env','scene_completion_output'))
+        shutil.copytree(ROOT/name,stage/'app'/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc','*.local.json','.env','.DS_Store','scene_completion_output'))
     for name in ('serve.py','scene.py','README.md','pytest.ini','requirements-windows.lock','workflow.config.example.json','requirements.txt','requirements-dev.txt','THIRD_PARTY_NOTICES.md'):
         shutil.copy2(ROOT/name,stage/'app'/name)
     shutil.copy2(ROOT/'deployment/launcher.py',stage/'launcher.py')
