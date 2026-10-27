@@ -111,9 +111,10 @@ class Workbench:
             if body['preset'] not in PRESETS:raise ValueError('未知兼容预设')
             config.update(PRESETS[body['preset']])
         if 'model_profiles' in body:
-            safe_profile_keys=KEYS-{'model_profiles','task_models','role_models'}
+            safe_profile_keys=KEYS-{'model_profiles','task_models','role_models','thinking_override'}
             if not isinstance(body['model_profiles'],dict) or any(not isinstance(v,dict) or set(v)-safe_profile_keys for v in body['model_profiles'].values()):raise ValueError('模型配置只接受公开运行参数，不能修改凭证或配额账本')
             body={**body,'model_profiles':{m:{**config.get('model_profiles',{}).get(m,{}),**v} for m,v in body['model_profiles'].items()}}
+        if 'thinking' in body:body={**body,'thinking_override':body['thinking']}
         config.update({k:v for k,v in body.items() if k!='preset' and not (k=='api_key' and not v)})
         if not config.get('agent_model','').strip():raise ValueError('请选择实际模型标识')
         if not config.get('model_account_id') and not (config.get('base_url') or self.model_config(rid).get('base_url','')).startswith(('http://','https://')):raise ValueError('请选择模型连接或填写API地址')

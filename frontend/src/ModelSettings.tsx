@@ -59,6 +59,8 @@ export function ModelSettings({
       "stream_total_timeout_seconds",
     ])
       if (raw[k]) body[k] = Number(raw[k]);
+    body.thinking = raw.thinking === "auto" ? null : raw.thinking === "on";
+    body.stream_reasoning = raw.stream_reasoning === "on";
     try {
       await api(projectUrl(project, "config"), {
         method: "PUT",
@@ -199,6 +201,21 @@ export function ModelSettings({
         <details className="model-advanced">
           <summary>运行参数（可选）</summary>
           <div className="form-grid">
+            <label>思考模式
+              <select name="thinking" defaultValue={(config.thinking_override ?? config.thinking) === false ? "off" : (config.thinking_override ?? config.thinking) === true ? "on" : "auto"}>
+                <option value="auto">跟随网关／模型配置</option><option value="on">请求开启思考</option><option value="off">请求关闭思考</option>
+              </select>
+            </label>
+            <label>网关思考开关格式
+              <select name="thinking_api" defaultValue={config.thinking_api || "legacy"}>
+                <option value="legacy">thinking.type（DeepSeek格式）</option><option value="enable_thinking">enable_thinking（布尔）</option><option value="omit">不发送开关</option>
+              </select>
+            </label>
+            <label>模型思考流
+              <select name="stream_reasoning" defaultValue={config.stream_reasoning ? "on" : "off"}>
+                <option value="off">仅显示思考进度</option><option value="on">显示并保存供应商思考文本</option>
+              </select>
+            </label>
             {[
               ["max_concurrency", "并发任务数", 2, 1, 8],
               ["max_tokens", "输出Token上限（含思考，依网关）", 12000, 256, 2000000],
@@ -238,7 +255,7 @@ export function ModelSettings({
             ))}
           </div>
           <p>
-            输出上限不是保证长度；超时不自动重复POST。模型是否支持工具调用与流式输出，仍以供应方接口能力为准。
+            显示思考会把网关返回的思考字段保存到本地节点事件及结果导出包，独立于正式JSON产物；只对后续请求生效。关闭思考需要网关支持，不等于隐藏思考流。输出上限不是保证长度；超时不自动重复POST。模型是否支持工具调用与流式输出，仍以供应方接口能力为准。
           </p>
         </details>
         <button className="model-primary-button" type="submit" disabled={busy}>

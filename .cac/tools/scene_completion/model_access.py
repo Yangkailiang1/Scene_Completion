@@ -23,7 +23,7 @@ class AccessRegistry:
             self.client.config.get('native_transport'), self.client.config.get('reasoning_effort'), self.client.config.get('thinking'),
             self.client.config.get('thinking_api','legacy'),self.client.config.get('stream',False), self.client.config.get('include_usage',False),
             self.client.config.get('send_reasoning_effort', True), self.client.config.get('thinking_budget'),
-            fingerprint(self.client.config.get('extra_body',{})),fingerprint(self.client.config.get('stage_extra_body',{})),self.client.config.get('submission_mode'),self.client.config.get('structured_output'),*[self.client.config.get(k) for k in ('max_tokens_parameter','supports_tool_choice','supports_parallel_tool_calls','reasoning_replay','json_response_format','max_tokens','stage_max_tokens')]])
+            fingerprint(self.client.config.get('extra_body',{})),fingerprint(self.client.config.get('stage_extra_body',{})),self.client.config.get('submission_mode'),self.client.config.get('structured_output'),*[self.client.config.get(k) for k in ('max_tokens_parameter','supports_tool_choice','supports_parallel_tool_calls','reasoning_replay','json_response_format','max_tokens','stage_max_tokens','thinking_override')]])
 
     def key(self, kind, model):
         return fingerprint([self.scope(), kind, model])

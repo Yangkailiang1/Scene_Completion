@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { NodeOutput, segments } from "./NodeOutput";
 import type { ExecutionEvent } from "./types";
 const event = (id: number, kind: string, data: any): ExecutionEvent => ({
@@ -84,5 +84,18 @@ it("does not keep a waiting banner after the model request has finished", () => 
 it('thinking-only stream progress is not presented as empty stalled body output',()=>{
  const result=segments([{id:1,kind:'stream_progress',at:1,attempt:1,data:{elapsed_seconds:20,output_bytes:0,reasoning_bytes:2048}} as any]);
  expect(result[0].text).toContain('另收到2048字节思考数据');
- expect(result[0].text).toContain('不展示原文');
+ expect(result[0].text).toContain('未开启原文显示');
+});
+
+it("shows provider thinking separately, does not count it as answer and can hide it",()=>{
+ render(<NodeOutput active loading={false} events={[
+  event(1,"request_started",{model_call_id:"a",reasoning_display_enabled:true}),
+  event(2,"stream_delta",{model_call_id:"a",channel:"reasoning",text:"provider fragment"}),
+ ]}/>);
+ expect(screen.getByRole("status").textContent).toContain("模型正在思考，尚无正文／工具参数");
+ expect(screen.getByRole("status").textContent).toContain("已收到 0 字符正文／工具参数");
+ expect(screen.getByText("provider fragment")).toBeTruthy();
+ expect(screen.getByText("模型思考流 · 网关返回，非正式产物")).toBeTruthy();
+ fireEvent.click(screen.getByRole("checkbox",{name:"显示模型思考流"}));
+ expect(screen.queryByText("provider fragment")).toBeNull();
 });

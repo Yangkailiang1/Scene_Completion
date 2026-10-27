@@ -1,10 +1,10 @@
-"""Assemble complete SSE chat output; never accept partial JSON or store reasoning."""
+"""Assemble complete SSE chat output; never accept partial JSON; provider reasoning is an explicit display opt-in."""
 import json
 import time
 import http.client
 
 
-def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None,capture_reasoning=False):
+def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None,capture_reasoning=False,display_reasoning=False):
     reasoning=[];reasoning_bytes=0
     content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started;preparing=False
     def consume(lines):
@@ -29,7 +29,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         usage=row.get('usage') or usage
         from .execution_events import emit
         if last-last_progress>=10:
-            emit('stream_progress',elapsed_seconds=round(last-started,2),stream_events=events,output_bytes=size,provider_model=model,reasoning_bytes=reasoning_bytes,reasoning_received=bool(reasoning_bytes))
+            emit('stream_progress',elapsed_seconds=round(last-started,2),stream_events=events,output_bytes=size,provider_model=model,reasoning_bytes=reasoning_bytes,reasoning_received=bool(reasoning_bytes),reasoning_display_enabled=display_reasoning)
             last_progress=last
         for choice in row.get('choices',[]) or []:
             if choice.get('index',0)!=0:continue
@@ -40,6 +40,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
                 reasoning_bytes+=len(piece.encode('utf8'))
                 if reasoning_bytes>32*1024*1024:raise ValueError('reasoning exceeds bounded transport buffer')
                 if capture_reasoning:reasoning.append(piece)
+                if display_reasoning:emit('stream_delta',channel='reasoning',text=piece,source='provider_reasoning_content',not_artifact=True)
             if delta.get('reasoning_content') and not preparing:
                 emit('stream_status',status='preparing_answer',message='模型正在准备回复，尚未返回正文。')
                 preparing=True

@@ -891,6 +891,17 @@ a {
   background: #fbfcfe;
   color: #667996;
 }
+.stream-block.reasoning {
+  border-color: #ded9ee;
+}
+.stream-block.reasoning .stream-heading {
+  background: #f6f3fb;
+  color: #735d95;
+}
+.stream-block.reasoning pre {
+  background: #fcfbfe;
+  color: #625770;
+}
 .event-line {
   display: flex;
   gap: 8px;

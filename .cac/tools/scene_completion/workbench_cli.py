@@ -42,7 +42,7 @@ def parser():
             for flag,key in [('max-output-tokens','max_tokens'),('max-context-tokens','max_context_tokens'),('connect-timeout','timeout_seconds'),('idle-timeout','stream_idle_timeout_seconds'),('total-timeout','stream_total_timeout_seconds'),('max-model-calls','agent_max_model_calls')]:a.add_argument(*(['--max-output-tokens','--max-tokens','--maxtokens'] if flag=='max-output-tokens' else ['--'+flag]),dest=key,type=int)
             a.add_argument('--thinking',choices=('auto','on','off'));a.add_argument('--thinking-api',choices=('legacy','enable_thinking','omit'));a.add_argument('--reasoning-effort');a.add_argument('--thinking-budget',type=int)
             a.add_argument('--submission-mode',choices=('tool_calls','json_text'));a.add_argument('--max-tokens-parameter',choices=('max_tokens','max_completion_tokens'));a.add_argument('--stage-output',action='append',default=[],metavar='TASK=TOKENS')
-            for flag in ('stream','stream-usage','send-reasoning-effort','supports-tool-choice','supports-parallel-tool-calls','reasoning-replay','json-response-format'):a.add_argument('--'+flag,action=argparse.BooleanOptionalAction,default=None)
+            for flag in ('stream','stream-usage','send-reasoning-effort','supports-tool-choice','supports-parallel-tool-calls','reasoning-replay','json-response-format','stream-reasoning'):a.add_argument(*(['--stream-reasoning','--show-reasoning'] if flag=='stream-reasoning' else ['--'+flag]),action=argparse.BooleanOptionalAction,default=None)
 
         if cmd in ('guide','answer'):a.add_argument('--node',required=True);a.add_argument('--text',required=True)
         if cmd=='answer':a.add_argument('--question',required=True)
@@ -88,6 +88,7 @@ def main(argv=None,client=None):
             v=getattr(args,arg,None)
             if v is not None:body[key]=v
         if args.thinking:body['thinking']={'auto':None,'on':True,'off':False}[args.thinking]
+        if 'thinking' in body:body['thinking_override']=body['thinking']
         if args.reasoning_effort is not None:body['send_reasoning_effort']=args.reasoning_effort!='omit';body['reasoning_effort']=args.reasoning_effort if args.reasoning_effort!='omit' else 'high'
         if args.stage_output:
             rules=dict(body.get('stage_max_tokens',{}))

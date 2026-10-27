@@ -302,7 +302,7 @@ def _transport_model(client,stage):
             from .execution_events import emit,fields,phase
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
-                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],context_budget=context_bound,input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=output_limit(body),request_parameters=request_diagnostic(body),connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
+                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],context_budget=context_bound,input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=output_limit(body),request_parameters=request_diagnostic(body),reasoning_display_enabled=self.scene_client.config.get('stream_reasoning',False),connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
                 try:response=self.scene_client.post('/chat/completions',body)
                 except Exception as e:
                     emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))
@@ -310,6 +310,8 @@ def _transport_model(client,stage):
                     raise
                 if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
                 emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'),diagnostic=request_diagnostic(body,response))
+            if request_diagnostic(body,response)['thinking_control_status']=='disabled_requested_but_reasoning_returned':
+                emit('stream_status',status='thinking_disable_not_observed',message='已向网关请求关闭思考，但仍收到reasoning_content；关闭尚未生效，请核对网关参数或模型能力。')
             if response['choices'][0].get('finish_reason')=='length':
                 if output_limit(body)>=max(self.scene_client.config.get('max_tokens',output_limit(body)),self.scene_client.output_limit(self.task_stage)):
                     from .scheduler import TaskBlocked

@@ -128,4 +128,4 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 测试Markdown恢复格式、测试与需求用例对应及推荐前后指标，见[说明](docs/test-markdown-alignment.md)。
 
-客户DeepSeek思考模式、CLI运行参数、Windows长路径和失败节点接管，见[客户模型调试与修复](docs/customer-model-debugging.md)。
+客户DeepSeek思考模式、CLI运行参数、Windows长路径和失败节点接管，见[客户模型调试与修复](docs/customer-model-debugging.md)。`configure --stream --show-reasoning`可显式显示并保存网关思考流；`configure --thinking off --thinking-api legacy`请求关闭思考，实际是否生效以网关返回及diagnose为准。思考、正文、工具参数分开显示，思考内容不作为正式产物。

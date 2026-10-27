@@ -98,3 +98,16 @@ it("account editor collects a key privately and submits a model list", async () 
   await screen.findByText(/连接已保存/);
   expect(screen.queryByDisplayValue("test-secret")).toBeNull();
 });
+
+it("submits explicit thinking-off and provider-reasoning visibility separately",async()=>{
+ const saved=vi.fn();const mock=vi.mocked(api);mock.mockResolvedValue({revision:0,accounts:[]});
+ render(<ModelSettings project="p" config={{agent_model:"ds",base_url:"http://a/v1"}} onSaved={saved}/>);
+ fireEvent.click(screen.getByText("运行参数（可选）"));
+ fireEvent.change(screen.getByLabelText("思考模式"),{target:{value:"off"}});
+ fireEvent.change(screen.getByLabelText("网关思考开关格式"),{target:{value:"legacy"}});
+ fireEvent.change(screen.getByLabelText("模型思考流"),{target:{value:"on"}});
+ fireEvent.click(screen.getByRole("button",{name:"保存项目配置"}));
+ await waitFor(()=>expect(saved).toHaveBeenCalled());
+ const call=mock.mock.calls.find(c=>c[1]?.method==="PUT");
+ expect(JSON.parse(call![1]!.body as string)).toMatchObject({thinking:false,thinking_api:"legacy",stream_reasoning:true});
+});

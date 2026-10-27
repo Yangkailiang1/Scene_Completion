@@ -84,7 +84,7 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
             ? ` · 输入${(d.input_bytes / 1024).toFixed(1)}KB · 输出上限${d.max_output_tokens} tokens · 生成总时限${d.stream_total_timeout_seconds}秒`
             : "");
       if (e.kind === "stream_progress")
-        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数${d.reasoning_bytes ? `；另收到${d.reasoning_bytes}字节思考数据（不展示原文）` : ""}`;
+        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数${d.reasoning_bytes ? `；另收到${d.reasoning_bytes}字节思考数据（${d.reasoning_display_enabled ? "思考流单列显示" : "未开启原文显示"}）` : ""}`;
       if (e.kind === "request_failed") text = failureText(d.diagnostic);
       if (e.kind === "request_finished")
         text = `实际返回模型：${d.provider_model || "未报告"}`;
@@ -142,6 +142,7 @@ export function NodeOutput({
   active?: boolean;
 }) {
   const groups = useMemo(() => segments(events), [events]);
+  const [showReasoning, setShowReasoning] = useState(true);
   const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => {
     if (!active) return;
@@ -166,7 +167,12 @@ export function NodeOutput({
       ["request_finished", "request_failed"].includes(e.kind),
     );
   const deltas = requestEvents.filter((e) => e.kind === "stream_delta");
-  const received = deltas.reduce((n, e) => n + (e.data.text?.length || 0), 0);
+  const reasoningDeltas = deltas.filter((e) => e.data.channel === "reasoning");
+  const reasoningCharacters = reasoningDeltas.reduce((n,e) => n + (e.data.text?.length || 0),0);
+  const answerDeltas = deltas.filter((e) => e.data.channel !== "reasoning");
+  const progress = [...requestEvents].reverse().find((e) => e.kind === "stream_progress");
+  const preparing = reasoningCharacters > 0 || progress?.data.reasoning_bytes > 0 || requestEvents.some((e) => e.kind === "stream_status" && e.data.status === "preparing_answer");
+  const received = answerDeltas.reduce((n, e) => n + (e.data.text?.length || 0), 0);
   const pendingTool = deltas.find((e) => e.data.tool_name === "submit_result")
     ? "submit_result"
     : deltas.find((e) => e.data.tool_name)?.data.tool_name;
@@ -184,20 +190,22 @@ export function NodeOutput({
           <Radio size={12} />
           {events.length} 条已保存事件
         </span>
-        <span>断线后可续接 · 只显示模型正文与工具输出</span>
+        <span>正文、思考和工具参数分栏 · 断线后可续接</span>
+        {groups.some((g) => g.channel === "reasoning") && <label><input type="checkbox" checked={showReasoning} onChange={(e) => setShowReasoning(e.target.checked)} />显示模型思考流</label>}
       </div>
       {waiting && (
         <div className="live-stream-status" role="status">
           <strong>
             {received === 0
-              ? pendingTool === "submit_result"
+              ? preparing ? "模型正在思考，尚无正文／工具参数" : pendingTool === "submit_result"
                 ? "正在等待结构化产物正文"
                 : "已发送请求，尚未收到可显示正文"
               : "已收到流式内容，等待本次请求完成"}
           </strong>
           <p>
             本次请求已等待 {Math.max(0, Math.floor(now - request.at))} 秒 ·
-            已收到 {received.toLocaleString()} 字符
+            已收到 {received.toLocaleString()} 字符正文／工具参数
+            {reasoningCharacters > 0 && ` · 已收到 ${reasoningCharacters.toLocaleString()} 字符模型思考`}
             {lastDelta
               ? ` · 最近增量${Math.max(0, Math.floor(now - lastDelta.at))}秒前`
               : ""}
@@ -206,7 +214,7 @@ export function NodeOutput({
             <small>
               {pendingTool === "submit_result"
                 ? "上游已返回submit_result工具名，但参数正文仍为空；本接口的大JSON可能在生成完成后集中返回。"
-                : "尚无正文不代表请求已经失败；这里只展示模型实际返回的文本和工具参数。"}
+                : preparing ? (request.data.reasoning_display_enabled ? "思考流在下方单列显示，不参与正式产物校验。" : "当前只记录思考进度；可在模型配置开启“显示并保存供应商思考文本”，对后续请求生效。") : "尚无正文不代表请求已经失败；只显示接口实际返回的内容，不补造输出。"}
             </small>
           )}
         </div>
@@ -229,6 +237,7 @@ export function NodeOutput({
           </div>
         ) : (
           groups.map((g) => {
+            if (g.channel === "reasoning" && !showReasoning) return null;
             const time = new Date(g.at * 1000).toLocaleTimeString("zh-CN", {
               hour12: false,
             });
@@ -236,7 +245,7 @@ export function NodeOutput({
               return (
                 <section
                   key={g.id}
-                  className={`stream-block ${g.channel === "tool_arguments" ? "tool" : "text"}`}
+                  className={`stream-block ${g.channel === "tool_arguments" ? "tool" : g.channel === "reasoning" ? "reasoning" : "text"}`}
                 >
                   <div className="stream-heading">
                     <span>
@@ -247,7 +256,7 @@ export function NodeOutput({
                       )}{" "}
                       {g.channel === "tool_arguments"
                         ? `工具参数 · ${g.name || "生成中"}`
-                        : "模型输出"}
+                        : g.channel === "reasoning" ? "模型思考流 · 网关返回，非正式产物" : "模型输出"}
                     </span>
                     <small>
                       {time} · 尝试 {g.attempt || 1}

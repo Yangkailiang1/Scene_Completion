@@ -43,7 +43,7 @@ def node_diagnostics(project,config,task_key=None,limit=20):
                 failures.append({'file':p.relative_to(project).as_posix(),'error':str(v.get('error',''))[:4000]})
                 if len(failures)>=3:break
         out.append({'task_key':key,'stage':row['stage'],'status':row['status'],'failure':row.get('failure'), 'effective':effective(config,row['stage']), 'events':recent,'validation_rejections':failures})
-    result={'nodes':out,'llm_called':False,'notes':['诊断只读取已有记录，不调用模型、不重置配额或修复预算。','同一节点需区分输出截断、JSON语法、业务Schema和本地文件写入失败；思考原文不在诊断或日志中展示。']}
+    result={'nodes':out,'llm_called':False,'notes':['诊断只读取已有记录，不调用模型、不重置配额或修复预算。','同一节点需区分输出截断、JSON语法、业务Schema和本地文件写入失败；诊断不返回思考原文，显式开启后思考文本单列在本地节点事件。']}
     text=json.dumps(result,ensure_ascii=False)
     if config.get('api_key'):text=text.replace(config['api_key'],'[redacted]')
     return json.loads(text)

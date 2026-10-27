@@ -41,3 +41,20 @@ def test_opt_in_reasoning_replay_is_transport_only_with_separate_byte_counts():
  assert result['choices'][0]['message']['reasoning_content']=='private chunk'
  assert result['_scene_completion_metrics']['reasoning_bytes']==len('private chunk')
  assert result['choices'][0]['message']['content']=='{}'
+
+
+def test_display_reasoning_is_opt_in_separate_from_artifact_and_resumes_from_events(tmp_path):
+ from scene_completion.execution_events import EventStore,bind
+ store=EventStore(tmp_path)
+ trace='provider-supplied thinking text'
+ stream=lambda:rows([{'choices':[{'delta':{'reasoning_content':trace}}]},{'choices':[{'delta':{'content':'{"ok":true}'},'finish_reason':'stop'}]}])
+ with bind(store,task_key='first'):
+  result=read_chat_stream(stream(),time.perf_counter(),60)
+ assert trace not in json.dumps(store.read()) and 'reasoning_content' not in result['choices'][0]['message']
+ with bind(store,task_key='second'):
+  result=read_chat_stream(stream(),time.perf_counter(),60,display_reasoning=True)
+ events=store.read(task_key='second');reason=[e for e in events if e['kind']=='stream_delta' and e['data']['channel']=='reasoning']
+ assert len(reason)==1 and reason[0]['data']['text']==trace and reason[0]['data']['not_artifact']
+ assert json.loads(result['choices'][0]['message']['content'])=={'ok':True}
+ assert 'reasoning_content' not in result['choices'][0]['message']
+ assert EventStore(tmp_path).read(reason[0]['id']-1,task_key='second')[0]['id']==reason[0]['id']

@@ -132,3 +132,42 @@ def test_output_parameter_alias_is_used_by_context_and_quota_bounds():
  body=request_options({'messages':[{'role':'user','content':'json'}],'max_tokens':400}, {'max_tokens_parameter':'max_completion_tokens'})
  assert 'max_tokens' not in body and body['max_completion_tokens']==400
  assert check(body,{'max_context_tokens':2000})['output_reserve']==400 and request_reservation(body)>=400
+
+
+def test_cli_can_show_provider_reasoning_and_force_thinking_off_across_routed_profiles(tmp_path,capsys):
+ c,rid=setup(tmp_path);api=FakeAPI(c)
+ config={'thinking':True,'extra_body':{'thinking':{'type':'enabled'},'enable_thinking':True,'thinking_budget':4096,'reasoning_effort':'high'},'stage_extra_body':{'components':{'thinking':{'type':'enabled'}}},'task_models':{'components':'other'},'model_profiles':{'other':{'thinking':True,'thinking_api':'enable_thinking','extra_body':{'enable_thinking':True,'thinking_budget':4096,'reasoning_effort':'high'}}}}
+ assert c.put(f'/api/projects/{rid}/config',json=config).status_code==200
+ assert main(['configure','--project',rid,'--thinking','off','--show-reasoning'],client=api)==0;capsys.readouterr()
+ v=c.get(f'/api/projects/{rid}/config?task=components').json()
+ assert v['settings']['stream_reasoning'] is True
+ assert v['request_parameters']['enable_thinking'] is False
+ assert not {'thinking','thinking_budget','reasoning_effort'} & set(v['request_parameters'])
+ v=c.get(f'/api/projects/{rid}/config?task=api-map').json();assert v['request_parameters']['thinking']=={'type':'disabled'} and 'enable_thinking' not in v['request_parameters']
+ assert c.put(f'/api/projects/{rid}/config',json={'thinking_api':'omit'}).status_code==400
+ assert main(['configure','--project',rid,'--no-show-reasoning'],client=api)==0;capsys.readouterr()
+ assert c.get(f'/api/projects/{rid}/config').json()['settings']['stream_reasoning'] is False
+ assert main(['configure','--project',rid,'--thinking','auto'],client=api)==0;capsys.readouterr()
+ assert c.get(f'/api/projects/{rid}/config?task=components').json()['request_parameters']['enable_thinking'] is True
+ with pytest.raises(ValueError,match='关闭思考'):
+  main(['configure','--project',rid,'--thinking','off','--thinking-api','omit','--dry-run'],client=api)
+
+
+def test_explicit_disabled_thinking_is_checked_against_actual_gateway_response():
+ from scene_completion.runtime_settings import request_diagnostic
+ response={'choices':[{'message':{'content':'{}'},'finish_reason':'stop'}],'_scene_completion_metrics':{'reasoning_bytes':128}}
+ assert request_diagnostic({'thinking':{'type':'disabled'},'max_tokens':1000},response)['thinking_control_status']=='disabled_requested_but_reasoning_returned'
+ assert request_diagnostic({'enable_thinking':False,'max_tokens':1000},{})['thinking_control_status']=='disabled_requested_no_reasoning_observed'
+
+
+def test_routed_transport_can_stream_reasoning_without_enabling_persistent_agent_traces(tmp_path,monkeypatch):
+ import scene_completion.model_client as module
+ from scene_completion.contracts import packet
+ calls=[]
+ def post(url,key,body,timeout,retries,**options):
+  calls.append(options)
+  return {'model':'other','usage':{'total_tokens':5},'choices':[{'finish_reason':'tool_calls','message':{'content':'','tool_calls':[{'id':'x','type':'function','function':{'name':'submit_result','arguments':'{"payload":{"services":[]}}'}}]}}]}
+ monkeypatch.setattr(module,'_post_chat_completions',post)
+ config={'base_url':'http://fixture/v1','api_key':'x','agent_model':'base','run_root':str(tmp_path),'task_models':{'api-map':'other'},'model_profiles':{'other':{'stream_reasoning':True}}}
+ p=packet('api-map',{'SR':[]});p['skill_text']='fixture'
+ assert DeepAgentsClient(config).agent(p)['services']==[] and calls[0]['display_reasoning'] is True

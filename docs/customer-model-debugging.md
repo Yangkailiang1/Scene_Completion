@@ -32,15 +32,43 @@ scene.cmd run --project PROJECT_ID --wait --mode auto
 
 - `--max-output-tokens`、`--max-tokens`、`--maxtokens`是同一参数。
 - `--stage-output TASK=TOKENS`可重复；TASK是业务阶段名，如`components`、`fused-ssd`。`--node`则必须使用执行图真实节点ID，如`G-001:fused-ssd`。
-- `--thinking on/off/auto`；`auto`不额外发送开关，跟随网关默认。`--thinking-api legacy/enable_thinking/omit`选择网关字段；`legacy`为`thinking.type`，`enable_thinking`为布尔字段。
+- `--thinking on/off/auto`；显式on/off覆盖旧的任务扩展参数和模型配置。`auto`解除全局强制，恢复模型配置／网关默认，并不表示关闭。`--thinking-api legacy/enable_thinking/omit`选择网关字段；`legacy`为`thinking.type`，`enable_thinking`为布尔字段。off不能与omit组合，否则根本没有发出关闭请求。
 - `--reasoning-effort low/high/max/omit`只有网关支持时使用；`omit`不发送。`--thinking-budget`只用于声明支持该字段的网关，需`--no-send-reasoning-effort`，不能认为所有DeepSeek都支持。
 - `--no-supports-tool-choice`、`--no-supports-parallel-tool-calls`不发送对应字段。
-- `--reasoning-replay`将网关工具轮次要求的reasoning_content仅保存在调用内存并回传，不进入网页正文、事件、轨迹或恢复文件。服务重启后以原任务和已保存指导恢复，调用预算不清空。
+- `--reasoning-replay`将网关工具轮次要求的reasoning_content保存在调用内存并回传，不保存到Agent轨迹或检查点。它与思考流显示独立，单独启用replay不会记录思考原文。服务重启后以原任务和已保存指导恢复，调用预算不清空。
 - `--submission-mode json_text`可在工具调用不兼容时使用。仍通过同一业务校验器提交，不是跳过校验。网关不支持JSON模式字段时可配`--no-json-response-format`，提示词仍要求JSON。
 - `--max-tokens-parameter max_tokens/max_completion_tokens`选择网关实际接受的字段，不能同时发送两者。
-- `--connect-timeout`、`--idle-timeout`、`--total-timeout`单位秒；持续思考增量不会显示为“正文卡死”，页面单列思考字节数，且不显示思考原文。
+- `--connect-timeout`、`--idle-timeout`、`--total-timeout`单位秒；持续思考增量会显示为“模型正在思考，尚无正文／工具参数”，思考与正文的字节数分开统计。
 - `--config-file FILE.json`可设置stage_max_tokens、stage_extra_body、role_models、task_models、model_profiles等。示例见`examples/config/deepseek-thinking.json`。扩展参数不能覆盖消息、凭证、模型、工具或输出上限，不能用此入口重置配额账本。
 - `--dry-run`只核对参数，不保存不调用；真实账号及请求预算保存/发送时再校验。部分更新保留未改动字段；运行中不允许改配置。
+
+## 显示思考流，以及直接关闭思考
+
+`output_bytes=0`只表示尚无正文／工具参数，不能据此判定没有收到模型增量。旧版只记录reasoning进度；本版可显示网关实际返回的`reasoning_content`，不推测或补造思考内容。
+
+开启显示（后续请求生效）：
+
+```bat
+scene.cmd configure --project PROJECT_ID --stream --show-reasoning
+scene.cmd config --project PROJECT_ID --task components
+scene.cmd run --project PROJECT_ID --wait --mode auto
+scene.cmd events --project PROJECT_ID --node components --after 0
+```
+
+`--show-reasoning`等价于`--stream-reasoning`；`--no-show-reasoning`关闭记录。网页的“模型配置→高级运行参数→模型思考流”也可设置。节点中按思考／正文／工具参数分别显示，思考块可收起隐藏；CLI事件中为`stream_delta`且`data.channel=reasoning`。刷新可恢复已保存事件，旧运行未保存的思考文本无法补回。运行中需等本轮结束再改配置。
+
+**思考显示默认关闭。显式开启会把供应商思考文本保存在本地节点事件，可能随项目导出；不要分享包含敏感业务内容的事件。**思考流不进入正式产物JSON、业务Schema校验、Agent轨迹或检查点，也不改变修复／配额预算。网页中的“显示模型思考流”复选框仅隐藏显示，不停止模型思考或事件保存。
+
+关闭模型思考（与隐藏思考流不同）：
+
+```bat
+scene.cmd configure --project PROJECT_ID --thinking off --thinking-api legacy
+scene.cmd config --project PROJECT_ID --task components
+```
+
+实际请求应显示`"thinking":{"type":"disabled"}`。若网关使用布尔开关，改为`--thinking-api enable_thinking`，实际请求应显示`"enable_thinking":false`。显式关闭会移除旧扩展参数中的thinking、reasoning_effort和thinking_budget，且不被旧模型／任务thinking配置重新开启；每个任务最终采用的开关格式仍可通过`config --task`核对。
+
+网关可能拒绝关闭、忽略参数，或模型本身不支持非思考模式。若关闭后仍收到reasoning_content，页面与`diagnose`会提示`disabled_requested_but_reasoning_returned`；未观察到思考也不等于证明服务端完全关闭。不能仅凭发送了off就宣称成功。显示思考只能解释等待过程，**不会解决输出预算耗尽**；仍需按网关能力关闭思考、调整输出上限或拆分任务。
 
 模型选择属于每个API Key的允许列表，不自动换密钥。客户Gateway即使兼容OpenAI也可能不接受全部扩展参数。预设是显式选项，不依据模型名称自动改模式。DeepSeek官方说明思考工具模式需回传reasoning_content；其官方集成说明也提示tool_choice兼容限制。内网实现仍以实际返回为准：
 
@@ -70,4 +98,4 @@ scene.cmd run --project PROJECT_ID --wait
 
 ## 验证边界
 
-离线测试覆盖思考流计数、工具轮次回传与不落盘、JSON/截断错误区别、任务预算及凭证/账本隔离、Mermaid路径清理、长路径短临时名、修复包过期与校验、局部失败不阻塞独立节点。包在macOS交叉制作；不能代替Windows实机和客户内网DeepSeek模型全链路验证，不宣称调大预算后一定成功。
+离线测试覆盖思考流计数、默认不记录原文、显式开启后事件保存／续接、思考与正式JSON隔离、工具轮次回传、关闭思考的参数优先级及网关返回核验、JSON/截断错误区别、任务预算及凭证/账本隔离、Mermaid路径清理、长路径短临时名、修复包过期与校验、局部失败不阻塞独立节点。包在macOS交叉制作；不能代替Windows实机和客户内网DeepSeek模型全链路验证，不宣称调大预算后一定成功。
