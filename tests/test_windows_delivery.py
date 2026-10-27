@@ -53,3 +53,12 @@ def test_portable_launcher_never_kills_existing_port_owner(tmp_path,monkeypatch)
  monkeypatch.setattr(launcher.socket,'socket',lambda:Sock())
  monkeypatch.setattr(launcher.subprocess,'Popen',lambda *a,**kw:pytest.fail('Existing port owner must not be replaced'))
  assert launcher.run(tmp_path)==1
+
+def test_windows_dependency_check_uses_target_markers_not_builder_platform(tmp_path):
+ verify=load('windows_dependency_check','tools/check_windows_bundle.py').verify_windows_dependencies
+ site=tmp_path/'python/Lib/site-packages';dist=site/'sample-1.0.dist-info';dist.mkdir(parents=True)
+ (dist/'METADATA').write_text('Metadata-Version: 2.1\nName: sample\nVersion: 1.0\nRequires-Dist: colorama>=0.4; sys_platform == "win32"\n')
+ with pytest.raises(ValueError,match='colorama'):verify(tmp_path)
+ color=site/'colorama-0.4.6.dist-info';color.mkdir()
+ (color/'METADATA').write_text('Metadata-Version: 2.1\nName: colorama\nVersion: 0.4.6\n')
+ assert verify(tmp_path)['windows_distributions']==2

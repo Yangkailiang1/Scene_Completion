@@ -29,6 +29,8 @@ def build(output,offline=False):
     with zipfile.ZipFile(runtime) as z:z.extractall(stage/'python')
     site=stage/'python/Lib/site-packages'
     subprocess.run([sys.executable,'-m','pip','install','--no-index','--find-links',str(wheels),'--only-binary=:all:','--platform','win_amd64','--python-version','312','--implementation','cp','--abi','cp312','--abi','abi3','--no-compile','--no-deps','--target',str(site),'-r',str(lock)],check=True)
+    from check_windows_bundle import verify_windows_dependencies
+    verify_windows_dependencies(stage,PYTHON_VERSION)
     (stage/'python/python312._pth').write_text('python312.zip\n.\nLib/site-packages\nimport site\n',encoding='utf8')
     if not (ROOT/'web/assets').is_dir() or not (ROOT/'web/third-party-licenses.txt').is_file():
         raise RuntimeError('Build frontend first: npm ci --prefix frontend && npm run build --prefix frontend')

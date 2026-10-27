@@ -19,3 +19,5 @@ GitHub Windows工作流在发布前分别运行系统Python测试、包内嵌入
 没有Windows环境时可以单独发布交叉制作的离线包，但Release说明必须标注“Windows原生验证待用户完成”，不声称通过上述原生验收。此类包使用`windows-x64-*`标签，与触发原生工作流的`scene-workbench-*`标签区分；旧Release保留。
 
 维护者可用 `python tools/build_windows_bundle.py --offline --output-dir dist` 复用此前锁定的Windows轮子及Python缓存；缓存不完整时构建失败，不下载或混入本机macOS环境。
+
+构建同时按Windows x64/Python 3.12的依赖标记检查已安装轮子的依赖闭包，不使用打包机的macOS标记推断。锁文件包含Windows下pytest所需的colorama；此静态检查仍不能替代Windows实际启动。

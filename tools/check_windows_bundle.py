@@ -3,6 +3,28 @@ from pathlib import Path
 import argparse,base64,hashlib,json,os,shutil,socket,subprocess,time,urllib.request
 
 
+def verify_windows_dependencies(bundle,python_version='3.12.10'):
+    """Read wheel metadata without importing Windows extensions on the builder."""
+    from importlib import metadata
+    from packaging.requirements import Requirement
+    from packaging.markers import default_environment
+    from packaging.utils import canonicalize_name
+    site=Path(bundle)/'python/Lib/site-packages'
+    distributions=list(metadata.distributions(path=[str(site)]))
+    if not distributions:raise ValueError('No installed Windows dependencies')
+    versions={canonicalize_name(d.metadata['Name']):d.version for d in distributions}
+    env=default_environment();env.update(os_name='nt',sys_platform='win32',platform_system='Windows',platform_machine='AMD64',python_version='.'.join(python_version.split('.')[:2]),python_full_version=python_version,implementation_name='cpython',extra='')
+    errors=[]
+    for d in distributions:
+        for raw in d.requires or []:
+            req=Requirement(raw)
+            if req.marker and not req.marker.evaluate(env):continue
+            version=versions.get(canonicalize_name(req.name))
+            if version is None or version not in req.specifier:errors.append(f'{d.metadata["Name"]} requires {req}; installed={version}')
+    if errors:raise ValueError('Windows dependency closure failed: '+'; '.join(errors))
+    return {'windows_distributions':len(distributions),'python':python_version,'metadata_dependencies':'passed'}
+
+
 def verify_files(bundle):
     bundle=Path(bundle).resolve();manifest=json.loads((bundle/'SHA256SUMS.json').read_text(encoding='utf8'))
     assert manifest['platform']=='windows-x64' and not manifest['requires_network_install']
@@ -18,7 +40,7 @@ def verify_files(bundle):
 
 def smoke(bundle):
     if os.name!='nt':raise RuntimeError('Native acceptance requires Windows; cross-built files do not prove runtime success')
-    bundle=Path(bundle).resolve();manifest=verify_files(bundle)
+    bundle=Path(bundle).resolve();manifest=verify_files(bundle);verify_windows_dependencies(bundle,manifest['python'])
     # Customer paths often contain spaces and non-ASCII characters.
     work=bundle.parent/'Windows 离线验证路径'/bundle.name
     if work.exists():shutil.rmtree(work)
