@@ -54,6 +54,8 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
         "tool_finished",
         "tool_failed",
         "validation_failed",
+        "response_invalid",
+        "artifact_io_failed",
         "agent_failed",
         "result_validated",
         "artifacts_saved",
@@ -82,7 +84,7 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
             ? ` · 输入${(d.input_bytes / 1024).toFixed(1)}KB · 输出上限${d.max_output_tokens} tokens · 生成总时限${d.stream_total_timeout_seconds}秒`
             : "");
       if (e.kind === "stream_progress")
-        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数`;
+        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数${d.reasoning_bytes ? `；另收到${d.reasoning_bytes}字节思考数据（不展示原文）` : ""}`;
       if (e.kind === "request_failed") text = failureText(d.diagnostic);
       if (e.kind === "request_finished")
         text = `实际返回模型：${d.provider_model || "未报告"}`;
@@ -90,6 +92,8 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
       if (e.kind === "tool_finished") text = d.result || "";
       if (e.kind.endsWith("failed") && e.kind !== "request_failed")
         text = d.error || d.failure?.error || display(d);
+      if (e.kind === "response_invalid") text = `模型JSON语法未通过：${display(d.diagnostic)}`;
+      if (e.kind === "artifact_io_failed") text = `本地写入失败（原任务错误另行保留）：${display(d.diagnostic)}`;
       if (e.kind === "artifacts_saved") text = (d.files || []).join("\n");
       if (e.kind === "result_validated") text = "产物已通过结构与来源校验";
       if (e.kind === "task_status")
@@ -118,6 +122,8 @@ const labels: Record<string, string> = {
   tool_finished: "工具返回",
   tool_failed: "工具失败",
   validation_failed: "校验未通过",
+  response_invalid: "JSON格式错误",
+  artifact_io_failed: "本地文件写入失败",
   agent_failed: "执行失败",
   result_validated: "校验通过",
   artifacts_saved: "产物已保存",

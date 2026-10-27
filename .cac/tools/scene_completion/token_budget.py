@@ -26,8 +26,8 @@ def request_reservation(body, reasoning_reserve=0):
             reservation += len(content.encode('utf8')) + len(json.dumps(metadata, ensure_ascii=False).encode('utf8')) + 256
         else:
             reservation += len(json.dumps(message, ensure_ascii=False).encode('utf8')) + 256
-    reservation += len(json.dumps({k:v for k,v in body.items() if k not in {'messages','max_tokens'}},ensure_ascii=False).encode('utf8'))
-    reservation += int(body['max_tokens'])
+    reservation += len(json.dumps({k:v for k,v in body.items() if k not in {'messages','max_tokens','max_completion_tokens'}},ensure_ascii=False).encode('utf8'))
+    reservation += int(body.get('max_tokens',body.get('max_completion_tokens')))
     if body.get('enable_thinking') or body.get('thinking'):
         reservation += max(reasoning_reserve, int(body.get('thinking_budget', 0)))
     return reservation

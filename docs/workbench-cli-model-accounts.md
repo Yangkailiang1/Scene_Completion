@@ -69,3 +69,7 @@ python scene.py save-account --name 内网服务 --base-url http://内网地址/
 ## 验收范围
 
 离线验证账号隔离、凭证不回传、不跨Key回退、模型允许列表、并发编辑、旧报告可读、CLI共用项目/API/事件、状态忽略旧节点，以及折叠偏好。没有为本轮UI/CLI修改调用真实模型或重算既有指标。
+
+## 客户模型运行参数及失败节点接管
+
+现已支持`config`、`diagnose`、`configure --max-output-tokens`、思考/流式兼容参数及按任务预算；`repair-export`/`repair-submit`提供输入绑定的Code Agent修复。完整Windows命令与网关差异说明见[客户模型调试](customer-model-debugging.md)。

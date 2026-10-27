@@ -65,7 +65,7 @@ def _retry_after_seconds(headers):
     return max(1.,min(300.,value))
 
 
-def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int, *, idle_timeout=None,total_timeout=None) -> dict[str, Any]:
+def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int, *, idle_timeout=None,total_timeout=None,capture_reasoning=False) -> dict[str, Any]:
     request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -92,7 +92,7 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                     total=float(total_timeout if total_timeout is not None else timeout)
                     try:set_read_timeout=response.fp.raw._sock.settimeout
                     except AttributeError:set_read_timeout=None
-                    value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout)
+                    value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout,capture_reasoning=capture_reasoning)
                 else:value = json.loads(response.read().decode("utf-8"))
                 attempt_status='complete';attempt_code=getattr(response,'status',None)
                 if isinstance(value, dict):
@@ -114,7 +114,7 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
             invalid_config=exc.code in (400,422) and any(term in error_body for term in ('invalid_parameter','invalid parameter','unsupported parameter','parameter is restricted'))
             if invalid_config and not missing_model and not exhausted:
                 diagnostic.update(failure_category='invalid_configuration',configuration_required=True)
-                parameter=next((name for name in ('enable_thinking','response_format','tool_choice','max_tokens','thinking_budget') if name in error_body),None)
+                parameter=next((name for name in ('enable_thinking','thinking','reasoning_effort','reasoning_content','response_format','tool_choice','parallel_tool_calls','max_completion_tokens','max_tokens','thinking_budget') if name in error_body),None)
                 if parameter:diagnostic['parameter']=parameter
             retry_delay=_retry_after_seconds(exc.headers)
             if retry_delay is not None:diagnostic['retry_after_seconds']=retry_delay

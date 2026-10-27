@@ -48,7 +48,7 @@ def code_version(task):
     # guard shared contracts. Unrelated task implementations must not trigger
     # paid re-extraction of successfully verified upstream models.
     modules={
-      'components':['composition_drawing.py'], 'api-map':['api_documents.py'],
+      'components':['composition_drawing.py'], 'api-map':['api_documents.py','http_interfaces.py'],
       'api-index':['api_documents.py'], 'api-parameters':['api_documents.py'],
       'source-index':['indexed_context.py','source_documents.py'], 'document-context':['indexed_context.py'],
       'use-case-extract':['use_cases.py'], 'use-case-align':['use_cases.py'],
@@ -206,6 +206,12 @@ class Execution:
                         p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
         batch=p['batch_id'];write_json(self.root/'packets'/(batch+'.json'),p)
+        from .node_repair import read_repair
+        repaired=read_repair(self.root,p,self.conversations.revision(p['node_key']))
+        if repaired is not None:
+            validate_result(task,repaired['payload'],inputs)
+            emit('result_reused',provider='external_code_agent_repair',revision=repaired['revision'],reason='外部修复通过输入、Schema及来源校验')
+            return deepcopy(repaired['payload']),{'provider':'external_code_agent_repair','revision':repaired['revision'],'note':repaired['note']}
         if self.mode=='external' and self.mocks is None:
             from .positive_reuse import find
             reused=find(self.root,task,inputs,p['case_ids'],p['skill_text'])
@@ -267,6 +273,9 @@ class Execution:
         if not isinstance(raw,dict):raise TaskRejected({'error':'model result must be a JSON object'})
         proof={k:raw[k] for k in ('execution_model_evidence','native_execution') if k in raw}
         value={k:v for k,v in raw.items() if k not in proof}
+        if task=='api-map':
+            from .http_interfaces import normalize_mapping
+            value=normalize_mapping(value)
         attempt=self.root/'attempts'/batch/(str(record.get('rounds',0))+'.json')
         write_json(attempt,{'task':task,'protocol':PROTOCOL,'payload':value,'execution':proof})
         try:
@@ -399,8 +408,10 @@ class Execution:
             if task in SCHEMAS:
                 dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
                 validate_result(task,value['payload'],inputs_for(dependencies))
+        from .node_repair import repair_revision
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
                  'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'existing-concerns','test-concerns','concern-compare','concern-evaluation','normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+        if (revision:=repair_revision(self.root,key)):version['external_repair']=revision
         if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
         if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))

@@ -56,7 +56,7 @@ class DeepAgentsClient(SemanticClient):
         from .model_routing import routed_config
         routed=routed_config(self.config,packet['task'],role_for(packet['task']))
         if routed is not None:
-            child=DeepAgentsClient(routed,model_override=self.model_override,transport=self.transport)
+            child=DeepAgentsClient(routed,model_override=self.model_override,transport=self._custom_transport)
             if getattr(self,'shared_call_gate',None):
                 original=child.post
                 child.post=lambda *a,**k:self.shared_call_gate.call(original,*a,**k)
@@ -116,6 +116,9 @@ class DeepAgentsClient(SemanticClient):
                     rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload,'model-format'])+'.json')
                     write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'candidate_format':'model','error':str(e)})
                     raise TaskRejected({'error':str(e),'phase':'model_contract','rejected_output':str(rejection.relative_to(self.root))}) from e
+            if packet['task']=='api-map':
+                from .http_interfaces import normalize_mapping
+                payload=normalize_mapping(payload)
             if packet['task']=='fused-ssd':
                 from .use_cases import canonical_case_ids
                 payload=canonical_case_ids(payload,packet['input'])
@@ -157,7 +160,9 @@ class DeepAgentsClient(SemanticClient):
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
         inputs={'messages':[{'role':'user','content':task_message(packet)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}
-        if saved.get('status') in {'awaiting_answer','transport_wait'} and saved.get('messages'):
+        if self.config.get('reasoning_replay') and saved.get('messages'):
+            emit('resume_context_restarted',reason='网关要求的思考上下文仅保留于内存；恢复时使用原任务和已有指导，保留累计调用预算')
+        if not self.config.get('reasoning_replay') and saved.get('status') in {'awaiting_answer','transport_wait'} and saved.get('messages'):
             from langchain_core.messages import messages_from_dict,messages_to_dict,ToolMessage
             inputs['messages']=messages_from_dict(saved['messages'])
             last=inputs['messages'][-1]
@@ -190,12 +195,17 @@ class DeepAgentsClient(SemanticClient):
         finally:
             trace={'role':role,'task':packet['task'],'batch_id':packet['batch_id'],'status':'failed' if error else 'complete','error_type':error,
                'messages':[m.model_dump(mode='json') for m in (result['messages'] if result else captured)]}
-            write_json(self.root/'agent_traces'/(packet['batch_id']+'.json'),trace)
+            def audit_write(path,value):
+                try:write_json(path,value)
+                except OSError as io_error:emit('artifact_io_failed',diagnostic=getattr(io_error,'response_diagnostic',{}),original_error_type=error,reason='审计轨迹保存失败；保留原模型/校验错误，不替换为审计写入错误')
+            audit_write(self.root/'agent_traces'/(packet['batch_id']+'.json'),trace)
             from uuid import uuid4
-            write_json(self.root/'agent_trace_history'/(packet['batch_id']+'-'+uuid4().hex+'.json'),trace)
+            audit_write(self.root/'agent_trace_history'/(packet['batch_id'][:24]+'-'+uuid4().hex[:12]+'.json'),trace)
             from langchain_core.messages import messages_to_dict,convert_to_messages
             history=(result['messages'] if result else convert_to_messages(initial_messages)+captured)
-            conversations.checkpoint(task_key,checkpoint_id,{'status':'awaiting_answer' if conversations.pending(task_key) else ('transport_wait' if error=='TaskBlocked' else ('failed' if error else 'complete')), 'messages':messages_to_dict(history),'model_calls':session['count']})
+            checkpoint_value={'status':'awaiting_answer' if conversations.pending(task_key) else ('transport_wait' if error=='TaskBlocked' else ('failed' if error else 'complete')), 'messages':messages_to_dict(history),'model_calls':session['count']}
+            try:conversations.checkpoint(task_key,checkpoint_id,checkpoint_value)
+            except OSError as io_error:emit('artifact_io_failed',diagnostic=getattr(io_error,'response_diagnostic',{}),original_error_type=error,reason='恢复点保存失败，未覆盖原任务错误')
             if result and result['messages']:
                 reply=next((m.content for m in reversed(result['messages']) if getattr(m,'type',None)=='ai' and isinstance(m.content,str) and m.content),None)
                 if reply:conversations.append(task_key,'assistant',reply)
@@ -210,10 +220,12 @@ def _transport_model(client,stage):
     from langchain_core.messages import AIMessage
     from langchain_core.outputs import ChatResult,ChatGeneration
     from langchain_core.utils.function_calling import convert_to_openai_tool
+    from pydantic import Field
     class MeteredChatModel(BaseChatModel):
         scene_client:Any
         task_stage:str
         request_count:int=0
+        reasoning_history:dict=Field(default_factory=dict,exclude=True)
         @property
         def _llm_type(self):return 'scene-metered-openai-compatible'
         def get_num_tokens(self,text):return len(text.encode('utf8'))
@@ -243,6 +255,7 @@ def _transport_model(client,stage):
                 if m.type=='tool':row['tool_call_id']=m.tool_call_id
                 if m.type=='ai' and m.tool_calls:
                     row['tool_calls']=[{'id':t['id'],'type':'function','function':{'name':t['name'],'arguments':json.dumps(t['args'],ensure_ascii=False)}} for t in m.tool_calls]
+                if role=='assistant' and self.scene_client.config.get('reasoning_replay') and m.id in self.reasoning_history:row['reasoning_content']=self.reasoning_history[m.id]
                 converted.append(row)
             if session:
                 guidance=[r for r in session['conversations'].list(session['task_key']) if r['kind'] in {'guidance','answer','context_resolution'} and not r['applied']]
@@ -282,32 +295,38 @@ def _transport_model(client,stage):
                 body['response_format']={'type':'json_object'}
             if body['stream'] and self.scene_client.config.get('stream_usage',True):body['stream_options']={'include_usage':True}
             if stop:body['stop']=stop
-            if 'extra_body' in self.scene_client.config:body.update(self.scene_client.config['extra_body'])
-            stage_options=self.scene_client.config.get('stage_extra_body',{})
-            if not isinstance(stage_options,dict) or not isinstance(stage_options.get(self.task_stage,{}),dict):raise ValueError('stage_extra_body must map task names to request options')
-            body.update(stage_options.get(self.task_stage,{}))
+            from .runtime_settings import request_options,output_limit,request_diagnostic
+            body=request_options(body,self.scene_client.config,self.task_stage)
             from .context_budget import check
             context_bound=check(body,self.scene_client.config)
             from .execution_events import emit,fields,phase
             from uuid import uuid4
             with fields(model_call_id=uuid4().hex):
-                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],context_budget=context_bound,input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=body['max_tokens'],connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
+                phase('model_wait');emit('request_started',account_id=fingerprint(self.scene_client.api_key)[:12],account=self.scene_client.config.get('account_label','账号-'+fingerprint(self.scene_client.api_key)[:8]),requested_model=body['model'],context_budget=context_bound,input_bytes=len(json.dumps(body,ensure_ascii=False).encode()),max_output_tokens=output_limit(body),request_parameters=request_diagnostic(body),connect_timeout_seconds=self.scene_client.config.get('timeout_seconds',120),stream_idle_timeout_seconds=self.scene_client.config.get('stream_idle_timeout_seconds',300),stream_total_timeout_seconds=self.scene_client.config.get('stream_total_timeout_seconds',900))
                 try:response=self.scene_client.post('/chat/completions',body)
                 except Exception as e:
                     emit('request_failed',requested_model=body['model'],diagnostic=getattr(e,'response_diagnostic',getattr(e,'details',{})))
                     if getattr(e,'status',None) in {'rate_limited','pending'} and session:session['count']-=1
                     raise
                 if session:session['conversations'].apply(session['task_key'],[r['id'] for r in guidance])
-                emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'))
+                emit('request_finished',requested_model=body['model'],provider_model=response.get('model'),usage=response.get('usage'),diagnostic=request_diagnostic(body,response))
             if response['choices'][0].get('finish_reason')=='length':
-                if body['max_tokens']>=self.scene_client.config.get('max_tokens',body['max_tokens']):
+                if output_limit(body)>=max(self.scene_client.config.get('max_tokens',output_limit(body)),self.scene_client.output_limit(self.task_stage)):
                     from .scheduler import TaskBlocked
-                    raise TaskBlocked('awaiting_configuration',{'failure_category':'output_truncated','max_output_tokens':body['max_tokens'],'configuration_required':True,'reason':'输出已达到当前配置上限，停止重复生成；请拆分任务或调整生成模式/输出预算'})
-                raise ValueError('task JSON was truncated; no artifact was published')
+                    raise TaskBlocked('awaiting_configuration',{'failure_category':'output_truncated',**request_diagnostic(body,response),'configuration_required':True,'reason':'finish_reason=length；思考与正文可能共用输出预算。请用CLI config/diagnose查看并调整max_tokens、思考参数或拆分任务，不发布残缺JSON'})
+                error=ValueError('task JSON was truncated; no artifact was published')
+                error.response_diagnostic={'failure_category':'output_truncated',**request_diagnostic(body,response)}
+                raise error
             message=response['choices'][0]['message'];calls=[]
+            def decode_json(text):
+                try:return json.loads(text)
+                except (json.JSONDecodeError,TypeError) as e:
+                    e.response_diagnostic={'failure_category':'invalid_result_json',**request_diagnostic(body,response),'json_line':getattr(e,'lineno',None),'json_column':getattr(e,'colno',None)}
+                    emit('response_invalid',diagnostic=e.response_diagnostic)
+                    raise
             if text_submission:
                 from .http_transport import _content_from_response
-                decoded=json.loads(_content_from_response(response))
+                decoded=decode_json(_content_from_response(response))
                 if not isinstance(decoded,dict):raise ValueError('task response must be a JSON object')
                 if set(decoded)=={'clarification'}:
                     detail=decoded['clarification']
@@ -321,7 +340,9 @@ def _transport_model(client,stage):
                 calls.append({'name':name,'args':args,'id':'json-adapter-'+uuid4().hex})
             for call in message.get('tool_calls',[]) or []:
                 if text_submission:raise ValueError('provider returned tool calls despite JSON text submission mode')
-                calls.append({'name':call['function']['name'],'args':json.loads(call['function']['arguments']),'id':call['id']})
-            ai=AIMessage(content=message.get('content') or '',tool_calls=calls,response_metadata={'provider_model':response.get('model'),'usage':response.get('usage',{}),'submission_adapter':'json_text' if text_submission else 'tool_calls'})
+                calls.append({'name':call['function']['name'],'args':decode_json(call['function']['arguments']),'id':call['id']})
+            message_id='scene-response-'+uuid4().hex
+            if self.scene_client.config.get('reasoning_replay') and message.get('reasoning_content') is not None:self.reasoning_history[message_id]=message['reasoning_content']
+            ai=AIMessage(id=message_id,content=message.get('content') or '',tool_calls=calls,response_metadata={'provider_model':response.get('model'),'usage':response.get('usage',{}),'submission_adapter':'json_text' if text_submission else 'tool_calls'})
             return ChatResult(generations=[ChatGeneration(message=ai)],llm_output={'token_usage':response.get('usage',{})})
     return MeteredChatModel(scene_client=client,task_stage=stage)

@@ -99,27 +99,30 @@ class Workbench:
         p=self.run_dir(rid)
         job=read_json(p/'job.json') if (p/'job.json').exists() else {}
         if rid in self.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('运行期间不能修改模型配置')
-        if not body.get('agent_model','').strip():raise ValueError('请选择实际模型标识')
-        if not body.get('model_account_id') and not body.get('base_url','').startswith(('http://','https://')):raise ValueError('请选择模型连接或填写API地址')
+        from .runtime_settings import KEYS,validate_options,PRESETS
+        allowed=KEYS|{'model_account_id','base_url','agent_model','api_key','preset'}
+        if set(body)-allowed:raise ValueError('不支持的配置键：'+','.join(sorted(set(body)-allowed)))
         previous=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
-        config={**previous,**{k:body[k] for k in ('model_account_id','base_url','agent_model','api_key','max_concurrency','max_tokens','max_context_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds') if k in body}}
-        if body.get('model_account_id')!=previous.get('model_account_id'):
-            # A changed key/model must not inherit another account's routing,
-            # request options or quota path. Ledger files themselves stay intact.
-            for k in ('api_key','api_key_env','base_url','extra_body','stage_extra_body','thinking','thinking_api','task_models','role_models','model_profiles','stage_max_tokens','token_budget_ledger','token_budget_limit','provider_token_budget_limit','provider_token_budget_ledgers','provider_token_budget_lock','token_budget_reasoning_reserve'):
-                config.pop(k,None)
-            if not body.get('model_account_id'):
-                config.update({k:body[k] for k in ('api_key','base_url') if k in body})
-        elif not config.get('api_key'):config['api_key']=previous.get('api_key','')
+        config=dict(previous)
+        if 'model_account_id' in body and body['model_account_id']!=previous.get('model_account_id'):
+            # Switching credentials must not inherit routing, provider options or quota files.
+            for k in KEYS|{'api_key','api_key_env','base_url','token_budget_ledger','token_budget_limit','provider_token_budget_limit','provider_token_budget_ledgers','provider_token_budget_lock','token_budget_reasoning_reserve'}:config.pop(k,None)
+        if 'preset' in body:
+            if body['preset'] not in PRESETS:raise ValueError('未知兼容预设')
+            config.update(PRESETS[body['preset']])
+        if 'model_profiles' in body:
+            safe_profile_keys=KEYS-{'model_profiles','task_models','role_models'}
+            if not isinstance(body['model_profiles'],dict) or any(not isinstance(v,dict) or set(v)-safe_profile_keys for v in body['model_profiles'].values()):raise ValueError('模型配置只接受公开运行参数，不能修改凭证或配额账本')
+            body={**body,'model_profiles':{m:{**config.get('model_profiles',{}).get(m,{}),**v} for m,v in body['model_profiles'].items()}}
+        config.update({k:v for k,v in body.items() if k!='preset' and not (k=='api_key' and not v)})
+        if not config.get('agent_model','').strip():raise ValueError('请选择实际模型标识')
+        if not config.get('model_account_id') and not (config.get('base_url') or self.model_config(rid).get('base_url','')).startswith(('http://','https://')):raise ValueError('请选择模型连接或填写API地址')
         config.update(agent_runtime='deepagents',structured_output='json_object',max_retries=0,adaptive_concurrency=True)
-        for k,default,lo,hi in [('max_concurrency',2,1,8),('max_tokens',12000,256,64000),('max_context_tokens',200000,1024,2000000),('timeout_seconds',120,10,1800),('stream_idle_timeout_seconds',300,10,1800),('stream_total_timeout_seconds',900,30,3600)]:
-            v=config.get(k,default)
-            if type(v) is not int or not lo<=v<=hi:raise ValueError('invalid '+k)
-            config[k]=v
-        if config['max_tokens']>=config['max_context_tokens']:raise ValueError('输出预留必须小于上下文上限')
-        if config['stream_total_timeout_seconds']<config['stream_idle_timeout_seconds']:raise ValueError('流式总时限不能小于无数据等待时限')
+        config=validate_options(config,defaults=True)
         from .model_settings import resolve
         validated=resolve(config,self.env_file,self.root)
+        from .model_routing import routed_config
+        for task,role in [('agent','modeler'),('agent','checker'),('agent','recommender')]+[(t,'modeler') for t in config.get('task_models',{})]:routed_config(validated,task,role)
         write_json(p/'model.local.json',config)
         try:(p/'model.local.json').chmod(0o600)
         except OSError:pass
@@ -270,7 +273,7 @@ class Workbench:
             from .model_routing import routed_config
             from .deepagents_client import role_for
             config=routed_config(config,task_packet['task'],role_for(task_packet['task'])) or config
-            config['max_tokens']=min(config.get('max_tokens',1200),1600);client=client_for(config,p/'run')
+            client=client_for(config,p/'run')
             from .indexed_context import EvidenceContext
             from .deepagents_client import compact_input
             context_packet=EvidenceContext(task_packet).packet if config.get('indexed_context',False) else task_packet
@@ -278,7 +281,10 @@ class Workbench:
               {'role':'user','content':'允许任务上下文：'+json.dumps({'task':context_packet['task'],'input':compact_input(context_packet['input'])},ensure_ascii=False,separators=(',',':'))}]
             messages += [{'role':'assistant' if m['kind']=='assistant' else 'user','content':m['text']} for m in store.list(key)[-20:] if m['kind'] in {'assistant','guidance','answer'}]
             with bind(EventStore(p/'run'),task_key=key,role='dialogue',case='node',attempt=0,model_call_id='dialogue-'+uuid4().hex):
-                body={'model':client.model('agent'),'messages':messages,'max_tokens':1600,'stream':True,'stream_options':{'include_usage':True}}
+                body={'model':client.model('agent'),'messages':messages,'max_tokens':client.output_limit('dialogue'),'stream':config.get('stream',True)}
+                if body['stream'] and config.get('stream_usage',True):body['stream_options']={'include_usage':True}
+                from .runtime_settings import request_options
+                body=request_options(body,config,'dialogue')
                 emit('request_started',requested_model=body['model'],purpose='dialogue',input_bytes=len(json.dumps(body,ensure_ascii=False).encode()))
                 from .scheduler import CallGate
                 gate=self.gates.setdefault(rid,CallGate(config.get('max_concurrency',1)))
@@ -455,6 +461,31 @@ def create_app(root=None,client_factory=None,env_file=None):
     @app.put('/api/model-accounts')
     def save_model_account(body:dict):
         with service.lock:return service.model_accounts(body)
+    @app.get('/api/projects/{rid}/node-repair')
+    def repair_context(rid:str,task_key:str):
+        from .node_repair import export_repair
+        return export_repair(service.run_dir(rid),task_key)
+    @app.post('/api/projects/{rid}/node-repair')
+    def repair_submit(rid:str,body:dict):
+        from .node_repair import submit_repair
+        from .scheduler import run_lock
+        p=service.run_dir(rid)
+        if rid in service.active:raise ValueError('请等待本轮执行结束再提交修复，导出和校验不会调用模型')
+        with service.lock,run_lock(p/'run'):return submit_repair(p,body['task_key'],body['repair'],validate_only=body.get('validate_only',False))
+    @app.get('/api/projects/{rid}/config')
+    def effective_config(rid:str,task:str='agent',task_key:str|None=None):
+        from .model_diagnostics import effective
+        if task_key:
+            p=service.run_dir(rid)/'run/workflow_tasks.json'
+            record=read_json(p).get('tasks',{}).get(task_key) if p.exists() else None
+            if not record:raise ValueError('未知执行节点')
+            task=record['stage']
+        return effective(service.model_config(rid),task)
+    @app.get('/api/projects/{rid}/diagnostics')
+    def diagnostics(rid:str,task_key:str|None=None,limit:int=20):
+        from .model_diagnostics import node_diagnostics
+        if not 1<=limit<=100:raise ValueError('limit范围1至100')
+        return node_diagnostics(service.run_dir(rid),service.model_config(rid),task_key,limit)
     @app.put('/api/projects/{rid}/config')
     def configure(rid:str,body:dict):return service.configure(rid,body)
     @app.put('/api/projects/{rid}/mode')

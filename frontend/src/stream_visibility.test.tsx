@@ -1,6 +1,6 @@
 import { it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { NodeOutput } from "./NodeOutput";
+import { NodeOutput, segments } from "./NodeOutput";
 import type { ExecutionEvent } from "./types";
 const event = (id: number, kind: string, data: any): ExecutionEvent => ({
   id,
@@ -79,4 +79,10 @@ it("does not keep a waiting banner after the model request has finished", () => 
     />,
   );
   expect(screen.queryByRole("status")).toBeNull();
+});
+
+it('thinking-only stream progress is not presented as empty stalled body output',()=>{
+ const result=segments([{id:1,kind:'stream_progress',at:1,attempt:1,data:{elapsed_seconds:20,output_bytes:0,reasoning_bytes:2048}} as any]);
+ expect(result[0].text).toContain('另收到2048字节思考数据');
+ expect(result[0].text).toContain('不展示原文');
 });

@@ -4,10 +4,11 @@ import time
 import http.client
 
 
-def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None):
+def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None,capture_reasoning=False):
+    reasoning=[];reasoning_bytes=0
     content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started;preparing=False
     def consume(lines):
-        nonlocal model,finish,usage,done,events,first,size,last,last_progress,preparing
+        nonlocal model,finish,usage,done,events,first,size,last,last_progress,preparing,reasoning_bytes
         data='\n'.join(lines)
         if data=='[DONE]':done=True;return
         if not data:return
@@ -28,11 +29,17 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         usage=row.get('usage') or usage
         from .execution_events import emit
         if last-last_progress>=10:
-            emit('stream_progress',elapsed_seconds=round(last-started,2),stream_events=events,output_bytes=size,provider_model=model)
+            emit('stream_progress',elapsed_seconds=round(last-started,2),stream_events=events,output_bytes=size,provider_model=model,reasoning_bytes=reasoning_bytes,reasoning_received=bool(reasoning_bytes))
             last_progress=last
         for choice in row.get('choices',[]) or []:
             if choice.get('index',0)!=0:continue
             delta=choice.get('delta') or {}
+            if delta.get('reasoning_content'):
+                piece=delta['reasoning_content']
+                if not isinstance(piece,str):raise ValueError('stream reasoning must be text')
+                reasoning_bytes+=len(piece.encode('utf8'))
+                if reasoning_bytes>32*1024*1024:raise ValueError('reasoning exceeds bounded transport buffer')
+                if capture_reasoning:reasoning.append(piece)
             if delta.get('reasoning_content') and not preparing:
                 emit('stream_status',status='preparing_answer',message='模型正在准备回复，尚未返回正文。')
                 preparing=True
@@ -70,7 +77,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
             # SSE comments/heartbeats and reasoning text are not model answers.
     except TimeoutError as err:
         now=time.perf_counter()
-        err.response_diagnostic={'failure_category':'transport_timeout','phase':'stream_read','timeout_kind':'total_deadline' if now-started>=timeout else 'idle_read','elapsed_seconds':round(now-started,3),'first_event_seconds':first,'last_event_age_seconds':round(now-last,3) if last else None,'stream_events':events,'partial_content_bytes':size,'provider_model':model,'incomplete_tools':[c['function']['name'] for c in tool_calls.values()],**getattr(err,'response_diagnostic',{})}
+        err.response_diagnostic={'failure_category':'transport_timeout','phase':'stream_read','timeout_kind':'total_deadline' if now-started>=timeout else 'idle_read','elapsed_seconds':round(now-started,3),'first_event_seconds':first,'last_event_age_seconds':round(now-last,3) if last else None,'stream_events':events,'partial_content_bytes':size,'provider_model':model,'reasoning_bytes':reasoning_bytes,'incomplete_tools':[c['function']['name'] for c in tool_calls.values()],**getattr(err,'response_diagnostic',{})}
         raise
     if event and not done:consume(event)
     if not done or finish is None:
@@ -79,7 +86,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
           'elapsed_seconds':round(time.perf_counter()-started,3),'partial_content_bytes':size,'stream_events':events,
           'provider_model':model,'finish_reason':finish,'done_received':done,
           'first_event_seconds':first,'last_event_age_seconds':round(time.perf_counter()-last,3) if last else None,
-          'incomplete_tools':[c['function']['name'] for c in tool_calls.values()]}
+          'reasoning_bytes':reasoning_bytes,'incomplete_tools':[c['function']['name'] for c in tool_calls.values()]}
         raise error
     calls=[tool_calls[i] for i in sorted(tool_calls)]
     for call in calls:
@@ -87,7 +94,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         # length ceiling before parsing or publishing partial tool arguments.
         if finish=='length':continue
         if not call['id'] or not call['function']['name']:raise ValueError('incomplete streamed tool identity')
-        try:json.loads(call['function']['arguments'])
-        except json.JSONDecodeError as e:raise ValueError('completed tool stream contains invalid JSON arguments') from e
-    return {'model':model,'choices':[{'message':{'content':''.join(content),**({'tool_calls':calls} if calls else {})},'finish_reason':finish}],
-        'usage':usage,'_scene_completion_metrics':{'stream_events':events,'first_event_seconds':first,'stream_complete':True}}
+        # Parse arguments in the metered semantic adapter, after usage settlement.
+        # A complete HTTP stream can still contain invalid semantic JSON.
+    return {'model':model,'choices':[{'message':{'content':''.join(content),**({'reasoning_content':''.join(reasoning)} if capture_reasoning and reasoning else {}),**({'tool_calls':calls} if calls else {})},'finish_reason':finish}],
+        'usage':usage,'_scene_completion_metrics':{'stream_events':events,'first_event_seconds':first,'stream_complete':True,'reasoning_bytes':reasoning_bytes}}

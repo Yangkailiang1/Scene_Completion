@@ -26,11 +26,24 @@ def parser():
     create.add_argument('--mode',choices=('manual','auto'),default='manual');create.add_argument('--case',action='append',default=[])
     accounts=sub.add_parser('accounts')
     save=sub.add_parser('save-account');save.add_argument('--id');save.add_argument('--name',required=True);save.add_argument('--base-url',required=True);save.add_argument('--model',action='append',required=True);group=save.add_mutually_exclusive_group();group.add_argument('--api-key-env');group.add_argument('--prompt-key',action='store_true',help='终端隐藏输入API Key；密钥不进入命令历史')
-    for cmd in ('status','artifacts','run','events','configure','guide','answer'):
+    for cmd in ('status','artifacts','run','events','configure','config','diagnose','repair-export','repair-submit','rerun','guide','answer'):
         a=sub.add_parser(cmd);a.add_argument('--project',required=True)
         if cmd=='run':a.add_argument('--wait',action='store_true');a.add_argument('--mode',choices=('manual','auto'));a.add_argument('--timeout',type=float,default=3600);a.add_argument('--poll',type=float,default=2)
         if cmd=='events':a.add_argument('--after',type=int,default=0);a.add_argument('--node');a.add_argument('--limit',type=int,default=200)
-        if cmd=='configure':a.add_argument('--account',required=True);a.add_argument('--model',required=True);a.add_argument('--concurrency',type=int,default=2)
+        if cmd in ('config','diagnose'):
+            a.add_argument('--node');a.add_argument('--task',default='agent');a.add_argument('--limit',type=int,default=20)
+        if cmd in ('repair-export','repair-submit'):
+            a.add_argument('--node',required=True)
+            if cmd=='repair-export':a.add_argument('--out',required=True)
+            else:a.add_argument('--file',required=True);a.add_argument('--validate-only',action='store_true')
+        if cmd=='rerun':a.add_argument('--node',required=True);a.add_argument('--text',default='按已更新的模型配置重新执行当前节点')
+        if cmd=='configure':
+            a.add_argument('--account');a.add_argument('--model');a.add_argument('--concurrency',type=int);a.add_argument('--config-file',help='运行参数JSON，不接受凭证或配额账本修改');a.add_argument('--preset',choices=('deepseek-thinking',));a.add_argument('--dry-run',action='store_true')
+            for flag,key in [('max-output-tokens','max_tokens'),('max-context-tokens','max_context_tokens'),('connect-timeout','timeout_seconds'),('idle-timeout','stream_idle_timeout_seconds'),('total-timeout','stream_total_timeout_seconds'),('max-model-calls','agent_max_model_calls')]:a.add_argument(*(['--max-output-tokens','--max-tokens','--maxtokens'] if flag=='max-output-tokens' else ['--'+flag]),dest=key,type=int)
+            a.add_argument('--thinking',choices=('auto','on','off'));a.add_argument('--thinking-api',choices=('legacy','enable_thinking','omit'));a.add_argument('--reasoning-effort');a.add_argument('--thinking-budget',type=int)
+            a.add_argument('--submission-mode',choices=('tool_calls','json_text'));a.add_argument('--max-tokens-parameter',choices=('max_tokens','max_completion_tokens'));a.add_argument('--stage-output',action='append',default=[],metavar='TASK=TOKENS')
+            for flag in ('stream','stream-usage','send-reasoning-effort','supports-tool-choice','supports-parallel-tool-calls','reasoning-replay','json-response-format'):a.add_argument('--'+flag,action=argparse.BooleanOptionalAction,default=None)
+
         if cmd in ('guide','answer'):a.add_argument('--node',required=True);a.add_argument('--text',required=True)
         if cmd=='answer':a.add_argument('--question',required=True)
     return p
@@ -58,7 +71,37 @@ def main(argv=None,client=None):
     rid=args.project
     if len(rid)!=32 or any(c not in '0123456789abcdef' for c in rid):raise ValueError('项目ID必须是工作台返回的32位ID')
     path='projects/'+rid
-    if args.command=='configure':output(api.call(path+'/config',{'model_account_id':args.account,'agent_model':args.model,'max_concurrency':args.concurrency},'PUT'));return 0
+    if args.command=='repair-export':
+        value=api.call(path+'/node-repair?'+urllib.parse.urlencode({'task_key':args.node}));target=Path(args.out);target.write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8');output({'saved_to':str(target),'task_key':args.node,'note':'包含本节点业务材料，保留本地，不提交Git'});return 0
+    if args.command=='repair-submit':
+        value=json.loads(Path(args.file).read_text(encoding='utf-8-sig'));output(api.call(path+'/node-repair',{'task_key':args.node,'repair':value,'validate_only':args.validate_only}));return 0
+    if args.command in ('config','diagnose'):
+        query=urllib.parse.urlencode({**({'task_key':args.node} if args.node else {'task':args.task}),**({'limit':args.limit} if args.command=='diagnose' else {})})
+        output(api.call(path+('/diagnostics' if args.command=='diagnose' else '/config')+'?'+query));return 0
+    if args.command=='rerun':output(api.call(path+'/rerun-node',{'task_key':args.node,'text':args.text}));return 0
+    if args.command=='configure':
+        from .runtime_settings import KEYS,validate_options,PRESETS
+        body=json.loads(Path(args.config_file).read_text(encoding='utf-8-sig')) if args.config_file else {}
+        if not isinstance(body,dict) or set(body)-KEYS:raise ValueError('配置文件只接受运行参数；凭证用save-account，配额账本保持不变')
+        if args.preset:body={**PRESETS[args.preset],**body};body['preset']=args.preset
+        for arg,key in [('account','model_account_id'),('model','agent_model'),('concurrency','max_concurrency')]+[(k,k) for k in KEYS if k not in {'thinking','stage_max_tokens','extra_body','stage_extra_body','task_models','role_models','model_profiles'}]:
+            v=getattr(args,arg,None)
+            if v is not None:body[key]=v
+        if args.thinking:body['thinking']={'auto':None,'on':True,'off':False}[args.thinking]
+        if args.reasoning_effort is not None:body['send_reasoning_effort']=args.reasoning_effort!='omit';body['reasoning_effort']=args.reasoning_effort if args.reasoning_effort!='omit' else 'high'
+        if args.stage_output:
+            rules=dict(body.get('stage_max_tokens',{}))
+            for item in args.stage_output:
+                k,sep,v=item.partition('=')
+                if not sep or not k or not v.isdecimal():raise ValueError('--stage-output格式为TASK=TOKENS')
+                rules[k]=int(v)
+            body['stage_max_tokens']=rules
+        if not body:output(api.call(path+'/config'));return 0
+        if args.dry_run:
+            current=api.call(path+'/config')['settings'];merged={**current,**{k:v for k,v in body.items() if k!='preset'}}
+            validate_options(merged);output({'dry_run':True,'changes':body,'notes':['仅校验参数，不保存、不调用模型；完整账号/路由及真实请求预算由服务端保存/执行时再次校验。']});return 0
+        output(api.call(path+'/config',body,'PUT'));return 0
+
     if args.command=='guide':output(api.call(path+'/conversation',{'task_key':args.node,'text':args.text}));return 0
     if args.command=='answer':output(api.call(path+'/answer',{'task_key':args.node,'question_id':args.question,'text':args.text}));return 0
     if args.command=='events':

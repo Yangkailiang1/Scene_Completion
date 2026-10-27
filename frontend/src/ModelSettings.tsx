@@ -201,7 +201,7 @@ export function ModelSettings({
           <div className="form-grid">
             {[
               ["max_concurrency", "并发任务数", 2, 1, 8],
-              ["max_tokens", "输出Token上限", 12000, 256, 64000],
+              ["max_tokens", "输出Token上限（含思考，依网关）", 12000, 256, 2000000],
               [
                 "max_context_tokens",
                 "上下文总上限（含输出预留）",

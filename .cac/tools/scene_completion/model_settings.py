@@ -34,5 +34,7 @@ def resolve(overrides,env_path,accounts_root=None):
     return config
 
 def public_settings(config):
-    return {**{k:config[k] for k in ('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream','max_context_tokens','model_account_id','model_account_name','allowed_models') if k in config},
-      'credential_configured':bool(config.get('api_key'))}
+    from .runtime_settings import KEYS
+    allowed=KEYS-{'model_profiles','extra_body','stage_extra_body'}
+    return {**{k:config[k] for k in allowed|set(('base_url','agent_model','max_concurrency','max_tokens','timeout_seconds','stream_idle_timeout_seconds','stream_total_timeout_seconds','stream','max_context_tokens','model_account_id','model_account_name','allowed_models')) if k in config},
+      'model_profiles':{m:{k:v for k,v in p.items() if k in allowed} for m,p in config.get('model_profiles',{}).items()},'credential_configured':bool(config.get('api_key'))}

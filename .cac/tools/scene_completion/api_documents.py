@@ -51,11 +51,9 @@ def index_interfaces(inputs):
 def explicit_http_interfaces(documents):
     """Literal method/path declarations and calls, not inferred endpoint names."""
     found={}
-    pattern=re.compile(r'\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s`\"\'，。；,;|)]+)',re.I)
+    from .http_interfaces import declarations
     for d in documents:
         for row in d['lines']:
-            for match in pattern.finditer(row['text']):
-                if re.search(r'不是|不要|禁止',row['text'][max(0,match.start()-12):match.start()]):continue
-                path=match[2].split('?',1)[0]
-                found.setdefault((match[1].upper(),path),{'source_id':d['source_id'],'line_start':row['number'],'line_end':row['number'],'quote':row['text']})
+            for method,path in declarations(row['text']):
+                found.setdefault((method,path),{'source_id':d['source_id'],'line_start':row['number'],'line_end':row['number'],'quote':row['text']})
     return found

@@ -1,0 +1,16 @@
+{
+  "max_tokens": 32768,
+  "max_context_tokens": 200000,
+  "stage_max_tokens": {"components": 65536},
+  "thinking": true,
+  "thinking_api": "legacy",
+  "send_reasoning_effort": false,
+  "reasoning_replay": true,
+  "supports_tool_choice": false,
+  "supports_parallel_tool_calls": false,
+  "stream": true,
+  "stream_usage": true,
+  "stream_idle_timeout_seconds": 300,
+  "stream_total_timeout_seconds": 1800,
+  "max_concurrency": 1
+}

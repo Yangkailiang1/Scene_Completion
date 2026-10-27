@@ -34,3 +34,10 @@ def test_incomplete_stream_reports_real_provider_finish_and_no_payload():
     assert d['failure_category']=='stream_incomplete' and d['partial_content_bytes']==0
     assert d['provider_model']=='actual' and not d['done_received'] and d['finish_reason'] is None
     assert d['elapsed_seconds']>=0 and d['phase']=='stream_read'
+
+
+def test_opt_in_reasoning_replay_is_transport_only_with_separate_byte_counts():
+ result=read_chat_stream(rows([{'choices':[{'delta':{'reasoning_content':'private chunk'}}]},{'choices':[{'delta':{'content':'{}'},'finish_reason':'stop'}]}]),time.perf_counter(),60,capture_reasoning=True)
+ assert result['choices'][0]['message']['reasoning_content']=='private chunk'
+ assert result['_scene_completion_metrics']['reasoning_bytes']==len('private chunk')
+ assert result['choices'][0]['message']['content']=='{}'

@@ -92,6 +92,10 @@ def validate_result(task, payload, inputs):
             for code in re.findall(r'HTTP\s*([1-5]\d\d)',t['expected_result'],re.I):
                 if code not in quote:raise ValueError('不得补造正常规则未声明的错误响应码')
     if task=='api-map':
+        from .http_interfaces import clean_path
+        for service in payload['services']:
+            for api in service['interfaces']:
+                if api.get('address') and clean_path(api['address'])!=api['address']:raise ValueError('接口地址必须为纯path，不能包含<br/>、说明、查询串或残缺占位符；未知地址使用null并保留原始证据：'+str(api['id']))
         from .api_documents import explicit_http_interfaces
         declared=explicit_http_interfaces(inputs['SR'])
         actual={(a['method'].upper(),a['address']) for s in payload['services'] for a in s['interfaces'] if a.get('method') and a.get('address')}

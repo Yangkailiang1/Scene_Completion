@@ -3,13 +3,14 @@ from __future__ import annotations
 import os,json
 from .http_transport import _content_from_response,_post_chat_completions_diagnostic as _post_chat_completions,_resolve_env_reference
 from .storage import fingerprint
-from .model_configuration import configured_model,concurrency_limit,request_effort
+from .model_configuration import configured_model,concurrency_limit
 class SemanticClient:
     def __init__(self, config: dict | None = None, transport=None):
         self.config = config or {}
+        self._custom_transport = transport
         self.transport = transport or (lambda url,key,body,timeout,retries:_post_chat_completions(url,key,body,timeout,retries,
           idle_timeout=float(self.config.get('stream_idle_timeout_seconds',300)) if body.get('stream') else None,
-          total_timeout=float(self.config.get('stream_total_timeout_seconds',900)) if body.get('stream') else None))
+          total_timeout=float(self.config.get('stream_total_timeout_seconds',900)) if body.get('stream') else None,capture_reasoning=self.config.get('reasoning_replay',False)))
         self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
         self.api_key = self.config.get("api_key") or os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self.token_budget = None
@@ -51,7 +52,8 @@ class SemanticClient:
         if self.config.get('allowed_models') and body.get('model') not in self.config['allowed_models']:raise ValueError('requested model is not allowed for this API key')
         if not self.base_url.startswith(('https://','http://')) or not self.api_key:raise ValueError('OpenAI-compatible endpoint or API key is not configured')
         if endpoint=='/chat/completions':
-            body={**body,'max_tokens':body.get('max_tokens',self.output_limit('agent'))}
+            body=dict(body)
+            if not any(k in body for k in ('max_tokens','max_completion_tokens')):body['max_tokens']=self.output_limit('agent')
             from .context_budget import check
             check(body,self.config)
         from .endpoint_admission import endpoint_slot
@@ -137,29 +139,9 @@ class SemanticClient:
             error = RuntimeError('request exceeds stage_request_bytes; split without truncating evidence')
             error.response_diagnostic = {'failure_category': 'context_budget_exceeded', 'configuration_required': True}
             raise error
-        thinking_api = self.config.get('thinking_api', 'legacy')
-        if thinking_api not in ('legacy', 'enable_thinking'):
-            raise ValueError('thinking_api must be legacy or enable_thinking')
-        if thinking_api == 'enable_thinking':
-            body['enable_thinking'] = bool(self.config.get('thinking'))
-        elif self.config.get('thinking') is False:
-            # Omitting a parameter does not disable providers' default thinking.
-            body['thinking'] = {"type": "disabled"}
-        if self.config.get("thinking"):
-            effort = request_effort(self.config)
-            if effort is not None and (not isinstance(effort,str) or not effort.strip() or len(effort)>64 or any(c in effort for c in '\r\n\x00')):
-                raise ValueError('reasoning_effort must be a configured provider-supported identifier')
-            if effort is not None and self.config.get('supported_reasoning_efforts') and effort not in self.config['supported_reasoning_efforts']:
-                raise ValueError('reasoning_effort is not in configured supported_reasoning_efforts')
-            if effort is not None:
-                body['reasoning_effort'] = effort
-            if self.config.get('thinking_budget') is not None:
-                thought_budget = self.config['thinking_budget']
-                if type(thought_budget) is not int or thought_budget <= 0 or effort is not None:
-                    raise ValueError('thinking_budget requires a positive integer and send_reasoning_effort=false')
-                body['thinking_budget'] = thought_budget
-            if thinking_api == 'legacy':
-                body['thinking'] = {"type": "enabled"}
+        from .runtime_settings import request_options
+        body=request_options(body,self.config,packet['stage'])
+        thinking_api=self.config.get('thinking_api','legacy')
         if self.config.get('stream'):
             body['stream']=True
             if self.config.get('include_usage'):
@@ -186,7 +168,7 @@ class SemanticClient:
             'context_profile': context_measurement['profile'],
             'context_policy_hash': fingerprint(packet.get('context_policy', {})),
             'thinking_budget': body.get('thinking_budget'),
-            'max_tokens': body['max_tokens'],
+            'max_tokens': body.get('max_tokens',body.get('max_completion_tokens')),
             'thinking_control_sent': 'thinking' in body or 'enable_thinking' in body,
             "thinking": bool(self.config.get("thinking")), "reasoning_effort": body.get("reasoning_effort"),
             "thinking_api": thinking_api,
