@@ -45,6 +45,7 @@ def save_settings(project,body):
         old=settings(project)
         if body.get('expected_version')!=old['version']:raise ValueError('模式设置已更新，请刷新')
         v=normalize_settings(body['settings']);version=v['hash'];root=Path(project);index=read_json(root/'pattern-settings.json')
+        if body.get('dry_run'):return {'valid':True,'saved':False,'settings':v,'version':version}
         if version!=old['version']:
             write_json(root/'pattern-versions'/(version+'.json'),v);index['history'].append({'version':version,'at':time.time()});index['version']=version;write_json(root/'pattern-settings.json',index)
         return settings(project)
@@ -75,16 +76,27 @@ def import_history(project,body):
             if row.get('library_version')!=VERSION:raise ValueError('已审核历史需要与当前模式库版本一致；旧版本先重新审核')
         old['items']+=deepcopy(rows);old['revision']+=1;write_json(Path(project)/'recommendation-history.json',old);return old
 
-def feedback(project,body,result):
+def feedback(project,body,result,*,dry_run=False):
     with _LOCK:
         old=history(project)
         if body.get('revision')!=old['revision']:raise ValueError('审核记录已变化，请刷新')
         if body.get('settings_hash')!=result.get('settings_hash'):raise ValueError('推荐版本已变化，请刷新')
         choice=body.get('choice')
-        if choice not in {'adopt','not_needed','already_covered','defer','not_applicable'}:raise ValueError('请选择有效审核结论')
+        if choice not in {'adopt','not_needed','already_covered','defer','not_applicable','withdraw'}:raise ValueError('请选择有效审核结论')
         item=next((r for r in result['ranked'] if r['scenario_id']==body.get('scenario_id')),None)
         if item is None:raise ValueError('推荐场景已变化')
+        if choice=='adopt' and item['scenario_id'] not in {s['id'] for s in result.get('Q',[])}:raise ValueError('只有冻结Q中的推荐项能在此采纳；未入选项不改变本轮算法结果')
+        resolution=body.get('truth_resolution') or {}
+        if resolution and (resolution.get('choice') not in {'new','link'} or resolution.get('choice')=='link' and not resolution.get('truth_id')):raise ValueError('请选择关联现有GT或新增独立失败')
+        if body.get('via') in {'cli','feedback_import'} and not str(body.get('reviewer') or '').strip():raise ValueError('请填写审核人')
+        if len(str(body.get('note') or ''))>8000 or len(str(body.get('reviewer') or ''))>200:raise ValueError('审核说明或审核人超长')
+        if choice=='adopt' and resolution.get('choice')=='link':
+            from .business_truth import candidates, snapshot
+            truth=snapshot(project,result['case_id'])['evaluation'].get('GT',[])
+            if resolution['truth_id'] not in {t['id'] for t in candidates(item['scenario'],truth)}:raise ValueError('人工关联GT不在同定位候选中')
         row={'id':fingerprint([body,time.time_ns()])[:24],'scenario_id':item['scenario_id'],'pattern_id':item['pattern_id'],'context':item['scenario']['scenario_context'],'decision':choice,'human_reviewed':True,'source_channel':'business_adoption','case_id':result['case_id'],'run_id':result['run_id'],'reviewed_at':time.time(),'pattern_hash':item['scenario'].get('pattern_versions',{}).get(item['pattern_id']),'library_version':result.get('library_version'),'source':'网页业务审核','note':str(body.get('note',''))[:8000]}
+        row.update(reviewer=str(body.get('reviewer') or '历史审核用户'),via=body.get('via','web'),settings_hash=result.get('settings_hash'),scenario_hash=fingerprint(item['scenario']),truth_resolution=resolution)
+        if dry_run:return {'valid':True,'saved':False,'feedback':row}
         old['feedback'].append(row)
         # Latest review replaces prior label, no repeated exposure inflation.
         old['items']=[r for r in old['items'] if (r.get('scenario_id'),r.get('run_id'))!=(row['scenario_id'],row['run_id'])]

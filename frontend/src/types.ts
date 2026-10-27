@@ -51,6 +51,8 @@ export interface Artifact {
   task_key?: string;
 }
 export interface Snapshot {
+  review_only?: boolean;
+  review_summary?: { unresolved: number; counts: Record<string, number> };
   project: Project;
   job: { status: string; message?: string };
   manifest: any;

@@ -35,6 +35,8 @@ import { PatternManager } from "./PatternManager";
 import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
+import { BusinessRecommendations } from "./BusinessRecommendations";
+import { ReviewHandoff } from "./ReviewHandoff";
 import { ConcernManager } from "./ConcernManager";
 import { ArtifactView } from "./ArtifactView";
 import { ExecutionNavigator } from "./ExecutionNavigator";
@@ -74,7 +76,13 @@ export default function App() {
   const [newCreating, setNewCreating] = useState(false);
   const newTestRequest = useRef(0);
   const [management, setManagement] = useState<
-    "pending" | "concerns" | "results" | "patterns" | null
+    | "pending"
+    | "concerns"
+    | "results"
+    | "patterns"
+    | "recommendations"
+    | "handoff"
+    | null
   >(null);
   const jobStatusRef = useRef("ready");
   const [usageOpen, setUsageOpen] = useState(false),
@@ -187,7 +195,12 @@ export default function App() {
     setEvents([]);
   }
   useEffect(() => {
-    if (!current || !snapshot || snapshot.job.status === "complete") return;
+    if (
+      !current ||
+      !snapshot ||
+      ["complete", "complete_with_questions"].includes(snapshot.job.status)
+    )
+      return;
     const id = current;
     const cursor = sessionStorage.getItem("scene-cursor-" + id) || "0";
     const source = new EventSource(
@@ -223,7 +236,12 @@ export default function App() {
       }
     }, 100);
     const poll = setInterval(() => {
-      if (jobStatusRef.current !== "complete" && !document.hidden)
+      if (
+        !["complete", "complete_with_questions"].includes(
+          jobStatusRef.current,
+        ) &&
+        !document.hidden
+      )
         refresh(id).catch(() => {});
     }, 4000);
     return () => {
@@ -235,7 +253,13 @@ export default function App() {
       buffer.current = [];
       setStreamConnected(false);
     };
-  }, [current, !!snapshot, snapshot?.job.status === "complete"]);
+  }, [
+    current,
+    !!snapshot,
+    ["complete", "complete_with_questions"].includes(
+      snapshot?.job.status || "",
+    ),
+  ]);
   useEffect(() => {
     if (!current || !selected || selected.startsWith("planned:")) return;
     let active = true;
@@ -401,6 +425,7 @@ export default function App() {
           <Button
             variant="secondary"
             className="new-project"
+            disabled={snapshot?.review_only}
             onClick={() => setDialog("new")}
             aria-label="新建项目"
           >
@@ -508,6 +533,7 @@ export default function App() {
                   复位布局
                 </button>
                 <button
+                  disabled={snapshot?.review_only}
                   onClick={() =>
                     current ? setDialog("settings") : setNotice("请先选择项目")
                   }
@@ -521,7 +547,7 @@ export default function App() {
                   执行模式
                   <select
                     aria-label="执行模式"
-                    disabled={running}
+                    disabled={running || snapshot?.review_only}
                     value={snapshot?.project.review_mode || "manual"}
                     onChange={(e) =>
                       current &&
@@ -542,14 +568,16 @@ export default function App() {
             <Button
               size="sm"
               onClick={() => start().catch(error)}
-              disabled={!current || running}
+              disabled={!current || running || snapshot?.review_only}
             >
               <Play size={13} />
-              {running
-                ? "运行中"
-                : graph.nodes.length
-                  ? "继续运行"
-                  : "开始运行"}
+              {snapshot?.review_only
+                ? "业务审核模式"
+                : running
+                  ? "运行中"
+                  : graph.nodes.length
+                    ? "继续运行"
+                    : "开始运行"}
             </Button>
           </div>
         </header>
@@ -596,18 +624,24 @@ export default function App() {
               )}
             <div className="project-statusbar">
               <span
-                className={`status-dot ${running ? "blue" : snapshot?.job.status === "complete" ? "green" : failedNodes.length ? "red" : "gray"}`}
+                className={`status-dot ${running ? "blue" : ["complete", "complete_with_questions"].includes(snapshot?.job.status || "") ? "green" : failedNodes.length ? "red" : "gray"}`}
               />
               <strong>
-                {running
-                  ? "正在执行"
-                  : snapshot?.job.status === "complete"
-                    ? "执行完成"
-                    : failedNodes.length
-                      ? "存在失败节点"
-                      : snapshot?.job.status === "waiting"
-                        ? "等待确认 / 补充"
-                        : "待运行"}
+                {snapshot?.review_only
+                  ? "业务审核 · 不运行模型"
+                  : running
+                    ? "正在执行"
+                    : ["complete", "complete_with_questions"].includes(
+                          snapshot?.job.status || "",
+                        )
+                      ? snapshot?.review_summary?.unresolved
+                        ? `执行完成 · ${snapshot.review_summary.unresolved} 项待确认`
+                        : "执行完成"
+                      : failedNodes.length
+                        ? "存在失败节点"
+                        : snapshot?.job.status === "waiting"
+                          ? "等待确认 / 补充"
+                          : "待运行"}
               </strong>
               <span className="status-divider" />
               <span>
@@ -662,6 +696,24 @@ export default function App() {
                   关注点设置
                 </button>
                 <button
+                  className={management === "recommendations" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("recommendations");
+                    setUsageOpen(false);
+                  }}
+                >
+                  推荐审核
+                </button>
+                <button
+                  className={management === "handoff" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("handoff");
+                    setUsageOpen(false);
+                  }}
+                >
+                  审核交接
+                </button>
+                <button
                   className={management === "patterns" ? "active" : ""}
                   onClick={() => {
                     setManagement("patterns");
@@ -694,12 +746,26 @@ export default function App() {
             >
               <Panel defaultSize={84} minSize={55}>
                 <section className="center-workspace">
-                  {management === "results" && current ? (
+                  {management === "handoff" && current ? (
+                    <ReviewHandoff
+                      project={current}
+                      reviewOnly={snapshot?.review_only}
+                    />
+                  ) : management === "recommendations" && current ? (
+                    <BusinessRecommendations
+                      project={current}
+                      onEvidenceOpen={() => setCollapsed(true)}
+                    />
+                  ) : management === "results" && current ? (
                     <ResultsView project={current} />
                   ) : management === "patterns" && current ? (
                     <PatternManager project={current} />
                   ) : management === "pending" && current ? (
-                    <PendingView project={current} onSelect={selectNode} />
+                    <PendingView
+                      project={current}
+                      onSelect={selectNode}
+                      onEvidenceOpen={() => setCollapsed(true)}
+                    />
                   ) : management === "concerns" && current ? (
                     <ConcernManager
                       project={current}
@@ -1181,7 +1247,9 @@ export default function App() {
                     });
                     setNewTestPreview(checked);
                     if (!checked.valid) {
-                      setNewTestError("请先修正下面列出的测试导入问题，文件仍保留在当前表单。");
+                      setNewTestError(
+                        "请先修正下面列出的测试导入问题，文件仍保留在当前表单。",
+                      );
                       return;
                     }
                     const p = await api<Project>("/api/projects", {
@@ -1198,10 +1266,13 @@ export default function App() {
                     await loadProjects();
                     openProject(p.id);
                     setDialog(null);
-                  })().catch((err: any) => {
-                    if (err.importPreview) setNewTestPreview(err.importPreview);
-                    setNewTestError(err.message);
-                  }).finally(() => setNewCreating(false));
+                  })()
+                    .catch((err: any) => {
+                      if (err.importPreview)
+                        setNewTestPreview(err.importPreview);
+                      setNewTestError(err.message);
+                    })
+                    .finally(() => setNewCreating(false));
                 }}
               >
                 <span className="eyebrow">NEW PROJECT</span>
@@ -1245,15 +1316,21 @@ export default function App() {
                                     sourceFile,
                                   ),
                                 );
-                                const result = await api("/api/test-sources/preview", {
+                                const result = await api(
+                                  "/api/test-sources/preview",
+                                  {
                                     method: "POST",
                                     body: JSON.stringify({ sources }),
-                                  });
-                                if (request === newTestRequest.current) setNewTestPreview(result);
+                                  },
+                                );
+                                if (request === newTestRequest.current)
+                                  setNewTestPreview(result);
                               } catch (err: any) {
-                                if (request === newTestRequest.current) setNewTestError(err.message);
+                                if (request === newTestRequest.current)
+                                  setNewTestError(err.message);
                               } finally {
-                                if (request === newTestRequest.current) setNewTestLoading(false);
+                                if (request === newTestRequest.current)
+                                  setNewTestLoading(false);
                               }
                             }
                           : undefined
@@ -1264,20 +1341,40 @@ export default function App() {
                 {newTestError && <p role="alert">{newTestError}</p>}
                 {newTestLoading && <p role="status">正在检查测试文件…</p>}
                 {newTestPreview && (
-                  <section className="test-import-preview" aria-label="测试导入预览">
-                  <p>
-                    测试导入预览：异常 {newTestPreview.counts?.exception || 0} /
-                    正常 {newTestPreview.counts?.normal || 0} / 可选{" "}
-                    {newTestPreview.counts?.optional || 0} / 待确认{" "}
-                    {newTestPreview.counts?.pending || 0}。
-                  </p>
-                  {!!newTestPreview.semantic_index_required?.length && <p>以下文件将在运行时独立整理测试用例与场景，并与RR/SR用例对齐：{newTestPreview.semantic_index_required.join("、")}。当前尚未计入上述结构化预览数量。</p>}
-                  {!!newTestPreview.issues?.length && (
-                    <details open={!newTestPreview.valid}>
-                      <summary>{newTestPreview.valid ? "不参与计分的待确认提示" : "需要修正的导入问题"}（{newTestPreview.issues.length}项）</summary>
-                      <ul>{newTestPreview.issues.map((x: any, n: number) => <li key={n}>{x.source} 第{x.row}行 {x.id}：{x.reason}</li>)}</ul>
-                    </details>
-                  )}
+                  <section
+                    className="test-import-preview"
+                    aria-label="测试导入预览"
+                  >
+                    <p>
+                      测试导入预览：异常 {newTestPreview.counts?.exception || 0}{" "}
+                      / 正常 {newTestPreview.counts?.normal || 0} / 可选{" "}
+                      {newTestPreview.counts?.optional || 0} / 待确认{" "}
+                      {newTestPreview.counts?.pending || 0}。
+                    </p>
+                    {!!newTestPreview.semantic_index_required?.length && (
+                      <p>
+                        以下文件将在运行时独立整理测试用例与场景，并与RR/SR用例对齐：
+                        {newTestPreview.semantic_index_required.join("、")}
+                        。当前尚未计入上述结构化预览数量。
+                      </p>
+                    )}
+                    {!!newTestPreview.issues?.length && (
+                      <details open={!newTestPreview.valid}>
+                        <summary>
+                          {newTestPreview.valid
+                            ? "不参与计分的待确认提示"
+                            : "需要修正的导入问题"}
+                          （{newTestPreview.issues.length}项）
+                        </summary>
+                        <ul>
+                          {newTestPreview.issues.map((x: any, n: number) => (
+                            <li key={n}>
+                              {x.source} 第{x.row}行 {x.id}：{x.reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </section>
                 )}
                 <div className="form-grid">
@@ -1293,7 +1390,15 @@ export default function App() {
                     <input name="case_ids" placeholder="留空分析所有用例" />
                   </label>
                 </div>
-                <Button className="mt-5 w-full" type="submit" disabled={newTestLoading || newCreating || newTestPreview?.valid === false}>
+                <Button
+                  className="mt-5 w-full"
+                  type="submit"
+                  disabled={
+                    newTestLoading ||
+                    newCreating ||
+                    newTestPreview?.valid === false
+                  }
+                >
                   {newCreating ? "正在创建…" : "创建项目"}
                 </Button>
               </form>

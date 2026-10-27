@@ -73,3 +73,7 @@ python scene.py save-account --name 内网服务 --base-url http://内网地址/
 ## 客户模型运行参数及失败节点接管
 
 现已支持`config`、`diagnose`、`configure --max-output-tokens`、思考/流式兼容参数及按任务预算；`repair-export`/`repair-submit`提供输入绑定的Code Agent修复。完整Windows命令与网关差异说明见[客户模型调试](customer-model-debugging.md)。
+
+## business-review-v1更新
+
+现行业务提问为非阻断记录，不再默认暂停节点。`answer`仅保存，typed pending回答按来源节点版本保存。保存或导入不自动执行。`run --wait`以execution_complete区分可执行工作完成与审核完成；详细命令和交接流程见[business-offline-review](business-offline-review.md)。本文件早期“问题阻断后恢复”说明仅适用于旧存档。

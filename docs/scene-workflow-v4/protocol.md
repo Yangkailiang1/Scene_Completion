@@ -53,3 +53,7 @@ pageSize范围对应一个关注点；小于下界、大于上界是两条场景
 ## 独立测试用例与推荐前后对照
 
 测试先经test-inventory独立整理，再经test-case-align与RR/SR用例组对应，之后按实际交互识别GT_c与细化GT_s。未知格式和编号不同不直接丢弃；未确认对应保留待确认，不参与确定GT。详见[输入、隔离与指标说明](../test-markdown-alignment.md)。推荐前以全部M为候选，推荐后以Q为候选，同一冻结GT下分别保存采纳率及GT分母误报率。
+
+## 非阻断业务审核协议
+
+当前增补business-review-v1：工具`ask_user`和JSON文本信封`{result:任务产物, review_questions:[...]}`均保存业务问题并继续提交有据结果；未知内容不进入确定集合。业务回答只保存版本，不清空调用预算或自动重跑。技术失败仍按原失败协议。确认材料按positive/existing_e/test_gt来源隔离，研发显式应用后进入来源节点允许上下文。原始/冻结扩展/业务采纳增补GT分别保存，M/Q冻结。交接契约、CLI和审计见[业务离线审核](../business-offline-review.md)。

@@ -21,3 +21,5 @@ GitHub Windows工作流在发布前分别运行系统Python测试、包内嵌入
 维护者可用 `python tools/build_windows_bundle.py --offline --output-dir dist` 复用此前锁定的Windows轮子及Python缓存；缓存不完整时构建失败，不下载或混入本机macOS环境。
 
 构建同时按Windows x64/Python 3.12的依赖标记检查已安装轮子的依赖闭包，不使用打包机的macOS标记推断。锁文件包含Windows下pytest所需的colorama；此静态检查仍不能替代Windows实际启动。
+
+专用业务审核包由本地“审核交接”页生成，包含当前项目快照并强制review-only，不含Key或模型缓存。业务无需Python/Node，回答和审核推荐后导出小型反馈JSON；研发导入预览后手动重跑。`check.cmd`能识别审核包，采用只读HTTP/来源定位及禁止执行检查。公共Release程序包始终不含业务数据。见[business-offline-review](business-offline-review.md)。

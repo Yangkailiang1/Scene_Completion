@@ -66,6 +66,18 @@ def smoke(bundle):
             template=request('/api/test-sources/template')
             expected=(work/'app/examples/tests/mall-exception-tests.xlsx').read_bytes()
             assert template==expected,'Excel template must be shipped intact'
+            if (work/'data/.review-mode.json').exists():
+                projects=json.loads(request('/api/projects'))
+                entries=projects.get('projects',projects) if isinstance(projects,dict) else projects
+                assert entries,'Review package has no project'
+                rid=entries[0]['id'];view=json.loads(request('/api/projects/'+rid))
+                assert view['review_only']
+                assert json.loads(request('/api/projects/'+rid+'/sources'))['documents']
+                try:request('/api/projects/'+rid+'/run',{})
+                except urllib.error.HTTPError as error:assert error.code==403
+                else:raise AssertionError('Business package allowed model execution')
+                print(json.dumps({'native_windows':True,'review_only':True,'source_commit':manifest['source_commit'],'portable_sources':'passed','execution_blocked':'passed','model_calls':0},ensure_ascii=False),flush=True)
+                return
             test={'name':'mall.xlsx','content_base64':base64.b64encode(template).decode()}
             preview=json.loads(request('/api/test-sources/preview',{'sources':[test]}))
             assert preview['valid'] and preview['counts']['exception']>0 and preview['counts']['pending']>0

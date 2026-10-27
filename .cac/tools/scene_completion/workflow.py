@@ -303,7 +303,14 @@ class Execution:
         review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None,self.conversations.revision(key)])
         def inputs_for(dependencies):
             values={k:payload(v) for k,v in dependencies.items()}
-            return build(values) if build else deepcopy(static)
+            result=build(values) if build else deepcopy(static)
+            from .review_questions import materials
+            confirmation=materials(self.root.parent,key)
+            if confirmation:
+                result=deepcopy(result);result['review-documents']=confirmation
+                if 'normal-documents' in result:
+                    result['normal-documents']+= [{k:d[k] for k in ('source_id','name','channel','lines')} for d in confirmation if d['channel']=='normal']
+            return result
         def execute(dependencies,record):
             inputs=inputs_for(dependencies)
             reviewed=self.reviews.cached(key,task,inputs,review_identity) if task in REVIEW_TASKS and not skip_review else None
@@ -411,6 +418,8 @@ class Execution:
         from .node_repair import repair_revision
         version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
                  'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'existing-concerns','test-concerns','concern-compare','concern-evaluation','normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+        from .review_questions import materials
+        if confirmation:=materials(self.root.parent,key):version['business_confirmation']=fingerprint(confirmation)
         if (revision:=repair_revision(self.root,key)):version['external_repair']=revision
         if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
         if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
@@ -510,14 +519,14 @@ class Execution:
         analysis_stages={'existing-concerns','concern-compare','fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
         if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
-        self.manifest.update(complete=result['complete'] and not self.manifest.get('test_import_pending_count',0) and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])) and not any(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
+        self.manifest.update(execution_complete=result['complete'],complete=result['complete'] and not self.manifest.get('test_import_pending_count',0) and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])) and not any(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
         import time
         sessions=read_json(self.root/'execution_sessions.json')
         for session in sessions:
-            if session['id']==self.session_id:session.update(finished_at=time.time(),status='complete' if self.manifest['complete'] else 'waiting')
+            if session['id']==self.session_id:session.update(finished_at=time.time(),status='complete' if self.manifest['complete'] else 'complete_with_questions' if self.manifest['execution_complete'] else 'waiting')
         write_json(self.root/'execution_sessions.json',sessions)
         return self.manifest
 

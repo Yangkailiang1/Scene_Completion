@@ -215,6 +215,12 @@ def packet(task, inputs, case_ids=None):
     if task=='normal-rules':optional=optional|{'registry'}
     if task in {'existing-extract','test-ground-truth'}:optional=optional|{'identified-concerns'}
     if task in {'test-concerns','test-ground-truth'}:optional=optional|{'test-inventory'}
+    optional|={'review-documents'}
+    expected_channel='test' if task.startswith('test-') else 'existing' if task.startswith('existing-') else 'normal'
+    for doc in inputs.get('review-documents',[]):
+        if doc.get('channel')!=expected_channel or not doc.get('source_id','').startswith('business-') or not doc.get('review_item_id') or not doc.get('review_revision'):raise ValueError('业务确认材料必须来自本任务独立通道并保留审核身份')
+        errors=list(Draft202012Validator(DOCUMENT).iter_errors({k:doc[k] for k in ('source_id','name','channel','lines')}))
+        if errors:raise ValueError('无效业务确认材料')
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
     for key in ('documents','RR','SR','existing-documents','test-documents','test-operation-source','normal-documents'):

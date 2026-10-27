@@ -63,6 +63,19 @@ class ResultView:
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用'}
 
     def metrics(self,test_set='expanded'):
+        if test_set=='business':
+            from .business_truth import snapshot
+            from .result_alignment import aggregate_metrics
+            from .recommendation import aggregate_comparison
+            value=self.metrics('expanded');comparisons=[];versions={}
+            for row in value['cases']:
+                review=snapshot(self.project,row['id']);e=review['evaluation'];concern=e.get('concern_level',{})
+                row.update(metrics=e.get('metrics',{}),counts={k:len(concern.get(k+'_c',[])) for k in ('G','E','GT','M')},
+                           scenario_counts={k:len(e.get(k,[])) for k in ('G','E','GT','M')},status=review['status'],business_added=len(review['added']))
+                row['recommendation_comparison']=e.get('recommendation_comparison',{});comparisons.append(row['recommendation_comparison']);versions[row['id']]=review.get('version')
+            value.update(metrics=aggregate_metrics(value['cases']),recommendation_comparison=aggregate_comparison(comparisons),test_set='business',truth_source='冻结扩展测试GT＋人工采纳增补（保留各项来源）',business_versions=versions,
+                         business_note='GT增补引起的指标变化不表示模型质量提升；G/E/M/Q及独立测试指标保持冻结。')
+            return value
         if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
         from .result_alignment import aggregate_metrics
         from .recommendation import aggregate_comparison
@@ -90,16 +103,23 @@ class ResultView:
                 'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
                 'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
-    def scenario(self,cid,channel,sid):
+    def scenario(self,cid,channel,sid,test_set='expanded'):
         if channel not in {'G','E','GT'}:raise ValueError('未知结果来源')
         evaluation=self.payload(cid+':exception-evaluation')
+        if test_set=='business':
+            from .business_truth import snapshot
+            evaluation=snapshot(self.project,cid)['evaluation']
         stage={'G':'exception-generate','E':'existing-extract','GT':'test-ground-truth'}[channel]
         values=evaluation.get(channel,self.payload(cid+':'+stage).get('scenarios',[]))
         value=next((s for s in values if s['id']==sid),None)
         if value is None:raise ValueError('该异常版本已变化，请刷新结果')
         return value
 
-    def detail(self, cid,test_set='expanded'):
+    def detail(self, cid,test_set='expanded',evaluation_override=None):
+        if test_set=='business':
+            from .business_truth import snapshot
+            review=snapshot(self.project,cid)
+            return {**self.detail(cid,'expanded',review['evaluation']),'test_set':'business','business_truth_version':review.get('version'),'business_added':len(review['added']),'business_note':review.get('note')}
         if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
         case=next((c for c in self.cases() if c['id']==cid),None)
         if case is None:raise ValueError('未知用例')
@@ -108,7 +128,7 @@ class ResultView:
         if not enriched and fused:
             from .inverse_alignment import canonical_fused
             enriched=canonical_fused(fused)
-        evaluation=self.payload(cid+':exception-evaluation')
+        evaluation=evaluation_override if evaluation_override is not None else self.payload(cid+':exception-evaluation')
         expanded=evaluation.get('test_set')=='expanded' and test_set=='expanded'
         if test_set=='original':evaluation=evaluation.get('original_evaluation',evaluation)
         report=self.payload(cid+':missing-report')

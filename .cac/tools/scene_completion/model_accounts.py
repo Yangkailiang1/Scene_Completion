@@ -57,6 +57,7 @@ def save_account(root,body,env_file):
         if not a.get('api_key') and not a.get('api_key_env'):raise ValueError('需要API Key或服务端环境变量名')
         value['accounts']=[a if r['id']==aid else r for r in value['accounts']]
         if not old:value['accounts'].append(a)
+        if body.get('dry_run'):return {'valid':True,'saved':False,'expected_revision':value['revision'],'account':{k:v for k,v in a.items() if k not in {'api_key','api_key_env'}}}
         value['revision']+=1;_write(root,value)
         return public_accounts(root,env_file)
 

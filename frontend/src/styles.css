@@ -4153,3 +4153,60 @@ td {
 .concern-tree button span { display: block; font-size: 11px; color: #7a8ca5; margin-top: 4px; overflow-wrap: anywhere; }
 .concern-group-heading td { background: #f4f7fc; color: #4c6484; padding: 10px 14px; font-size: 12px; }
 .concern-path { color: #7387a0; font-size: 11px; margin-bottom: 6px; }
+
+/* Business review: preserve height, put answers beside the exact source. */
+.review-columns.management-body{display:flex;flex:1;min-height:0;overflow:hidden;gap:0}
+.review-columns>.management-list{flex:0 0 260px;width:260px;min-width:0;border-right:1px solid #e1e8f2;overflow:auto}
+.review-columns.evidence-open>.management-list{flex-basis:210px;width:210px}
+.review-columns.list-collapsed>.management-list{flex-basis:56px;width:56px}
+.review-list-toggle{font-size:12px!important;padding:9px!important;text-align:center!important;width:100%}
+.review-answer-panels{flex:1;min-width:0;min-height:0;height:100%;overflow:hidden}
+.review-answer-pane.management-detail{height:100%;min-height:0;overflow:auto;padding:25px 28px 48px}
+.review-answer-pane h3{font-size:20px;line-height:1.65;overflow-wrap:anywhere}
+.review-answer-pane .decision-form{margin-top:24px}
+.review-answer-pane .decision-form label{display:flex;flex-direction:column;gap:8px;margin:15px 0}
+.review-answer-pane textarea{width:100%;resize:vertical;min-height:135px;font-size:14px;line-height:1.7}
+.review-answer-pane input,.review-answer-pane select{min-height:40px}
+.question-intent{padding:14px 16px;background:#f1f5ff;border-radius:10px;margin:15px 0;color:#27466d}
+.question-intent p{margin:8px 0 0;line-height:1.7}
+.evidence-link-card{display:block;width:100%;text-align:left;background:#f5f8fc;border:1px solid #e1e8f2;border-left:3px solid #a8bde5;border-radius:8px;padding:13px 15px;margin:10px 0;color:#334c6e;cursor:pointer}
+.evidence-link-card:hover{border-color:#7597e5;background:#eff4ff}
+.evidence-link-card small{display:block;color:#4268b3;font-size:12px}
+.evidence-link-card p{font-size:14px;line-height:1.7;margin:8px 0 0;overflow-wrap:anywhere}
+.review-form-actions{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.review-form-actions button{border:1px solid #d5dfed;border-radius:8px;padding:10px 14px}
+.review-resize-handle{width:6px;background:#e5ebf4;cursor:col-resize}
+.review-resize-handle:hover{background:#9cafe0}
+.source-evidence-pane{height:100%;min-height:0;display:flex;flex-direction:column;background:#fbfcff;overflow:hidden}
+.source-evidence-pane>header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:20px;border-bottom:1px solid #e2e8f3;background:#f1f5fb}
+.source-evidence-pane header small{display:block;margin-top:7px;color:#7184a2;font-size:12px;overflow-wrap:anywhere}
+.source-evidence-toolbar{display:flex;gap:8px;align-items:center;padding:10px 16px;flex-wrap:wrap;border-bottom:1px solid #e4eaf3;font-size:12px}
+.source-evidence-toolbar button,.source-evidence-pane header button{padding:6px 9px;border:1px solid #d4deeb;border-radius:6px;background:white}
+.source-document-lines{flex:1;min-height:0;overflow:auto;padding:12px 0 45px}
+.source-line{display:grid;grid-template-columns:45px minmax(0,1fr);padding:4px 12px;font:13px/1.7 ui-monospace,Consolas,monospace;gap:9px}
+.source-line>span{text-align:right;color:#8c9ab0;user-select:none}
+.source-line pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:#2f425c}
+.source-line.highlighted{background:#fff1bd;border-left:3px solid #e5ad37;padding-left:9px}
+.review-history article{padding:14px;border-bottom:1px solid #e1e8f2;line-height:1.7}
+.business-recommendation-view,.review-handoff-view{min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.recommendation-review-scroll,.handoff-scroll{height:100%;min-height:0;overflow:auto;padding:22px 28px 55px}
+.review-metric-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.review-metric-strip article{border:1px solid #dbe4f1;border-radius:10px;padding:15px;background:#fff}
+.review-metric-strip small{display:block;color:#7385a0;font-size:12px}
+.review-metric-strip b{display:block;font-size:18px;margin-top:10px}
+.business-recommendation-card{border:1px solid #dce5f2;border-radius:12px;background:white;padding:22px;margin:20px 0}
+.business-recommendation-card header{display:flex;justify-content:space-between;color:#7587a2;font-size:13px;gap:15px}
+.business-recommendation-card h3{font-size:18px;line-height:1.7;color:#243f62;margin:13px 0}
+.business-recommendation-card>p{font-size:14px;line-height:1.7;color:#667d9b}
+.recommendation-decision{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
+.recommendation-decision input{flex:1;min-width:160px}
+.recommendation-decision input,.recommendation-decision select{border:1px solid #d9e2f0;border-radius:8px;padding:9px;font-size:13px}
+.handoff-scroll{flex:1}
+.handoff-steps{display:flex;gap:12px;flex-wrap:wrap;color:#56729a;padding:10px 0 20px}
+.handoff-scroll>article{background:white;border:1px solid #dce5f2;border-radius:12px;padding:24px;margin-bottom:20px}
+.handoff-scroll h3{font-size:18px;margin:0 0 15px}
+.handoff-scroll p{font-size:14px;line-height:1.8;color:#6c809e;margin:12px 0}
+.handoff-scroll button,.handoff-scroll a.primary-action{display:inline-block;border:1px solid #d4dfef;border-radius:8px;padding:10px 15px;margin:10px 8px 0 0}
+.handoff-scroll li{font-size:13px;line-height:1.9;overflow-wrap:anywhere}
+.handoff-scroll li small{color:#8b9bb2}
+@media(max-width:1100px){.review-columns>.management-list{flex-basis:185px;width:185px}.review-answer-pane.management-detail{padding:18px}.review-metric-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.review-columns.evidence-open>.management-list{flex-basis:56px;width:56px}.review-columns.evidence-open>.management-list>button:not(.review-list-toggle),.review-columns.evidence-open>.management-list .management-pagination{display:none}}

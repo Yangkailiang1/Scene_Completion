@@ -206,7 +206,7 @@ export function ResultsView({ project }: { project: string }) {
         project,
         "results/" +
           encodeURIComponent(cid) +
-          (testSet === "original" ? "?test_set=original" : ""),
+          (testSet !== "expanded" ? "?test_set=" + testSet : ""),
       ),
     )
       .then((r) => {
@@ -287,9 +287,11 @@ export function ResultsView({ project }: { project: string }) {
             >
               {mode === "diagrams"
                 ? artifact?.label
-                : testSet === "expanded"
-                  ? "扩展异常测试场景"
-                  : "原始异常测试场景"}
+                : testSet === "business"
+                  ? "业务审核后GT（扩展＋人工增补）"
+                  : testSet === "expanded"
+                    ? "扩展异常测试场景"
+                    : "原始异常测试场景"}
             </span>
           </>
         ) : (
@@ -380,6 +382,7 @@ export function ResultsView({ project }: { project: string }) {
           >
             <option value="expanded">扩展异常测试场景</option>
             <option value="original">原始异常测试场景</option>
+            <option value="business">业务审核后GT（扩展＋人工增补）</option>
           </select>
         </label>
         <span
@@ -768,7 +771,9 @@ export function ResultsView({ project }: { project: string }) {
                             "/scenarios/" +
                             channel +
                             "/" +
-                            encodeURIComponent(s.id),
+                            encodeURIComponent(s.id) +
+                            "?test_set=" +
+                            testSet,
                         )}
                       />
                     )}

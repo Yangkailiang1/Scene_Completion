@@ -88,6 +88,7 @@ def save_registry(project,body):
         elif layer=='technology':profiles['technology'][d['group']].append(key)
     value['profiles']=profiles;value['version']=current['version'];value['legacy_mapping']=current['legacy_mapping']
     value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
+    if body.get('dry_run'):return {'valid':True,'saved':False,'registry':value,'expected_hash':current['hash']}
     if value['hash']==current['hash']:return registry_view(project)
     history=project/'concern_versions';history.mkdir(exist_ok=True)
     if not list(history.glob('*.json')):write_json(history/(current['hash']+'.json'),{'revision':0,'hash':current['hash'],'at':time.time(),'note':'项目初始定义','registry':current})
@@ -111,7 +112,9 @@ def pending_items(project):
     cache=root/'pending_index.json'
     if cache.exists():
         saved=read_json(cache)
-        if saved['signature']==signature:return saved['items']
+        if saved['signature']==signature:
+            from .review_questions import decorate
+            return decorate(project,saved['items'])
     stages={'test-inventory','test-case-align','existing-concerns','test-concerns','normal-rules','concern-match','enriched-view','existing-bind','existing-extract','test-ground-truth','test-supplement','fused-ssd'}
     partitioned={k.split('--part-',1)[0] for k in active if '--part-' in k}
     items={}
@@ -131,7 +134,7 @@ def pending_items(project):
         if r.get('status')=='awaiting_answer' and failure.get('question'):
             q=failure['question'];reason=q.get('text') or '模型等待补充信息'
             item=add(key,r,'unbound',reason,[],'模型提问');item.update(question=True,queue='technical')
-        elif r.get('status') in {'failed','rejected','awaiting_configuration','budget_exhausted'}:
+        elif r.get('status') in {'failed','rejected','awaiting_configuration','budget_exhausted','awaiting_context'}:
             reason=failure.get('error') or failure.get('failure_category') or (failure.get('transport_failure') or {}).get('failure_category') or '节点执行未完成，请查看原始诊断'
             item=add(key,r,'unbound',str(reason),[],'执行问题');item.update(technical=True,queue='technical')
         if r.get('status')!='passed' or r.get('stage') not in stages or key in partitioned:continue
@@ -146,7 +149,9 @@ def pending_items(project):
         if r['stage'] in {'concern-match','existing-concerns','test-concerns'}:
             for m in v.get('matches',[]):
                 if m.get('status')=='pending':add(key,r,m['interaction_id'],m.get('status_reason') or m['basis'],m['source_refs'],'关注点适用条件',m['concern_key'],subject=m['object'])
-    result=list(items.values());write_json(cache,{'signature':signature,'items':result});return result
+    result=list(items.values());write_json(cache,{'signature':signature,'items':result})
+    from .review_questions import decorate
+    return decorate(project,result)
 
 
 def decisions(project):
@@ -164,15 +169,19 @@ def item_decision(saved,item):
 
 
 def pending_view(project,status='unresolved',case=None,offset=0,limit=50,search='',channel=None,queue='business'):
-    if status not in {'all','unresolved','anomaly','not_anomaly','needs_info'} or offset<0 or not 1<=limit<=200:raise ValueError('无效待确认项筛选')
+    if status not in {'all','unresolved','anomaly','not_anomaly','needs_info','answered','historical'} or offset<0 or not 1<=limit<=200:raise ValueError('无效待确认项筛选')
     rows=pending_items(project);saved=decisions(project)
     for row in rows:row['decision']=item_decision(saved,row)
     if queue not in {'all','business','rules','structure','technical'}:raise ValueError('无效审核类型')
-    queue_counts={q:{'total':sum(r['queue']==q for r in rows),'unresolved':sum(r['queue']==q and not r['decision'] for r in rows)} for q in ('business','structure','rules','technical')}
+    queue_counts={q:{'total':sum(r['queue']==q for r in rows),'unresolved':sum(r['queue']==q and not r.get('historical') and (r.get('decision') or {}).get('choice','unresolved') in {'unresolved','needs_info'} for r in rows)} for q in ('business','structure','rules','technical')}
     cases=sorted({r['case'] for r in rows})
     rows=[r for r in rows if queue=='all' or r['queue']==queue]
-    counts={k:sum((r.get('decision') or {}).get('choice','unresolved')==k for r in rows) for k in ('unresolved','anomaly','not_anomaly','needs_info')}
-    found=[r for r in rows if (status=='all' or (r.get('decision') or {}).get('choice','unresolved')==status) and (not case or r['case']==case) and (not channel or r['source_channel']==channel) and (not search or search.casefold() in json.dumps(r,ensure_ascii=False).casefold())]
+    def state(r):
+        if r.get('historical'):return 'historical'
+        choice=(r.get('decision') or {}).get('choice','unresolved')
+        return choice if choice in {'unresolved','anomaly','not_anomaly','needs_info'} else 'answered'
+    counts={k:sum(state(r)==k for r in rows) for k in ('unresolved','anomaly','not_anomaly','needs_info','answered','historical')}
+    found=[r for r in rows if (status=='all' or state(r)==status) and (not case or r['case']==case) and (not channel or r['source_channel']==channel) and (not search or search.casefold() in json.dumps(r,ensure_ascii=False).casefold())]
     return {'items':found[offset:offset+limit],'count':len(found),'counts':counts,'queue_counts':queue_counts,'queue':queue,'revision':saved['revision'],'cases':cases}
 
 

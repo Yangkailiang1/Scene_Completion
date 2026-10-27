@@ -41,11 +41,11 @@ class Reviews:
         emit('artifacts_saved',files=[str(p.relative_to(self.root.parent)).replace('\\','/') for p in preview.iterdir() if p.is_file()])
         if self.mode=='manual':raise TaskBlocked('awaiting_review',{'review':key})
         return value
-    def decide(self,key,action,*,expected_revision,expected_input_hash,value=None,comment=''):
+    def decide(self,key,action,*,expected_revision,expected_input_hash,value=None,comment='',dry_run=False):
         from .scheduler import run_lock
         with run_lock(self.root.parent):
-            return self._decide(key,action,expected_revision=expected_revision,expected_input_hash=expected_input_hash,value=value,comment=comment)
-    def _decide(self,key,action,*,expected_revision,expected_input_hash,value=None,comment=''):
+            return self._decide(key,action,expected_revision=expected_revision,expected_input_hash=expected_input_hash,value=value,comment=comment,dry_run=dry_run)
+    def _decide(self,key,action,*,expected_revision,expected_input_hash,value=None,comment='',dry_run=False):
         old=self.read(key)
         if not old:raise ValueError('unknown review item')
         if old['revision']!=expected_revision or old['input_hash']!=expected_input_hash:raise ValueError('review item changed; refresh before saving')
@@ -56,5 +56,6 @@ class Reviews:
             validate_result(old['task'],value,old['inputs']);new['payload']=value
         new.update(status={'approve':'approved','reject':'rejected','regenerate':'regenerate'}[action],
             revision=old['revision']+1,comment=comment,updated_at=datetime.now(timezone.utc).isoformat())
+        if dry_run:return {'valid':True,'saved':False,'review':new}
         write_json(self.root/'versions'/(fingerprint(new)+'.json'),new);write_json(self.path(key),new)
         return new

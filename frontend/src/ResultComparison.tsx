@@ -1,14 +1,52 @@
 import { Fragment, useEffect, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
 export function RecommendationComparison({ data }: { data: any }) {
-  if (!data?.baseline) return <p className="muted">推荐前后场景指标尚未评测，不按0处理。</p>;
-  const rate = (r: any) => r?.value == null ? r?.status || "未评测" : `${r.value.toFixed(2)}%（${r.numerator}/${r.denominator}）`;
-  return <section aria-label="推荐前后场景指标" className="alignment-scroll">
-    <h3>场景层：推荐前后对照</h3>
-    <p>同一冻结测试GT；推荐前使用全部缺失场景M，推荐后使用算法筛选的Q。误报率分母为GT，可能超过100%。</p>
-    <table className="alignment-table"><thead><tr><th>阶段</th><th>场景数</th><th>命中GT</th><th>GT采纳率 ↑</th><th>误报率 ↓</th></tr></thead>
-      <tbody>{[data.baseline, data.recommended].filter(Boolean).map((v: any) => <tr key={v.set}><td>{v.label || "推荐后：算法筛选场景"}（{v.set}）</td><td>{v.candidate_count ?? "未评测"}</td><td>{v.matched ?? "未评测"}</td><td>{v.metrics ? rate(v.metrics.recommendation_adoption) : v.status || "未评测"}</td><td>{v.metrics ? rate(v.metrics.recommendation_false_positive) : v.status || "未评测"}</td></tr>)}</tbody></table>
-  </section>;
+  if (!data?.baseline)
+    return <p className="muted">推荐前后场景指标尚未评测，不按0处理。</p>;
+  const rate = (r: any) =>
+    r?.value == null
+      ? r?.status || "未评测"
+      : `${r.value.toFixed(2)}%（${r.numerator}/${r.denominator}）`;
+  return (
+    <section aria-label="推荐前后场景指标" className="alignment-scroll">
+      <h3>场景层：推荐前后对照</h3>
+      <p>
+        同一选定GT版本；推荐前使用全部缺失场景M，推荐后使用算法筛选的Q。误报率分母为GT，可能超过100%。
+      </p>
+      <table className="alignment-table">
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>场景数</th>
+            <th>命中GT</th>
+            <th>GT采纳率 ↑</th>
+            <th>误报率 ↓</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[data.baseline, data.recommended].filter(Boolean).map((v: any) => (
+            <tr key={v.set}>
+              <td>
+                {v.label || "推荐后：算法筛选场景"}（{v.set}）
+              </td>
+              <td>{v.candidate_count ?? "未评测"}</td>
+              <td>{v.matched ?? "未评测"}</td>
+              <td>
+                {v.metrics
+                  ? rate(v.metrics.recommendation_adoption)
+                  : v.status || "未评测"}
+              </td>
+              <td>
+                {v.metrics
+                  ? rate(v.metrics.recommendation_false_positive)
+                  : v.status || "未评测"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
 }
 const titles: Record<string, string> = {
   triple: "三方完整对应",
@@ -315,7 +353,7 @@ export function MetricsPanel({
       projectUrl(
         project,
         "results/metrics" +
-          (testSet === "original" ? "?test_set=original" : ""),
+          (testSet !== "expanded" ? "?test_set=" + testSet : ""),
       ),
     )
       .then((v) => live && setData(v))
@@ -334,16 +372,23 @@ export function MetricsPanel({
           ? "两层计分：漏报率与生成有效率按关注点绑定计算；推荐采纳率与误报率按独立异常场景计算。"
           : "历史评测：以下前两项仍按旧版异常场景计数，不能作为新版关注点层指标。升级运行后显示两层结果。"}
       </p>
-      {!!data.test_alignment_pending && <p className="management-notice">测试整理或用例对应有 {data.test_alignment_pending} 项待确认；未确认部分尚未进入GT，以下为已确认范围的中间指标。</p>}
+      {!!data.test_alignment_pending && (
+        <p className="management-notice">
+          测试整理或用例对应有 {data.test_alignment_pending}{" "}
+          项待确认；未确认部分尚未进入GT，以下为已确认范围的中间指标。
+        </p>
+      )}
       {data.test_source_changed && (
         <p className="management-notice">
           测试源已切换，尚未重算。当前数值是上次保存报告，不能当作新测试版本的指标。请继续运行。
         </p>
       )}
       <p>
-        {testSet === "expanded"
-          ? "扩展异常测试集（机器补充自动计分）"
-          : "原始异常测试集"}
+        {testSet === "business"
+          ? "业务审核后GT：冻结扩展测试＋人工采纳增补"
+          : testSet === "expanded"
+            ? "扩展异常测试集（机器补充自动计分）"
+            : "原始异常测试集"}
         ；只计类型为异常的记录。集合扩充导致的变化不代表生成模型质量提升。
       </p>
       <p className="muted">

@@ -2,6 +2,7 @@ from copy import deepcopy
 from pathlib import Path
 import json,time
 import pytest
+from scene_completion.storage import read_json
 from scene_completion.contracts import PROTOCOL,packet,registry
 from scene_completion.execution_events import EventStore,bind
 from scene_completion.node_conversations import Conversations
@@ -111,7 +112,7 @@ def test_timeout_is_not_retried(tmp_path):
     with pytest.raises(TaskBlocked):gate.call(call)
     assert len(calls)==1
 
-def test_ask_user_resumes_same_agent_history_without_resetting_model_count(tmp_path):
+def test_ask_user_records_nonblocking_question_and_continues_with_same_budget(tmp_path):
     from scene_completion.deepagents_client import DeepAgentsClient
     sent=[]
     def transport(url,key,body,*args):
@@ -119,19 +120,18 @@ def test_ask_user_resumes_same_agent_history_without_resetting_model_count(tmp_p
         if len(sent)==1:fun={'name':'ask_user','arguments':json.dumps({'question':'服务身份待确认','basis':'材料未明确','decision':'请确认服务'})}
         else:fun={'name':'submit_result','arguments':'{"payload":{"services":[]}}'}
         return {'model':'actual','choices':[{'message':{'content':None,'tool_calls':[{'id':'c'+str(len(sent)),'type':'function','function':fun}]}}]}
-    client=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path),'agent_max_model_calls':1},transport=transport)
+    client=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path/'run'),'agent_max_model_calls':2},transport=transport)
     p=packet('api-map',{'SR':[]});p['skill_text']='---\nname: scene-api-map\ndescription: API\n---\nRead and submit.'
-    store=EventStore(tmp_path)
+    store=EventStore(tmp_path/'run')
     with bind(store,task_key='api-map',case='shared',role='modeler',attempt=1):
-        with pytest.raises(TaskBlocked) as failure:client.agent(p)
-    assert failure.value.status=='awaiting_answer'
-    conversation=Conversations(tmp_path);q=conversation.pending('api-map');conversation.answer('api-map',q['detail']['question_id'],'保持未知')
-    with bind(store,task_key='api-map',case='shared',role='modeler',attempt=1):assert client.agent(p)['services']==[]
+        assert client.agent(p)['services']==[]
+    assert Conversations(tmp_path/'run').pending('api-map') is None
+    assert next(iter(read_json(tmp_path/'business_questions.json')['items'].values()))['nonblocking']
     assert len(sent)==2
-    checkpoint=next(iter(__import__('sqlite3').connect(tmp_path/'execution_events.sqlite3').execute('SELECT state FROM checkpoints')))[0]
+    checkpoint=next(iter(__import__('sqlite3').connect(tmp_path/'run/execution_events.sqlite3').execute('SELECT state FROM checkpoints')))[0]
     assert json.loads(checkpoint)['model_calls']==2
     assert any(m['role']=='tool' and m.get('tool_call_id')=='c1' for m in sent[1]['messages'])
-    assert any('保持未知' in str(m['content']) for m in sent[1]['messages'])
+    assert any('非阻断' in str(m['content']) for m in sent[1]['messages'])
 
 def test_new_protocol_upgrade_keeps_original_project_and_records(tmp_path):
     from scene_completion.workbench import Workbench
@@ -275,17 +275,17 @@ def test_composition_json_stream_adapter_validates_and_finishes_in_one_request(t
     assert len(sent)==1 and any(e['kind']=='structured_text_submission' for e in store.read())
 
 
-def test_composition_json_adapter_preserves_blocking_questions_and_validation(tmp_path):
+def test_composition_json_adapter_preserves_nonblocking_questions_and_validation(tmp_path):
     from scene_completion.deepagents_client import DeepAgentsClient
     from scene_completion.source_documents import normal_projection
     rr,sr,_,m=fake_pipeline(tmp_path)
     p=packet('components',{'RR':normal_projection(rr),'SR':normal_projection(sr)});p['skill_text']='---\nname: scene-components\ndescription: extract\n---\nExtract.'
-    response={'clarification':{'question':'服务内外边界？','basis':'原文缺少边界','decision':'请确认'}}
+    response={'result':m['components'],'review_questions':[{'question':'服务内外边界？','known_facts':'原文缺少边界','required_answer':'请确认'}]}
     def transport(*args):return {'choices':[{'message':{'content':json.dumps(response)},'finish_reason':'stop'}]}
     c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path/'question')},transport=transport)
-    with pytest.raises(TaskBlocked) as failure:c.agent(p)
-    assert failure.value.status=='awaiting_answer'
-    assert Conversations(tmp_path/'question').pending('components')['text']=='服务内外边界？'
+    assert c.agent(p)['components']==m['components']['components']
+    assert Conversations(tmp_path/'question').pending('components') is None
+    assert any(q['reason']=='服务内外边界？' for q in read_json(tmp_path/'business_questions.json')['items'].values())
     response.clear();response.update({'components':[{'name':'fabricated'}],'relations':[]})
     c=DeepAgentsClient({'base_url':'http://offline/v1','api_key':'test','agent_model':'test','run_root':str(tmp_path/'invalid')},transport=transport)
     from scene_completion.scheduler import TaskRejected

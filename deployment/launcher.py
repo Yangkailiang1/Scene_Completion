@@ -25,7 +25,9 @@ def run(bundle,port=8765,open_browser=True):
             except (OSError,ValueError):ready=False
             if ready:
                 print('工作台已就绪：'+url,flush=True)
-                print('首次使用请在页面中配置客户内网模型地址、模型名称和密钥。',flush=True)
+                if (bundle/'data/.review-mode.json').exists():
+                    print('当前为业务审核模式，无需配置模型；完成回答和推荐审核后，请在审核交接页导出反馈。',flush=True)
+                else:print('首次使用请在页面中配置客户内网模型地址、模型名称和密钥。',flush=True)
                 if open_browser:
                     try:webbrowser.open(url)
                     except Exception:print('自动打开浏览器失败，请手动访问上面的地址。')

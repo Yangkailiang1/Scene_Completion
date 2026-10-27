@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from datetime import datetime,timezone
 import json
+from copy import deepcopy
 from .model_client import SemanticClient
 from .storage import write_json,fingerprint
 from contextvars import ContextVar
@@ -89,18 +90,19 @@ class DeepAgentsClient(SemanticClient):
         saved=conversations.checkpoint(task_key,checkpoint_id) or {}
         pending=conversations.pending(task_key)
         if pending:
-            from .scheduler import TaskBlocked
-            raise TaskBlocked('awaiting_answer',{'question':pending})
+            from .review_questions import report
+            report(self.root.parent,task_key,packet['task'],event_context.get('case'),{'question':pending['text'],'required_answer':pending['detail']['decision'],'basis':pending['detail']['basis']},inputs=original_packet['input'])
+            conversations.append(task_key,'question_deferred','历史提问已转为非阻断业务待确认项；这不是业务回答，未知事实仍须保留。',{'question_id':pending['detail']['question_id']})
         session={'task_key':task_key,'conversations':conversations,'count':saved.get('model_calls',0),'repair':packet.get('repair')}
         session_token=_AGENT_SESSION.set(session)
-        def ask_user(question:str,basis:str,decision:str)->str:
-            from .scheduler import TaskBlocked
-            if sum(m['kind']=='question' for m in conversations.list(task_key))>=int(self.config.get('agent_max_questions',3)):
-                raise TaskRejected({'error':'本节点业务澄清预算已用完，请审核任务输入后重做','phase':'clarification'})
-            q=conversations.question(task_key,question,basis,decision)
-            emit('question_asked',question=q)
-            raise TaskBlocked('awaiting_answer',{'question':q})
-        ask=StructuredTool.from_function(func=ask_user,name='ask_user',description='仅在缺少会影响结果的业务决定时提问。包含问题、已有依据、待决定事项。暂停当前节点，其他任务继续。')
+        def question_refs(refs):
+            return [deepcopy(indexed.pool[r]) if indexed and isinstance(r,str) and r in indexed.pool else r for r in refs or []]
+        def ask_user(question:str,basis:str,decision:str,question_type:str='general_clarification',interaction_id:str='unbound',source_refs:list[str|dict]|None=None)->str:
+            from .review_questions import report
+            if question_type=='general_clarification' and packet['task']=='normal-rules':question_type='rule_completion'
+            q=report(self.root.parent,task_key,packet['task'],event_context.get('case'),{'question':question,'required_answer':decision,'known_facts':basis,'question_type':question_type,'interaction_id':interaction_id,'source_refs':question_refs(source_refs)},inputs=original_packet['input'])
+            return '问题已保存为非阻断业务待确认项 '+q['id']+'。继续提交有依据的部分，未知部分写pending，不等待回答，不补造事实；不得仅提交问题而省略产物。'
+        ask=StructuredTool.from_function(func=ask_user,name='ask_user',description='记录非阻断业务疑问，返回后继续提交已知结果。问题类型：rule_completion/scenario_classification/binding_confirmation/general_clarification。包含已有依据、待决定事项和精确引用；不暂停节点，不自行猜测。')
         def lookup_evidence(evidence_ids:list[str])->dict:
             if indexed is None:raise ValueError('this task has no indexed evidence')
             return indexed.lookup(evidence_ids)
@@ -108,7 +110,9 @@ class DeepAgentsClient(SemanticClient):
 
         from .execution_events import emit,phase
         from .scheduler import TaskRejected
-        def submit(payload:dict) -> str:
+        def submit(payload:dict,review_questions:list[dict]|None=None) -> str:
+            from .review_questions import report
+            for question in review_questions or []:report(self.root.parent,task_key,original_packet['task'],event_context.get('case'),{**question,'source_refs':question_refs(question.get('source_refs',[]))},inputs=original_packet['input'])
             if indexed:
                 try:payload=indexed.expand(payload)
                 except (ValueError,KeyError,TypeError) as e:
@@ -140,7 +144,7 @@ class DeepAgentsClient(SemanticClient):
             return '结果已通过校验，任务完成。'
         submit_result=StructuredTool.from_function(func=submit,name='submit_result',
           description='提交本任务结构化产物。payload必须是已填充的业务结果，不能是Schema定义。',
-          args_schema={'title':'SubmitTaskResult','type':'object','properties':{'payload':packet['output_schema']},'required':['payload'],'additionalProperties':False})
+          args_schema={'title':'SubmitTaskResult','type':'object','properties':{'payload':packet['output_schema'],'review_questions':{'type':'array','maxItems':30,'items':{'type':'object'}}},'required':['payload'],'additionalProperties':False})
         from langchain.agents.middleware import wrap_model_call
         from langchain_core.messages import AIMessage
         @wrap_model_call
@@ -156,7 +160,7 @@ class DeepAgentsClient(SemanticClient):
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
         agent=create_deep_agent(model=model,middleware=[stop_after_submission],tools=[submit_result,ask,lookup],subagents=[],backend=StateBackend(),
-          skills=['/skills/'] if packet['skill_text'].lstrip().startswith('---') else [],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。不确定且阻断时调用ask_user，不能自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包；其余规则可按给定evidence_id使用lookup_evidence查证。原文行号也可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
+          skills=['/skills/'] if packet['skill_text'].lstrip().startswith('---') else [],system_prompt=role_text+'\n'+packet['instructions']+'\n指定Skill已全文加载：\n'+packet['skill_text']+'\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包；其余规则可按给定evidence_id使用lookup_evidence查证。原文行号也可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。',
           permissions=[FilesystemPermission(paths=['/skills/**','/input/**'],operations=['write'],mode='deny')],name='scene-'+role)
         inputs={'messages':[{'role':'user','content':task_message(packet)}],
             'files':{skill_path:file(packet['skill_text']),'/input/task.json':file(json.dumps(packet,ensure_ascii=False,indent=2)),**{path:file(text) for path,text in task_files(packet).items()}}}
@@ -168,7 +172,7 @@ class DeepAgentsClient(SemanticClient):
             last=inputs['messages'][-1]
             if getattr(last,'tool_calls',None):
                 for call in last.tool_calls:
-                    inputs['messages'].append(ToolMessage(content='用户已回答；请读取下次模型请求附带的节点指导并继续。',tool_call_id=call['id']))
+                    inputs['messages'].append(ToolMessage(content='节点已恢复。业务疑问可能仅被转为非阻断问题，并不代表用户已经回答；请使用实际已给指导，未知内容仍保留待确认，继续提交已知部分。',tool_call_id=call['id']))
         initial_messages=inputs['messages'][:]
         from langsmith import tracing_context
         from langchain_core.callbacks import BaseCallbackHandler
@@ -239,10 +243,6 @@ def _transport_model(client,stage):
             session=_AGENT_SESSION.get()
             if session:
                 self.request_count=session['count']
-                pending=session['conversations'].pending(session['task_key'])
-                if pending:
-                    from .scheduler import TaskBlocked
-                    raise TaskBlocked('awaiting_answer',{'question':pending})
             self.request_count+=1
             if session:session['count']=self.request_count
             limit=int(self.scene_client.config.get('agent_max_model_calls',5))
@@ -272,13 +272,13 @@ def _transport_model(client,stage):
                 # it inflated the real failing run by four unnecessary requests.
                 body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
                 body['tool_choice']='required';body['parallel_tool_calls']=False
-                notice='系统组成输入已完整提供，直接分析并submit_result，不需要文件探索或维护待办。每个事实保留最小且充分的原文引用，不复制整章。缺失事实保留未知；有阻断业务决定才ask_user。'
+                notice='系统组成输入已完整提供，直接分析并submit_result，不需要文件探索或维护待办。每个事实保留最小且充分的原文引用，不复制整章。缺失事实保留未知；业务疑问用ask_user记录后继续提交有据部分。'
                 if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 else:converted.insert(0,{'role':'system','content':notice})
             if self.request_count>=limit:
                 body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
                 body['tool_choice']='required'
-                notice='已到达本任务工具阅读预算。请停止文件探索：材料充分则submit_result；存在阻断业务疑问则ask_user。未知项明确待确认。'
+                notice='已到达本任务工具阅读预算。请停止文件探索：提交有据部分；业务疑问用ask_user记录后继续submit_result，未知项明确待确认。'
                 if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 else:converted.insert(0,{'role':'system','content':notice})
             # This gateway streamed the tool name, then buffered the large
@@ -288,7 +288,7 @@ def _transport_model(client,stage):
             if text_submission:
                 result_tool=next(t for t in body['tools'] if t['function']['name']=='submit_result')
                 output_schema=result_tool['function']['parameters']['properties']['payload']
-                notice='本次任务输入与Skill已提供，使用JSON文本传输，不重复读取大文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。仅阻断性疑问时改为输出 {"clarification":{"question":"问题","basis":"原文依据","decision":"需用户决定的事项"}}。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
+                notice='本次任务输入与Skill已提供，使用JSON文本传输，不重复读取大文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。业务疑问不阻断；需要提问时仍提交已知结果，使用 {"result":业务JSON,"review_questions":[{"question_type":"rule_completion或scenario_classification或binding_confirmation或general_clarification","question":"问题","known_facts":"已有依据","required_answer":"需业务决定事项","source_refs":[]}]}。未知内容不能编造，不可只返回问题。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
                 if self.request_count<limit and self.task_stage in {'existing-extract','test-ground-truth'}:notice+='若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
                 converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 for key in ('tools','tool_choice','parallel_tool_calls'):body.pop(key,None)
@@ -337,6 +337,8 @@ def _transport_model(client,stage):
                 elif set(decoded)=={'evidence_request'}:
                     if self.request_count>=limit:raise ValueError('evidence lookup budget exhausted')
                     name,args='lookup_evidence',{'evidence_ids':decoded['evidence_request']}
+                elif 'result' in decoded and set(decoded)<={'result','review_questions'}:
+                    name,args='submit_result',{'payload':decoded['result'],'review_questions':decoded.get('review_questions',[])}
                 else:name,args='submit_result',{'payload':decoded}
                 emit('structured_text_submission',adapter='json_text',target_tool=name)
                 calls.append({'name':name,'args':args,'id':'json-adapter-'+uuid4().hex})

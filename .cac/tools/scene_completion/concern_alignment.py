@@ -75,6 +75,7 @@ def recognize(inputs,raw,*,inverse=False):
         i=rows[iid]
         if inverse and ('test-documents' in inputs or 'existing-documents' in inputs):
             own_docs=inputs.get('test-documents',inputs.get('existing-documents',[]))
+            own_docs=own_docs+[d for d in inputs.get('review-documents',[]) if d.get('channel')==('test' if 'test-documents' in inputs else 'existing')]
             own_lines={}
             for d in own_docs:own_lines.setdefault(d['source_id'],set()).update(r['number'] for r in d['lines'])
             if not any(any(r['line_start']<=n<=r['line_end'] for n in own_lines.get(r['source_id'],set())) for r in m['source_refs']):

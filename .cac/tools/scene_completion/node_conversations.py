@@ -29,7 +29,7 @@ class Conversations:
         if pending:return pending
         return self.append(task,'question',text,{'question_id':uuid4().hex,'basis':basis,'decision':decision})
     def pending(self,task):
-        rows=self.list(task);answered={r['detail'].get('question_id') for r in rows if r['kind'] in {'answer','context_resolution'}}
+        rows=self.list(task);answered={r['detail'].get('question_id') for r in rows if r['kind'] in {'answer','context_resolution','question_deferred'}}
         return next((r for r in reversed(rows) if r['kind']=='question' and r['detail']['question_id'] not in answered),None)
     def answer(self,task,qid,text):
         q=self.pending(task)

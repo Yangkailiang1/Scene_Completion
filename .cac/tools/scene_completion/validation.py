@@ -45,6 +45,7 @@ def validate_result(task, payload, inputs):
         validate_catalogue(task,payload,inputs)
     if task in {'existing-concerns','test-concerns'}:
         own_sources={d['source_id'] for d in inputs.get('test-documents' if task=='test-concerns' else 'existing-documents',[])}
+        own_sources|={d['source_id'] for d in inputs.get('review-documents',[]) if d.get('channel')==('test' if task=='test-concerns' else 'existing')}
         for m in payload['matches']:
             if not any(r['source_id'] in own_sources for r in m['source_refs']):
                 raise ValueError('逆向关注点必须引用本来源的异常分支/测试，不能仅引用正向规则')

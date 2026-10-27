@@ -15,6 +15,7 @@ class Workbench:
     def __init__(self,root,client_factory=None,env_file=None):
         self.root=Path(root).resolve();self.root.mkdir(parents=True,exist_ok=True)
         self.env_file=Path(env_file or PROJECT/'.env')
+        self.review_only=(self.root/'.review-mode.json').exists()
         self.pool=ThreadPoolExecutor(max_workers=2);self.active=set();self.lock=Lock();self.client_factory=client_factory;self.gates={};self.dialogue_active=set()
     def run_dir(self,run_id):
         if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):raise ValueError('invalid project id')
@@ -55,6 +56,12 @@ class Workbench:
         if body is not None:
             if rid in self.active or (p/'job.json').exists() and read_json(p/'job.json').get('status')=='running':raise ValueError('运行期间不能切换测试集')
             if body.get('expected_version')!=current:raise ValueError('测试集已变化，请刷新')
+            if body.get('dry_run'):
+                from .test_sources import preview_sources
+                if body.get('version') and not any(v['id']==body['version'] for v in versions):raise ValueError('未知测试集版本')
+                checked=preview_sources(body.get('sources',[])) if not body.get('version') else {'valid':True}
+                if not checked['valid']:raise ValueError('测试来源校验失败：'+json.dumps(checked,ensure_ascii=False))
+                return {'valid':True,'saved':False,'preview':checked,'expected_version':current}
             if body.get('version'):
                 selected=next((x for x in versions if x['id']==body['version']),None)
                 if selected is None:raise ValueError('未知测试集版本')
@@ -156,6 +163,7 @@ class Workbench:
         target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
         return new['id']
     def start(self,rid):
+        if self.review_only:raise ValueError('业务审核包只保存确认记录；请交回研发后重跑')
         rid=self.upgrade(rid)
         p=self.run_dir(rid)
         job=read_json(p/'job.json') if (p/'job.json').exists() else {}
@@ -192,7 +200,7 @@ class Workbench:
                 self.gates[rid]=ex.gate
                 docs={role:read_project_documents(p,project['sources'][role],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
                 build_pipeline(ex,docs['RR'],docs['SR'],docs['test']);manifest=ex.finish()
-                write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'waiting','finished_at':time.time()})
+                write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'complete_with_questions' if manifest.get('execution_complete') else 'waiting','finished_at':time.time()})
         except Exception as e:
             # Preserve actual diagnostics server-side without returning credentials.
             write_json(p/'job.json',{'status':'error','error_type':type(e).__name__,'message':'执行未完成，请查看任务状态与运行日志','finished_at':time.time()})
@@ -208,7 +216,10 @@ class Workbench:
         if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'执行进程已退出，可继续运行'}
         manifest=read_json(r/'run_manifest.json') if (r/'run_manifest.json').exists() else {}
         from .execution_events import EventStore
-        return {'project':rid,'name':project['name'],'job':job,'complete':bool(manifest.get('complete')),'completed':sum(v['status']=='passed' for v in active.values()),'total':len(nodes),'event_cursor':EventStore(r).latest_id(),'pending_nodes':[{'id':k,'stage':v['stage'],'status':v['status'],'failure':v.get('failure'),'expected_files':nodes[k].get('expected_files',[])} for k,v in active.items() if v['status']!='passed']}
+        from .project_review import pending_view
+        review=pending_view(p,queue='all',limit=1)
+        unresolved=review['counts'].get('unresolved',0)+review['counts'].get('needs_info',0)
+        return {'project':rid,'name':project['name'],'job':job,'complete':bool(manifest.get('complete')),'execution_complete':bool(manifest.get('execution_complete',manifest.get('complete'))),'review_complete':not unresolved,'unresolved_questions':unresolved,'review_only':self.review_only,'completed':sum(v['status']=='passed' for v in active.values()),'total':len(nodes),'event_cursor':EventStore(r).latest_id(),'pending_nodes':[{'id':k,'stage':v['stage'],'status':v['status'],'failure':v.get('failure'),'expected_files':nodes[k].get('expected_files',[])} for k,v in active.items() if v['status']!='passed']}
     def snapshot(self,rid):
         p=self.run_dir(rid);run=p/'run'
         from .reviews import Reviews
@@ -236,9 +247,11 @@ class Workbench:
             raw=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {}
             config={k:raw[k] for k in ('model_account_id','agent_model','max_concurrency','max_tokens') if k in raw}
             config.update(credential_configured=False,configuration_error=str(e))
+        from .project_review import pending_view
+        questions=pending_view(p,queue='all',limit=1)
         return {'project':read_json(p/'project.json'),'job':job,'manifest':read_json(run/'run_manifest.json') if (run/'run_manifest.json').exists() else None,
           'tasks':read_json(run/'workflow_tasks.json') if (run/'workflow_tasks.json').exists() else {'tasks':{},'events':[]},'reviews':reviews,'artifacts':artifacts,
-          'config':config}
+          'config':config,'review_only':self.review_only,'review_summary':{'unresolved':questions['counts'].get('unresolved',0)+questions['counts'].get('needs_info',0),'counts':questions['counts']}}
     def conversation(self,rid,key):
         from .node_conversations import Conversations
         p=self.run_dir(rid)
@@ -328,6 +341,10 @@ def create_app(root=None,client_factory=None,env_file=None):
     app=FastAPI(title='场景完整性审核');app.state.workbench=service
     @app.middleware('http')
     async def local_write(request:Request,call_next):
+        if service.review_only and request.method not in {'GET','HEAD','OPTIONS'}:
+            import re
+            allowed=re.fullmatch(r'/api/projects/[a-f0-9]{32}/(?:pending/[a-f0-9]+|recommendations/feedback)',request.url.path)
+            if not allowed:return Response(json.dumps({'detail':'业务审核模式禁止模型执行和配置变更；请导出反馈交回研发'},ensure_ascii=False),status_code=403,media_type='application/json')
         # Local UI writes are same-origin; cross-site forms must not start model jobs.
         if request.method not in {'GET','HEAD','OPTIONS'}:
             origin=request.headers.get('origin')
@@ -348,6 +365,10 @@ def create_app(root=None,client_factory=None,env_file=None):
     app.mount('/static',StaticFiles(directory=WEB),name='static')
     @app.get('/api/projects')
     def projects():return service.list()
+    @app.get('/api/capabilities')
+    def capabilities():
+        from .workbench_cli import capabilities
+        return {**capabilities(),'review_only':service.review_only}
     @app.post('/api/projects')
     def create(body:dict):return service.create(body)
     @app.post('/api/test-sources/preview')
@@ -398,25 +419,38 @@ def create_app(root=None,client_factory=None,env_file=None):
         with service.lock:return import_history(service.run_dir(rid),body)
     @app.get('/api/projects/{rid}/recommendations')
     def recommendations(rid:str,case:str|None=None,test_set:str='expanded'):
-        from .pattern_settings import settings,adoption
+        from .pattern_settings import settings,adoption,history
         from .result_views import ResultView
         p=service.run_dir(rid);v=ResultView(p)
         if case and case not in {c['id'] for c in v.cases()}:raise ValueError('未知用例')
         result=v.payload(case+':gap-recommend') if case else {}
         matrix=v.payload(case+':pattern-applicability') if case else {}
-        if test_set not in {'original','expanded'}:raise ValueError('未知测试集')
+        if test_set not in {'original','expanded','business'}:raise ValueError('未知测试集')
         evaluation=v.payload(case+':exception-evaluation') if case else {}
         if test_set=='original':evaluation=evaluation.get('original_evaluation',evaluation)
+        business=None
+        if case and test_set=='business':
+            from .business_truth import snapshot
+            business=snapshot(p,case);evaluation=business['evaluation']
         from .recommendation import comparison_for_view
         comparison=comparison_for_view(evaluation,result)
-        return {'cases':v.cases(),'case':case,'result':result,'matrix':matrix,'comparison':comparison,'test_set':test_set,'current_settings_hash':settings(p)['version'],'human_adoption':adoption(p,result)}
+        from .business_truth import candidates
+        return {'cases':v.cases(),'case':case,'result':result,'matrix':matrix,'comparison':comparison,'evaluation_metrics':evaluation.get('metrics',{}),'test_set':test_set,'current_settings_hash':settings(p)['version'],'human_adoption':adoption(p,result),'business_truth':business,
+                'feedback':history(p)['feedback'],'feedback_revision':history(p)['revision'],
+                'duplicate_candidates':{s['id']:[{'id':t['id'],'conditions':t.get('conditions',[])} for t in candidates(s,evaluation.get('GT',[]))] for s in result.get('Q',[])}}
     @app.post('/api/projects/{rid}/recommendations/feedback')
     def recommendation_feedback(rid:str,body:dict):
         from .pattern_settings import feedback
         from .result_views import ResultView
         p=service.run_dir(rid);result=ResultView(p).payload(str(body.get('case_id',''))+':gap-recommend')
         if not result.get('enabled'):raise ValueError('本用例尚未形成推荐')
-        with service.lock:return feedback(p,body,result)
+        if body.get('choice')=='adopt' and 'reviewer' in body and not str(body['reviewer']).strip():raise ValueError('请填写审核人')
+        with service.lock:
+            value=feedback(p,body,result,dry_run=body.get('dry_run',False))
+            if not body.get('dry_run'):
+                from .business_truth import snapshot
+                value={**value,'business_truth':snapshot(p,body['case_id'])}
+            return value
     @app.post('/api/projects/{rid}/patterns/review')
     def pattern_review(rid:str,body:dict):
         from .pattern_settings import review_candidate
@@ -440,9 +474,9 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).detail(case_id,test_set)
     @app.get('/api/projects/{rid}/results/{case_id}/scenarios/{channel}/{scenario_id}')
-    def result_scenario(rid:str,case_id:str,channel:str,scenario_id:str):
+    def result_scenario(rid:str,case_id:str,channel:str,scenario_id:str,test_set:str='expanded'):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).scenario(case_id,channel,scenario_id)
+        return ResultView(service.run_dir(rid)).scenario(case_id,channel,scenario_id,test_set)
     @app.put('/api/projects/{rid}/registry')
     def edit_project_definitions(rid:str,body:dict):
         from .project_review import save_registry
@@ -455,8 +489,13 @@ def create_app(root=None,client_factory=None,env_file=None):
         with service.lock:return pending_view(service.run_dir(rid),status,case,offset,limit,search,channel,queue)
     @app.post('/api/projects/{rid}/pending/{item_id}')
     def review_pending_item(rid:str,item_id:str,body:dict):
-        from .project_review import decide_pending
-        with service.lock:return decide_pending(service.run_dir(rid),item_id,body)
+        from .project_review import decide_pending,pending_items
+        with service.lock:
+            if 'reviewer' not in body:return decide_pending(service.run_dir(rid),item_id,body)
+            from .review_questions import answer
+            item=next((i for i in pending_items(service.run_dir(rid)) if i['id']==item_id),None)
+            if item is None:raise ValueError('问题已变化，请刷新')
+            return answer(service.run_dir(rid),item,body,dry_run=body.get('dry_run',False))
     @app.get('/api/model-accounts')
     def model_accounts():return service.model_accounts()
     @app.put('/api/model-accounts')
@@ -570,11 +609,21 @@ def create_app(root=None,client_factory=None,env_file=None):
         store=service.conversation(rid,task_key)
         return {'messages':store.list(task_key),'question':store.pending(task_key),'revision':store.revision(task_key)}
     @app.post('/api/projects/{rid}/conversation')
-    def guidance(rid:str,body:dict):return service.guide(rid,body['task_key'],body['text'])
+    def guidance(rid:str,body:dict):
+        if body.get('dry_run'):
+            service.conversation(rid,body['task_key'])
+            if not isinstance(body.get('text'),str) or not body['text'].strip() or len(body['text'])>30000:raise ValueError('消息不能为空或超过30000字符')
+            return {'valid':True,'saved':False}
+        return service.guide(rid,body['task_key'],body['text'])
     @app.post('/api/projects/{rid}/answer')
     def answer(rid:str,body:dict):
-        store=service.conversation(rid,body['task_key']);value=store.answer(body['task_key'],body['question_id'],body['text'])
-        service.pool.submit(service._resume,rid)
+        store=service.conversation(rid,body['task_key'])
+        if body.get('dry_run'):
+            q=store.pending(body['task_key'])
+            if not q or q['detail']['question_id']!=body['question_id']:raise ValueError('问题已变化，请刷新')
+            if not isinstance(body.get('text'),str) or not body['text'].strip() or len(body['text'])>30000:raise ValueError('回答不能为空或超过30000字符')
+            return {'valid':True,'saved':False}
+        value=store.answer(body['task_key'],body['question_id'],body['text'])
         return value
     @app.post('/api/projects/{rid}/rerun-node')
     def rerun(rid:str,body:dict):
@@ -600,7 +649,7 @@ def create_app(root=None,client_factory=None,env_file=None):
     def decide(rid:str,body:dict):
         if rid in service.active:raise ValueError('请等待当前任务结束再提交审核')
         return Reviews(service.run_dir(rid)/'run').decide(body['key'],body['action'],expected_revision=body['revision'],
-          expected_input_hash=body['input_hash'],value=body.get('payload'),comment=body.get('comment',''))
+          expected_input_hash=body['input_hash'],value=body.get('payload'),comment=body.get('comment',''),dry_run=body.get('dry_run',False))
     @app.get('/api/projects/{rid}/api-catalog')
     def api_catalog(rid:str,format:str='view'):
         from .api_catalog import saved_catalog,save_catalog,markdown
@@ -619,4 +668,6 @@ def create_app(root=None,client_factory=None,env_file=None):
         return FileResponse(f)
     @app.get('/api/projects/{rid}/export')
     def export(rid:str):return Response(service.export(rid),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="scene-review.zip"'})
+    from .review_api import register
+    register(app,service,PROJECT)
     return app
