@@ -93,7 +93,11 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                     try:set_read_timeout=response.fp.raw._sock.settimeout
                     except AttributeError:set_read_timeout=None
                     value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout,capture_reasoning=capture_reasoning,display_reasoning=display_reasoning)
-                else:value = json.loads(response.read().decode("utf-8"))
+                else:
+                    value = json.loads(response.read().decode("utf-8"))
+                    if isinstance(value,dict) and 'choices' in value:
+                        from .provider_reasoning import buffered_response
+                        value=buffered_response(value,capture=capture_reasoning,display=display_reasoning)
                 attempt_status='complete';attempt_code=getattr(response,'status',None)
                 if isinstance(value, dict):
                     value.setdefault('_scene_completion_metrics',{}).update(transport_attempts=attempt+1)

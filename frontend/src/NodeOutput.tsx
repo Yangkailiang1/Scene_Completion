@@ -84,7 +84,7 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
             ? ` · 输入${(d.input_bytes / 1024).toFixed(1)}KB · 输出上限${d.max_output_tokens} tokens · 生成总时限${d.stream_total_timeout_seconds}秒`
             : "");
       if (e.kind === "stream_progress")
-        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数${d.reasoning_bytes ? `；另收到${d.reasoning_bytes}字节思考数据（${d.reasoning_display_enabled ? "思考流单列显示" : "未开启原文显示"}）` : ""}`;
+        text = `服务仍在返回增量：已等待${Math.round(d.elapsed_seconds)}秒，已接收${d.output_bytes}字节正文／工具参数${d.reasoning_bytes ? `；另收到${d.reasoning_bytes}字节思考数据（${d.reasoning_display_enabled ? "思考流单列显示" : "未开启原文显示"}）` : d.reasoning_fields?.length ? `；网关包含${d.reasoning_fields.join("、")}字段，但尚无可显示的思考文本` : "；尚未收到网关公开的思考文本"}`;
       if (e.kind === "request_failed") text = failureText(d.diagnostic);
       if (e.kind === "request_finished")
         text = `实际返回模型：${d.provider_model || "未报告"}`;
@@ -214,7 +214,7 @@ export function NodeOutput({
             <small>
               {pendingTool === "submit_result"
                 ? "上游已返回submit_result工具名，但参数正文仍为空；本接口的大JSON可能在生成完成后集中返回。"
-                : preparing ? (request.data.reasoning_display_enabled ? "思考流在下方单列显示，不参与正式产物校验。" : "当前只记录思考进度；可在模型配置开启“显示并保存供应商思考文本”，对后续请求生效。") : "尚无正文不代表请求已经失败；只显示接口实际返回的内容，不补造输出。"}
+                : preparing ? (request.data.reasoning_display_enabled ? "思考流在下方单列显示，不参与正式产物校验。" : "当前只记录思考进度；可在模型配置开启“显示并保存供应商思考文本”，对后续请求生效。") : request.data.reasoning_display_enabled ? "思考显示已开启，但尚未收到网关公开的思考文本。只有心跳、加密信息或网关缓存时无法实时显示；请查看节点诊断中的reasoning_fields与response_mode。" : "尚无正文不代表请求已经失败。思考文本显示尚未开启；可在模型配置开启，或使用CLI configure --show-reasoning；对后续请求生效。"}
             </small>
           )}
         </div>

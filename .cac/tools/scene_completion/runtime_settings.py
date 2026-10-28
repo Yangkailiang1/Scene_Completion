@@ -89,10 +89,14 @@ def output_limit(body):return body.get('max_tokens',body.get('max_completion_tok
 
 def request_diagnostic(body,response=None):
     response=response or {};choice=(response.get('choices') or [{}])[0];message=choice.get('message') or {}
-    reasoning_received=bool(message.get('reasoning_content')) or response.get('_scene_completion_metrics',{}).get('reasoning_bytes',0)>0
+    from .provider_reasoning import fragments
+    pieces,fields=fragments(message)
+    metrics=response.get('_scene_completion_metrics',{})
+    reasoning_received=bool(pieces) or metrics.get('reasoning_bytes',0)>0
     disabled=body.get('thinking')=={'type':'disabled'} or body.get('enable_thinking') is False
     return {'thinking_control_status':('disabled_requested_but_reasoning_returned' if reasoning_received else 'disabled_requested_no_reasoning_observed') if disabled else 'gateway_default_or_enabled','requested_model':body.get('model'),'provider_model':response.get('model'),'max_output_tokens':output_limit(body),'output_parameter':'max_completion_tokens' if 'max_completion_tokens' in body else 'max_tokens',
      'finish_reason':choice.get('finish_reason'),'usage':response.get('usage'),'body_bytes':len((message.get('content') or '').encode()) if isinstance(message.get('content'),str) else 0,
      'tool_call_count':len(message.get('tool_calls') or []),'reasoning_received':reasoning_received,
      'thinking':body.get('thinking',body.get('enable_thinking','gateway_default')),'reasoning_effort':body.get('reasoning_effort'),
-     'stream':body.get('stream',False),'tool_choice_sent':'tool_choice' in body, 'reasoning_bytes':response.get('_scene_completion_metrics',{}).get('reasoning_bytes',0)}
+     'stream':body.get('stream',False),'tool_choice_sent':'tool_choice' in body, 'reasoning_bytes':metrics.get('reasoning_bytes',sum(len(t.encode('utf8')) for _,t in pieces)),
+     'reasoning_fields':metrics.get('reasoning_fields',fields),'delta_fields':metrics.get('delta_fields',[]),'response_mode':metrics.get('response_mode','not_reported')}

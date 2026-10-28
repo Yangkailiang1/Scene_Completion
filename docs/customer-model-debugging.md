@@ -99,3 +99,34 @@ scene.cmd run --project PROJECT_ID --wait
 ## 验证边界
 
 离线测试覆盖思考流计数、默认不记录原文、显式开启后事件保存／续接、思考与正式JSON隔离、工具轮次回传、关闭思考的参数优先级及网关返回核验、JSON/截断错误区别、任务预算及凭证/账本隔离、Mermaid路径清理、长路径短临时名、修复包过期与校验、局部失败不阻塞独立节点。包在macOS交叉制作；不能代替Windows实机和客户内网DeepSeek模型全链路验证，不宣称调大预算后一定成功。
+
+## 客户端：接口映射提交失败与思考流为空
+
+`VERSION.json` 的 `source_commit` 是40位十六进制Git版本号，不是乱码。保持 `start.cmd` 运行，在包根目录执行：
+
+```bat
+scene.cmd projects
+scene.cmd diagnose --project PROJECT_ID --node api-map > api-map-diagnose.json
+scene.cmd config --project PROJECT_ID --task api-map > api-map-config.json
+```
+
+提供版本号和这两个JSON即可诊断，无需 `.env`、API Key或思考原文。`diagnose` 中的 `stream_observation` 记录该次请求的思考显示开关、网关字段名、思考字节数及SSE/完整JSON响应方式；旧记录无法补造这些字段。
+
+已修复一条可复现的提交失败路径：模型把 `review_questions` 写成字符串列表时，旧代码直接展开字符串，会报 `'str' object is not a mapping`。现在先检查问题列表与所有嵌套产物容器，给出如 `review_questions[0]`、`payload.services[0].interfaces[0]` 的精确位置；保留被拒绝的业务结果及问题，在原有两轮修复预算内修正，不把字符串猜成业务事实。客户同文案报错仍需诊断文件核对，不能仅凭报错确定来源。
+
+思考流显示仍需显式开启，与开启/关闭模型思考是两个独立选项：
+
+```bat
+scene.cmd configure --project PROJECT_ID --stream --show-reasoning
+scene.cmd config --project PROJECT_ID --task api-map
+```
+
+对后续请求生效；正在执行的HTTP请求和旧日志不会追补。网页“更多操作→模型设置→运行参数→模型思考流”也可开启。网关公开的 `reasoning_content`、`reasoning` 文本和 `reasoning_details` 可读文本/摘要均可单列显示，重复别名只计一次；加密内容不作为可读文本。正式产物仍只使用正文或工具参数。若供应商只发心跳、不公开思考，或以完整JSON缓冲到结束，客户端无法实时还原；后者会明确标注“完整JSON而非SSE”。仅有reasoning token用量也不代表网关返回了思考文本。
+
+关闭思考需选择网关实际支持的参数格式，例如：
+
+```bat
+scene.cmd configure --project PROJECT_ID --thinking off --thinking-api legacy
+```
+
+网关若使用布尔开关则选 `--thinking-api enable_thinking`。此命令发送关闭请求，不保证网关执行；若仍收到思考字段，诊断会如实记录。不要盲目增大重试次数来处理空正文。

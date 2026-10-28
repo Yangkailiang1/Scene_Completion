@@ -99,3 +99,12 @@ it("shows provider thinking separately, does not count it as answer and can hide
  fireEvent.click(screen.getByRole("checkbox",{name:"显示模型思考流"}));
  expect(screen.queryByText("provider fragment")).toBeNull();
 });
+
+it("distinguishes enabled thinking display from a gateway that sends no readable text",()=>{
+ render(<NodeOutput active loading={false} events={[
+  event(1,"request_started",{model_call_id:"a",reasoning_display_enabled:true}),
+  event(2,"stream_progress",{model_call_id:"a",elapsed_seconds:10,output_bytes:0,reasoning_bytes:0,reasoning_fields:["reasoning_details"]}),
+ ]}/>);
+ expect(screen.getByRole("status").textContent).toContain("思考显示已开启，但尚未收到网关公开的思考文本");
+ expect(screen.getByText(/网关包含reasoning_details字段，但尚无可显示/)).toBeTruthy();
+});

@@ -112,7 +112,17 @@ class DeepAgentsClient(SemanticClient):
         from .scheduler import TaskRejected
         def submit(payload:dict,review_questions:list[dict]|None=None) -> str:
             from .review_questions import report
-            for question in review_questions or []:report(self.root.parent,task_key,original_packet['task'],event_context.get('case'),{**question,'source_refs':question_refs(question.get('source_refs',[]))},inputs=original_packet['input'])
+            from .model_submission import containers,questions
+            try:
+                containers(payload,packet['output_schema'])
+                checked_questions=questions(review_questions)
+                for question in checked_questions:
+                    report(self.root.parent,task_key,original_packet['task'],event_context.get('case'),{**question,'source_refs':question_refs(question.get('source_refs',[]))},inputs=original_packet['input'])
+            except (ValueError,KeyError,TypeError) as e:
+                emit('validation_failed',error=str(e),phase='submission_envelope')
+                rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload,review_questions,'submission'])+'.json')
+                write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'review_questions':review_questions,'candidate_format':'model' if indexed else 'public','error':str(e)})
+                raise TaskRejected({'error':str(e),'phase':'submission_envelope','rejected_output':str(rejection.relative_to(self.root))}) from e
             if indexed:
                 try:payload=indexed.expand(payload)
                 except (ValueError,KeyError,TypeError) as e:
@@ -144,7 +154,7 @@ class DeepAgentsClient(SemanticClient):
             return '结果已通过校验，任务完成。'
         submit_result=StructuredTool.from_function(func=submit,name='submit_result',
           description='提交本任务结构化产物。payload必须是已填充的业务结果，不能是Schema定义。',
-          args_schema={'title':'SubmitTaskResult','type':'object','properties':{'payload':packet['output_schema'],'review_questions':{'type':'array','maxItems':30,'items':{'type':'object'}}},'required':['payload'],'additionalProperties':False})
+          args_schema={'title':'SubmitTaskResult','type':'object','properties':{'payload':packet['output_schema'],'review_questions':{'type':'array','maxItems':30,'items':{'type':'object','properties':{'question':{'type':'string','minLength':1},'required_answer':{'type':'string','minLength':1},'question_type':{'enum':['rule_completion','scenario_classification','binding_confirmation','general_clarification']},'known_facts':{'type':'string'},'interaction_id':{'type':'string'},'source_refs':{'type':'array','items':{'anyOf':[{'type':'string'},{'type':'object'}]}}},'required':['question','required_answer']}}},'required':['payload'],'additionalProperties':False})
         from langchain.agents.middleware import wrap_model_call
         from langchain_core.messages import AIMessage
         @wrap_model_call

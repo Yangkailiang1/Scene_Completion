@@ -42,7 +42,15 @@ def node_diagnostics(project,config,task_key=None,limit=20):
             if v.get('node_key')==key:
                 failures.append({'file':p.relative_to(project).as_posix(),'error':str(v.get('error',''))[:4000]})
                 if len(failures)>=3:break
-        out.append({'task_key':key,'stage':row['stage'],'status':row['status'],'failure':row.get('failure'), 'effective':effective(config,row['stage']), 'events':recent,'validation_rejections':failures})
+        call_id=next((e['data']['model_call_id'] for e in reversed(history) if e['data'].get('model_call_id')),None)
+        request_history=[e for e in history if e['data'].get('model_call_id')==call_id]
+        progress=next((e['data'] for e in reversed(request_history) if e['kind']=='stream_progress'),{})
+        finished=next((e['data'].get('diagnostic',{}) for e in reversed(request_history) if e['kind'] in {'request_finished','request_failed'}),{})
+        started=next((e['data'] for e in reversed(request_history) if e['kind']=='request_started'),{})
+        observation={k:finished.get(k,progress.get(k)) for k in ('reasoning_bytes','reasoning_fields','delta_fields','response_mode')}
+        observation['display_enabled_for_request']=started.get('reasoning_display_enabled',progress.get('reasoning_display_enabled'))
+        observation['note']='仅报告网关实际返回的字段及计数，不包含思考文本。旧记录缺失的值为null；配置变更仅影响后续请求。'
+        out.append({'task_key':key,'stage':row['stage'],'status':row['status'],'failure':row.get('failure'), 'effective':effective(config,row['stage']), 'stream_observation':observation,'events':recent,'validation_rejections':failures})
     result={'nodes':out,'llm_called':False,'notes':['诊断只读取已有记录，不调用模型、不重置配额或修复预算。','同一节点需区分输出截断、JSON语法、业务Schema和本地文件写入失败；诊断不返回思考原文，显式开启后思考文本单列在本地节点事件。']}
     text=json.dumps(result,ensure_ascii=False)
     if config.get('api_key'):text=text.replace(config['api_key'],'[redacted]')

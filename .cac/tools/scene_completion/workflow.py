@@ -83,7 +83,7 @@ def code_version(task):
     if task in {'interaction-enrich','exception-generate','pattern-applicability','existing-extract','test-ground-truth','test-supplement','test-additional-truth'}:names=names+['data_requirements.py']
     if task in {'existing-extract','test-ground-truth'}:names=names+['refinement_context.py']
     if task=='test-ground-truth':names=names+['validation.py']
-    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py']
+    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py','model_submission.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     return implementation
@@ -202,6 +202,7 @@ class Execution:
                     previous=read_json(path)
                     if previous.get('task')==task and previous.get('node_key')==p['node_key'] and previous.get('input_hash')==fingerprint(inputs):
                         p['repair']['candidate']=previous['payload']
+                        if previous.get('review_questions') is not None:p['repair']['review_questions']=previous['review_questions']
                         if previous.get('candidate_format')=='model':p['repair']['candidate_format']='model'
                         p['repair']['rule']='候选尚未通过校验。只定向修复列出的错误，保留有据且合法的部分；所有字段仍须重新满足Schema、当前指导与原文引用。'
         p['batch_id']=fingerprint({k:v for k,v in p.items() if k!='batch_id'})
