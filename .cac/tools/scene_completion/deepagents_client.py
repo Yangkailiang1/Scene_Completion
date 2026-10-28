@@ -54,6 +54,9 @@ class DeepAgentsClient(SemanticClient):
         self.model_override=model_override
         self.root=Path(config.get('run_root','runs/deepagents'))
     def agent(self,packet):
+        if not self.config.get('_resilience_active'):
+            from .model_resilience import invoke
+            return invoke(self,packet,lambda child:child.agent(packet))
         from .model_routing import routed_config
         routed=routed_config(self.config,packet['task'],role_for(packet['task']))
         if routed is not None:
@@ -133,6 +136,14 @@ class DeepAgentsClient(SemanticClient):
             if packet['task']=='api-map':
                 from .http_interfaces import normalize_mapping
                 payload=normalize_mapping(payload)
+            if original_packet['input'].get('imported-fragments'):
+                from .artifact_imports import merge
+                try:payload=merge(original_packet['task'],payload,original_packet['input']['imported-fragments'])
+                except ValueError as e:
+                    emit('validation_failed',error=str(e),phase='import_merge')
+                    rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload,'import_merge'])+'.json')
+                    write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'error':str(e)})
+                    raise TaskRejected({'error':str(e),'phase':'import_merge','rejected_output':str(rejection.relative_to(self.root))}) from e
             if packet['task']=='fused-ssd':
                 from .use_cases import canonical_case_ids
                 payload=canonical_case_ids(payload,packet['input'])

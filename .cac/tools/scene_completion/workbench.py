@@ -5,6 +5,7 @@ from threading import Lock
 from uuid import uuid4
 import io,json,zipfile,time
 from .storage import read_json,write_json,fingerprint
+from .worker_runtime import read_job
 from .contracts import PROTOCOL,registry
 from .project_review import project_scoped
 
@@ -12,11 +13,12 @@ PROJECT=Path(__file__).resolve().parents[3]
 WEB=PROJECT/'web'
 
 class Workbench:
-    def __init__(self,root,client_factory=None,env_file=None):
+    def __init__(self,root,client_factory=None,env_file=None,worker=False):
         self.root=Path(root).resolve();self.root.mkdir(parents=True,exist_ok=True)
         self.env_file=Path(env_file or PROJECT/'.env')
         self.review_only=(self.root/'.review-mode.json').exists()
         self.pool=ThreadPoolExecutor(max_workers=2);self.active=set();self.lock=Lock();self.client_factory=client_factory;self.gates={};self.dialogue_active=set()
+        self.worker=worker;self.input_watcher=None;self.guardian=None
     def run_dir(self,run_id):
         if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):raise ValueError('invalid project id')
         p=self.root/run_id
@@ -54,7 +56,7 @@ class Workbench:
         versions=read_json(history) if history.exists() else [{'id':fingerprint(meta['sources']['test'])[:20],'sources':meta['sources']['test'],'created_at':meta['created_at']}]
         current=meta.get('test_source_version',versions[-1]['id'])
         if body is not None:
-            if rid in self.active or (p/'job.json').exists() and read_json(p/'job.json').get('status')=='running':raise ValueError('运行期间不能切换测试集')
+            if rid in self.active or read_job(p).get('status')=='running':raise ValueError('运行期间不能切换测试集')
             if body.get('expected_version')!=current:raise ValueError('测试集已变化，请刷新')
             if body.get('dry_run'):
                 from .test_sources import preview_sources
@@ -92,20 +94,21 @@ class Workbench:
     def model_config(self,rid):
         from .model_settings import resolve
         p=self.run_dir(rid)
-        return resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file,self.root)
+        value=resolve(read_json(p/'model.local.json') if (p/'model.local.json').exists() else {},self.env_file,self.root)
+        value.update(_live_project=str(p),_live_accounts_root=str(self.root),_live_env_file=str(self.env_file));return value
     def model_accounts(self,body=None):
         from .model_accounts import public_accounts,save_account
         if body is not None:
             aid=body.get('id')
             for m in self.list():
-                p=self.run_dir(m['id']);c=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {};j=read_json(p/'job.json') if (p/'job.json').exists() else {}
+                p=self.run_dir(m['id']);c=read_json(p/'model.local.json') if (p/'model.local.json').exists() else {};j=read_job(p)
                 if aid and c.get('model_account_id')==aid and (m['id'] in self.active or j.get('status')=='running' and j.get('worker_heartbeat',0)>time.time()-30):raise ValueError('此连接正在执行项目，请结束本轮后修改')
             return save_account(self.root,body,self.env_file)
         return public_accounts(self.root,self.env_file)
     def configure(self,rid,body):
         p=self.run_dir(rid)
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
-        if rid in self.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('运行期间不能修改模型配置')
+        job=read_job(p)
+        # Provider settings are read at each future model call. Existing requests keep their own snapshot.
         from .runtime_settings import KEYS,validate_options,PRESETS
         allowed=KEYS|{'model_account_id','base_url','agent_model','api_key','preset'}
         if set(body)-allowed:raise ValueError('不支持的配置键：'+','.join(sorted(set(body)-allowed)))
@@ -162,20 +165,40 @@ class Workbench:
         prepare(p,self.run_dir(new['id']))
         target=self.run_dir(new['id']);v=read_json(target/'project.json');v['previous_project_id']=rid;write_json(target/'project.json',v)
         return new['id']
-    def start(self,rid):
+    def start(self,rid,options=None):
+        if self.review_only:raise ValueError('业务审核包只保存确认记录；请交回研发后重跑')
+        rid=self.upgrade(rid)
+        from .scheduler import run_lock
+        with run_lock(self.run_dir(rid)/'dispatch'):
+            return self._start(rid,options)
+    def _start(self,rid,options=None):
         if self.review_only:raise ValueError('业务审核包只保存确认记录；请交回研发后重跑')
         rid=self.upgrade(rid)
         p=self.run_dir(rid)
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
-        if job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('项目正在由联调工作进程执行')
+        from .worker_runtime import read_job
+        job=read_job(p)
+        options=options or {}
+        if set(options)-{'case_ids','priority_cases'}:raise ValueError('不支持的运行范围参数')
+        for k in ('case_ids','priority_cases'):
+            if k in options and (not isinstance(options[k],list) or any(not isinstance(x,str) or not x.strip() for x in options[k])):raise ValueError('用例范围必须为非空编号列表')
+        from .worker_runtime import pid_alive
+        if job.get('status')=='running' and (job.get('worker_heartbeat',0)>time.time()-30 or job.get('pid') and pid_alive(job['pid'])):raise ValueError('项目正在由联调工作进程执行')
         from .model_settings import resolve
         config=self.model_config(rid)
         if not self.client_factory and (not config['api_key'] or not config['base_url']):raise ValueError('请在.env或项目中配置模型地址和密钥')
         with self.lock:
             if rid in self.active:raise ValueError('项目正在运行')
             self.active.add(rid)
-        write_json(p/'job.json',{'status':'running','started_at':time.time()})
-        self.pool.submit(self._execute,rid)
+        write_json(p/'job.json',{'status':'running','started_at':time.time(),'worker_heartbeat':time.time(),'run_options':options})
+        if self.client_factory or self.worker:self.pool.submit(self._execute,rid)
+        else:
+            from .worker_runtime import spawn,monitor
+            try:process=spawn(self,rid)
+            except Exception:
+                with self.lock:self.active.discard(rid)
+                write_json(p/'job.json',{'status':'error','message':'项目进程启动失败'});raise
+            from threading import Thread
+            Thread(target=monitor,args=(self,rid,process),daemon=True,name='scene-project-monitor').start()
         return {'status':'running','project_id':rid}
     @project_scoped
     def _execute(self,rid):
@@ -188,7 +211,7 @@ class Workbench:
             project=read_json(p/'project.json')
             from .model_settings import resolve
             config=self.model_config(rid)
-            config.setdefault('supplement_tests',True)
+            config.setdefault('supplement_tests',False)
             config.setdefault('scenario_patterns',True)
             from .pattern_settings import settings,history
             write_json(p/'run/pattern_settings_used.json',settings(p)['settings'])
@@ -196,7 +219,9 @@ class Workbench:
             config['review_mode']=project['review_mode'];config['run_root']=str(p/'run')
             with run_lock(p/'run'):
                 client=self.client_factory(config,p/'run') if self.client_factory else client_for(config,p/'run')
-                ex=Execution(p/'run',mode='external',client=client,config=config,case_ids=project.get('case_ids'))
+                options=read_json(p/'job.json').get('run_options',{})
+                config['priority_cases']=options.get('priority_cases',[])
+                ex=Execution(p/'run',mode='external',client=client,config=config,case_ids=options.get('case_ids',project.get('case_ids')))
                 self.gates[rid]=ex.gate
                 docs={role:read_project_documents(p,project['sources'][role],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
                 build_pipeline(ex,docs['RR'],docs['SR'],docs['test']);manifest=ex.finish()
@@ -212,7 +237,8 @@ class Workbench:
         p=self.run_dir(rid);r=p/'run';project=read_json(p/'project.json')
         graph=read_json(r/'workflow_graph.json') if (r/'workflow_graph.json').exists() else {'nodes':[]};nodes={n['id']:n for n in graph['nodes']}
         records=read_json(r/'workflow_tasks.json').get('tasks',{}) if (r/'workflow_tasks.json').exists() else {};active={k:v for k,v in records.items() if k in nodes}
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
+        from .worker_runtime import read_job
+        job=read_job(p)
         if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'执行进程已退出，可继续运行'}
         manifest=read_json(r/'run_manifest.json') if (r/'run_manifest.json').exists() else {}
         from .execution_events import EventStore
@@ -239,7 +265,8 @@ class Workbench:
         artifacts=[a for a in artifacts if '/reviews/previews/' not in a['path'] or records.get(a.get('task_key'),{}).get('status') in {'passed','awaiting_review'}]
         for name in ('missing_report.json','missing_report.md'):
             if (run/name).exists():artifacts.append({'path':'run/'+name,'name':name,'bytes':(run/name).stat().st_size})
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {'status':'ready'}
+        from .worker_runtime import read_job
+        job=read_job(p)
         if job['status']=='running' and rid not in self.active and job.get('worker_heartbeat',0)<time.time()-30:job={'status':'interrupted','message':'上次进程已退出，可继续运行并复用成功结果'}
         from .model_settings import resolve,public_settings
         try:config=public_settings(self.model_config(rid))
@@ -344,7 +371,7 @@ def create_app(root=None,client_factory=None,env_file=None):
         if service.review_only and request.method not in {'GET','HEAD','OPTIONS'}:
             import re
             allowed=re.fullmatch(r'/api/projects/[a-f0-9]{32}/(?:pending/[a-f0-9]+|recommendations/feedback)',request.url.path)
-            if not allowed:return Response(json.dumps({'detail':'业务审核模式禁止模型执行和配置变更；请导出反馈交回研发'},ensure_ascii=False),status_code=403,media_type='application/json')
+            if not allowed and request.url.path!='/api/runtime/control':return Response(json.dumps({'detail':'业务审核模式禁止模型执行和配置变更；请导出反馈交回研发'},ensure_ascii=False),status_code=403,media_type='application/json')
         # Local UI writes are same-origin; cross-site forms must not start model jobs.
         if request.method not in {'GET','HEAD','OPTIONS'}:
             origin=request.headers.get('origin')
@@ -406,7 +433,7 @@ def create_app(root=None,client_factory=None,env_file=None):
     def edit_pattern_settings(rid:str,body:dict):
         from .pattern_settings import save_settings
         p=service.run_dir(rid)
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        job=read_job(p)
         if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('运行中请等待本轮结束后修改模式设置')
         with service.lock:return save_settings(p,body)
     @app.get('/api/projects/{rid}/recommendation-history')
@@ -456,7 +483,7 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .pattern_settings import review_candidate
         from .result_views import ResultView
         p=service.run_dir(rid)
-        job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        job=read_job(p)
         if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('请等待本轮结束后审核模式前提')
         matrix=ResultView(p).payload(str(body.get('case_id',''))+':pattern-applicability')
         if not matrix:raise ValueError('本用例尚未形成模式适用性产物')
@@ -480,7 +507,7 @@ def create_app(root=None,client_factory=None,env_file=None):
     @app.put('/api/projects/{rid}/registry')
     def edit_project_definitions(rid:str,body:dict):
         from .project_review import save_registry
-        p=service.run_dir(rid);job=read_json(p/'job.json') if (p/'job.json').exists() else {}
+        p=service.run_dir(rid);job=read_job(p)
         if rid in service.active or job.get('status')=='running' and job.get('worker_heartbeat',0)>time.time()-30:raise ValueError('请等待当前执行轮完成再发布关注点版本')
         with service.lock:return save_registry(p,body)
     @app.get('/api/projects/{rid}/pending')
@@ -534,7 +561,7 @@ def create_app(root=None,client_factory=None,env_file=None):
         if body.get('review_mode') not in {'manual','auto'}:raise ValueError('invalid review mode')
         p=service.run_dir(rid);v=read_json(p/'project.json');v['review_mode']=body['review_mode'];write_json(p/'project.json',v);return v
     @app.post('/api/projects/{rid}/run')
-    def start(rid:str):return service.start(rid)
+    def start(rid:str,body:dict|None=None):return service.start(rid,body)
     @app.get('/api/projects/{rid}/execution-status')
     def execution_status(rid:str):return service.execution_status(rid)
     @app.get('/api/projects/{rid}/graph')
@@ -664,10 +691,21 @@ def create_app(root=None,client_factory=None,env_file=None):
     def file(rid:str,path:str):
         p=service.run_dir(rid);f=(p/path).resolve()
         if not f.is_relative_to(p) or not f.is_file() or f.name.endswith(('.local.json','.lock')):raise HTTPException(404,'file unavailable')
-        if not (path.startswith('run/artifacts/') or path.startswith('run/reviews/previews/') or path.startswith('run/report_versions/') or path.startswith('sources/') or path in {'run/missing_report.json','run/missing_report.md'}):raise HTTPException(404,'file unavailable')
+        if not (path.startswith('run/artifacts/') or path.startswith('run/reviews/previews/') or path.startswith('run/report_versions/') or path.startswith('sources/') or path.startswith('imports/files/') and ('/original/' in path or not f.name.endswith('record.json')) or path in {'run/missing_report.json','run/missing_report.md'}):raise HTTPException(404,'file unavailable')
         return FileResponse(f)
     @app.get('/api/projects/{rid}/export')
     def export(rid:str):return Response(service.export(rid),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="scene-review.zip"'})
     from .review_api import register
     register(app,service,PROJECT)
+    from .input_gateway import register as register_inputs,InputWatcher
+    register_inputs(app,service)
+    @app.on_event('startup')
+    def start_input_watcher():
+        if not service.review_only and not service.worker:
+            from .worker_runtime import Guardian
+            service.input_watcher=InputWatcher(service);service.guardian=Guardian(service)
+    @app.on_event('shutdown')
+    def stop_input_watcher():
+        if service.input_watcher:service.input_watcher.close()
+        if service.guardian:service.guardian.close()
     return app

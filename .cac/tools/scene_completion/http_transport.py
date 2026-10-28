@@ -65,7 +65,7 @@ def _retry_after_seconds(headers):
     return max(1.,min(300.,value))
 
 
-def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int, *, idle_timeout=None,total_timeout=None,capture_reasoning=False,display_reasoning=False) -> dict[str, Any]:
+def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, Any], timeout: float, retries: int, *, idle_timeout=None,total_timeout=None,capture_reasoning=False,display_reasoning=False,throughput_policy=None) -> dict[str, Any]:
     request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -92,7 +92,7 @@ def _post_chat_completions_diagnostic(url: str, api_key: str, body: dict[str, An
                     total=float(total_timeout if total_timeout is not None else timeout)
                     try:set_read_timeout=response.fp.raw._sock.settimeout
                     except AttributeError:set_read_timeout=None
-                    value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout,capture_reasoning=capture_reasoning,display_reasoning=display_reasoning)
+                    value=read_chat_stream(response,attempt_start,total,observer,idle_timeout=idle,set_read_timeout=set_read_timeout,capture_reasoning=capture_reasoning,display_reasoning=display_reasoning,throughput_policy=throughput_policy,requested_model=body.get('model'))
                 else:
                     value = json.loads(response.read().decode("utf-8"))
                     if isinstance(value,dict) and 'choices' in value:

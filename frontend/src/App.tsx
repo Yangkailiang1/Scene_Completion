@@ -32,6 +32,7 @@ import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
 import { PatternManager } from "./PatternManager";
+import { InputManager } from "./InputManager";
 import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
@@ -82,6 +83,7 @@ export default function App() {
     | "patterns"
     | "recommendations"
     | "handoff"
+    | "imports"
     | null
   >(null);
   const jobStatusRef = useRef("ready");
@@ -660,6 +662,15 @@ export default function App() {
               </span>
               <nav className="workspace-views" aria-label="工作区视图">
                 <button
+                  className={management === "imports" ? "active" : ""}
+                  onClick={() => {
+                    setManagement("imports");
+                    setUsageOpen(false);
+                  }}
+                >
+                  输入与导入
+                </button>
+                <button
                   className={!management && !usageOpen ? "active" : ""}
                   onClick={() => {
                     setManagement(null);
@@ -746,7 +757,12 @@ export default function App() {
             >
               <Panel defaultSize={84} minSize={55}>
                 <section className="center-workspace">
-                  {management === "handoff" && current ? (
+                  {management === "imports" && current ? (
+                    <InputManager
+                      project={current}
+                      reviewOnly={snapshot?.review_only}
+                    />
+                  ) : management === "handoff" && current ? (
                     <ReviewHandoff
                       project={current}
                       reviewOnly={snapshot?.review_only}
@@ -757,7 +773,12 @@ export default function App() {
                       onEvidenceOpen={() => setCollapsed(true)}
                     />
                   ) : management === "results" && current ? (
-                    <ResultsView project={current} />
+                    <ResultsView
+                      project={current}
+                      liveVersion={JSON.stringify(
+                        snapshot?.manifest?.live_cases || {},
+                      )}
+                    />
                   ) : management === "patterns" && current ? (
                     <PatternManager project={current} />
                   ) : management === "pending" && current ? (

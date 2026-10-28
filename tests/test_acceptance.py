@@ -238,9 +238,10 @@ def test_malformed_provider_JSON_is_bounded_and_kept_for_diagnosis(tmp_path):
         calls.append(1);return {'model':'configured','choices':[{'finish_reason':'stop','message':{'content':'{broken'}}]}
     client=SemanticClient({'base_url':'http://offline.invalid','agent_model':'configured','max_tokens':2000},transport=transport);client.api_key='offline-only'
     ex=Execution(tmp_path,mode='external',client=client);ex.add('rr-ssd','rr-ssd',static={'RR':[]})
-    assert not ex.finish()['complete'] and len(calls)==3
+    assert not ex.finish()['complete'] and len(calls)==4
     assert ex.scheduler.state['tasks']['rr-ssd']['rounds']==2
     assert len(list((tmp_path/'attempts').rglob('*.json')))==3
+    assert ex.scheduler.state['tasks']['rr-ssd']['recovery_calls']==2
 
 def test_complete_offline_memory_example_is_executable_and_has_no_fake_metrics(tmp_path):
     import subprocess,sys

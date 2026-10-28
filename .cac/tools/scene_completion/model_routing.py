@@ -3,7 +3,7 @@ from copy import deepcopy
 from .model_configuration import model_name
 
 from .runtime_settings import KEYS
-PROFILE_KEYS=KEYS-{'model_profiles','task_models','role_models','thinking_override'}|{'max_context_tokens','extra_body','stage_extra_body','max_tokens','stage_max_tokens','token_budget_ledger',
+PROFILE_KEYS=KEYS-{'model_profiles','task_models','role_models','thinking_override','resilience'}|{'max_context_tokens','extra_body','stage_extra_body','max_tokens','stage_max_tokens','token_budget_ledger',
               'token_budget_limit','stream_total_timeout_seconds','stream_idle_timeout_seconds'}
 
 def routed_config(config,task,role):
@@ -18,4 +18,5 @@ def routed_config(config,task,role):
         raise ValueError('each routed model requires an explicit independent token ledger')
     result={k:deepcopy(v) for k,v in config.items() if k not in ('task_models','role_models','model_profiles')}
     result.update(deepcopy(profile));result['agent_model']=selected
+    if config.get('thinking_override') is not None and config.get('thinking_api')=='chat_template_kwargs':result['thinking_api']='chat_template_kwargs'
     return result

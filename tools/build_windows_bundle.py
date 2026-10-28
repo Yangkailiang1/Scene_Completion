@@ -45,9 +45,9 @@ def build(output,offline=False):
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     version={'source_commit':commit,'platform':'windows-x64','python':PYTHON_VERSION,'built_at':datetime.now(timezone.utc).isoformat(),'dependency_lock_sha256':hashlib.sha256(lock.read_bytes()).hexdigest(),'requires_node':False,'requires_network_install':False}
     (stage/'VERSION.json').write_text(json.dumps(version,indent=2)+'\n',encoding='utf8')
-    for name in ('start.cmd','check.cmd','scene.cmd'):
+    for name in ('start.cmd','status.cmd','stop.cmd','check.cmd','scene.cmd'):
         shutil.copy2(ROOT/'deployment'/name,stage/name)
-    (stage/'使用说明.txt').write_text('解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n',encoding='utf8')
+    (stage/'使用说明.txt').write_text('解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。start.cmd后台启动；status.cmd查看状态；stop.cmd停止。关闭浏览器或启动窗口不停止服务。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n',encoding='utf8')
     manifest={**version,'files':{}}
     for f in stage.rglob('*'):
         if f.is_file():manifest['files'][str(f.relative_to(stage)).replace('\\','/')]=hashlib.sha256(f.read_bytes()).hexdigest()

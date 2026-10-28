@@ -47,6 +47,10 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
         "request_finished",
         "request_failed",
         "stream_progress",
+        "throughput_sample",
+        "model_switched",
+        "model_switch_skipped",
+        "model_degraded",
         "stream_status",
         "endpoint_wait",
         "endpoint_admitted",
@@ -66,6 +70,10 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
       ].includes(e.kind)
     ) {
       let text = "";
+      if (e.kind === "throughput_sample") text = `${d.requested_model || "模型"} · 近${Math.round(d.window_seconds)}秒 ${d.tokens_per_second_estimate} 估算Token/秒（含思考，非计费）${d.enabled ? ` · 阈值${d.threshold}` : " · 仅监视"}`;
+      if (e.kind === "model_switched") text = `切换至 ${d.requested_model} · ${d.note || ""}`;
+      if (e.kind === "model_switch_skipped") text = `${d.model || "候选模型"}：${d.reason}`;
+      if (e.kind === "model_degraded") text = `${d.requested_model}：${d.failure_category}，保留诊断及原请求用量`;
       if (e.kind === "stream_status") text = d.message;
       if (e.kind === "endpoint_wait")
         text = `等待账号并发名额（总上限${d.limit}路，包含其他项目和节点对话）`;
@@ -111,6 +119,10 @@ export function segments(events: ExecutionEvent[]): LogSegment[] {
   return rows;
 }
 const labels: Record<string, string> = {
+  throughput_sample: "动态吞吐",
+  model_switched: "切换模型",
+  model_switch_skipped: "候选不可用",
+  model_degraded: "模型降级",
   request_started: "模型请求",
   request_finished: "请求结束",
   request_failed: "请求未完成",

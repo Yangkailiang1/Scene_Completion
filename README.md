@@ -133,3 +133,7 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 ## 业务离线审核与反馈回收
 
 使用“待确认项”按问题类型补规则，使用“推荐审核”形成人工增补GT；“审核交接”导出Windows只读审核包，反馈导入仅保存，研发预览真实DAG后手动重跑。CLI支持`capabilities`、`impact`、`rerun --affected`及版本化JSON写入。详见[业务审核闭环说明](docs/business-offline-review.md)。公共Windows包不含业务项目或密钥。
+
+## 同事产物、首例优先与模型切换
+
+网页新增“输入与导入”，CLI提供`input-scan`、`imports`、`recovery`、`run --case/--priority-case`。Windows支持后台启动、状态与停止。客户网关可用`--thinking off --thinking-api chat_template_kwargs`；吞吐监视和候选模型切换须显式启用，成功产物不因运行配置改变而整批失效。见[操作、预算与迁移说明](docs/intake-recovery-and-model-switching.md)。

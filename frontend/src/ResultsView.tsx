@@ -158,7 +158,13 @@ function Scenario({
   );
 }
 
-export function ResultsView({ project }: { project: string }) {
+export function ResultsView({
+  project,
+  liveVersion,
+}: {
+  project: string;
+  liveVersion?: string;
+}) {
   const [controlsCollapsed, setControlsCollapsed] = useState(
     () => localStorage.getItem("scene-result-controls-collapsed") !== "false",
   );
@@ -187,6 +193,7 @@ export function ResultsView({ project }: { project: string }) {
       .then((r) => {
         if (live) {
           setIndex(r);
+          if (r.supplement_tests === false && !index) setTestSet("original");
           setCase((c) =>
             r.cases.some((x: any) => x.id === c) ? c : r.cases[0]?.id || "",
           );
@@ -196,7 +203,7 @@ export function ResultsView({ project }: { project: string }) {
     return () => {
       live = false;
     };
-  }, [project, reload]);
+  }, [project, reload, liveVersion]);
   useEffect(() => {
     if (!cid) return;
     let live = true;
@@ -217,14 +224,20 @@ export function ResultsView({ project }: { project: string }) {
                 x.alignment_rows?.some((a: any) => a.status !== "triple"),
               )
             : null;
-          setStep((target || r.interactions[0])?.interaction.id || "");
+          setStep(
+            (previous) =>
+              target?.interaction.id ||
+              (r.interactions.some((x: any) => x.interaction.id === previous)
+                ? previous
+                : r.interactions[0]?.interaction.id || ""),
+          );
         }
       })
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [project, cid, reload, testSet]);
+  }, [project, cid, reload, testSet, liveVersion]);
   const catalog =
     index?.artifacts.filter(
       (a: any) => a.case === "shared" || a.case === cid,

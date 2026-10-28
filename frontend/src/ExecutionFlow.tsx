@@ -47,6 +47,7 @@ function TaskCard({ data }: NodeProps<TaskNode>) {
         </span>
       </div>
       <h3>{n.label}</h3>
+      {n.provenance && n.provenance!=="原流程生成" && <small className="flow-origin">{n.provenance}{n.import_sources?.map(s=>" · "+s.name+" v"+s.revision).join("")}{n.recovery_calls ? " · 恢复"+n.recovery_calls+"次" : ""}</small>}
       <p className="flow-input">输入：{n.input_summary || "上游已验证产物"}</p>
       <div className="flow-files">
         <b>产物</b>

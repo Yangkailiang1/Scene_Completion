@@ -4,7 +4,9 @@ import time
 import http.client
 
 
-def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None,capture_reasoning=False,display_reasoning=False):
+def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=None,set_read_timeout=None,capture_reasoning=False,display_reasoning=False,throughput_policy=None,requested_model=None):
+    from .throughput import Monitor
+    monitor=Monitor(throughput_policy or (lambda:{}),started=started,model=requested_model)
     reasoning=[];reasoning_bytes=0;reasoning_fields=set();delta_fields=set();initial_progress=False
     content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started;preparing=False
     def consume(lines):
@@ -68,7 +70,9 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         while True:
             if time.perf_counter()-started>timeout:
                 err=TimeoutError('stream total deadline exceeded');err.response_diagnostic={'timeout_kind':'total_deadline'};raise err
-            if set_read_timeout:set_read_timeout(max(.001,min(idle_timeout or timeout,timeout-(time.perf_counter()-started))))
+            monitor.observe(size+reasoning_bytes)
+            wait_limit=monitor.read_wait()
+            if set_read_timeout:set_read_timeout(max(.001,min(idle_timeout or timeout,timeout-(time.perf_counter()-started),wait_limit if wait_limit is not None else timeout)))
             try:raw=next(iterator)
             except StopIteration:break
             line=raw.decode('utf8').rstrip('\r\n')
@@ -79,6 +83,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
             # SSE comments/heartbeats and reasoning text are not model answers.
     except TimeoutError as err:
         now=time.perf_counter()
+        monitor.timeout()
         err.response_diagnostic={'failure_category':'transport_timeout','phase':'stream_read','timeout_kind':'total_deadline' if now-started>=timeout else 'idle_read','elapsed_seconds':round(now-started,3),'first_event_seconds':first,'last_event_age_seconds':round(now-last,3) if last else None,'stream_events':events,'partial_content_bytes':size,'provider_model':model,'reasoning_bytes':reasoning_bytes,'reasoning_fields':sorted(reasoning_fields),'delta_fields':sorted(delta_fields),'incomplete_tools':[c['function']['name'] for c in tool_calls.values()],**getattr(err,'response_diagnostic',{})}
         raise
     if event and not done:consume(event)
@@ -99,4 +104,4 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         # Parse arguments in the metered semantic adapter, after usage settlement.
         # A complete HTTP stream can still contain invalid semantic JSON.
     return {'model':model,'choices':[{'message':{'content':''.join(content),**({'reasoning_content':''.join(reasoning)} if capture_reasoning and reasoning else {}),**({'tool_calls':calls} if calls else {})},'finish_reason':finish}],
-        'usage':usage,'_scene_completion_metrics':{'stream_events':events,'first_event_seconds':first,'stream_complete':True,'reasoning_bytes':reasoning_bytes,'reasoning_fields':sorted(reasoning_fields),'delta_fields':sorted(delta_fields),'reasoning_display_enabled':display_reasoning,'response_mode':'sse'}}
+        'usage':usage,'_scene_completion_metrics':{'stream_events':events,'first_event_seconds':first,'stream_complete':True,'reasoning_bytes':reasoning_bytes,'reasoning_fields':sorted(reasoning_fields),'delta_fields':sorted(delta_fields),'reasoning_display_enabled':display_reasoning,'response_mode':'sse','estimated_generated_tokens':round((size+reasoning_bytes)/4,1),'tokens_per_second_estimate':round((size+reasoning_bytes)/4/max(.001,time.perf_counter()-started),3),'throughput_measurement':'UTF-8 bytes / 4; estimate including reasoning, not billing'}}

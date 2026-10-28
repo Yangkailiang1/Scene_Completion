@@ -5,9 +5,14 @@ import errno,os,tempfile,time
 from .storage import fingerprint
 
 @contextmanager
-def endpoint_slot(base_url,api_key,*,limit=3,timeout=300,directory=None,pause_file=None):
+def endpoint_slot(base_url,api_key,*,limit=3,timeout=300,directory=None,pause_file=None,scope='account'):
     if type(limit) is not int or not 1<=limit<=32:raise ValueError('max_endpoint_concurrency must be between 1 and 32')
-    root=Path(directory or Path(tempfile.gettempdir())/'scene-model-admission')/fingerprint([base_url.rstrip('/'),fingerprint(api_key)])
+    if scope not in {'account','gateway'}:raise ValueError('invalid admission scope')
+    if scope=='gateway':limit=min(3,limit)
+    from urllib.parse import urlsplit
+    endpoint=urlsplit(base_url)
+    identity=[(endpoint.scheme.lower(),endpoint.netloc.lower()) if scope=='gateway' else base_url.rstrip('/'), 'gateway' if scope=='gateway' else fingerprint(api_key)]
+    root=Path(directory or Path(tempfile.gettempdir())/'scene-model-admission')/fingerprint(identity)
     root.mkdir(parents=True,exist_ok=True);started=time.monotonic();announced=False;handle=None
     from .execution_events import emit,phase
     while handle is None:
@@ -31,7 +36,7 @@ def endpoint_slot(base_url,api_key,*,limit=3,timeout=300,directory=None,pause_fi
                 if e.errno not in {errno.EACCES,errno.EAGAIN,errno.EDEADLK}:raise
         if handle:break
         if not announced:
-            phase('endpoint_wait');emit('endpoint_wait',limit=limit,message='等待同一账号的模型请求名额');announced=True
+            phase('endpoint_wait');emit('endpoint_wait',limit=limit,scope=scope,message='等待同一网关的模型请求名额' if scope=='gateway' else '等待同一账号的模型请求名额');announced=True
         if time.monotonic()-started>=timeout:
             e=RuntimeError('model account admission timed out')
             e.response_diagnostic={'failure_category':'endpoint_busy','phase':'admission','transport_attempts':0,'retry_after_seconds':2};raise e

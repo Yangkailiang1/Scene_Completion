@@ -79,7 +79,9 @@ def graph_snapshot(root):
             for f in preview.glob('*'):
                 if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'awaiting_review'})
         question=conversations.pending(key)
+        provenance=record.get('provenance','原流程生成')
         nodes.append({**node,'planned':False,'input_summary':INPUTS.get(key,INPUTS.get(node['stage'],'依赖上游已验证产物')),'artifacts':actual,'question':question,'guidance_revision':conversations.revision(key),
+          'provenance':provenance,'import_sources':record.get('import_sources',[]),'recovery_calls':record.get('recovery_calls',0),
           'retry_at':event.get('data',{}).get('retry_at') if event else None,'retry_count':event.get('data',{}).get('retry_count') if event else None,'label':node.get('label') or LABELS.get(node['stage'],node['stage']),'status':status,'phase':phase or 'pending',
           'blocked_by':blocked,'failure':record.get('failure') if status not in {'passed','awaiting_review','disabled'} else None,'attempt':record.get('rounds',0)+1,
           'elapsed_seconds':max(0,(ended or time.time())-started) if started else None,'last_event_at':event['at'] if event else None})

@@ -79,6 +79,12 @@ export function ExecutionNavigator({
                     {n.status === "running" ? duration(n.elapsed_seconds) : ""}
                   </small>
                   {n.question && <em>需要您回答</em>}
+                  {n.provenance && n.provenance !== "原流程生成" && (
+                    <em>{n.provenance}</em>
+                  )}
+                  {!!n.recovery_calls && (
+                    <em>恢复尝试 {n.recovery_calls} 次</em>
+                  )}
                 </button>
               ))}
               {!nodes.length && <p>当前筛选下没有任务</p>}

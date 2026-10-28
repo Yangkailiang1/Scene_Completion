@@ -9,6 +9,9 @@ export interface Project {
   created_at: number;
 }
 export interface GraphNode {
+  provenance?: string;
+  import_sources?: {name:string;file_id:string;revision:number}[];
+  recovery_calls?: number;
   planned?: boolean;
   input_summary?: string;
   artifacts?: { name: string; path: string; status: string }[];

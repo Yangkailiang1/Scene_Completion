@@ -8,9 +8,11 @@ class SemanticClient:
     def __init__(self, config: dict | None = None, transport=None):
         self.config = config or {}
         self._custom_transport = transport
+        from .model_resilience import live_policy
+        throughput_policy=live_policy(self.config)
         self.transport = transport or (lambda url,key,body,timeout,retries:_post_chat_completions(url,key,body,timeout,retries,
           idle_timeout=float(self.config.get('stream_idle_timeout_seconds',300)) if body.get('stream') else None,
-          total_timeout=float(self.config.get('stream_total_timeout_seconds',900)) if body.get('stream') else None,capture_reasoning=self.config.get('reasoning_replay',False),display_reasoning=self.config.get('stream_reasoning',False)))
+          total_timeout=float(self.config.get('stream_total_timeout_seconds',900)) if body.get('stream') else None,capture_reasoning=self.config.get('reasoning_replay',False),display_reasoning=self.config.get('stream_reasoning',False),throughput_policy=throughput_policy))
         self.base_url = _resolve_env_reference(self.config.get("base_url") or os.environ.get("SCENE_API_BASE_URL") or os.environ.get("ECNU_MAX_BASE_URL", "")).rstrip("/")
         self.api_key = self.config.get("api_key") or os.environ.get(self.config.get("api_key_env") or ('SCENE_API_KEY' if os.environ.get('SCENE_API_KEY') else 'ECNU_MAX_API_KEY'), "")
         self.token_budget = None
@@ -57,7 +59,7 @@ class SemanticClient:
             from .context_budget import check
             check(body,self.config)
         from .endpoint_admission import endpoint_slot
-        with endpoint_slot(self.base_url,self.api_key,limit=self.config.get('max_endpoint_concurrency',3),
+        with endpoint_slot(self.base_url,self.api_key,limit=min(3,self.config.get('max_endpoint_concurrency',3)),scope='gateway',
           timeout=self.config.get('endpoint_admission_timeout_seconds',300),
           pause_file=__import__('pathlib').Path(self.config['run_root'])/'pause_requested.json' if self.config.get('run_root') else None):
             return self._post_admitted(endpoint,body)

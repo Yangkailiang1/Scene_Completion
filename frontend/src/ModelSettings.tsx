@@ -59,8 +59,19 @@ export function ModelSettings({
       "stream_total_timeout_seconds",
     ])
       if (raw[k]) body[k] = Number(raw[k]);
+    body.resilience = {
+      ...(config.resilience || {}),
+      enabled: raw.failover_enabled === "on",
+      candidates: String(raw.failover_models || "").split(/[\n,，]/).map(s => s.trim()).filter(Boolean).map(model => ({model})),
+      min_tokens_per_second: Number(raw.failover_rate || 2),
+      window_seconds: Number(raw.failover_window || 30),
+      grace_seconds: Number(raw.failover_grace || 60),
+      no_output_seconds: Number(raw.failover_stall || 120),
+    };
+    for (const k of Object.keys(body)) if(k.startsWith("failover_")) delete body[k];
     body.thinking = raw.thinking === "auto" ? null : raw.thinking === "on";
     body.stream_reasoning = raw.stream_reasoning === "on";
+    body.supplement_tests = raw.supplement_tests === "on";
     try {
       await api(projectUrl(project, "config"), {
         method: "PUT",
@@ -201,24 +212,66 @@ export function ModelSettings({
         <details className="model-advanced">
           <summary>运行参数（可选）</summary>
           <div className="form-grid">
-            <label>思考模式
-              <select name="thinking" defaultValue={(config.thinking_override ?? config.thinking) === false ? "off" : (config.thinking_override ?? config.thinking) === true ? "on" : "auto"}>
-                <option value="auto">跟随网关／模型配置</option><option value="on">请求开启思考</option><option value="off">请求关闭思考</option>
+            <label>
+              思考模式
+              <select
+                name="thinking"
+                defaultValue={
+                  (config.thinking_override ?? config.thinking) === false
+                    ? "off"
+                    : (config.thinking_override ?? config.thinking) === true
+                      ? "on"
+                      : "auto"
+                }
+              >
+                <option value="auto">跟随网关／模型配置</option>
+                <option value="on">请求开启思考</option>
+                <option value="off">请求关闭思考</option>
               </select>
             </label>
-            <label>网关思考开关格式
-              <select name="thinking_api" defaultValue={config.thinking_api || "legacy"}>
-                <option value="legacy">thinking.type（DeepSeek格式）</option><option value="enable_thinking">enable_thinking（布尔）</option><option value="omit">不发送开关</option>
+            <label>
+              网关思考开关格式
+              <select
+                name="thinking_api"
+                defaultValue={config.thinking_api || "legacy"}
+              >
+                <option value="legacy">thinking.type（DeepSeek格式）</option>
+                <option value="enable_thinking">enable_thinking（布尔）</option>
+                <option value="chat_template_kwargs">
+                  chat_template_kwargs.enable_thinking（客户网关）
+                </option>
+                <option value="omit">不发送开关</option>
               </select>
             </label>
-            <label>模型思考流
-              <select name="stream_reasoning" defaultValue={config.stream_reasoning ? "on" : "off"}>
-                <option value="off">仅显示思考进度</option><option value="on">显示并保存供应商思考文本</option>
+            <label>
+              模型思考流
+              <select
+                name="stream_reasoning"
+                defaultValue={config.stream_reasoning ? "on" : "off"}
+              >
+                <option value="off">仅显示思考进度</option>
+                <option value="on">显示并保存供应商思考文本</option>
+              </select>
+            </label>
+            <label>
+              程序补充测试场景
+              <select
+                name="supplement_tests"
+                defaultValue={config.supplement_tests ? "on" : "off"}
+              >
+                <option value="off">关闭，仅使用原始测试</option>
+                <option value="on">开启，单独保存扩展测试指标</option>
               </select>
             </label>
             {[
               ["max_concurrency", "并发任务数", 2, 1, 8],
-              ["max_tokens", "输出Token上限（含思考，依网关）", 12000, 256, 2000000],
+              [
+                "max_tokens",
+                "输出Token上限（含思考，依网关）",
+                12000,
+                256,
+                2000000,
+              ],
               [
                 "max_context_tokens",
                 "上下文总上限（含输出预留）",
@@ -257,6 +310,19 @@ export function ModelSettings({
           <p>
             显示思考会把网关返回的思考字段保存到本地节点事件及结果导出包，独立于正式JSON产物；只对后续请求生效。关闭思考需要网关支持，不等于隐藏思考流。输出上限不是保证长度；超时不自动重复POST。模型是否支持工具调用与流式输出，仍以供应方接口能力为准。
           </p>
+        </details>
+        <details className="model-advanced">
+          <summary>吞吐监视与模型切换</summary>
+          <p>只影响后续请求，已通过产物继续校验复用。在途请求保留原配置；关闭低吞吐流不保证供应商停止计算，未知用量保留。</p>
+          <label><input type="checkbox" name="failover_enabled" defaultChecked={config.resilience?.enabled || false} />启用按候选模型切换</label>
+          <label>同一API Key的候选模型（每行一个，按顺序）<textarea name="failover_models" rows={3} defaultValue={(config.resilience?.candidates || []).filter((c:any)=>!c.account_id || c.account_id===account).map((c:any)=>c.model).join("\n")} placeholder="必须包含在该连接允许模型列表中" /></label>
+          <div className="form-grid">{[
+            ["failover_rate","min_tokens_per_second","低吞吐阈值（估算Token/秒）",2,0],
+            ["failover_window","window_seconds","观察窗口（秒）",30,5],
+            ["failover_grace","grace_seconds","开始生成宽限（秒）",60,0],
+            ["failover_stall","no_output_seconds","无生成内容时限（秒）",120,10],
+          ].map(([name,key,label,fallback,min])=><label key={String(name)}>{label}<input type="number" step={name==="failover_rate" ? "0.1" : "1"} name={String(name)} min={Number(min)} defaultValue={config.resilience?.[String(key)] ?? fallback} /></label>)}</div>
+          <p>速率为正文、工具参数及供应商公开思考的UTF-8字节÷4估算值，不是计费Token。默认连续两个低速窗口才切换；仅SSE心跳不视为生成。候选预算不足或不在允许列表时不会绕过保护。</p>
         </details>
         <button className="model-primary-button" type="submit" disabled={busy}>
           保存项目配置

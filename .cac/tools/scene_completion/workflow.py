@@ -73,6 +73,7 @@ def code_version(task):
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
       'test-operation-project':['source_documents.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
     names=modules.get(task,[])
+
     if task in {'components','api-map','api-parameters','use-case-extract','use-case-align','fused-ssd','normal-rules','test-operation-project'}:names=names+['positive_reuse.py']
     if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py','scenario_patterns.py']
     if task in {'test-expanded','test-additional-truth','test-additional-dedup'}:names=['test_supplement.py']
@@ -83,7 +84,7 @@ def code_version(task):
     if task in {'interaction-enrich','exception-generate','pattern-applicability','existing-extract','test-ground-truth','test-supplement','test-additional-truth'}:names=names+['data_requirements.py']
     if task in {'existing-extract','test-ground-truth'}:names=names+['refinement_context.py']
     if task=='test-ground-truth':names=names+['validation.py']
-    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['deepagents_client.py','model_client.py','indexed_context.py','model_submission.py']
+    if task in TASKS or task in {'use-case-extract','use-case-align','fused-ssd','test-ground-truth','semantic-compare','test-operation-project'}:names=names+['indexed_context.py','model_submission.py']
     skill=skill_path(task)
     implementation=fingerprint({**{n:(folder/n).read_text(encoding='utf8') for n in names},'rules':skill.read_text(encoding='utf8')})
     return implementation
@@ -102,6 +103,8 @@ class Execution:
         self.registry_snapshot=read_json(self.root/'registry_override.json') if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
+        from .artifact_imports import snapshot
+        self.import_snapshot=snapshot(self.root.parent)
         from .scenario_patterns import normalize_settings
         from .concern_registry import registry_scope
         with registry_scope(self.registry_snapshot):
@@ -116,11 +119,18 @@ class Execution:
         self.partitions=[]
         if self.config.get('structured_output','json_object') not in {'json_object','json_schema'}:
             raise ValueError('structured_output must be json_object or configured json_schema')
+        operational={'priority_cases','supplement_tests','max_concurrency','max_endpoint_concurrency'}
         self.identity={'mode':'mock' if mocks is not None else mode,'model':client.model('agent') if client else None,
-                       'config_hash':fingerprint(self.config),'endpoint_hash':fingerprint(getattr(client,'base_url',None))}
-        self.reviews.execution_identity=fingerprint({**{k:v for k,v in self.identity.items() if k!='config_hash'},'config_hash':fingerprint({k:v for k,v in self.config.items() if k!='review_mode'})})
+                       'config_hash':fingerprint({k:v for k,v in self.config.items() if k not in operational}),'endpoint_hash':fingerprint(getattr(client,'base_url',None))}
+        self.artifact_identity={'mode':self.identity['mode']}
+        self.reviews.execution_identity=fingerprint(self.artifact_identity)
         manifest=self.root/'run_manifest.json'
         previous=read_json(manifest) if manifest.exists() else None
+        if previous and (previous.get('run_scope',[])!=self.case_ids or previous.get('supplement_tests',any(':test-expanded' in k for k in previous.get('tasks',{})))!=bool(self.config.get('supplement_tests',False))):
+            import shutil,time
+            archive=self.root/'report_versions'/('scope-'+str(time.time_ns()));archive.mkdir(parents=True,exist_ok=True)
+            for name in ('missing_report.json','missing_report.md','run_manifest.json','workflow_tasks.json','workflow_graph.json'):
+                if (self.root/name).exists():shutil.copy2(self.root/name,archive/name)
         if previous and previous.get('protocol')!=PROTOCOL:raise ValueError('different protocol: use a new run directory')
         if any((self.root/n).exists() for n in ('case_tasks.json','workflow_tasks.json')) and not previous:raise ValueError('unbound/legacy scheduler cache requires a separate run directory')
         if previous and previous.get('execution_identity',{}).get('mode')=='mock' and mocks is None:raise ValueError('mock results cannot be promoted into a real run')
@@ -151,14 +161,26 @@ class Execution:
         self.manifest={'protocol':PROTOCOL,'complete':False,'execution_identity':self.identity,
                        'registry_hash':self.registry_snapshot['hash'],'registry_version':self.registry_snapshot['version'],'recommendation':{'enabled':False,'status':'未启用'},'formal':False}
         self.manifest['ruleset_version']=RULESET_VERSION
+        self.manifest.update(run_scope=self.case_ids,supplement_tests=bool(self.config.get('supplement_tests',False)))
         self.manifest['evaluation_version']=RULESET_VERSION
         from .concern_alignment import VERSION
         self.manifest['matching_version']=VERSION
         if self.config.get('scenario_patterns',False):self.manifest.update(pattern_settings_hash=self.pattern_settings['hash'],pattern_library_version=self.pattern_settings['library']['version'],recommendation={'enabled':True,'status':'等待缺失集合M'})
+        # Preserve the exact old producer identity across partially completed upgrades.
+        legacy=previous.get('legacy_cache_manifest') if previous else None
+        if previous and not previous.get('artifact_cache_contract') and not legacy:
+            legacy={k:previous.get(k) for k in ('execution_identity','run_scope')}
+        self.manifest['artifact_cache_contract']='producer-independent-v1'
+        if legacy:self.manifest['legacy_cache_manifest']=legacy
         write_json(manifest,self.manifest)
+        self.previous_manifest=legacy or previous
         self.scheduler=Scheduler(self.root,concurrency=self.config.get('max_concurrency',1),auto_repair=auto_repair,max_rounds=max_rounds)
         import time
         self.session_id=fingerprint([time.time_ns(),str(self.root)])[:20]
+        self.recovery_epoch=previous.get('recovery_epoch',self.session_id) if previous and not previous.get('execution_complete') else self.session_id
+        self.manifest['recovery_epoch']=self.recovery_epoch
+        from .node_recovery import eligible
+        self.scheduler.can_recover=lambda t,r:bool(getattr(t,'recoverable',False) and eligible(self.root.parent,t.stage,r,self.recovery_epoch))
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         sessions.append({'id':self.session_id,'started_at':time.time(),'finished_at':None,'status':'running'})
         write_json(self.root/'execution_sessions.json',sessions)
@@ -262,6 +284,9 @@ class Execution:
                     from .comparison_batches import compare_in_batches
                     raw=compare_in_batches(p,self.client,self.root,self.conversations.revision(p['node_key']),
                       call=lambda child:self.client.agent(child) if hasattr(self.client,'post') else self.gate.call(self.client.agent,child))
+                elif record.get('recovery_dispatch'):
+                    from .node_recovery import generate
+                    raw=generate(self,p,record)
                 else:raw=self.client.agent(p) if hasattr(self.client,'post') else self.gate.call(self.client.agent,p)
             except ValueError as exc:
                 diagnostic=getattr(exc,'response_diagnostic',None)
@@ -274,6 +299,9 @@ class Execution:
         if not isinstance(raw,dict):raise TaskRejected({'error':'model result must be a JSON object'})
         proof={k:raw[k] for k in ('execution_model_evidence','native_execution') if k in raw}
         value={k:v for k,v in raw.items() if k not in proof}
+        if inputs.get('imported-fragments'):
+            from .artifact_imports import merge
+            value=merge(task,value,inputs['imported-fragments'])
         if task=='api-map':
             from .http_interfaces import normalize_mapping
             value=normalize_mapping(value)
@@ -301,10 +329,24 @@ class Execution:
     @scoped_execution
     def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None,skip_review=False):
         static=static or {}
-        review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None,self.conversations.revision(key)])
+        from .artifact_imports import fragments_for
+        imported=fragments_for(self.root.parent,task,case,self.import_snapshot)
+        previous=self.scheduler.state['tasks'].get(key,{})
+        if imported and previous.get('status')=='passed' and previous.get('output_file'):
+            old=read_json(self.root/previous['output_file']).get('metadata',{}).get('execution',{})
+            imported=[a for a in imported if a.get('replacement_approved') or old.get('artifact_id')==a['id'] and old.get('revision')==a['file_revision']]
+        import_identity=fingerprint(imported) if imported else None
+        review_identity=fingerprint([self.reviews.execution_identity,code_version(task),schema(task) if task in SCHEMAS else None,self.conversations.revision(key),import_identity])
         def inputs_for(dependencies):
             values={k:payload(v) for k,v in dependencies.items()}
             result=build(values) if build else deepcopy(static)
+            if imported:
+                result=deepcopy(result)
+                result['import-documents']=[p['document'] for p in imported]
+                result['imported-fragments']=[{k:p[k] for k in ('task','payload','coverage')} for p in imported]
+                if task=='fused-ssd':
+                    for layer in ('RR','SR'):
+                        result[layer]+=[p['document'] for p in imported if p['task'] in {'fused-ssd',layer.lower()+'-ssd'}]
             from .review_questions import materials
             confirmation=materials(self.root.parent,key)
             if confirmation:
@@ -315,7 +357,11 @@ class Execution:
         def execute(dependencies,record):
             inputs=inputs_for(dependencies)
             reviewed=self.reviews.cached(key,task,inputs,review_identity) if task in REVIEW_TASKS and not skip_review else None
-            if reviewed is not None:
+            from .artifact_imports import candidate as imported_candidate
+            imported_result=imported_candidate(self.root.parent,task,case,inputs,existing=record.get('previous_success'),parts=imported) if imported and task not in {'rr-ssd','sr-ssd'} else None
+            if imported_result is not None:
+                value,proof=imported_result
+            elif reviewed is not None:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
@@ -346,6 +392,9 @@ class Execution:
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
             candidate=deepcopy(value)
             try:
+                if imported and imported_result is None:
+                    from .artifact_imports import merge
+                    value=merge(task,value,imported)
                 if task=='existing-branches':
                     from .scenario_types import filter_branches
                     from .branch_evidence import complete
@@ -407,24 +456,31 @@ class Execution:
                 write_json(rejection,{'task':task,'node_key':key,'input_hash':fingerprint(inputs),'payload':candidate,'error':str(exc)})
                 raise TaskRejected({'error':str(exc),'phase':'postprocess','rejected_output':str(rejection.relative_to(self.root))}) from exc
             if reviewed is None and not skip_review:self.reviews.propose(key,task,inputs,value,review_identity)
-            meta={'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
+            meta={'logic_version':code_version(task),'input_hash':fingerprint(inputs),'source_channel':'task-scoped','execution':proof}
             if task=='components':meta.update(resource_metadata(value))
             return {'protocol':PROTOCOL,'task':task,'payload':value,'metadata':meta}
         def verify(value):
             if value.get('protocol')!=PROTOCOL or value.get('task')!=task:raise ValueError('wrong task/protocol result')
+            dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
+            actual=inputs_for(dependencies)
+            if value.get('metadata',{}).get('input_hash')!=fingerprint(actual):raise ValueError('cached task input changed')
             # Re-run schema checks on cache reads, not just initial responses.
             if task in SCHEMAS:
-                dependencies={dep:read_json(self.root/self.scheduler.state['tasks'][dep]['output_file']) for dep in deps}
-                validate_result(task,value['payload'],inputs_for(dependencies))
+                validate_result(task,value['payload'],actual)
         from .node_repair import repair_revision
-        version={'protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
-                 'static':fingerprint(static),'identity':self.identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':self.case_ids,'registry':registry()['hash'] if task in {'existing-concerns','test-concerns','concern-compare','concern-evaluation','normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
+        version={'cache_contract':'producer-independent-v1','protocol':PROTOCOL,'code':code_version(task),'schema':fingerprint(schema(task)) if task in SCHEMAS else None,
+                 'static':fingerprint(static),'identity':self.artifact_identity,'imports':import_identity,'guidance_revision':self.conversations.revision(key),'review_revision':self.reviews.revision(key),'cases':[case] if case else [],'registry':registry()['hash'] if task in {'existing-concerns','test-concerns','concern-compare','concern-evaluation','normal-rules','concern-match','exception-generate','existing-extract','test-ground-truth','gap-compare','semantic-compare','enriched-view','missing-report','exception-evaluation'} else None}
         from .review_questions import materials
         if confirmation:=materials(self.root.parent,key):version['business_confirmation']=fingerprint(confirmation)
         if (revision:=repair_revision(self.root,key)):version['external_repair']=revision
         if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
         if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
+        if imported:version['import_logic']=fingerprint((Path(__file__).parent/'artifact_imports.py').read_text())
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
+        from .cache_migration import migrate
+        self.scheduler.tasks[key].migrate_cache=lambda rec,d,new_identity:migrate(self.scheduler.tasks[key],rec,d,self.previous_manifest,verify,new_identity)
+        self.scheduler.tasks[key].attempt_identity=fingerprint({k:v for k,v in self.config.items() if k not in {'run_root','cache_dir','priority_cases','supplement_tests'}})
+        self.scheduler.tasks[key].recoverable=bool(self.mode=='external' and self.mocks is None and not transform and task not in {'gap-compare','semantic-compare'})
 
     def partitioned(self,key,task,deps,build,case):
         """Expand after inputs validate; each child has its own review/cache/retry."""
@@ -475,6 +531,7 @@ class Execution:
                 if ready(dependencies):
                     self.partitions.remove((dependencies,expand));expand()
         self.scheduler.on_update=update
+        self.scheduler.on_result=self.publish_progress
         result=self.scheduler.run()
         if self.expand_api:
             self.scheduler.tasks.pop('api-parameters',None)
@@ -484,6 +541,7 @@ class Execution:
         before=set(self.scheduler.tasks);update()
         if before!=set(self.scheduler.tasks):result=self.scheduler.run()
         self.scheduler.on_update=None
+        self.scheduler.on_result=None
         artifact_root=self.root/'artifacts'
         import shutil
         # Keep independently completed task files; failed siblings cannot erase them.
@@ -521,7 +579,7 @@ class Execution:
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
         if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
         self.manifest.update(execution_complete=result['complete'],complete=result['complete'] and not self.manifest.get('test_import_pending_count',0) and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])) and not any(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
-          analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation','未评测') for c,s in cases.items() if c!='shared'},
+          analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation')=='passed' for c,s in cases.items() if c!='shared'},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
         import time
@@ -530,6 +588,23 @@ class Execution:
             if session['id']==self.session_id:session.update(finished_at=time.time(),status='complete' if self.manifest['complete'] else 'complete_with_questions' if self.manifest['execution_complete'] else 'waiting')
         write_json(self.root/'execution_sessions.json',sessions)
         return self.manifest
+
+    def publish_progress(self):
+        from .execution_events import emit
+        ready=getattr(self.scheduler,'resolved_tasks',set())
+        cases={}
+        for key,t in self.scheduler.tasks.items():
+            if t.case=='shared':continue
+            cases.setdefault(t.case,{})[t.stage]=key in ready and self.scheduler.state['tasks'].get(key,{}).get('status')=='passed'
+        before=self.manifest.get('live_cases',{})
+        live={cid:{'graphs_ready':all(s.get(k,False) for k in ('fused-ssd','rr-ssd','sr-ssd','object-operations')),
+                   'analysis_ready':all(s.get(k,False) for k in ('concern-match','existing-concerns','concern-compare','exception-generate','existing-extract','missing-report')),
+                   'recommendation_ready':s.get('gap-recommend',False),
+                   'evaluation_ready':s.get('exception-evaluation',False)} for cid,s in cases.items()}
+        self.manifest.update(live_cases=live,analysis_by_case={k:v['analysis_ready'] for k,v in live.items()},evaluation_by_case={k:v['evaluation_ready'] for k,v in live.items()},tasks={k:r['status'] for k,r in self.scheduler.state['tasks'].items() if k in self.scheduler.tasks})
+        write_json(self.root/'run_manifest.json',self.manifest)
+        for cid,v in live.items():
+            if before.get(cid)!=v:self.scheduler.events.append('case_progress',case=cid,**v)
 
 
 def safe_case(case):
@@ -554,7 +629,10 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
         ex.scheduler.tasks[context_key].display_label=('系统组成' if task=='components' else 'API映射')+'取片（工具）'
         ex.add(task,task,(context_key,),build=lambda d,k=context_key:d[k])
     from .api_documents import index_interfaces
-    ex.add('api-index','api-index',('api-map',),build=lambda d:{'SR':normal_sr,'api-map':d['api-map']},transform=index_interfaces)
+    from .artifact_imports import selections
+    imported_api_docs=[a['document'] for t in ('api-map','api-parameters') for a in selections(ex.root.parent,t,frozen=ex.import_snapshot)]
+    api_sr=normal_sr+imported_api_docs
+    ex.add('api-index','api-index',('api-map',),build=lambda d:{'SR':api_sr,'api-map':d['api-map']},transform=index_interfaces)
     def expand_api():
         record=ex.scheduler.state['tasks'].get('api-index',{})
         if record.get('status')!='passed':
@@ -567,7 +645,7 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
             key='api-parameters-part-'+fingerprint(entry['id'])[:12]
             if key in keys:raise ValueError('duplicate API index identity')
             docs=[]
-            for d in normal_sr:
+            for d in api_sr:
                 ranges=[r for r in entry['source_ranges'] if r['source_id']==d['source_id']]
                 lines=[r for r in d['lines'] if any(span['start']<=r['number']<=span['end'] for span in ranges)]
                 if lines:docs.append({**d,'lines':lines})
@@ -604,7 +682,13 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
         get=lambda key:payload(read_json(ex.root/state[key]['output_file']))
         catalogue={'RR':get('rr-use-cases')['cases'],'SR':get('sr-use-cases')['cases']}
         groups=get('use-case-align')['groups']
-        if ex.case_ids:groups=[g for g in groups if g['id'] in ex.case_ids or set(ex.case_ids)&set(g['rr_ids']+g['sr_ids'])]
+        if ex.case_ids:
+            groups=[g for g in groups if g['id'] in ex.case_ids or set(ex.case_ids)&set(g['rr_ids']+g['sr_ids'])]
+            if not groups:raise ValueError('指定用例范围没有对应组，请使用用例目录中的RR/SR编号或组ID')
+        priorities=ex.config.get('priority_cases',[])
+        if any(not any(p==g['id'] or p in g['rr_ids']+g['sr_ids'] for g in groups) for p in priorities):raise ValueError('优先用例不在当前确认范围，请使用组ID或RR/SR原编号')
+        groups.sort(key=lambda g:next((n for n,p in enumerate(priorities) if p==g['id'] or p in g['rr_ids']+g['sr_ids']),len(priorities)))
+        ex.scheduler.priority_cases=[g['id'] for g in groups if g['status']=='confirmed']
         ex.manifest['case_correspondence']=groups
         test_catalogue=get('test-inventory');test_alignment=get('test-case-align')
         ex.manifest['test_case_correspondence']=test_alignment['matches']

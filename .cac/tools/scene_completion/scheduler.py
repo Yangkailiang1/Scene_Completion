@@ -104,6 +104,7 @@ class Scheduler:
         if max_rounds not in (0,1,2):raise ValueError('at most two repair rounds')
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
         self.path=self.root/'workflow_tasks.json';self.tasks={};self.on_update=None
+        self.on_result=None;self.can_recover=None;self.priority_cases=[]
         self.state=read_json(self.path) if self.path.exists() else {'tasks':{},'events':[]}
         from .execution_events import EventStore
         self.events=EventStore(root)
@@ -149,7 +150,8 @@ class Scheduler:
                 # Filename sorting let api-parameters-part-* starve both use-case
                 # catalogs. Unlock project roots first, then share dispatches
                 # across stages so one large fan-out cannot monopolize slots.
-                for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in {'source-index','document-context'} else 1 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 2,dispatches.get(self.tasks[k].stage,0),order[k])):
+                rank=lambda c:0 if not self.priority_cases else -1 if c=='shared' else self.priority_cases.index(c) if c in self.priority_cases else len(self.priority_cases)
+                for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in {'source-index','document-context'} else 1 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 2,rank(self.tasks[k].case),dispatches.get(self.tasks[k].stage,0),order[k])):
                     t=self.tasks[key]
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
@@ -158,6 +160,8 @@ class Scheduler:
                     deps={d:outputs[d] for d in t.deps}
                     identity=fingerprint({'version':t.version,'dependencies':{d:v.get('payload',v) if isinstance(v,dict) else v for d,v in deps.items()}})
                     rec=self.state['tasks'].get(key,{})
+                    if rec.get('identity')!=identity and getattr(t,'migrate_cache',None):
+                        t.migrate_cache(rec,deps,identity)
                     if rec.get('identity')!=identity:
                         rec={'identity':identity,'status':'pending','rounds':rec.get('rounds',0) if rec.get('status')=='awaiting_answer' else 0,'case':t.case,'stage':t.stage};self.state['tasks'][key]=rec
                     if rec.get('status')=='passed':
@@ -167,17 +171,29 @@ class Scheduler:
                             if t.verify:t.verify(v)
                             outputs[key]=v;remaining.remove(key);done.add(key);progressed=True;continue
                         except (OSError,ValueError,KeyError):rec.update(status='pending',rounds=0)
+                    attempt_identity=getattr(t,'attempt_identity',None)
+                    if attempt_identity and rec.get('attempt_identity')!=attempt_identity and rec.get('status') in {'rejected','failed','awaiting_configuration'}:
+                        # Explicit provider edits allow a fresh bounded attempt window, not lost history.
+                        rec.setdefault('attempt_windows',[]).append({k:rec.get(k) for k in ('attempt_identity','rounds','failure','finished_at')})
+                        rec.update(status='pending',rounds=0);rec.pop('recovery_dispatch',None);rec.pop('failure_signatures',None)
+                    rec['attempt_identity']=attempt_identity
                     # Waiting for a worker slot is not a semantic repair. Do
                     # not consume rounds on every scheduler wake-up while
                     # independent requests are still occupying the pool.
                     if len(active)>=self.limit:continue
                     if rec['status'] in {'rejected','failed'}:
-                        if rec['rounds']>=self.rounds:remaining.remove(key);done.add(key);progressed=True;continue
-                        rec['rounds']+=1
+                        if rec['rounds']>=self.rounds:
+                            if self.can_recover and self.can_recover(t,rec):
+                                rec['recovery_dispatch']=True;rec['recovery_calls']=rec.get('recovery_calls',0)+1
+                            else:remaining.remove(key);done.add(key);progressed=True;continue
+                        else:rec['rounds']+=1
+                    elif rec['status']=='awaiting_configuration' and self.can_recover and self.can_recover(t,rec):
+                        rec['recovery_dispatch']=True;rec['recovery_calls']=rec.get('recovery_calls',0)+1
                     previous_failure=rec.get('failure')
+                    rec['version']=t.version
                     rec.update(status='running',started_at=time.time());rec.pop('failure',None);rec.pop('finished_at',None);self._event(key,'repairing' if rec['rounds'] else 'started')
                     attempt_record=dict(rec)
-                    if rec['rounds'] and previous_failure:attempt_record['failure']=previous_failure
+                    if (rec['rounds'] or rec.get('recovery_dispatch')) and previous_failure:attempt_record['failure']=previous_failure
                     future=pool.submit(copy_context().run,job,t,deps,attempt_record);active[future]=key;remaining.remove(key);progressed=True
                     dispatches[t.stage]=dispatches.get(t.stage,0)+1
                 self.save()
@@ -193,11 +209,24 @@ class Scheduler:
                         from .execution_graph import artifact_folder
                         if isinstance(v,dict) and 'payload' in v and 'task' in v:export_task(artifact_folder(self.root,key,rec['case']),rec['stage'],v['payload'],artifact_name=(key if rec['case']=='shared' else key[len(rec['case'])+1:]).replace(':','--'))
                         file='task_outputs/'+fingerprint([key,rec['identity'],v])+'.json';write_json(self.root/file,v)
-                        rec.update(status='passed',output_file=file,output_hash=fingerprint(v),finished_at=time.time());outputs[key]=v;done.add(key);self._event(key,'passed')
+                        proof=v.get('metadata',{}).get('execution',{}) if isinstance(v,dict) else {}
+                        from .artifact_imports import record_use
+                        record_use(self.root.parent,key,proof)
+                        origin='同事产物导入' if proof.get('provider')=='colleague_import' else '恢复后生成' if proof.get('execution_model_evidence',{}).get('recovery') else '原流程生成'
+                        rec['import_sources']=[{'file_id':proof['file_id'],'name':proof.get('file_name',proof['file_id']),'revision':proof['revision']}] if proof.get('provider')=='colleague_import' else []
+                        rec.update(status='passed',output_file=file,output_hash=fingerprint(v),finished_at=time.time(),provenance=origin);outputs[key]=v;done.add(key);self._event(key,'passed')
                     except TaskBlocked as e:
-                        rec.update(status=e.status,failure=e.details,finished_at=time.time());done.add(key);self._event(key,e.status)
+                        rec.update(status=e.status,failure=e.details,finished_at=time.time());self._event(key,e.status)
+                        if e.status=='awaiting_configuration' and self.can_recover and self.can_recover(self.tasks[key],rec):remaining.add(key)
+                        else:done.add(key)
                     except Exception as e:
                         rec.update(finished_at=time.time(),status='rejected' if isinstance(e,(TaskRejected,ValueError)) else 'failed',failure=getattr(e,'details',{'error':str(e),'type':type(e).__name__}))
+                        failure=rec['failure'];sig=fingerprint({k:v for k,v in failure.items() if k not in {'rejected_output','candidate_file','path','request_id','at'}});history=rec.setdefault('failure_signatures',[]);history.append(sig)
+                        if rec['status']=='failed' or len(history)>1 and history[-1]==history[-2]:rec['rounds']=self.rounds
                         self._event(key,rec['status']);remaining.add(key)
+                        if rec['status']=='failed' or rec.get('recovery_dispatch'):
+                            from .node_recovery import fault_package
+                            fault_package(self.root,key,rec)
                     self.save()
+                    if self.on_result:self.on_result()
         return {'complete':all(self.state['tasks'][k]['status']=='passed' for k in self.tasks)}

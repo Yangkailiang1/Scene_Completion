@@ -33,7 +33,8 @@ class ResultView:
         ids=sorted({r['case'] for r in self.state.values() if r.get('case') not in {None,'shared'}})
         return [{'id':cid,'name':' / '.join(dict.fromkeys(names[i] for i in groups.get(cid,{}).get('rr_ids',[])+groups.get(cid,{}).get('sr_ids',[]) if i in names)) or cid,
                  'analysis_complete':self.manifest.get('analysis_by_case',{}).get(cid,False),
-                 'evaluation_complete':self.manifest.get('evaluation_by_case',{}).get(cid,False)} for cid in ids]
+                 'evaluation_complete':self.manifest.get('evaluation_by_case',{}).get(cid,False) in (True,'passed'),
+                 **self.manifest.get('live_cases',{}).get(cid,{})} for cid in ids]
 
     def catalog(self):
         out=[]
@@ -59,7 +60,7 @@ class ResultView:
         return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
     def index(self):
-        return {'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
+        return {'supplement_tests':self.manifest.get('supplement_tests',any(':test-expanded' in k for k in self.state)),'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用'}
 
     def metrics(self,test_set='expanded'):

@@ -5,6 +5,7 @@ from .storage import fingerprint
 
 PROTOCOL = 'scene-workflow-v4'
 TASKS = {
+ 'artifact-convert': ('scene-artifact-import', '同事产物格式转换'),
  'components': ('scene-components', '系统组成抽取'),
  'rr-ssd': ('scene-rr-ssd', 'RR层SSD抽取'),
  'sr-ssd': ('scene-sr-ssd', 'SR层SSD抽取'),
@@ -113,6 +114,7 @@ ENRICHED=obj(interactions=arr(ENRICHED_INTERACTION),rr_sr_links=arr(LINK),
  resource_mappings=arr(obj(physical_resource_id=S,logical_service_id=S,source_refs=REFS)))
 
 SCHEMAS = {
+ 'artifact-convert':obj(source_role=enum('artifact','RR','SR','test','unknown'),artifacts=arr(obj(task=enum('components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'),case_hint=NULL_S,coverage=enum('complete','partial'),payload={'type':'object'},source_refs=REFS))),
  'normal-rules':obj(rules=arr(NORMAL_RULE),pending=arr(obj(interaction_id=S,reason=S,source_refs=REFS))),
  'components':obj(components=arr(COMPONENT), relations=arr(obj(from_id=S,to_id=S,relation=S,source_refs=REFS))),
  'rr-ssd':obj(interactions=arr(INTERACTION)),
@@ -187,6 +189,7 @@ full表示所有必要条件完全对应，partial仅诊断，不计命中。同
 '''
 
 INPUT_KEYS = {
+ 'artifact-convert':{'documents','file_name','target_schemas'},
  'pattern-applicability':{'positive','settings'},
  'test-supplement':{'fused-ssd','normal-constraints','normal-rules','test-catalogue','registry'},
  'normal-rules':{'normal-documents','fused-ssd'},
@@ -213,9 +216,17 @@ def packet(task, inputs, case_ids=None):
     optional={'source-index'} if task=='use-case-extract' else {'normal-documents'} if task=='concern-match' else {'branches','bindings','fused-ssd','normal-constraints'} if task=='existing-extract' else {'fused-ssd'} if task=='test-ground-truth' else {'interface'} if task=='api-parameters' else {'candidate_pairs'} if task=='semantic-compare' else set()
     if task in {'concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}:optional=optional|{'normal-rules'}
     if task=='normal-rules':optional=optional|{'registry'}
+    if task=='artifact-convert':optional=optional|{'case-catalogue'}
     if task in {'existing-extract','test-ground-truth'}:optional=optional|{'identified-concerns'}
     if task in {'test-concerns','test-ground-truth'}:optional=optional|{'test-inventory'}
     optional|={'review-documents'}
+    if task in {'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'}:
+        optional|={'imported-fragments','import-documents'}
+        for doc in inputs.get('import-documents',[]):
+            if not doc.get('source_id','').startswith('import-') or doc.get('channel')!='normal':raise ValueError('导入材料必须属于正向通道并保留文件身份')
+        for fragment in inputs.get('imported-fragments',[]):
+            allowed={task}|({'rr-ssd','sr-ssd'} if task=='fused-ssd' else set())
+            if fragment.get('task') not in allowed:raise ValueError('导入产物不属于本节点')
     expected_channel='test' if task.startswith('test-') else 'existing' if task.startswith('existing-') else 'normal'
     for doc in inputs.get('review-documents',[]):
         if doc.get('channel')!=expected_channel or not doc.get('source_id','').startswith('business-') or not doc.get('review_item_id') or not doc.get('review_revision'):raise ValueError('业务确认材料必须来自本任务独立通道并保留审核身份')
@@ -223,7 +234,7 @@ def packet(task, inputs, case_ids=None):
         if errors:raise ValueError('无效业务确认材料')
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
-    for key in ('documents','RR','SR','existing-documents','test-documents','test-operation-source','normal-documents'):
+    for key in ('documents','RR','SR','existing-documents','test-documents','test-operation-source','normal-documents','import-documents'):
         if key in inputs:
             errors=list(Draft202012Validator(arr(DOCUMENT)).iter_errors(inputs[key]))
             if errors:raise ValueError('invalid document input: '+errors[0].message)
@@ -260,7 +271,7 @@ def packet(task, inputs, case_ids=None):
     skill = TASKS.get(task,('internal-independent-transform',task))[0]
     return {'protocol':PROTOCOL,'stage':task,'task':task,'skill':skill,
             'batch_id':fingerprint([PROTOCOL,task,inputs,case_ids,schema(task),RULES]),'case_ids':case_ids or [],
-            'instructions':RULES,'input':deepcopy(inputs),'output_contract':schema(task),
+            'instructions':RULES+('\nimported-fragments是已确认的同事产物，保留其有据字段及稳定ID；只输出尚缺的记录/字段，工具会与导入内容合并后统一校验。不得读取已有异常/测试来补正向答案；身份或事实冲突写待确认，不能改造导入事实。' if inputs.get('imported-fragments') else ''),'input':deepcopy(inputs),'output_contract':schema(task),
             'output_schema':schema(task)}
 
 # Register use-case discovery and joint RR/SR modelling after common schemas.

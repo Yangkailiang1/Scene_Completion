@@ -26,6 +26,19 @@ def source_documents(project):
                 candidates=[o for o in old if o['name']==doc['name']]
                 ids={doc['source_id']}|{o['source_id'] for o in candidates}
                 for sid in ids:out.append({**doc,'source_id':sid,'role':role,'path':entry['path'],'file_hash':hashlib.sha256(path.read_bytes()).hexdigest()})
+    # Imported citations remain available across file edits and installation paths.
+    from .artifact_imports import snapshot
+    versions=list(project.glob('imports/versions/*/*.json'))
+    imported=snapshot(project)+[read_json(f) for f in versions]
+    for item in imported:
+        original=project/item['original']
+        if not original.is_file():continue
+        if original.suffix.lower()!='.xlsx':
+            raw={'source_id':'import-raw-'+item['id'],'name':item['name'],'channel':'normal','role':item['role'],'path':item['original'],'file_hash':hashlib.sha256(original.read_bytes()).hexdigest(),'lines':[{'number':n,'text':v} for n,v in enumerate(original.read_text(encoding='utf-8-sig').splitlines(),1)]}
+            if not any(d['source_id']==raw['source_id'] for d in out):out.append(raw)
+        for artifact in item['artifacts']:
+            doc=artifact['document']
+            if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_artifact','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'conversion_source_refs':artifact.get('conversion_source_refs',[])})
     from .review_questions import materials
     applied=load(project,'pending_decisions.json',{'items':{}})['items']
     for node in {k for r in applied.values() for k in r.get('origins',[])}:
@@ -87,7 +100,7 @@ def project_archive(project):
         for f in p.rglob('*'):
             if not f.is_file() or not f.resolve().is_relative_to(p.resolve()):continue
             rel=f.relative_to(p);parts=rel.parts
-            if parts[0] in roots or (len(parts)==1 and f.name in root_files) or (parts[0]=='run' and len(parts)>1 and (parts[1] in run_dirs or len(parts)==2 and f.name in run_files)):
+            if parts[0] in roots or parts[0]=='imports' and len(parts)>1 and parts[1] in {'files','versions'} or (len(parts)==1 and f.name in root_files) or (parts[0]=='run' and len(parts)>1 and (parts[1] in run_dirs or len(parts)==2 and f.name in run_files)):
                 if f.name.endswith(('.local.json','.lock')) or '__pycache__' in parts:continue
                 z.write(f,rel.as_posix())
         z.writestr('review_snapshot.json',json.dumps(snap,ensure_ascii=False))

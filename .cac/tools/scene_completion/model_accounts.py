@@ -69,6 +69,7 @@ def apply_account(config,root,env_file):
     if not a:raise ValueError('选择的模型连接不存在，请重新配置')
     chosen=cfg.get('agent_model') or a['models'][0]
     selections=[chosen]+list(cfg.get('task_models',{}).values())+list(cfg.get('role_models',{}).values())
+    selections += [c['model'] for c in cfg.get('resilience',{}).get('candidates',[]) if not c.get('account_id') or c.get('account_id')==aid]
     if any(m not in a['models'] for m in selections):raise ValueError('所选模型不在此API Key的允许模型列表中')
     cfg.update(base_url=a['base_url'],api_key=credential(a,env_file),agent_model=chosen,account_label=a['name'],model_account_name=a['name'],allowed_models=a['models'])
     cfg.pop('api_key_env',None)

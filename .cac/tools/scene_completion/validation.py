@@ -21,6 +21,7 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task,payload)
+    if task=='artifact-convert' and payload['source_role']!='artifact' and payload['artifacts']:raise ValueError('非正向产物文件不能提交节点替代结果')
     if task in {'test-inventory','test-case-align'}:
         from .test_alignment import validate_test_task
         validate_test_task(task,payload,inputs)

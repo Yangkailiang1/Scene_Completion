@@ -97,14 +97,14 @@ def test_removed_allowed_model_does_not_hide_saved_project_reports(tmp_path):
     assert 'secret' not in view.text
     assert client.post(f'/api/projects/{rid}/run',json={}).status_code==400
 
-def test_running_account_cannot_change_or_switch_and_budget_files_not_reset(tmp_path):
+def test_running_account_catalog_locked_but_future_project_routing_editable_without_budget_reset(tmp_path):
     from scene_completion.storage import write_json,read_json
     import time
     app=create_app(tmp_path);client=TestClient(app);rid=client.post('/api/projects',json=source()).json()['id'];body={'expected_revision':0,'id':'one','name':'A','base_url':'http://internal/v1','models':['a'],'api_key':'secret'}
     client.put('/api/model-accounts',json=body);client.put(f'/api/projects/{rid}/config',json={'model_account_id':'one','agent_model':'a'})
     write_json(tmp_path/rid/'job.json',{'status':'running','worker_heartbeat':time.time()})
     assert client.put('/api/model-accounts',json={**body,'expected_revision':1,'name':'changed'}).status_code==400
-    assert client.put(f'/api/projects/{rid}/config',json={'model_account_id':'one','agent_model':'a'}).status_code==400
+    assert client.put(f'/api/projects/{rid}/config',json={'model_account_id':'one','agent_model':'a'}).status_code==200
     write_json(tmp_path/rid/'job.json',{'status':'complete'})
     ledger=tmp_path/'historical-ledger.json';write_json(ledger,{'committed_tokens':1234})
     config=tmp_path/rid/'model.local.json';v=read_json(config);v.update(token_budget_limit=900000,token_budget_ledger=str(ledger));write_json(config,v)

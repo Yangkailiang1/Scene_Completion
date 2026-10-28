@@ -130,14 +130,14 @@ def test_frontend_api_persists_projects_masks_credentials_and_exports_sources(tm
     reopened=TestClient(create_app(tmp_path));assert reopened.get('/api/projects').json()[0]['name']=='审核示例'
 
 
-def test_changed_execution_identity_does_not_reuse_auto_review_drafts(tmp_path):
+def test_provider_output_budget_change_reuses_verified_artifacts(tmp_path):
     rr,sr,t,m=fake_pipeline(tmp_path);calls=[]
     mocks={k:(lambda p,v=v:(calls.append(p['task']),v(p) if callable(v) else deepcopy(v))[1]) for k,v in m.items()}
     root=tmp_path/'run'
     ex=Execution(root,mocks=mocks,config={'max_tokens':1000});build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
     calls.clear()
     ex=Execution(root,mocks=mocks,config={'max_tokens':2000});build_pipeline(ex,rr,sr,t);assert ex.finish()['complete']
-    assert 'components' in calls and 'fused-ssd' in calls
+    assert 'components' not in calls and 'fused-ssd' not in calls
 
 
 def test_review_is_excluded_while_execution_owns_run_lock(tmp_path):

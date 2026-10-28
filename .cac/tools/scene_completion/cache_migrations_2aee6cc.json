@@ -1,0 +1,394 @@
+{
+  "source_commit": "2aee6ccc6eb8da5fcfe351d61c60ac780cd2f7ac",
+  "tasks": {
+    "test-inventory": {
+      "legacy_code": "31e79d02ae95a1984acef8297719886abbdfe5448e2164f853741c3c18cfc4d7",
+      "current_code": "8d38bc5602fd7ae02b2bcc978554baaf42f7de002e6c5f455d8ec57936a871ff",
+      "business_files": {
+        ".cac/tools/scene_completion/test_alignment.py": "6e01fb73db7f9c678628a63b94b8bc30df8e62dab962a9bc9264cdea18111300",
+        ".cac/tools/scene_completion/test_sources.py": "962f939cba350db9a05a23cccae06b4d2887517f7100ccb34af16cda07996447",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-test-inventory/SKILL.md": "b7be17be28e0fb3a6df0e310f4c4ae9d5d26c130c287d43e64b0af7847d7bfee"
+      }
+    },
+    "ssd-context": {
+      "legacy_code": "a05fe5586e1965e01712ce180eaff6c9f59ab4374b79b827c3577fbbb10af106",
+      "current_code": "a05fe5586e1965e01712ce180eaff6c9f59ab4374b79b827c3577fbbb10af106",
+      "business_files": {
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/skills/scene-context-index/SKILL.md": "fc04482199f8e290239ad08ba9eac47931a7510e8bfedcc4f7e4040c7eb37fec"
+      }
+    },
+    "components": {
+      "legacy_code": "98b6555f89c29319ade021109075d294c59a9c957241ab96e10d1daa54db71d1",
+      "current_code": "c620f12c7461c08236129d8705ab38c33097c44f701cf639b5231cf304ea970a",
+      "business_files": {
+        ".cac/tools/scene_completion/composition_drawing.py": "c4aef40a11d2e3c78436abab1b8b35f5954ea028210bbc096c0946625be71021",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-components/SKILL.md": "e7c3003e1cd07676c64006a223f1f62f8fc9966bdc7dac03f4813f4f2ea08e0c"
+      }
+    },
+    "existing-bind": {
+      "legacy_code": "da3a04d9cffb65b46f453f01f1aff3ec303b636ff0c79e4d4defc967cfa5448c",
+      "current_code": "3bd4149d554dfe97f43bbe4b8594c60313d92f582d9b21968b712cc32cb3c5f3",
+      "business_files": {
+        ".cac/tools/scene_completion/inverse_alignment.py": "4a17c5914f867821929f09b40a52d63ecfcc3d96ed1701c7baf9017894e06c64",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/failure_units.py": "99b1234ce7cfed72e14940be151b25d1bf6ed654fdcad2fa10bd24ad183f0787",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-existing-bind/SKILL.md": "861a3100bbbdd62f6d44440009d362c2903120bf772fccaa6d3889e22803da0a"
+      }
+    },
+    "test-case-align": {
+      "legacy_code": "3e7606a45d705aa900c24bf7ace295b5622109269769edce0bf1cb4502d5ab1c",
+      "current_code": "17aaad47faf1df82e63628c7a5d378307e13eed4df280e183f8fca86f46c1588",
+      "business_files": {
+        ".cac/tools/scene_completion/test_alignment.py": "6e01fb73db7f9c678628a63b94b8bc30df8e62dab962a9bc9264cdea18111300",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-test-case-align/SKILL.md": "5795159d7a4abc6116ca6f047379311a8b5da6f99c90b7cdde86ea369658d12f"
+      }
+    },
+    "missing-report": {
+      "legacy_code": "cbe49ff7c62eed8ad1bfcd0e00fe6b16e109778ea77f96dfdca269d79881f470",
+      "current_code": "cbe49ff7c62eed8ad1bfcd0e00fe6b16e109778ea77f96dfdca269d79881f470",
+      "business_files": {
+        ".cac/tools/scene_completion/exception_comparison.py": "c58346ed71884bf7a572143f703773a93ac7e9bfd36dccda38e486ee6abb927e",
+        ".cac/tools/scene_completion/artifact_exports.py": "84126b3c7f199ebf3eeb399ee5e1baf5a0ace6dd04a75ae4ec987ca2cff95882",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "document-context": {
+      "legacy_code": "bc4dfb637f18c3bb64efc5d8d0535ba8056a3533c78f2c87a3d7c79e8f31278c",
+      "current_code": "bc4dfb637f18c3bb64efc5d8d0535ba8056a3533c78f2c87a3d7c79e8f31278c",
+      "business_files": {
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "existing-concerns": {
+      "legacy_code": "a7e08abdfcccdebb71b82bb13f6084a009466e8296361e0f267dab25584fcc18",
+      "current_code": "70dac07f68a8fc223ee7e501f437755b1b5b00c79165e8a3f26b0a3698faf984",
+      "business_files": {
+        ".cac/tools/scene_completion/concern_alignment.py": "530121de57742f9bd1219083cbaa4c642ec497b0d128204657d18129a296e633",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-existing-concerns/SKILL.md": "05bdfd2574a911bdf9a92c11f642f6e689960758a71a12eb791bdf3d17610ddf"
+      }
+    },
+    "test-concerns": {
+      "legacy_code": "2ae471bc3e1ad960a98959c47172018ee3cfa44e3096959eb3103f7abeb99fe4",
+      "current_code": "bfdcd6a0700fbb46b6c2a455df2268f762cffeeeb9469db90c49462c38aad94c",
+      "business_files": {
+        ".cac/tools/scene_completion/scenario_types.py": "7c328799d69c663ef26801536e845f15cd60fa37e8e4f5112d46cf819fdd6b16",
+        ".cac/tools/scene_completion/concern_alignment.py": "530121de57742f9bd1219083cbaa4c642ec497b0d128204657d18129a296e633",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-test-concerns/SKILL.md": "9f0c1382c4d8a42a8f02c94e4d67a4c9cf4fece2de4addf420a75c1d464e09f7"
+      }
+    },
+    "api-parameters": {
+      "legacy_code": "bf22531e4c4b8f7d6a95e2f6c5bc18e8db4ea79a1aed727a6fdd8aaacd3a3aab",
+      "current_code": "b9b86c187b8162d284263050bd4d0b0275b88ccd0314e71208d71f1cd60e78f7",
+      "business_files": {
+        ".cac/tools/scene_completion/api_documents.py": "cfae97639682c26056455f78215547547f3f6321d68e826c3aeb9a00cda623cb",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-api-parameters/SKILL.md": "260bc172c61614dcf965b682d2a11dd6fe72f78c27a99fd3e39400bb7d328beb"
+      }
+    },
+    "api-index": {
+      "legacy_code": "4127a5996f79e1afe5ad1d503557831428f6680f3232741a60e0d725841a13a1",
+      "current_code": "4127a5996f79e1afe5ad1d503557831428f6680f3232741a60e0d725841a13a1",
+      "business_files": {
+        ".cac/tools/scene_completion/api_documents.py": "cfae97639682c26056455f78215547547f3f6321d68e826c3aeb9a00cda623cb",
+        ".cac/tools/scene_completion/prompts/api-index.md": "37f7622ebae35316ff2882c08e3dc19a65ccdcddfb5932969084372ea30bc844"
+      }
+    },
+    "sr-ssd": {
+      "legacy_code": "ea06ce2f970589d70656b5440d735b10d7da03389cc3baf4dfc6857062653c4e",
+      "current_code": "a32ffbbc1c2f2f6e3f63f168a8cd1b5a0438860121ac9406a80e34ca6be53966",
+      "business_files": {
+        ".cac/tools/scene_completion/ssd_tools.py": "964f4bcb2d282d6c563b7266b64ed0cdae25872a680c728d95e8b036e8d94e1f",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-sr-ssd/SKILL.md": "eb71a75a3849f62819f54f93d610ef72e6afbb745eef0f954d1aae8aeb2e3e28"
+      }
+    },
+    "concern-match": {
+      "legacy_code": "c150e65c14f6c7b36ac44f0bfb6a0f06f1610de126d722df65c0131eb487ba0e",
+      "current_code": "68fbb1e55512d13f6a7683f7afdf402f8d7f4a35f9666cdfa0fecc390c55826d",
+      "business_files": {
+        ".cac/tools/scene_completion/concern_alignment.py": "530121de57742f9bd1219083cbaa4c642ec497b0d128204657d18129a296e633",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/concern_matching.py": "36e93cbd8fd3e5bbfb88e281051b809f3f9e3d14f71727cd2695c203ad2f7fbf",
+        ".cac/tools/scene_completion/concern_hierarchy.py": "e79ca80ea67dd566ae8eaab2e6105de58ae4b8246895defa755f50b6e6bbc2a4",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-concern-match/SKILL.md": "354c0f684a7dfbd850cf753529b4f3e2465bfef832a10ffe26524631b357fea2"
+      }
+    },
+    "api-map": {
+      "legacy_code": "e8006409ef79f91741605715d5b80963617c93c834a884301fb5f5f061871ddf",
+      "current_code": "68a10904246505865af7bcc43b04e6d7d2ce69e4bfeccf425d21e63ba0f6c167",
+      "business_files": {
+        ".cac/tools/scene_completion/api_documents.py": "cfae97639682c26056455f78215547547f3f6321d68e826c3aeb9a00cda623cb",
+        ".cac/tools/scene_completion/http_interfaces.py": "27f67a4eceab73f1f0d4230408627248212edc153263202642b76bbe9e8de6af",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-api-map/SKILL.md": "c6c31eefbd3e1863bdd93db347e336198ab7c6a37913affd9707488b42b90852"
+      }
+    },
+    "test-expanded": {
+      "legacy_code": "211a6d706339efdb1000b0322c8f77ccba5147acc9b9999242325c943a64ec16",
+      "current_code": "211a6d706339efdb1000b0322c8f77ccba5147acc9b9999242325c943a64ec16",
+      "business_files": {
+        ".cac/tools/scene_completion/test_supplement.py": "709c0bcf61536c1d75be1b0663f6cf9c0280f0809cd557b27fce082769977d72",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "exception-generate": {
+      "legacy_code": "4b199c7f8e2f43eca6954c89b568c1303dc5f0f77dea71ea7758f0b63ca63ab8",
+      "current_code": "0468a7d607c44103008ba77eed5796fdd08184150e33c2c8926068d043ee6f5a",
+      "business_files": {
+        ".cac/tools/scene_completion/concern_alignment.py": "530121de57742f9bd1219083cbaa4c642ec497b0d128204657d18129a296e633",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/exception_generation.py": "d824f038e2d357881c4677486cf1ccf3d8d0917b82ad8e417b5cf7f848cb5d30",
+        ".cac/tools/scene_completion/concern_hierarchy.py": "e79ca80ea67dd566ae8eaab2e6105de58ae4b8246895defa755f50b6e6bbc2a4",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/scenario_types.py": "7c328799d69c663ef26801536e845f15cd60fa37e8e4f5112d46cf819fdd6b16",
+        ".cac/tools/scene_completion/test_sources.py": "962f939cba350db9a05a23cccae06b4d2887517f7100ccb34af16cda07996447",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-exception-generate/SKILL.md": "d27f7da2c6c8a30d2097949aab9b9a1489d776ffd27e5b455d48a0a97b599106"
+      }
+    },
+    "use-case-extract": {
+      "legacy_code": "703c41c04237c2d0a7972c8ef0cd5f0bb5048c1c4709e86042621ac5ab038857",
+      "current_code": "5c148f96a34dec109e29327b502e8efd21e6d982d9b8fb8927cd18594ae8b5ce",
+      "business_files": {
+        ".cac/tools/scene_completion/use_cases.py": "a9c43f6bd646121abce368b4787489b25ea268995f831ec051c3f2170881026b",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-use-cases/SKILL.md": "71196f559a4ca44b0691646df58e33744c22b01442d95e0f03d02edc1a353039"
+      }
+    },
+    "gap-recommend": {
+      "legacy_code": "c282543d8c4db44a6186f687e1a3a1854c0bb3ae75d2edc70fc7a217dcaa8605",
+      "current_code": "c55a2a749cfd0dd5549b0432bfa99f2d0c831ff07c2740fa127cdc62f1e85745",
+      "business_files": {
+        ".cac/tools/scene_completion/recommendation.py": "3d09a644684522088a9c387797a3d117320909f716dcdccbbbbe972639b950bb",
+        ".cac/tools/scene_completion/scenario_patterns.py": "83faee89012c954be24c6ca77688938ebc9d9d84ac2c1bc06a89ccbec22f4430",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-gap-recommend/SKILL.md": "bb1907accb0cae5a21bec0bfb2c830063d1cab98b56ebda58c59004eea25a839"
+      }
+    },
+    "exception-evaluation": {
+      "legacy_code": "0d445825f03cc20a805aa01a6b9e38b9014d4be0b80d8695d769ed5413e6883b",
+      "current_code": "0d445825f03cc20a805aa01a6b9e38b9014d4be0b80d8695d769ed5413e6883b",
+      "business_files": {
+        ".cac/tools/scene_completion/exception_comparison.py": "c58346ed71884bf7a572143f703773a93ac7e9bfd36dccda38e486ee6abb927e",
+        ".cac/tools/scene_completion/assignment.py": "7127803fd440ec76285a8385b94b213048d4ee6da9c1c14336992a6801219b8a",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "use-case-align": {
+      "legacy_code": "857947821089584dcc97b349a950dcac601083b664bbc32e8bda713a99d423d7",
+      "current_code": "03c54019cae05034af7ec68bf591f79b5beed2d8bb86e8ac59e7f31dd30cc866",
+      "business_files": {
+        ".cac/tools/scene_completion/use_cases.py": "a9c43f6bd646121abce368b4787489b25ea268995f831ec051c3f2170881026b",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-use-case-align/SKILL.md": "d8092305fe938484aa9afba61319995ddcc540ec4a57d08d0e28eafe1418ee63"
+      }
+    },
+    "enriched-view": {
+      "legacy_code": "895280827368bd5bf275285c08e6be5d3ac7d931a72e1f92e2a6444caa551d4e",
+      "current_code": "895280827368bd5bf275285c08e6be5d3ac7d931a72e1f92e2a6444caa551d4e",
+      "business_files": {
+        ".cac/tools/scene_completion/interaction_enrichment.py": "27848ccd9c19175662361294d4d37a50aceb0ffd35e72082ab1f4478f6ae8aea",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "test-supplement": {
+      "legacy_code": "fa08311b0dae4f5e3fc960d01dd3ba97171381b57b0a61850c173128efb384c0",
+      "current_code": "62f6b3d055ed2affff62101f2b4aa4c2174e49775aab92fc8f116291eb809b82",
+      "business_files": {
+        ".cac/tools/scene_completion/test_supplement.py": "709c0bcf61536c1d75be1b0663f6cf9c0280f0809cd557b27fce082769977d72",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/scenario_patterns.py": "83faee89012c954be24c6ca77688938ebc9d9d84ac2c1bc06a89ccbec22f4430",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-test-supplement/SKILL.md": "de8a38892cb4de98aa907fc601cba28ea89675fd8400cbbac03a9cf73173d338"
+      }
+    },
+    "fused-ssd": {
+      "legacy_code": "94b0fa41ff52a56c1ebcd9d56986d178e567cd699859a0a7c47f5b3185bf404c",
+      "current_code": "7bce3400b636298f8ceb0613c322834abd84fdf19224e9bb43502fee2e8f18f0",
+      "business_files": {
+        ".cac/tools/scene_completion/ssd_tools.py": "964f4bcb2d282d6c563b7266b64ed0cdae25872a680c728d95e8b036e8d94e1f",
+        ".cac/tools/scene_completion/use_cases.py": "a9c43f6bd646121abce368b4787489b25ea268995f831ec051c3f2170881026b",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-fused-ssd/SKILL.md": "b5a87ecfadbca6ce5da10ec8e9b126acb2ba2cf2624aaf4004f1f59bb9ecd19f"
+      }
+    },
+    "test-additional-dedup": {
+      "legacy_code": "211a6d706339efdb1000b0322c8f77ccba5147acc9b9999242325c943a64ec16",
+      "current_code": "211a6d706339efdb1000b0322c8f77ccba5147acc9b9999242325c943a64ec16",
+      "business_files": {
+        ".cac/tools/scene_completion/test_supplement.py": "709c0bcf61536c1d75be1b0663f6cf9c0280f0809cd557b27fce082769977d72",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "interaction-enrich": {
+      "legacy_code": "bf91ef3aa2b97a40f47ae3d981775cab6cad00e35c2c5f64ee961d6bb0ee611e",
+      "current_code": "bf91ef3aa2b97a40f47ae3d981775cab6cad00e35c2c5f64ee961d6bb0ee611e",
+      "business_files": {
+        ".cac/tools/scene_completion/interaction_enrichment.py": "27848ccd9c19175662361294d4d37a50aceb0ffd35e72082ab1f4478f6ae8aea",
+        ".cac/tools/scene_completion/inverse_alignment.py": "4a17c5914f867821929f09b40a52d63ecfcc3d96ed1701c7baf9017894e06c64",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/skills/scene-interaction-attributes/SKILL.md": "0a7be242638674796855cf34d65f8406792cd7c537f3c3ae0d1793465f7e6341"
+      }
+    },
+    "normal-rules": {
+      "legacy_code": "88b0eea154e0aee61eba434b00d4f998b0e95e3488bbabf6c1f227a2073fdaaf",
+      "current_code": "4e55fd3278b4d3e2b469f8189df9c986654fa8c0bb9b420766a09c9fabc54c92",
+      "business_files": {
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/positive_reuse.py": "e79ebd9401bfab1267efbb423b206f671ddb757166679cc83787f5773f99f8d4",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-normal-rules/SKILL.md": "7df7c8d8b94d622689ffba649476e586afc06dbf3163d570b9fe362ab5a03928"
+      }
+    },
+    "interaction-align": {
+      "legacy_code": "fc2b219728adf0c6d92499481564d6ce52f9f34888bf191b796aad8720a5a1db",
+      "current_code": "fc2b219728adf0c6d92499481564d6ce52f9f34888bf191b796aad8720a5a1db",
+      "business_files": {
+        ".cac/tools/scene_completion/ssd_tools.py": "964f4bcb2d282d6c563b7266b64ed0cdae25872a680c728d95e8b036e8d94e1f",
+        ".cac/skills/scene-ssd-structure/SKILL.md": "93699f1c166b3b5eba2f75091aa277bae52b9f7e23961c765a49c645196a4b9b"
+      }
+    },
+    "object-operations": {
+      "legacy_code": "a80ea2bb923c728cceb90ef8f9bb228002700d3d06f9c7cffbc035130d5ca025",
+      "current_code": "0596cff7d3337f487e8eef991d8bde82562df3e174e22276206b428a6a6ca809",
+      "business_files": {
+        ".cac/tools/scene_completion/interaction_enrichment.py": "27848ccd9c19175662361294d4d37a50aceb0ffd35e72082ab1f4478f6ae8aea",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-object-operations/SKILL.md": "52c7af4012927f4204a830d4a70cf6c8e98fa2c9ccde0d5e48bae25acf7af6c7"
+      }
+    },
+    "existing-extract": {
+      "legacy_code": "8b14cd3c0af7a4679197fd73fa7ea7ba222f5a7330f78035795cbdf9363e6444",
+      "current_code": "2de9071689c7a8d8cf7b7dec71fb2b5cdeec34140e915191724c25f5cf22a103",
+      "business_files": {
+        ".cac/tools/scene_completion/concern_alignment.py": "530121de57742f9bd1219083cbaa4c642ec497b0d128204657d18129a296e633",
+        ".cac/tools/scene_completion/inverse_alignment.py": "4a17c5914f867821929f09b40a52d63ecfcc3d96ed1701c7baf9017894e06c64",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/task_partitions.py": "720e2176f434d94c44d22a48c7e59d769034071621eace7622b166d586442937",
+        ".cac/tools/scene_completion/scenario_types.py": "7c328799d69c663ef26801536e845f15cd60fa37e8e4f5112d46cf819fdd6b16",
+        ".cac/tools/scene_completion/test_sources.py": "962f939cba350db9a05a23cccae06b4d2887517f7100ccb34af16cda07996447",
+        ".cac/tools/scene_completion/failure_units.py": "99b1234ce7cfed72e14940be151b25d1bf6ed654fdcad2fa10bd24ad183f0787",
+        ".cac/tools/scene_completion/scenario_patterns.py": "83faee89012c954be24c6ca77688938ebc9d9d84ac2c1bc06a89ccbec22f4430",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/tools/scene_completion/refinement_context.py": "2c93d71dbbe648265e7bdd839cdf3d0b2a00ea957a49214b949a731de312c0d1",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-existing-extract/SKILL.md": "6b75a5c127b7a8ddd145413c0c5db6fbb6f31946226b668dff2cfc27b9981a9b"
+      }
+    },
+    "semantic-compare": {
+      "legacy_code": "222e641f1f1788b94820744a5066f541a457c3765351cacb70eff9d561a20dc5",
+      "current_code": "ee8a62bd6c2763ee3be8269d8244b4d907d4f936111fa519b6d8bb4489009324",
+      "business_files": {
+        ".cac/tools/scene_completion/comparison_batches.py": "e4c322b60a0a545292e81b5c4d756d2ddb8b1b2936921a64fce6cebbd5314273",
+        ".cac/tools/scene_completion/assignment.py": "7127803fd440ec76285a8385b94b213048d4ee6da9c1c14336992a6801219b8a",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/tools/scene_completion/prompts/semantic-compare.md": "e54df86f2c1a861431755d848863e875c665c1f23d8c4f08b1bad30b79063e3c"
+      }
+    },
+    "extraction-evaluation": {
+      "legacy_code": "ec1f047c9f56704a48fe708fb49930c9b11cfd24ec8ff7426e6fa535feeecba2",
+      "current_code": "ec1f047c9f56704a48fe708fb49930c9b11cfd24ec8ff7426e6fa535feeecba2",
+      "business_files": {
+        ".cac/tools/scene_completion/evaluation.py": "5c7ffb02b2edd3cf0f645dee2eeb99d53b4fc8702974b56c77d3bd2c39a7c7e5",
+        ".cac/tools/scene_completion/assignment.py": "7127803fd440ec76285a8385b94b213048d4ee6da9c1c14336992a6801219b8a",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "gap-compare": {
+      "legacy_code": "638acac522c7597b068c828e07fc1a1f9dd6214f9b1e25555217e2adeb07c94a",
+      "current_code": "90d807bf5b306e57ac477c809bf396d994a2de9e64c76c899adb6a0f09a28db9",
+      "business_files": {
+        ".cac/tools/scene_completion/exception_comparison.py": "c58346ed71884bf7a572143f703773a93ac7e9bfd36dccda38e486ee6abb927e",
+        ".cac/tools/scene_completion/comparison_batches.py": "e4c322b60a0a545292e81b5c4d756d2ddb8b1b2936921a64fce6cebbd5314273",
+        ".cac/tools/scene_completion/assignment.py": "7127803fd440ec76285a8385b94b213048d4ee6da9c1c14336992a6801219b8a",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/task_context.py": "7238215a872b6830678331119aa05e6cbaa9c4e4a056671da3e87d5c71182579",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-gap-compare/SKILL.md": "c4721cd44875f2decb71b43dbe529fd1d9a2169d4a131cb4089b6c822768a8d9"
+      }
+    },
+    "rr-ssd": {
+      "legacy_code": "5b31e98181699c3819e3aa484ee7795317d49aec015d3829a92e23c216a930d0",
+      "current_code": "25f887de001ae93b31939e87aa53974457ce28d9b02e86e8b4d800861c24b177",
+      "business_files": {
+        ".cac/tools/scene_completion/ssd_tools.py": "964f4bcb2d282d6c563b7266b64ed0cdae25872a680c728d95e8b036e8d94e1f",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-rr-ssd/SKILL.md": "cc7e9d0e4b25255e36e7ea0ce002b428f68d40de4467f005bea19954ea478be6"
+      }
+    },
+    "test-additional-truth": {
+      "legacy_code": "5b205101f5020e20bf1f2469123c46f73e663bfa3e094462f36de89e54ee9990",
+      "current_code": "5b205101f5020e20bf1f2469123c46f73e663bfa3e094462f36de89e54ee9990",
+      "business_files": {
+        ".cac/tools/scene_completion/test_supplement.py": "709c0bcf61536c1d75be1b0663f6cf9c0280f0809cd557b27fce082769977d72",
+        ".cac/tools/scene_completion/scenario_patterns.py": "83faee89012c954be24c6ca77688938ebc9d9d84ac2c1bc06a89ccbec22f4430",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/tools/scene_completion/prompts/tool-task.md": "9370f7f5a3af1cae0b956f8e67994f844193cccb0b725c6f6299d7366a77235a"
+      }
+    },
+    "pattern-applicability": {
+      "legacy_code": "d4954a2ae0ec80cfaa82bbfdd00c0300aa5803233b5afb0fc90d62241b030892",
+      "current_code": "326c1cd8b1e6ab1d0064c9527b9bd779cff5044cd836f8ee5ead7c562a653331",
+      "business_files": {
+        ".cac/tools/scene_completion/scenario_patterns.py": "83faee89012c954be24c6ca77688938ebc9d9d84ac2c1bc06a89ccbec22f4430",
+        ".cac/tools/scene_completion/exception_generation.py": "d824f038e2d357881c4677486cf1ccf3d8d0917b82ad8e417b5cf7f848cb5d30",
+        ".cac/tools/scene_completion/normal_rules.py": "789098dc5b46b50fbda3d0f37d21e6ef05f396d921607609276c414528b304bb",
+        ".cac/tools/scene_completion/data_requirements.py": "7856736d64a6823f34e1502f3e1596eaf8afb30037a5574e1afcee2ff1574ead",
+        ".cac/tools/scene_completion/indexed_context.py": "b6cfae33b24a853210632b49626b9eb27fb17641c4c98088ba6e77551d4806c9",
+        ".cac/tools/scene_completion/model_submission.py": "b07ecb163642341549ff12f735f9f380146f4a0b26888a1a1dad7add330e7f3e",
+        ".cac/skills/scene-pattern-apply/SKILL.md": "0f7f4836e5859b67a1669ccf059dd8f6b26120589dad64e14489eeb45a1a19ee"
+      }
+    }
+  }
+}

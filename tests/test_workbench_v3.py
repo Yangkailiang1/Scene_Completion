@@ -301,7 +301,7 @@ def test_runtime_cache_aliases_preserve_only_exact_reviewed_implementations(tmp_
     actual=Path.read_text
     def changed(path,*args,**kwargs):
         text=actual(path,*args,**kwargs)
-        return text+'\n# semantic change' if path.name=='deepagents_client.py' else text
+        return text+'\n# semantic change' if path.name=='api_documents.py' else text
     monkeypatch.setattr(Path,'read_text',changed)
     assert workflow.code_version('api-map')!=before
 

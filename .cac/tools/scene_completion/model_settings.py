@@ -29,6 +29,7 @@ def resolve(overrides,env_path,accounts_root=None):
     config['agent_model']=expand(config.get('agent_model')) or env.get('SCENE_AGENT_MODEL') or 'ecnu-plus'
     config.setdefault('agent_runtime','deepagents');config.setdefault('structured_output','json_object');config.setdefault('stream',True)
     config.setdefault('indexed_context',True);config.setdefault('max_context_tokens',200000)
+    config.setdefault('supplement_tests',False)
     config.setdefault('max_retries',0)
     config.setdefault('stream_idle_timeout_seconds',300);config.setdefault('stream_total_timeout_seconds',900)
     return config

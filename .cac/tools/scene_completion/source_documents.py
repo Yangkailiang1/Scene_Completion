@@ -31,6 +31,7 @@ def read_project_documents(project,sources,channel):
         for d in values:
             suffix='#'+d['name'].split('#',1)[1] if '#' in d['name'] else ''
             d['name']=source['name']+suffix
+            if source.get('source_id'):d['source_id']=source['source_id']+('-'+fingerprint(suffix)[:12] if suffix else '')
         docs.extend(values)
     return docs
 
