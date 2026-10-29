@@ -8,9 +8,10 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
     from .throughput import Monitor
     monitor=Monitor(throughput_policy or (lambda:{}),started=started,model=requested_model)
     reasoning=[];reasoning_bytes=0;reasoning_fields=set();delta_fields=set();initial_progress=False
+    content_bytes=0;tool_argument_bytes=0
     content=[];tool_calls={};model=None;finish=None;usage=None;done=False;event=[];events=0;size=0;first=None;last=None;last_progress=started;preparing=False
     def consume(lines):
-        nonlocal model,finish,usage,done,events,first,size,last,last_progress,preparing,reasoning_bytes,initial_progress
+        nonlocal model,finish,usage,done,events,first,size,last,last_progress,preparing,reasoning_bytes,initial_progress,content_bytes,tool_argument_bytes
         data='\n'.join(lines)
         if data=='[DONE]':done=True;return
         if not data:return
@@ -47,7 +48,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
             text=delta.get('content')
             if text:
                 if not isinstance(text,str):raise ValueError('stream content must be text')
-                size+=len(text.encode('utf8'))
+                size+=len(text.encode('utf8'));content_bytes+=len(text.encode('utf8'))
                 if size>16*1024*1024:raise ValueError('stream output exceeds bounded response size')
                 content.append(text)
                 emit('stream_delta',channel='text',text=text)
@@ -58,7 +59,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
                 call['id']+=part.get('id') or ''
                 call['function']['name']+=fun.get('name') or ''
                 call['function']['arguments']+=fun.get('arguments') or ''
-                size+=len((fun.get('arguments') or '').encode('utf8'))
+                size+=len((fun.get('arguments') or '').encode('utf8'));tool_argument_bytes+=len((fun.get('arguments') or '').encode('utf8'))
                 if size>16*1024*1024:raise ValueError('stream output exceeds bounded response size')
                 emit('stream_delta',channel='tool_arguments',tool_index=index,tool_name=fun.get('name') or '',text=fun.get('arguments') or '',tool_call_id=part.get('id'))
             finish=choice.get('finish_reason') or finish
@@ -70,7 +71,7 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         while True:
             if time.perf_counter()-started>timeout:
                 err=TimeoutError('stream total deadline exceeded');err.response_diagnostic={'timeout_kind':'total_deadline'};raise err
-            monitor.observe(size+reasoning_bytes)
+            monitor.observe(size+reasoning_bytes,content_bytes=content_bytes,tool_argument_bytes=tool_argument_bytes,reasoning_bytes=reasoning_bytes)
             wait_limit=monitor.read_wait()
             if set_read_timeout:set_read_timeout(max(.001,min(idle_timeout or timeout,timeout-(time.perf_counter()-started),wait_limit if wait_limit is not None else timeout)))
             try:raw=next(iterator)

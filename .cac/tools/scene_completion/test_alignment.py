@@ -34,6 +34,13 @@ def exact_alignment(inputs):
     for case in inputs['test-inventory']['cases']:
         text=case['association'];selected=[g for g in groups if any(re.search(r'(?<![\w-])'+re.escape(cid)+r'(?![\w-])',text) for cid in g['rr_ids']+g['sr_ids'])]
         if len(selected)!=1:return None
+        # Recovered use cases have their own numbering. A reused ID alone is
+        # not evidence that the test and requirement describe the same goal.
+        if re.search(r'[:：]',text):
+            test_name=re.split(r'[:：]',text,1)[1].strip()
+            normalize=lambda name:re.sub(r'[\s、，。:：_-]','',name).casefold()
+            names=[c.get('name','') for field in ('rr-cases','sr-cases') for c in inputs[field].get('cases',[]) if c['id'] in selected[0]['rr_ids']+selected[0]['sr_ids']]
+            if not test_name or not any(normalize(n)==normalize(test_name) for n in names):return None
         confirmed=selected[0]['status']=='confirmed'
         matches.append({'test_case_id':case['id'],'case_group_id':selected[0]['id'] if confirmed else None,'status':'confirmed' if confirmed else 'pending','basis':'测试原文明示的需求用例编号精确对应' if confirmed else '对应的RR/SR用例组尚未确认','source_refs':case['source_refs']})
     return {'matches':matches}
@@ -88,3 +95,15 @@ def validate_test_task(task,value,inputs):
             if m['status']=='confirmed' and m['case_group_id'] not in groups:raise ValueError('测试只能对应到已确认的RR/SR用例组')
             if m['status']!='confirmed' and m['case_group_id'] is not None:raise ValueError('未确定的测试用例对应不能偷偷进入计分组')
         if seen!=cases:raise ValueError('每个测试用例必须对应或明确列待确认/未匹配，不能丢弃')
+
+
+def alignment_context(inputs):
+    """Match use-case identity, not every operation/branch in both documents."""
+    from copy import deepcopy
+    value=deepcopy(inputs)
+    for field in ('rr-cases','sr-cases'):
+        value[field]={'cases':[{k:c[k] for k in ('id','name','goal','actors','layer','source_ranges') if k in c} for c in inputs[field]['cases']]}
+    value['case-groups']={'groups':[{k:g[k] for k in ('id','rr_ids','sr_ids','status')} for g in inputs['case-groups']['groups']]}
+    # Keep test case's own traceable success context, not the exception list.
+    value['test-inventory']={**value['test-inventory'],'tests':[]}
+    return value

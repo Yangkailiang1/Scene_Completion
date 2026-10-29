@@ -141,6 +141,10 @@ class Scheduler:
                 return v
         with ThreadPoolExecutor(max_workers=self.limit) as pool:
             while remaining or active:
+                if (self.root/'pause_requested.json').exists():
+                    # Finish in-flight work without starting any new task; preserve checkpoints.
+                    if not active:break
+                    remaining.clear()
                 if self.on_update:
                     self.on_update()
                     remaining.update(set(self.tasks)-done-set(active.values()))
@@ -152,6 +156,7 @@ class Scheduler:
                 # across stages so one large fan-out cannot monopolize slots.
                 rank=lambda c:0 if not self.priority_cases else -1 if c=='shared' else self.priority_cases.index(c) if c in self.priority_cases else len(self.priority_cases)
                 for key in sorted(remaining,key=lambda k:(0 if self.tasks[k].case=='shared' and self.tasks[k].stage in {'source-index','document-context'} else 1 if self.tasks[k].case=='shared' and self.tasks[k].stage in roots else 2,rank(self.tasks[k].case),dispatches.get(self.tasks[k].stage,0),order[k])):
+                    if (self.root/'pause_requested.json').exists():break
                     t=self.tasks[key]
                     if not set(t.deps)<=done:continue
                     if any(self.state['tasks'][d]['status']!='passed' for d in t.deps):
@@ -229,4 +234,4 @@ class Scheduler:
                             fault_package(self.root,key,rec)
                     self.save()
                     if self.on_result:self.on_result()
-        return {'complete':all(self.state['tasks'][k]['status']=='passed' for k in self.tasks)}
+        return {'complete':all(self.state['tasks'].get(k,{}).get('status')=='passed' for k in self.tasks)}

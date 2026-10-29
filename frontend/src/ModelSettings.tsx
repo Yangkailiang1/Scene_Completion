@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ManagerModelProfile } from "./ManagerModelProfile";
 import { api, projectUrl } from "./api";
 
 type Account = {
@@ -17,6 +18,7 @@ export function ModelSettings({
   config: Record<string, any>;
   onSaved: () => void;
 }) {
+  const [managerOpen, setManagerOpen] = useState(false);
   const [catalog, setCatalog] = useState<{
     revision: number;
     accounts: Account[];
@@ -62,13 +64,18 @@ export function ModelSettings({
     body.resilience = {
       ...(config.resilience || {}),
       enabled: raw.failover_enabled === "on",
-      candidates: String(raw.failover_models || "").split(/[\n,，]/).map(s => s.trim()).filter(Boolean).map(model => ({model})),
+      candidates: [...(config.resilience?.candidates || []).filter((v:any) => v.account_id), ...String(raw.failover_models || "")
+        .split(/[\n,，]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((model) => ({ model }))],
       min_tokens_per_second: Number(raw.failover_rate || 2),
       window_seconds: Number(raw.failover_window || 30),
       grace_seconds: Number(raw.failover_grace || 60),
       no_output_seconds: Number(raw.failover_stall || 120),
     };
-    for (const k of Object.keys(body)) if(k.startsWith("failover_")) delete body[k];
+    for (const k of Object.keys(body))
+      if (k.startsWith("failover_")) delete body[k];
     body.thinking = raw.thinking === "auto" ? null : raw.thinking === "on";
     body.stream_reasoning = raw.stream_reasoning === "on";
     body.supplement_tests = raw.supplement_tests === "on";
@@ -122,7 +129,7 @@ export function ModelSettings({
   return (
     <div className="model-account-settings">
       <span className="eyebrow">MODEL CONNECTIONS</span>
-      <h2>模型连接</h2>
+      <h2>模型与连接设置</h2>
       <p>
         每个API
         Key管理独立的可用模型列表。网页与CLI使用同一服务端配置，密钥不会返回浏览器或包含在项目导出中。
@@ -132,7 +139,57 @@ export function ModelSettings({
           {message}
         </p>
       )}
-      <form onSubmit={submit}>
+      <nav className="model-section-nav" aria-label="模型设置分组">
+        {[
+          ["model-connections", "API连接"],
+          ["model-pipeline", "流水线模型"],
+          ["model-manager", "管理Agent模型"],
+          ["model-runtime", "运行与切换策略"],
+        ].map(([id, label]) => (
+          <button
+            type="button"
+            key={id}
+            onClick={() => {
+              if (id === "model-manager") setManagerOpen(true);
+              document
+                .getElementById(id)
+                ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div className="connection-overview" id="model-connections">
+        <h3>API连接</h3>
+        <div>
+          {catalog.accounts.map((a) => (
+            <button
+              type="button"
+              key={a.id}
+              onClick={() => {
+                choose(a.id);
+                setEditing(a.id);
+              }}
+            >
+              <strong>{a.name}</strong>
+              <small>
+                {a.models.length} 个模型 ·{" "}
+                {a.credential_configured ? "已配置密钥" : "待配置"}
+              </small>
+            </button>
+          ))}
+        </div>
+        <button type="button" onClick={() => setEditing("")}>
+          新增API Key连接
+        </button>
+      </div>
+      <form
+        className="pipeline-model-form"
+        onSubmit={submit}
+        id="model-pipeline"
+      >
+        <h3>流水线模型</h3>
         <label>
           API Key连接
           <select
@@ -209,7 +266,7 @@ export function ModelSettings({
             </label>
           </>
         )}
-        <details className="model-advanced">
+        <details className="model-advanced" id="model-runtime">
           <summary>运行参数（可选）</summary>
           <div className="form-grid">
             <label>
@@ -313,29 +370,92 @@ export function ModelSettings({
         </details>
         <details className="model-advanced">
           <summary>吞吐监视与模型切换</summary>
-          <p>只影响后续请求，已通过产物继续校验复用。在途请求保留原配置；关闭低吞吐流不保证供应商停止计算，未知用量保留。</p>
-          <label><input type="checkbox" name="failover_enabled" defaultChecked={config.resilience?.enabled || false} />启用按候选模型切换</label>
-          <label>同一API Key的候选模型（每行一个，按顺序）<textarea name="failover_models" rows={3} defaultValue={(config.resilience?.candidates || []).filter((c:any)=>!c.account_id || c.account_id===account).map((c:any)=>c.model).join("\n")} placeholder="必须包含在该连接允许模型列表中" /></label>
-          <div className="form-grid">{[
-            ["failover_rate","min_tokens_per_second","低吞吐阈值（估算Token/秒）",2,0],
-            ["failover_window","window_seconds","观察窗口（秒）",30,5],
-            ["failover_grace","grace_seconds","开始生成宽限（秒）",60,0],
-            ["failover_stall","no_output_seconds","无生成内容时限（秒）",120,10],
-          ].map(([name,key,label,fallback,min])=><label key={String(name)}>{label}<input type="number" step={name==="failover_rate" ? "0.1" : "1"} name={String(name)} min={Number(min)} defaultValue={config.resilience?.[String(key)] ?? fallback} /></label>)}</div>
-          <p>速率为正文、工具参数及供应商公开思考的UTF-8字节÷4估算值，不是计费Token。默认连续两个低速窗口才切换；仅SSE心跳不视为生成。候选预算不足或不在允许列表时不会绕过保护。</p>
+          <p>
+            只影响后续请求，已通过产物继续校验复用。在途请求保留原配置；关闭低吞吐流不保证供应商停止计算，未知用量保留。
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              name="failover_enabled"
+              defaultChecked={config.resilience?.enabled || false}
+            />
+            启用按候选模型切换
+          </label>
+          <label>
+            同一API Key的候选模型（每行一个，按顺序）
+            <textarea
+              name="failover_models"
+              rows={3}
+              defaultValue={(config.resilience?.candidates || [])
+                .filter((c: any) => !c.account_id)
+                .map((c: any) => c.model)
+                .join("\n")}
+              placeholder="必须包含在该连接允许模型列表中"
+            />
+          </label>
+          <div className="form-grid">
+            {[
+              [
+                "failover_rate",
+                "min_tokens_per_second",
+                "低吞吐阈值（估算Token/秒）",
+                2,
+                0,
+              ],
+              ["failover_window", "window_seconds", "观察窗口（秒）", 30, 5],
+              ["failover_grace", "grace_seconds", "开始生成宽限（秒）", 60, 0],
+              [
+                "failover_stall",
+                "no_output_seconds",
+                "无生成内容时限（秒）",
+                120,
+                10,
+              ],
+            ].map(([name, key, label, fallback, min]) => (
+              <label key={String(name)}>
+                {label}
+                <input
+                  type="number"
+                  step={name === "failover_rate" ? "0.1" : "1"}
+                  name={String(name)}
+                  min={Number(min)}
+                  defaultValue={config.resilience?.[String(key)] ?? fallback}
+                />
+              </label>
+            ))}
+          </div>
+          <p>
+            速率为正文、工具参数及供应商公开思考的UTF-8字节÷4估算值，不是计费Token。默认连续两个低速窗口才切换；仅SSE心跳不视为生成。候选预算不足或不在允许列表时不会绕过保护。
+          </p>
         </details>
         <button className="model-primary-button" type="submit" disabled={busy}>
           保存项目配置
         </button>
       </form>
-      <section className="model-account-editor">
-        <button
-          type="button"
-          aria-expanded={editing !== null}
-          onClick={() => setEditing(editing === null ? "" : null)}
-        >
-          {editing !== null ? "收起连接编辑" : "新增API Key连接"}
-        </button>
+      <details
+        className="model-manager-section"
+        id="model-manager"
+        open={managerOpen}
+        onToggle={(e) => setManagerOpen(e.currentTarget.open)}
+      >
+        <summary>管理Agent模型</summary>
+        {managerOpen && <ManagerModelProfile project={project} />}
+      </details>
+      <section
+        className={
+          editing !== null
+            ? "model-account-editor open"
+            : "model-account-editor"
+        }
+      >
+        {editing !== null && (
+          <div className="account-drawer-heading">
+            <h3>{editing ? "编辑API连接" : "新增API连接"}</h3>
+            <button type="button" onClick={() => setEditing(null)}>
+              关闭
+            </button>
+          </div>
+        )}
         {editing !== null && (
           <form key={editing ?? "new"} onSubmit={saveAccount}>
             <label>

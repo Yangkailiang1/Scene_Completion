@@ -1,3 +1,4 @@
+import { ThroughputView } from "./ThroughputView";
 import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { api, projectUrl } from "./api";
@@ -17,6 +18,7 @@ export function UsageView({
   onClose: () => void;
   onSelect: (key: string) => void;
 }) {
+  const [throughputOpen,setThroughputOpen]=useState(false);
   const [session, setSession] = useState(""),
     [account, setAccount] = useState("");
   const [sort, setSort] = useState("tokens");
@@ -583,6 +585,7 @@ export function UsageView({
           下一页
         </Button>
       </div>
+      <details className="usage-throughput-section" onToggle={e=>setThroughputOpen(e.currentTarget.open)}><summary>实时吞吐曲线与请求时间线</summary>{throughputOpen&&<ThroughputView project={project}/>}</details>
       {context && (
         <details open>
           <summary>当前节点模型上下文（不含凭证）</summary>

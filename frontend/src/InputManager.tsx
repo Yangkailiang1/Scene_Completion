@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
+import { ArtifactView } from "./ArtifactView";
+import { UploadCloud, FileText, CheckCircle2, Workflow } from "lucide-react";
 import { NodeOutput } from "./NodeOutput";
 
 const labels: Record<string, string> = {
@@ -43,6 +45,7 @@ export function InputManager({
     [recovery, setRecovery] = useState<any>(null),
     [replace, setReplace] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
+  const selectedFile = useRef<string | null>(null);
   useEffect(() => {
     if (!detail?.id) {
       setEvents([]);
@@ -78,17 +81,26 @@ export function InputManager({
     setWatch(b);
     setCases(c.cases || []);
     setRecovery(d);
+    if (selectedFile.current) {
+      const id = selectedFile.current;
+      const row = await api(projectUrl(project, "imports?item=" + encodeURIComponent(id)));
+      // Refresh live bindings/status only. The editor is an independent unsaved draft.
+      if (selectedFile.current === id) setDetail(row);
+    }
   };
   useEffect(() => {
     setDetail(null);
+    selectedFile.current = null;
     load().catch((e) => setMessage(e.message));
     const id = setInterval(() => load().catch(() => {}), 5000);
     return () => clearInterval(id);
   }, [project]);
   const select = async (id: string) => {
+    selectedFile.current = id;
     const row = await api(
       projectUrl(project, "imports?item=" + encodeURIComponent(id)),
     );
+    if (selectedFile.current !== id) return;
     setDetail(row);
     setChosen(0);
     setReplace(false);
@@ -151,8 +163,10 @@ export function InputManager({
     <div className="input-manager">
       <header>
         <div>
-          <h2>输入与导入</h2>
-          <p>同事产物先转换、校验；完整结果复用，部分结果只补缺项。</p>
+          <h2>
+            <UploadCloud size={20} /> 输入与导入
+          </h2>
+          <p>发现文件 → 识别与转换 → 预览 → 交给对应节点</p>
         </div>
         <button onClick={() => load().catch((e) => setMessage(e.message))}>
           刷新
@@ -315,6 +329,94 @@ export function InputManager({
                 <span>版本 {detail.revision}</span>
               </div>
               {detail.error && <p role="alert">{detail.error}</p>}
+              <div className="import-summary-cards">
+                <div>
+                  <small>识别用途</small>
+                  <strong>
+                    {(
+                      {
+                        test: "测试场景 / 独立GT",
+                        artifact: "同事中间产物",
+                        RR: "RR系统需求",
+                        SR: "SR设计需求",
+                      } as any
+                    )[detail.role] || "待归类"}
+                  </strong>
+                  <p>{detail.recognition?.reason}</p>
+                </div>
+                <div>
+                  <small>处理状态</small>
+                  <strong>{statuses[detail.status] || detail.status}</strong>
+                  <p>来源始终保留为 {detail.name}</p>
+                </div>
+                <div>
+                  <small>采用与追溯</small>
+                  <strong>{detail.usage?.length || 0} 个节点已引用</strong>
+                  <p>候选不会覆盖正在执行的任务</p>
+                </div>
+              </div>
+              {detail.target_nodes?.length > 0 && (
+                <div className="import-targets">
+                  <Workflow size={15} />
+                  <span>目标节点</span>
+                  {detail.target_nodes.map((n: string) => (
+                    <code key={n}>{labels[n] || n}</code>
+                  ))}
+                </div>
+              )}
+              {detail.test_preview && (
+                <section className="import-readable">
+                  <h3>测试场景预览</h3>
+                  <div className="import-type-counts">
+                    {Object.entries(detail.test_preview.counts).map(
+                      ([k, v]) => (
+                        <span key={k}>
+                          {
+                            (
+                              {
+                                exception: "异常",
+                                normal: "成功",
+                                optional: "可选",
+                                pending: "待确认",
+                              } as any
+                            )[k]
+                          }{" "}
+                          <b>{String(v)}</b>
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <p>
+                    仅明确异常进入指标；先对齐需求用例与交互，再整理关注点和具体场景。
+                  </p>
+                  <div className="import-table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>场景ID</th>
+                          <th>用例</th>
+                          <th>类型</th>
+                          <th>场景与条件</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.test_preview.records.map((r: any) => (
+                          <tr key={r.id}>
+                            <td>{r.id}</td>
+                            <td>{r.case_name || r["关联需求"]}</td>
+                            <td>{r["类型"]}</td>
+                            <td>
+                              <strong>{r["测试名称"]}</strong>
+                              <p>{r["预期结果"] || r["触发条件"]}</p>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
               {detail.artifacts?.length ? (
                 <>
                   <label>
@@ -354,16 +456,28 @@ export function InputManager({
                     {statuses[artifact.status] || artifact.status}{" "}
                     {artifact.error && " · " + artifact.error}
                   </p>
-                  <label>
-                    标准化JSON（可编辑，提交仍需校验）
-                    <textarea
-                      className="input-json"
-                      value={editor}
-                      readOnly={reviewOnly}
-                      onChange={(e) => setEditor(e.target.value)}
-                      spellCheck={false}
+                  <section className="import-readable">
+                    <h3>已提取信息</h3>
+                    <ArtifactView
+                      projectId={project}
+                      value={artifact.payload}
+                      definitions={{}}
+                      artifacts={[]}
                     />
-                  </label>
+                  </section>
+                  <details className="import-json-advanced">
+                    <summary>高级：编辑标准化JSON</summary>
+                    <label>
+                      标准化JSON（可编辑，提交仍需校验）
+                      <textarea
+                        className="input-json"
+                        value={editor}
+                        readOnly={reviewOnly}
+                        onChange={(e) => setEditor(e.target.value)}
+                        spellCheck={false}
+                      />
+                    </label>
+                  </details>
                   {!reviewOnly && (
                     <div className="input-actions">
                       <label>
@@ -449,13 +563,43 @@ export function InputManager({
                 <p>
                   已采用节点：
                   {detail.usage?.map((u: any) => u.node).join("、") ||
-                    "尚未采用"}
+                    (detail.source_registered ? "已登记为当前来源；等待对应节点执行" : "尚未采用")}
                 </p>
                 <pre>{JSON.stringify(detail.history, null, 2)}</pre>
               </details>
             </>
           )}
         </section>
+        {detail && (
+          <aside className="input-adoption">
+            <small>采用结果</small>
+            <h3>{statuses[detail.status] || detail.status}</h3>
+            <p>
+              {detail.role === "test"
+                ? "该文件进入测试场景通道。用例对应、交互定位和GT评估由相应节点完成。"
+                : "校验通过后，完整结果跳过抽取；部分结果仅补缺项。"}
+            </p>
+            <h4>实际引用节点</h4>
+            {detail.usage?.length ? (
+              detail.usage.map((u: any) => (
+                <p key={u.node}>
+                  <CheckCircle2 size={14} />
+                  {u.node}
+                </p>
+              ))
+            ) : (
+              <p>{detail.source_registered ? "已登记为当前来源，执行后显示具体节点引用。" : "尚未采用，运行前可先预览确认。"}</p>
+            )}
+            <a
+              href={fileUrl(project, detail.original)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              原始文件 ↗
+            </a>
+            <small>文件版本 {detail.revision}</small>
+          </aside>
+        )}
       </div>
       {recovery && (
         <details className="input-recovery">

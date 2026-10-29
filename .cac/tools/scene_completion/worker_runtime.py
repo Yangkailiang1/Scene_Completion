@@ -92,6 +92,8 @@ def main():
 
 
 def stop_workers(service):
+ from .manager_runtime import stop_managers
+ stop_managers(service)
  for path in service.root.glob('*/project.json'):
   p=path.parent;job=read_job(p)
   if job.get('status')=='running' and job.get('worker_token'):

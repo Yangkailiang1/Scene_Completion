@@ -49,6 +49,7 @@ def capabilities():
       'repair-export/repair-submit':'外部Code Agent修复必须通过原校验器',
       'input-scan':'--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续',
       'imports':'--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果',
+      'manager':'--project ID --action status|chat|configure|model|memory|operate|run；--file JSON及--dry-run，持久对话与托管',
       'recovery':'--project ID [--file policy.json --dry-run]；版本化恢复策略及持久预算记录',
       'run/status/events/artifacts/guide/answer':'run支持--case（只跑所选）、--all-cases、--priority-case（优先后继续）；answer仅保存'},
       'input_structures':{
@@ -105,6 +106,7 @@ def parser():
     for cmd in ('pending','sources','registry','patterns','reviews','recommendations','handoff','feedback','impact','test-sources','imports','input-scan','recovery'):
         a=sub.add_parser(cmd);a.add_argument('--project',required=True);a.add_argument('--file');a.add_argument('--out');a.add_argument('--dry-run',action='store_true');a.add_argument('--item');a.add_argument('--node');a.add_argument('--case');a.add_argument('--source');a.add_argument('--start',type=int,default=1);a.add_argument('--end',type=int);a.add_argument('--format',choices=('windows','project'),default='windows');a.add_argument('--allow-partial',action='store_true')
         if cmd=='input-scan':a.add_argument('--directory');a.add_argument('--watch',action=argparse.BooleanOptionalAction,default=None)
+    manager=sub.add_parser('manager');manager.add_argument('--project',required=True);manager.add_argument('--action',choices=('status','chat','configure','model','memory','operate','run'),default='status');manager.add_argument('--text');manager.add_argument('--file');manager.add_argument('--dry-run',action='store_true')
     return p
 
 def main(argv=None,client=None):
@@ -156,6 +158,16 @@ def main(argv=None,client=None):
             output(api.call(path+'/rerun-affected',{'plan_id':args.plan_id,'dry_run':args.dry_run}));return 0
         if args.dry_run:output({'valid':True,'saved':False,'node':args.node,'note':'单节点状态详见diagnose；不启动执行'});return 0
         output(api.call(path+'/rerun-node',{'task_key':args.node,'text':args.text,'dry_run':args.dry_run}));return 0
+    if args.command=='manager':
+        body=json.loads(Path(args.file).read_text(encoding='utf-8-sig')) if args.file else {}
+        if not isinstance(body,dict):raise ValueError('manager输入须为JSON对象')
+        if args.text:body['text']=args.text
+        if args.dry_run:
+            if args.action not in {'configure','model'}:raise ValueError('manager仅配置预览支持--dry-run；操作通过专用校验工具预览')
+            body['dry_run']=True
+        route={'status':'','chat':'messages','configure':'config','model':'model','memory':'memory','operate':'actions','run':'run'}[args.action]
+        method='PUT' if args.action in {'configure','memory'} or args.action=='model' and args.file else 'POST' if args.action in {'chat','operate','run'} else None
+        output(api.call(path+'/manager'+('/'+route if route else ''),body if method else None,method));return 0
     if args.command in {'pending','sources','registry','patterns','reviews','recommendations','handoff','feedback','impact','test-sources','imports','input-scan','recovery'}:
         body=json.loads(Path(args.file).read_text(encoding='utf-8-sig')) if args.file else None
         if body is not None and not isinstance(body,dict):raise ValueError('输入文件必须为JSON对象')

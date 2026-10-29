@@ -70,9 +70,15 @@ def narrative_records(document):
             else:
                 if text:pre.append(text);context.append(row['number'])
         branch=re.match(r'^[-*]\s+EXT\s*[:：]\s*([A-Za-z_]+)\s*[:：]\s*(.*?)〔(SC@[A-Za-z0-9_.:-]+)〕\s*(?:→|->)\s*(.*)$',text)
+        if not branch:
+            # Colleague recovery output: '- exception〔SC@...〕标题：条件为...；结果。'
+            recovered=re.match(r'^[-*]\s+([A-Za-z_]+)〔(SC@[A-Za-z0-9_.:-]+)〕\s*(.*?)\s*[:：]\s*(.*)$',text)
+            if recovered:
+                kind,sid,title,expected=recovered.groups()
+                branch=(kind,title,sid,expected)
         success=re.match(r'^\d+[.、]\s*主成功路径\s*[:：].*?〔(SC@[A-Za-z0-9_.:-]+)〕',text)
         if not branch and not success:continue
-        if branch:kind,title,sid,expected=branch.groups()
+        if branch:kind,title,sid,expected=branch.groups() if hasattr(branch,'groups') else branch
         else:kind,title,sid,expected='normal','主成功路径',success[1],''
         declared={'exception':'exception','alternative_success':'normal','normal':'normal','optional':'optional','undetermined':'pending','pending':'pending'}.get(kind,'pending')
         item={k:'' for k in HEADERS};item.update({'测试ID':sid,'测试名称':title,'类型':{'exception':'异常','normal':'正常','optional':'可选','pending':'待确认'}[declared], '前置条件':'\n'.join(x for x in pre if x),'触发条件':title,'关联需求':case_id+('：'+case_name if case_name else ''),'预期结果':expected,'来源方式':'上传文档明示的恢复场景'})

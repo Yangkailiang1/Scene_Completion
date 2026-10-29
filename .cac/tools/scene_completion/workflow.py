@@ -71,10 +71,10 @@ def code_version(task):
       'missing-report':['exception_comparison.py','artifact_exports.py'],
       'exception-evaluation':['exception_comparison.py','assignment.py'],
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
-      'test-operation-project':['source_documents.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
+      'test-operation-project':['source_documents.py','task_context.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
     names=modules.get(task,[])
 
-    if task in {'components','api-map','api-parameters','use-case-extract','use-case-align','fused-ssd','normal-rules','test-operation-project'}:names=names+['positive_reuse.py']
+    # Positive-reuse admission is an adapter; actual inputs/schema/Skill and business modules remain the artifact contract.
     if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py','scenario_patterns.py']
     if task in {'test-expanded','test-additional-truth','test-additional-dedup'}:names=['test_supplement.py']
     if task in {'exception-generate','existing-extract','test-ground-truth','existing-branches'}:names=names+['scenario_types.py','test_sources.py']
@@ -676,7 +676,7 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
       build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})
     ex.add('test-inventory','test-inventory',static={'test-documents':tests})
     ex.add('test-case-align','test-case-align',('test-inventory','rr-use-cases','sr-use-cases','use-case-align'),
-      build=lambda d:{'test-inventory':{**d['test-inventory'],'tests':[]},'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases'],'case-groups':d['use-case-align']})
+      build=lambda d:__import__('scene_completion.test_alignment',fromlist=['alignment_context']).alignment_context({'test-inventory':{**d['test-inventory'],'tests':[]},'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases'],'case-groups':d['use-case-align']}))
     def expand():
         state=ex.scheduler.state['tasks']
         get=lambda key:payload(read_json(ex.root/state[key]['output_file']))

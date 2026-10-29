@@ -124,33 +124,7 @@ def register(app,service):
     row.update(status='needs_conversion',revision=row['revision']+1);write_json(p/index['items'][iid]['record'],row);index['items'][iid]['status']='needs_conversion';artifacts.save(p,index)
    if service.input_watcher:service.input_watcher.convert_pending(p)
    return {'saved':True}
-  if body.get('action')=='accept_source':
-   row=artifacts.view(p,iid)
-   if body.get('expected_revision')!=row['revision']:raise ValueError('版本已变化')
-   role=body.get('role',row['role'])
-   if role not in {'RR','SR','test'}:raise ValueError('请选择来源用途')
-   raw=(p/row['original']).read_bytes()
-   from .test_sources import decode_source
-   import base64
-   decode_source({'name':row['name'],'content_base64':base64.b64encode(raw).decode()},role)
-   if role=='test':
-    from .test_sources import preview_sources
-    import base64
-    if not preview_sources([{'name':row['name'],'content_base64':base64.b64encode(raw).decode()}])['valid']:raise ValueError('测试文件未通过导入预览')
-   meta=read_json(p/'project.json');old=deepcopy_json(meta)
-   same=[f for f in meta['sources'][role] if f['name']==row['name']]
-   if same and not body.get('replace'):raise ValueError('已有同名来源，请确认替换或选择其他用途')
-   if body.get('dry_run'):return {'saved':False,'valid':True,'role':role}
-   write_json(p/'source_versions'/(fingerprint(old)+'.json'),old)
-   meta['sources'][role]=[f for f in meta['sources'][role] if not (body.get('replace') and f['name']==row['name'])]+[{'name':row['name'],'path':row['original'],'source_id':'input-source-'+row['id']}]
-   if role=='test':
-    version=fingerprint([(f['name'],fingerprint((p/f['path']).read_bytes().hex())) for f in meta['sources'][role]])[:20]
-    history=p/'test_source_versions.json';versions=read_json(history) if history.exists() else [{'id':old.get('test_source_version',fingerprint(old['sources']['test'])[:20]),'sources':old['sources']['test'],'created_at':old['created_at']}]
-    versions.append({'id':version,'sources':meta['sources'][role],'created_at':time.time()});write_json(history,versions);meta['test_source_version']=version
-   write_json(p/'project.json',meta)
-   with artifacts.LOCK:
-    index=artifacts.load(p);row.update(status='source_active',role=role,revision=row['revision']+1);write_json(p/index['items'][iid]['record'],row);index['items'][iid]['status']='source_active';artifacts.save(p,index)
-   return {'saved':True,'next':'显式run后仅重算受来源影响的节点'}
+  if body.get('action')=='accept_source':return accept_source(service,p,artifacts.view(p,iid),body)
   return artifacts.decide(p,iid,body)
  @app.post('/api/projects/{rid}/input-scan')
  def input_scan(rid:str,body:dict):
@@ -177,3 +151,31 @@ def register(app,service):
 
 
 def deepcopy_json(value):return json.loads(json.dumps(value))
+
+def accept_source(service,p,row,body):
+ iid=row['id']
+ if body.get('expected_revision')!=row['revision']:raise ValueError('版本已变化')
+ role=body.get('role',row['role'])
+ if role not in {'RR','SR','test'}:raise ValueError('请选择来源用途')
+ raw=(p/row['original']).read_bytes()
+ from .test_sources import decode_source
+ import base64
+ decode_source({'name':row['name'],'content_base64':base64.b64encode(raw).decode()},role)
+ if role=='test':
+  from .test_sources import preview_sources
+  import base64
+  if not preview_sources([{'name':row['name'],'content_base64':base64.b64encode(raw).decode()}])['valid']:raise ValueError('测试文件未通过导入预览')
+ meta=read_json(p/'project.json');old=deepcopy_json(meta)
+ same=[f for f in meta['sources'][role] if f['name']==row['name']]
+ if same and not body.get('replace'):raise ValueError('已有同名来源，请确认替换或选择其他用途')
+ if body.get('dry_run'):return {'saved':False,'valid':True,'role':role}
+ write_json(p/'source_versions'/(fingerprint(old)+'.json'),old)
+ meta['sources'][role]=[f for f in meta['sources'][role] if not (body.get('replace') and f['name']==row['name'])]+[{'name':row['name'],'path':row['original'],'source_id':'input-source-'+row['id']}]
+ if role=='test':
+  version=fingerprint([(f['name'],fingerprint((p/f['path']).read_bytes().hex())) for f in meta['sources'][role]])[:20]
+  history=p/'test_source_versions.json';versions=read_json(history) if history.exists() else [{'id':old.get('test_source_version',fingerprint(old['sources']['test'])[:20]),'sources':old['sources']['test'],'created_at':old['created_at']}]
+  versions.append({'id':version,'sources':meta['sources'][role],'created_at':time.time()});write_json(history,versions);meta['test_source_version']=version
+ write_json(p/'project.json',meta)
+ with artifacts.LOCK:
+  index=artifacts.load(p);row.update(status='source_active',role=role,revision=row['revision']+1);write_json(p/index['items'][iid]['record'],row);index['items'][iid]['status']='source_active';artifacts.save(p,index)
+ return {'saved':True,'next':'显式run后仅重算受来源影响的节点'}

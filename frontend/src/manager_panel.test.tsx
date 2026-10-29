@@ -1,0 +1,84 @@
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { vi, it, expect, afterEach } from "vitest";
+import { ManagerPanel } from "./ManagerPanel";
+import { ThroughputView } from "./ThroughputView";
+afterEach(() => vi.unstubAllGlobals());
+it("opens a persistent floating manager and sends a project-scoped message", async () => {
+  const writes: any[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any, init: any) => ({
+      ok: true,
+      json: async () => {
+        if (init?.method) {
+          writes.push({ url, body: JSON.parse(init.body) });
+          return { entry_id: 1 };
+        }
+        if (String(url).includes("history")) return { events: [] };
+        return {
+          configuration: {
+            revision: 0,
+            settings: { mode: "collaborative", enabled: false },
+          },
+          runtime: { status: "paused" },
+          messages: [],
+          memory: [],
+          operations: [],
+          patches: [],
+          plan: { items: [] },
+        };
+      },
+    })),
+  );
+  render(<ManagerPanel project="project-a" />);
+  fireEvent.click(screen.getByLabelText("打开项目管理Agent"));
+  await screen.findByText("让管理Agent协助推进项目");
+  fireEvent.change(screen.getByLabelText("发送给管理Agent"), {
+    target: { value: "请检查首例" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+  await waitFor(() => expect(writes[0].body.text).toBe("请检查首例"));
+  expect(String(writes[0].url)).toContain("project-a/manager/messages");
+  fireEvent.click(screen.getByLabelText("最大化管理窗口"));
+  expect(screen.getByLabelText("项目管理Agent").className).toContain(
+    "maximized",
+  );
+  fireEvent.click(screen.getByLabelText("收起管理Agent"));
+  expect(screen.getByLabelText("打开项目管理Agent")).toBeTruthy();
+});
+it("renders explicit estimates and never claims hidden thinking is measurable", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        cursor: 2,
+        has_more: false,
+        points: [
+          {
+            id: 1,
+            at: 1,
+            kind: "request_started",
+            requested_model: "qwen",
+            node: "n",
+            model_call_id: "r",
+          },
+          {
+            id: 2,
+            at: 2,
+            kind: "throughput_sample",
+            tokens_per_second_estimate: 2,
+            model_call_id: "r",
+            node: "n",
+            output_bytes: 40,
+          },
+        ],
+      }),
+    })),
+  );
+  render(<ThroughputView project="p" />);
+  await screen.findByRole("option", { name: "qwen" });
+  expect(screen.getByLabelText("模型实时吞吐曲线")).toBeTruthy();
+  expect(screen.getByText(/未公开的推理内容无法测量/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "SVG" })).toBeTruthy();
+});

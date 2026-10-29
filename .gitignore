@@ -17,3 +17,6 @@ wheelhouse/
 
 frontend/node_modules/
 frontend/coverage/
+
+# Local acceptance snapshots may include private project files.
+.acceptance/

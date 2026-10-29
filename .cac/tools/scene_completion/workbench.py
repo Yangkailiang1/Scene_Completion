@@ -18,7 +18,7 @@ class Workbench:
         self.env_file=Path(env_file or PROJECT/'.env')
         self.review_only=(self.root/'.review-mode.json').exists()
         self.pool=ThreadPoolExecutor(max_workers=2);self.active=set();self.lock=Lock();self.client_factory=client_factory;self.gates={};self.dialogue_active=set()
-        self.worker=worker;self.input_watcher=None;self.guardian=None
+        self.worker=worker;self.input_watcher=None;self.guardian=None;self.manager_host=None;self.local_url=__import__("os").environ.get("SCENE_WORKBENCH_URL","http://127.0.0.1:8765")
     def run_dir(self,run_id):
         if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):raise ValueError('invalid project id')
         p=self.root/run_id
@@ -167,6 +167,7 @@ class Workbench:
         return new['id']
     def start(self,rid,options=None):
         if self.review_only:raise ValueError('业务审核包只保存确认记录；请交回研发后重跑')
+        if (self.root/'manager-maintenance.json').exists():raise ValueError('程序正在安全重启或回退，暂不接受新执行；请查看管理Agent操作记录')
         rid=self.upgrade(rid)
         from .scheduler import run_lock
         with run_lock(self.run_dir(rid)/'dispatch'):
@@ -349,7 +350,7 @@ class Workbench:
         p=self.run_dir(rid);stream=io.BytesIO()
         with zipfile.ZipFile(stream,'w',zipfile.ZIP_DEFLATED) as z:
             for f in p.rglob('*'):
-                if not f.is_file() or f.name.endswith(('.local.json','.lock')) or f.name=='error.log' or 'execution_events.sqlite3' in f.name or any(s in f.parts for s in ('model_cache','native')):continue
+                if not f.is_file() or f.name.endswith(('.local.json','.lock')) or f.name=='error.log' or 'manager' in f.relative_to(p).parts or 'execution_events.sqlite3' in f.name or any(s in f.parts for s in ('model_cache','native')):continue
                 z.write(f,str(f.relative_to(p)))
             if (p/'run/execution_events.sqlite3').exists():
                 from .execution_events import EventStore
@@ -695,6 +696,8 @@ def create_app(root=None,client_factory=None,env_file=None):
         return FileResponse(f)
     @app.get('/api/projects/{rid}/export')
     def export(rid:str):return Response(service.export(rid),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="scene-review.zip"'})
+    from .manager_api import register as register_manager
+    register_manager(app,service)
     from .review_api import register
     register(app,service,PROJECT)
     from .input_gateway import register as register_inputs,InputWatcher
@@ -704,8 +707,11 @@ def create_app(root=None,client_factory=None,env_file=None):
         if not service.review_only and not service.worker:
             from .worker_runtime import Guardian
             service.input_watcher=InputWatcher(service);service.guardian=Guardian(service)
+            from .manager_runtime import ManagerHost
+            service.manager_host=ManagerHost(service)
     @app.on_event('shutdown')
     def stop_input_watcher():
         if service.input_watcher:service.input_watcher.close()
         if service.guardian:service.guardian.close()
+        if service.manager_host:service.manager_host.close()
     return app

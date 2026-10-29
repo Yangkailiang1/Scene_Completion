@@ -8,9 +8,10 @@ def main():
     args=parser.parse_args()
     import uvicorn
     from scene_completion.workbench import create_app
+    os.environ['SCENE_WORKBENCH_URL']=f'http://127.0.0.1:{args.port}'
     app=create_app(args.data_dir,env_file=args.env_file)
     server=uvicorn.Server(uvicorn.Config(app,host=args.host,port=args.port))
-    control=Path(args.control_file).resolve() if args.control_file else None
+    control=Path(args.control_file).resolve() if args.control_file else app.state.workbench.root/'runtime-control.json'
     token=secrets.token_hex(32)
     if control:
         from scene_completion.storage import write_json

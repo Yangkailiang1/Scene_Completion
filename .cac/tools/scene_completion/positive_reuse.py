@@ -22,12 +22,29 @@ def input_identity(value):
         return v
     return fingerprint(clean(value))
 
+def compatible_skill(task,old,new,inputs):
+    if old==normalized_skill(new):return True
+    # Explicit compatibility for the release's Mermaid-only clarification.
+    # It does not affect a plain-text API extraction; a Mermaid input must be redone.
+    if task=='api-map':
+        import re,json
+        text=json.dumps(inputs,ensure_ascii=False)
+        if re.search(r'sequenceDiagram|->>|-->>|<br\s*/?>',text,re.I):return False
+        marker='Markdown中的Mermaid时序图与普通段落同样可作为来源。'
+        trimmed='\n'.join(line for line in normalized_skill(new).splitlines() if not line.startswith(marker)).strip()
+        return old==trimmed
+    return False
+
 def prepare(old,new):
     from . import use_cases  # registers the extended public extraction contracts
     old,new=Path(old),Path(new);a,b=read_json(old/'project.json'),read_json(new/'project.json');mapping={}
+    # Changing independent tests must not invalidate unchanged RR/SR extraction.
+    # Test-dependent seeds still require their actual scoped input hash to match.
     for role in ('RR','SR','test'):
-        if len(a['sources'][role])!=len(b['sources'][role]):return
-        if any((old/x['path']).read_bytes()!=(new/y['path']).read_bytes() for x,y in zip(a['sources'][role],b['sources'][role])):return
+        same=len(a['sources'][role])==len(b['sources'][role]) and all((old/x['path']).read_bytes()==(new/y['path']).read_bytes() for x,y in zip(a['sources'][role],b['sources'][role]))
+        if not same:
+            if role!='test':return
+            continue
         x=read_project_documents(old,a['sources'][role],'test' if role=='test' else 'existing');y=read_project_documents(new,b['sources'][role],'test' if role=='test' else 'existing')
         mapping.update({i['source_id']:j['source_id'] for i,j in zip(x,y)})
     def rebind(v):
@@ -55,7 +72,7 @@ def find(root,task,inputs,scope,skill):
     if not file.exists():return None
     for row in read_json(file)['seeds']:
         if row.get('input_hash')!=input_identity(inputs):continue
-        if row['task']!=task or row['schema_hash']!=fingerprint(schema(task)) or row['skill']!=normalized_skill(skill):continue
+        if row['task']!=task or row['schema_hash']!=fingerprint(schema(task)) or not compatible_skill(task,row['skill'],skill,inputs):continue
         v=deepcopy(row['payload'])
         if task=='api-parameters' and inputs.get('interface'):v={'apis':[a for a in v['apis'] if a['id']==inputs['interface']['id']]}
         if task=='fused-ssd' and (not scope or any(i['case_id'] not in scope for i in v['interactions'])):continue

@@ -284,6 +284,11 @@ def _transport_model(client,stage):
                 if all_guidance:converted.append({'role':'user','content':'本节点指导及明确标注的系统依据补充（后者不是用户新决定；仅在任务允许输入和事实边界内采用）：\n'+'\n'.join(r['text'] for r in all_guidance)})
             body={'model':self.scene_client.model('agent'),'messages':converted,
               'max_tokens':self.scene_client.output_limit(self.task_stage),'stream':self.scene_client.config.get('stream',True),**{k:v for k,v in kwargs.items() if k in {'tools','tool_choice','parallel_tool_calls'}}}
+            if not self.task_stage.startswith('manager'):
+                # Business nodes receive their exact material and loaded Skill.
+                # Generic filesystem/planning tools repeat schemas and invite
+                # re-reading unrelated context. Evidence lookup is task-scoped.
+                body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user','lookup_evidence'}]
             repair=session.get('repair') if session else None
             if repair and 'truncat' in json.dumps(repair.get('failure',{})).lower():
                 ceiling=self.scene_client.config.get('max_tokens',body['max_tokens'])
@@ -296,7 +301,7 @@ def _transport_model(client,stage):
                 notice='系统组成输入已完整提供，直接分析并submit_result，不需要文件探索或维护待办。每个事实保留最小且充分的原文引用，不复制整章。缺失事实保留未知；业务疑问用ask_user记录后继续提交有据部分。'
                 if converted and converted[0]['role']=='system':converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 else:converted.insert(0,{'role':'system','content':notice})
-            if self.request_count>=limit:
+            if self.request_count>=limit and not self.task_stage.startswith('manager'):
                 body['tools']=[t for t in body.get('tools',[]) if t.get('function',{}).get('name') in {'submit_result','ask_user'}]
                 body['tool_choice']='required'
                 notice='已到达本任务工具阅读预算。请停止文件探索：提交有据部分；业务疑问用ask_user记录后继续submit_result，未知项明确待确认。'
@@ -305,12 +310,12 @@ def _transport_model(client,stage):
             # This gateway streamed the tool name, then buffered the large
             # composition arguments until disconnect. JSON text lets actual
             # result tokens flow; the existing submit tool still validates it.
-            text_submission=submission_mode(self.scene_client.config,self.task_stage,self.scene_client.model('agent'))=='json_text'
+            text_submission=not self.task_stage.startswith('manager') and submission_mode(self.scene_client.config,self.task_stage,self.scene_client.model('agent'))=='json_text'
             if text_submission:
                 result_tool=next(t for t in body['tools'] if t['function']['name']=='submit_result')
                 output_schema=result_tool['function']['parameters']['properties']['payload']
                 notice='本次任务输入与Skill已提供，使用JSON文本传输，不重复读取大文件。直接输出符合以下Schema的根业务JSON，不包payload，不输出解释或Schema本身：'+json.dumps(output_schema,ensure_ascii=False,separators=(',',':'))+'。每个事实只保留最小充分的原文引用。业务疑问不阻断；需要提问时仍提交已知结果，使用 {"result":业务JSON,"review_questions":[{"question_type":"rule_completion或scenario_classification或binding_confirmation或general_clarification","question":"问题","known_facts":"已有依据","required_answer":"需业务决定事项","source_refs":[]}]}。未知内容不能编造，不可只返回问题。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
-                if self.request_count<limit and self.task_stage in {'existing-extract','test-ground-truth'}:notice+='若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
+                if self.request_count<limit and self.task_stage in {'existing-extract','test-ground-truth','existing-concerns','test-concerns'}:notice+='若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
                 converted[0]['content']=str(converted[0]['content'])+'\n'+notice
                 for key in ('tools','tool_choice','parallel_tool_calls'):body.pop(key,None)
                 body['response_format']={'type':'json_object'}

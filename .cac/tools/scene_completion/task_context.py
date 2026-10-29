@@ -44,6 +44,18 @@ def generation_matches(inputs):
 
 
 def semantic_view(task,inputs):
+    if task=='test-operation-project':
+        from .test_sources import records
+        out=deepcopy(inputs)
+        for doc in out['test-operation-source']:
+            parsed=records([doc])
+            if any(r.get('source_format')=='recovered_usecase' for r in parsed):
+                # Recovery notes contain failure triggers and expected responses.
+                # Only explicit success context/capability titles reach this tool.
+                normal=[r for r in parsed if r['scenario_type']=='normal']
+                allowed={n for r in normal for n in [r['row'],*r.get('context_rows',[])]}
+                doc['lines']=[r for r in doc['lines'] if r['number'] in allowed]
+        return out
     if task in {'existing-concerns','test-concerns'}:
         return inverse_concern_context(inputs)
     if task=='test-supplement':
@@ -172,6 +184,10 @@ def inverse_concern_context(inputs):
     out=deepcopy(inputs)
     docs=out.get('test-documents',out.get('existing-documents',[]))
     text=' '.join(r['text'] for d in docs for r in d['lines'])
+    if 'test-documents' in out:
+        from .test_sources import records_for_inputs
+        tests=records_for_inputs(out)
+        if tests:text=' '.join(r['测试名称']+' '+r['触发条件']+' '+r['预期结果'] for r in tests)
     branches=out.get('branches',{}).get('branches',[])
     bound={b['interaction_id'] for b in out.get('bindings',{}).get('bindings',[]) if b['status']=='confirmed'}
     from .inverse_alignment import broad_input_branch
@@ -193,7 +209,7 @@ def inverse_concern_context(inputs):
     for i in out['fused-ssd']['interactions']:
         for side in ('sender','receiver'):i[side]={k:i[side][k] for k in ('name','position')}
         i['operation']={k:i['operation'][k] for k in ('name','kinds','sequence')}
-        i['data']={'sequence':[{k:p[k] for k in ('name','location')} for p in i['data']['sequence']]}
+        i['data']={'sequence':[{k:p[k] for k in ('name','location')} for p in i['data']['sequence'] if broad or p['name'] in fields]}
     if 'registry' in out:
         out['registry']={'version':out['registry']['version'],'definitions':{k:{f:v[f] for f in ('label','description','layer')} for k,v in out['registry']['definitions'].items() if v.get('enabled',True) and v.get('kind')=='check'}}
     if branches:out.pop('existing-documents',None)

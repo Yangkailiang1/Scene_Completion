@@ -28,6 +28,24 @@ def view(project,item=None):
   row=read_json(Path(project)/index['items'][item]['record'])|{'index_revision':index['revision']}
   usage=read_json(Path(project)/'imports/usage.json') if (Path(project)/'imports/usage.json').exists() else {}
   row['usage']=[v for v in usage.values() if v['file_id']==item]
+  meta_path=Path(project)/'project.json'
+  if meta_path.exists() and row.get('role') in {'RR','SR','test'}:
+   meta=read_json(meta_path);sources=meta.get('sources',{}).get(row['role'],[])
+   if any(s.get('path')==row['original'] for s in sources):
+    row['status']='source_active'
+    tasks_path=Path(project)/'run/workflow_tasks.json'
+    tasks=read_json(tasks_path).get('tasks',{}) if tasks_path.exists() else {}
+    from .source_documents import read_project_documents
+    source_ids={d['source_id'] for d in read_project_documents(Path(project),[s for s in sources if s.get('path')==row['original']],'test' if row['role']=='test' else 'existing')}
+    def references(value):
+     if isinstance(value,dict):return value.get('source_id') in source_ids or any(references(v) for v in value.values())
+     if isinstance(value,list):return any(references(v) for v in value)
+     return False
+    for key,value in tasks.items():
+     output=Path(project)/'run'/value['output_file'] if value.get('output_file') else None
+     if output and output.is_file() and references(read_json(output)):
+      row['usage'].append({'node':key,'status':value.get('status'),'file_id':item,'source':row['original'],'revision':row['revision']})
+    row['source_registered']=True
   for a in row['artifacts']:
    if any(v['artifact_id']==a['id'] and v['revision']==row['revision'] for v in row['usage']):a['status']='active'
   return row
@@ -36,6 +54,8 @@ def view(project,item=None):
 
 def role_hint(name,text):
  name=name.lower()
+ # A recovery/test body is stronger evidence than an arbitrary file name.
+ if re.search(r'测试逆向|测试逆向恢复|^\s*[-*]\s+(?:exception|alternative_success|undetermined)〔SC@',text,re.M):return 'test'
  if re.search(r'(^|[_. -])test(?:[_ -]?(?:spec|cases?|scenarios?))?([_. -]|$)|测试|逆向|recovered',name):return 'test'
  from .test_sources import is_test_header,cells
  if any(is_test_header(cells(line)) for line in text.splitlines() if line.lstrip().startswith('|')):return 'test'
@@ -143,6 +163,16 @@ def receive(project,files):
    parse_text='\n'.join(v['text'] for v in positive['lines']) if Path(name).suffix.lower() in {'.md','.markdown'} else text
    artifacts=deterministic(parse_text,name) if role=='artifact' else []
    row={'id':iid,'name':name,'hash':digest,'role':role,'status':'converted' if artifacts else 'needs_conversion' if role=='artifact' else 'source_pending','artifacts':[],'created_at':time.time(),'revision':0,'original':str((folder/'original'/name).relative_to(project)),'history':[]}
+   row['recognition']={'role':role,'reason':'正文含明确测试场景/恢复结构' if role=='test' and re.search(r'SC@|测试逆向',text) else '格式结构与文件用途识别','source_file':name,'source_hash':digest}
+   if role=='test':
+    from .test_sources import preview
+    documents=[{'source_id':'import-raw-'+iid,'name':name,'channel':'test','lines':[{'number':i,'text':line} for i,line in enumerate(text.splitlines(),1)]}]
+    if Path(name).suffix.lower()=='.xlsx':
+     from .test_sources import xlsx_documents
+     documents=xlsx_documents(raw,name,iid)
+    row['test_preview']=preview(documents)
+    row['target_nodes']=['test-inventory','test-case-align','<用例>:test-concerns','<用例>:test-ground-truth','<用例>:concern-evaluation','<用例>:exception-evaluation']
+   else:row['target_nodes']=[a['task'] for a in row['artifacts']]
    if bound:row['status']='source_active'
    _targets(row,artifacts)
    from .artifact_parsers import mermaid_sequences

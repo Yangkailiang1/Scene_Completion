@@ -13,14 +13,14 @@ class Monitor:
     def __init__(self,policy,started=None,clock=None,model=None):
         self.model=model;self.policy=policy;self.clock=clock or time.perf_counter;self.started=started if started is not None else self.clock()
         self.samples=deque([(self.started,0)]);self.total=0;self.last_output=self.started;self.last_window=self.started;self.low=0;self.last_emit=self.started
-    def observe(self,byte_count):
+    def observe(self,byte_count,**channels):
         now=self.clock();p=self.policy() or {}
         if byte_count>self.total:self.last_output=now
         self.total=byte_count;self.samples.append((now,byte_count))
         window=p.get('window_seconds',30)
         while len(self.samples)>2 and self.samples[1][0]<=now-window:self.samples.popleft()
         age=now-self.started;span=max(.001,now-self.samples[0][0]);rate=max(0,byte_count-self.samples[0][1])/4/span
-        row={'requested_model':self.model,'elapsed_seconds':round(age,2),'window_seconds':round(span,2),'tokens_per_second_estimate':round(rate,3),'output_bytes':byte_count,'measurement':'UTF-8 bytes / 4 (estimate, includes reasoning; not billing)','threshold':p.get('min_tokens_per_second',2),'enabled':bool(p.get('enabled'))}
+        row={**channels,'requested_model':self.model,'elapsed_seconds':round(age,2),'window_seconds':round(span,2),'tokens_per_second_estimate':round(rate,3),'output_bytes':byte_count,'measurement':'UTF-8 bytes / 4 (estimate, includes reasoning; not billing)','threshold':p.get('min_tokens_per_second',2),'enabled':bool(p.get('enabled'))}
         from .execution_events import emit
         if now-self.last_emit>=5:
             emit('throughput_sample',**row);self.last_emit=now

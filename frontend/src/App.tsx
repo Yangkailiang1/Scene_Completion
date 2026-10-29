@@ -32,6 +32,7 @@ import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
 import { UsageView } from "./UsageView";
 import { PatternManager } from "./PatternManager";
+import { ManagerPanel } from "./ManagerPanel";
 import { InputManager } from "./InputManager";
 import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
@@ -1228,6 +1229,7 @@ export default function App() {
           </>
         )}
       </div>
+      {current && <ManagerPanel key={current} project={current} reviewOnly={snapshot?.review_only}/>}
       {dialog && (
         <div
           className="modal-backdrop"
