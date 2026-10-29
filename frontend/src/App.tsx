@@ -30,6 +30,7 @@ import { ExecutionFlow } from "./ExecutionFlow";
 import { sourceFile } from "./TestSources";
 import { NodeConversation } from "./NodeConversation";
 import { NodeOutput } from "./NodeOutput";
+import { WorkspaceMonitor } from "./WorkspaceMonitor";
 import { UsageView } from "./UsageView";
 import { PatternManager } from "./PatternManager";
 import { ManagerPanel } from "./ManagerPanel";
@@ -746,6 +747,14 @@ export default function App() {
                 </button>
               </nav>
             </div>
+            {current && !management && !usageOpen && (
+              <WorkspaceMonitor
+                project={current}
+                reviewOnly={snapshot?.review_only}
+                onSettings={() => setDialog("settings")}
+                onSelect={selectNode}
+              />
+            )}
             <PanelGroup
               direction="horizontal"
               key={panelVersion}

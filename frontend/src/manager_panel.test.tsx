@@ -142,3 +142,107 @@ it("shows the support entry even before a project has been selected", async () =
   ).toBe(true);
   expect(calls).not.toHaveBeenCalled();
 });
+it("keeps legacy requests without call IDs separated by node in throughput filters", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        cursor: 4,
+        has_more: false,
+        points: [
+          {
+            id: 1,
+            at: 1,
+            kind: "request_started",
+            node: "a",
+            requested_model: "model-a",
+          },
+          {
+            id: 2,
+            at: 2,
+            kind: "request_started",
+            node: "b",
+            requested_model: "model-b",
+          },
+          {
+            id: 3,
+            at: 3,
+            kind: "throughput_sample",
+            node: "a",
+            tokens_per_second_estimate: 3,
+            output_bytes: 24,
+          },
+          {
+            id: 4,
+            at: 4,
+            kind: "throughput_sample",
+            node: "b",
+            tokens_per_second_estimate: 4,
+            output_bytes: 48,
+          },
+        ],
+      }),
+    })),
+  );
+  render(<ThroughputView project="p" />);
+  await screen.findByRole("option", { name: "model-a" });
+  fireEvent.change(screen.getByLabelText("吞吐模型"), {
+    target: { value: "model-a" },
+  });
+  expect(document.querySelectorAll(".throughput-chart circle")).toHaveLength(1);
+  expect(
+    document.querySelector(".throughput-chart circle title")?.textContent,
+  ).toContain("model-a · a");
+});
+it("does not draw a continuous rate across an unmeasured gap", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        cursor: 4,
+        has_more: false,
+        points: [
+          {
+            id: 1,
+            at: 1,
+            kind: "request_started",
+            node: "n",
+            model_call_id: "r",
+            requested_model: "m",
+          },
+          {
+            id: 2,
+            at: 2,
+            kind: "throughput_sample",
+            node: "n",
+            model_call_id: "r",
+            tokens_per_second_estimate: 3,
+          },
+          {
+            id: 3,
+            at: 7,
+            kind: "throughput_sample",
+            node: "n",
+            model_call_id: "r",
+            tokens_per_second_estimate: 2,
+          },
+          {
+            id: 4,
+            at: 100,
+            kind: "throughput_sample",
+            node: "n",
+            model_call_id: "r",
+            tokens_per_second_estimate: 1,
+          },
+        ],
+      }),
+    })),
+  );
+  render(<ThroughputView project="p" />);
+  await screen.findByRole("option", { name: "m" });
+  expect(document.querySelectorAll(".throughput-chart polyline")).toHaveLength(
+    2,
+  );
+});

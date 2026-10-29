@@ -104,5 +104,6 @@ def read_chat_stream(response, started, timeout, observer=None, *, idle_timeout=
         if not call['id'] or not call['function']['name']:raise ValueError('incomplete streamed tool identity')
         # Parse arguments in the metered semantic adapter, after usage settlement.
         # A complete HTTP stream can still contain invalid semantic JSON.
+    monitor.observe(size+reasoning_bytes,final=True,content_bytes=content_bytes,tool_argument_bytes=tool_argument_bytes,reasoning_bytes=reasoning_bytes)
     return {'model':model,'choices':[{'message':{'content':''.join(content),**({'reasoning_content':''.join(reasoning)} if capture_reasoning and reasoning else {}),**({'tool_calls':calls} if calls else {})},'finish_reason':finish}],
         'usage':usage,'_scene_completion_metrics':{'stream_events':events,'first_event_seconds':first,'stream_complete':True,'reasoning_bytes':reasoning_bytes,'reasoning_fields':sorted(reasoning_fields),'delta_fields':sorted(delta_fields),'reasoning_display_enabled':display_reasoning,'response_mode':'sse','estimated_generated_tokens':round((size+reasoning_bytes)/4,1),'tokens_per_second_estimate':round((size+reasoning_bytes)/4/max(.001,time.perf_counter()-started),3),'throughput_measurement':'UTF-8 bytes / 4; estimate including reasoning, not billing'}}

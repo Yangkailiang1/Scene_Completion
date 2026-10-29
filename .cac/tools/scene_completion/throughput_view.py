@@ -2,10 +2,14 @@
 import json,csv,io
 from .execution_events import EventStore
 KINDS={'request_started','request_finished','request_failed','throughput_sample','stream_progress','stream_first_event','model_degraded','model_switched','model_switch_skipped','rate_limit_wait'}
-FIELDS={'model_call_id','requested_model','provider_model','account_id','elapsed_seconds','window_seconds','tokens_per_second_estimate','output_bytes','reasoning_bytes','reasoning_characters','content_bytes','tool_argument_bytes','failure_category','retry_after_seconds','reason','measurement','enabled','estimated_generated_tokens'}
+FIELDS={'model_call_id','requested_model','provider_model','account_id','elapsed_seconds','window_seconds','tokens_per_second_estimate','output_bytes','reasoning_bytes','reasoning_characters','content_bytes','tool_argument_bytes','failure_category','retry_after_seconds','reason','measurement','enabled','estimated_generated_tokens','last_output_age_seconds','threshold','previous_model','retry_at','model'}
 
-def series(project,after=0,limit=2000,model=None,node=None):
+def series(project,after=0,limit=2000,model=None,node=None,since=None):
  store=EventStore(project/'run');query='SELECT id,payload FROM events WHERE id>? AND kind IN ('+','.join('?' for k in KINDS)+')';args=[after,*sorted(KINDS)]
+ if since is not None:
+  import math
+  if not math.isfinite(since) or since<0:raise ValueError('无效吞吐时间范围')
+  query+=' AND at>=?';args.append(since)
  if node:query+=' AND task_key=?';args.append(node)
  query+=' ORDER BY id LIMIT ?';args.append(min(10000,max(1,limit)))
  with store.connect() as db:rows=db.execute(query,args).fetchall()

@@ -12,19 +12,19 @@ class SlowStream(RuntimeError):
 class Monitor:
     def __init__(self,policy,started=None,clock=None,model=None):
         self.model=model;self.policy=policy;self.clock=clock or time.perf_counter;self.started=started if started is not None else self.clock()
-        self.samples=deque([(self.started,0)]);self.total=0;self.last_output=self.started;self.last_window=self.started;self.low=0;self.last_emit=self.started
-    def observe(self,byte_count,**channels):
+        self.samples=deque([(self.started,0)]);self.total=0;self.last_output=self.started;self.last_window=self.started;self.low=0;self.last_emit=self.started;self.channels={}
+    def observe(self,byte_count,*,final=False,**channels):
         now=self.clock();p=self.policy() or {}
         if byte_count>self.total:self.last_output=now
-        self.total=byte_count;self.samples.append((now,byte_count))
+        self.total=byte_count;self.samples.append((now,byte_count));self.channels.update(channels)
         window=p.get('window_seconds',30)
         while len(self.samples)>2 and self.samples[1][0]<=now-window:self.samples.popleft()
         age=now-self.started;span=max(.001,now-self.samples[0][0]);rate=max(0,byte_count-self.samples[0][1])/4/span
-        row={**channels,'requested_model':self.model,'elapsed_seconds':round(age,2),'window_seconds':round(span,2),'tokens_per_second_estimate':round(rate,3),'output_bytes':byte_count,'measurement':'UTF-8 bytes / 4 (estimate, includes reasoning; not billing)','threshold':p.get('min_tokens_per_second',2),'enabled':bool(p.get('enabled'))}
+        row={**self.channels,'last_output_age_seconds':round(now-self.last_output,2),'requested_model':self.model,'elapsed_seconds':round(age,2),'window_seconds':round(span,2),'tokens_per_second_estimate':round(rate,3),'output_bytes':byte_count,'measurement':'UTF-8 bytes / 4 (estimate, includes reasoning; not billing)','threshold':p.get('min_tokens_per_second',2),'enabled':bool(p.get('enabled'))}
         from .execution_events import emit
-        if now-self.last_emit>=5:
+        if final or now-self.last_emit>=5:
             emit('throughput_sample',**row);self.last_emit=now
-        if not p.get('enabled') or age<p.get('grace_seconds',60):return row
+        if final or not p.get('enabled') or age<p.get('grace_seconds',60):return row
         self.last_window=max(self.last_window,self.started+p.get('grace_seconds',60))
         if now-self.last_output>=p.get('no_output_seconds',120):raise SlowStream({**row,'reason':'no_generated_output','last_output_age_seconds':round(now-self.last_output,2)})
         if now-self.last_window>=window:

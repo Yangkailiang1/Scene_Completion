@@ -64,10 +64,15 @@ def register(app,service):
    j.put('operation',{'action':name,'status':'failed','error':str(e),'at':time.time()},key);raise
   j.put('operation',{'action':name,'status':'completed','at':time.time()},key)
   return value
+ @app.get('/api/projects/{rid}/execution-monitor')
+ def execution_monitor(rid:str):
+  from .execution_progress import snapshot
+  from .worker_runtime import read_job
+  return snapshot(service.run_dir(rid),service.model_config(rid),job=read_job(service.run_dir(rid)))
  @app.get('/api/projects/{rid}/throughput')
- def throughput(rid:str,after:int=0,limit:int=2000,model:str|None=None,node:str|None=None,format:str='json'):
+ def throughput(rid:str,after:int=0,limit:int=2000,model:str|None=None,node:str|None=None,format:str='json',since:float|None=None):
   from .throughput_view import series,csv_export
-  value=series(service.run_dir(rid),after,limit,model,node)
+  value=series(service.run_dir(rid),after,limit,model,node,since)
   if format=='csv':return Response(csv_export(value),media_type='text/csv',headers={'Content-Disposition':'attachment; filename="model-throughput.csv"'})
   if format!='json':raise ValueError('仅支持JSON或CSV；图形在前端导出SVG/PNG')
   return value

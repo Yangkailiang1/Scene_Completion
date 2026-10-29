@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { api, projectUrl } from "./api";
 const palette = ["#3468e8", "#0f9c89", "#bb67dc", "#e49b2b", "#e26776"];
-export function ThroughputView({ project }: { project: string }) {
+export function ThroughputView({
+  project,
+  since,
+  threshold,
+}: {
+  project: string;
+  since?: number;
+  threshold?: number;
+}) {
   const [points, setPoints] = useState<any[]>([]),
     [model, setModel] = useState(""),
     [node, setNode] = useState(""),
@@ -14,7 +22,10 @@ export function ThroughputView({ project }: { project: string }) {
     let live = true;
     cursor.current = 0;
     setPoints([]);
+    let busy = false;
     async function load() {
+      if (busy) return;
+      busy = true;
       try {
         let more = true,
           rounds = 0;
@@ -22,17 +33,29 @@ export function ThroughputView({ project }: { project: string }) {
           const v = await api(
             projectUrl(
               project,
-              "throughput?after=" + cursor.current + "&limit=2000",
+              "throughput?after=" +
+                cursor.current +
+                "&limit=2000" +
+                (since != null ? "&since=" + since : ""),
             ),
           );
           if (!live) return;
           if (!Array.isArray(v.points)) return;
           cursor.current = v.cursor;
-          setPoints((p) => [...p, ...v.points].slice(-30000));
+          setPoints((p) =>
+            [
+              ...new Map(
+                [...p, ...v.points].map((point) => [point.id, point]),
+              ).values(),
+            ].slice(-30000),
+          );
+          setError("");
           more = v.has_more;
         }
       } catch (e: any) {
         if (live) setError(e.message);
+      } finally {
+        busy = false;
       }
     }
     load();
@@ -41,12 +64,21 @@ export function ThroughputView({ project }: { project: string }) {
       live = false;
       clearInterval(id);
     };
-  }, [project]);
+  }, [project, since]);
   const requests = new Map<string, any>();
-  points.forEach((p) => {
-    if (p.kind === "request_started") requests.set(p.model_call_id, p);
+  const nodeRequests = new Map<string, string>();
+  const all = points.map((point) => {
+    if (point.kind === "request_started") {
+      const key = point.model_call_id || `legacy:${point.node}:${point.id}`;
+      nodeRequests.set(point.node, key);
+      requests.set(key, point);
+    }
+    const key =
+      point.model_call_id ||
+      nodeRequests.get(point.node) ||
+      `unknown:${point.node}`;
+    return { ...requests.get(key), ...point, model_call_id: key };
   });
-  const all = points.map((p) => ({ ...requests.get(p.model_call_id), ...p }));
   const models = [
       ...new Set(all.map((p) => p.requested_model).filter(Boolean)),
     ],
@@ -71,7 +103,8 @@ export function ThroughputView({ project }: { project: string }) {
             tokens_per_second_estimate:
               typeof p[metric] === "number" &&
               typeof before?.[metric] === "number" &&
-              p.at > before.at
+              p.at > before.at &&
+              p.at - before.at <= 15
                 ? Math.max(0, p[metric] - before[metric]) /
                   4 /
                   (p.at - before.at)
@@ -81,33 +114,73 @@ export function ThroughputView({ project }: { project: string }) {
     .filter((p) => typeof p.tokens_per_second_estimate === "number");
   const lo = selected[0]?.at || 0,
     hi = selected.at(-1)?.at || lo + 1,
-    max = Math.max(5, ...samples.map((p) => p.tokens_per_second_estimate));
+    max = Math.max(
+      5,
+      (threshold || 0) * 1.2,
+      ...samples.map((p) => p.tokens_per_second_estimate),
+    );
   const curves = new Map<string, any[]>();
   samples.forEach((p) => {
     const key = p.model_call_id || p.requested_model || p.node;
     curves.set(key, [...(curves.get(key) || []), p]);
   });
   function download(type: "svg" | "png" | "json" | "csv") {
-    const exported = { filters: {account, model, node, content_type: metric}, measurement: "UTF-8 bytes/4 estimate; not billing", points: selected, samples };
+    const exported = {
+      filters: { account, model, node, content_type: metric, since },
+      measurement: "UTF-8 bytes/4 estimate; not billing",
+      points: selected,
+      samples,
+    };
     if (type === "csv") {
-      const fields = ["id", "at", "kind", "node", "account_id", "requested_model", "content_type", "tokens_per_second_estimate", "output_bytes", "content_bytes", "tool_argument_bytes", "reasoning_bytes"];
-      const rates = new Map(samples.map(p => [p.id, p.tokens_per_second_estimate]));
-      const cell = (v:any) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
-      save(new Blob(["\uFEFF" + [fields, ...selected.map(p => fields.map(f => f === "content_type" ? metric : f === "tokens_per_second_estimate" ? rates.get(p.id) : p[f]))].map(r => r.map(cell).join(",")).join("\r\n")], {type:"text/csv;charset=utf-8"}), "throughput.csv");
+      const fields = [
+        "id",
+        "at",
+        "kind",
+        "node",
+        "account_id",
+        "requested_model",
+        "content_type",
+        "tokens_per_second_estimate",
+        "output_bytes",
+        "content_bytes",
+        "tool_argument_bytes",
+        "reasoning_bytes",
+      ];
+      const rates = new Map(
+        samples.map((p) => [p.id, p.tokens_per_second_estimate]),
+      );
+      const cell = (v: any) =>
+        '"' + String(v ?? "").replaceAll('"', '""') + '"';
+      save(
+        new Blob(
+          [
+            "\uFEFF" +
+              [
+                fields,
+                ...selected.map((p) =>
+                  fields.map((f) =>
+                    f === "content_type"
+                      ? metric
+                      : f === "tokens_per_second_estimate"
+                        ? rates.get(p.id)
+                        : p[f],
+                  ),
+                ),
+              ]
+                .map((r) => r.map(cell).join(","))
+                .join("\r\n"),
+          ],
+          { type: "text/csv;charset=utf-8" },
+        ),
+        "throughput.csv",
+      );
       return;
     }
     if (type === "json") {
       save(
-        new Blob(
-          [
-            JSON.stringify(
-              exported,
-              null,
-              2,
-            ),
-          ],
-          { type: "application/json" },
-        ),
+        new Blob([JSON.stringify(exported, null, 2)], {
+          type: "application/json",
+        }),
         "throughput.json",
       );
       return;
@@ -220,19 +293,58 @@ export function ThroughputView({ project }: { project: string }) {
               </text>
             </g>
           ))}
+          {threshold != null && (
+            <g>
+              <line
+                x1="55"
+                x2="970"
+                y1={290 - (threshold / max) * 235}
+                y2={290 - (threshold / max) * 235}
+                stroke="#db9453"
+                strokeDasharray="5 5"
+              />
+              <text
+                x="970"
+                y={280 - (threshold / max) * 235}
+                textAnchor="end"
+                fill="#a36231"
+                fontSize="11"
+              >
+                阈值 {threshold} tok/s（连续窗口判断）
+              </text>
+            </g>
+          )}
+          {selected
+            .filter((p) => p.kind === "model_switched")
+            .map((p) => (
+              <g key={"switch-" + p.id}>
+                <line
+                  x1={55 + ((p.at - lo) / Math.max(1, hi - lo)) * 915}
+                  x2={55 + ((p.at - lo) / Math.max(1, hi - lo)) * 915}
+                  y1="50"
+                  y2="290"
+                  stroke="#9c6bcc"
+                  strokeDasharray="3 5"
+                />
+                <title>切换到 {p.requested_model}</title>
+              </g>
+            ))}
           {[...curves.entries()].map(([id, ps], i) => (
             <g key={id}>
-              <polyline
-                fill="none"
-                stroke={palette[i % palette.length]}
-                strokeWidth="2"
-                points={ps
-                  .map(
-                    (p) =>
-                      `${55 + ((p.at - lo) / Math.max(1, hi - lo)) * 915},${290 - (p.tokens_per_second_estimate / max) * 235}`,
-                  )
-                  .join(" ")}
-              />
+              {segments(ps).map((part, index) => (
+                <polyline
+                  key={index}
+                  fill="none"
+                  stroke={palette[i % palette.length]}
+                  strokeWidth="2"
+                  points={part
+                    .map(
+                      (p) =>
+                        `${55 + ((p.at - lo) / Math.max(1, hi - lo)) * 915},${290 - (p.tokens_per_second_estimate / max) * 235}`,
+                    )
+                    .join(" ")}
+                />
+              ))}
               {ps.map((p) => (
                 <circle
                   key={p.id}
@@ -278,7 +390,19 @@ export function ThroughputView({ project }: { project: string }) {
             <div key={p.id}>
               <time>{new Date(p.at * 1000).toLocaleTimeString()}</time>
               <strong>{p.requested_model || "模型事件"}</strong>
-              <span>{p.kind}</span>
+              <span>
+                {(
+                  {
+                    model_switched: "已切换模型",
+                    model_degraded: "降级冷却",
+                    model_switch_skipped: "跳过候选",
+                    request_started: "请求开始",
+                    request_finished: "请求完成",
+                    request_failed: "请求失败",
+                    rate_limit_wait: "限流冷却",
+                  } as Record<string, string>
+                )[p.kind] || p.kind}
+              </span>
               <small>
                 {p.node} {p.failure_category || p.reason || ""}
               </small>
@@ -295,4 +419,14 @@ function save(blob: Blob, name: string) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function segments(points: any[]) {
+  const groups: any[][] = [];
+  for (const point of points) {
+    const previous = groups.at(-1)?.at(-1);
+    if (!previous || point.at - previous.at > 15) groups.push([]);
+    groups[groups.length - 1].push(point);
+  }
+  return groups;
 }

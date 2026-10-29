@@ -72,7 +72,7 @@ def invoke(client,packet,call):
         cfg.setdefault('api_key',getattr(client,'api_key',''));cfg.setdefault('base_url',getattr(client,'base_url',''))
     p=validate(cfg.get('resilience',{}))
     primary=routed_config(cfg,packet['task'],role_for(packet['task'])) or cfg
-    used=set();last=None;switches=0;dispatches=0
+    used=set();last=None;previous_model=None;switches=0;dispatches=0
     while True:
         choices=[None]+(p['candidates'] if p['enabled'] and switches<p['max_switches'] else [])
         chosen=None
@@ -97,7 +97,7 @@ def invoke(client,packet,call):
             child.shared_call_gate=client.shared_call_gate;original=child.post
             child.post=lambda *a,_child=child,_post=original,**kw:_child.shared_call_gate.call(_post,*a,**kw)
         if choice or last:
-            phase('switching_model');emit('model_switched',requested_model=config['agent_model'],previous_failure=getattr(last,'response_diagnostic',getattr(last,'details',{})),note='仅重做当前未完成节点；旧请求、用量及通过产物保留')
+            phase('switching_model');emit('model_switched',requested_model=config['agent_model'],previous_model=previous_model,failure_category=(getattr(last,'response_diagnostic',getattr(last,'details',{})) or {}).get('failure_category'),previous_failure=getattr(last,'response_diagnostic',getattr(last,'details',{})),note='仅重做当前未完成节点；旧请求、用量及通过产物保留')
         try:return call(child)
         except Exception as exc:
             diagnostic=getattr(exc,'response_diagnostic',getattr(exc,'details',{})) or {}
@@ -111,7 +111,7 @@ def invoke(client,packet,call):
             # Unknown network POST and authentication failure require diagnosis, not blind replay.
             if not p['enabled'] or not safe:raise
             mark_degraded(config,p,category or 'validation_rejected')
-            last=exc;emit('model_degraded',requested_model=config['agent_model'],failure_category=category or 'validation_rejected')
+            last=exc;previous_model=config['agent_model'];emit('model_degraded',requested_model=config['agent_model'],failure_category=category or 'validation_rejected')
             if switches>=p['max_switches']:raise
     if last:raise last
     raise ValueError('没有可用的已配置候选模型；请检查账号模型列表、冷却状态和独立额度配置')
@@ -148,6 +148,9 @@ def live_policy(config):
         nonlocal cached,until
         now=time.monotonic()
         if now>=until:
-            cached=policy(config);until=now+1.
+            cached=policy(config)
+            # Never abort a useful request when no alternative can be attempted.
+            if cached['enabled'] and (cached['max_switches']==0 or not any((c['model'],c.get('account_id') or config.get('model_account_id'))!=(config.get('agent_model'),config.get('model_account_id')) for c in cached['candidates'])):cached={**cached,'enabled':False}
+            until=now+1.
         return cached
     return read

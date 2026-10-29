@@ -64,13 +64,21 @@ export function ModelSettings({
     body.resilience = {
       ...(config.resilience || {}),
       enabled: raw.failover_enabled === "on",
-      candidates: [...(config.resilience?.candidates || []).filter((v:any) => v.account_id), ...String(raw.failover_models || "")
-        .split(/[\n,，]/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((model) => ({ model }))],
+      candidates: [
+        ...(config.resilience?.candidates || []).filter(
+          (v: any) => v.account_id,
+        ),
+        ...String(raw.failover_models || "")
+          .split(/[\n,，]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((model) => ({ model })),
+      ],
       min_tokens_per_second: Number(raw.failover_rate || 2),
       window_seconds: Number(raw.failover_window || 30),
+      low_windows: Number(raw.failover_low_windows || 2),
+      max_switches: Number(raw.failover_max_switches || 0),
+      cooldown_seconds: Number(raw.failover_cooldown || 0),
       grace_seconds: Number(raw.failover_grace || 60),
       no_output_seconds: Number(raw.failover_stall || 120),
     };
@@ -403,6 +411,21 @@ export function ModelSettings({
                 0,
               ],
               ["failover_window", "window_seconds", "观察窗口（秒）", 30, 5],
+              ["failover_low_windows", "low_windows", "连续低速窗口数", 2, 1],
+              [
+                "failover_max_switches",
+                "max_switches",
+                "每次最多切换次数",
+                2,
+                0,
+              ],
+              [
+                "failover_cooldown",
+                "cooldown_seconds",
+                "降级模型冷却（秒）",
+                300,
+                0,
+              ],
               ["failover_grace", "grace_seconds", "开始生成宽限（秒）", 60, 0],
               [
                 "failover_stall",
