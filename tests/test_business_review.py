@@ -244,3 +244,34 @@ def test_explicit_ssd_ownership_diagnostics_are_engineering_not_exception_questi
  value=decorate(p,[q])[0]
  assert value['queue']=='structure' and value['question_type']=='binding_confirmation' and value['engineering_review']
  assert 'anomaly' not in value['answer_spec']['choices']
+
+
+def test_source_markdown_document_view_retains_all_lines_and_window_compatibility(tmp_path):
+ client,rid,p=project(tmp_path)
+ text='# 文档标题\n\n'+'\n'.join(f'正文 {n}' for n in range(150))+'\n\n## 参数约束\n\n| 参数 | 范围 |\n| --- | --- |\n| pageSize | 1-100 |\n'
+ file=p/'sources/full.md';file.write_text(text,encoding='utf-8')
+ import hashlib
+ rows=[{'number':n,'text':v} for n,v in enumerate(text.splitlines(),1)]
+ doc={'source_id':'portable-markdown','name':'full.md','path':'sources/full.md','file_hash':hashlib.sha256(file.read_bytes()).hexdigest(),'lines':rows,'channel':'normal','role':'sr'}
+ write_json(p/'review_sources.json',{'documents':[doc]})
+ endpoint=f'/api/projects/{rid}/sources/portable-markdown'
+ full=client.get(endpoint,params={'view':'document','start':158,'end':158,'quote':rows[157]['text']})
+ assert full.status_code==200,full.text
+ body=full.json();assert body['lines']==rows and body['highlight_start']==158 and body['document_format']=='markdown'
+ window=client.get(endpoint,params={'start':158,'end':158,'context':2}).json()
+ assert len(window['lines'])<len(rows) and window['view']=='window' and window['lines'][0]['number']==156
+ assert client.get(endpoint,params={'view':'unsafe'}).status_code==400
+ # Full reading retains the same snapshot integrity check as paged reading.
+ file.write_text(text+'changed',encoding='utf-8')
+ assert client.get(endpoint,params={'view':'document'}).status_code==400
+
+
+def test_large_source_document_offers_paged_mode_without_silent_truncation(tmp_path):
+ client,rid,p=project(tmp_path)
+ rows=[{'number':n,'text':'中'*1000} for n in range(1,701)]
+ write_json(p/'review_sources.json',{'documents':[{'source_id':'big','name':'big.md','lines':rows}]})
+ endpoint=f'/api/projects/{rid}/sources/big'
+ result=client.get(endpoint,params={'view':'document'})
+ assert result.status_code==400 and '2MB' in result.text
+ result=client.get(endpoint,params={'start':400,'end':400,'context':2})
+ assert result.status_code==200 and len(result.json()['lines'])==5

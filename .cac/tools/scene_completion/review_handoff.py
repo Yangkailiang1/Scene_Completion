@@ -51,7 +51,8 @@ def sources(project):
     return {'documents':[{k:v for k,v in d.items() if k!='lines'}|{'line_count':len(d['lines'])} for d in source_documents(project)]}
 
 
-def source_view(project,sid,start=1,end=None,context=40,quote=''):
+def source_view(project,sid,start=1,end=None,context=40,quote='',view='window'):
+    if view not in {'window','document'}:raise ValueError('原文视图仅支持window或document')
     docs=source_documents(project);doc=next((d for d in docs if d['source_id']==sid),None)
     if doc is None and quote:
         # Legacy absolute-path IDs can be recovered only by a unique exact
@@ -64,9 +65,12 @@ def source_view(project,sid,start=1,end=None,context=40,quote=''):
     if doc.get('path'):
         p=(Path(project)/doc['path']).resolve()
         if not p.is_relative_to(Path(project).resolve()) or not p.exists() or hashlib.sha256(p.read_bytes()).hexdigest()!=doc['file_hash']:raise ValueError('来源文档与审核快照不一致')
-    lo=max(1,start-context);hi=min(len(doc['lines']),(end or start)+context)
+    if view=='document' and sum(len(r['text'].encode('utf-8'))+1 for r in doc['lines'])>2_000_000:
+        raise ValueError('文档超过2MB，请切换源码按行查看；阅读视图不会静默截断原文')
+    lo=1 if view=='document' else max(1,start-context)
+    hi=len(doc['lines']) if view=='document' else min(len(doc['lines']),(end or start)+context)
     headings=[r for r in doc['lines'] if r['number']<=start and r['text'].lstrip().startswith('#')]
-    return {k:v for k,v in doc.items() if k!='lines'}|{'lines':[r for r in doc['lines'] if lo<=r['number']<=hi], 'highlight_start':start,'highlight_end':end or start,'line_count':len(doc['lines']),'section':headings[-1]['text'] if headings else doc['name']}
+    return {k:v for k,v in doc.items() if k!='lines'}|{'lines':[r for r in doc['lines'] if lo<=r['number']<=hi], 'highlight_start':start,'highlight_end':end or start,'line_count':len(doc['lines']),'section':headings[-1]['text'] if headings else doc['name'],'view':view,'document_format':'markdown' if Path(doc['name']).suffix.lower() in {'.md','.markdown'} else 'text'}
 
 
 def source_hash(project):

@@ -19,8 +19,8 @@ def register(app, service, project_root):
     def source_list(rid:str):return handoff.sources(service.run_dir(rid))
 
     @app.get('/api/projects/{rid}/sources/{source_id}')
-    def source_read(rid:str,source_id:str,start:int=1,end:int|None=None,context:int=40,quote:str=''):
-        return handoff.source_view(service.run_dir(rid),source_id,start,end,context,quote)
+    def source_read(rid:str,source_id:str,start:int=1,end:int|None=None,context:int=40,quote:str='',view:str='window'):
+        return handoff.source_view(service.run_dir(rid),source_id,start,end,context,quote,view)
 
     @app.get('/api/projects/{rid}/pending/{item_id}/history')
     def answer_history(rid:str,item_id:str):

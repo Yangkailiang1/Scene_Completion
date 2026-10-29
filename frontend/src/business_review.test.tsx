@@ -74,9 +74,11 @@ test("rule questions ask for actual validation and keep draft while opening line
   expect(
     (screen.getByLabelText("待确认审核说明") as HTMLTextAreaElement).value,
   ).toBe("必须存在且启用，由商城入口校验");
-  expect(
-    document.querySelector(".source-line.highlighted pre")?.textContent,
-  ).toContain("categoryId");
+  await waitFor(() =>
+    expect(
+      document.querySelector(".source-block-highlighted")?.textContent,
+    ).toContain("categoryId"),
+  );
   fireEvent.change(screen.getByLabelText("审核人"), {
     target: { value: "审核甲" },
   });
