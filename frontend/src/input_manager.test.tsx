@@ -60,7 +60,9 @@ test("partial colleague import requires explicit versioned confirmation and keep
     await screen.findByRole("button", { name: /colleague.json/ }),
   );
   expect(
-    (await screen.findByRole("link", { name: "查看原文件" })).getAttribute("href"),
+    (await screen.findByRole("link", { name: "查看原文件" })).getAttribute(
+      "href",
+    ),
   ).toContain("original");
   fireEvent.change(screen.getByLabelText(/覆盖范围/), {
     target: { value: "complete" },
@@ -73,4 +75,38 @@ test("partial colleague import requires explicit versioned confirmation and keep
     coverage: "complete",
     replace: false,
   });
+});
+
+test("keeps upload actions compact and advanced controls collapsed by default", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any) => ({
+      ok: true,
+      json: async () =>
+        String(url).endsWith("/imports")
+          ? { items: [] }
+          : String(url).endsWith("/results")
+            ? { cases: [] }
+            : String(url).endsWith("/recovery")
+              ? null
+              : { revision: 0 },
+    })),
+  );
+  const view = render(<InputManager project="empty-project" />);
+  await screen.findByText("还没有文件");
+  expect(screen.getByRole("button", { name: "添加文件" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "添加文件夹" })).toBeTruthy();
+  expect(
+    (view.container.querySelector(".input-controls") as HTMLDetailsElement)
+      .open,
+  ).toBe(false);
+  expect(
+    [
+      ...view.container.querySelectorAll<HTMLInputElement>(
+        'input[type="file"]',
+      ),
+    ].every((x) => x.hidden),
+  ).toBe(true);
+  fireEvent.click(screen.getByText(/目录监控与运行范围/));
+  expect(screen.getByLabelText("监控本机目录")).toBeTruthy();
 });

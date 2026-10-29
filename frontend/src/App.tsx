@@ -1229,7 +1229,11 @@ export default function App() {
           </>
         )}
       </div>
-      {current && <ManagerPanel key={current} project={current} reviewOnly={snapshot?.review_only}/>}
+      <ManagerPanel
+        project={current || ""}
+        projectName={project?.name}
+        reviewOnly={snapshot?.review_only}
+      />
       {dialog && (
         <div
           className="modal-backdrop"

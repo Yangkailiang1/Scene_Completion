@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Bot, Maximize2, Minimize2, X, Send, ChevronDown } from "lucide-react";
 import { api, projectUrl } from "./api";
 import { ManagerModelProfile } from "./ManagerModelProfile";
@@ -6,13 +7,21 @@ import { ThroughputView } from "./ThroughputView";
 import { NodeOutput } from "./NodeOutput";
 export function ManagerPanel({
   project,
+  projectName,
   reviewOnly = false,
 }: {
   project: string;
+  projectName?: string;
   reviewOnly?: boolean;
 }) {
-  const [open, setOpen] = useState(false),
-    [large, setLarge] = useState(false),
+  const activeProject = useRef(project);
+  activeProject.current = project;
+  const [open, setOpen] = useState(
+      () => localStorage.getItem("scene.manager.open") === "true",
+    ),
+    [large, setLarge] = useState(
+      () => localStorage.getItem("scene.manager.large") === "true",
+    ),
     [tab, setTab] = useState("chat"),
     [data, setData] = useState<any>(null),
     [text, setText] = useState(""),
@@ -21,16 +30,27 @@ export function ManagerPanel({
     [events, setEvents] = useState<any[]>([]),
     [older, setOlder] = useState<any[]>([]);
   async function load() {
+    if (!project) return;
     const v = await api(projectUrl(project, "manager"));
-    setData(v);
+    if (activeProject.current === project) setData(v);
   }
   useEffect(() => {
     setData(null);
     setEvents([]);
-    setOpen(false);
+    setText("");
+    setMessage("");
+    setTab("chat");
   }, [project]);
+  useEffect(
+    () => localStorage.setItem("scene.manager.open", String(open)),
+    [open],
+  );
+  useEffect(
+    () => localStorage.setItem("scene.manager.large", String(large)),
+    [large],
+  );
   useEffect(() => {
-    if (!open) return;
+    if (!open || !project) return;
     let live = true;
     const update = async () => {
       try {
@@ -57,6 +77,10 @@ export function ManagerPanel({
     };
   }, [project, open, tab]);
   async function action(path: string, body: any, method = "POST") {
+    if (!project) {
+      setMessage("请先在左侧选择项目，再进行对话或托管。");
+      return;
+    }
     setBusy(true);
     try {
       await api(projectUrl(project, "manager/" + path), {
@@ -73,24 +97,49 @@ export function ManagerPanel({
   }
   const config = data?.configuration;
   useEffect(() => setOlder([]), [project, data?.session?.id]);
-  const messages = [...new Map([...older, ...(data?.messages || [])].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id);
+  const messages = [
+    ...new Map(
+      [...older, ...(data?.messages || [])].map((m) => [m.id, m]),
+    ).values(),
+  ].sort((a, b) => a.id - b.id);
   async function loadOlder() {
     try {
-      const v = await api(projectUrl(project, "manager/messages?limit=100&before=" + (messages[0]?.id || 0)));
-      setOlder(p => [...v.messages, ...p]);
-      if (!v.messages.length) setMessage("已到当前会话开头；记忆和历史操作独立保存。");
-    } catch (e:any) {setMessage(e.message);}
+      const v = await api(
+        projectUrl(
+          project,
+          "manager/messages?limit=100&before=" + (messages[0]?.id || 0),
+        ),
+      );
+      setOlder((p) => [...v.messages, ...p]);
+      if (!v.messages.length)
+        setMessage("已到当前会话开头；记忆和历史操作独立保存。");
+    } catch (e: any) {
+      setMessage(e.message);
+    }
   }
-  return (
+  const phase =
+    (
+      {
+        paused: "未启用托管",
+        running: "正在处理",
+        watching: "正在守护",
+        waiting_reconnect: "等待模型连接",
+      } as Record<string, string>
+    )[data?.runtime?.status] || "项目任务守护";
+  return createPortal(
     <>
       {!open ? (
         <button
           className="manager-fab"
           onClick={() => setOpen(true)}
           aria-label="打开项目管理Agent"
+          title="全局管理Agent：查看进展、诊断阻塞、协助恢复"
         >
           <Bot size={21} />
-          <span>项目管理Agent</span>
+          <span>
+            <strong>全局管理Agent</strong>
+            <small>任务兜底 · 点击对话</small>
+          </span>
         </button>
       ) : (
         <section
@@ -100,9 +149,9 @@ export function ManagerPanel({
           <header>
             <Bot size={23} />
             <div>
-              <strong>项目管理Agent</strong>
+              <strong>全局管理Agent</strong>
               <small>
-                {data?.runtime?.status || "正在读取"} · 会话与操作持续保存
+                {projectName || (project ? "当前项目" : "请选择项目")} · {phase}
               </small>
             </div>
             <button
@@ -180,12 +229,16 @@ export function ManagerPanel({
             {tab === "chat" && (
               <>
                 <div className="manager-messages">
-                  {!!messages.length && <button onClick={loadOlder}>查看更早的会话</button>}
+                  {!!messages.length && (
+                    <button onClick={loadOlder}>查看更早的会话</button>
+                  )}
                   {!data?.messages?.length && (
                     <div className="manager-welcome">
                       <h3>让管理Agent协助推进项目</h3>
                       <p>
-                        可以询问阻塞原因、检查导入结果，或让它诊断和修复失败节点。Auto会持续托管；协作模式会询问需要你决定的事项。
+                        {project
+                          ? "可以询问阻塞原因、检查导入结果，或让它诊断和修复失败节点。Auto会持续托管；协作模式会询问需要你决定的事项。"
+                          : "先在左侧选择项目。我会在切换页面时保持在这里，协助查看进展与处理阻塞。"}
                       </p>
                     </div>
                   )}
@@ -390,7 +443,12 @@ export function ManagerPanel({
               </>
             )}
             {tab === "throughput" && <ThroughputView project={project} />}{" "}
-            {tab === "model" && <ManagerModelProfile project={project} />}
+            {tab === "model" &&
+              (project ? (
+                <ManagerModelProfile key={project} project={project} />
+              ) : (
+                <p>请先选择项目，再配置独立模型。</p>
+              ))}
           </div>
           {tab === "chat" && (
             <form
@@ -407,9 +465,9 @@ export function ManagerPanel({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="例如：哪个节点卡住了？请检查同事文件并继续首个用例。"
-                disabled={reviewOnly}
+                disabled={reviewOnly || !project}
               />
-              <button disabled={busy || reviewOnly || !text.trim()}>
+              <button disabled={busy || reviewOnly || !project || !text.trim()}>
                 <Send size={17} />
                 发送
               </button>
@@ -417,6 +475,7 @@ export function ManagerPanel({
           )}
         </section>
       )}
-    </>
+    </>,
+    document.body,
   );
 }

@@ -110,6 +110,7 @@ def test_patch_hash_frozen_tests_and_safe_apply(tmp_path,monkeypatch):
 
 def test_manager_api_review_mode_and_idempotent_actions(tmp_path):
  s,rid,p=project(tmp_path);client=TestClient(create_app(tmp_path))
+ assert client.get('/').headers.get('cache-control')=='no-cache, must-revalidate'
  data=client.get(f'/api/projects/{rid}/manager').json();assert data['configuration']['settings']['mode']=='collaborative'
  args={'action':'memory','request_id':'once','arguments':{'text':'业务决定','category':'decision','expected_revision':0}}
  assert client.post(f'/api/projects/{rid}/manager/actions',json=args).status_code==200

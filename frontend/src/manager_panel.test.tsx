@@ -82,3 +82,63 @@ it("renders explicit estimates and never claims hidden thinking is measurable", 
   expect(screen.getByText(/未公开的推理内容无法测量/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "SVG" })).toBeTruthy();
 });
+it("keeps the support window outside clipped pages and open across project navigation", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        configuration: {
+          revision: 0,
+          settings: { mode: "collaborative", enabled: false },
+        },
+        messages: [],
+        memory: [],
+        operations: [],
+        patches: [],
+        plan: { items: [] },
+        events: [],
+        runtime: { status: "paused" },
+      }),
+    })),
+  );
+  const page = render(
+    <div style={{ overflow: "hidden", height: 1 }}>
+      <ManagerPanel project="first" projectName="首个项目" />
+    </div>,
+  );
+  expect(page.container.querySelector(".manager-fab")).toBeNull();
+  expect(document.body.querySelector(".manager-fab")).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("打开项目管理Agent"));
+  await screen.findByText(/首个项目/);
+  fireEvent.change(screen.getByLabelText("发送给管理Agent"), {
+    target: { value: "仅属于首个项目的草稿" },
+  });
+  fireEvent.click(screen.getByLabelText("最大化管理窗口"));
+  page.rerender(
+    <div style={{ overflow: "hidden", height: 1 }}>
+      <ManagerPanel project="second" projectName="第二个项目" />
+    </div>,
+  );
+  expect(screen.getByLabelText("项目管理Agent").className).toContain(
+    "maximized",
+  );
+  expect(
+    (screen.getByLabelText("发送给管理Agent") as HTMLTextAreaElement).value,
+  ).toBe("");
+  expect(localStorage.getItem("scene.manager.open")).toBe("true");
+  page.unmount();
+  render(<ManagerPanel project="second" projectName="第二个项目" />);
+  expect(screen.getByLabelText("项目管理Agent")).toBeTruthy();
+});
+it("shows the support entry even before a project has been selected", async () => {
+  const calls = vi.fn();
+  vi.stubGlobal("fetch", calls);
+  render(<ManagerPanel project="" />);
+  fireEvent.click(screen.getByLabelText("打开项目管理Agent"));
+  expect(screen.getByText(/先在左侧选择项目/)).toBeTruthy();
+  expect(
+    (screen.getByLabelText("发送给管理Agent") as HTMLTextAreaElement).disabled,
+  ).toBe(true);
+  expect(calls).not.toHaveBeenCalled();
+});

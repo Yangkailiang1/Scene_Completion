@@ -388,7 +388,7 @@ def create_app(root=None,client_factory=None,env_file=None):
             with scope:return await call_next(request)
         except ValueError as e:return Response(json.dumps({'detail':str(e),**({'import_preview':e.import_preview} if hasattr(e,'import_preview') else {})},ensure_ascii=False),status_code=400,media_type='application/json')
     @app.get('/')
-    def index():return FileResponse(WEB/'index.html')
+    def index():return FileResponse(WEB/'index.html',headers={'Cache-Control':'no-cache, must-revalidate'})
     if (WEB/'assets').exists():app.mount('/assets',StaticFiles(directory=WEB/'assets'),name='assets')
     app.mount('/static',StaticFiles(directory=WEB),name='static')
     @app.get('/api/projects')

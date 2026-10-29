@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { api, projectUrl, fileUrl } from "./api";
 import { ArtifactView } from "./ArtifactView";
-import { UploadCloud, FileText, CheckCircle2, Workflow } from "lucide-react";
+import {
+  UploadCloud,
+  FolderOpen,
+  RefreshCw,
+  FileText,
+  CheckCircle2,
+  Workflow,
+} from "lucide-react";
 import { NodeOutput } from "./NodeOutput";
 
 const labels: Record<string, string> = {
@@ -46,6 +53,8 @@ export function InputManager({
     [replace, setReplace] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
   const selectedFile = useRef<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const folderInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!detail?.id) {
       setEvents([]);
@@ -83,7 +92,9 @@ export function InputManager({
     setRecovery(d);
     if (selectedFile.current) {
       const id = selectedFile.current;
-      const row = await api(projectUrl(project, "imports?item=" + encodeURIComponent(id)));
+      const row = await api(
+        projectUrl(project, "imports?item=" + encodeURIComponent(id)),
+      );
       // Refresh live bindings/status only. The editor is an independent unsaved draft.
       if (selectedFile.current === id) setDetail(row);
     }
@@ -168,9 +179,47 @@ export function InputManager({
           </h2>
           <p>发现文件 → 识别与转换 → 预览 → 交给对应节点</p>
         </div>
-        <button onClick={() => load().catch((e) => setMessage(e.message))}>
-          刷新
-        </button>
+        <div className="input-toolbar-actions">
+          {!reviewOnly && (
+            <>
+              <button
+                className="input-primary"
+                disabled={busy}
+                onClick={() => fileInput.current?.click()}
+              >
+                <UploadCloud size={16} />
+                添加文件
+              </button>
+              <button
+                disabled={busy}
+                onClick={() => folderInput.current?.click()}
+              >
+                <FolderOpen size={16} />
+                添加文件夹
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                accept=".md,.markdown,.json,.xlsx"
+                onChange={(e) => upload(e.target.files)}
+              />
+              <input
+                ref={folderInput}
+                type="file"
+                multiple
+                hidden
+                {...{ webkitdirectory: "" }}
+                onChange={(e) => upload(e.target.files)}
+              />
+            </>
+          )}
+          <button onClick={() => load().catch((e) => setMessage(e.message))}>
+            <RefreshCw size={15} />
+            刷新
+          </button>
+        </div>
       </header>
       {message && (
         <p role="status" className="input-message">
@@ -179,28 +228,10 @@ export function InputManager({
       )}
       {!reviewOnly && (
         <details className="input-controls">
-          <summary>文件上传、目录监控与运行范围</summary>
+          <summary>
+            目录监控与运行范围 <span>按需展开设置</span>
+          </summary>
           <div className="input-control-grid">
-            <label>
-              上传多份文件
-              <input
-                type="file"
-                multiple
-                accept=".md,.markdown,.json,.xlsx"
-                disabled={busy}
-                onChange={(e) => upload(e.target.files)}
-              />
-            </label>
-            <label>
-              上传文件夹
-              <input
-                type="file"
-                multiple
-                {...{ webkitdirectory: "" }}
-                disabled={busy}
-                onChange={(e) => upload(e.target.files)}
-              />
-            </label>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -218,12 +249,12 @@ export function InputManager({
               }}
             >
               <label>
-                服务所在电脑的input目录
+                监控本机目录
                 <input
                   name="directory"
                   key={watch.directory}
                   defaultValue={watch.directory || ""}
-                  placeholder="C:\\SceneCompletion\\input"
+                  placeholder="例如 C:\SceneCompletion\input"
                   required
                 />
               </label>
@@ -233,13 +264,13 @@ export function InputManager({
                   name="watch"
                   defaultChecked={watch.watch ?? true}
                 />
-                每5秒自动发现，连续两次稳定后接收
+                自动发现新文件（每5秒检查）
               </label>
               <button disabled={busy}>登记并扫描</button>
             </form>
-            <div>
+            <div className="input-run-controls">
               <label>
-                运行用例／优先用例
+                运行范围
                 <select
                   value={caseId}
                   onChange={(e) => setCaseId(e.target.value)}
@@ -290,8 +321,17 @@ export function InputManager({
       )}
       <div className="input-columns">
         <aside aria-label="导入文件列表">
+          <div className="input-list-heading">
+            <strong>文件列表</strong>
+            <span>{data.items.length}</span>
+          </div>
           {data.items.length === 0 ? (
-            <p>尚无文件。支持Markdown、JSON和测试XLSX。</p>
+            <div className="input-list-empty">
+              <FileText size={26} />
+              <strong>还没有文件</strong>
+              <p>添加需求文档、测试场景或同事的抽取产物。</p>
+              <small>Markdown · JSON · XLSX</small>
+            </div>
           ) : (
             data.items.map((r: any) => (
               <button
@@ -310,10 +350,9 @@ export function InputManager({
         <section className="input-detail">
           {!detail ? (
             <div className="node-empty">
-              <h3>选择文件查看来源与转换结果</h3>
-              <p>
-                有歧义、部分覆盖或替换成功结果时需要确认。原始测试与正向产物始终分开。
-              </p>
+              <FileText size={34} />
+              <h3>选择文件，开始查看</h3>
+              <p>左侧选择文件后，可查看解析预览、来源依据与采用状态。</p>
             </div>
           ) : (
             <>
@@ -563,43 +602,49 @@ export function InputManager({
                 <p>
                   已采用节点：
                   {detail.usage?.map((u: any) => u.node).join("、") ||
-                    (detail.source_registered ? "已登记为当前来源；等待对应节点执行" : "尚未采用")}
+                    (detail.source_registered
+                      ? "已登记为当前来源；等待对应节点执行"
+                      : "尚未采用")}
                 </p>
                 <pre>{JSON.stringify(detail.history, null, 2)}</pre>
               </details>
             </>
           )}
-        </section>
-        {detail && (
-          <aside className="input-adoption">
-            <small>采用结果</small>
-            <h3>{statuses[detail.status] || detail.status}</h3>
-            <p>
-              {detail.role === "test"
-                ? "该文件进入测试场景通道。用例对应、交互定位和GT评估由相应节点完成。"
-                : "校验通过后，完整结果跳过抽取；部分结果仅补缺项。"}
-            </p>
-            <h4>实际引用节点</h4>
-            {detail.usage?.length ? (
-              detail.usage.map((u: any) => (
-                <p key={u.node}>
-                  <CheckCircle2 size={14} />
-                  {u.node}
+          {detail && (
+            <details className="input-adoption">
+              <summary>采用状态与原始来源</summary>
+              <h3>{statuses[detail.status] || detail.status}</h3>
+              <p>
+                {detail.role === "test"
+                  ? "该文件进入测试场景通道。用例对应、交互定位和GT评估由相应节点完成。"
+                  : "校验通过后，完整结果跳过抽取；部分结果仅补缺项。"}
+              </p>
+              <h4>实际引用节点</h4>
+              {detail.usage?.length ? (
+                detail.usage.map((u: any) => (
+                  <p key={u.node}>
+                    <CheckCircle2 size={14} />
+                    {u.node}
+                  </p>
+                ))
+              ) : (
+                <p>
+                  {detail.source_registered
+                    ? "已登记为当前来源，执行后显示具体节点引用。"
+                    : "尚未采用，运行前可先预览确认。"}
                 </p>
-              ))
-            ) : (
-              <p>{detail.source_registered ? "已登记为当前来源，执行后显示具体节点引用。" : "尚未采用，运行前可先预览确认。"}</p>
-            )}
-            <a
-              href={fileUrl(project, detail.original)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              原始文件 ↗
-            </a>
-            <small>文件版本 {detail.revision}</small>
-          </aside>
-        )}
+              )}
+              <a
+                href={fileUrl(project, detail.original)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                原始文件 ↗
+              </a>
+              <small>文件版本 {detail.revision}</small>
+            </details>
+          )}
+        </section>
       </div>
       {recovery && (
         <details className="input-recovery">
