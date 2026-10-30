@@ -107,7 +107,8 @@ def feedback(project,body,result,*,dry_run=False):
 
 def review_candidate(project,body,matrix):
     current=settings(project)
-    if current['version']!=matrix.get('settings_hash'):raise ValueError('候选使用旧设置，继续运行更新候选后再审核')
+    from .workflow import analysis_settings
+    if current['version']!=matrix.get('settings_hash') and analysis_settings(current['settings'])['hash']!=matrix.get('settings_hash'):raise ValueError('候选使用旧语义设置，继续运行更新候选后再审核')
     if current['version']!=body.get('expected_version'):raise ValueError('设置已变化，请刷新')
     item=next((r for r in matrix['instances'] if r['id']==body.get('candidate_id')),None)
     if item is None or item['status']!='pending':raise ValueError('只审核当前待确认候选')

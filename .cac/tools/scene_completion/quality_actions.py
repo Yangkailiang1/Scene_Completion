@@ -42,6 +42,7 @@ def impact(project,did,body):
    if set(patch)-RANK_FIELDS:raise ValueError('推荐建议只允许K、排序权重及项目风险配置')
    before={k:deepcopy(settings.get(k)) for k in patch};settings.update(patch);after={k:settings[k] for k in patch}
   else:raise ValueError('该建议不能自动应用')
+  if kind=='recommendation' and 'overrides' in patch:kinds.add('risk')
   changes.append({'proposal_id':pid,'kind':kind,'target':target,'before':before,'after':deepcopy(after)});kinds.add(kind)
  from .project_review import save_registry
  from .pattern_settings import save_settings
@@ -55,7 +56,7 @@ def impact(project,did,body):
  for n in nodes:
   stage=n.get('stage');key=n['id']
   if 'concern' in kinds and stage in {'normal-rules','concern-match','existing-concerns','test-concerns'}:roots.add(key)
-  if 'pattern' in kinds and stage in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth'}:roots.add(key)
+  if kinds&{'pattern','risk'} and stage in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth'}:roots.add(key)
   if 'recommendation' in kinds and stage=='gap-recommend':roots.add(key)
  affected=set(roots)
  while True:

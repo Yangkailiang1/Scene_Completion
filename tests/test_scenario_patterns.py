@@ -53,7 +53,12 @@ def test_missing_premise_framework_only_never_enters_G():
 
 def test_project_confirmation_requires_premise_and_versions(tmp_path):
     x=positive();auth(x,'human.authorization','执行本次操作需要权限');m=applicability(x);item=next(i for i in m['instances'] if i['pattern_id']=='human.authorization.tenant')
-    v=settings(tmp_path);body={'expected_version':v['version'],'candidate_id':item['id'],'choice':'confirm','note':'业务确认'}
+    v=settings(tmp_path)
+    adjusted=deepcopy(v['settings']);adjusted['top_k']=20
+    v=save_settings(tmp_path,{'expected_version':v['version'],'settings':adjusted})
+    from scene_completion.workflow import analysis_settings
+    m=applicability(x,analysis_settings(v['settings']));item=next(i for i in m['instances'] if i['pattern_id']=='human.authorization.tenant')
+    body={'expected_version':v['version'],'candidate_id':item['id'],'choice':'confirm','note':'业务确认'}
     with pytest.raises(ValueError):review_candidate(tmp_path,body,m)
     new=review_candidate(tmp_path,{**body,'positive_condition':'当前接口按租户隔离资源，调用方仅可访问本租户'},m)
     updated=applicability(x,new['settings']);s=next(i for i in updated['instances'] if i['id']==item['id'])
