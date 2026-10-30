@@ -131,7 +131,7 @@ def test_budgeted_model_execution_and_unresolved_post_not_repeated(tmp_path,monk
  stopped=run_job(service,'a'*32,v['id'],Client());assert stopped['status']=='partial' and not calls
 
 
-def test_cli_quality_parser_and_review_only(tmp_path):
+def test_cli_quality_parser_and_review_only(tmp_path,monkeypatch):
  from scene_completion.workbench_cli import parser,main
  args=parser().parse_args(['quality','diagnose','--project','a'*32,'--case','C','--test-set','original','--tool-only'])
  assert args.case=='C'
@@ -146,6 +146,10 @@ def test_cli_quality_parser_and_review_only(tmp_path):
  project(app.state.workbench.run_dir(rid));base='/api/projects/'+rid+'/quality-diagnostics'
  r=api.post(base,json={'test_set':'original','tool_only':True});assert r.status_code==200,r.text
  did=r.json()['id'];assert api.get(base+'/'+did+'?format=md').status_code==200
+ from scene_completion.quality_runtime import QualityHost
+ calls=[];monkeypatch.setattr('scene_completion.quality_runtime.run_job',lambda *args:calls.append(args))
+ host=object.__new__(QualityHost);host.service=app.state.workbench;host.tick()
+ assert not calls, 'tool-only import must never enter the automatic model queue'
  app.state.workbench.review_only=True
  assert api.get(base).status_code==200 and api.post(base,json={}).status_code==403
 

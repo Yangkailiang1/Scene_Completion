@@ -66,7 +66,7 @@ def selected_evaluation(snap,cid):
  value=snap['outputs'].get(cid+':exception-evaluation',{})
  return value.get('original_evaluation',value) if snap['versions']['test_set']=='original' else value
 
-def build(project,snap,automatic=False):
+def build(project,snap,automatic=False,tool_only=False):
  did=fingerprint([snap['hash'],VERSION,snap['scope']])[:24]
  old=store(project)/did/'report.json'
  if old.exists():return read_json(old)
@@ -155,7 +155,7 @@ def build(project,snap,automatic=False):
   cardrow['loss_count']=len(rows)
   if cardrow['expected_loss_count'] is not None and cardrow['expected_loss_count']!=len(rows):
    integrity.append({'metric':cardrow['id'],'status':'待查明','reason':'正式计数与可展开清单不一致；可能缺少对应记录或版本不同','saved_loss_count':cardrow['expected_loss_count'],'enumerated':len(rows)})
- value={'id':did,'version':VERSION,'snapshot_hash':snap['hash'],'versions':snap['versions'],'created_at':time.time(),'status':'queued','automatic':automatic,
+ value={'id':did,'version':VERSION,'snapshot_hash':snap['hash'],'versions':snap['versions'],'created_at':time.time(),'status':'partial' if tool_only else 'queued','error':'仅完成工具核对，尚未进行模型证据归因' if tool_only else None,'automatic':automatic,
   'case_id':snap['scope'],'test_set':snap['versions']['test_set'],'scope_complete':snap['summary'].get('complete',False),'summary':snap['summary'],'usage_before':snap['usage'],
   'cards':cards,'losses':losses,'excluded':excluded,'integrity':integrity,'proposals':[],'batches':{},'coverage':{},'token_limit':100000}
  refresh(value);write_json(store(project)/did/'snapshot.json',snap);save(project,value);return value

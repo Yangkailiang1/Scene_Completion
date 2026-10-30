@@ -12,8 +12,7 @@ def register(app,service):
  def index(rid:str):return {'items':q.listing(service.run_dir(rid)),'review_only':service.review_only,'causes':q.CAUSES}
  @app.post(base)
  def create(rid:str,body:dict):
-  writable();value=enqueue(service.run_dir(rid),body.get('test_set'),body.get('case_id'))
-  if body.get('tool_only') and value['status']=='queued':value['status']='partial';value['error']='仅完成工具核对，尚未进行模型证据归因';q.save(service.run_dir(rid),value)
+  writable();value=enqueue(service.run_dir(rid),body.get('test_set'),body.get('case_id'),tool_only=bool(body.get('tool_only')))
   return value
  @app.get(base+'/{did}')
  def get(rid:str,did:str,format:str='json',view:str='full',case_id:str|None=None,metric:str|None=None,offset:int=0,limit:int=100):

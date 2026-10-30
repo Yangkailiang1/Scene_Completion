@@ -6,9 +6,9 @@ from .storage import read_json,write_json,fingerprint
 from . import quality_diagnostics as q
 LOCK=RLock()
 
-def enqueue(project,test_set=None,case_id=None,automatic=False):
+def enqueue(project,test_set=None,case_id=None,automatic=False,tool_only=False):
  with LOCK:
-  return q.build(project,q.freeze(project,test_set,case_id),automatic)
+  return q.build(project,q.freeze(project,test_set,case_id),automatic,tool_only)
 
 def notify_completed(project):
  """Called only by completion of a new evaluation round, never by host startup."""
