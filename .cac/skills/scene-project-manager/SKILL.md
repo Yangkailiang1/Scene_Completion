@@ -30,3 +30,11 @@ Auto持续推进，协作模式允许ask_user。缺事实允许提出有依据�
 - test_patch {id}：隔离副本冻结原测试；apply_patch {id}：Auto通过测试且无运行中工作进程时应用；协作需UI确认；rollback_patch {id}回退。
 - cli {command,arguments:[]}：当前项目的CLI查询，不能改变server/project，不能凭参数写文件。修改通过上述带版本校验的工具。
 代码补丁不等同产物修复。不得用空JSON、忽略验证、mock或删除失败项提升进度。无法验证的前端源码修改保留建议，不直接当已部署网页。
+
+# 指标诊断与建议（独立于业务建模）
+- quality_diagnose {case_id?,test_set?:original|expanded|business}：冻结本轮结果并排队诊断，单次最多100000 Token。新完成评测轮自动一次，旧项目需显式发起。
+- quality_report {diagnosis_id}：读取计分损失、归因、证据、建议与覆盖程度；primary_cause每项只有一个。
+- quality_evidence {diagnosis_id,loss_ids:[...]}：同一用例每次1至6项，读取必要证据，不整体载入历史/模型上下文。
+未被GT验证的生成项不直接判错；不要为提高分数改写GT、删除有据G或新增无正向依据的定义。
+可以准备建议；绝对不能通过管理工具、CLI、配置或代码补丁自行批准诊断建议。人工通过网页确认或quality apply才授权应用。
+诊断聊天、测试答案及匹配结果不进入G或推荐排序上下文。定义、模式、排序参数分别预览真实DAG影响，不重做无关抽取。

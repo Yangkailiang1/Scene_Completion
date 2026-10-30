@@ -53,7 +53,7 @@ def accuracy(task, extracted, truth, decisions=None):
             return actual==gt
         exact=[{'left_id':tid,'right_id':aid,'status':'full','reason':'all GT-defined attributes agree'}
                for tid,tu in t.items() for aid,au in a.items() if contains(au,tu)]
-        h=len(full_assignment(exact,set(t),set(a)))
+        assignment=full_assignment(exact,set(t),set(a));h=len(assignment)
     else:
         if isinstance(decisions,dict):
             if decisions.get('protocol')!=PROTOCOL or decisions.get('task')!=task or decisions.get('extracted_hash')!=fingerprint(extracted) or decisions.get('truth_hash')!=fingerprint(truth):raise ValueError('adjudication not bound to these extraction inputs')
@@ -67,8 +67,8 @@ def accuracy(task, extracted, truth, decisions=None):
             for d in decisions:
                 if d['status']=='full' and d['left_id'] in t and d['right_id'] in a and t[d['left_id']][:3]!=a[d['right_id']][:3]:raise ValueError('SSD correspondence must preserve case, layer and order')
         if any(d['left_id'] not in t or d['right_id'] not in a for d in decisions):raise ValueError('unknown extraction unit')
-        h=len(full_assignment(decisions,set(t),set(a)))
-    return {'protocol':PROTOCOL,'Acc':100*h/len(t) if t else None,'H':h,'N':len(t),
+        assignment=full_assignment(decisions,set(t),set(a));h=len(assignment)
+    return {'full_matches':assignment,'unmatched_truth_ids':sorted(set(t)-{p['checker_scenario_id'] for p in assignment}),'protocol':PROTOCOL,'Acc':100*h/len(t) if t else None,'H':h,'N':len(t),
             'symbols':{'Acc':'抽取准确率（GT命中率）','H':'命中的真值单元数','N':'真值单元总数','GT':'人工真值集合'},
             'input_identity':{'extracted_hash':fingerprint(extracted),'truth_hash':fingerprint(truth)},
             'minimum_unit':UNITS[task],'status':'适用' if t else '不适用',

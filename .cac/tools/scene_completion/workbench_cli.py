@@ -49,6 +49,7 @@ def capabilities():
       'repair-export/repair-submit':'外部Code Agent修复必须通过原校验器',
       'input-scan':'--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续',
       'imports':'--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果',
+      'quality':'diagnose|report|impact|apply：冻结指标损失、证据归因、人工确认及定向重跑；--project ID --diagnosis ID --file approvals.json --dry-run/--rerun',
       'manager':'--project ID --action status|chat|configure|model|memory|operate|run；--file JSON及--dry-run，持久对话与托管',
       'recovery':'--project ID [--file policy.json --dry-run]；版本化恢复策略及持久预算记录',
       'run/status/events/artifacts/guide/answer':'run支持--case（只跑所选）、--all-cases、--priority-case（优先后继续）；answer仅保存'},
@@ -107,11 +108,32 @@ def parser():
         a=sub.add_parser(cmd);a.add_argument('--project',required=True);a.add_argument('--file');a.add_argument('--out');a.add_argument('--dry-run',action='store_true');a.add_argument('--item');a.add_argument('--node');a.add_argument('--case');a.add_argument('--source');a.add_argument('--start',type=int,default=1);a.add_argument('--end',type=int);a.add_argument('--format',choices=('windows','project'),default='windows');a.add_argument('--allow-partial',action='store_true')
         if cmd=='input-scan':a.add_argument('--directory');a.add_argument('--watch',action=argparse.BooleanOptionalAction,default=None)
     manager=sub.add_parser('manager');manager.add_argument('--project',required=True);manager.add_argument('--action',choices=('status','chat','configure','model','memory','operate','run'),default='status');manager.add_argument('--text');manager.add_argument('--file');manager.add_argument('--dry-run',action='store_true')
+    quality=sub.add_parser('quality');actions=quality.add_subparsers(dest='quality_action',required=True)
+    for name in ('diagnose','report','impact','apply'):
+        a=actions.add_parser(name);a.add_argument('--project',required=True)
+        if name=='diagnose':
+            a.add_argument('--test-set',choices=('original','expanded','business'));a.add_argument('--case');a.add_argument('--wait',action='store_true');a.add_argument('--tool-only',action='store_true');a.add_argument('--resume',metavar='DIAGNOSIS_ID')
+        else:a.add_argument('--diagnosis',required=True)
+        if name in {'impact','apply'}:a.add_argument('--file',required=True)
+        if name=='apply':a.add_argument('--dry-run',action='store_true');a.add_argument('--rerun',action='store_true')
     return p
 
 def main(argv=None,client=None):
     args=parser().parse_args(argv);api=client or API(args.server)
     if args.command=='capabilities':output(capabilities());return 0
+    if args.command=='quality':
+        path='projects/'+args.project+'/quality-diagnostics'
+        if args.quality_action=='diagnose':
+            value=api.call(path+'/'+args.resume+'/resume',{},'POST') if args.resume else api.call(path,{'test_set':args.test_set,'case_id':args.case,'tool_only':args.tool_only},'POST')
+            while args.wait and not args.tool_only and value['status'] in {'queued','running'}:
+                time.sleep(2);value=api.call(path+'/'+value['id'])
+        elif args.quality_action=='report':value=api.call(path+'/'+args.diagnosis)
+        else:
+            body=json.loads(Path(args.file).read_text(encoding='utf-8-sig'))
+            if not isinstance(body,dict):raise ValueError('确认文件必须是JSON对象')
+            if args.quality_action=='apply':body.update(dry_run=args.dry_run,rerun=args.rerun)
+            value=api.call(path+'/'+args.diagnosis+'/'+args.quality_action,body,'POST')
+        output(value);return 0
     if args.command=='projects':output(api.call('projects'));return 0
     if args.command=='accounts':output(api.call('model-accounts'));return 0
     if args.command=='save-account':

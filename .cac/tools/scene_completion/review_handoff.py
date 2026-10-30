@@ -104,7 +104,7 @@ def project_archive(project):
         for f in p.rglob('*'):
             if not f.is_file() or not f.resolve().is_relative_to(p.resolve()):continue
             rel=f.relative_to(p);parts=rel.parts
-            if parts[0] in roots or parts[0]=='imports' and len(parts)>1 and parts[1] in {'files','versions'} or (len(parts)==1 and f.name in root_files) or (parts[0]=='run' and len(parts)>1 and (parts[1] in run_dirs or len(parts)==2 and f.name in run_files)):
+            if (parts[0]=='quality-diagnostics' and len(parts)==3 and parts[2]=='report.json') or parts[0] in roots or parts[0]=='imports' and len(parts)>1 and parts[1] in {'files','versions'} or (len(parts)==1 and f.name in root_files) or (parts[0]=='run' and len(parts)>1 and (parts[1] in run_dirs or len(parts)==2 and f.name in run_files)):
                 if f.name.endswith(('.local.json','.lock')) or '__pycache__' in parts:continue
                 z.write(f,rel.as_posix())
         z.writestr('review_snapshot.json',json.dumps(snap,ensure_ascii=False))

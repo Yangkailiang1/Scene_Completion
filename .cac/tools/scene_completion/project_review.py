@@ -1,3 +1,4 @@
+from .configuration_lock import serialized
 """Project-owned concern versions and evidence-bound pending decisions."""
 from pathlib import Path
 from copy import deepcopy
@@ -48,6 +49,7 @@ def registry_view(project,version=None):
       'versions':[{k:v for k,v in row.items() if k!='registry'} for row in versions], 'read_only':bool(version and version!=current['hash'])}
 
 
+@serialized
 def save_registry(project,body):
     project=Path(project);view=registry_view(project);current=view['registry']
     if body.get('expected_hash')!=current['hash']:raise ValueError('关注点版本已变化，请刷新后再保存')

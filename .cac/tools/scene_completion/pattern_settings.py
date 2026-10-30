@@ -1,3 +1,4 @@
+from .configuration_lock import serialized
 """Project-owned snapshots, imports and business feedback; never an automatic GT feed."""
 from pathlib import Path
 from threading import RLock
@@ -40,6 +41,7 @@ def settings(project,version=None):
         return {'version':selected,'history':index['history'],'settings':value}
 
 @project_scoped
+@serialized
 def save_settings(project,body):
     with _LOCK:
         old=settings(project)

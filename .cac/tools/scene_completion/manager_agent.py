@@ -6,7 +6,7 @@ from .storage import read_json,write_json,fingerprint
 from .manager_store import Journal,settings
 
 PROGRAM=Path(__file__).resolve().parents[3]
-ACTIONS=['status','history','strategies','files','read_file','scan','imports','convert','accept_import','configure_pipeline','review_artifact','start','diagnose','repair_node','memory','plan','ask_user','trial','propose_patch','test_patch','apply_patch','rollback_patch','cli']
+ACTIONS=['quality_diagnose','quality_report','quality_evidence','status','history','strategies','files','read_file','scan','imports','convert','accept_import','configure_pipeline','review_artifact','start','diagnose','repair_node','memory','plan','ask_user','trial','propose_patch','test_patch','apply_patch','rollback_patch','cli']
 
 def model_config(service,rid,body=None):
  from .model_settings import resolve,public_settings
@@ -64,6 +64,20 @@ def execute_action(service,rid,action,args,*,confirmed=False,daemon=False):
  if daemon and stop.exists() and read_json(stop).get('token')==proc.get('token') and proc.get('token'):raise ValueError('管理Agent已暂停，保留操作记录')
  if action not in ACTIONS:raise ValueError('未知管理工具')
  if (service.root/'manager-maintenance.json').exists() and action not in {'status','history','strategies','files','read_file','imports','diagnose','cli'}:raise ValueError('服务正在安全激活或回退；暂停新写操作，保留现场')
+ if action in {'quality_diagnose','quality_report','quality_evidence'}:
+  from . import quality_diagnostics as quality
+  if action=='quality_diagnose':
+   from .quality_runtime import enqueue
+   if service.review_only:raise ValueError('业务审核包不能启动诊断模型')
+   return enqueue(p,args.get('test_set'),args.get('case_id'))
+  value=quality.report(p,args['diagnosis_id'])
+  if action=='quality_evidence':
+   from .quality_runtime import evidence_packet
+   selected=[l for l in value['losses'] if l['id'] in set(args.get('loss_ids',[]))]
+   if not selected or len(selected)>6:raise ValueError('每次读取1至6个损失项')
+   if len({l['case_id'] for l in selected})!=1:raise ValueError('每次查看一个用例的证据')
+   return evidence_packet(read_json(quality.store(p)/value['id']/'snapshot.json'),selected)
+  return value
  if action=='status':return service.execution_status(rid)
  if action=='history':return {'messages':journal.messages(after=int(args.get('after',0)),before=args.get('before'),limit=int(args.get('limit',100)))}
  if action=='strategies':return {'operations':journal.objects('operation')[:100],'repair_budgets':journal.objects('node-repair-budget'),'activations':journal.objects('activation'),'memory':journal.memory()}

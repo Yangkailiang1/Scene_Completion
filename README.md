@@ -141,3 +141,7 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 项目管理Agent、后台托管、补丁回退、同事材料接入及CLI操作见[管理Agent使用说明](docs/project-manager.md)。真实单用例验收范围与限制见[本轮验收记录](docs/manager-acceptance-20261029.md)。
 
 工作区顶部提供可折叠的实时吞吐/切换/剩余时间监视栏，按当前执行轮查看变化图并导出报表。低吞吐策略只尝试已配置候选；预计时间基于真实DAG和成功阶段样本，未知及人工等待不伪造为固定完成时刻。见[监视与估算口径](docs/workspace-throughput-and-estimates.md)。
+
+### 指标诊断与优化建议
+
+“最终结果 → 指标诊断”可展开计分损失、证据原因和修改建议；人工确认后才应用版本化配置及定向重跑。支持`scene.cmd quality diagnose/report/impact/apply`，新完成评测轮自动诊断一次，单次模型预算最多10万Token。原始、扩展及业务审核GT分别冻结，业务包只读保存的诊断。详见[使用说明](docs/quality-diagnostics.md)。

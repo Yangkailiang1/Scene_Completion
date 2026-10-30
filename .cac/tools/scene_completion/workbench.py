@@ -698,6 +698,8 @@ def create_app(root=None,client_factory=None,env_file=None):
     def export(rid:str):return Response(service.export(rid),media_type='application/zip',headers={'Content-Disposition':'attachment; filename="scene-review.zip"'})
     from .manager_api import register as register_manager
     register_manager(app,service)
+    from .quality_api import register as register_quality
+    register_quality(app,service)
     from .review_api import register
     register(app,service,PROJECT)
     from .input_gateway import register as register_inputs,InputWatcher
@@ -709,9 +711,12 @@ def create_app(root=None,client_factory=None,env_file=None):
             service.input_watcher=InputWatcher(service);service.guardian=Guardian(service)
             from .manager_runtime import ManagerHost
             service.manager_host=ManagerHost(service)
+            from .quality_runtime import QualityHost
+            service.quality_host=QualityHost(service)
     @app.on_event('shutdown')
     def stop_input_watcher():
         if service.input_watcher:service.input_watcher.close()
         if service.guardian:service.guardian.close()
         if service.manager_host:service.manager_host.close()
+        if getattr(service,"quality_host",None):service.quality_host.close()
     return app

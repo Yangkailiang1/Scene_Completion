@@ -1,3 +1,4 @@
+import { QualityDiagnostics } from "./QualityDiagnostics";
 import { useEffect, useState } from "react";
 import {
   RefreshCw,
@@ -193,6 +194,7 @@ export function ResultsView({
       .then((r) => {
         if (live) {
           setIndex(r);
+          if (r.supplement_tests === false) setTestSet("original");
           if (r.supplement_tests === false && !index) setTestSet("original");
           setCase((c) =>
             r.cases.some((x: any) => x.id === c) ? c : r.cases[0]?.id || "",
@@ -290,6 +292,7 @@ export function ResultsView({
             >
               <option value="steps">交互对照</option>
               <option value="metrics">指标总览</option>
+              <option value="quality">指标诊断</option>
               <option value="diagrams">图表总览</option>
               <option value="tests">测试场景</option>
               <option value="recommendations">风险推荐</option>
@@ -386,6 +389,7 @@ export function ResultsView({
             风险推荐
           </button>
         </div>
+        <button className={mode === "quality" ? "active" : ""} onClick={() => setMode("quality")}>指标诊断</button>
         <label className="results-truth-picker">
           <span>评测依据</span>
           <select
@@ -424,7 +428,7 @@ export function ResultsView({
           {error}
         </div>
       )}
-      {mode === "recommendations" ? (
+      {mode === "quality" ? (<QualityDiagnostics project={project} caseId={cid} testSet={testSet}/>) : mode === "recommendations" ? (
         <RecommendationsView project={project} caseId={cid} testSet={testSet} />
       ) : mode === "tests" ? (
         <TestSources project={project} />

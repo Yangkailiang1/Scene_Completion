@@ -441,7 +441,7 @@ class Execution:
                     value=filter_scenarios(value,inputs,task)
                 if self.config.get('scenario_patterns',False) and task in {'existing-extract','test-ground-truth','test-additional-truth'}:
                     from .scenario_patterns import inverse_metadata
-                    value=inverse_metadata(value,inputs,self.pattern_settings,truth=task=='test-ground-truth')
+                    value=inverse_metadata(value,inputs,analysis_settings(self.pattern_settings),truth=task=='test-ground-truth')
                 from .execution_events import phase
                 phase('validating')
                 if task in {'exception-generate','existing-extract','test-ground-truth'}:
@@ -473,7 +473,7 @@ class Execution:
         from .review_questions import materials
         if confirmation:=materials(self.root.parent,key):version['business_confirmation']=fingerprint(confirmation)
         if (revision:=repair_revision(self.root,key)):version['external_repair']=revision
-        if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=self.pattern_settings['hash']
+        if self.config.get('scenario_patterns',False) and task in {'pattern-applicability','existing-extract','test-ground-truth','test-additional-truth','gap-recommend'}:version['pattern_settings_hash']=(self.pattern_settings['hash'] if task=='gap-recommend' else analysis_settings(self.pattern_settings)['hash'])
         if self.config.get('scenario_patterns',False) and task=='gap-recommend':version.update(history_hash=fingerprint(self.recommendation_history),recommendation_run=self.session_id)
         if imported:version['import_logic']=fingerprint((Path(__file__).parent/'artifact_imports.py').read_text())
         self.scheduler.add(Task(key,case or 'shared',task,tuple(deps),version=version,execute=execute,repair=execute,verify=verify))
@@ -587,6 +587,14 @@ class Execution:
         for session in sessions:
             if session['id']==self.session_id:session.update(finished_at=time.time(),status='complete' if self.manifest['complete'] else 'complete_with_questions' if self.manifest['execution_complete'] else 'waiting')
         write_json(self.root/'execution_sessions.json',sessions)
+        # Diagnostics enqueue only on a fresh completed round. They never block
+        # the business pipeline, and old finished runs are not scanned on startup.
+        try:
+            from .quality_runtime import notify_completed
+            notify_completed(self.root.parent)
+        except Exception as error:
+            from .execution_events import emit
+            emit('quality_enqueue_failed',reason=str(error))
         return self.manifest
 
     def publish_progress(self):
@@ -770,7 +778,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         if ex.config.get('scenario_patterns',False):
             from .scenario_patterns import applicability,generated
             add('pattern-applicability',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),
-                build=lambda d:{'positive':generation_input(d),'settings':ex.pattern_settings},transform=lambda d:applicability(d['positive'],d['settings']))
+                build=lambda d:{'positive':generation_input(d),'settings':analysis_settings(ex.pattern_settings)},transform=lambda d:applicability(d['positive'],d['settings']))
             add('exception-generate',('pattern-applicability',),build=lambda d:d,transform=lambda d:generated(d['pattern-applicability']))
         else:
             add('exception-generate',tuple(k for k in normal if k!='object-operations')+('enriched-view','concern-match'),build=generation_input,partition=True)
@@ -848,3 +856,12 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         ex.add(truth_key+':accuracy','extraction-evaluation',(source,),static={'truth':gt,'decisions':decisions},
           build=lambda d,source=source,gt=gt,ds=decisions:{'actual':d[source],'truth':gt,'decisions':ds},
           transform=lambda d,task=task:accuracy(task,d['actual'],d['truth'],d['decisions']) if d['truth'] is not None else not_evaluated(task),case=cid)
+
+
+def analysis_settings(value):
+    """Ranking-only edits must not invalidate identification or GT model work."""
+    from copy import deepcopy
+    from .scenario_patterns import normalize_settings
+    v=deepcopy(value)
+    for k,default in [('top_k',10),('risk_weight',.7),('history_weight',.3)]:v[k]=default
+    return normalize_settings(v)
