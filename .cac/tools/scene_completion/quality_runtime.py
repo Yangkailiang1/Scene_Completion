@@ -192,7 +192,12 @@ def _run_job(service,rid,did,client=None):
       if attempt==2:continue
     emit('quality_progress',diagnosis_id=did,coverage=value['coverage'])
    value['status']='complete' if all(l.get('reviewed_by')=='model' for l in value['losses']) and not value['integrity'] else 'partial'
-  except Exception as exc:value.update(status='partial',error=str(exc))
+  except Exception as exc:
+   raw=getattr(exc,'response_diagnostic',{}) or {}
+   diagnostic={k:raw[k] for k in ('failure_category','http_status','budget_kind','budget_reason','remaining_tokens','required_reservation','request_not_sent') if k in raw}
+   message=str(exc)
+   if diagnostic.get('failure_category')=='budget_exhausted':message='诊断或账号预算不足／存在未知用量：'+str(diagnostic.get('budget_reason'))+'；余额 '+str(diagnostic.get('remaining_tokens'))+'；本次保守预留 '+str(diagnostic.get('required_reservation'))+'。未清空账本。'
+   value.update(status='partial',error=message,diagnostic=diagnostic)
   value['finished_at']=time.time();q.refresh(value);q.save(project,value)
   value['budget']=load_budget(folder/'budget.local.json');q.save(project,value)
   emit('quality_completed',diagnosis_id=did,status=value['status'],coverage=value['coverage'])
