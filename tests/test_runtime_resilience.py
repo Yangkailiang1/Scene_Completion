@@ -149,3 +149,5 @@ def test_business_rejection_does_not_cool_provider_for_other_nodes(tmp_path):
  assert invoke(c,{'task':'components'},call)=='ok'
  assert seen==['a','b']
  assert not cooling(c.config)
+ mark_degraded(c.config,validate(c.config['resilience']),'validation_rejected')
+ assert not cooling(c.config)
