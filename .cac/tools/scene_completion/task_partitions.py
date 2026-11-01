@@ -66,6 +66,13 @@ def split_task(task,inputs):
             q=deepcopy(inputs)
             for key in ('rr-ssd','sr-ssd','enriched-interactions'):
                 if key in q:q[key]['interactions']=[i for i in q[key]['interactions'] if i['id'] in ids]
+            if 'business-crud' in q:
+                q['business-crud']={**q['business-crud'],
+                    'rows':[r for r in q['business-crud'].get('rows',[]) if r['interaction_id'] in ids]}
+            if 'business-entities' in q and 'business-crud' in q:
+                entity_ids={r['entity_id'] for r in q['business-crud']['rows']}
+                q['business-entities']={**q['business-entities'],
+                    'entities':[e for e in q['business-entities'].get('entities',[]) if e['id'] in entity_ids]}
             if 'concern-match' in q:q['concern-match']={k:[m for m in v if m['interaction_id'] in ids] for k,v in q['concern-match'].items()}
             if 'normal-rules' in q:q['normal-rules']={'rules':[r for r in q['normal-rules']['rules'] if r['interaction_id'] in ids],'pending':[r for r in q['normal-rules'].get('pending',[]) if r['interaction_id'] in ids]}
             if 'normal-documents' in q and 'normal-rules' in q:q['normal-documents']=_documents_at(q['normal-documents'],evidence_refs(q['normal-rules']))

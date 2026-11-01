@@ -1,4 +1,4 @@
-"""Independent tasks and a fixed, resumable DAG for scene-workflow-v4.
+"""Independent tasks and a fixed, resumable DAG for scene-workflow-v5.
 
 No legacy packets, history vectors, recommendations or external paid calls in
 packet/mock mode. Semantic results are evidence-checked before cache promotion.
@@ -38,7 +38,7 @@ def canonical_enrich(d):
 
 
 def payload(value):
-    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v4')
+    if value.get('protocol')!=PROTOCOL: raise ValueError('legacy or unversioned task result cannot enter scene-workflow-v5')
     return value['payload']
 
 
@@ -72,6 +72,22 @@ def code_version(task):
       'exception-evaluation':['exception_comparison.py','assignment.py'],
       'extraction-evaluation':['evaluation.py','assignment.py'], 'enriched-view':['interaction_enrichment.py'],
       'test-operation-project':['source_documents.py','task_context.py'], 'gap-recommend':['recommendation.py','scenario_patterns.py'], 'pattern-applicability':['scenario_patterns.py','exception_generation.py','normal_rules.py']}
+    modules.update({
+      'business-entities':['domain_model.py','source_documents.py'],
+      'business-crud':['domain_model.py','source_documents.py'],
+      'business-attribute-map':['domain_model.py'],
+      'data-dependencies':['domain_model.py','source_documents.py'],
+      'business-dependencies':['domain_model.py','source_documents.py'],
+      'global-concerns':['global_analysis.py'],
+      'global-existing-concerns':['global_analysis.py'],
+      'global-test-concerns':['global_analysis.py'],
+      'global-scenarios':['global_analysis.py'],
+      'global-existing-scenarios':['global_analysis.py'],
+      'global-test-scenarios':['global_analysis.py'],
+      'global-concern-compare':['global_analysis.py'],
+      'global-scenario-compare':['global_analysis.py'],
+      'global-recommend':['global_analysis.py'],
+      'global-evaluation':['global_analysis.py']})
     names=modules.get(task,[])
 
     # Positive-reuse admission is an adapter; actual inputs/schema/Skill and business modules remain the artifact contract.
@@ -547,7 +563,7 @@ class Execution:
         # Keep independently completed task files; failed siblings cannot erase them.
         (self.root/'missing_report.json').unlink(missing_ok=True)
         (self.root/'missing_report.md').unlink(missing_ok=True)
-        reports={};evaluations={};cases={};recommendations={}
+        reports={};evaluations={};cases={};recommendations={};global_results={}
         records=self.scheduler.state['tasks']
         for key,record in records.items():
             if key not in self.scheduler.tasks:continue
@@ -569,17 +585,38 @@ class Execution:
             if stage=='missing-report':reports[cid]=value['payload']
             if stage=='exception-evaluation':evaluations[cid]=value['payload']
             if stage=='gap-recommend' and cid!='shared':recommendations[cid]=value['payload']
-        if reports:
+            if stage.startswith('global-') or stage in {'business-dependencies','business-entities','business-crud','business-attribute-map','data-dependencies'}:
+                global_results[stage]=value['payload']
+        if reports or 'global-scenario-compare' in global_results:
             from .artifact_exports import export_missing_report
             combined={'protocol':PROTOCOL,'cases':reports,'evaluation':evaluations,
+              'global':global_results if 'global-scenario-compare' in global_results else {},
               'recommendation':{'enabled':True,'cases':recommendations} if self.config.get('scenario_patterns',False) else {'enabled':False,'status':'未启用'},'evaluation_status':{
                   c:'已评测' if c in evaluations else '未评测或任务未完成' for c in reports}}
             export_missing_report(self.root,combined)
         analysis_stages={'existing-concerns','concern-compare','fused-ssd','rr-ssd','sr-ssd','object-operations','interaction-align','interaction-enrich','concern-match','enriched-view','exception-generate','existing-extract','gap-compare','missing-report'}
         analysis={c:all(stages.get(s)=='passed' for s in analysis_stages) for c,stages in cases.items() if c!='shared'}
+        global_stages=('business-entities','business-crud','business-attribute-map','data-dependencies','business-dependencies','global-concerns','global-existing-concerns','global-scenarios','global-existing-scenarios','global-concern-compare','global-scenario-compare','global-recommend','global-evaluation')
+        def aggregate_stage(stage):
+            statuses=[r['status'] for key,r in records.items() if key in self.scheduler.tasks and r.get('case')=='shared' and r.get('stage')==stage]
+            if not statuses:return 'not_created'
+            if all(status=='passed' for status in statuses):return 'passed'
+            return next((status for status in statuses if status not in {'passed','pending'}),'pending')
+        global_status={stage:aggregate_stage(stage) for stage in global_stages}
+        # An empty, validated dependency graph has no per-dependency analysis
+        # nodes. Report that case as not applicable rather than incomplete.
+        no_global_dependencies=(global_status['business-dependencies']=='passed' and
+                                not global_results.get('business-dependencies',{}).get('dependencies'))
+        if no_global_dependencies:
+            for stage in global_stages:
+                if stage.startswith('global-') and global_status[stage]=='not_created':
+                    global_status[stage]='not_applicable'
         if self.config.get('scenario_patterns',False):self.manifest['recommendation']={'enabled':True,'status':'已推荐' if recommendations and all(c in recommendations for c in reports) else '等待缺失比较','case_count':len(recommendations)}
         self.manifest.update(execution_complete=result['complete'],complete=result['complete'] and not self.manifest.get('test_import_pending_count',0) and not any(g['status']=='pending' for g in self.manifest.get('case_correspondence',[])) and not any(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),analysis_complete=bool(analysis) and all(analysis.values()),
           analysis_by_case=analysis,evaluation_by_case={c:s.get('exception-evaluation')=='passed' for c,s in cases.items() if c!='shared'},
+          global_analysis={'complete':all(status in {'passed','not_applicable'} for status in global_status.values()),'stages':global_status,
+                           'evaluation_status':('未评测或任务未完成' if global_status['global-evaluation']!='passed' else
+                             '已评测' if global_results.get('global-evaluation',{}).get('metrics',{}).get('missing_omission',{}).get('status')!='未评测' else '未评测')},
           tasks={k:r['status'] for k,r in records.items() if k in self.scheduler.tasks})
         write_json(self.root/'run_manifest.json',self.manifest)
         import time
@@ -619,16 +656,26 @@ def safe_case(case):
     return fingerprint(case)[:12]
 
 
-def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
+def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=None):
     ex.manifest.update(test_policy='exception-only-v1',test_source_hash=fingerprint(tests),test_supplement_enabled=bool(ex.config.get('supplement_tests',False)))
     if (ex.root.parent/'project.json').exists():
         project=read_json(ex.root.parent/'project.json');ex.manifest['test_source_version']=project.get('test_source_version',fingerprint(project['sources']['test'])[:20])
     from .source_documents import discover_cases,case_projection,current_projection
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
     from .indexed_context import markdown_index,task_document_view,catalogue_context
-    ex.add('source-index','source-index',static={'documents':rr+sr},transform=lambda d:markdown_index(d['documents']))
+    ar=current_projection(ar or [])
+    ex.add('source-index','source-index',static={'documents':rr+sr+ar},transform=lambda d:markdown_index(d['documents']))
     rr=current_projection(rr);sr=current_projection(sr)
-    normal_rr=normal_projection(rr);normal_sr=normal_projection(sr)
+    normal_rr=normal_projection(rr);normal_sr=normal_projection(sr);normal_ar=normal_projection(ar)
+    from .domain_model import source_chunks,merge_entities
+    entity_parts=[]
+    for n,document in enumerate(source_chunks(normal_rr+normal_sr+normal_ar)):
+        key='business-entities-part-'+str(n+1).zfill(3)
+        ex.add(key,'business-entities',static={'normal-documents':[document]})
+        ex.scheduler.tasks[key].display_label='业务实体与属性 · 来源片段 '+str(n+1)
+        entity_parts.append(key)
+    ex.add('business-entities','business-entities',tuple(entity_parts),
+      build=lambda d:d,transform=lambda d:merge_entities(d.values()))
     root_contexts=[('components',{'RR':normal_rr,'SR':normal_sr},'components'),('api-map',{'SR':normal_sr},'api-map')]
     for task,documents,intent in root_contexts:
         context_key=task+'-context'
@@ -701,11 +748,11 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None):
         test_catalogue=get('test-inventory');test_alignment=get('test-case-align')
         ex.manifest['test_case_correspondence']=test_alignment['matches']
         ex.manifest['test_import_pending_count']=len(test_catalogue.get('pending',[]))
-        _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue,test_alignment)
+        _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue,test_alignment,ar)
     ex.expand_pipeline=expand
 
 
-def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue=None,test_alignment=None):
+def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,test_catalogue=None,test_alignment=None,ar=None):
     from .use_cases import select_documents
     from .source_documents import case_projection
     from .api_documents import case_parameters
@@ -715,7 +762,7 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         key=lambda t:cid+':'+t
         # Translate scheduler keys to task contract names only within this case.
         def add(task,deps=(),static=None,build=None,transform=None,cid=cid,partition=False):
-            local=lambda t:t if t in {'components','api-map','api-parameters'} else cid+':'+t
+            local=lambda t:t if t in {'components','api-map','api-parameters','business-entities'} else cid+':'+t
             def construct(d):
                 values={t:d[local(t)] for t in deps}
                 return build(values) if build else deepcopy(static or {})
@@ -724,6 +771,13 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         group=next(g for g in groups if g['id']==cid)
         scoped_rr=select_documents(rr,[c for c in catalogue['RR'] if c['id'] in group['rr_ids']],catalogue['RR'])
         scoped_sr=select_documents(sr,[c for c in catalogue['SR'] if c['id'] in group['sr_ids']],catalogue['SR'])
+        scoped_ar=[]
+        if ar:
+            from .source_documents import case_projection
+            all_case_ids=list(dict.fromkeys(x for g in groups for x in g['rr_ids']+g['sr_ids']))
+            for source_id in group['rr_ids']+group['sr_ids']:
+                scoped_ar.extend(case_projection(ar,source_id,all_case_ids))
+            scoped_ar=list({d['source_id']:d for d in scoped_ar}.values())
         test_ids=list(dict.fromkeys(x for g in groups for x in g['rr_ids']+g['sr_ids']))
         scoped_test=[]
         for tid in group['rr_ids']+group['sr_ids']:scoped_test+=case_projection(tests,tid,test_ids)
@@ -753,12 +807,20 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
           build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g},transform=ssd_context)
         add('fused-ssd',('ssd-context',),build=lambda d:d['ssd-context'])
+        def crud_input(d,rr_docs=normal_projection(scoped_rr),sr_docs=normal_projection(scoped_sr),ar_docs=normal_projection(scoped_ar)):
+            return {'normal-documents':rr_docs+sr_docs+ar_docs,'business-entities':d['business-entities'],
+                    'fused-ssd':d['fused-ssd']}
+        add('business-crud',('business-entities','fused-ssd'),build=crud_input)
         for layer in ('RR','SR'):
             add(layer.lower()+'-ssd',('fused-ssd',),build=lambda d:d,transform=lambda d,l=layer:{'interactions':[i for i in d['fused-ssd']['interactions'] if i['layer']==l]})
         add('test-operation-project',static={'test-operation-source':scoped_test},transform=(lambda d:{'objects':[]}) if not scoped_test else None)
         add('object-operations',('components','rr-ssd','test-operation-project'),build=lambda d:{'components':d['components'],'rr-ssd':d['rr-ssd'],'test-operations':d['test-operation-project']},transform=capability_union)
         add('interaction-align',('components','rr-ssd','sr-ssd','fused-ssd'),build=lambda d:d,transform=lambda d:{'aliases':[],'links':d['fused-ssd']['rr_sr_links']})
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
+        def data_dependency_input(d,docs=positive+normal_projection(scoped_ar)):
+            return {'normal-documents':docs,'components':d['components'],'api-map':d['api-map'],
+                    'api-parameters':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd']}
+        add('data-dependencies',('components','api-map','api-parameters','fused-ssd'),build=data_dependency_input)
         add('normal-rules',('fused-ssd',),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':d['fused-ssd'],**({'registry':registry()} if registry()['hash']!=default_registry()['hash'] else {})},partition=True)
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','normal-rules')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:canonical_enrich(d))
@@ -767,8 +829,9 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
             v={k:d[k] for k in normal};v=bind_resource_services(v)
             v.update(basic_views(d['interaction-enrich']))
             v['api-parameters']=case_parameters(v,d['interaction-enrich'])
-            return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry()}
-        add('concern-match',normal+('interaction-enrich',),static={'normal-documents':positive},build=concern_input,partition=True)
+            return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry(),
+                    'business-crud':d['business-crud'],'business-entities':d['business-entities']}
+        add('concern-match',normal+('interaction-enrich','business-crud','business-entities'),static={'normal-documents':positive},build=concern_input,partition=True)
         add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
         def generation_input(d):
             v=bind_resource_services({k:d[k] for k in normal if k!='object-operations'})
@@ -857,6 +920,52 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
           build=lambda d,source=source,gt=gt,ds=decisions:{'actual':d[source],'truth':gt,'decisions':ds},
           transform=lambda d,task=task:accuracy(task,d['actual'],d['truth'],d['decisions']) if d['truth'] is not None else not_evaluated(task),case=cid)
 
+    # Shared v5 views depend on validated per-case facts, but do not wait for
+    # anomaly generation or evaluation. A failed use case remains isolated.
+    from .domain_model import merge_rows,exact_field_map,source_chunks
+    crud_keys=tuple(cid+':business-crud' for cid in cases)
+    fused_keys=tuple(cid+':fused-ssd' for cid in cases)
+    data_keys=tuple(cid+':data-dependencies' for cid in cases)
+    def merge_crud(d):
+        return merge_rows((d[k] for k in crud_keys),('rows',))
+    ex.add('business-crud-project','business-crud',crud_keys+fused_keys+('business-entities',),
+      build=lambda d:{**d,'business-entities':d['business-entities'],
+                      'fused-ssd':{'interactions':[row for key in fused_keys for row in d[key]['interactions']]}},
+      transform=merge_crud)
+    ex.add('data-dependencies-project','data-dependencies',data_keys,
+      build=lambda d:d,transform=lambda d:merge_rows(d.values(),('entities','relations','flows')))
+    ex.add('business-attribute-map','business-attribute-map',('api-parameters','business-entities','business-crud-project'),
+      build=lambda d:d,transform=lambda d:exact_field_map(d['api-parameters'],d['business-entities']['entities'],d['business-crud-project']['rows']))
+
+    positive_docs=normal_projection(rr)+normal_projection(sr)+normal_projection(ar or [])
+    dependency_parts=[]
+    for n,document in enumerate(source_chunks(positive_docs,max_chars=7000)):
+        key='business-dependencies-part-'+str(n+1).zfill(3)
+        def dep_input(d,doc=document,groups=groups):
+            # Identities and operations are enough to inspect a source slice;
+            # attribute constraints are retrieved by the entity task later.
+            mini=[{'id':e['id'],'name':e['name'],'attributes':[],
+                   'business_rules':[],'source_refs':e['source_refs']}
+                  for e in d['business-entities']['entities']]
+            text='\n'.join(line['text'] for line in doc['lines']).casefold()
+            source_lines={line['number'] for line in doc['lines']}
+            entity_names={e['id']:e['name'].casefold() for e in mini}
+            def in_slice(row):
+                name=entity_names.get(row['entity_id'])
+                if row['case_id'].casefold() in text or (name and name in text):return True
+                return any(ref['source_id']==doc['source_id'] and
+                           any(ref['line_start']<=line<=ref['line_end'] for line in source_lines)
+                           for ref in row['source_refs'])
+            scoped=[row for row in d['business-crud-project']['rows'] if in_slice(row)]
+            return {'normal-documents':[doc],'business-entities':{'entities':mini,'pending':[]},
+                    'business-crud':{'rows':scoped,'pending':[]},'case-groups':{'groups':groups}}
+        ex.add(key,'business-dependencies',('business-entities','business-crud-project'),build=dep_input)
+        ex.scheduler.tasks[key].display_label='业务依赖 · 来源片段 '+str(n+1)
+        dependency_parts.append(key)
+    ex.add('business-dependencies','business-dependencies',tuple(dependency_parts)+('business-entities',),
+      build=lambda d:d,transform=lambda d:merge_rows((d[k] for k in dependency_parts),('dependencies',)))
+    _schedule_global_analysis(ex,rr,sr,ar or [],tests)
+
 
 def analysis_settings(value):
     """Ranking-only edits must not invalidate identification or GT model work."""
@@ -865,3 +974,76 @@ def analysis_settings(value):
     v=deepcopy(value)
     for k,default in [('top_k',10),('risk_weight',.7),('history_weight',.3)]:v[k]=default
     return normalize_settings(v)
+
+
+def _schedule_global_analysis(ex,rr,sr,ar,tests):
+    """Expand global tasks only after the evidenced business graph is saved."""
+    from .domain_model import dependency_context,existing_branch_context
+    from .source_documents import current_projection,normal_projection
+    from .global_analysis import compare_concerns,compare_scenarios,recommend,evaluate
+    from .test_sources import exception_documents
+    def expand():
+        state=ex.scheduler.state['tasks'];get=lambda key:payload(read_json(ex.root/state[key]['output_file']))
+        dependencies=get('business-dependencies')['dependencies']
+        entities=get('business-entities')['entities']
+        active={k:v for k,v in registry()['definitions'].items() if k.startswith('global.') and v.get('enabled',True)}
+        limited_registry={'version':registry()['version'],'hash':registry()['hash'],'definitions':active}
+        normal=normal_projection(rr)+normal_projection(sr)+normal_projection(ar)
+        raw=current_projection(rr)+current_projection(sr)+current_projection(ar)
+        branches=get('existing-branches')['branches']
+        test=exception_documents(tests)
+        keys={k:[] for k in ('G_c','E_c','GT_c','G_s','E_s','GT_s')}
+        for dependency in dependencies:
+            suffix=fingerprint(dependency['id'])[:12]
+            one={'dependencies':[dependency],'pending':[]}
+            subset=[e for e in entities if e['id'] in {dependency['from_entity_id'],dependency['to_entity_id']}]
+            normal_docs=dependency_context(normal,dependency,entities)
+            existing_docs=existing_branch_context(raw,branches,dependency,entities)
+            test_docs=dependency_context(test,dependency,entities)
+            names={'G_c':('global-concerns',()),
+                   'E_c':('global-existing-concerns',()),
+                   'GT_c':('global-test-concerns',()),
+                   'G_s':('global-scenarios',('G_c',)),
+                   'E_s':('global-existing-scenarios',('E_c',)),
+                   'GT_s':('global-test-scenarios',('GT_c',))}
+            for channel,(task,depends_on) in names.items():
+                key='global-'+suffix+'-'+channel;keys[channel].append(key)
+                parents=('business-dependencies',)+tuple('global-'+suffix+'-'+x for x in depends_on)
+                if channel=='G_c':
+                    inputs={'business-dependencies':one,'business-entities':{'entities':subset,'pending':[]},
+                            'registry':limited_registry,'normal-documents':normal_docs}
+                elif channel=='E_c':inputs={'existing-documents':existing_docs,'business-dependencies':one,'registry':limited_registry}
+                elif channel=='GT_c':inputs={'test-documents':test_docs,'business-dependencies':one,'registry':limited_registry}
+                else:
+                    inputs={'business-dependencies':one,'registry':limited_registry}
+                    if channel=='G_s':inputs['business-entities']={'entities':subset,'pending':[]}
+                    else:inputs['existing-documents' if channel=='E_s' else 'test-documents']=existing_docs if channel=='E_s' else test_docs
+                def build(d,inputs=inputs,depends_on=depends_on,suffix=suffix):
+                    value=deepcopy(inputs)
+                    if depends_on:value['identified-concerns']=d['global-'+suffix+'-'+depends_on[0]]
+                    return value
+                inactive=(channel in {'E_c','E_s'} and not existing_docs) or (channel in {'GT_c','GT_s'} and not test_docs) or (
+                    channel in {'G_s','E_s','GT_s'} and not get('business-dependencies')['dependencies'])
+                def empty(d,channel=channel):return {'matches' if channel.endswith('_c') else 'scenarios':[],'pending':[]}
+                ex.add(key,task,parents,build=build,transform=empty if inactive else None)
+                ex.scheduler.tasks[key].display_label={'G_c':'全局关注点识别','E_c':'全局已有关注点','GT_c':'全局测试关注点',
+                     'G_s':'全局场景展开','E_s':'全局已有场景','GT_s':'全局测试场景'}[channel]+' · '+dependency['id']
+        def merged(d,channel):
+            list_key='matches' if channel.endswith('_c') else 'scenarios'
+            return {list_key:[row for key in keys[channel] for row in d[key][list_key]],
+                    'pending':[row for key in keys[channel] for row in d[key].get('pending',[])]}
+        concern_deps=tuple(keys['G_c']+keys['E_c']+keys['GT_c'])
+        ex.add('global-concern-compare','global-concern-compare',concern_deps,
+          build=lambda d:d,transform=lambda d:compare_concerns(merged(d,'G_c'),merged(d,'E_c'),
+               merged(d,'GT_c') if any(keys['GT_c'] and d[k]['matches'] for k in keys['GT_c']) else None))
+        scenario_deps=tuple(keys['G_s']+keys['E_s']+keys['GT_s'])
+        ex.add('global-scenario-compare','global-scenario-compare',scenario_deps,
+          build=lambda d:d,transform=lambda d:compare_scenarios(merged(d,'G_s'),merged(d,'E_s'),
+               merged(d,'GT_s') if any(d[k]['scenarios'] for k in keys['GT_s']) else None))
+        ex.add('global-recommend','global-recommend',('global-scenario-compare',),build=lambda d:d,
+          transform=lambda d:recommend(d['global-scenario-compare']['M'],ex.pattern_settings,
+                                       ex.recommendation_history,run_id=ex.session_id))
+        ex.add('global-evaluation','global-evaluation',('global-concern-compare','global-scenario-compare','global-recommend')+tuple(keys['GT_s']),
+          build=lambda d:d,transform=lambda d:evaluate(d['global-concern-compare'],d['global-scenario-compare'],
+            d['global-recommend'],merged(d,'GT_s') if any(d[k]['scenarios'] for k in keys['GT_s']) else None))
+    ex.partitions.append((('business-dependencies','existing-branches'),expand))

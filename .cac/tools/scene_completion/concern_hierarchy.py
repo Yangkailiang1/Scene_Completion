@@ -9,7 +9,8 @@ from .concern_registry import registry,inheritance_paths
 from .storage import fingerprint
 
 FUNCTION_KINDS={'display_interaction':{'display'},'query_retrieval':{'read'},
- 'resource_mutation':{'create','update','delete'},'analysis_generation':{'process'},'release_activation':{'publish'}}
+ 'create':{'create'},'update':{'update'},'delete':{'delete'},
+ 'analysis_generation':{'process'},'release_activation':{'publish'}}
 DATA_KINDS={'completeness':'required','type':'type','format':'format','length':'length','size':'size','range':'range','legality':'legality'}
 
 
@@ -33,7 +34,17 @@ def context(interaction,inputs):
     kinds=set(request['operation']['kinds'])
     for rule in inputs.get('normal-rules',{}).get('rules',[]):
         if rule['interaction_id']==request['id']:kinds.update(rule['functional_kinds'])
-    return {'view':view,'request':request,'role':role,'party':party,'service':service,'name':name,
+    # The business-entity matrix is the authority for C/R/U/D effects in v5.
+    # HTTP verbs, endpoint names and unrelated supported capabilities cannot
+    # establish a business operation. Preserve other kinds such as publish.
+    if 'business-crud' in inputs:
+        kinds.difference_update({'create','read','update','delete'})
+        kinds.update(row['operation'] for row in inputs['business-crud'].get('rows',[])
+                     if row['interaction_id']==request['id'])
+    external=any(s in position for s in ('外部服务','外部Actor（系统）','外部数据库','外部资源'))
+    if party.get('resource_service'):
+        external=party['resource_service'].get('resource_origin')=='external'
+    return {'view':view,'request':request,'role':role,'party':party,'service':service,'name':name,'external':external,
       'functions':[k for k,v in FUNCTION_KINDS.items() if kinds&v],
       'technologies':(['database'] if database else [])+(['llm'] if llm else []),'kinds':kinds}
 
@@ -83,7 +94,15 @@ def applicability(match,interaction,inputs):
     if definition['operation_kinds'] and not ctx['kinds']&set(definition['operation_kinds']):
         return 'not_applicable','关注点不适用于本次实际操作，不能使用其他支持能力'
     key=match['concern_key']
-    if key=='service.base.availability':return 'applicable','本次确实调用该服务，检查调用能否执行'
+    if key=='service.base.availability':return ('applicable','本次调用外部Service') if ctx['external'] else ('not_applicable','本版只对外部Service调用检查可用性')
+    if key=='service.business_attribute_constraint':
+        entities={e['id']:e for e in inputs.get('business-entities',{}).get('entities',[])}
+        rows=[r for r in inputs.get('business-crud',{}).get('rows',[]) if r['interaction_id']==ctx['request']['id']]
+        known=[entities[r['entity_id']] for r in rows if r.get('entity_id') in entities]
+        if not known:return 'not_applicable','本次操作没有已确认的业务实体归属'
+        if any(e['business_rules'] or any(a['constraints'] for a in e['attributes']) for e in known):
+            return 'applicable','本次业务实体存在有来源的属性或跨属性约束'
+        return 'pending','业务实体已定位，但本次适用的属性约束尚未明确'
     if key in {'service.base.request_data','service.base.response_contract'}:
         phase='request' if key.endswith('request_data') else 'return'
         if interaction['direction']!=phase:return 'not_applicable','在对应请求或返回交互中检查'

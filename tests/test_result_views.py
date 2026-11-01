@@ -91,3 +91,32 @@ def test_normal_exclusions_are_not_presented_as_unresolved_concerns(tmp_path):
     assert ResultView(tmp_path).metrics()['cases'][0]['concern_pending']==1
     value['excluded']['GT'].append({'status':'pending','status_reason':'字段位置待确认'});write_json(root/file,{'payload':value})
     assert ResultView(tmp_path).metrics()['cases'][0]['concern_pending']==1
+
+
+def test_project_totals_do_not_mix_original_global_truth_with_expanded_or_business_truth(tmp_path,monkeypatch):
+    view=ResultView(tmp_path)
+    def case_metrics(test_set):
+        assert test_set in {'original','expanded','business'}
+        return {'complete':True,'cases':[{'id':'C'}],
+                'metrics':{'missing_exception_miss_rate':{'status':'适用','numerator':2,'denominator':5},
+                           'generation_validity':{'status':'适用','numerator':3,'denominator':7}},
+                'recommendation_comparison':{'baseline':{'metrics':{
+                    'recommendation_adoption':{'status':'适用','numerator':2,'denominator':4},
+                    'recommendation_false_positive':{'status':'适用','numerator':2,'denominator':6}}}}}
+    def global_metrics(test_set):
+        return {'complete':True,'status':'已评测','metrics':{
+            'missing_omission':{'status':'适用','numerator':1,'denominator':3},
+            'generation_effectiveness':{'status':'适用','numerator':2,'denominator':5},
+            'baseline_adoption':{'status':'适用','numerator':1,'denominator':2}}}
+    monkeypatch.setattr(view,'metrics',case_metrics)
+    monkeypatch.setattr(view,'global_detail',global_metrics)
+    original=view.project_metrics('original')
+    assert original['metrics']['missing_omission']['numerator']==3
+    assert original['metrics']['missing_omission']['denominator']==8
+    assert original['metrics']['baseline_adoption']['numerator']==3
+    for source in ('expanded','business'):
+        other=view.project_metrics(source)
+        assert other['metrics']['missing_omission']['numerator']==2
+        assert other['metrics']['missing_omission']['denominator']==5
+        assert other['metrics']['missing_omission']['included_granularities']==['interaction']
+        assert other['metrics']['missing_omission']['partial'] and not other['complete']

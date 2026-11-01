@@ -43,18 +43,18 @@ def test_registry_is_a_valid_DAG_and_all_57_old_items_have_audit_mapping():
     with pytest.raises(ValueError,match='cycle'):validate_registry(broken)
 
 
-@pytest.mark.parametrize('position',['内部服务','外部Actor（系统）','内部数据库','外部数据库','AI模型'])
-def test_every_service_position_inherits_the_same_base(position):
+@pytest.mark.parametrize('position,available',[('内部服务',False),('外部Actor（系统）',True),('内部数据库',False),('外部数据库',True),('AI模型',False)])
+def test_every_service_position_inherits_the_same_base(position,available):
     x=memory_inputs();i=x['sr-ssd']['interactions'][0];i['receiver']['position']=position
     if position=='AI模型':i['receiver']['name']='LLMService'
     rows=resolved(x)
     base=set(registry()['profiles']['base'])
     assert base<={m['concern_key'] for m in rows}
-    assert find(rows,'service.base.availability')['status']=='applicable'
+    assert find(rows,'service.base.availability')['status']==('applicable' if available else 'not_applicable')
     assert find(rows,'human.authentication')['status']=='pending'
     assert find(rows,'human.authentication')['object']=='开发者'
     assert find(rows,'human.authentication')['service']==i['receiver']['name']
-    assert len(service_exceptions(x))==1
+    assert len(service_exceptions(x))==int(available)
     assert len(data_exceptions(x))==8
 
 
@@ -65,7 +65,9 @@ def test_actual_operation_selects_function_and_not_all_supported_capabilities():
     assert find(rows,'service.query_retrieval.resource_existence')['status']=='applicable'
     assert not any(m['concern_key'].startswith('service.resource_mutation.') for m in rows)
     i['operation']['kinds']=['update'];i['operation']['name']='修改记录';rows=resolved(x)
-    assert any(m['concern_key'].startswith('service.resource_mutation.') for m in rows)
+    x['business-crud']={'rows':[{'interaction_id':'req','operation':'update'}]}
+    rows=resolved(x)
+    assert any(m['concern_key'].startswith('service.crud.update.') for m in rows)
     assert not any(m['concern_key'].startswith('service.query_retrieval.') for m in rows)
 
 
@@ -101,7 +103,7 @@ def test_security_is_conditional_not_an_automatic_login_requirement():
 
 
 def test_authentication_failure_cannot_be_generated_as_unavailability():
-    x=memory_inputs();rows=resolved(x);s=service_exceptions(x)[0];s['cause']='authentication_failed'
+    x=memory_inputs();x['sr-ssd']['interactions'][0]['receiver']['position']='外部Actor（系统）';rows=resolved(x);s=service_exceptions(x)[0];s['cause']='authentication_failed'
     with pytest.raises(ValueError,match='not service availability'):
         validate_result('exception-generate',{'scenarios':[s],'pending':[]},x)
 
@@ -134,7 +136,9 @@ def test_database_uses_shared_query_base_and_only_relevant_extensions(physical):
     x=memory_inputs();x['components']['components']=[{'id':'db','name':'Database','composition_type':physical,'source_refs':R}]
     x['sr-ssd']['interactions'][0]['receiver'].update(name='Database',position=physical)
     x=bind_resource_services(x);rows=resolved(x)
-    assert find(rows,'service.base.availability')['status']=='applicable'
+    # The SSD receiver is a logical internal resource service after wrapping;
+    # availability belongs to a documented external call, not physical origin alone.
+    assert find(rows,'service.base.availability')['status']=='not_applicable'
     assert find(rows,'database.uniqueness')['status']=='not_applicable'
     assert find(rows,'database.query_performance')['status']=='not_applicable'
     assert 'database.transaction_atomicity' not in registry()['definitions']
@@ -210,7 +214,7 @@ def test_pipeline_exports_applicability_and_passes_only_positive_rule_documents(
     assert seen  # actual recognition must run; indexed facts only validate its evidence
     assert normal_seen and all(d['channel']=='normal' for d in normal_seen[0]['input']['normal-documents'])
     assert 'existing empty result' not in json.dumps(normal_seen[0])
-    manifest=read_json(ex.root/'run_manifest.json');assert manifest['registry_version']=='interaction-concerns-v3'
+    manifest=read_json(ex.root/'run_manifest.json');assert manifest['registry_version']=='interaction-global-concerns-v5'
     report=read_json(ex.root/'missing_report.json')['cases']['UC-X']
     assert report['concerns']==[]  # empty model recognition stays empty in the report
     assert all(m['inheritance_paths'] for m in report['concerns'])
@@ -256,10 +260,11 @@ def test_report_distinguishes_applicable_pending_and_inapplicable(tmp_path):
 
 
 @pytest.mark.parametrize('position',['内部服务','外部Actor（系统）','内部数据库','AI模型'])
-@pytest.mark.parametrize('kinds,function',[(['display'],'display_interaction'),(['read'],'query_retrieval'),(['update'],'resource_mutation'),(['process'],'analysis_generation'),(['publish'],'release_activation')])
+@pytest.mark.parametrize('kinds,function',[(['display'],'display_interaction'),(['read'],'query_retrieval'),(['update'],'update'),(['process'],'analysis_generation'),(['publish'],'release_activation')])
 def test_all_five_functions_are_open_to_internal_external_and_technical_services(position,kinds,function):
     x=memory_inputs();i=x['sr-ssd']['interactions'][0];i['receiver']['position']=position;i['operation']['kinds']=kinds
     if position=='AI模型':i['receiver']['name']='LLMService'
+    if function in {'query_retrieval','update'}:x['business-crud']={'rows':[{'interaction_id':'req','operation':kinds[0]}]}
     rows=resolved(x)
     expected=set(registry()['profiles']['functional'][function])
     assert expected<={m['concern_key'] for m in rows}

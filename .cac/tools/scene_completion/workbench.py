@@ -36,7 +36,7 @@ class Workbench:
         case_ids=body.get('case_ids',[])
         if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         rid=uuid4().hex;p=self.root/rid;p.mkdir()
-        for role in ('RR','SR','test'):
+        for role in ('RR','SR','AR','test'):
             saved[role]=[]
             for idx,d in enumerate(sources.get(role,[])):
                 from .test_sources import decode_source
@@ -224,8 +224,8 @@ class Workbench:
                 config['priority_cases']=options.get('priority_cases',[])
                 ex=Execution(p/'run',mode='external',client=client,config=config,case_ids=options.get('case_ids',project.get('case_ids')))
                 self.gates[rid]=ex.gate
-                docs={role:read_project_documents(p,project['sources'][role],'test' if role=='test' else 'existing') for role in ('RR','SR','test')}
-                build_pipeline(ex,docs['RR'],docs['SR'],docs['test']);manifest=ex.finish()
+                docs={role:read_project_documents(p,project['sources'].get(role,[]),'test' if role=='test' else 'existing') for role in ('RR','SR','AR','test')}
+                build_pipeline(ex,docs['RR'],docs['SR'],docs['test'],ar=docs['AR']);manifest=ex.finish()
                 write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'complete_with_questions' if manifest.get('execution_complete') else 'waiting','finished_at':time.time()})
         except Exception as e:
             # Preserve actual diagnostics server-side without returning credentials.
@@ -497,6 +497,14 @@ def create_app(root=None,client_factory=None,env_file=None):
     def results_metrics(rid:str,test_set:str='expanded'):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).metrics(test_set)
+    @app.get('/api/projects/{rid}/results/global')
+    def results_global(rid:str,test_set:str='original'):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).global_detail(test_set)
+    @app.get('/api/projects/{rid}/results/project-metrics')
+    def results_project_metrics(rid:str,test_set:str='original'):
+        from .result_views import ResultView
+        return ResultView(service.run_dir(rid)).project_metrics(test_set)
     @app.get('/api/projects/{rid}/results/{case_id}')
     def results_case(rid:str,case_id:str,test_set:str='expanded'):
         from .result_views import ResultView

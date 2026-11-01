@@ -51,7 +51,7 @@ def decision(a,b,status='full'):return {'left_id':a,'right_id':b,'status':status
 
 def test_registry_and_eight_data_exceptions():
     approved=json.loads((Path(__file__).parent/'fixtures/workflow_v1/acceptance.json').read_text())
-    assert registry()['version']=='interaction-concerns-v3'
+    assert registry()['version']=='interaction-global-concerns-v5'
     assert len(registry()['legacy_mapping'])==57
     x=memory_inputs();out=data_exceptions(x)
     assert sorted([s['field'],s['cause']] for s in out)==sorted(approved['expected_data_rules'])
@@ -169,6 +169,10 @@ def fake_pipeline(tmp_path,mocks=None):
       {'id':'platform','name':'Platform','composition_type':'系统边界','parent_id':None,'source_status':'explicit','source_refs':ref(rr)}],'relations':[]}
     if mocks is not None:empty=mocks
     empty.setdefault('normal-rules', {'rules':[],'pending':[]})
+    empty.setdefault('business-entities', {'entities':[],'pending':[]})
+    empty.setdefault('business-crud', {'rows':[],'pending':[]})
+    empty.setdefault('data-dependencies', {'entities':[],'relations':[],'flows':[],'pending':[]})
+    empty.setdefault('business-dependencies', {'dependencies':[],'pending':[]})
     install_catalogue_mocks(empty)
     return rr,sr,tests,empty
 
@@ -308,7 +312,7 @@ def test_gt_unknown_ssd_attribute_not_required_to_match():
 
 def test_checked_in_schema_matches_runtime():
     from scene_completion.contracts import SCHEMAS,schema
-    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v4/schemas'
+    folder=Path(__file__).resolve().parents[1]/'docs/scene-workflow-v5/schemas'
     for key in SCHEMAS:assert json.loads((folder/(key+'.schema.json')).read_text())==schema(key)
 
 

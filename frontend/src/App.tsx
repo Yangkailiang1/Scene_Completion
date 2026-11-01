@@ -1271,7 +1271,7 @@ export default function App() {
                     setNewCreating(true);
                     setNewTestError("");
                     const sources: Record<string, any[]> = {};
-                    for (const role of ["RR", "SR", "test"])
+                    for (const role of ["RR", "SR", "AR", "test"])
                       sources[role] = await Promise.all(
                         (form.getAll(role) as File[])
                           .filter((v) => v.name)
@@ -1325,6 +1325,7 @@ export default function App() {
                 {[
                   ["RR", "RR 系统需求文档"],
                   ["SR", "SR 功能设计文档"],
+                  ["AR", "AR 分配需求文档（可选）"],
                   ["test", "测试文档（可选）"],
                 ].map(([name, label]) => (
                   <label key={name}>
@@ -1338,7 +1339,7 @@ export default function App() {
                           : ".md,.markdown"
                       }
                       multiple
-                      required={name !== "test"}
+                      required={name === "RR" || name === "SR"}
                       onChange={
                         name === "test"
                           ? async (e) => {

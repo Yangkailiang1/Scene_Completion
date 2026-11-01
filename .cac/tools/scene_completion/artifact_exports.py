@@ -17,6 +17,34 @@ def export_task(root,task,payload,artifact_name=None):
     elif task=='api-parameters':
         headers=['API名称','接口地址','数据方向','参数位置','参数','数据类型','可选/必填','默认值','约束条件']
         rows=[[a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
+    elif task=='business-entities':
+        headers=['业务实体','属性','适用操作','数据类型','必填','约束','来源']
+        rows=[[e['name'],a['name'],a['operation'],show(a['data_type']),show(a['required']),
+               '；'.join(c['kind']+'='+show(c['value']) for c in a['constraints']),
+               '；'.join(r['source_id']+':'+str(r['line_start']) for r in a['source_refs'])]
+              for e in payload['entities'] for a in e['attributes']]
+        rows += [[e['name'],'业务规则 '+r['id'],r['operation'],'','',r['condition'],
+                  '；'.join(ref['source_id']+':'+str(ref['line_start']) for ref in r['source_refs'])]
+                 for e in payload['entities'] for r in e['business_rules']]
+    elif task=='business-crud':
+        headers=['用例','交互','业务实体','Service','CRUD','API','依据']
+        rows=[[r['case_id'],r['interaction_id'],r['entity_id'],r['service'],r['operation'],show(r['api_id']),r['basis']] for r in payload['rows']]
+    elif task=='business-attribute-map':
+        headers=['API','方向','位置','完整字段路径','业务实体','属性','对应依据']
+        rows=[[r[k] for k in ('api_id','direction','location','field_path','entity_id','attribute','basis')] for r in payload['mappings']]
+    elif task=='data-dependencies':
+        headers=['数据实体','字段','服务/实体关系','交互','来源']
+        rows=[[e['name'],'、'.join(e['fields']),'','',''] for e in payload['entities']]
+        rows += [[r['from_entity_id'],'、'.join(r['fields']),r['relation']+' → '+r['to_entity_id'],'',''] for r in payload['relations']]
+        rows += [[r['entity_id'],'、'.join(r['fields']),r['producer_service']+' → '+r['consumer_service'],r['interaction_id'],''] for r in payload['flows']]
+    elif task=='business-dependencies':
+        headers=['前置用例','后续用例','前置业务实体','后续业务实体','依赖类型','适用条件','清理义务','级联组']
+        rows=[[r['from_case_id'],r['to_case_id'],r['from_entity_id'],r['to_entity_id'],
+               r['dependency_type'],r['condition'],r['obligation'],show(r['cascade_group'])] for r in payload['dependencies']]
+    elif task in {'global-concerns','global-existing-concerns','global-test-concerns'}:
+        headers=['全局依赖','对象','关注点','识别依据'];rows=[[r['dependency_id'],r['object'],r['concern_key'],r['basis']] for r in payload['matches']]
+    elif task in {'global-scenarios','global-existing-scenarios','global-test-scenarios'}:
+        headers=['全局依赖','对象','关注点','独立失败原因','条件','精度'];rows=[[r['dependency_id'],r['object'],r['concern_key'],r['cause'],'；'.join(r['conditions']),r['resolution']] for r in payload['scenarios']]
     elif task in {'rr-ssd','sr-ssd'}:
         headers=['顺序','发送方','操作','数据','接收方'];rows=[[i['sequence'],i['sender']['name'],i['operation']['name'],'、'.join(p['name'] for p in i['data']['sequence']),i['receiver']['name']] for i in payload['interactions']]
     elif task in {'concern-match','existing-concerns','test-concerns','test-additional-concerns'}:
@@ -53,6 +81,10 @@ def export_task(root,task,payload,artifact_name=None):
     if task=='fused-ssd':
         from .ssd_drawing import render_fused_ssd
         render_fused_ssd(payload,root/(file_stem+'.svg'))
+    if task in {'data-dependencies','business-dependencies'}:
+        from .domain_model import dependency_svg
+        lines=payload['flows']+payload['relations'] if task=='data-dependencies' else payload['dependencies']
+        (root/(file_stem+'.svg')).write_text(dependency_svg(lines,'数据实体关系与跨服务依赖' if task=='data-dependencies' else '用例与业务实体依赖'),encoding='utf8')
     if task=='components':
         from .composition_drawing import render_composition
         render_composition(payload,root/(file_stem+'.svg'))
@@ -137,5 +169,23 @@ def export_missing_report(root,combined):
         for s in report['E']:lines.append('- '+s['id']+'：'+s['cause']+'；'+'；'.join(s['conditions']))
         lines+=['','### 待确认','']
         for x in report['pending']:lines.append('- '+x['interaction_id']+'：'+x['reason'])
+        lines.append('')
+    global_result=combined.get('global',{})
+    if global_result:
+        lines+=['## 全局业务依赖（项目级，不按关联用例重复计数）','']
+        dependencies=global_result.get('business-dependencies',{}).get('dependencies',[])
+        lines+=['| 依赖ID | 类型 | 前置用例 | 后续用例 | 来源实体 | 目标实体 |','| --- | --- | --- | --- | --- | --- |']
+        for dep in dependencies:
+            lines.append('| '+' | '.join(cell(dep.get(k,'')) for k in ('id','dependency_type','from_case_id','to_case_id','from_entity_id','to_entity_id'))+' |')
+        for title,key in (('关注点层','global-concern-compare'),('场景层','global-scenario-compare')):
+            result=global_result.get(key,{})
+            lines+=['',f'### {title} E/G/GT 对照','','| 依赖 | 对象 | 关注点或失败条件 | E | G | GT | 缺失 |','| --- | --- | --- | --- | --- | --- | --- |']
+            for row in result.get('rows',[]):
+                anchor=row['anchor'];label=anchor.get('concern_key') or anchor.get('cause','')
+                lines.append('| '+' | '.join(cell(x) for x in (anchor['dependency_id'],anchor['object'],label,row['cells']['E'] or '',row['cells']['G'] or '',row['cells']['GT'] or '',row['missing']))+' |')
+        metrics=global_result.get('global-evaluation',{}).get('metrics',{})
+        lines+=['','### 全局指标','','| 指标 | 分子 | 分母 | 结果 |','| --- | ---: | ---: | ---: |']
+        for name,metric in metrics.items():
+            lines.append('| '+' | '.join(cell(x) for x in (name,metric.get('numerator'),metric.get('denominator'),metric.get('value') if metric.get('value') is not None else metric.get('status','未评测')))+' |')
         lines.append('')
     (root/'missing_report.md').write_text('\n'.join(lines),encoding='utf8')

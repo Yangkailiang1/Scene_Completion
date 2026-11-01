@@ -15,9 +15,10 @@ def project_scoped(fn):
         with registry_scope(project_registry(service.run_dir(rid))):return fn(service,rid,*args,**kwargs)
     return call
 
-LAYERS={'base','functional','technology','human','relation','shared'}
-GROUPS={'base':{'service_base'},'human':{'human'},'relation':{'service_relation'},'shared':{'api_data'},
- 'functional':{'display_interaction','query_retrieval','resource_mutation','analysis_generation','release_activation'},'technology':{'database','llm'}}
+LAYERS={'base','functional','technology','human','relation','shared','global'}
+GROUPS={'base':{'service_base','business_attribute'},'human':{'human'},'relation':{'service_relation'},'shared':{'api_data'},
+ 'functional':{'display_interaction','query_retrieval','resource_mutation','create','update','delete','analysis_generation','release_activation'},
+ 'technology':{'database','llm'},'global':{'business_dependency'}}
 
 def project_registry(project):
     project=Path(project);p=project/'run/registry_override.json'
@@ -85,7 +86,7 @@ def save_registry(project,body):
     for key,d in value['definitions'].items():
         if not d.get('enabled',True):continue
         layer=d['layer']
-        if layer in {'base','human','relation'}:profiles[layer].append(key)
+        if layer in {'base','human','relation','global'}:profiles[layer].append(key)
         elif layer=='functional':profiles['functional'][d['group']].append(key)
         elif layer=='technology':profiles['technology'][d['group']].append(key)
     value['profiles']=profiles;value['version']=current['version'];value['legacy_mapping']=current['legacy_mapping']

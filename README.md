@@ -1,4 +1,4 @@
-> 当前协议：**scene-workflow-v4**。关注点识别与具体场景生成分开保存和计分，说明见[两层协议](docs/scene-workflow-v4/protocol.md)。旧项目保留；继续运行会建立升级副本，旧场景结果不会直接作为新关注点识别。
+> 当前协议：**scene-workflow-v5**。交互级与全局业务依赖级分别识别关注点、展开异常场景并计分。旧项目和报告保留；新规则影响的节点不能直接复用旧结果。字段与任务契约见 [v5 Schema](docs/scene-workflow-v5/schemas/)，历史两层协议见 [v4 说明](docs/scene-workflow-v4/protocol.md)。
 
 # Scene Completion 场景完整性审核
 
@@ -35,6 +35,56 @@ npm run build --prefix frontend
 默认只监听127.0.0.1。服务端默认读取仓库根目录`.env`中的`ECNU_BASE_URL`、`ECNU_API_KEY`，请求模型默认`ecnu-plus`；可用`python serve.py --env-file /path/to/.env`指定。项目配置优先，未覆盖项继续读取服务端配置。密钥不返回浏览器、不进入项目或Windows导出包。请求模型与服务端实际返回模型分别保存。连接／首响应等待、流中无数据等待、整次生成时限可分别设置：流式默认无数据300秒、总生成900秒，不再把原120秒直接当大产物总时限。超时不自动重POST，错误显示发生阶段及已接收增量；输出上限不等于保证输出长度。
 
 ## 实际工作流
+
+v5 区分交互级与全局业务依赖级。业务实体（例如记忆实例、记忆库、记忆策略）与接口／数据库字段所代表的数据实体分别建模；CRUD 依据用例对业务实体的实际效果识别。全局依赖只在原文或业务确认提供适用条件时进入确定集合。一条全局异常可以关联多个用例，但在项目中只计一次。
+
+```mermaid
+flowchart TB
+    SRC["RR / SR / 可选AR"] --> IDX["来源索引与正向／已有异常分流"]
+    TEST["测试文档：仅明确异常参与GT"] --> TI["测试目录与用例对应"]
+
+    subgraph MODEL["建模器"]
+        IDX --> SHARED["并行抽取：用例目录、系统组成、API、业务／数据实体"]
+        SHARED --> SSD["逐用例融合SSD及RR/SR对应"]
+        SHARED --> ENTITY["实体属性约束、CRUD矩阵、API字段映射"]
+        SSD --> LOCAL["交互要求与实际操作补全"]
+        ENTITY --> LOCAL
+        SHARED --> DEP["数据依赖及全局业务依赖图"]
+        ENTITY --> DEP
+        LOCAL --> GC["交互级关注点识别 G_c"]
+        DEP --> GGC["全局级关注点识别 G_c"]
+        GC --> GS["按已识别关注点展开具体场景 G_s"]
+        GGC --> GS
+    end
+
+    subgraph CHECK["检查器"]
+        IDX --> EB["独立抽取文档已有异常"]
+        EB --> EBIND["绑定具体交互或全局依赖"]
+        TI --> TBIND["独立绑定交互或全局依赖"]
+        LOCAL --> EBIND
+        DEP --> EBIND
+        LOCAL --> TBIND
+        DEP --> TBIND
+        EBIND --> E["独立识别 E_c，再细化 E_s"]
+        TBIND --> GT["独立识别 GT_c，再细化 GT_s"]
+        GC --> CC["关注点层规则比较与缺失 M_c"]
+        GGC --> CC
+        E --> CC
+        GS --> SC["场景层比较与缺失 M_s"]
+        E --> SC
+    end
+
+    subgraph REC["推荐器"]
+        SC --> Q["风险保底＋已审核历史 → 推荐 Q_s"]
+    end
+
+    CC --> MET["分粒度指标与项目总指标"]
+    SC --> MET
+    Q --> MET
+    GT --> MET
+```
+
+实际 DAG 把共享实体抽取按文档片段拆分，CRUD 按用例拆分，全局依赖按来源片段及依赖边拆分。正向 G 不读取已有异常 E 或测试 GT；GT 未就绪不阻塞缺失报告和推荐。前端“最终结果”提供交互级、全局级与项目汇总视图；项目汇总按相同指标的分子和分母相加，不平均百分比。原始、扩展和业务审核测试来源分别展示；尚无相应全局 GT 版本时，不把原始全局 GT 混入其他测试来源的项目汇总。
 
 1. RR/SR用例目录、系统组成、API映射并行抽取；API目录由映射完整建立后，并行抽取各接口参数。用例识别由模型基于正文完成，不依赖固定编号格式。
 2. 建立RR/SR用例对应：支持编号不同和一对多；未对应项明确pending，项目不能标为完成。
@@ -99,7 +149,7 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 组成绘图恢复历史分区参与关系设计，适配当前JSON；用例为椭圆、人类Actor旁带小人。不会恢复旧CRUD推导或部署猜测。示例明确使用mock，不代表真实模型效果。
 
-协议为 `scene-workflow-v3`，关注点版本为 `interaction-concerns-v3`。旧协议项目升级时创建新版本，原记录保留，旧缓存不直接复用。关注点依据用户2026-10-24新版分类图，当前40个定义（含输入/输出两个抽象族及共享七类数据），不再沿用旧45项。
+以下 v3/v4 文档和页面说明保留作历史参考。当前运行协议及关注点版本以本页顶部的 v5 说明和仓库内的注册表为准；旧协议项目升级时创建新运行，原记录保留，旧缓存须重新验证后才可复用。
 
 本轮质量修订与内嵌用量API见[规则说明](docs/scene-workflow-v3/quality-rules-20261025.md)。用量与费用在当前工作区展示，默认轻量统计，原文上下文及请求详情按需加载；单价配置仅给出估算，实际扣费无依据时显示未知。
 
@@ -124,7 +174,7 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 “模式与风险”和“用量与费用”提供紧凑配置及具体任务瓶颈排行；最终图表增加可下载的SysML BDD。[BDD及用量排行说明](docs/bdd-and-usage-rankings.md)。
 
-当前两层流程使用 `scene-workflow-v4`，此前v2/v3说明及报告保留为历史记录。用量页可整页滚动，并区分累计成本与单次请求峰值；关注点设置按分类树组织，输入/输出共用稳定定义。默认请求上下文上限为200,000 Token，完整请求及输出预留在发送前检查。定向样本对比、质量门禁及未启用的测试补全实验见[上下文优化与网页验收](docs/scene-workflow-v4/context-optimization.md)。
+历史 v4 两层流程和此前 v2/v3 报告保留为历史记录。用量页区分累计成本与单次请求峰值；当前 v5 关注点设置按新版层级组织。默认请求上下文上限为200,000 Token，完整请求及输出预留在发送前检查。历史定向样本对比见[上下文优化与网页验收](docs/scene-workflow-v4/context-optimization.md)。
 
 测试Markdown恢复格式、测试与需求用例对应及推荐前后指标，见[说明](docs/test-markdown-alignment.md)。
 

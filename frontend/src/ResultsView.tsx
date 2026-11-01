@@ -22,6 +22,7 @@ import {
 import { ArtifactView } from "./ArtifactView";
 import { RecommendationsView } from "./PatternManager";
 import { TestSources } from "./TestSources";
+import { GlobalResults, ProjectMetrics } from "./GlobalResults";
 
 const labels: Record<string, string> = {
   E: "需求文档已有 E",
@@ -291,6 +292,8 @@ export function ResultsView({
               onChange={(e) => setMode(e.target.value)}
             >
               <option value="steps">交互对照</option>
+              <option value="global">全局业务依赖</option>
+              <option value="project">项目总指标</option>
               <option value="metrics">指标总览</option>
               <option value="quality">指标诊断</option>
               <option value="diagrams">图表总览</option>
@@ -367,6 +370,8 @@ export function ResultsView({
             <ChartNoAxesCombined size={15} aria-hidden="true" />
             指标总览
           </button>
+          <button className={mode === "global" ? "active" : ""} onClick={() => setMode("global")}>全局业务依赖</button>
+          <button className={mode === "project" ? "active" : ""} onClick={() => setMode("project")}>项目总指标</button>
           <button
             className={mode === "diagrams" ? "active" : ""}
             onClick={() => setMode("diagrams")}
@@ -428,7 +433,7 @@ export function ResultsView({
           {error}
         </div>
       )}
-      {mode === "quality" ? (<QualityDiagnostics project={project} caseId={cid} testSet={testSet}/>) : mode === "recommendations" ? (
+      {mode === "global" ? <GlobalResults project={project} testSet={testSet} liveVersion={liveVersion} artifacts={index?.artifacts || []} /> : mode === "project" ? <ProjectMetrics project={project} testSet={testSet} liveVersion={liveVersion} /> : mode === "quality" ? (<QualityDiagnostics project={project} caseId={cid} testSet={testSet}/>) : mode === "recommendations" ? (
         <RecommendationsView project={project} caseId={cid} testSet={testSet} />
       ) : mode === "tests" ? (
         <TestSources project={project} />

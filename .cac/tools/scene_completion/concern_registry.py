@@ -10,7 +10,7 @@ from .storage import fingerprint
 
 
 def validate_registry(value):
-    if value.get('version')!='interaction-concerns-v3':raise ValueError('unsupported concern registry version')
+    if value.get('version') not in {'interaction-concerns-v3','interaction-global-concerns-v5'}:raise ValueError('unsupported concern registry version')
     digest=fingerprint({k:v for k,v in value.items() if k!='hash'})
     if value.get('hash')!=digest:raise ValueError('concern registry digest mismatch')
     definitions=value['definitions']

@@ -53,8 +53,8 @@ def test_descriptions_are_not_constraints():
 def test_publishing_can_use_its_actual_update_and_release_rules():
     x=memory_inputs();i=x['sr-ssd']['interactions'][0];i['operation']['kinds']=['publish']
     ref={**R[0],'quote':'Platform校验 version 一致；状态为 DRAFT'}
-    r={'id':'lock','interaction_id':i['id'],'owner_service':'Platform','concern_key':'service.resource_mutation.concurrency_consistency','condition':'version 一致','violation':'version 不一致','fields':['version'],'functional_kinds':['publish','update'],'resolution':'explicit','pending_details':[],'source_refs':[ref]}
-    x['normal-rules']={'rules':[r],'pending':[]};x['concern-match']=resolve_matches(x,[])
+    r={'id':'lock','interaction_id':i['id'],'owner_service':'Platform','concern_key':'service.crud.update.concurrency_consistency','condition':'version 一致','violation':'version 不一致','fields':['version'],'functional_kinds':['publish','update'],'resolution':'explicit','pending_details':[],'source_refs':[ref]}
+    x['normal-rules']={'rules':[r],'pending':[]};x['business-crud']={'rows':[{'interaction_id':i['id'],'operation':'update'}]};x['concern-match']=resolve_matches(x,[])
     matches=[m for m in x['concern-match']['matches'] if m['concern_key']==r['concern_key']]
     assert any(m['status']=='applicable' for m in matches)
     assert len(rule_exceptions(x))==1

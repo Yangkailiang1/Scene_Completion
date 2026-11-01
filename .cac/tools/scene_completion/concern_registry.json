@@ -1,5 +1,5 @@
 {
-  "version": "interaction-concerns-v3",
+  "version": "interaction-global-concerns-v5",
   "definitions": {
     "service.base.availability": {
       "key": "service.base.availability",
@@ -227,7 +227,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "变更业务约束"
+      "description": "变更业务约束",
+      "enabled": false
     },
     "service.resource_mutation.persistence_consistency": {
       "key": "service.resource_mutation.persistence_consistency",
@@ -244,7 +245,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "持久化一致性"
+      "description": "持久化一致性",
+      "enabled": false
     },
     "service.resource_mutation.concurrency_consistency": {
       "key": "service.resource_mutation.concurrency_consistency",
@@ -261,7 +263,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "并发一致性"
+      "description": "并发一致性",
+      "enabled": false
     },
     "service.resource_mutation.idempotency": {
       "key": "service.resource_mutation.idempotency",
@@ -278,7 +281,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "幂等性"
+      "description": "幂等性",
+      "enabled": false
     },
     "service.analysis_generation.resource_consumption": {
       "key": "service.analysis_generation.resource_consumption",
@@ -346,7 +350,7 @@
       "layer": "technology",
       "group": "database",
       "parents": [
-        "service.resource_mutation.business_constraint"
+        "service.business_attribute_constraint"
       ],
       "guard": "unique",
       "kind": "check",
@@ -364,7 +368,7 @@
       "layer": "technology",
       "group": "database",
       "parents": [
-        "service.resource_mutation.business_constraint"
+        "service.business_attribute_constraint"
       ],
       "guard": "reference",
       "kind": "check",
@@ -456,7 +460,8 @@
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": null,
-      "description": "前置操作未完成就执行后续操作"
+      "description": "前置操作未完成就执行后续操作",
+      "enabled": false
     },
     "service_relation.dependency_consistency": {
       "key": "service_relation.dependency_consistency",
@@ -469,7 +474,8 @@
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": null,
-      "description": "被依赖资源不存在或失效"
+      "description": "被依赖资源不存在或失效",
+      "enabled": false
     },
     "service_relation.cascade_operation": {
       "key": "service_relation.cascade_operation",
@@ -482,7 +488,8 @@
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": null,
-      "description": "漏删、误删或级联失败"
+      "description": "漏删、误删或级联失败",
+      "enabled": false
     },
     "service_relation.cross_service_consistency": {
       "key": "service_relation.cross_service_consistency",
@@ -508,7 +515,8 @@
       "failure_family": "service.base.result_correctness",
       "operation_kinds": [],
       "technology": null,
-      "description": "并发修改或删除产生冲突"
+      "description": "并发修改或删除产生冲突",
+      "enabled": false
     },
     "human.authentication": {
       "key": "human.authentication",
@@ -591,6 +599,211 @@
       ],
       "technology": "database",
       "description": "资源消耗"
+    },
+    "service.business_attribute_constraint": {
+      "key": "service.business_attribute_constraint",
+      "label": "业务实体属性约束",
+      "layer": "base",
+      "group": "business_attribute",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "service.business_attribute_constraint",
+      "operation_kinds": [
+        "create",
+        "read",
+        "update",
+        "delete"
+      ],
+      "technology": null,
+      "description": "实体属性的重名、状态不可修改、跨属性类型兼容等明示业务规则"
+    },
+    "service.crud.create.concurrency_consistency": {
+      "key": "service.crud.create.concurrency_consistency",
+      "label": "创建并发一致性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.create.concurrency_consistency",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的并发一致性"
+    },
+    "service.crud.create.idempotency": {
+      "key": "service.crud.create.idempotency",
+      "label": "创建幂等性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.create.idempotency",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的幂等性"
+    },
+    "service.crud.create.resource_existence": {
+      "key": "service.crud.create.resource_existence",
+      "label": "创建对象资源存在性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.create.resource_existence",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的对象资源存在性"
+    },
+    "service.crud.update.concurrency_consistency": {
+      "key": "service.crud.update.concurrency_consistency",
+      "label": "更新并发一致性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.update.concurrency_consistency",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的并发一致性"
+    },
+    "service.crud.update.idempotency": {
+      "key": "service.crud.update.idempotency",
+      "label": "更新幂等性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.update.idempotency",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的幂等性"
+    },
+    "service.crud.update.resource_existence": {
+      "key": "service.crud.update.resource_existence",
+      "label": "更新对象资源存在性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.update.resource_existence",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的对象资源存在性"
+    },
+    "service.crud.delete.concurrency_consistency": {
+      "key": "service.crud.delete.concurrency_consistency",
+      "label": "删除并发一致性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.delete.concurrency_consistency",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的并发一致性"
+    },
+    "service.crud.delete.idempotency": {
+      "key": "service.crud.delete.idempotency",
+      "label": "删除幂等性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.delete.idempotency",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的幂等性"
+    },
+    "service.crud.delete.resource_existence": {
+      "key": "service.crud.delete.resource_existence",
+      "label": "删除对象资源存在性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.delete.resource_existence",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的对象资源存在性"
+    },
+    "service_relation.data_isolation": {
+      "key": "service_relation.data_isolation",
+      "label": "跨服务数据隔离",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service_relation.data_isolation",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "service-id、租户或数据范围不得越界读取"
+    },
+    "global.call_order": {
+      "key": "global.call_order",
+      "label": "调用顺序",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.call_order",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "跨用例前置或先后条件"
+    },
+    "global.dependency_consistency": {
+      "key": "global.dependency_consistency",
+      "label": "依赖一致性",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.dependency_consistency",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "依赖实体存在、状态、版本或生效条件"
+    },
+    "global.cascade_operation": {
+      "key": "global.cascade_operation",
+      "label": "级联操作",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.cascade_operation",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "明示级联组内独立清理义务"
     }
   },
   "profiles": {
@@ -599,9 +812,10 @@
       "human.authorization"
     ],
     "base": [
-      "service.base.availability",
       "service.base.request_data",
-      "service.base.response_contract"
+      "service.base.response_contract",
+      "service.business_attribute_constraint",
+      "service.base.availability"
     ],
     "functional": {
       "display_interaction": [
@@ -612,12 +826,7 @@
         "service.query_retrieval.resource_existence",
         "service.query_retrieval.data_visibility"
       ],
-      "resource_mutation": [
-        "service.resource_mutation.business_constraint",
-        "service.resource_mutation.persistence_consistency",
-        "service.resource_mutation.concurrency_consistency",
-        "service.resource_mutation.idempotency"
-      ],
+      "resource_mutation": [],
       "analysis_generation": [
         "service.analysis_generation.resource_consumption",
         "service.analysis_generation.execution_deadline"
@@ -626,6 +835,21 @@
         "service.release_activation.prerequisite",
         "service.release_activation.result_consistency",
         "service.release_activation.failure_recovery"
+      ],
+      "create": [
+        "service.crud.create.concurrency_consistency",
+        "service.crud.create.idempotency",
+        "service.crud.create.resource_existence"
+      ],
+      "update": [
+        "service.crud.update.concurrency_consistency",
+        "service.crud.update.idempotency",
+        "service.crud.update.resource_existence"
+      ],
+      "delete": [
+        "service.crud.delete.concurrency_consistency",
+        "service.crud.delete.idempotency",
+        "service.crud.delete.resource_existence"
       ]
     },
     "technology": {
@@ -644,13 +868,15 @@
     },
     "conditional": [],
     "relation": [
-      "service_relation.call_order",
-      "service_relation.dependency_consistency",
-      "service_relation.cascade_operation",
       "service_relation.cross_service_consistency",
-      "service_relation.concurrency_consistency",
       "service_relation.authentication",
-      "service_relation.authorization"
+      "service_relation.authorization",
+      "service_relation.data_isolation"
+    ],
+    "global": [
+      "global.call_order",
+      "global.dependency_consistency",
+      "global.cascade_operation"
     ]
   },
   "legacy_mapping": {
@@ -1044,6 +1270,6 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "37a4a2050fef55c0751c43c5465329a23100b5f405aa1afe47c198da19add171",
-  "taxonomy_note": "2026-10-24用户分类图；设备分析暂不纳入。认证授权：人类Actor及Service关系分别定义。推荐停用。"
+  "hash": "c7527652e2fb87676a15626898fad5620f2b620c30904658bdb559e7d67a9897",
+  "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports."
 }

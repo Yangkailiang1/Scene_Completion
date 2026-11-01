@@ -77,6 +77,18 @@ pageSize：可选整数，默认20，范围1-100。
     mocks['existing-bind']={'bindings':[{'branch_id':'empty','interaction_id':'SR-request','status':'confirmed','basis':'本用例同一次查询请求的RR/SR视图','source_refs':refs(rr,4)}]}
     mocks['existing-extract']['scenarios'][0].update(interaction_id='SR-request',original_branch_id='empty',coverage_kind='exact')
     mocks['normal-rules']={'rules':[],'pending':[]}
+    def memory_entities(packet):
+        documents=packet['input']['normal-documents']
+        if not any(d['source_id']==sr[0]['source_id'] for d in documents):
+            return {'entities':[],'pending':[]}
+        return {'entities':[{'id':'memory-repository','name':'记忆库','attributes':[],
+          'business_rules':[],'source_refs':refs(sr,2)}],'pending':[]}
+    mocks['business-entities']=memory_entities
+    mocks['business-crud']={'rows':[{'case_id':'SC002-UC002','interaction_id':'SR-request',
+      'entity_id':'memory-repository','service':'WiseCloudMemoryPlatformService','operation':'read',
+      'api_id':'API-M-IF2','basis':'查询指定实例下的记忆库列表','source_refs':refs(sr,2)}],'pending':[]}
+    mocks['data-dependencies']={'entities':[],'relations':[],'flows':[],'pending':[]}
+    mocks['business-dependencies']={'dependencies':[],'pending':[]}
     # Explicit simulated recognition response; this is an offline fixture,
     # not a registry fill used by the production recognizer.
     from scene_completion.concern_matching import complete_data_matches

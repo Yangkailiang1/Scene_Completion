@@ -21,6 +21,47 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task,payload)
+    if task in {'business-entities','business-crud','data-dependencies','business-dependencies','global-concerns','global-scenarios'}:
+        for document in documents_in(inputs):
+            if document['channel']!='normal':raise ValueError('正向实体、依赖及G关注点不得读取已有异常或测试材料')
+    if task in {'global-existing-concerns','global-existing-scenarios'}:
+        own={d['source_id'] for d in inputs.get('existing-documents',[])}
+        for row in payload.get('matches',[])+payload.get('scenarios',[]):
+            if not any(r['source_id'] in own for r in row['source_refs']):raise ValueError('全局E必须引用独立的原文异常来源')
+    if task in {'global-test-concerns','global-test-scenarios'}:
+        own={d['source_id'] for d in inputs.get('test-documents',[])}
+        for row in payload.get('matches',[])+payload.get('scenarios',[]):
+            if not any(r['source_id'] in own for r in row['source_refs']):raise ValueError('全局GT必须引用独立异常测试来源')
+    if task in {'business-entities','business-crud','business-dependencies','global-concerns','global-existing-concerns','global-test-concerns','global-existing-scenarios','global-test-scenarios'}:
+        ids=[r['id'] for k in ('entities','dependencies','matches','scenarios') for r in payload.get(k,[]) if 'id' in r]
+        if len(ids)!=len(set(ids)):raise ValueError('duplicate v5 domain identity')
+    if task=='business-crud':
+        allowed={e['id'] for e in inputs['business-entities']['entities']}
+        interactions={i['id']:i for i in inputs['fused-ssd']['interactions']}
+        for row in payload['rows']:
+            if row['entity_id'] not in allowed or row['interaction_id'] not in interactions:
+                raise ValueError('CRUD must bind an existing business entity and actual interaction')
+            if row['case_id']!=interactions[row['interaction_id']]['case_id']:
+                raise ValueError('CRUD case/interaction mismatch')
+    if task=='business-dependencies':
+        known={e['id'] for e in inputs['business-entities']['entities']}
+        for row in payload['dependencies']:
+            if row['from_entity_id'] not in known or row['to_entity_id'] not in known:
+                raise ValueError('global dependency must reference real business entities')
+            if row['dependency_type']!='other' and not row['condition'].strip():
+                raise ValueError('global dependency requires an evidenced applicability condition')
+    if task in {'global-concerns','global-existing-concerns','global-test-concerns'}:
+        known={d['id'] for d in inputs['business-dependencies']['dependencies']}
+        for row in payload['matches']:
+            if row['dependency_id'] not in known or row['concern_key'] not in registry()['definitions']:
+                raise ValueError('global concern requires existing dependency and registered concern')
+            if not row['concern_key'].startswith('global.'):
+                raise ValueError('interaction concern cannot masquerade as global concern')
+    if task in {'global-scenarios','global-existing-scenarios','global-test-scenarios'}:
+        recognized={(m['dependency_id'],m['concern_key']) for m in inputs['identified-concerns']['matches']}
+        for row in payload['scenarios']:
+            if (row['dependency_id'],row['concern_key']) not in recognized:
+                raise ValueError('global scenario must follow its independently recognized concern')
     if task=='artifact-convert' and payload['source_role']!='artifact' and payload['artifacts']:raise ValueError('非正向产物文件不能提交节点替代结果')
     if task in {'test-inventory','test-case-align'}:
         from .test_alignment import validate_test_task

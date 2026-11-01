@@ -38,7 +38,9 @@ class ResultView:
 
     def catalog(self):
         out=[]
-        stages={'test-inventory','test-case-align','components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend','existing-concerns','test-concerns','concern-compare','concern-evaluation'}
+        stages={'test-inventory','test-case-align','components','fused-ssd','rr-ssd','sr-ssd','object-operations','api-map','api-parameters','concern-match','normal-rules','missing-report','exception-evaluation','test-supplement','test-expanded','pattern-applicability','gap-recommend','existing-concerns','test-concerns','concern-compare','concern-evaluation',
+                'business-entities','business-crud','business-attribute-map','data-dependencies','business-dependencies',
+                'global-concerns','global-existing-concerns','global-test-concerns','global-scenarios','global-existing-scenarios','global-test-scenarios','global-concern-compare','global-scenario-compare','global-recommend','global-evaluation'}
         for key,r in self.state.items():
             if r.get('status')!='passed' or r['stage'] not in stages or '--part-' in key:continue
             case=r['case'];stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')
@@ -56,12 +58,65 @@ class ResultView:
                 files=[{'name':'system-bdd.'+ext,'path':(folder/('system-bdd.'+ext)).relative_to(self.project).as_posix(),
                         'bytes':(folder/('system-bdd.'+ext)).stat().st_size,'task_key':'components'} for ext in ('svg','json','puml','dot','md')]
                 out.append({'key':'components:bdd','case':'shared','label':'BDD 块定义图（系统上下文）','stage':'bdd','source_task_key':'components','files':files})
-        priority={'bdd':0.5,'components':0,'fused-ssd':1,'rr-ssd':2,'sr-ssd':3,'object-operations':4,'api-map':5,'api-parameters':6}
+        priority={'bdd':0.5,'components':0,'fused-ssd':1,'rr-ssd':2,'sr-ssd':3,'object-operations':4,'api-map':5,'api-parameters':6,
+                  'business-entities':7,'business-crud':8,'business-attribute-map':9,'data-dependencies':10,'business-dependencies':11}
         return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
     def index(self):
         return {'supplement_tests':self.manifest.get('supplement_tests',any(':test-expanded' in k for k in self.state)),'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
+                'global_ready':bool(self.payload('global-scenario-compare')),
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用'}
+
+    def global_detail(self,test_set='original'):
+        if test_set not in {'original','expanded','business'}:raise ValueError('未知测试集')
+        # Global GT is independently extracted from the original test source.
+        # An expanded/business GT has no global version yet; never relabel it.
+        dependencies=self.payload('business-dependencies')
+        concerns=self.payload('global-concern-compare')
+        scenarios=self.payload('global-scenario-compare')
+        recommendation=self.payload('global-recommend')
+        evaluation=self.payload('global-evaluation')
+        status='已评测' if evaluation and any(v.get('status') in {'适用','不适用'} for v in evaluation.get('metrics',{}).values()) else '未评测'
+        if not concerns or not scenarios:status='未完成'
+        return {'granularity':'global','test_set':'original','requested_test_set':test_set,
+                'truth_note':'全局GT仅使用独立原始测试；扩展和业务审核GT尚未建立全局版本' if test_set!='original' else '独立原始异常测试',
+                'status':status,'complete':bool(concerns and scenarios and recommendation and evaluation),
+                'dependencies':dependencies.get('dependencies',[]),'pending':dependencies.get('pending',[])+concerns.get('pending',[])+scenarios.get('pending',[]),
+                'concerns':concerns.get('rows',[]),'scenarios':scenarios.get('rows',[]),
+                'missing':scenarios.get('M',[]),'recommendations':recommendation.get('ranked',[]),
+                'metrics':evaluation.get('metrics',{}),'counts':{'concern':{k:concerns.get(k+'_count') for k in ('G','E','M')},
+                    'scenario':{k:scenarios.get(k+'_count') for k in ('G','E','GT')},'Q':len(recommendation.get('Q',[]))}}
+
+    def project_metrics(self,test_set='original'):
+        from .global_analysis import rate,not_evaluated
+        case_view=self.metrics(test_set)
+        global_view=self.global_detail(test_set)
+        mapping={'missing_omission':'missing_exception_miss_rate','generation_effectiveness':'generation_validity',
+                 'recommendation_adoption':'recommendation_adoption','recommendation_false_positive':'recommendation_false_positive',
+                 'baseline_adoption':'baseline_adoption','baseline_false_positive':'baseline_false_positive'}
+        combined={}
+        for target,source in mapping.items():
+            if target.startswith('baseline_'):
+                baseline=case_view.get('recommendation_comparison',{}).get('baseline',{}).get('metrics',{})
+                case_metric=baseline.get('recommendation_'+target[len('baseline_'):],not_evaluated())
+            else:case_metric=case_view.get('metrics',{}).get(source,not_evaluated())
+            # A global GT derived only from the original test source must not
+            # enter an expanded or business-reviewed total under another label.
+            global_metric=global_view.get('metrics',{}).get(target,not_evaluated()) if test_set=='original' else not_evaluated()
+            available=[v for v in (case_metric,global_metric) if v.get('status') in {'适用','不适用'}]
+            value=rate(sum(v['numerator'] for v in available),sum(v['denominator'] for v in available)) if available else not_evaluated()
+            value['included_granularities']=[g for g,v in [('interaction',case_metric),('global',global_metric)] if v.get('status') in {'适用','不适用'}]
+            value['partial']=len(value['included_granularities'])!=2 or not case_view.get('complete') or not global_view.get('complete')
+            combined[target]=value
+        return {'unit_note':'关注点层与场景层分别计数；交互级和全局级的分子分母相加，不平均百分比',
+                'complete':bool(test_set=='original' and case_view.get('complete') and global_view.get('complete')),
+                'interaction':{'status':'已评测' if case_view.get('complete') else '部分或未完成','case_count':len(case_view.get('cases',[])),
+                               'metrics':{**case_view.get('metrics',{}),
+                                   'baseline_adoption':case_view.get('recommendation_comparison',{}).get('baseline',{}).get('metrics',{}).get('recommendation_adoption',not_evaluated()),
+                                   'baseline_false_positive':case_view.get('recommendation_comparison',{}).get('baseline',{}).get('metrics',{}).get('recommendation_false_positive',not_evaluated())}},
+                'global':{'status':global_view['status'],'metrics':global_view['metrics']},'metrics':combined,
+                'test_set':test_set,'global_truth_source':'original',
+                'global_excluded_reason':'全局级尚无该测试来源的GT版本，项目合并指标只包含交互级' if test_set!='original' else None}
 
     def metrics(self,test_set='expanded'):
         if test_set=='business':

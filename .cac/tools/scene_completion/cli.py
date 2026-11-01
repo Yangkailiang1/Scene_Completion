@@ -1,4 +1,4 @@
-"""Public commands for the single scene-workflow-v4 protocol."""
+"""Public commands for the scene-workflow-v5 protocol."""
 from pathlib import Path
 import argparse,json
 from .storage import read_json,write_json,fingerprint
@@ -30,7 +30,8 @@ def parser():
     p=argparse.ArgumentParser(description='Scene workflow: isolated inputs, layered concerns, bounded execution')
     sub=p.add_subparsers(dest='command',required=True)
     pipe=sub.add_parser('pipeline');pipe.add_argument('--rr-spec-document',action='append',required=True)
-    pipe.add_argument('--sr-spec-document',action='append',required=True);pipe.add_argument('--test-spec-document',action='append',default=[])
+    pipe.add_argument('--sr-spec-document',action='append',required=True);pipe.add_argument('--ar-spec-document',action='append',default=[])
+    pipe.add_argument('--test-spec-document',action='append',default=[])
     pipe.add_argument('--use-case-id',action='append');pipe.add_argument('--extraction-truth',help='JSON map of task/case:task to manual GT payload')
     pipe.add_argument('--review-mode',choices=('manual','auto'),default='auto');pipe.add_argument('--adjudications',help='JSON map to input-bound confirmed semantic extraction decisions')
     pipe.add_argument('--no-supplement-tests',action='store_true',help='仅用原始异常测试计分，不补充独立异常测试')
@@ -65,9 +66,10 @@ def main(argv=None):
     independent=args.command=='task'
     if independent:inputs=read_json(args.input_json)
     else:
-        groups=[{str(Path(p).resolve()) for p in paths} for paths in (args.rr_spec_document,args.sr_spec_document,args.test_spec_document)]
-        if groups[0]&groups[1] or groups[2]&(groups[0]|groups[1]):raise ValueError('RR/SR/test must be distinct files')
-        rr=read_documents(args.rr_spec_document,'existing');sr=read_documents(args.sr_spec_document,'existing');tests=read_documents(args.test_spec_document,'test')
+        groups=[{str(Path(p).resolve()) for p in paths} for paths in (args.rr_spec_document,args.sr_spec_document,args.ar_spec_document,args.test_spec_document)]
+        if sum(len(group) for group in groups)!=len(set().union(*groups)):raise ValueError('RR/SR/AR/test must be distinct files')
+        rr=read_documents(args.rr_spec_document,'existing');sr=read_documents(args.sr_spec_document,'existing')
+        ar=read_documents(args.ar_spec_document,'existing');tests=read_documents(args.test_spec_document,'test')
     root=Path(args.output_dir).resolve();root.mkdir(parents=True,exist_ok=True)
     if independent:
         from .concern_registry import registry_scope,default_registry
@@ -82,5 +84,5 @@ def main(argv=None):
         if independent:
             transform=capability_union if args.task=='object-operations' else (lambda d:{'enabled':False,'status':'未启用'}) if args.task=='gap-recommend' else None
             ex.add(args.task,args.task,static=inputs,transform=transform)
-        else:build_pipeline(ex,rr,sr,tests,read_json(args.extraction_truth) if args.extraction_truth else None,read_json(args.adjudications) if args.adjudications else None)
+        else:build_pipeline(ex,rr,sr,tests,read_json(args.extraction_truth) if args.extraction_truth else None,read_json(args.adjudications) if args.adjudications else None,ar=ar)
         result=ex.finish();print(json.dumps(result,ensure_ascii=False,indent=2));return 0 if result['complete'] else 2
