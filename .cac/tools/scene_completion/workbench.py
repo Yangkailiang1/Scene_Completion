@@ -155,7 +155,17 @@ class Workbench:
         sources={k:[{'name':d['name'],**({'content_base64':base64.b64encode((p/d['path']).read_bytes()).decode()} if d['path'].endswith('.xlsx') else {'content':(p/d['path']).read_text(encoding='utf8')})} for d in rows] for k,rows in meta['sources'].items()}
         new=self.create({'name':meta['name']+' · 规则修订版','review_mode':meta['review_mode'],'case_ids':meta.get('case_ids',[]),'sources':sources})
         if (p/'model.local.json').exists():shutil.copy2(p/'model.local.json',self.run_dir(new['id'])/'model.local.json')
-        if (p/'run/registry_override.json').exists():shutil.copy2(p/'run/registry_override.json',self.run_dir(new['id'])/'run/registry_override.json')
+        old_registry=p/'run/registry_override.json'
+        if old_registry.exists():
+            from .concern_registry import default_registry
+            current=default_registry();previous=read_json(old_registry)
+            if previous.get('version')==current.get('version'):
+                shutil.copy2(old_registry,self.run_dir(new['id'])/'run/registry_override.json')
+            else:
+                # Keep the former project definition for audit while starting
+                # v5 with its new taxonomy; an old pinned template must not
+                # silently replace the updated concern hierarchy.
+                shutil.copy2(old_registry,self.run_dir(new['id'])/'run/legacy_registry_snapshot.json')
         if (p/'concern_versions').exists():shutil.copytree(p/'concern_versions',self.run_dir(new['id'])/'concern_versions',dirs_exist_ok=True)
         for name in ('pattern-settings.json','pattern-versions','recommendation-history.json'):
             src=p/name;dst=self.run_dir(new['id'])/name

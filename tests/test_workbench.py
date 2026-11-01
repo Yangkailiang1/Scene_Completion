@@ -109,7 +109,26 @@ def test_real_deepagents_tools_submit_using_existing_transport_and_no_host_acces
     assert all(b['model']=='customer-qwen38' for b in sent)
     assert 'root:' not in json.dumps(sent[-1])
     assert role_for('existing-extract')=='checker' and role_for('fused-ssd')=='modeler'
+    assert role_for('global-existing-concerns')=='checker'
+    assert role_for('global-test-scenarios')=='checker'
+    assert role_for('global-recommend')=='recommender'
     assert list((tmp_path/'agent_traces').glob('*.json'))
+
+
+def test_upgrade_archives_old_concern_taxonomy_without_overriding_v5(tmp_path):
+    from scene_completion.workbench import Workbench
+    from scene_completion.storage import read_json,write_json
+    from scene_completion.concern_registry import default_registry
+    wb=Workbench(tmp_path/'data')
+    project=wb.create({'name':'legacy','sources':{'RR':[{'name':'rr.md','content':'# UC-X\n正常请求'}],
+                                               'SR':[{'name':'sr.md','content':'# UC-X\n正常调用'}]}})
+    old=wb.run_dir(project['id'])
+    meta=read_json(old/'project.json');meta['protocol']='scene-workflow-v3';write_json(old/'project.json',meta)
+    registry=read_json(old/'run/registry_override.json');registry['version']='interaction-concerns-v3'
+    write_json(old/'run/registry_override.json',registry)
+    upgraded=wb.run_dir(wb.upgrade(project['id']))
+    assert read_json(upgraded/'run/registry_override.json')['version']==default_registry()['version']
+    assert read_json(upgraded/'run/legacy_registry_snapshot.json')['version']=='interaction-concerns-v3'
 
 
 def test_frontend_api_persists_projects_masks_credentials_and_exports_sources(tmp_path):
