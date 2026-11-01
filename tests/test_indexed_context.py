@@ -321,3 +321,15 @@ def test_unique_table_reference_rejects_wrong_resource_but_multitable_is_not_gue
     row['receiver']['name']='product表';validate_explicit_resources([row])
     row['receiver']['name']='sku表';row['operation']['source_refs'][0]['quote']='查询 product 表和 sku 表'
     validate_explicit_resources([row])
+
+
+def test_fused_container_evidence_is_preserved_and_missing_api_is_unknown():
+ ctx=EvidenceContext(fused_fixture())
+ q=ctx.encode_output({'interactions':[exchange(sid='rr',layer='RR'),exchange(sid='sr')],'rr_sr_links':[],'pending':[]})
+ row=q['interactions'][0]
+ row['data']['source_refs']=row['source_refs']
+ row.pop('api_id',None)
+ result=ctx.expand(q)['interactions'][0]
+ assert 'source_refs' not in result['data']
+ assert result['source_refs']==R
+ assert result['api_id'] is None

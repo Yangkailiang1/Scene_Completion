@@ -137,3 +137,15 @@ def test_live_primary_changes_still_obey_maximum_switch_count(tmp_path):
   raise SlowStream({})
  with pytest.raises(SlowStream):invoke(c,{'task':'components'},call)
  assert seen==['a','b']
+
+
+def test_business_rejection_does_not_cool_provider_for_other_nodes(tmp_path):
+ c=SemanticClient({'base_url':'http://offline.invalid','api_key':'test-only','agent_model':'a','run_root':str(tmp_path),'resilience':{'enabled':True,'candidates':[{'model':'b'}]}})
+ seen=[]
+ def call(child):
+  seen.append(child.model('agent'))
+  if len(seen)==1:raise TaskRejected({'error':'invalid payload'})
+  return 'ok'
+ assert invoke(c,{'task':'components'},call)=='ok'
+ assert seen==['a','b']
+ assert not cooling(c.config)

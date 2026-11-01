@@ -110,7 +110,9 @@ def invoke(client,packet,call):
             safe=category in {'slow_stream','rate_limited','endpoint_busy','model_unavailable','access_denied','output_truncated'} or p['switch_on_rejection'] and isinstance(exc,TaskRejected)
             # Unknown network POST and authentication failure require diagnosis, not blind replay.
             if not p['enabled'] or not safe:raise
-            mark_degraded(config,p,category or 'validation_rejected')
+            # A rejected business payload is local to this task. Cooling the
+            # provider globally would starve unrelated parallel tasks.
+            if not isinstance(exc,TaskRejected):mark_degraded(config,p,category or 'validation_rejected')
             last=exc;previous_model=config['agent_model'];emit('model_degraded',requested_model=config['agent_model'],failure_category=category or 'validation_rejected')
             if switches>=p['max_switches']:raise
     if last:raise last
@@ -128,6 +130,7 @@ def cooling(config):
     path=health_path(config)
     if not path or not path.exists():return False
     row=read_json(path).get('models',{}).get(health_key(config),{})
+    if row.get('reason')=='validation_rejected':return False
     return row.get('retry_at',0)>time.time()
 
 def mark_degraded(config,p,reason):

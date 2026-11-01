@@ -60,6 +60,14 @@ def validate_explicit_resources(rows):
 
 
 def complete_structure(value,normalizations=None):
+    from .storage import fingerprint
+    value=deepcopy(value)
+    for row in value.get('interactions',[]):
+        row.setdefault('api_id',None)
+        refs=row.get('data',{}).pop('source_refs',None)
+        if refs is not None:
+            row['source_refs']=list({fingerprint(r):r for r in row.get('source_refs',[])+refs}.values())
+            if normalizations is not None:normalizations.append({'message_id':row['id'],'field':'data.source_refs','action':'move verified evidence to message; no data or constraint changed'})
     out=collapse_local_processing(value,normalizations);rows=out['interactions'];by_id={i['id']:i for i in rows}
     for layer in ('RR','SR'):
         opened=[]
