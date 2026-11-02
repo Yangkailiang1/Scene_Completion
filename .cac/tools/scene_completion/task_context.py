@@ -40,7 +40,7 @@ def generation_matches(inputs):
     indexed={(r['interaction_id'],r['object'],r['concern_key']) for r in rule_matches(inputs)}
     return [deepcopy(m) for m in inputs['concern-match']['matches'] if (m['interaction_id'],m['object'],m['concern_key']) not in indexed and m['interaction_id'] in by_id
       and match_is_applicable(m,by_id[m['interaction_id']],inputs) and m.get('concrete_rule')
-      and not m['concern_key'].startswith('api.data.') and m['concern_key'] not in mechanical]
+      and not m['concern_key'].startswith('api.data.') and m['concern_key'] not in mechanical and not m.get('policy_id')]
 
 
 def semantic_view(task,inputs):

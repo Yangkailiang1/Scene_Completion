@@ -188,6 +188,10 @@
                 ],
                 "additionalProperties": false
               },
+              "policy_id": {
+                "type": "string",
+                "minLength": 1
+              },
               "concern_origins": {
                 "type": "array",
                 "items": {

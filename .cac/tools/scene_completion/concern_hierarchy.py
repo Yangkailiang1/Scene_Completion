@@ -91,6 +91,9 @@ def applicability(match,interaction,inputs):
         # Explicit technology evidence can establish an otherwise unknown model type.
         if not any(g['value']==definition['technology'] for g in explicit_guards(match,'technology')):
             return 'not_applicable','本次对象没有对应的技术身份依据'
+    if match['concern_key']=='service.resource_mutation.idempotency':
+        from .framework_idempotency import applicable
+        if applicable(interaction,inputs):return 'applicable','用户确认框架规则：SR内部R/U/D请求默认检查幂等性，不要求原文明示'
     if definition['operation_kinds'] and not ctx['kinds']&set(definition['operation_kinds']):
         return 'not_applicable','关注点不适用于本次实际操作，不能使用其他支持能力'
     key=match['concern_key']
@@ -159,7 +162,10 @@ def decorate(match,interaction,inputs):
     if m['status']!='applicable':m['concrete_rule']=None
     elif registry()['definitions'][key]['kind']=='family':m['concrete_rule']=None
     elif not m['concrete_rule']:
-        if key=='service.base.availability':m['concrete_rule']='本次被调用服务能够执行当前操作'
+        if key=='service.resource_mutation.idempotency':
+            from .framework_idempotency import RULE
+            m['concrete_rule']=RULE
+        elif key=='service.base.availability':m['concrete_rule']='本次被调用服务能够执行当前操作'
         else:m['concrete_rule']='；'.join(g['condition'] for g in m['activation_evidence'] if g.get('status','explicit')=='explicit' and g.get('value') is not None) or None
     return m
 
@@ -184,6 +190,9 @@ def candidate_matches(inputs,matches):
         for tech in ctx['technologies']:keys+=reg['profiles']['technology'][tech]
         keys+=reg['profiles']['conditional']+reg['profiles']['relation']
         for key in keys:
+            if key=='service.resource_mutation.idempotency':
+                from .framework_idempotency import applicable
+                if not applicable(i,inputs):continue
             rows.append({'interaction_id':i['id'],'target':ctx['role'],'object':ctx['name'],'concern_key':key,
               'basis':'基础继承/本次实际功能/技术身份/条件性规则','concrete_rule':None,'source_refs':i['source_refs'],'activation_evidence':technology_evidence})
     grouped={}

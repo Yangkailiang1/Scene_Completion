@@ -159,6 +159,8 @@ def rule_exceptions(inputs):
     for r in inputs.get('normal-rules',{}).get('rules',[]):
         i=rows.get(r['interaction_id'])
         if not i:continue
+        from .framework_idempotency import canonical_key
+        r={**r,'concern_key':canonical_key(r['concern_key'],i,inputs)}
         data=r['concern_key'].startswith('api.data.');obj=r['fields'][0] if data else rule_subject(r,i)
         matches=[m for m in inputs.get('concern-match',{}).get('matches',[]) if (m['interaction_id'],m['object'],m['concern_key'])==(i['id'],obj,r['concern_key']) and match_is_applicable(m,i,inputs)]
         if not matches:continue
@@ -206,6 +208,9 @@ def normalize_scenarios(value,inputs,*,truth=False):
                     ps=[p for p in parameters_for(i,api_inputs) if p['name'] in r['fields']]
                     if len(ps)==1:s.update(object=ps[0]['name'],field=ps[0]['name'],data_location=ps[0]['location'],scope='interface')
                 else:s.update(object=rule_subject(r,i),field=None,data_location=None,scope='service')
+        if s['interaction_id'] in rows:
+            from .framework_idempotency import canonical_key
+            s['concern_key']=canonical_key(s['concern_key'],rows[s['interaction_id']],inputs)
         s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s['concern_key'].startswith('api.data.') and s.get('field'):s['object']=s['field']
         fields=re.split(r'\s*/\s*',s.get('field') or '')

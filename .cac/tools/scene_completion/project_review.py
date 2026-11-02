@@ -23,14 +23,14 @@ GROUPS={'base':{'service_base','business_attribute'},'human':{'human'},'relation
 @serialized
 def project_registry(project):
     project=Path(project);p=project/'run/registry_override.json'
-    if p.exists():return retire_ambiguous_data_concern(project,read_json(p))
+    if p.exists():return install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,read_json(p)))
     value=default_registry();manifest=project/'run/run_manifest.json'
     if manifest.exists():
         previous=read_json(manifest).get('registry_hash');used=project/'run/registry_used'/(str(previous)+'.json')
         if used.exists():value=read_json(used)
     # Pin the initial project template, so a later global template update does
     # not silently change definitions in an existing project.
-    write_json(p,value);return retire_ambiguous_data_concern(project,value)
+    write_json(p,value);return install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,value))
 
 
 def retire_ambiguous_data_concern(project,value):
@@ -50,6 +50,31 @@ def retire_ambiguous_data_concern(project,value):
     value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
     revision=max([v['revision'] for v in versions] or [0])+1
     note='按用户确认停用数据合法性；枚举检查归数据范围，保留历史执行定义'
+    write_json(history/(str(revision)+'-'+value['hash']+'.json'),{'revision':revision,'hash':value['hash'],'at':time.time(),'note':note,'registry':value})
+    write_json(Path(project)/'run/registry_override.json',value)
+    EventStore(Path(project)/'run').append('registry_updated',revision=revision,registry_hash=value['hash'],note=note)
+    return value
+
+
+@serialized
+def install_sr_idempotency_policy(project,value):
+    """Apply the explicitly requested rule once; retain project edits thereafter."""
+    name='sr_internal_rud_idempotency';key='service.resource_mutation.idempotency'
+    if value.get('framework_policies',{}).get(name,{}).get('version',0)>=1:return value
+    template=default_registry();policy=template.get('framework_policies',{}).get(name)
+    if not policy:return value
+    value=deepcopy(value);history=Path(project)/'concern_versions';history.mkdir(parents=True,exist_ok=True)
+    versions=[read_json(f) for f in history.glob('*.json')]
+    if not any(v['hash']==value['hash'] for v in versions):
+        write_json(history/(value['hash']+'.json'),{'revision':0,'hash':value['hash'],'at':time.time(),'note':'SR内部R/U/D幂等规则升级前','registry':deepcopy(value)})
+    value['definitions'][key]=deepcopy(template['definitions'][key])
+    for group in ('query_retrieval','update','delete'):
+        keys=value['profiles']['functional'].setdefault(group,[])
+        if key not in keys:keys.append(key)
+    value.setdefault('framework_policies',{})[name]=deepcopy(policy)
+    value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
+    revision=max([v['revision'] for v in versions] or [0])+1
+    note='用户确认：SR内部Service实际R/U/D请求默认检查幂等性；仅生成通道自动补充，不补E或GT。旧报告保持原定义。'
     write_json(history/(str(revision)+'-'+value['hash']+'.json'),{'revision':revision,'hash':value['hash'],'at':time.time(),'note':note,'registry':value})
     write_json(Path(project)/'run/registry_override.json',value)
     EventStore(Path(project)/'run').append('registry_updated',revision=revision,registry_hash=value['hash'],note=note)

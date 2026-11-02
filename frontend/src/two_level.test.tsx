@@ -36,7 +36,7 @@ test("a recognized concern remains visible without scenes and drills by binding 
   );
   expect(screen.getByText("三方完整对应")).toBeTruthy();
   expect(screen.getByText(/已识别关注点，尚无确定场景/)).toBeTruthy();
-  expect(screen.getByText("LLM识别 G_c")).toBeTruthy();
+  expect(screen.getByText("本方法识别 G_c")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "查看该关注点的场景 →" }));
   expect(select).toHaveBeenCalledWith("c1");
 });

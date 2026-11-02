@@ -91,6 +91,7 @@ def code_version(task):
       'global-recommend':['global_analysis.py'],
       'global-evaluation':['global_analysis.py']})
     names=modules.get(task,[])
+    if task in {'normal-rules','concern-match','existing-concerns','test-concerns','exception-generate','pattern-applicability','existing-extract','test-ground-truth'}:names=names+['framework_idempotency.py']
     if task in {'interaction-enrich','normal-rules','concern-match','existing-bind','existing-concerns','test-concerns','existing-extract','test-ground-truth'}:names=names+['interaction_identity.py','api_layers.py','interaction_enrichment.py']
 
     # Positive-reuse admission is an adapter; actual inputs/schema/Skill and business modules remain the artifact contract.
@@ -119,7 +120,8 @@ def skill_path(task):
 class Execution:
     def __init__(self,root,*,mode='packets',client=None,responses_dir=None,mocks=None,config=None,case_ids=None,auto_repair='bounded',max_rounds=2):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        self.registry_snapshot=read_json(self.root/'registry_override.json') if (self.root/'registry_override.json').exists() else default_registry()
+        from .project_review import install_sr_idempotency_policy
+        self.registry_snapshot=install_sr_idempotency_policy(self.root.parent,read_json(self.root/'registry_override.json')) if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
         from .artifact_imports import snapshot
@@ -432,7 +434,12 @@ class Execution:
                     from .use_cases import canonical_correspondence
                     value=canonical_correspondence(value,inputs)
                 if task=='normal-rules':
-                    for rule in value['rules']:rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
+                    from .framework_idempotency import canonical_key
+                    from .concern_alignment import interaction_rows
+                    interactions_by_id={i['id']:i for i in interaction_rows(inputs)}
+                    for rule in value['rules']:
+                        if rule['interaction_id'] in interactions_by_id:rule['concern_key']=canonical_key(rule['concern_key'],interactions_by_id[rule['interaction_id']],inputs)
+                        rule['id']='normal-'+fingerprint({k:v for k,v in rule.items() if k!='id'})[:20]
                 if task=='existing-bind':
                     from .failure_units import normalize_bindings
                     value=normalize_bindings(value,inputs)
@@ -448,7 +455,8 @@ class Execution:
                     value=normalize_scenarios(value,inputs,truth=task=='test-ground-truth')
                     if task=='exception-generate':
                         from .normal_rules import rule_exceptions
-                        value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)+rule_exceptions(inputs)))
+                        from .framework_idempotency import scenarios as idempotency_scenarios
+                        value['scenarios']=deduplicate(attach_provenance(inputs,value['scenarios']+idempotency_scenarios(inputs)+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)+rule_exceptions(inputs)))
                         value['pending']=list({fingerprint(x):x for x in value['pending']+pending_rules(inputs)}.values())
                     else:value['scenarios']=deduplicate(value['scenarios'])
                 if task=='existing-extract' and 'fused-ssd' in inputs:

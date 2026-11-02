@@ -5,6 +5,7 @@ BASE=['Service关注点','单个Service内部']
 def paths(key,definitions,direction=None):
     d=definitions.get(key,{})
     layer,group=d.get('layer'),d.get('group')
+    if key=='service.resource_mutation.idempotency':return [BASE+['第二层：业务实体CRUD关注点',name] for name in ('R：查询检索','U：更新','D：删除')]
     if layer=='human':return [['人类Actor关注点']]
     if layer=='relation':return [['Service关注点','Service之间']]
     if layer=='base':return [BASE+['第一层：基础关注点']]

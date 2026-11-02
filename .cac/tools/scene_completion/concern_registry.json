@@ -275,15 +275,15 @@
       "parents": [],
       "guard": "idempotency",
       "kind": "check",
-      "failure_family": "service.base.result_correctness",
+      "failure_family": "service.idempotency",
       "operation_kinds": [
-        "create",
+        "read",
         "update",
         "delete"
       ],
       "technology": null,
-      "description": "幂等性",
-      "enabled": false
+      "description": "SR内部Service实际R/U/D操作的共享幂等性检查；按用户确认框架规则启用，无需原文明示。C不在本次强制范围内；不假设幂等键或响应码。",
+      "enabled": true
     },
     "service.analysis_generation.resource_consumption": {
       "key": "service.analysis_generation.resource_consumption",
@@ -825,7 +825,8 @@
       ],
       "query_retrieval": [
         "service.query_retrieval.resource_existence",
-        "service.query_retrieval.data_visibility"
+        "service.query_retrieval.data_visibility",
+        "service.resource_mutation.idempotency"
       ],
       "resource_mutation": [],
       "analysis_generation": [
@@ -845,12 +846,14 @@
       "update": [
         "service.crud.update.concurrency_consistency",
         "service.crud.update.idempotency",
-        "service.crud.update.resource_existence"
+        "service.crud.update.resource_existence",
+        "service.resource_mutation.idempotency"
       ],
       "delete": [
         "service.crud.delete.concurrency_consistency",
         "service.crud.delete.idempotency",
-        "service.crud.delete.resource_existence"
+        "service.crud.delete.resource_existence",
+        "service.resource_mutation.idempotency"
       ]
     },
     "technology": {
@@ -1271,6 +1274,15 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "cdaf23b9c3554154df26385f522bc94599be7a279d52beaf3100716870aec063",
-  "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports."
+  "hash": "1b4359b51000705521c6c1ed5ec6355623c48977774482ab96b5bce0ea1dbeac",
+  "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports.",
+  "framework_policies": {
+    "sr_internal_rud_idempotency": {
+      "version": 1,
+      "policy_id": "sr-internal-rud-idempotency-v1",
+      "enabled": true,
+      "concern_key": "service.resource_mutation.idempotency",
+      "source": "user_confirmed"
+    }
+  }
 }

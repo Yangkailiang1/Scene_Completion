@@ -57,7 +57,7 @@ def test_same_raw_identifier_resolves_only_with_its_layer_or_an_explicit_wire_pa
 def test_E_G_GT_duplicate_view_bindings_count_once_and_internal_call_remains_distinct():
     x=sample()
     def match(iid):return {'interaction_id':iid,'target':'data','object':'name','data_location':'body','concern_key':'api.data.length','basis':'明示长度约束','concrete_rule':'长度符合要求','source_refs':R}
-    g=recognize(x,{'matches':[match('rr'),match('sr')]});e=recognize(x,{'matches':[match('rr')]},inverse=True);gt=recognize(x,{'matches':[match('sr')]},inverse=True)
+    g=recognize(x,{'matches':[match('rr'),match('sr')]});g['matches']=[m for m in g['matches'] if not m.get('policy_id')];e=recognize(x,{'matches':[match('rr')]},inverse=True);gt=recognize(x,{'matches':[match('sr')]},inverse=True)
     assert len(g['matches'])==len(e['matches'])==len(gt['matches'])==1
     assert g['matches'][0]['binding_id']==e['matches'][0]['binding_id']==gt['matches'][0]['binding_id']
     assert g['matches'][0]['api_id']=='RR::API-1' and g['matches'][0]['api_source_layer']=='RR'

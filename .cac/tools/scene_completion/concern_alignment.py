@@ -8,7 +8,7 @@ import re
 from .storage import fingerprint
 from .concern_registry import registry
 
-VERSION = 'two-level-concern-scenario-v2-api-call-identity'
+VERSION = 'two-level-concern-scenario-v3-sr-idempotency-policy'
 TARGETS = {'sender': '发送方', 'operation': '操作序列', 'data': '数据序列', 'receiver': '接收方'}
 DATA_KEYS = {'required':'completeness','type':'type','format':'format','pattern':'format',
              'length':'length','size':'size','minimum':'range','maximum':'range','enum':'range'}
@@ -61,11 +61,14 @@ def _normalize_field(row):
 
 
 def recognize(inputs,raw,*,inverse=False):
-    """Validate only submitted rows; do not fill recognition from the registry."""
+    """Validate submitted rows, plus the explicitly approved internal-RUD policy."""
     from .concern_hierarchy import decorate
     rows={i['id']:i for i in interaction_rows(inputs)};elements=index_elements(inputs)
     from .interaction_identity import normalize_records
     raw=normalize_records(raw,inputs)
+    if not inverse:
+        from .framework_idempotency import recognized_defaults
+        raw.setdefault('matches',[]).extend(recognized_defaults(inputs))
     definitions=registry()['definitions'];accepted=[];pending=deepcopy(raw.get('pending',[]))
     for original in raw.get('matches',[]):
         m=deepcopy(original);iid=m['interaction_id'];key=m['concern_key']
@@ -90,6 +93,10 @@ def recognize(inputs,raw,*,inverse=False):
                     m['basis']+='；依据本异常来源明确的接口地址定位实际请求，不按同名字段跨接口匹配'
                 else:
                     pending.append({'interaction_id':iid,'object':m['object'],'concern_key':key,'reason':'异常明示接口未能定位唯一实际请求，不能转用另一层接口','source_refs':m['source_refs']});continue
+        if iid in rows:
+            from .framework_idempotency import canonical_key
+            canonical=canonical_key(key,rows[iid],inputs)
+            if canonical!=key:m['classification_origin']=key;m['concern_key']=key=canonical
         reason=None
         if iid not in rows:reason='关注点没有绑定到本片实际交互'
         elif key not in definitions or not definitions[key].get('enabled',True):reason='关注点未注册或已停用'
@@ -182,7 +189,7 @@ def recognize(inputs,raw,*,inverse=False):
         a=next((a for a in inputs.get('api-parameters',inputs.get('normal-constraints',{})).get('apis',[]) if a['id']==m['api_id']),{})
         m['api_source_layer']=a.get('source_layer')
         m['binding_id']='concern-'+fingerprint([element['element_id'],key])[:24]
-        m['identification']='inverse_llm' if inverse else 'llm'
+        m['identification']='inverse_llm' if inverse else 'framework_policy' if m.get('policy_id') else 'llm'
         if definitions[key].get('kind')!='check':
             m.update(status='not_applicable',status_reason='父级分类只导航，不作为计分单元')
         if m['status']=='pending':pending.append({'interaction_id':iid,'object':m['object'],'concern_key':key,'reason':m['status_reason'],'source_refs':m['source_refs']})
@@ -193,6 +200,7 @@ def recognize(inputs,raw,*,inverse=False):
         if key not in unique:unique[key]=m
         else:
             old=unique[key]
+            if m.get('policy_id'):old['policy_id']=m['policy_id'];old['identification']='framework_policy' if not inverse else old['identification']
             for name in ('source_refs','source_unit_ids','source_branch_ids'):
                 old[name]=list({fingerprint(v):v for v in old.get(name,[])+m.get(name,[])}.values())
     return {'matches':list(unique.values()),'pending':list({fingerprint(p):p for p in pending}.values()),**({'excluded':deepcopy(raw['excluded'])} if raw.get('excluded') else {})}

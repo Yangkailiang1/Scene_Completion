@@ -77,7 +77,7 @@ DECISION = obj(left_id=S, right_id=S, status=enum('full','partial','unmatched'),
 MATCH = obj(interaction_id=S, target=enum('sender','receiver','operation','data'), object=S, concern_key=S,
  basis=S, concrete_rule=NULL_S, source_refs=REFS)
 
-MATCH['properties'].update(operation_index={'type':['integer','null'],'minimum':0},source_unit_ids=arr(S),source_branch_ids=arr(S),coverage_kind=enum('exact','input_parameters','authentication','authorization'),
+MATCH['properties'].update(policy_id=S,operation_index={'type':['integer','null'],'minimum':0},source_unit_ids=arr(S),source_branch_ids=arr(S),coverage_kind=enum('exact','input_parameters','authentication','authorization'),
  api_id=NULL_S,api_source_layer={'anyOf':[{'type':'null'},enum('RR','SR')]},element_id=S,binding_id=S,case_id=S,direction=enum('request','return'),identification=S,classification_origin=S,caller=S,callee=S,element_origin={'type':'object'})
 
 ACTIVATION = obj(kind=enum('data','authentication','authorization','availability','result','compatibility','timing','device','resource_limit','business','persistence','concurrency','idempotency','release','recovery','resource_lookup','storage_field','unique','reference','transaction','isolation','grounding','instruction','context','prompt_security','stability','relation','technology'),
@@ -88,7 +88,7 @@ MATCH['properties'].update(status=enum('applicable','pending','not_applicable'),
  data_location={'anyOf':[{'type':'null'},enum('header','path','query','body','response','business','storage')]},
  service=NULL_S,functional_types=arr(enum('display_interaction','query_retrieval','create','update','delete','resource_mutation','analysis_generation','release_activation')),
  technologies=arr(enum('database','llm')))
-SCENARIO['properties'].update(concern_origins=arr(S),concern_paths=arr(arr(S)),
+SCENARIO['properties'].update(policy_id=S,concern_origins=arr(S),concern_paths=arr(arr(S)),
  scope=enum('interface','storage','context','service','relation','environment'),data_location=NULL_S)
 
 # Alignment metadata is optional for generated rules, mandatory on new inverse tasks.

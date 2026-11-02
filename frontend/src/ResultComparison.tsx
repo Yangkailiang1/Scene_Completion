@@ -87,7 +87,7 @@ export function ConcernAlignmentTable({
             {[
               "四要素对象／关注点",
               "需求文档已有 E_c",
-              "LLM识别 G_c",
+              "本方法识别 G_c",
               "独立测试 GT_c",
               "规则对应／场景展开",
             ].map((t) => (
@@ -131,6 +131,11 @@ export function ConcernAlignmentTable({
                             {definitions[m.concern_key]?.label || m.concern_key}
                           </strong>
                           <p>{m.basis || m.status_reason}</p>
+                          {m.policy_id && (
+                            <small className="shared-branch">
+                              框架默认：SR内部R/U/D幂等性（非原文明示）
+                            </small>
+                          )}
                           {ch === "E" &&
                             m.source_branch_ids?.length > 0 &&
                             m.coverage_kind &&

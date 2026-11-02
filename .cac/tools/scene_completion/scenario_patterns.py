@@ -44,6 +44,14 @@ def normalize_settings(value=None):
     if type(v['top_k']) is not int or not 1<=v['top_k']<=1000:raise ValueError('K必须为1至1000的整数')
     if any(type(v[x]) not in (int,float) or (not math.isfinite(v[x]) or v[x]<0) for x in ('risk_weight','history_weight')) or abs(v['risk_weight']+v['history_weight']-1)>1e-9:raise ValueError('排序权重非负且合计为1')
     if not isinstance(v['library'],dict) or not isinstance(v['library'].get('patterns'),list):raise ValueError('模式库格式无效')
+    # One-time, versioned installation; a later user disable/delete is respected.
+    policy=registry().get('framework_policies',{}).get('sr_internal_rud_idempotency',{})
+    if policy and not v.get('framework_policy_versions',{}).get('sr_internal_rud_idempotency'):
+        pid='rule.service.resource_mutation.idempotency'
+        candidate=next((p for p in default_library()['patterns'] if p['id']==pid),None)
+        if candidate and not any(p['id']==pid for p in v['library']['patterns']):
+            v['library']['patterns'].append(candidate)
+        v.setdefault('framework_policy_versions',{})['sr_internal_rud_idempotency']=policy['version']
     if v['library'].get('version')!=VERSION:raise ValueError('不支持的模式库版本')
     if not isinstance(v['overrides'],dict) or not isinstance(v['reviews'],dict):raise ValueError('项目风险/审核格式无效')
     ids=set();definitions=registry()['definitions']
@@ -108,6 +116,8 @@ def annotate(s,i,settings,score=None,reason=None,pattern_id=None):
         reason='结构化明示约束，工具构造违例' if score==1 else '明确正常规则/实际服务调用与适用前提；未知具体标准仍独立标可执行性'
         if rule.get('kind')=='other':
             s.update(executable=False,resolution='conditional');s['pending_details']=list(dict.fromkeys(s.get('pending_details',[])+['语义关系约束有依据；具体违例测试数据和判定方式待准备']))
+    if s.get('policy_id'):
+        reason='用户确认的SR内部R/U/D幂等性框架规则；调用引用仅用于定位，不声称原文明示幂等要求'
     if 'executable' not in s:
         s['executable']=False;s.setdefault('resolution','conditional');s.setdefault('pending_details',[])
         s['pending_details']=list(dict.fromkeys(s['pending_details']+['模式与交互已有依据；具体故障注入方式或测试数据尚未准备']))
@@ -214,7 +224,8 @@ def applicability(inputs,settings=None):
     from .normal_rules import rule_exceptions
     settings=normalize_settings(settings);rows={i['id']:i for i in inputs['enriched-interactions']['interactions']};candidates=[];issues=[]
     security=security_rules(inputs,settings['library']);replaced={r['rule']['id'] for r in security}
-    base=data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)+[s for s in rule_exceptions(inputs) if s['rule_id'] not in replaced]
+    from .framework_idempotency import scenarios as idempotency_scenarios
+    base=idempotency_scenarios(inputs)+data_exceptions(inputs)+query_exceptions(inputs)+service_exceptions(inputs)+storage_exceptions(inputs)+[s for s in rule_exceptions(inputs) if s['rule_id'] not in replaced]
     from .scenario_types import filter_scenarios
     base=filter_scenarios({'scenarios':attach_provenance(inputs,base)},inputs,'exception-generate')['scenarios']
     base=split_structured_bounds(base)

@@ -75,7 +75,7 @@ def inheritance_paths(key,direction=None,functional_types=None):
         paths=[p for p in paths if p[0]==root]
     if functional_types is not None:
         active=set(functional_types)
-        paths=[path for path in paths if all(definitions[k]['layer']!='functional' or definitions[k]['group'] in active for k in path)]
+        paths=[path for path in paths if all(definitions[k]['layer']!='functional' or definitions[k]['group'] in active or k=='service.resource_mutation.idempotency' and bool(active & {'query_retrieval','update','delete'}) for k in path)]
         refined=[path for path in paths if any(definitions[k]['layer']=='functional' for k in path)]
         if refined:paths=refined
     return paths
