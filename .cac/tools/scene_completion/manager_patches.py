@@ -26,10 +26,10 @@ def propose(project,program,body):
   if fingerprint(before)!=row.get('expected_hash'):raise ValueError('代码版本已变化，请重新读取')
   if target.suffix=='.py':compile(after,str(target),'exec')
   rel=target.relative_to(program).as_posix();index=len(records)
-  (folder/(str(index)+'.before')).write_text(before);(folder/(str(index)+'.after')).write_text(after)
+  (folder/(str(index)+'.before')).write_text(before,encoding='utf-8');(folder/(str(index)+'.after')).write_text(after,encoding='utf-8')
   records.append({'path':rel,'before_hash':fingerprint(before),'after_hash':fingerprint(after)})
   diff+=list(difflib.unified_diff(before.splitlines(True),after.splitlines(True),fromfile=rel,tofile=rel))
- (folder/'change.patch').write_text(''.join(diff))
+ (folder/'change.patch').write_text(''.join(diff),encoding='utf-8')
  return journal.put('patch',{'status':'proposed','reason':body['reason'],'changes':records,'created_at':time.time()},patch_id,0)|{'id':patch_id}
 
 def baseline_copy(program,stage):
@@ -50,13 +50,13 @@ def test_patch(project,program,patch_id):
  for i,c in enumerate(row['changes']):(stage/c['path']).write_bytes((folder/(str(i)+'.after')).read_bytes())
  # The baseline test suite was copied from the installed program; proposal cannot edit it.
  env={k:v for k,v in os.environ.items() if not any(x in k.upper() for x in ('KEY','TOKEN','SECRET','PASSWORD'))}
- env['PYTHONPATH']=str(stage/'.cac/tools');env['PYTHONDONTWRITEBYTECODE']='1'
+ env['PYTHONPATH']=str(stage/'.cac/tools');env['PYTHONDONTWRITEBYTECODE']='1';env['PYTHONUTF8']='1';env['PYTHONIOENCODING']='utf-8'
  started=time.time()
  try:
-  result=subprocess.run([sys.executable,'-m','pytest','tests','-q','--disable-warnings','--maxfail=1'],cwd=stage,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=300)
+  result=subprocess.run([sys.executable,'-X','utf8','-m','pytest','tests','-q','--disable-warnings','--maxfail=1'],cwd=stage,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding='utf-8',errors='replace',timeout=300)
   text=result.stdout;ok=result.returncode==0
  except subprocess.TimeoutExpired as e:text=str(e);ok=False
- (folder/'test.log').write_text(text)
+ (folder/'test.log').write_text(text,encoding='utf-8')
  return journal.put('patch',{**row,'status':'tested' if ok else 'test_failed','test':{'passed':ok,'seconds':time.time()-started,'summary':text[-5000:],'baseline_suite':'installed frozen tests; model cannot edit'}},patch_id,row['revision'])|{'id':patch_id}
 
 def apply(project,program,patch_id,all_projects,*,confirmed=False,rollback=False):
@@ -79,7 +79,7 @@ def _apply(project,program,patch_id,all_projects,*,confirmed=False,rollback=Fals
  folder=journal.root/'patches'/patch_id
  for c in row['changes']:
   expected=c['after_hash'] if rollback else c['before_hash']
-  if fingerprint(allowed_program(program,c['path']).read_text())!=expected:raise ValueError('当前程序已变化，不覆盖新代码')
+  if fingerprint(allowed_program(program,c['path']).read_text(encoding='utf-8'))!=expected:raise ValueError('当前程序已变化，不覆盖新代码')
  applied=[]
  try:
   for i,c in enumerate(row['changes']):

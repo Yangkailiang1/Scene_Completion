@@ -26,7 +26,7 @@ def main():
  else:raise ValueError('原服务尚未释放端口，保留已测补丁和诊断')
  def start():
   kwargs={'creationflags':subprocess.CREATE_NO_WINDOW|subprocess.CREATE_NEW_PROCESS_GROUP} if os.name=='nt' else {'start_new_session':True}
-  with (p.parent/'server.log').open('ab') as log:proc=subprocess.Popen([sys.executable,'-B',str(program/'serve.py'),'--port',str(port),'--data-dir',str(p.parent),'--env-file',a.env_file,'--control-file',str(control)],stdout=log,stderr=log,stdin=subprocess.DEVNULL,**kwargs)
+  with (p.parent/'server.log').open('ab') as log:proc=subprocess.Popen([sys.executable,'-X','utf8','-B',str(program/'serve.py'),'--port',str(port),'--data-dir',str(p.parent),'--env-file',a.env_file,'--control-file',str(control)],stdout=log,stderr=log,stdin=subprocess.DEVNULL,**kwargs)
   for _ in range(150):
    if proc.poll() is not None:return False
    try:

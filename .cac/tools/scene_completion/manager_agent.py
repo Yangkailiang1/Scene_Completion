@@ -87,7 +87,7 @@ def execute_action(service,rid,action,args,*,confirmed=False,daemon=False):
   return {'files':[str(f.relative_to(root)) for pattern in patterns for f in root.glob(pattern) if f.is_file()][:500]}
  if action=='read_file':
   f=file_target(p,args.get('scope','project'),args['path']);lines=f.read_text(encoding='utf-8-sig').splitlines();start=max(1,int(args.get('start',1)));end=min(len(lines),start+199,int(args.get('end',start+99)))
-  return {'path':args['path'],'hash':fingerprint(f.read_text()),'total_lines':len(lines),'start':start,'text':'\n'.join(str(i+1)+' | '+line for i,line in enumerate(lines[start-1:end],start-1))}
+  return {'path':args['path'],'hash':fingerprint(f.read_text(encoding='utf-8')),'total_lines':len(lines),'start':start,'text':'\n'.join(str(i+1)+' | '+line for i,line in enumerate(lines[start-1:end],start-1))}
  if action in {'scan','imports','convert','accept_import'}:
   from . import artifact_imports as imp
   if action=='scan':
@@ -137,7 +137,7 @@ def execute_action(service,rid,action,args,*,confirmed=False,daemon=False):
   if budget['calls']>=2:raise ValueError('该输入和模型配置已完成2次管理修复；请转换策略或更新材料，不重复同一失败')
   journal.put('node-repair-budget',{'calls':budget['calls']+1},budget_id)
   packet=deepcopy(repair['task_packet']);packet['repair']={'failure':repair['failure']};packet['node_key']=args['node']
-  packet['skill_text']=(PROGRAM/'.cac/skills'/packet['skill']/'SKILL.md').read_text();packet['instructions']+='\n仅修复本节点；不读取管理会话或其他任务。'
+  packet['skill_text']=(PROGRAM/'.cac/skills'/packet['skill']/'SKILL.md').read_text(encoding='utf-8');packet['instructions']+='\n仅修复本节点；不读取管理会话或其他任务。'
   config=resolved(service,rid);config['_resilience_active']=True;config['agent_max_model_calls']=2
   result=client_for(config,p/'run').agent(packet)
   return submit_repair(p,args['node'],{**repair,'payload':{k:v for k,v in result.items() if k!='execution_model_evidence'},'note':'管理Agent独立节点修复；使用原允许任务包并通过原校验'})
@@ -167,8 +167,8 @@ def execute_action(service,rid,action,args,*,confirmed=False,daemon=False):
   readable={'status','artifacts','events','config','diagnose','pending','sources','registry','patterns','reviews','recommendations','impact','test-sources','imports','recovery'}
   if command not in readable or any(x in argv for x in ('--file','--out','--server','--project')):raise ValueError('CLI查询限当前项目；写操作请用带版本校验的专用工具')
   if not isinstance(argv,list) or any(not isinstance(x,str) for x in argv):raise ValueError('CLI arguments必须为字符串数组')
-  env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'}
-  result=subprocess.run([__import__('sys').executable,str(PROGRAM/'scene.py'),'--server',getattr(service,'local_url','http://127.0.0.1:8765'),command,'--project',rid,*argv],capture_output=True,text=True,timeout=65,env=env)
+  env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1','PYTHONUTF8':'1','PYTHONIOENCODING':'utf-8'}
+  result=subprocess.run([__import__('sys').executable,'-X','utf8',str(PROGRAM/'scene.py'),'--server',getattr(service,'local_url','http://127.0.0.1:8765'),command,'--project',rid,*argv],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=65,env=env)
   return {'returncode':result.returncode,'output':result.stdout[-18000:],'error':result.stderr[-2000:]}
 
 
@@ -254,7 +254,7 @@ def run_turn(service,rid,reason='user',_client=None):
    except Exception as e:
     result={'action':action,'arguments':arguments,'status':'failed','error':str(e),'type':type(e).__name__,'at':time.time()};journal.put('operation',result,opid);emit('manager_action',**result);return json.dumps(result,ensure_ascii=False)
   memory,messages=compact_history(journal,config,client)
-  skill=(PROGRAM/'.cac/skills/scene-project-manager/SKILL.md').read_text()
+  skill=(PROGRAM/'.cac/skills/scene-project-manager/SKILL.md').read_text(encoding='utf-8')
   from deepagents.middleware.summarization import SummarizationMiddleware
   backend=StateBackend()
   def count_messages(messages):return sum(len(json.dumps(m.model_dump(mode='json'),ensure_ascii=False,default=str).encode())+256 for m in messages)

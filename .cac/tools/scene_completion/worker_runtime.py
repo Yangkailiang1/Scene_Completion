@@ -36,7 +36,7 @@ def spawn(service,rid):
  if os.name=='nt':kwargs['creationflags']=subprocess.CREATE_NO_WINDOW
  job=read_json(p/'job.json');job.update(worker_token=secrets.token_hex(16),worker_heartbeat=time.time());write_json(p/'job.json',job)
  with log.open('ab') as out:
-  process=subprocess.Popen([sys.executable,'-B',str(Path(__file__).with_name('project_worker.py')),'--root',str(service.root),'--project',rid,'--env-file',str(service.env_file)],stdout=out,stderr=out,**kwargs)
+  process=subprocess.Popen([sys.executable,'-X','utf8','-B',str(Path(__file__).with_name('project_worker.py')),'--root',str(service.root),'--project',rid,'--env-file',str(service.env_file)],stdout=out,stderr=out,**kwargs)
  job=read_json(p/'job.json');job.update(pid=process.pid,worker_heartbeat=time.time());write_json(p/'job.json',job)
  return process
 

@@ -15,7 +15,7 @@ def signature(service,rid):return fingerprint(trigger_snapshot(service,rid))
 def launch_restart(service,rid,patch_id,rollback=False):
  from .manager_agent import PROGRAM
  p=service.run_dir(rid);j=Journal(p)
- command=[sys.executable,'-B',str(Path(__file__).with_name('manager_restart.py')),'--project',str(p),'--program',str(PROGRAM),'--patch',patch_id,'--env-file',str(service.env_file)]
+ command=[sys.executable,'-X','utf8','-B',str(Path(__file__).with_name('manager_restart.py')),'--project',str(p),'--program',str(PROGRAM),'--patch',patch_id,'--env-file',str(service.env_file)]
  if rollback:command.append('--rollback')
  kwargs={'creationflags':subprocess.CREATE_NO_WINDOW|subprocess.CREATE_NEW_PROCESS_GROUP} if os.name=='nt' else {'start_new_session':True}
  write_json(service.root/'manager-maintenance.json',{'patch_id':patch_id,'project':rid,'at':time.time()})
@@ -61,7 +61,7 @@ def spawn(service,rid):
   old=j.get('process',default={})
   if old.get('pid') and pid_alive(old['pid']) and old.get('heartbeat',0)>time.time()-60:return {'status':'running','pid':old['pid']}
   token=__import__('secrets').token_hex(16)
-  command=[sys.executable,'-B',str(Path(__file__).with_name('manager_worker.py')),'--root',str(service.root),'--project',rid,'--env-file',str(service.env_file),'--url',getattr(service,'local_url','http://127.0.0.1:8765'),'--token',token]
+  command=[sys.executable,'-X','utf8','-B',str(Path(__file__).with_name('manager_worker.py')),'--root',str(service.root),'--project',rid,'--env-file',str(service.env_file),'--url',getattr(service,'local_url','http://127.0.0.1:8765'),'--token',token]
   kwargs={'creationflags':subprocess.CREATE_NO_WINDOW} if os.name=='nt' else {'start_new_session':True}
   with (p/'manager/worker.log').open('ab') as log:proc=subprocess.Popen(command,stdout=log,stderr=log,**kwargs)
   j.put('process',{'pid':proc.pid,'token':token,'heartbeat':time.time()})

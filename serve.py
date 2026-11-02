@@ -29,6 +29,6 @@ def main():
             return {'pid':os.getpid(),'port':args.port,'status':'stopping' if server.should_exit else 'running'}
     try:server.run()
     finally:
-        if control and control.exists() and json.loads(control.read_text()).get('token')==token:control.unlink()
+        if control and control.exists() and json.loads(control.read_text(encoding='utf-8')).get('token')==token:control.unlink()
 
 if __name__=='__main__':main()

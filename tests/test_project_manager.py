@@ -56,7 +56,12 @@ def test_manager_actions_refuse_credentials_traversal_and_cross_project(tmp_path
  assert execute_action(s,rid,'ask_user',{'question':'规则？'})['deferred']
 
 
-def test_manager_deepagents_can_use_tools_and_persist_chat(tmp_path):
+def test_manager_deepagents_can_use_tools_and_persist_chat(tmp_path,monkeypatch):
+ original_read=Path.read_text
+ def windows_read(path,*args,**kwargs):
+  if path.name=='SKILL.md' and not args and 'encoding' not in kwargs:kwargs['encoding']='gbk'
+  return original_read(path,*args,**kwargs)
+ monkeypatch.setattr(Path,'read_text',windows_read)
  from scene_completion.model_client import SemanticClient
  s,rid,p=project(tmp_path)
  calls=[]
@@ -257,3 +262,51 @@ def test_test_capability_context_does_not_include_recovered_exception_answers():
  out=semantic_view('test-operation-project',{'test-operation-source':[doc]})
  assert 'SECRET_ANSWER' not in str(out) and '用户查询列表' in str(out)
  assert len(records([doc]))==3
+
+
+def test_manager_file_hash_is_utf8_even_with_gbk_default(tmp_path,monkeypatch):
+ s,rid,p=project(tmp_path)
+ f=p/'中文.md';text='查询记忆库列表 😀';f.write_bytes(text.encode('utf-8'))
+ original=Path.read_text
+ def windows_read(path,*args,**kwargs):
+  if path==f and not args and 'encoding' not in kwargs:kwargs['encoding']='gbk'
+  return original(path,*args,**kwargs)
+ monkeypatch.setattr(Path,'read_text',windows_read)
+ result=execute_action(s,rid,'read_file',{'path':'中文.md'})
+ assert text in result['text'] and result['hash']==fingerprint(text)
+
+
+def test_manager_cli_forces_utf8_on_both_sides(tmp_path,monkeypatch):
+ import subprocess
+ s,rid,p=project(tmp_path)
+ def fake_run(command,**kwargs):
+  assert command[1:3]==['-X','utf8']
+  assert kwargs['encoding']=='utf-8'
+  assert kwargs['env']['PYTHONUTF8']=='1' and kwargs['env']['PYTHONIOENCODING']=='utf-8'
+  return subprocess.CompletedProcess(command,0,'已完成 😀','')
+ monkeypatch.setattr(subprocess,'run',fake_run)
+ assert execute_action(s,rid,'cli',{'command':'status'})['output']=='已完成 😀'
+
+
+def test_unicode_patch_backup_log_and_activation_survive_gbk_defaults(tmp_path,monkeypatch):
+ from scene_completion import manager_patches as m
+ program=tmp_path/'app';f=program/'.cac/tools/scene_completion/example.py';f.parent.mkdir(parents=True)
+ before='# 中文😀\nvalue=1\n';after='# 修复😀\nvalue=2\n';f.write_bytes(before.encode('utf-8'))
+ p=tmp_path/'p';settings(p,{'expected_revision':0,'settings':{'mode':'auto'}})
+ original_read=Path.read_text;original_write=Path.write_text
+ def gbk_read(path,*a,**kw):
+  if not a and 'encoding' not in kw:kw['encoding']='gbk'
+  return original_read(path,*a,**kw)
+ def gbk_write(path,data,*a,**kw):
+  if not a and 'encoding' not in kw:kw['encoding']='gbk'
+  return original_write(path,data,*a,**kw)
+ monkeypatch.setattr(Path,'read_text',gbk_read);monkeypatch.setattr(Path,'write_text',gbk_write)
+ row=m.propose(p,program,{'reason':'中文编码修复','changes':[{'path':f.relative_to(program).as_posix(),'expected_hash':fingerprint(before),'content':after}]})
+ def run(command,**kw):
+  assert command[1:3]==['-X','utf8'] and kw['encoding']=='utf-8'
+  assert kw['env']['PYTHONIOENCODING']=='utf-8'
+  return type('R',(),{'returncode':0,'stdout':'中文测试通过😀'})()
+ monkeypatch.setattr(m.subprocess,'run',run)
+ assert m.test_patch(p,program,row['id'])['status']=='tested'
+ assert m.apply(p,program,row['id'],[])['status']=='applied'
+ assert f.read_bytes().decode('utf-8')==after

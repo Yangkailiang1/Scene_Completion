@@ -23,3 +23,5 @@ GitHub Windows工作流在发布前分别运行系统Python测试、包内嵌入
 构建同时按Windows x64/Python 3.12的依赖标记检查已安装轮子的依赖闭包，不使用打包机的macOS标记推断。锁文件包含Windows下pytest所需的colorama；此静态检查仍不能替代Windows实际启动。
 
 专用业务审核包由本地“审核交接”页生成，包含当前项目快照并强制review-only，不含Key或模型缓存。业务无需Python/Node，回答和审核推荐后导出小型反馈JSON；研发导入预览后手动重跑。`check.cmd`能识别审核包，采用只读HTTP/来源定位及禁止执行检查。公共Release程序包始终不含业务数据。见[business-offline-review](business-offline-review.md)。
+
+管理Agent的Skill、代码补丁和内部日志采用UTF-8；内部Python子进程显式启用UTF-8模式，不依赖Windows系统区域设置。遇到旧包的GBK解码错误时，停止服务后升级程序并重启管理Agent，保留原data和.env。源文件仍严格按UTF-8读取；仅子进程展示日志对无效字节作替换，不修改业务材料。
