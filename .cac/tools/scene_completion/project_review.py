@@ -23,14 +23,14 @@ GROUPS={'base':{'service_base','business_attribute'},'human':{'human'},'relation
 @serialized
 def project_registry(project):
     project=Path(project);p=project/'run/registry_override.json'
-    if p.exists():return install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,read_json(p)))
+    if p.exists():return retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,read_json(p))))
     value=default_registry();manifest=project/'run/run_manifest.json'
     if manifest.exists():
         previous=read_json(manifest).get('registry_hash');used=project/'run/registry_used'/(str(previous)+'.json')
         if used.exists():value=read_json(used)
     # Pin the initial project template, so a later global template update does
     # not silently change definitions in an existing project.
-    write_json(p,value);return install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,value))
+    write_json(p,value);return retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,value)))
 
 
 def retire_ambiguous_data_concern(project,value):
@@ -81,10 +81,33 @@ def install_sr_idempotency_policy(project,value):
     return value
 
 
+@serialized
+def retire_obsolete_business_constraint(project,value):
+    """Retire the obsolete mutation bucket without relabelling saved evidence."""
+    key='service.resource_mutation.business_constraint'
+    if not value.get('definitions',{}).get(key,{}).get('enabled',True) or key not in value.get('definitions',{}):return value
+    value=deepcopy(value);history=Path(project)/'concern_versions';history.mkdir(parents=True,exist_ok=True)
+    versions=[read_json(f) for f in history.glob('*.json')]
+    if not any(v['hash']==value['hash'] for v in versions):
+        write_json(history/(value['hash']+'.json'),{'revision':0,'hash':value['hash'],'at':time.time(),'note':'停用旧变更业务约束前','registry':deepcopy(value)})
+    value['definitions'][key]['enabled']=False
+    def remove(node):
+        if isinstance(node,dict):return {k:remove(v) for k,v in node.items()}
+        return [k for k in node if k!=key]
+    value['profiles']=remove(value['profiles'])
+    value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
+    revision=max([v['revision'] for v in versions] or [0])+1
+    note='按新版体系停用旧变更业务约束。业务实体属性规则需按来源重新识别，不将旧结果直接改标为业务实体属性约束；旧报告和GT保留。'
+    write_json(history/(str(revision)+'-'+value['hash']+'.json'),{'revision':revision,'hash':value['hash'],'at':time.time(),'note':note,'registry':value})
+    write_json(Path(project)/'run/registry_override.json',value)
+    EventStore(Path(project)/'run').append('registry_updated',revision=revision,registry_hash=value['hash'],note=note)
+    return value
+
+
 def registry_view(project,version=None):
     project=Path(project);history=project/'concern_versions'
-    versions=sorted([read_json(p) for p in history.glob('*.json')],key=lambda v:v['revision'],reverse=True)
     current=project_registry(project)
+    versions=sorted([read_json(p) for p in history.glob('*.json')],key=lambda v:v['revision'],reverse=True)
     manifest=project/'run/run_manifest.json'
     if manifest.exists() and read_json(manifest).get('registry_hash')==current['hash']:
         used=project/'run/registry_used'/(current['hash']+'.json')

@@ -85,7 +85,7 @@ def test_usage_peak_is_single_request_not_cumulative_and_unknown_is_not_zero(tmp
 def test_production_supplement_retains_test_preconditions_and_steps_after_regression():
     p=inverse_packet();p.update(task='test-supplement',output_schema=schema('test-supplement'))
     p['input']['normal-rules']['rules']=p['input']['normal-rules']['rules'][:1]
-    p['input']['normal-rules']['rules'][0]['concern_key']='service.resource_mutation.business_constraint'
+    p['input']['normal-rules']['rules'][0]['concern_key']='service.business_attribute_constraint'
     ctx=EvidenceContext(p);required=ctx.packet['output_schema']['properties']['tests']['items']['required']
     assert 'preconditions' in required and 'steps' in required
 

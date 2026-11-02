@@ -11,7 +11,7 @@ description: 从单个用例的正向RR/SR正文建立服务本地正常规则�
 
 一条独立规则取反对应一个具体失败。独立字段和OR连接的独立失败拆开；真正的跨字段比较保持整体。不重复API必填、类型等机械规则；保留服务本地业务前置条件、资源存在性、并发、发布、查询可见性等条件。
 
-服务规则使用活跃关注点键：service.query_retrieval.resource_existence、service.query_retrieval.data_visibility、service.resource_mutation.business_constraint、service.resource_mutation.persistence_consistency、service.resource_mutation.concurrency_consistency、service.resource_mutation.idempotency、service.release_activation.prerequisite、service.release_activation.result_consistency、service.release_activation.failure_recovery；必要的关系/数据库/LLM规则只选择注册表对应定义。
+仅使用任务包registry中enabled不为false的具体叶关注点，不从历史列表恢复已停用项。重名限制、属性不可修改、跨属性类型一致等业务实体规则使用service.business_attribute_constraint，并保留实体、属性、适用操作及原文依据；它不是接口字段类型、格式、长度等数据检查。R与C/U/D分别使用当前CRUD定义；发布、关系、数据库及LLM规则按实际适用类别选择。
 
 有明示格式、数量或范围校验但具体标准未知，可输出conditional条件级规则，pending_details说明缺失信息，不编造数值；其他可判定规则为explicit。没有正常规则依据只列pending。
 

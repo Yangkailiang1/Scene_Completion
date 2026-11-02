@@ -120,8 +120,8 @@ def skill_path(task):
 class Execution:
     def __init__(self,root,*,mode='packets',client=None,responses_dir=None,mocks=None,config=None,case_ids=None,auto_repair='bounded',max_rounds=2):
         self.root=Path(root);self.root.mkdir(parents=True,exist_ok=True)
-        from .project_review import install_sr_idempotency_policy
-        self.registry_snapshot=install_sr_idempotency_policy(self.root.parent,read_json(self.root/'registry_override.json')) if (self.root/'registry_override.json').exists() else default_registry()
+        from .project_review import install_sr_idempotency_policy,retire_obsolete_business_constraint
+        self.registry_snapshot=retire_obsolete_business_constraint(self.root.parent,install_sr_idempotency_policy(self.root.parent,read_json(self.root/'registry_override.json'))) if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
         from .artifact_imports import snapshot

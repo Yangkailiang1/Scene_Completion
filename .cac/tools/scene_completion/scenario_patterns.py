@@ -57,6 +57,7 @@ def normalize_settings(value=None):
     ids=set();definitions=registry()['definitions']
     for p in v['library']['patterns']:
         if not isinstance(p,dict) or not {'id','concern_keys','label','preconditions','trigger_template','required_evidence','risk_level','risk_reason','enabled','version'}<=p.keys():raise ValueError('模式缺少必要字段')
+        if 'service.resource_mutation.business_constraint' in p.get('concern_keys',[]) and not definitions.get('service.resource_mutation.business_constraint',{}).get('enabled',True):p['enabled']=False
         if not definitions.get('api.data.legality',{}).get('enabled',True):
             if p.get('id')=='data.enum' and p.get('concern_keys')==['api.data.legality']:
                 p['concern_keys']=['api.data.range'];p['version']=p.get('version',1)+1
