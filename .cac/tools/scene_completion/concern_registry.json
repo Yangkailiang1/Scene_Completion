@@ -86,7 +86,8 @@
       "failure_family": "api.data.legality",
       "operation_kinds": [],
       "technology": null,
-      "description": "非法字符、不允许字段或非法取值"
+      "description": "已按用户要求停用，仅为历史报告保留稳定ID；枚举取值检查归数据范围，笼统合法性描述不自动计分。",
+      "enabled": false
     },
     "api.data.length": {
       "key": "api.data.length",
@@ -118,7 +119,7 @@
       "failure_family": "api.data.range",
       "operation_kinds": [],
       "technology": null,
-      "description": "数值超出允许范围"
+      "description": "数值不满足明确上下界，或取值不属于明示的允许枚举集合（离散取值范围）。不包含笼统的合法性判断。"
     },
     "api.data.size": {
       "key": "api.data.size",
@@ -1270,6 +1271,6 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "c7527652e2fb87676a15626898fad5620f2b620c30904658bdb559e7d67a9897",
+  "hash": "cdaf23b9c3554154df26385f522bc94599be7a279d52beaf3100716870aec063",
   "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports."
 }

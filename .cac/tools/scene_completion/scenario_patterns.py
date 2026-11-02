@@ -29,7 +29,8 @@ def default_library():
         risk='high' if d['layer'] in {'human','relation','technology'} or 'release' in key else 'normal'
         if key in {'service.resource_mutation.persistence_consistency','service_relation.cross_service_consistency','llm.prompt_security'}:risk='critical'
         result.append(_pattern('rule.'+key,key,d['label']+'规则违反','存在本交互明确正常规则','违反该规则的一个独立条件',risk))
-    for suffix,key,kind in [('required','completeness','required'),('nonempty','completeness','not_empty'),('type','type','type'),('enum','legality','enum'),('format','format','format'),('pattern','format','pattern'),('minimum','range','minimum'),('maximum','range','maximum'),('length.minimum','length','length.minimum'),('length.maximum','length','length.maximum'),('size.minimum','size','size.minimum'),('size.maximum','size','size.maximum'),('relation','legality','relation')]:
+    for suffix,key,kind in [('required','completeness','required'),('nonempty','completeness','not_empty'),('type','type','type'),('enum','range','enum'),('format','format','format'),('pattern','format','pattern'),('minimum','range','minimum'),('maximum','range','maximum'),('length.minimum','length','length.minimum'),('length.maximum','length','length.maximum'),('size.minimum','size','size.minimum'),('size.maximum','size','size.maximum'),('relation','legality','relation')]:
+        if not registry()['definitions'].get('api.data.'+key,{}).get('enabled',True):continue
         result.append(_pattern('data.'+suffix,'api.data.'+key,{'required': '必填字段未提供', 'nonempty': '非空字段为空', 'type': '数据类型错误', 'enum': '枚举值非法', 'format': '数据格式错误', 'pattern': '不满足格式模式', 'minimum': '违反数值下界', 'maximum': '违反数值上界', 'length.minimum': '低于长度下界', 'length.maximum': '超过长度上界', 'size.minimum': '低于大小下界', 'size.maximum': '超过大小上界', 'relation': '跨字段关系违反'}[suffix],'接口或存储Schema明确声明本约束','只违反本字段的一个独立约束','normal',kind))
     for root in ('human','service_relation'):
         for suffix,(label,trigger,pattern,risk) in AUTH_MODES.items():
@@ -48,6 +49,10 @@ def normalize_settings(value=None):
     ids=set();definitions=registry()['definitions']
     for p in v['library']['patterns']:
         if not isinstance(p,dict) or not {'id','concern_keys','label','preconditions','trigger_template','required_evidence','risk_level','risk_reason','enabled','version'}<=p.keys():raise ValueError('模式缺少必要字段')
+        if not definitions.get('api.data.legality',{}).get('enabled',True):
+            if p.get('id')=='data.enum' and p.get('concern_keys')==['api.data.legality']:
+                p['concern_keys']=['api.data.range'];p['version']=p.get('version',1)+1
+            elif 'api.data.legality' in p.get('concern_keys',[]):p['enabled']=False
         if not isinstance(p['id'],str) or not re.fullmatch(r'[a-zA-Z0-9_.-]{1,160}',p['id']) or type(p['enabled']) is not bool:raise ValueError('模式ID或启用状态无效')
         if not isinstance(p['concern_keys'],list) or not isinstance(p['preconditions'],list) or any(not isinstance(x,str) or not x.strip() for x in p['preconditions']):raise ValueError('前提必须是非空文本列表')
         if p['id'] in ids:raise ValueError('模式ID重复')

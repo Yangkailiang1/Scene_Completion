@@ -276,7 +276,7 @@ def test_correspondence_ids_are_tool_owned_independent_of_model_naming_and_order
 def test_structured_semantic_other_constraint_is_not_mechanically_executable():
     from scene_completion.scenario_patterns import annotate
     x=positive();i=x['enriched-interactions']['interactions'][0];s=scenario('semantic');s.update(concern_key='api.data.legality',failure_rule={'kind':'other','value':'分类必须有效'},field='categoryId')
-    row=annotate(s,i,normalize_settings());assert row['confidence']['score']==.85 and not row['executable'] and row['resolution']=='conditional'
+    assert annotate(s,i,normalize_settings()) is None  # retired ambiguous classification cannot enter G/Q
 
 
 def test_ordered_state_or_later_is_one_condition_but_independent_causes_split():

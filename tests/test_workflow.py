@@ -35,7 +35,7 @@ def memory_inputs():
      parameter('pageSize',dtype='integer',rules=[('minimum',1),('maximum',100)],default=20)]
     api={'id':'API-M-IF2','name':'查询记忆库列表','address':'/ms/v1/memory-instances/{memoryInstanceID}/mem-repos','parameters':params,'source_refs':R}
     matches=[]
-    labels={'required':'数据完整性','type':'数据类型','enum':'数据合法性','minimum':'数据范围','maximum':'数据范围'}
+    labels={'required':'数据完整性','type':'数据类型','enum':'数据范围','minimum':'数据范围','maximum':'数据范围'}
     for p in params:
         keys=set([r['kind'] for r in p['constraints']]+(['required'] if p['required'] else [])+(['type'] if p['data_type'] else []))
         for k in keys:matches.append({'interaction_id':'req','target':'data','object':p['name'],'concern_key':concern_by_label(labels[k]),'basis':'known positive constraint','concrete_rule':k,'source_refs':R})

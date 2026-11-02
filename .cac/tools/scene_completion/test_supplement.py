@@ -16,14 +16,17 @@ def mechanical_tests(inputs):
     """One typed constraint mutation per explicit rule, with independent steps."""
     from .interaction_enrichment import parameters_for
     from .normal_rules import conditional_constraint,descriptive_constraint
+    from .concern_registry import registry
+    definitions=inputs.get('registry') or registry()
     out=[]
-    suffix={'required':'completeness','type':'type','enum':'legality','minimum':'range','maximum':'range','format':'format','pattern':'format','length':'length','size':'size','other':'legality'}
+    suffix={'required':'completeness','type':'type','enum':'range','minimum':'range','maximum':'range','format':'format','pattern':'format','length':'length','size':'size','other':'legality'}
     from .data_requirements import positive_parameters,field_requirements,trigger as requirement_trigger
     for i in inputs['fused-ssd']['interactions']:
         ps=positive_parameters(i,inputs)
         for p in ps:
             for r in field_requirements(p):
                 kind=r['kind'];conditional=r['conditional']
+                if not definitions['definitions'].get('api.data.'+suffix[kind.split('.')[0]],{}).get('enabled',True):continue
                 name=p['name'];value=json.dumps(r['value'],ensure_ascii=False,sort_keys=True)
                 trigger=requirement_trigger(name,r)
                 if conditional and not kind.startswith('size.'):trigger=name+'已提供；不满足原文明示的'+kind+'规则（具体标准待确认）'

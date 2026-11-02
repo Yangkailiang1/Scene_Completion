@@ -10,15 +10,17 @@ def data_exceptions(inputs):
     """One known violation per field/rule. Missing optional parameters never fail."""
     from .normal_rules import conditional_constraint,descriptive_constraint
     output=[]
-    labels={'required':'数据完整性','type':'数据类型','enum':'数据合法性','minimum':'数据范围','maximum':'数据范围',
-            'format':'数据格式','length':'数据长度','size':'数据大小','pattern':'数据格式','other':'数据合法性'}
+    labels={'required':'数据完整性','type':'数据类型','enum':'数据范围','minimum':'数据范围','maximum':'数据范围',
+            'format':'数据格式','length':'数据长度','size':'数据大小','pattern':'数据格式','other':None}
     for i in interactions(inputs):
         matches={(m.get('data_location'),m['object'],m['concern_key']) for m in inputs.get('concern-match',{}).get('matches',[]) if m['interaction_id']==i['id'] and m['target']=='data' and m.get('scope','interface')=='interface' and match_is_applicable(m,i,inputs)}
         from .data_requirements import positive_parameters,field_requirements,trigger
         for p in positive_parameters(i,inputs):
             for requirement in field_requirements(p):
                 kind,value,refs=requirement['kind'],requirement['value'],requirement['source_refs'];cause='missing_required' if kind=='required' else kind
-                key=concern_by_label(labels[kind.split('.')[0]])
+                label=labels.get(kind.split('.')[0])
+                if label is None:continue
+                key=concern_by_label(label)
                 if (p['location'],p['name'],key) not in matches and (None,p['name'],key) not in matches: continue
                 rule_id=stable('rule',[resolved_api_id(i,inputs),p['location'],p['name'],kind,value])
                 conditions=[trigger(p['name'],requirement)]
@@ -82,11 +84,14 @@ def pending_rules(inputs):
     for i in interactions(inputs):
         for p in parameters_for(i,inputs):
             for rule in p['constraints']:
+                if rule['kind']=='other':
+                    out.append({'interaction_id':i['id'],'object':p['name'],'concern_key':'service.base.request_data' if i['direction']=='request' else 'service.base.response_contract','reason':'数据合法性已停用：请明确该约束属于哪项具体数据规则或业务规则，未明确前不进入G','source_refs':rule['source_refs'] or p['source_refs']})
+                    continue
                 if rule['status']=='pending' or conditional_constraint(rule):out.append({'interaction_id':i['id'],'object':p['name'],
-                  'concern_key':{'format':'api.data.format','length':'api.data.length','size':'api.data.size','type':'api.data.type'}.get(rule['kind'],'api.data.legality'),
+                  'concern_key':{'format':'api.data.format','length':'api.data.length','size':'api.data.size','type':'api.data.type'}.get(rule['kind'],'api.data.range' if rule['kind'] in {'minimum','maximum','enum'} else 'service.base.request_data' if i['direction']=='request' else 'service.base.response_contract'),
                   'reason':f'{rule["kind"]}具体约束待确认，已有条件级异常，不能直接执行' if conditional_constraint(rule) else f'{rule["kind"]}具体约束待确认，不进入G','source_refs':rule['source_refs'] or p['source_refs']})
             if p['required'] is True and p['data_type'] is None and not any(r['status']=='explicit' for r in p['constraints']):
-                out.append({'interaction_id':i['id'],'object':p['name'],'concern_key':'api.data.legality',
+                out.append({'interaction_id':i['id'],'object':p['name'],'concern_key':'service.base.request_data' if i['direction']=='request' else 'service.base.response_contract',
                   'reason':'必填字段已提供但违反约束：具体类型、格式或取值规则待确认，不进入G','source_refs':p['source_refs']})
     return list({fingerprint(x):x for x in out}.values())
 
@@ -148,7 +153,7 @@ def service_exceptions(inputs):
 
 def storage_exceptions(inputs):
     out=[];by_id={i['id']:i for i in interactions(inputs)}
-    labels={'required':'completeness','type':'type','enum':'legality','minimum':'range','maximum':'range','format':'format','pattern':'format','length':'length','size':'size','other':'legality'}
+    labels={'required':'completeness','type':'type','enum':'range','minimum':'range','maximum':'range','format':'format','pattern':'format','length':'length','size':'size','other':'legality'}
     for m in inputs.get('concern-match',{}).get('matches',[]):
         i=by_id.get(m['interaction_id'])
         if i is None or m.get('scope')!='storage' or not match_is_applicable(m,i,inputs):continue

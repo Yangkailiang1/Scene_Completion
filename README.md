@@ -1,4 +1,5 @@
 > 当前协议：**scene-workflow-v5**。交互级与全局业务依赖级分别识别关注点、展开异常场景并计分。旧项目和报告保留；新规则影响的节点不能直接复用旧结果。字段与任务契约见 [v5 Schema](docs/scene-workflow-v5/schemas/)，历史两层协议见 [v4 说明](docs/scene-workflow-v4/protocol.md)。
+> 数据关注点现为六类：完整性、类型、格式、长度、大小、范围。枚举属于数据范围（离散集合）；数据合法性已停用，仅保留历史ID与报告。
 
 # Scene Completion 场景完整性审核
 

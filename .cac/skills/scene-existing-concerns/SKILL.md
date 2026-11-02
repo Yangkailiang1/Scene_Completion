@@ -13,7 +13,7 @@ existing-documents、branches、bindings、fused-ssd、normal-constraints、norm
 
 ## 识别与定位
 针对每个原分支/测试，独立确定用例、融合SSD实际交互、请求或返回方向，识别其对应的具体关注点。target使用sender、receiver、operation或data；object必须是该交互中的实际对象、操作或字段。operation_index为操作序列下标；针对整次调用时为null。数据保留data_location和完整字段路径，不把整个请求代替某个字段。
-使用当前registry的具体叶检查。分类依据本来源的失败条件、正向约束和注册定义独立确定；枚举错误是数据合法性，上下界是数据范围。没有足够依据的定位或分类写入pending。不因为注册表包含某项就声称来源包含该项。
+使用当前registry的具体叶检查。分类依据本来源的失败条件、正向约束和注册定义独立确定；枚举不属于允许集合和上下界违反均归数据范围；数据合法性已停用，笼统“非法”且缺少具体规则时保留待确认。没有足够依据的定位或分类写入pending。不因为注册表包含某项就声称来源包含该项。
 人类身份/授权绑定sender；Service间认证、授权及调用关系绑定operation，并保留相关操作依据。无匹配项不等于实例不存在，认证不等于授权，不跨请求/返回覆盖。
 
 ## 输出

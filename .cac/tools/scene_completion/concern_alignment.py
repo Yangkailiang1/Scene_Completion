@@ -11,7 +11,7 @@ from .concern_registry import registry
 VERSION = 'two-level-concern-scenario-v1'
 TARGETS = {'sender': '发送方', 'operation': '操作序列', 'data': '数据序列', 'receiver': '接收方'}
 DATA_KEYS = {'required':'completeness','type':'type','format':'format','pattern':'format',
-             'length':'length','size':'size','minimum':'range','maximum':'range','enum':'legality'}
+             'length':'length','size':'size','minimum':'range','maximum':'range','enum':'range'}
 
 
 def interaction_rows(inputs):

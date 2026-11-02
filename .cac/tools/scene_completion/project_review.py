@@ -20,16 +20,40 @@ GROUPS={'base':{'service_base','business_attribute'},'human':{'human'},'relation
  'functional':{'display_interaction','query_retrieval','resource_mutation','create','update','delete','analysis_generation','release_activation'},
  'technology':{'database','llm'},'global':{'business_dependency'}}
 
+@serialized
 def project_registry(project):
     project=Path(project);p=project/'run/registry_override.json'
-    if p.exists():return read_json(p)
+    if p.exists():return retire_ambiguous_data_concern(project,read_json(p))
     value=default_registry();manifest=project/'run/run_manifest.json'
     if manifest.exists():
         previous=read_json(manifest).get('registry_hash');used=project/'run/registry_used'/(str(previous)+'.json')
         if used.exists():value=read_json(used)
     # Pin the initial project template, so a later global template update does
     # not silently change definitions in an existing project.
-    write_json(p,value);return value
+    write_json(p,value);return retire_ambiguous_data_concern(project,value)
+
+
+def retire_ambiguous_data_concern(project,value):
+    """Version the explicit taxonomy removal; frozen report snapshots stay intact."""
+    key='api.data.legality'
+    if value.get('version')!='interaction-global-concerns-v5' or key not in value.get('definitions',{}) or not value['definitions'][key].get('enabled',True):return value
+    value=deepcopy(value);history=Path(project)/'concern_versions';history.mkdir(exist_ok=True)
+    versions=[read_json(f) for f in history.glob('*.json')]
+    if not any(v['hash']==value['hash'] for v in versions):
+        write_json(history/(value['hash']+'.json'),{'revision':0,'hash':value['hash'],'at':time.time(),'note':'停用数据合法性前的定义','registry':deepcopy(value)})
+    value['definitions'][key]['enabled']=False
+    value['definitions']['api.data.range']['description']=default_registry()['definitions']['api.data.range']['description']
+    def remove(v):
+        if isinstance(v,dict):return {k:remove(x) for k,x in v.items()}
+        return [x for x in v if x!=key]
+    value['profiles']=remove(value['profiles'])
+    value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
+    revision=max([v['revision'] for v in versions] or [0])+1
+    note='按用户确认停用数据合法性；枚举检查归数据范围，保留历史执行定义'
+    write_json(history/(str(revision)+'-'+value['hash']+'.json'),{'revision':revision,'hash':value['hash'],'at':time.time(),'note':note,'registry':value})
+    write_json(Path(project)/'run/registry_override.json',value)
+    EventStore(Path(project)/'run').append('registry_updated',revision=revision,registry_hash=value['hash'],note=note)
+    return value
 
 
 def registry_view(project,version=None):

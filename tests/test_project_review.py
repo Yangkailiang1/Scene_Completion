@@ -129,3 +129,29 @@ def test_review_http_api_and_linked_project_download(tmp_path):
     target=tmp_path/'linked';p.rename(target);p.symlink_to(target,target_is_directory=True)
     write_json(target/'run/artifacts/shared/example.json',{'ok':True})
     assert client.get(f'/api/projects/{a}/file?path=run/artifacts/shared/example.json').status_code==200
+
+
+def test_legality_retirement_versions_existing_project_without_rewriting_history(tmp_path):
+    from scene_completion.project_review import project_registry
+    old=default_registry();old['definitions']['api.data.legality']['enabled']=True
+    old['hash']=fingerprint({k:v for k,v in old.items() if k!='hash'})
+    write_json(tmp_path/'run/registry_override.json',old)
+    write_json(tmp_path/'run/registry_used'/ (old['hash']+'.json'),old)
+    current=project_registry(tmp_path)
+    assert current['definitions']['api.data.legality']['enabled'] is False
+    assert project_registry(tmp_path)==current
+    versions=registry_view(tmp_path)['versions']
+    assert len([v for v in versions if v['revision']>0])==1
+    assert registry_view(tmp_path,old['hash'])['registry']['definitions']['api.data.legality']['enabled']
+
+
+def test_enum_stays_range_and_ambiguous_other_is_pending_only():
+    from scene_completion.concern_matching import complete_data_matches
+    from scene_completion.exception_generation import pending_rules
+    x=memory_inputs();x['concern-match']=resolve_matches(x,complete_data_matches(x,[]))
+    enum=[s for s in data_exceptions(x) if s['cause']=='enum']
+    assert enum and all(s['concern_key']=='api.data.range' for s in enum)
+    assert not any(s['concern_key']=='api.data.legality' for s in data_exceptions(x))
+    p=x['api-parameters']['apis'][0]['parameters'][0]
+    p['constraints'].append({'id':'vague','kind':'other','value':'必须合法','status':'explicit','source_refs':p['source_refs']})
+    assert any('数据合法性已停用' in r['reason'] for r in pending_rules(x))

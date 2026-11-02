@@ -92,7 +92,7 @@ def test_service_function_class_has_same_provider_anchor_from_field_or_operation
 def test_classification_normalizes_from_own_evidence_or_stays_pending():
     x=memory_inputs();m=raw('api.data.range','memoryType');m['activation_evidence']=[{'kind':'data','constraint_kind':'enum','status':'explicit','value':['PROFILE','SEMANTIC'],'condition':'枚举','source_refs':R}]
     v=recognize(x,{'matches':[m]},inverse=True)
-    assert v['matches'][0]['concern_key']=='api.data.legality'
+    assert v['matches'][0]['concern_key']=='api.data.range'
     unknown=recognize(x,{'matches':[raw(field='unknownField')]},inverse=True)
     assert not unknown['matches'] and unknown['pending']
 

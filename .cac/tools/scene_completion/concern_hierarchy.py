@@ -63,7 +63,7 @@ def _data_rule(match,interaction,inputs):
             return 'not_applicable','只读请求不检查写入存储字段约束'
         guards=explicit_guards(match,'storage_field')
         expected=match['concern_key'].split('.')[-1]
-        kinds={'completeness':{'required'},'type':{'type'},'format':{'format','pattern'},'length':{'length'},'size':{'size'},'range':{'minimum','maximum'},'legality':{'enum','other'}}.get(expected,set())
+        kinds={'completeness':{'required'},'type':{'type'},'format':{'format','pattern'},'length':{'length'},'size':{'size'},'range':{'minimum','maximum','enum'},'legality':{'enum','other'}}.get(expected,set())
         known=[g for g in guards if g.get('field')==match['object'] and g.get('constraint_kind') in kinds]
         if expected=='completeness' and known and all(g['value'] is False for g in known):return 'not_applicable','存储字段不是必填，缺省正常'
         return ('applicable','明示存储Schema规则') if known else ('pending','存储字段的具体规则待确认')
@@ -73,7 +73,7 @@ def _data_rule(match,interaction,inputs):
     indexed=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==interaction['id'] and r['concern_key']==match['concern_key'] and p['name'] in r['fields']]
     if indexed:return 'applicable','本交互的独立正向规则明确声明该字段校验，具体标准可标条件级'
     known={'completeness':p['required'] is True,'type':p['data_type'] is not None,
-      'range':any(r['kind'] in {'minimum','maximum'} and r['status']=='explicit' for r in p['constraints']),
+      'range':any(r['kind'] in {'minimum','maximum','enum'} and r['status']=='explicit' for r in p['constraints']),
       'legality':any(r['kind'] in {'enum','other'} and r['status']=='explicit' for r in p['constraints'])}
     if kind not in known:
         from .normal_rules import conditional_constraint
