@@ -187,3 +187,27 @@ def test_imported_parameter_file_cannot_cross_interface_or_layer():
     assert scoped_imports([part],rr)==[]
     assert scoped_imports([part],sr)[0]['payload']['apis'][0]['id']=='SR::API-1'
     assert part['payload']['apis'][0]['id']=='API-1'
+
+
+@pytest.mark.parametrize('public_path,internal_path',[
+    ('/edge-service/repositories/{repoId}','/company-runtime/private/resources/{resourceId}'),
+    ('/mx/v1/public-operation','/v1/internal-operation'),
+])
+def test_interface_source_and_ownership_do_not_depend_on_URL_prefix(public_path,internal_path):
+    from scene_completion.framework_idempotency import applicable
+    x=sample()
+    rr,sr,inner=x['fused-ssd']['interactions']
+    for i in (rr,sr):i['operation']['name']='POST '+public_path;i['api_id']=None
+    inner['operation']['name']='POST '+internal_path;inner['api_id']=None
+    for service in x['api-map']['services']:
+        for a in service['interfaces']:a['address']=public_path if a['source_layer']=='RR' else internal_path
+    for a in x['api-parameters']['apis']:a['address']=public_path if a['source_layer']=='RR' else internal_path
+    assert resolved_api_id(rr,x)=='RR::API-1'
+    assert resolved_api_id(sr,x)=='RR::API-1'
+    assert resolved_api_id(inner,x)=='SR::API-1'
+    fused=canonical_fused(x['fused-ssd'],x)
+    outer,inner=fused['interactions']
+    assert outer['api_id']=='RR::API-1' and inner['api_id']=='SR::API-1'
+    assert parameters_for(outer,x)[0]['required'] is True
+    assert parameters_for(inner,x)[0]['required'] is False
+    assert not applicable(outer,x) and applicable(inner,x)
