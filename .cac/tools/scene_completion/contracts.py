@@ -55,6 +55,7 @@ PARAMETER = obj(name=S, location=enum('header','path','query','body','response',
                 constraints=arr(CONSTRAINT), source_refs=REFS)
 API_PARAMETERS = obj(id=S,name=S,address=NULL_S,parameters=arr(PARAMETER),source_refs=REFS)
 # Optional extension preserves compatibility with historical parameter artifacts.
+API_PARAMETERS['properties'].update(source_layer=enum('RR','SR'),declared_id=S,method=NULL_S)
 API_PARAMETERS['properties']['responses']=arr(obj(kind=enum('success','error'),status_code=NULL_S,parameters=arr(PARAMETER),source_refs=REFS))
 PARTY = obj(name=S, position=S, source_refs=REFS)
 INTERACTION = obj(id=S, case_id=S, sequence={'type':'integer','minimum':1}, parent_id=NULL_S,
@@ -66,6 +67,7 @@ COMPONENT = obj(id=S, name=S, composition_type=enum('外部Actor（人类）','�
  '内部服务','用例','内部数据库','外部数据库','内部资源','外部资源','连接设备','部署硬件','运行环境','AI模型'),
  parent_id=NULL_S, source_status=enum('explicit','inferred'), source_refs=REFS)
 INTERFACE = obj(id=S, name=S, method=NULL_S, address=NULL_S, source_refs=REFS)
+INTERFACE['properties'].update(source_layer=enum('RR','SR'),declared_id=S)
 SCENARIO = obj(id=S, case_id=S, interaction_id=S, layer=enum('RR','SR'), object=S, operation=S,
  cause=S, conditions=arr(S), concern_key=S, field=NULL_S, rule_id=NULL_S,
  source_status=enum('explicit','framework_inferred'), derivation=STR, source_refs=REFS,
@@ -76,7 +78,7 @@ MATCH = obj(interaction_id=S, target=enum('sender','receiver','operation','data'
  basis=S, concrete_rule=NULL_S, source_refs=REFS)
 
 MATCH['properties'].update(operation_index={'type':['integer','null'],'minimum':0},source_unit_ids=arr(S),source_branch_ids=arr(S),coverage_kind=enum('exact','input_parameters','authentication','authorization'),
- element_id=S,binding_id=S,case_id=S,direction=enum('request','return'),identification=S,classification_origin=S,caller=S,callee=S,element_origin={'type':'object'})
+ api_id=NULL_S,api_source_layer={'anyOf':[{'type':'null'},enum('RR','SR')]},element_id=S,binding_id=S,case_id=S,direction=enum('request','return'),identification=S,classification_origin=S,caller=S,callee=S,element_origin={'type':'object'})
 
 ACTIVATION = obj(kind=enum('data','authentication','authorization','availability','result','compatibility','timing','device','resource_limit','business','persistence','concurrency','idempotency','release','recovery','resource_lookup','storage_field','unique','reference','transaction','isolation','grounding','instruction','context','prompt_security','stability','relation','technology'),
  condition=S,value=VALUE,unit=NULL_S,status=enum('explicit','pending'),source_refs=REFS)
@@ -121,6 +123,7 @@ LINK=obj(rr_id=S,sr_ids=arr(S),status=enum('confirmed','pending'),basis=S,source
 CLASSIFICATION=obj(kind=enum('actor_system','service_service','undetermined'),caller=S,provider=S,caller_location=S,provider_location=S)
 ENRICHED_INTERACTION=obj(**{**INTERACTION['properties'],'sender':ENRICHED_PARTY,'receiver':ENRICHED_PARTY,
  'data':obj(sequence=arr(PARAMETER),concerns=arr(MATCH)), 'operation':{**deepcopy(INTERACTION['properties']['operation']),'properties':{**deepcopy(INTERACTION['properties']['operation']['properties']),'concerns':arr(MATCH)}}},associated_api=NULL_S,classification=CLASSIFICATION)
+ENRICHED_INTERACTION['properties']['source_views']=arr(obj(id=S,layer=enum('RR','SR'),api_id=NULL_S,operation=S,source_refs=REFS))
 ENRICHED_INTERACTION['properties']['parameter_requirement_sources']=arr(obj(name=S,location=S,sources=arr(obj(origin=enum('SSD','API'),**{k:deepcopy(PARAMETER['properties'][k]) for k in ('data_type','required','default','constraints','source_refs')}))))
 ENRICHED=obj(interactions=arr(ENRICHED_INTERACTION),rr_sr_links=arr(LINK),
  pending=arr(obj(interaction_id=S,reason=S,source_refs=REFS)),
@@ -134,7 +137,7 @@ SCHEMAS = {
  'sr-ssd':obj(interactions=arr(INTERACTION)),
  'object-operations':obj(objects=arr(obj(name=S,supported_operations=arr(obj(name=S,source_refs=REFS))))),
  'api-map':obj(services=arr(obj(name=S,interfaces=arr(INTERFACE),source_refs=REFS))),
- 'api-index':obj(apis=arr(obj(id=S,name=S,source_ranges=arr(obj(source_id=S,start=INT,end=INT)),source_refs=REFS))),
+ 'api-index':obj(apis=arr({**obj(id=S,name=S,source_ranges=arr(obj(source_id=S,start=INT,end=INT)),source_refs=REFS), 'properties':{**obj(id=S,name=S,source_ranges=arr(obj(source_id=S,start=INT,end=INT)),source_refs=REFS)['properties'],'source_layer':enum('RR','SR'),'declared_id':S}})),
  'api-parameters':obj(apis=arr(API_PARAMETERS)),
  'concern-match':obj(matches=arr(MATCH),pending=arr(PENDING)),
  'existing-concerns':obj(matches=arr(MATCH),pending=arr(PENDING)),
@@ -258,9 +261,9 @@ INPUT_KEYS = {
  'pattern-applicability':{'positive','settings'},
  'test-supplement':{'fused-ssd','normal-constraints','normal-rules','test-catalogue','registry'},
  'normal-rules':{'normal-documents','fused-ssd'},
- 'api-index':{'SR'},
+ 'api-index':set(),
  'components': {'RR','SR'}, 'rr-ssd':{'RR'}, 'sr-ssd':{'SR'},
- 'api-map':{'SR'}, 'api-parameters':{'SR'},
+ 'api-map':set(), 'api-parameters':set(),
  'object-operations':{'components','rr-ssd','test-operations'},
  'concern-match':{'components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','enriched-interactions','registry'},
  'exception-generate':{'components','rr-ssd','sr-ssd','api-map','api-parameters','enriched-interactions','concern-match','registry'},
@@ -287,6 +290,7 @@ def packet(task, inputs, case_ids=None):
     if task in {'business-entities','business-crud','business-dependencies','data-dependencies'}:optional|={'AR'}
     if task=='global-concerns':optional|={'normal-documents'}
     if task in {'test-concerns','test-ground-truth'}:optional=optional|{'test-inventory'}
+    if task in {'api-map','api-parameters','api-index'}:optional|={'RR','SR','api-map'}
     optional|={'review-documents'}
     if task in {'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'}:
         optional|={'imported-fragments','import-documents'}
@@ -301,6 +305,7 @@ def packet(task, inputs, case_ids=None):
         if doc.get('channel')!=expected_channel or not doc.get('source_id','').startswith('business-') or not doc.get('review_item_id') or not doc.get('review_revision'):raise ValueError('业务确认材料必须来自本任务独立通道并保留审核身份')
         errors=list(Draft202012Validator(DOCUMENT).iter_errors({k:doc[k] for k in ('source_id','name','channel','lines')}))
         if errors:raise ValueError('无效业务确认材料')
+    if task in {'api-map','api-parameters'} and not ({'RR','SR'} & inputs.keys()):raise ValueError('API任务必须指定RR或SR来源')
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
     for key in ('documents','RR','SR','AR','existing-documents','test-documents','test-operation-source','normal-documents','import-documents','response-documents'):

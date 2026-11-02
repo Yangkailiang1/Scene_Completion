@@ -26,13 +26,15 @@ from .storage import fingerprint
 from .concern_registry import default_registry,scoped_execution
 
 def canonical_enrich(d):
-    from .inverse_alignment import canonical_fused
+    from .interaction_identity import canonical_fused
     raw={'interactions':d['rr-ssd']['interactions']+d['sr-ssd']['interactions'],'rr_sr_links':d['interaction-align']['links']}
-    canonical=canonical_fused(raw);ids={i['id'] for i in canonical['interactions']};aliases={a['source_id']:a['interaction_id'] for a in canonical['aliases']}
-    value=enrich(d,d['interaction-align'])
-    value['interactions']=[i for i in value['interactions'] if i['id'] in ids]
+    canonical=canonical_fused(raw,d)
+    material=deepcopy(d)
+    for layer in ('RR','SR'):material[layer.lower()+'-ssd']={'interactions':[i for i in canonical['interactions'] if i['layer']==layer]}
+    value=enrich(material,d['interaction-align'])
+    value['pending']=[p for p in value['pending'] if p['interaction_id'] not in {a['source_id'] for a in canonical['aliases']}]+canonical['pending']
     for i in value['interactions']:
-        if i.get('parent_id') in aliases:i['parent_id']=aliases[i['parent_id']]
+        if i['id'] in canonical['source_views']:i['source_views']=canonical['source_views'][i['id']]
     return value
 
 
@@ -48,8 +50,8 @@ def code_version(task):
     # guard shared contracts. Unrelated task implementations must not trigger
     # paid re-extraction of successfully verified upstream models.
     modules={
-      'components':['composition_drawing.py'], 'api-map':['api_documents.py','http_interfaces.py'],
-      'api-index':['api_documents.py'], 'api-parameters':['api_documents.py'],
+      'components':['composition_drawing.py'], 'api-map':['api_documents.py','http_interfaces.py','api_layers.py'],
+      'api-index':['api_documents.py','api_layers.py'], 'api-parameters':['api_documents.py','api_layers.py'],
       'source-index':['indexed_context.py','source_documents.py'], 'document-context':['indexed_context.py'],
       'use-case-extract':['use_cases.py'], 'use-case-align':['use_cases.py'],
       'fused-ssd':['ssd_tools.py','use_cases.py'], 'ssd-context':['task_context.py'],
@@ -89,6 +91,7 @@ def code_version(task):
       'global-recommend':['global_analysis.py'],
       'global-evaluation':['global_analysis.py']})
     names=modules.get(task,[])
+    if task in {'interaction-enrich','normal-rules','concern-match','existing-bind','existing-concerns','test-concerns','existing-extract','test-ground-truth'}:names=names+['interaction_identity.py','api_layers.py','interaction_enrichment.py']
 
     # Positive-reuse admission is an adapter; actual inputs/schema/Skill and business modules remain the artifact contract.
     if task=='test-supplement':names=['test_supplement.py','task_partitions.py','task_context.py','scenario_patterns.py']
@@ -346,10 +349,14 @@ class Execution:
         return skill_path(task).read_text(encoding='utf8')
 
     @scoped_execution
-    def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None,skip_review=False):
+    def add(self,key,task,deps=(),static=None,build=None,transform=None,semantic_task=None,case=None,skip_review=False,api_scope=None):
         static=static or {}
         from .artifact_imports import fragments_for
         imported=fragments_for(self.root.parent,task,case,self.import_snapshot)
+        if transform and key in {'api-map','api-parameters','rr-api-parameters','sr-api-parameters'}:imported=[]
+        elif api_scope is not None:
+            from .api_layers import scoped_imports
+            imported=scoped_imports(imported,api_scope)
         previous=self.scheduler.state['tasks'].get(key,{})
         if imported and previous.get('status')=='passed' and previous.get('output_file'):
             old=read_json(self.root/previous['output_file']).get('metadata',{}).get('execution',{})
@@ -533,7 +540,7 @@ class Execution:
                 if ready(dependencies):
                     self.partitions.remove((dependencies,expand));expand()
             api=records.get('api-index',{})
-            if self.expand_api and ready(('api-index',)):
+            if self.expand_api and ready(('api-index','api-map')):
                 self.scheduler.tasks.pop('api-parameters',None)
                 expand=self.expand_api;self.expand_api=None;expand()
             elif self.expand_api and api.get('status') in {'failed','rejected','pending','rate_limited','awaiting_configuration','budget_exhausted','awaiting_answer','awaiting_review'}:
@@ -679,57 +686,70 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
         entity_parts.append(key)
     ex.add('business-entities','business-entities',tuple(entity_parts),
       build=lambda d:d,transform=lambda d:merge_entities(d.values()))
-    root_contexts=[('components',{'RR':normal_rr,'SR':normal_sr},'components'),('api-map',{'SR':normal_sr},'api-map')]
-    for task,documents,intent in root_contexts:
-        context_key=task+'-context'
-        ex.add(context_key,'document-context',('source-index',),static=documents,
-          transform=lambda d,intent=intent:{role:task_document_view(docs,intent) for role,docs in d.items()})
-        ex.scheduler.tasks[context_key].display_label=('系统组成' if task=='components' else 'API映射')+'取片（工具）'
-        ex.add(task,task,(context_key,),build=lambda d,k=context_key:d[k])
-    from .api_documents import index_interfaces
+    ex.add('components-context','document-context',('source-index',),static={'RR':normal_rr,'SR':normal_sr},
+      transform=lambda d:{role:task_document_view(docs,'components') for role,docs in d.items()})
+    ex.add('components','components',('components-context',),build=lambda d:d['components-context'])
+    from .api_documents import index_interfaces,response_contract_documents
+    from .api_layers import merge_mappings,qualify_index,scoped_parameters
     from .artifact_imports import selections
     imported_api_docs=[a['document'] for t in ('api-map','api-parameters') for a in selections(ex.root.parent,t,frozen=ex.import_snapshot)]
-    api_sr=normal_sr+imported_api_docs
-    ex.add('api-index','api-index',('api-map',),build=lambda d:{'SR':api_sr,'api-map':d['api-map']},transform=index_interfaces)
+    api_documents={'RR':normal_rr,'SR':normal_sr+imported_api_docs}
+    raw_documents={'RR':rr,'SR':sr+imported_api_docs}
+    import re
+    for layer,docs in api_documents.items():
+        prefix=layer.lower()+'-api-';context_key=prefix+'context';map_key=prefix+'map'
+        ex.add(context_key,'document-context',('source-index',),static={layer:docs},
+          transform=lambda d:{role:task_document_view(values,'api-map') for role,values in d.items()})
+        ex.scheduler.tasks[context_key].display_label=layer+'接口定义取片（工具）'
+        has_rr_api=any(re.search(r'API[-–—][A-Za-z0-9]|\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/',r['text'],re.I) for d in docs for r in d['lines'])
+        ex.add(map_key,'api-map',(context_key,),build=lambda d,k=context_key:d[k],
+          transform=(lambda d:{'services':[]}) if layer=='RR' and not has_rr_api else None,api_scope={'source_layer':layer})
+        ex.scheduler.tasks[map_key].display_label=layer+('对外接口映射' if layer=='RR' else '内部接口映射')
+        index_key=prefix+'index'
+        ex.add(index_key,'api-index',(map_key,),build=lambda d,k=map_key,layer=layer,docs=docs:{layer:docs,'api-map':d[k]},transform=index_interfaces)
+        ex.scheduler.tasks[index_key].display_label=layer+'接口参数目录（工具）'
+    ex.add('api-map','api-map',('rr-api-map','sr-api-map'),build=lambda d:d,
+      transform=lambda d:merge_mappings([('RR',d['rr-api-map']),('SR',d['sr-api-map'])]),skip_review=True)
+    ex.add('api-index','api-index',('rr-api-index','sr-api-index'),
+      build=lambda d:{**d,'RR':api_documents['RR'],'SR':api_documents['SR']},
+      transform=lambda d:{'apis':qualify_index(d['rr-api-index'],'RR')['apis']+qualify_index(d['sr-api-index'],'SR')['apis']})
     def expand_api():
         record=ex.scheduler.state['tasks'].get('api-index',{})
         if record.get('status')!='passed':
             ex.add('api-parameters','api-parameters',('api-index',),transform=lambda d:{'apis':[]})
             return
-        index=payload(read_json(ex.root/record['output_file']))['apis'];keys=[]
+        index=payload(read_json(ex.root/record['output_file']))['apis'];keys={'RR':[],'SR':[]}
         mapped=payload(read_json(ex.root/ex.scheduler.state['tasks']['api-map']['output_file']))
-        from .api_documents import response_contract_documents
-        response_docs=response_contract_documents(sr)
-        full_index={a['id']:a for a in index_interfaces({'SR':sr+imported_api_docs,'api-map':mapped})['apis']} if response_docs else {}
-        interfaces={i['id']:i for s in mapped['services'] for i in s['interfaces']}
-        for n,entry in enumerate(index):
-            key='api-parameters-part-'+fingerprint(entry['id'])[:12]
-            if key in keys:raise ValueError('duplicate API index identity')
-            docs=[]
-            for d in api_sr:
-                ranges=[r for r in entry['source_ranges'] if r['source_id']==d['source_id']]
-                lines=[r for r in d['lines'] if any(span['start']<=r['number']<=span['end'] for span in ranges)]
-                if lines:docs.append({**d,'lines':lines})
+        interfaces={i['id']:i for service in mapped['services'] for i in service['interfaces']}
+        response_docs={layer:response_contract_documents(docs) for layer,docs in raw_documents.items()}
+        full_indexes={}
+        for layer in ('RR','SR'):
+            raw_mapping=payload(read_json(ex.root/ex.scheduler.state['tasks'][layer.lower()+'-api-map']['output_file']))
+            full_indexes[layer]={a['id']:a for a in index_interfaces({layer:raw_documents[layer],'api-map':raw_mapping})['apis']} if response_docs[layer] else {}
+        for entry in index:
+            layer=entry['source_layer'];key='api-parameters-part-'+fingerprint(entry['id'])[:12];docs=[]
+            for doc in api_documents[layer]:
+                ranges=[r for r in entry['source_ranges'] if r['source_id']==doc['source_id']]
+                lines=[r for r in doc['lines'] if any(span['start']<=r['number']<=span['end'] for span in ranges)]
+                if lines:docs.append({**doc,'lines':lines})
             if not docs:raise ValueError('API index has no valid source range')
             interface={**interfaces[entry['id']]}
-            import re
             source_text='\n'.join(r['text'] for doc in docs for r in doc['lines'])
-            if re.search(r'(发送|发起|调用).{0,40}\b(GET|POST|PUT|PATCH|DELETE)\s+/',source_text) and not re.search(r'请求参数|请求头|路径参数|查询参数|数据类型|参数名称|必填|可选|枚举',source_text):
-                interface['source_role']='invocation_only'
+            if re.search(r'(发送|发起|调用).{0,40}\b(GET|POST|PUT|PATCH|DELETE)\s+/',source_text) and not re.search(r'请求参数|请求头|路径参数|查询参数|数据类型|参数名称|必填|可选|枚举',source_text):interface['source_role']='invocation_only'
             error_docs=[]
-            for doc in response_docs:
-                spans=full_index.get(entry['id'],{}).get('source_ranges',[])
+            spans=full_indexes[layer].get(entry['declared_id'],{}).get('source_ranges',[])
+            for doc in response_docs[layer]:
                 lines=[r for r in doc['lines'] if any(span['source_id']==doc['source_id'] and span['start']<=r['number']<=span['end'] for span in spans)]
                 if lines:error_docs.append({**doc,'lines':lines})
-            ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,interface=interface,error_docs=error_docs:{'SR':docs,'interface':interface,**({'response-documents':error_docs} if error_docs else {})})
-            ex.scheduler.tasks[key].display_label='接口参数 · '+entry['name']
-            keys.append(key)
-        def merge(d):
-            apis=[a for key in keys for a in d[key]['apis']]
-            ids=[a['id'] for a in apis]
-            if len(ids)!=len(set(ids)):raise ValueError('API subtask IDs conflict; review interface identity')
-            return {'apis':apis}
-        ex.add('api-parameters','api-parameters',tuple(keys) or ('api-index',),build=lambda d:d,transform=merge)
+            ex.add(key,'api-parameters',('api-index','api-map'),build=lambda d,docs=docs,interface=interface,error_docs=error_docs,layer=layer:{layer:docs,'interface':interface,**({'response-documents':error_docs} if error_docs else {})},api_scope=interface)
+            ex.scheduler.tasks[key].display_label=layer+'接口参数 · '+entry['name'];keys[layer].append(key)
+        for layer in ('RR','SR'):
+            child=layer.lower()+'-api-parameters'
+            ex.add(child,'api-parameters',tuple(keys[layer]) or ('api-index',),build=lambda d:d,
+              transform=lambda d,layer=layer,parts=tuple(keys[layer]):scoped_parameters([d[k] for k in parts],layer),skip_review=True)
+            ex.scheduler.tasks[child].display_label=layer+'接口参数与响应分支汇总'
+        ex.add('api-parameters','api-parameters',('rr-api-parameters','sr-api-parameters'),build=lambda d:d,
+          transform=lambda d:{'apis':d['rr-api-parameters']['apis']+d['sr-api-parameters']['apis']},skip_review=True)
     ex.expand_api=expand_api
     for layer,docs in [('RR',normal_rr),('SR',normal_sr)]:
         k=layer.lower()+'-catalogue-context'
@@ -832,7 +852,8 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
             return {'normal-documents':docs,'components':d['components'],'api-map':d['api-map'],
                     'api-parameters':case_parameters(d,d['fused-ssd']),'fused-ssd':d['fused-ssd']}
         add('data-dependencies',('components','api-map','api-parameters','fused-ssd'),build=data_dependency_input)
-        add('normal-rules',('fused-ssd',),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':d['fused-ssd'],**({'registry':registry()} if registry()['hash']!=default_registry()['hash'] else {})},partition=True)
+        from .api_layers import qualify_fused_calls
+        add('normal-rules',('fused-ssd','api-map','api-parameters'),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':qualify_fused_calls(d['fused-ssd'],d),**({'registry':registry()} if registry()['hash']!=default_registry()['hash'] else {})},partition=True)
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','normal-rules')
         add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:canonical_enrich(d))
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)

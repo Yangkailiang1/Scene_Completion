@@ -188,7 +188,8 @@ function CatalogTable({
               <div>
                 <span>{a.service || "服务归属待确认"}</span>
                 <h3>
-                  {a.api_name} <small>{a.api_id}</small>
+                  {a.source_layer && <span>{a.source_layer} · </span>}
+                  {a.api_name} <small>{a.declared_id || a.api_id}</small>
                 </h3>
                 <code>
                   {[a.method, a.address || "地址待确认"]
@@ -203,6 +204,7 @@ function CatalogTable({
             <Table
               rows={entries}
               columns={[
+                ["source_layer", "接口定义层级"],
                 ["direction", "方向"],
                 ["response_branch", "响应分支"],
                 ["location", "位置"],
@@ -464,6 +466,7 @@ export function PayloadView({
         {value.apis.map((a: any) => (
           <section key={a.id}>
             <h3 className="section-label">
+              {a.source_layer ? `${a.source_layer} · ` : ""}
               {a.name} · {a.address || "地址待确认"}
             </h3>
             <Table

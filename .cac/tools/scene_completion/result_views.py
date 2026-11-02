@@ -183,7 +183,7 @@ class ResultView:
         fused=self.payload(cid+':fused-ssd')
         if not enriched and fused:
             from .inverse_alignment import canonical_fused
-            enriched=canonical_fused(fused)
+            enriched=canonical_fused(fused,{'api-parameters':self.payload('api-parameters'),'api-map':self.payload('api-map')})
         from .interaction_enrichment import display_parameters
         enriched=display_parameters(enriched,{'api-parameters':self.payload('api-parameters'),'api-map':self.payload('api-map')})
         evaluation=evaluation_override if evaluation_override is not None else self.payload(cid+':exception-evaluation')

@@ -4,7 +4,7 @@ import json
 from .storage import read_json, write_json, fingerprint
 from .contracts import PROTOCOL
 
-COLUMNS = [('service','服务名称'),('api_name','API名称'),('method','方法'),('address','接口地址'),
+COLUMNS = [('source_layer','接口定义层级'),('declared_id','原接口编号'),('service','服务名称'),('api_name','API名称'),('method','方法'),('address','接口地址'),
  ('mapping_status','归属状态'),('parameter_status','参数状态'),('direction','方向'),('location','位置'),
  ('response_branch','响应分支'),('name','参数'),('data_type','数据类型'),('required','可选/必填'),('default','默认值'),('constraints','约束条件')]
 
@@ -15,7 +15,7 @@ def combine(mapping, parameters, *, mapping_status='未完成', parameters_compl
         candidates=[j for j,a in enumerate(apis) if a['id']==i['id'] and
                     (not a.get('address') or not i.get('address') or a['address']==i['address'])]
         if not candidates and i.get('address'):
-            candidates=[j for j,a in enumerate(apis) if a.get('address')==i['address']]
+            candidates=[j for j,a in enumerate(apis) if a.get('address')==i['address'] and a.get('source_layer')==i.get('source_layer')]
         if len(candidates)==1:links[n]=candidates[0]
     # A path alone cannot distinguish GET/POST variants or multiple owners.
     for j in set(links.values()):
@@ -23,7 +23,7 @@ def combine(mapping, parameters, *, mapping_status='未完成', parameters_compl
         if len(owners)>1:
             for n in owners:links.pop(n)
     def append(s,i,a):
-        base={'service':s['name'] if s else None,'api_id':i['id'] if i else a['id'],
+        base={'source_layer':i.get('source_layer') if i else a.get('source_layer'),'declared_id':i.get('declared_id',i['id']) if i else a.get('declared_id',a['id']),'service':s['name'] if s else None,'api_id':i['id'] if i else a['id'],
               'api_name':i['name'] if i else a['name'],'method':i.get('method') if i else None,
               'address':(i.get('address') if i else None) or (a.get('address') if a else None),
               'mapping_status':mapping_status if s else '服务归属待确认',

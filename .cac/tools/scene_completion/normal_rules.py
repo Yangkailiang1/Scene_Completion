@@ -102,7 +102,7 @@ def validate_rules(value,inputs):
     from .contracts import registry
     from .inverse_alignment import canonical_fused
     from .source_documents import validate_evidence
-    rows={i['id']:i for i in canonical_fused(inputs['fused-ssd'])['interactions']}
+    rows={i['id']:i for i in canonical_fused(inputs['fused-ssd'],inputs)['interactions']}
     if len({r['id'] for r in value['rules']})!=len(value['rules']):raise ValueError('normal rule IDs must be unique')
     for rule in value['rules']:
         i=rows.get(rule['interaction_id'])
@@ -183,7 +183,10 @@ def normalize_scenarios(value,inputs,*,truth=False):
         if not mapped_service:s['field'],s['data_location']=normalize_location(s.get('field'),s.get('data_location'))
         if s.get('rule_id') in rules:
             r=rules[s['rule_id']];i=rows.get(r['interaction_id'])
+            from .interaction_identity import alias_ids
+            aliases=alias_ids(inputs)
             conflict=None
+            if aliases.get(s['interaction_id'],s['interaction_id'])!=aliases.get(r['interaction_id'],r['interaction_id']):conflict='规则属于另一条实际调用，不能跨RR/SR接口转移异常位置'
             if s['concern_key'].startswith('api.data.') and r['concern_key'].startswith('api.data.'):
                 f=s.get('field')
                 if f and r['fields'] and not any(f==rf or f.endswith('.'+rf) or rf.endswith('.'+f) for rf in r['fields']):

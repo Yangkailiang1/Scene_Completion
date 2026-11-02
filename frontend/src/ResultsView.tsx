@@ -686,6 +686,17 @@ export function ResultsView({
                 </div>
                 <details className="result-data">
                   <summary>数据属性、交互双方关注点及原文依据</summary>
+                  {i.source_views?.length > 1 && (
+                    <details>
+                      <summary>同一次交互的RR/SR来源（统一计分）</summary>
+                      {i.source_views.map((v: any) => (
+                        <p key={v.id}>
+                          {v.layer} · {v.id} · {v.operation} ·{" "}
+                          {v.api_id || "未单独关联API"}
+                        </p>
+                      ))}
+                    </details>
+                  )}
                   <p className="muted">
                     {i.associated_api
                       ? `已关联接口 ${i.associated_api} · ${i.direction === "return" ? "成功响应字段" : "请求字段"}`

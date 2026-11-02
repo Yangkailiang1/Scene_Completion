@@ -140,7 +140,7 @@ def validate_result(task, payload, inputs):
             for api in service['interfaces']:
                 if api.get('address') and clean_path(api['address'])!=api['address']:raise ValueError('接口地址必须为纯path，不能包含<br/>、说明、查询串或残缺占位符；未知地址使用null并保留原始证据：'+str(api['id']))
         from .api_documents import explicit_http_interfaces
-        declared=explicit_http_interfaces(inputs['SR'])
+        declared=explicit_http_interfaces(inputs.get('RR',[])+inputs.get('SR',[]))
         actual={(a['method'].upper(),a['address']) for s in payload['services'] for a in s['interfaces'] if a.get('method') and a.get('address')}
         missing=set(declared)-actual
         if missing:raise ValueError('API mapping omitted explicit method/path declarations or downstream calls; include each evidenced service/interface (generate a stable local ID if no document API ID exists): '+json.dumps([{'method':m,'path':p,'source_ref':declared[(m,p)]} for m,p in sorted(missing)[:8]],ensure_ascii=False))
@@ -212,7 +212,7 @@ def validate_result(task, payload, inputs):
                 for rule in p['constraints']:
                     if rule['status']=='explicit' and rule['kind']=='enum' and not re.search(r'枚举|允许|有效值|只能|enum', ' '.join(r['quote'] for r in rule['source_refs']),re.I):raise ValueError('本次调用固定值不能扩展为接口全局枚举；调用绑定保留在本用例SSD，枚举范围待确认')
     if task=='api-index':
-        ids=set();docs={d['source_id']:d for d in inputs['SR']}
+        ids=set();docs={d['source_id']:d for d in inputs.get('RR',[])+inputs.get('SR',[])}
         for a in payload['apis']:
             if a['id'] in ids or not a['source_ranges']:raise ValueError('API index requires unique identities and source ranges')
             ids.add(a['id'])

@@ -20,3 +20,7 @@ existing-documents、branches、bindings、fused-ssd、normal-constraints、norm
 根JSON为matches、pending，严格遵循任务output_schema。每项提供interaction_id、target、object、concern_key、basis、concrete_rule、source_refs、data_location及适用的activation_evidence。source_unit_ids保留本片测试行或分支证据身份。工具负责稳定ID、去重、定位校验和后续集合匹配，不由模型逐对打分。
 
 宽泛参数非法原分支可以覆盖同交互明示输入约束对应的具体字段关注点。每个覆盖项保留source_branch_ids及coverage_kind=input_parameters，注明由原分支推导；不扩到输出数据或其他交互。
+
+## 接口层级与校验职责定位
+
+先依据本异常自己的接口路径、调用双方、实际操作及本地校验职责确定实际请求，再挂载关注点或细化场景。RR对外/v1接口与SR内部/mx/v1接口互不替代；同名字段不能作为跨接口转移的依据。读取interface_ownership中的交互—接口对应及normal-rules.owner_service。平台本地字段校验绑定进入平台的请求，AdminService名称唯一性检查绑定其实际接收请求；传播的错误返回不作为另一条失败。只有已确认的同一次调用RR/SR重复视图共用SR身份。未知接口约束保持待确认，不读取G、其他来源的异常或匹配结果补答案。

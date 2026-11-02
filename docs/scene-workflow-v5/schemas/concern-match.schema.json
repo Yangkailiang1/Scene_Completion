@@ -97,6 +97,25 @@
               "authorization"
             ]
           },
+          "api_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "api_source_layer": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "enum": [
+                  "RR",
+                  "SR"
+                ]
+              }
+            ]
+          },
           "element_id": {
             "type": "string",
             "minLength": 1

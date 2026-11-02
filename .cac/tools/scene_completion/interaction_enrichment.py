@@ -13,35 +13,34 @@ def interactions(inputs):
 
 def resolved_api_id(i,inputs):
     import re
-    apis=inputs.get('api-parameters',{}).get('apis',[])
+    from .http_interfaces import declarations
+    from .api_layers import candidates_for_layer
+    apis=inputs.get('api-parameters',inputs.get('normal-constraints',{})).get('apis',[])
     if i['direction']=='return' and i.get('parent_id'):
         request=next((x for x in interactions(inputs) if x['id']==i['parent_id'] and x['direction']=='request' and x['case_id']==i['case_id']),None)
         if request and not i.get('api_id'):
             linked=resolved_api_id(request,inputs)
             if linked:return linked
     api_id=i.get('associated_api') or i.get('api_id')
-    # Typographic dash/whitespace normalization is identity cleanup, not a
-    # semantic guess. Reject ambiguous identities rather than using all APIs.
     normalize=lambda x:re.sub(r'\s+','',str(x)).replace('–','-').replace('—','-').casefold()
-    exact=[a['id'] for a in apis if api_id and normalize(a['id'])==normalize(api_id)]
-    if len(exact)==1:return exact[0]
-    explicit_ids={a['id'] for a in apis if re.match(r'API[-_]',a['id'],re.I) and re.search(r'(?<![A-Za-z0-9_/-])'+re.escape(a['id'])+r'(?![A-Za-z0-9_-])',i['operation']['name'])}
-    if len(explicit_ids)==1:return next(iter(explicit_ids))
-    # Link independently extracted API tables by an explicit identity/address,
-    # never path similarity or overlapping parameter names.
-    from .http_interfaces import declarations
-    calls=declarations(i['operation']['name'])
-    explicit_call=calls[0] if len(calls)==1 else None
-    interfaces=[api for service in inputs.get('api-map',{}).get('services',[]) for api in service['interfaces']
-                if (i['api_id'] and api['id']==i['api_id']) or
-                   (service['name']==i['receiver']['name'] and api['name']==i['operation']['name']) or
-                   (explicit_call and api.get('method','') and api['method'].upper()==explicit_call[0] and api.get('address')==explicit_call[1])]
-    found=set()
-    for api in interfaces:
-        for a in apis:
-            if a['id']==api['id'] or (api['address'] is not None and a['address']==api['address']) or (api['address'] is None and a['address'] is None and a['name']==api['name']):
-                found.add(a['id'])
-    return next(iter(found)) if len(found)==1 else None
+    eligible=apis if api_id and '::' in api_id else candidates_for_layer(apis,i.get('layer'))
+    exact=[a['id'] for a in eligible if api_id and normalize(a.get('declared_id',a['id']))==normalize(api_id) or api_id and normalize(a['id'])==normalize(api_id)]
+    if len(set(exact))==1:return exact[0]
+    calls=declarations(i['operation']['name']);explicit_call=calls[0] if len(calls)==1 else None
+    found={a['id'] for a in apis if explicit_call and a.get('method') and a['method'].upper()==explicit_call[0] and a.get('address')==explicit_call[1]}
+    for service in inputs.get('api-map',{}).get('services',[]):
+        for interface in service['interfaces']:
+            by_call=explicit_call and interface.get('method') and interface['method'].upper()==explicit_call[0] and interface.get('address')==explicit_call[1]
+            by_name=service['name']==i['receiver']['name'] and interface['name']==i['operation']['name'] and interface.get('source_layer') in (None,i.get('layer'))
+            if not (by_call or by_name):continue
+            targets=[a for a in apis if a['id']==interface['id']]
+            if not targets:
+                targets=[a for a in apis if a.get('source_layer')==interface.get('source_layer') and a.get('address')==interface.get('address') and a.get('address')]
+            found.update(a['id'] for a in targets)
+    if len(found)==1:return next(iter(found))
+    # A literal interface ID in the operation is scoped by its document layer.
+    mentioned=[a['id'] for a in eligible if re.match(r'API[-_]',a.get('declared_id',a['id']),re.I) and re.search(r'(?<![A-Za-z0-9_/-])'+re.escape(a.get('declared_id',a['id']))+r'(?![A-Za-z0-9_-])',i['operation']['name'])]
+    return mentioned[0] if len(set(mentioned))==1 else None
 
 
 def parameters_for(i, inputs):

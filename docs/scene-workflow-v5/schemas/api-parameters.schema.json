@@ -255,6 +255,22 @@
               "additionalProperties": false
             }
           },
+          "source_layer": {
+            "enum": [
+              "RR",
+              "SR"
+            ]
+          },
+          "declared_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "responses": {
             "type": "array",
             "items": {

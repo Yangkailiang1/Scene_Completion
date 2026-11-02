@@ -45,7 +45,7 @@ pageSize：可选整数，默认20，范围1-100。
     interface={'id':'API-M-IF2','name':'查询记忆库列表','method':None,'address':'/ms/v1/memory-instances/{memoryInstanceID}/mem-repos','source_refs':refs(sr,3)}
     components={'components':[{'id':str(i),'name':name,'composition_type':kind,'parent_id':None,'source_status':'explicit','source_refs':refs(rr,2)} for i,(name,kind) in enumerate([('开发者','外部Actor（人类）'),('WiseCloudMemoryPlatformService','内部服务')])],'relations':[]}
     mocks={'components':components,'api-map':{'services':[{'name':'WiseCloudMemoryPlatformService','interfaces':[interface],'source_refs':refs(sr,2)}]},
-      'api-parameters':{'apis':[{k:v for k,v in interface.items() if k!='method'}|{'parameters':params}]},
+      'api-parameters':lambda packet:{'apis':[{k:v for k,v in interface.items() if k!='method'}|{'id':packet['input']['interface']['id'],'parameters':params}]},
       'rr-ssd':{'interactions':[interaction('RR')]},'sr-ssd':{'interactions':[interaction('SR')]},
       'interaction-align':{'aliases':[],'links':[{'rr_id':'RR-request','sr_ids':['SR-request'],'status':'confirmed','basis':'fixture中明示同一查询','source_refs':refs(sr,2)}]},
       'concern-match':{'matches':[],'pending':[]},'exception-generate':{'scenarios':[],'pending':[]},

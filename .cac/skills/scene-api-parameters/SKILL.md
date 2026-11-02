@@ -6,10 +6,10 @@ description: API接口参数抽取。用于场景工作流中的该独立任务�
 # API接口参数抽取
 
 ## 输入
-仅使用任务包input中的 `SR`。文档格式为保留原始行号及source_id的DOCUMENT JSON，正文源为Markdown；图表输入为已验证的任务JSON。字段以output_schema及当前协议文档为准。
+仅使用任务包input中的 `RR` 或 `SR`（每个抽取子任务只接收一层）。文档格式为保留原始行号及source_id的DOCUMENT JSON，正文源为Markdown；图表输入为已验证的任务JSON。字段以output_schema及当前协议文档为准。
 
 ## 处理
-从SR提取API名称、接口地址；分别整理请求头/路径/查询/请求体及返回字段。每个参数记录数据类型、可选/必填、默认值及每条独立约束。未明确类型或必填性用null，约束待确认；不按样例值猜测Schema。
+从本层文档提取API名称、接口地址；分别整理请求头/路径/查询/请求体及返回字段。每个参数记录数据类型、可选/必填、默认值及每条独立约束。未明确类型或必填性用null，约束待确认；不按样例值猜测Schema。
 
 ## 输出
 严格返回根JSON，字段为 `apis`。机器ID、来源及层级均保留。程序保存JSON；可展示的表格导出Markdown，组成和SSD导出可编辑SVG。结果先作为审核版本保存，再按模式供后续任务使用。
@@ -28,3 +28,7 @@ description: API接口参数抽取。用于场景工作流中的该独立任务�
 `parameters`仅包含请求参数（header/path/query/body）及成功响应参数（response）。可选`responses`按`kind=success/error`和`status_code`独立保存响应结构，每个分支包含parameters与source_refs；状态码未明确时为null，不猜200或错误码。相同字段在200与400等不同分支的类型、必填性及约束不得合并。
 
 `response-documents`是单独提供的失败响应声明，仅用于整理`responses[kind=error]`，不能用于推导正常参数约束、已有异常触发或生成异常。G的下游正向上下文只读取parameters，不能读取错误响应分支。不要把“失败时返回message必填”当作成功返回message必填。已有声明表中的类型、必填、默认和约束均须保留，未知值不能覆盖已知值。
+
+## RR/SR接口边界
+
+RR对外接口与SR内部接口分别抽取，程序按来源层级保存独立表和接口身份；即使编号、字段或名称相同也不能合并。只读当前任务提供的那层文档；不能从另一层补类型、必填、默认或约束。参数子任务的interface.id为工具命名空间标识，保留原样；declared_id是原文编号，source_layer表示接口定义来源。输入、成功响应和各失败响应继续分别保存。

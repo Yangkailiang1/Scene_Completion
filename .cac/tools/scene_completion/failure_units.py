@@ -86,13 +86,18 @@ def failed_requests(text,rows):
     return {i['id']:i for i in (explicit or [i for i in requests if i['receiver']['name'] in text])}
 
 def normalize_bindings(value,inputs):
-    out=deepcopy(value);branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
-    rows=inputs.get('fused-ssd',{}).get('interactions',[])
+    from .interaction_identity import normalize_records,canonical_fused
+    out=normalize_records(value,inputs);branches={b['id']:b for b in inputs.get('branches',{}).get('branches',[])}
+    rows=canonical_fused(inputs['fused-ssd'],inputs)['interactions'] if 'fused-ssd' in inputs else []
     for b in out.get('bindings',[]):
         branch=branches.get(b['branch_id'],{})
         # A model summary may retain only the propagated HTTP response. The
         # branch's own cited line still names the failed callee; do not lose it.
         text=' '.join([branch.get('description',''),branch.get('case_hint','')]+[r.get('quote','') for r in branch.get('source_refs',[])])
+        owner=explicit_check_owner(text,rows)
+        if b['status']=='confirmed' and owner is not None:
+            b['interaction_id']=owner['id'];b['basis']+='；按本原分支明示的校验执行服务绑定实际接收请求'
+            continue
         if b['status']!='confirmed' or not re.search(r'超时|timeout|不可用|unavailable|连接失败|同步失败',text,re.I):continue
         requests=failed_requests(text,rows)
         if len(requests)==1:
@@ -131,3 +136,9 @@ def normalize_inverse_units(value, inputs):
             old[k]=list({fingerprint(v):v for v in old.get(k,[])+s.get(k,[])}.values())
         old['quality_notes'].append('duplicate_gt：同一测试来源、同一具体交互与失败条件的重复表达合并；原始ID均保留')
     out['scenarios']=list(result.values());return out
+
+
+def explicit_check_owner(text,rows):
+    """Only an explicitly named checking service establishes a unique owner."""
+    candidates=[i for i in rows if i['direction']=='request' and re.search(re.escape(i['receiver']['name'])+r'\s*(?:服务)?[^。；;\n]{0,24}(?:校验|检查|验证|唯一性)',text)]
+    return candidates[0] if len(candidates)==1 else None

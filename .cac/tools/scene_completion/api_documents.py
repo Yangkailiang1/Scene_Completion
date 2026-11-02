@@ -13,7 +13,7 @@ def case_parameters(inputs,views):
     return {'apis':[{k:v for k,v in a.items() if k!='responses'} for a in inputs['api-parameters']['apis'] if a['id'] in used]}
 
 def index_interfaces(inputs):
-    docs={d['source_id']:d for d in inputs['SR']};found={}
+    docs={d['source_id']:d for d in inputs.get('RR',[])+inputs.get('SR',[])};found={}
     for service in inputs['api-map']['services']:
         for api in service['interfaces']:
             signature=(api.get('method'),api.get('address'))
@@ -27,7 +27,7 @@ def index_interfaces(inputs):
                     match=re.match(r'^(#{1,6})\s+(.+)',row['text'])
                     if match:headings.append((n,len(match[1]),match[2]))
                 targets=[(r['line_start'],r['line_end']) for r in api['source_refs'] if r['source_id']==sid]
-                tokens=[x for x in (api['id'],api.get('address')) if x]
+                tokens=list(dict.fromkeys(x for x in (api['id'],api.get('declared_id'),api.get('address')) if x))
                 patterns=[re.compile(re.escape(t)+(r'(?![A-Za-z0-9_/{}-])' if t.startswith('/') else r'(?![A-Za-z0-9_-])')) for t in tokens]
                 targets += [(row['number'],row['number']) for row in lines if any(pattern.search(row['text']) for pattern in patterns)]
                 for start,end in targets:
@@ -160,16 +160,19 @@ def complete_success_responses(value, inputs):
     if not interface:return value
     out=deepcopy(value);apis=[a for a in out.get('apis',[]) if a['id']==interface['id']]
     if len(apis)!=1:return out
-    api=apis[0];parameters={(p['location'],p['name']):p for p in api['parameters']}
+    api=apis[0]
+    if 'method' in interface:api['method']=interface['method']
+    if interface.get('source_layer'):api.update(source_layer=interface['source_layer'],declared_id=interface.get('declared_id',interface['id']))
+    parameters={(p['location'],p['name']):p for p in api['parameters']}
     variants={(r['kind'],r['status_code']):deepcopy(r) for r in api.get('responses',[])}
-    for doc in inputs.get('SR',[])+inputs.get('response-documents',[]):
+    for doc in inputs.get('RR',[])+inputs.get('SR',[])+inputs.get('response-documents',[]):
         context=None;headers=None
         for row in doc['lines']:
             text=row['text'].strip();heading=response_heading(text)
             if heading:
                 context=heading;headers=None;continue
             if re.match(r'^(?:#{1,6}\s*|\*\*|[-*]\s)',text):
-                if re.search(r'API[-–—][A-Za-z0-9]',text) and interface['id'] not in text:context=None
+                if re.search(r'API[-–—][A-Za-z0-9]',text) and interface.get('declared_id',interface['id']) not in text:context=None
                 elif re.search(r'请求|request',text,re.I):context=None
                 headers=None
             if not context or not text.startswith('|'):continue

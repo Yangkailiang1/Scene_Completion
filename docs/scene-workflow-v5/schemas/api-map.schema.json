@@ -66,6 +66,16 @@
                     ],
                     "additionalProperties": false
                   }
+                },
+                "source_layer": {
+                  "enum": [
+                    "RR",
+                    "SR"
+                  ]
+                },
+                "declared_id": {
+                  "type": "string",
+                  "minLength": 1
                 }
               },
               "required": [

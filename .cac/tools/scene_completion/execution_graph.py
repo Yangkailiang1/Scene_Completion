@@ -31,6 +31,7 @@ INPUTS={'normal-rules':'本用例正向原文＋实际服务交互，不含E/GT'
 INPUTS.update({'existing-concerns':'已绑定原文异常＋正向交互／约束；隔离G/GT','test-concerns':'独立异常测试＋正向交互／约束；隔离G/E','concern-compare':'已识别G_c＋E_c，稳定ID规则比较，不调用LLM','concern-evaluation':'独立G_c/E_c/GT_c，按关注点绑定计分','test-additional-concerns':'独立补充测试中已经识别的关注点，不读取G/E'})
 INPUTS.update({'test-inventory':'原始测试Markdown/XLSX；保留类型与原编号，隔离G/E','test-case-align':'测试用例目录＋RR/SR用例目录及已确认对应组；不读取G/E/比较结果'})
 PREVIEWS=[('modeler','concern-match','LLM识别四要素上的关注点 G_c'),('checker','existing-concerns','原文已有关注点 E_c'),('checker','test-concerns','独立测试关注点 GT_c'),('checker','concern-compare','关注点层精确规则比较'),('checker','existing-branches','按用例抽取原文已有异常'),('modeler','fused-ssd','完整SSD与两层视图'),('modeler','object-operations','对象支持操作'),('modeler','pattern-applicability','模式适用性与证据分级'),('modeler','exception-generate','细粒度场景生成G'),('checker','existing-bind','原文异常绑定具体交互'),('checker','existing-extract','关注点逆向归类与粒度细化E'),('checker','test-ground-truth','测试spec异常绑定与细化GT'),('checker','gap-compare','覆盖比较与缺失M'),('checker','exception-evaluation','漏报率与生成有效率')]
+INPUTS.update({'api-index':'RR/SR独立接口目录汇总','api-map':'RR对外接口与SR内部接口独立映射汇总','api-parameters':'RR/SR各自参数、成功及失败响应（按接口分任务）',**{layer.lower()+'-api-'+suffix:layer+'正向接口文档（独立抽取，不跨层补约束）' for layer in ('RR','SR') for suffix in ('context','map','index','parameters')}})
 
 def expected_files(key,case,stage):
     stem=(key if case=='shared' else key[len(case)+1:]).replace(':','--')

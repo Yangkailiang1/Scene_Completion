@@ -8,7 +8,7 @@ import re
 from .storage import fingerprint
 from .concern_registry import registry
 
-VERSION = 'two-level-concern-scenario-v1'
+VERSION = 'two-level-concern-scenario-v2-api-call-identity'
 TARGETS = {'sender': '发送方', 'operation': '操作序列', 'data': '数据序列', 'receiver': '接收方'}
 DATA_KEYS = {'required':'completeness','type':'type','format':'format','pattern':'format',
              'length':'length','size':'size','minimum':'range','maximum':'range','enum':'range'}
@@ -20,7 +20,7 @@ def interaction_rows(inputs):
         return inputs['enriched-interactions']['interactions']
     if 'fused-ssd' in inputs and 'enriched-interactions' not in inputs:
         from .inverse_alignment import canonical_fused
-        return canonical_fused(inputs['fused-ssd'])['interactions']
+        return canonical_fused(inputs['fused-ssd'],inputs)['interactions']
     return interactions(inputs)
 
 
@@ -43,7 +43,7 @@ def index_elements(inputs):
         params=list(i['data']['sequence'])
         if 'api-parameters' in inputs or 'normal-constraints' in inputs:
             material=inputs if 'api-parameters' in inputs else {**inputs,'api-parameters':inputs['normal-constraints']}
-            params+=parameters_for(i,material)
+            params=parameters_for(i,material)
         seen=set()
         for p in params:
             key=(p['location'],p['name'])
@@ -64,9 +64,32 @@ def recognize(inputs,raw,*,inverse=False):
     """Validate only submitted rows; do not fill recognition from the registry."""
     from .concern_hierarchy import decorate
     rows={i['id']:i for i in interaction_rows(inputs)};elements=index_elements(inputs)
+    from .interaction_identity import normalize_records
+    raw=normalize_records(raw,inputs)
     definitions=registry()['definitions'];accepted=[];pending=deepcopy(raw.get('pending',[]))
     for original in raw.get('matches',[]):
         m=deepcopy(original);iid=m['interaction_id'];key=m['concern_key']
+        if inverse:
+            own_docs=inputs.get('test-documents',inputs.get('existing-documents',[]))
+            own_ids={d['source_id'] for d in own_docs}
+            own_text=' '.join(r['quote'] for r in m.get('source_refs',[]) if not own_ids or r['source_id'] in own_ids)
+            if inputs.get('branches',{}).get('branches'):
+                own_text=' '.join(b['description'] for b in inputs['branches']['branches'])
+            from .failure_units import explicit_check_owner
+            owner=explicit_check_owner(own_text,list(rows.values()))
+            if owner is not None and m.get('target') in {'receiver','operation'}:
+                old=rows.get(iid);iid=m['interaction_id']=owner['id']
+                if m['target']=='receiver':m['object']=owner['receiver']['name']
+                elif old and m['object']==old['operation']['name']:m['object']=owner['operation']['name']
+        if inverse and m.get('target')=='data':
+            from .api_layers import explicit_api_target
+            targets=explicit_api_target(own_text,inputs,list(rows.values()))
+            if targets is not None and iid not in targets:
+                if len(targets)==1:
+                    m['interaction_id']=iid=targets[0]
+                    m['basis']+='；依据本异常来源明确的接口地址定位实际请求，不按同名字段跨接口匹配'
+                else:
+                    pending.append({'interaction_id':iid,'object':m['object'],'concern_key':key,'reason':'异常明示接口未能定位唯一实际请求，不能转用另一层接口','source_refs':m['source_refs']});continue
         reason=None
         if iid not in rows:reason='关注点没有绑定到本片实际交互'
         elif key not in definitions or not definitions[key].get('enabled',True):reason='关注点未注册或已停用'
@@ -154,6 +177,10 @@ def recognize(inputs,raw,*,inverse=False):
                 m['source_unit_ids']=own or m.get('source_unit_ids',[])
         else:
             m=decorate(m,i,inputs)
+        from .interaction_enrichment import resolved_api_id
+        m['api_id']=resolved_api_id(i,inputs)
+        a=next((a for a in inputs.get('api-parameters',inputs.get('normal-constraints',{})).get('apis',[]) if a['id']==m['api_id']),{})
+        m['api_source_layer']=a.get('source_layer')
         m['binding_id']='concern-'+fingerprint([element['element_id'],key])[:24]
         m['identification']='inverse_llm' if inverse else 'llm'
         if definitions[key].get('kind')!='check':
@@ -243,7 +270,7 @@ def bind_scenarios(value,inputs,recognized=None,*,gate=False):
                     'reason':'关注点已识别，但本条场景未能对应到其四要素位置，保留来源待确认','source_refs':s.get('source_refs',[])})
             continue
         s['concern_binding_ids']=[b['binding_id'] for b in bindings]
-        s['element_anchors']=[{k:b.get(k) for k in ('case_id','interaction_id','direction','target','element_id','object','data_location','concern_key','binding_id','operation_index')} for b in bindings]
+        s['element_anchors']=[{k:b.get(k) for k in ('case_id','interaction_id','direction','target','element_id','object','data_location','concern_key','binding_id','operation_index','api_id','api_source_layer')} for b in bindings]
         s['matching_version']=VERSION;accepted.append(s)
     result['scenarios']=accepted
     return result

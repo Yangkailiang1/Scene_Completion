@@ -19,10 +19,14 @@ def narrow(out,original):
     out['fused-ssd']['interactions']=[i for i in rows if i['id'] in ids]
     rules=out.get('normal-rules',{}).get('rules',[])
     out['normal-rules']={'rules':[r for r in rules if r['interaction_id'] in ids and (r['concern_key'] in keys or set(r['fields']) & fields)],'pending':[]}
-    apis=out.get('normal-constraints',{}).get('apis',[]);api_ids={i.get('api_id') for i in original.get('fused-ssd',{}).get('interactions',[]) if i['id'] in ids};api_ids.discard(None)
+    from .interaction_enrichment import resolved_api_id
+    from .interaction_identity import canonical_fused
+    canonical=canonical_fused(original['fused-ssd'],original)['interactions']
+    material={**original,'api-parameters':original.get('normal-constraints',{}),'rr-ssd':{'interactions':[i for i in canonical if i['layer']=='RR']},'sr-ssd':{'interactions':[i for i in canonical if i['layer']=='SR']}}
+    apis=out.get('normal-constraints',{}).get('apis',[]);api_ids={resolved_api_id(i,material) for i in canonical if i['id'] in ids};api_ids.discard(None)
     scoped=[]
     for a in apis:
-        if api_ids and a['id'] not in api_ids:continue
+        if a['id'] not in api_ids:continue
         p=[p for p in a['parameters'] if p['name'] in fields and any(m['object']==p['name'] and m.get('data_location') in (None,p['location']) for m in selected if m['target']=='data')]
         if p:scoped.append({**a,'parameters':p})
     out['normal-constraints']={'apis':scoped}
@@ -51,7 +55,8 @@ def expand(row,inputs,task):
     if 'binding_ref' not in row:return row
     value=deepcopy(row);ref=value.pop('binding_ref');m=bindings(inputs).get(ref)
     if m is None:raise ValueError('binding_ref must be an independently recognized concern in this task')
-    i=next(i for i in inputs['fused-ssd']['interactions'] if i['id']==m['interaction_id'])
+    from .interaction_identity import canonical_fused
+    i=next(i for i in canonical_fused(inputs['fused-ssd'],inputs)['interactions'] if i['id']==m['interaction_id'])
     bid=next((b['id'] for b in inputs.get('branches',{}).get('branches',[]) if not m.get('source_branch_ids') or b['id'] in m['source_branch_ids']),None)
     value.update(id='refined-'+fingerprint([ref,value])[:24],case_id=i['case_id'],interaction_id=i['id'],layer=i['layer'],object=m['object'],operation=i['operation']['name'],concern_key=m['concern_key'],field=m['object'] if m['target']=='data' else None,rule_id=None,scope=m.get('scope','interface' if m['target']=='data' else 'service'),data_location=m.get('data_location'),source_status='explicit' if task=='existing-extract' else 'framework_inferred',original_branch_id=bid if task=='existing-extract' else None)
     value.setdefault('coverage_kind','exact')

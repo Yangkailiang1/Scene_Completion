@@ -134,6 +134,7 @@ def validate_catalogue(task,value,inputs):
             from .source_documents import validate_evidence
             try:validate_evidence(i['source_refs']+i['operation']['source_refs'],inputs[i['layer']])
             except ValueError as exc:raise ValueError('message '+i['id']+' ('+i['layer']+'): '+str(exc)) from exc
+            if any(__import__('re').search(r'→|->|=>',i[side]['name']) for side in ('sender','receiver')):raise ValueError('每条SSD消息必须是最小双方交互；A→B→C必须拆成A→B与B→C，不得把调用链写成发送方或接收方')
             if i['case_id']!=inputs['case-group']['id']:raise ValueError('SSD outside selected case group')
             k=(i['layer'],i['sequence'])
             if k in orders:raise ValueError('duplicate layer-local SSD order')

@@ -83,8 +83,9 @@ def semantic_view(task,inputs):
     from .inverse_alignment import canonical_fused
     if 'fused-ssd' in out:
         # Inverse binding accepts only canonical interaction IDs, not aliases.
-        out['fused-ssd']=canonical_fused(out['fused-ssd'])
+        out['fused-ssd']=canonical_fused(out['fused-ssd'],inputs)
         out['fused-ssd'].pop('aliases',None)
+        out['fused-ssd'].pop('source_views',None)
         if task=='normal-rules':
             out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','direction','sender','receiver','operation','data','source_refs')} for i in out['fused-ssd']['interactions'] if i['direction']=='request']
     if 'enriched-interactions' in out:
@@ -124,7 +125,7 @@ def semantic_view(task,inputs):
         for rule in out.get('normal-rules',{}).get('rules',[]):rule.pop('violation',None)
         if task=='existing-bind':
             out.pop('normal-rules',None)
-            out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','direction','sender','receiver','operation','data')} for i in out['fused-ssd']['interactions']]
+            out['fused-ssd']['interactions']=[{k:i[k] for k in ('id','layer','api_id','parent_id','direction','sender','receiver','operation','data')} for i in out['fused-ssd']['interactions']]
         if task in {'existing-extract','existing-concerns'} and 'bindings' in out:
             ids={b['interaction_id'] for b in out['bindings']['bindings'] if b['status']=='confirmed'}
             # The validated ID is authoritative. Historical reasoning may
@@ -192,7 +193,7 @@ def inverse_concern_context(inputs):
     bound={b['interaction_id'] for b in out.get('bindings',{}).get('bindings',[]) if b['status']=='confirmed'}
     from .inverse_alignment import broad_input_branch
     broad=any(broad_input_branch(b['description']) for b in branches)
-    rows=canonical_fused(out['fused-ssd'])['interactions']
+    rows=canonical_fused(out['fused-ssd'],inputs)['interactions']
     if bound:rows=[i for i in rows if i['id'] in bound]
     # Explicit source identifiers establish relevance. Generic actor/system
     # names shared by every message do not select every local business rule.
@@ -201,11 +202,17 @@ def inverse_concern_context(inputs):
     selected=[r for r in out.get('normal-rules',{}).get('rules',[]) if
               (not bound or r['interaction_id'] in bound) and
               (set(r['fields']) & fields or r.get('owner_service','') and r['owner_service'] in text or bound)]
-    out['normal-rules']={'rules':[{k:r[k] for k in ('id','interaction_id','concern_key','condition','fields','source_refs')} for r in selected]}
-    out['normal-constraints']={'apis':[{k:a[k] for k in ('id','name','address')}|{'parameters':[
+    out['normal-rules']={'rules':[{k:r[k] for k in ('id','interaction_id','owner_service','concern_key','condition','fields','source_refs') if k in r} for r in selected]}
+    out['normal-constraints']={'apis':[{k:a[k] for k in ('id','name','address','source_layer','declared_id','method') if k in a}|{'parameters':[
         {k:p[k] for k in ('name','location','required','data_type','constraints')} for p in a['parameters'] if p['name'] in fields or broad]}
         for a in out['normal-constraints']['apis'] if broad or any(p['name'] in fields for p in a['parameters'])]}
-    out['fused-ssd']={'interactions':[{k:i[k] for k in ('id','direction','sender','receiver','operation','data')} for i in rows]}
+    from .interaction_enrichment import resolved_api_id,parameters_for
+    material={**inputs,'api-parameters':inputs['normal-constraints'],'rr-ssd':{'interactions':[i for i in rows if i['layer']=='RR']},'sr-ssd':{'interactions':[i for i in rows if i['layer']=='SR']}}
+    used={resolved_api_id(i,material) for i in rows};used.discard(None)
+    out['normal-constraints']['apis']=[a for a in out['normal-constraints']['apis'] if a['id'] in used]
+    out['interface_ownership']=[{'interaction_id':i['id'],'model_layer':i['layer'],'api_id':resolved_api_id(i,material),'caller':i['sender']['name'],'callee':i['receiver']['name'],'local_checks':i['operation']['sequence']} for i in rows]
+    for i in rows:i['data']['sequence']=parameters_for(i,material)
+    out['fused-ssd']={'interactions':[{k:i[k] for k in ('id','layer','api_id','parent_id','direction','sender','receiver','operation','data')} for i in rows]}
     for i in out['fused-ssd']['interactions']:
         for side in ('sender','receiver'):i[side]={k:i[side][k] for k in ('name','position')}
         i['operation']={k:i['operation'][k] for k in ('name','kinds','sequence')}

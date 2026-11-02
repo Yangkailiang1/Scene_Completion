@@ -53,7 +53,7 @@ def split_task(task,inputs):
     if task=='normal-rules':
         from .inverse_alignment import canonical_fused
         units=[]
-        for i in canonical_fused(inputs['fused-ssd'])['interactions']:
+        for i in canonical_fused(inputs['fused-ssd'],inputs)['interactions']:
             if i['direction']!='request':continue
             q=deepcopy(inputs);q['fused-ssd']={'interactions':[deepcopy(i)],'rr_sr_links':[],'pending':[]}
             units.append((i['id'],q))
