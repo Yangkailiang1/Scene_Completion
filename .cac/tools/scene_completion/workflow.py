@@ -53,7 +53,7 @@ def code_version(task):
       'components':['composition_drawing.py'], 'api-map':['api_documents.py','http_interfaces.py','api_layers.py'],
       'api-index':['api_documents.py','api_layers.py'], 'api-parameters':['api_documents.py','api_layers.py'],
       'source-index':['indexed_context.py','source_documents.py'], 'document-context':['indexed_context.py'],
-      'use-case-extract':['use_cases.py'], 'use-case-align':['use_cases.py'],
+      'use-case-extract':['use_cases.py','structure_models.py'], 'use-case-align':['use_cases.py'],
       'fused-ssd':['ssd_tools.py','use_cases.py'], 'ssd-context':['task_context.py'],
       'rr-ssd':['ssd_tools.py'], 'sr-ssd':['ssd_tools.py'],
       'object-operations':['interaction_enrichment.py'], 'interaction-align':['ssd_tools.py'],
@@ -65,7 +65,7 @@ def code_version(task):
       'concern-compare':['concern_alignment.py'], 'concern-evaluation':['concern_alignment.py'],
       'concern-match':['concern_alignment.py','normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'exception-generate':['concern_alignment.py','normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
-      'existing-branches':['source_documents.py','branch_evidence.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'existing-branches':['source_documents.py','branch_evidence.py','structure_models.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'existing-extract':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'test-ground-truth':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'gap-compare':['exception_comparison.py','comparison_batches.py','assignment.py','normal_rules.py'],
@@ -394,6 +394,10 @@ class Execution:
                 value=reviewed;proof={'reviewed':True}
             elif transform:
                 value=transform(inputs);proof={}
+            elif task=='use-case-extract' and (structured:=__import__('scene_completion.structure_models',fromlist=['catalogue']).catalogue(inputs['documents'],inputs['layer'])) is not None:
+                value=structured;proof={'provider':'colleague_structure','source_ids':[d['source_id'] for d in inputs['documents']],'reason':'同事结构化JSON用例实体与主成功路径，保留原用例身份；未调用模型重复抽取'}
+            elif task=='existing-branches' and (structured:=__import__('scene_completion.structure_models',fromlist=['existing_branches']).existing_branches(inputs['existing-documents'])) is not None:
+                value=structured;proof={'provider':'colleague_structure','source_ids':[d['source_id'] for d in inputs['existing-documents']],'reason':'仅scenario_kind=exception进入E分支；主成功和备选保留查看，不作为异常'}
             elif task=='test-inventory' and (known:=known_catalogue(inputs['test-documents'])) is not None:
                 value=known;proof={'provider':'explicit_test_structure','reason':'按原文明示字段/EXT标签整理，不改变场景类型'}
             elif task=='test-case-align' and (aligned:=exact_alignment(inputs)) is not None:
@@ -419,6 +423,9 @@ class Execution:
                 value={'scenarios':[],'pending':[]};proof={'provider':'deterministic_rule_coverage','reason':'没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型'}
             elif task in {'gap-compare','semantic-compare'} and (not inputs['left'] or not inputs['right']):value,proof={'decisions':[],**({'missing':deduplicate(inputs['left'])} if task=='gap-compare' else {})},{}
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
+            if proof.get('provider')=='colleague_structure':
+                proof['source_files']=[{'file_id':row['id'],'name':row['name'],'revision':row['revision']} for row in self.import_snapshot
+                                       if row.get('structure_model',{}).get('document',{}).get('source_id') in proof['source_ids']]
             candidate=deepcopy(value)
             try:
                 if imported and imported_result is None:
@@ -684,10 +691,18 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
     from .source_documents import discover_cases,case_projection,current_projection
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
     from .indexed_context import markdown_index,task_document_view,catalogue_context
+    from .structure_models import imported_sources,model_layer
+    imported_structure=imported_sources(ex.import_snapshot)
+    if 'RR' in imported_structure:rr=rr+[imported_structure['RR']]
+    if 'SR' in imported_structure:sr=sr+[imported_structure['SR']]
     ar=current_projection(ar or [])
     ex.add('source-index','source-index',static={'documents':rr+sr+ar},transform=lambda d:markdown_index(d['documents']))
     rr=current_projection(rr);sr=current_projection(sr)
-    normal_rr=normal_projection(rr);normal_sr=normal_projection(sr);normal_ar=normal_projection(ar)
+    def shared_positive(docs,layer):
+        imported=imported_structure.get(layer,{}).get('source_id')
+        primary=[d for d in docs if d['source_id']!=imported]
+        return normal_projection(primary or docs)
+    normal_rr=shared_positive(rr,'RR');normal_sr=shared_positive(sr,'SR');normal_ar=normal_projection(ar)
     from .domain_model import source_chunks,merge_entities
     entity_parts=[]
     for n,document in enumerate(source_chunks(normal_rr+normal_sr+normal_ar)):
@@ -763,11 +778,15 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
           transform=lambda d:{'apis':d['rr-api-parameters']['apis']+d['sr-api-parameters']['apis']},skip_review=True)
     ex.expand_api=expand_api
     for layer,docs in [('RR',normal_rr),('SR',normal_sr)]:
+        # The imported catalogue is authoritative for this extraction only.
+        # Keep other positive specs for shared contracts/entity extraction.
+        structured_docs=normal_projection([imported_structure[layer]]) if layer in imported_structure else [doc for doc in docs if model_layer(doc)==layer]
+        catalogue_docs=structured_docs or docs
         k=layer.lower()+'-catalogue-context'
         ex.add(k,'document-context',('source-index',),static={'documents':docs},
           build=lambda d,docs=docs:{'documents':docs,'index':d['source-index']},transform=lambda d:catalogue_context(d['documents'],d['index']))
         ex.scheduler.tasks[k].display_label=layer+'用例元数据取片（工具）'
-        ex.add(layer.lower()+'-use-cases','use-case-extract',(k,),build=lambda d,k=k,layer=layer:{**d[k],'layer':layer})
+        ex.add(layer.lower()+'-use-cases','use-case-extract',(k,),build=lambda d,k=k,layer=layer,docs=catalogue_docs:({'documents':docs,'layer':layer} if docs and all(model_layer(doc)==layer for doc in docs) else {**d[k],'layer':layer}))
     if not ex.config.get('scenario_patterns',False):ex.add('gap-recommend','gap-recommend',transform=lambda d:{'enabled':False,'status':'未启用'})
     ex.add('use-case-align','use-case-align',('rr-use-cases','sr-use-cases'),
       build=lambda d:{'rr-cases':d['rr-use-cases'],'sr-cases':d['sr-use-cases']})

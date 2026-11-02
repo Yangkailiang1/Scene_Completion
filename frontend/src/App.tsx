@@ -1346,7 +1346,7 @@ export default function App() {
                       accept={
                         name === "test"
                           ? ".md,.markdown,.json,.xlsx"
-                          : ".md,.markdown"
+                          : ".md,.markdown,.json"
                       }
                       multiple
                       required={name === "RR" || name === "SR"}

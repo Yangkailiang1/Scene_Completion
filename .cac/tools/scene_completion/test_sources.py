@@ -232,11 +232,16 @@ def decode_source(d,role):
         if not data or len(data)>5_000_000:raise ValueError('Excel为空或超过5MB')
         xlsx_documents(data,Path(d['name']).name,'preview')
         return data,suffix
-    if suffix not in ({'.md','.markdown','.json'} if role=='test' else {'.md','.markdown'}):raise ValueError('RR/SR仅支持Markdown；测试支持Markdown、JSON或XLSX')
+    if suffix not in {'.md','.markdown','.json'}:raise ValueError('RR/SR支持Markdown或结构模型JSON；测试支持Markdown、JSON或XLSX')
     content=d.get('content','')
     if not isinstance(content,str) or len(content.encode())>5_000_000:raise ValueError('文档无效或超过5MB')
     if suffix=='.json':
-        from .recovered_tests import json_cases
-        try:json_cases(content.lstrip('\ufeff'))
-        except (ValueError,RecursionError,IndexError) as e:raise ValueError('无效恢复用例JSON：'+str(e)) from e
+        if role=='test':
+            from .recovered_tests import json_cases
+            try:json_cases(content.lstrip('\ufeff'))
+            except (ValueError,RecursionError,IndexError) as e:raise ValueError('无效恢复用例JSON：'+str(e)) from e
+        else:
+            from .structure_models import compile_model
+            model=compile_model(content,d['name'])
+            if not model or model['layer']!=role:raise ValueError('结构模型scope.model_level必须与上传的'+role+'层一致')
     return content.encode(),suffix if suffix=='.json' else '.md'

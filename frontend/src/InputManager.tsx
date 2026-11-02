@@ -456,6 +456,77 @@ export function InputManager({
                 </section>
               )}
 
+              {detail.structure_model && (
+                <section className="import-readable">
+                  <h3>{detail.structure_model.layer} 结构化需求</h3>
+                  <div className="import-type-counts">
+                    <span>
+                      用例 <b>{detail.structure_model.counts.use_cases}</b>
+                    </span>
+                    <span>
+                      主成功路径{" "}
+                      <b>{detail.structure_model.counts.main_success}</b>
+                    </span>
+                    <span>
+                      已有异常 <b>{detail.structure_model.counts.exceptions}</b>
+                    </span>
+                    <span>
+                      其他分支{" "}
+                      <b>{detail.structure_model.counts.non_exception}</b>
+                    </span>
+                  </div>
+                  <p>
+                    复用用例目录及已有异常分支；用例对应、融合SSD、异常定位与关注点识别仍需执行。追溯到本JSON及其属性位置，不要求未提供的原始文档。
+                  </p>
+                  <p>
+                    {detail.structure_enabled !== false
+                      ? "已启用，下次执行采用"
+                      : "已停用，保留历史与来源"}
+                    ；运行中的任务不被替换。
+                  </p>
+                  {!reviewOnly && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        decide(
+                          detail.structure_enabled !== false
+                            ? "disable_structure"
+                            : "enable_structure",
+                        )
+                      }
+                    >
+                      {detail.structure_enabled !== false
+                        ? "停用此结构版本"
+                        : "启用此结构版本"}
+                    </button>
+                  )}
+                  <div className="import-table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>用例ID</th>
+                          <th>名称</th>
+                          <th>已声明参与者</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.structure_model.catalogue.cases.map(
+                          (c: any) => (
+                            <tr key={c.id}>
+                              <td>{c.id}</td>
+                              <td>{c.name}</td>
+                              <td>
+                                {c.actors.join("、") || "未声明，待后续建模"}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
               {detail.artifacts?.length ? (
                 <>
                   <label>
@@ -536,7 +607,7 @@ export function InputManager({
                     </div>
                   )}
                 </>
-              ) : (
+              ) : !detail.structure_model ? (
                 <>
                   <p>
                     {statuses[detail.status] || detail.status}
@@ -586,7 +657,7 @@ export function InputManager({
                     </div>
                   )}
                 </>
-              )}
+              ) : null}
               <details>
                 <summary>格式转换实时输出</summary>
                 <div className="input-conversion-log">

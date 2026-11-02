@@ -16,11 +16,17 @@ def read_documents(paths, channel):
         if p.suffix.lower()=='.xlsx' and channel=='test':
             from .test_sources import xlsx_documents
             docs.extend(xlsx_documents(p.read_bytes(),p.name,str(p.resolve())));continue
-        if p.suffix.lower() not in ({'.md','.markdown','.json'} if channel=='test' else {'.md','.markdown'}): raise ValueError('需求来源必须为Markdown，测试来源支持Markdown、JSON或XLSX')
+        if p.suffix.lower() not in {'.md','.markdown','.json'}: raise ValueError('需求来源支持Markdown或RR/SR结构模型JSON，测试来源支持Markdown、JSON或XLSX')
         text=p.read_text(encoding='utf-8-sig')
         if p.suffix.lower()=='.json':
-            from .recovered_tests import json_cases
-            json_cases(text)
+            if channel=='test':
+                from .recovered_tests import json_cases
+                json_cases(text)
+            else:
+                from .structure_models import compile_model
+                model=compile_model(text,p.name)
+                if model is None:raise ValueError('需求JSON必须为含scope.model_level、entities、relations的结构模型')
+                docs.append({**model['document'],'channel':channel});continue
         lines=text.splitlines()
         docs.append({'source_id':fingerprint(str(p.resolve()))[:20], 'name':p.name,
                      'channel':channel,'lines':[{'number':i,'text':s} for i,s in enumerate(lines,1)]})
@@ -33,8 +39,10 @@ def read_project_documents(project,sources,channel):
         values=read_documents([Path(project)/source['path']],channel)
         for d in values:
             suffix='#'+d['name'].split('#',1)[1] if '#' in d['name'] else ''
-            d['name']=source['name']+suffix
-            if source.get('source_id'):d['source_id']=source['source_id']+('-'+fingerprint(suffix)[:12] if suffix else '')
+            from .structure_models import model_layer
+            structured=model_layer(d) is not None
+            d['name']=source['name']+(' · 结构化可读投影.md' if structured else suffix)
+            if source.get('source_id') and not structured:d['source_id']=source['source_id']+('-'+fingerprint(suffix)[:12] if suffix else '')
         docs.extend(values)
     return docs
 
@@ -58,6 +66,16 @@ def current_projection(documents):
 def normal_projection(documents):
     result=[]
     for doc in current_projection(documents):
+        from .structure_models import model_layer
+        if model_layer(doc) is not None:
+            # Scenario kinds are explicit. A positive use case can legitimately
+            # be named "重放异常事件"; keyword filtering would silently drop it.
+            projected=[];blocked=False
+            for row in doc['lines']:
+                if row['text'].startswith('## '):blocked=False
+                if row['text']=='### 异常及备选分支（仅已有场景通道）':blocked=True
+                if not blocked:projected.append(deepcopy(row))
+            result.append({**doc,'channel':'normal','lines':projected});continue
         projected=[];blocked=False;blocked_heading=None
         for row in doc['lines']:
             text=row['text'];is_section=bool(SECTION.match(text))

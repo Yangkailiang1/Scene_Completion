@@ -217,8 +217,9 @@ class Scheduler:
                         proof=v.get('metadata',{}).get('execution',{}) if isinstance(v,dict) else {}
                         from .artifact_imports import record_use
                         record_use(self.root.parent,key,proof)
-                        origin='同事产物导入' if proof.get('provider')=='colleague_import' else '恢复后生成' if proof.get('execution_model_evidence',{}).get('recovery') else '原流程生成'
+                        origin='同事产物导入' if proof.get('provider') in {'colleague_import','colleague_structure'} else '恢复后生成' if proof.get('execution_model_evidence',{}).get('recovery') else '原流程生成'
                         rec['import_sources']=[{'file_id':proof['file_id'],'name':proof.get('file_name',proof['file_id']),'revision':proof['revision']}] if proof.get('provider')=='colleague_import' else []
+                        if proof.get('provider')=='colleague_structure':rec['import_sources']=proof.get('source_files',[])
                         rec.update(status='passed',output_file=file,output_hash=fingerprint(v),finished_at=time.time(),provenance=origin);outputs[key]=v;done.add(key);self._event(key,'passed')
                     except TaskBlocked as e:
                         rec.update(status=e.status,failure=e.details,finished_at=time.time());self._event(key,e.status)

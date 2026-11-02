@@ -110,3 +110,70 @@ test("keeps upload actions compact and advanced controls collapsed by default", 
   fireEvent.click(screen.getByText(/目录监控与运行范围/));
   expect(screen.getByLabelText("监控本机目录")).toBeTruthy();
 });
+
+test("structured RR import shows actual skip scope and can disable its version", async () => {
+  const writes: any[] = [];
+  const detail = {
+    id: "rr",
+    name: "structure_model.json",
+    revision: 0,
+    role: "artifact",
+    status: "converted",
+    original: "imports/files/rr/original/structure_model.json",
+    artifacts: [],
+    target_nodes: ["rr-use-cases"],
+    structure_enabled: true,
+    structure_model: {
+      layer: "RR",
+      counts: {
+        use_cases: 1,
+        main_success: 1,
+        exceptions: 2,
+        non_exception: 1,
+      },
+      catalogue: { cases: [{ id: "UC-1", name: "查询列表", actors: [] }] },
+    },
+    history: [],
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any, init: any) => ({
+      ok: true,
+      json: async () => {
+        if (init?.method === "PUT") {
+          writes.push(JSON.parse(init.body));
+          return { saved: true };
+        }
+        const path = String(url);
+        if (path.includes("imports?item=")) return detail;
+        if (path.endsWith("/imports"))
+          return {
+            items: [
+              {
+                id: "rr",
+                name: detail.name,
+                role: "artifact",
+                status: "converted",
+              },
+            ],
+          };
+        if (path.endsWith("/results")) return { cases: [] };
+        if (path.endsWith("/recovery")) return null;
+        return { events: [] };
+      },
+    })),
+  );
+  render(<InputManager project="structured" />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: /structure_model.json/ }),
+  );
+  expect(await screen.findByText("RR 结构化需求")).toBeTruthy();
+  expect(screen.getByText("查询列表")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /确认.*原始/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "停用此结构版本" }));
+  await waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({
+    action: "disable_structure",
+    expected_revision: 0,
+  });
+});

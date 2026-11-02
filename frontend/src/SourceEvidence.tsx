@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { AlignLeft, BookOpen, Code2, CornerUpLeft, X } from "lucide-react";
-import { api, projectUrl } from "./api";
+import { api, projectUrl, fileUrl } from "./api";
 import type { SourceHeading, SourceJump } from "./MarkdownSource";
 const MarkdownSource = lazy(() =>
   import("./MarkdownSource").then((module) => ({
@@ -92,6 +92,29 @@ export function SourceEvidence({
             引用第{evidence.line_start}–{evidence.line_end}行 · 共
             {data?.line_count || "—"}行
           </small>
+          {data?.original_path && (
+            <small>
+              <a
+                href={fileUrl(project, data.original_path)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                查看原始文件（点击打开）
+              </a>
+              {data.json_locations?.find(
+                (r: any) => r.line === evidence.line_start,
+              )?.json_pointer && (
+                <code>
+                  {" "}
+                  {
+                    data.json_locations.find(
+                      (r: any) => r.line === evidence.line_start,
+                    ).json_pointer
+                  }
+                </code>
+              )}
+            </small>
+          )}
         </div>
         <button onClick={onClose} aria-label="关闭原文">
           <X size={16} />

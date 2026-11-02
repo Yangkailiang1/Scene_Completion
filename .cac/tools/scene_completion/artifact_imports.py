@@ -159,6 +159,9 @@ def receive(project,files):
    (folder/'original'/name).write_bytes(raw)
    text=raw.decode('utf-8-sig') if Path(name).suffix.lower()!='.xlsx' else ''
    role=f.get('role') or role_hint(name,text)
+   from .structure_models import compile_model
+   structured=compile_model(text,name) if Path(name).suffix.lower()=='.json' else None
+   if structured:role='artifact'
    meta=read_json(project/'project.json') if (project/'project.json').exists() else {'sources':{}}
    bound=[r for r,files in meta['sources'].items() for source in files if (project/source['path']).is_file() and (project/source['path']).read_bytes()==raw]
    if len(set(bound))==1:role=bound[0]
@@ -167,6 +170,8 @@ def receive(project,files):
    parse_text='\n'.join(v['text'] for v in positive['lines']) if Path(name).suffix.lower() in {'.md','.markdown'} else text
    artifacts=deterministic(parse_text,name) if role=='artifact' else []
    row={'id':iid,'name':name,'hash':digest,'role':role,'status':'converted' if artifacts else 'needs_conversion' if role=='artifact' else 'source_pending','artifacts':[],'created_at':time.time(),'revision':0,'original':str((folder/'original'/name).relative_to(project)),'history':[]}
+   if structured:
+    row.update(structure_model=structured,structure_enabled=True,status='converted')
    row['recognition']={'role':role,'reason':'正文含明确测试场景/恢复结构' if role=='test' and re.search(r'SC@|测试逆向',text) else '格式结构与文件用途识别','source_file':name,'source_hash':digest}
    if role=='test':
     from .test_sources import preview
@@ -179,10 +184,11 @@ def receive(project,files):
    else:row['target_nodes']=[a['task'] for a in row['artifacts']]
    if bound:row['status']='source_active'
    _targets(row,artifacts)
+   row['target_nodes']=(['rr-use-cases' if structured['layer']=='RR' else 'sr-use-cases','<用例>:existing-branches'] if structured else [a['task'] for a in row['artifacts']]) if role=='artifact' else row.get('target_nodes',[])
    from .artifact_parsers import mermaid_sequences
    row['literal_structure']={'mermaid':mermaid_sequences(parse_text)}
    # A mixed artifact file requires conversion of remaining structures too.
-   if role=='artifact' and (row['literal_structure']['mermaid'] or artifacts and re.search(r'请求参数|数据类型|参数名称|支持的操作|系统组成',parse_text)):
+   if role=='artifact' and not structured and (row['literal_structure']['mermaid'] or artifacts and re.search(r'请求参数|数据类型|参数名称|支持的操作|系统组成',parse_text)):
     row['status']='needs_conversion'
    record=str((folder/'record.json').relative_to(project));write_json(project/record,row)
    index['items'][iid]={'name':name,'role':role,'status':row['status'],'record':record,'created_at':row['created_at']}
@@ -255,6 +261,13 @@ def decide(project,iid,body):
  with LOCK:
   index=load(project);row=view(project,iid)
   if body.get('expected_revision')!=row['revision']:raise ValueError('文件版本已变化，请刷新')
+  if body.get('action') in {'enable_structure','disable_structure'}:
+   if not row.get('structure_model'):raise ValueError('本文件不是RR/SR结构模型')
+   if body.get('dry_run'):return {'valid':True,'saved':False}
+   archive(project,row);row['structure_enabled']=body['action']=='enable_structure';row['revision']+=1
+   row['history'].append({'action':body['action'],'at':time.time()})
+   write_json(Path(project)/index['items'][iid]['record'],row);save(project,index)
+   return {'saved':True,'revision':row['revision']}
   aid=body.get('artifact_id');a=next((a for a in row['artifacts'] if a['id']==aid),None)
   if a is None:raise ValueError('未知目标产物')
   if body.get('action') not in {'accept','reject'}:raise ValueError('请选择接受或拒绝')
@@ -404,10 +417,14 @@ def merge(task,generated,parts):
 
 
 def record_use(project,key,proof):
- if proof.get('provider')!='colleague_import':return
+ if proof.get('provider') not in {'colleague_import','colleague_structure'}:return
  with LOCK:
   path=Path(project)/'imports/usage.json';data=read_json(path) if path.exists() else {}
-  data[key]={'node':key,**proof,'at':time.time()};write_json(path,data)
+  if proof['provider']=='colleague_structure':
+   for source in proof.get('source_files',[]):
+    data[key+'::'+source['file_id']]={'node':key,**proof,**source,'artifact_id':'structure-model','at':time.time()}
+  else:data[key]={'node':key,**proof,'at':time.time()}
+  write_json(path,data)
 
 
 def case_catalogue(project):

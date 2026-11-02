@@ -187,6 +187,8 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 ## 同事产物、首例优先与模型切换
 
+支持同事提供的 RR／SR `structure_model.json`（`scope.model_level`、`entities`、`relations`）。在“输入与导入”上传后，可直接复用用例目录及 `scenario_kind=exception` 的已有场景分支，跳过对应的重复模型抽取；不跳过RR／SR用例对应、融合SSD和异常关注点逆向识别。主成功与备选分支保留查看，正向模型不读取已有异常、历史基线或原文件内的外部引文。每层可选择一个当前结构版本，来源指向上传JSON及其属性位置。详见[结构模型接入说明](docs/structured-model-import.md)。
+
 网页新增“输入与导入”，CLI提供`input-scan`、`imports`、`recovery`、`run --case/--priority-case`。Windows支持后台启动、状态与停止。客户网关可用`--thinking off --thinking-api chat_template_kwargs`；吞吐监视和候选模型切换须显式启用，成功产物不因运行配置改变而整批失效。见[操作、预算与迁移说明](docs/intake-recovery-and-model-switching.md)。
 
 项目管理Agent、后台托管、补丁回退、同事材料接入及CLI操作见[管理Agent使用说明](docs/project-manager.md)。真实单用例验收范围与限制见[本轮验收记录](docs/manager-acceptance-20261029.md)。

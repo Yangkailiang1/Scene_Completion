@@ -66,6 +66,8 @@ def select_documents(documents,entries,all_entries=None):
     result=[]
     for d in documents:
         ranges=spans.get(d['source_id'],[])
+        from .structure_models import model_layer,MARKER
+        structured=model_layer(d) is not None
         if all_entries and d['channel']=='existing':
             starts=sorted({sp['start'] for c in all_entries for sp in c['source_ranges'] if sp['source_id']==d['source_id']})
             last=max((r['number'] for r in d['lines']),default=0)
@@ -83,7 +85,11 @@ def select_documents(documents,entries,all_entries=None):
                     end=min(end,max(b,next_section))
                 expanded.append((a,end))
             ranges=expanded
-        rows=[deepcopy(r) for r in d['lines'] if any(a<=r['number']<=b for a,b in ranges)]
+        if structured and ranges:
+            # Unlike Markdown's numbered subheadings, structured branches are
+            # owned explicitly and end at the next generated use-case heading.
+            ranges=[(a,next((r['number']-1 for r in d['lines'] if r['number']>a and r['text'].startswith('## ')),max(r['number'] for r in d['lines']))) for a,_ in spans.get(d['source_id'],[])] if d['channel']=='existing' else ranges
+        rows=[deepcopy(r) for r in d['lines'] if any(a<=r['number']<=b for a,b in ranges) or ranges and structured and r['text'].startswith(MARKER)]
         if rows:result.append({**d,'lines':rows})
     return result
 
