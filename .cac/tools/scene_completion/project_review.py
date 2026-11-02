@@ -36,7 +36,7 @@ def project_registry(project):
 def retire_ambiguous_data_concern(project,value):
     """Version the explicit taxonomy removal; frozen report snapshots stay intact."""
     key='api.data.legality'
-    if value.get('version')!='interaction-global-concerns-v5' or key not in value.get('definitions',{}) or not value['definitions'][key].get('enabled',True):return value
+    if value.get('version') not in {'interaction-concerns-v3','interaction-global-concerns-v5'} or key not in value.get('definitions',{}) or not value['definitions'][key].get('enabled',True):return value
     value=deepcopy(value);history=Path(project)/'concern_versions';history.mkdir(exist_ok=True)
     versions=[read_json(f) for f in history.glob('*.json')]
     if not any(v['hash']==value['hash'] for v in versions):

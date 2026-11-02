@@ -131,9 +131,10 @@ def test_review_http_api_and_linked_project_download(tmp_path):
     assert client.get(f'/api/projects/{a}/file?path=run/artifacts/shared/example.json').status_code==200
 
 
-def test_legality_retirement_versions_existing_project_without_rewriting_history(tmp_path):
+@pytest.mark.parametrize('version',['interaction-concerns-v3','interaction-global-concerns-v5'])
+def test_legality_retirement_versions_existing_project_without_rewriting_history(tmp_path,version):
     from scene_completion.project_review import project_registry
-    old=default_registry();old['definitions']['api.data.legality']['enabled']=True
+    old=default_registry();old['version']=version;old['definitions']['api.data.legality']['enabled']=True
     old['hash']=fingerprint({k:v for k,v in old.items() if k!='hash'})
     write_json(tmp_path/'run/registry_override.json',old)
     write_json(tmp_path/'run/registry_used'/ (old['hash']+'.json'),old)
