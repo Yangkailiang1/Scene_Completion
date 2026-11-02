@@ -22,3 +22,9 @@ description: API接口参数抽取。用于场景工作流中的该独立任务�
 若interface.source_role为invocation_only，输入只是本次调用描述，不是完整接口定义：只能据此记录出现的字段和位置，未明确的类型、必填性、默认值设null。不能把“本次写入status=某值”推为接口全局枚举或默认值；固定绑定属于该用例SSD。只有原文明示的字段约束才可标explicit，其余待确认。
 
 成功响应与请求同等抽取：200/201/204等成功响应的结构、嵌套字段完整路径、类型、必填性及约束均应保存，location=response；响应字段不能混入query/body。不得因成功响应位于独立标题、表格或Mermaid返回消息而略过；空响应只在文档明确无返回体时记录。示例值不能推成类型、必填性或枚举。
+
+## 请求、成功响应与失败响应隔离
+
+`parameters`仅包含请求参数（header/path/query/body）及成功响应参数（response）。可选`responses`按`kind=success/error`和`status_code`独立保存响应结构，每个分支包含parameters与source_refs；状态码未明确时为null，不猜200或错误码。相同字段在200与400等不同分支的类型、必填性及约束不得合并。
+
+`response-documents`是单独提供的失败响应声明，仅用于整理`responses[kind=error]`，不能用于推导正常参数约束、已有异常触发或生成异常。G的下游正向上下文只读取parameters，不能读取错误响应分支。不要把“失败时返回message必填”当作成功返回message必填。已有声明表中的类型、必填、默认和约束均须保留，未知值不能覆盖已知值。

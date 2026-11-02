@@ -102,7 +102,15 @@ def documents_in(value):
     docs={}
     def visit(v):
         if isinstance(v,dict):
-            if {'source_id','channel','lines'}<=v.keys():docs[v['source_id']]=v
+            if {'source_id','channel','lines'}<=v.keys():
+                old=docs.get(v['source_id'])
+                if old:
+                    lines={r['number']:r for r in old['lines']}
+                    for row in v['lines']:
+                        if row['number'] in lines and lines[row['number']]['text']!=row['text']:raise ValueError('same source line has conflicting content')
+                        lines[row['number']]=row
+                    docs[v['source_id']]={**old,'lines':sorted(lines.values(),key=lambda r:r['number'])}
+                else:docs[v['source_id']]=v
             else:
                 for x in v.values():visit(x)
         elif isinstance(v,list):

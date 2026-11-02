@@ -53,6 +53,9 @@ CONSTRAINT = obj(id=S, kind=enum('type','enum','minimum','maximum','format','len
 PARAMETER = obj(name=S, location=enum('header','path','query','body','response','business'),
                 data_type=NULL_S, required={'type':['boolean','null']}, default=VALUE,
                 constraints=arr(CONSTRAINT), source_refs=REFS)
+API_PARAMETERS = obj(id=S,name=S,address=NULL_S,parameters=arr(PARAMETER),source_refs=REFS)
+# Optional extension preserves compatibility with historical parameter artifacts.
+API_PARAMETERS['properties']['responses']=arr(obj(kind=enum('success','error'),status_code=NULL_S,parameters=arr(PARAMETER),source_refs=REFS))
 PARTY = obj(name=S, position=S, source_refs=REFS)
 INTERACTION = obj(id=S, case_id=S, sequence={'type':'integer','minimum':1}, parent_id=NULL_S,
  layer=enum('RR','SR'), sender=PARTY, receiver=PARTY,
@@ -132,7 +135,7 @@ SCHEMAS = {
  'object-operations':obj(objects=arr(obj(name=S,supported_operations=arr(obj(name=S,source_refs=REFS))))),
  'api-map':obj(services=arr(obj(name=S,interfaces=arr(INTERFACE),source_refs=REFS))),
  'api-index':obj(apis=arr(obj(id=S,name=S,source_ranges=arr(obj(source_id=S,start=INT,end=INT)),source_refs=REFS))),
- 'api-parameters':obj(apis=arr(obj(id=S,name=S,address=NULL_S,parameters=arr(PARAMETER),source_refs=REFS))),
+ 'api-parameters':obj(apis=arr(API_PARAMETERS)),
  'concern-match':obj(matches=arr(MATCH),pending=arr(PENDING)),
  'existing-concerns':obj(matches=arr(MATCH),pending=arr(PENDING)),
  'test-concerns':obj(matches=arr(MATCH),pending=arr(PENDING)),
@@ -275,7 +278,7 @@ INPUT_KEYS = {
 
 def packet(task, inputs, case_ids=None):
     if not isinstance(inputs,dict):raise ValueError('task input must be a named JSON object')
-    optional={'source-index'} if task=='use-case-extract' else {'normal-documents'} if task=='concern-match' else {'branches','bindings','fused-ssd','normal-constraints'} if task=='existing-extract' else {'fused-ssd'} if task=='test-ground-truth' else {'interface'} if task=='api-parameters' else {'candidate_pairs'} if task=='semantic-compare' else set()
+    optional={'source-index'} if task=='use-case-extract' else {'normal-documents'} if task=='concern-match' else {'branches','bindings','fused-ssd','normal-constraints'} if task=='existing-extract' else {'fused-ssd'} if task=='test-ground-truth' else {'interface','response-documents'} if task=='api-parameters' else {'candidate_pairs'} if task=='semantic-compare' else set()
     if task in {'concern-match','exception-generate','existing-bind','existing-extract','test-ground-truth'}:optional=optional|{'normal-rules'}
     if task=='concern-match':optional|={'business-crud','business-entities'}
     if task=='normal-rules':optional=optional|{'registry'}
@@ -292,6 +295,7 @@ def packet(task, inputs, case_ids=None):
         for fragment in inputs.get('imported-fragments',[]):
             allowed={task}|({'rr-ssd','sr-ssd'} if task=='fused-ssd' else set())
             if fragment.get('task') not in allowed:raise ValueError('导入产物不属于本节点')
+    if any(d.get('channel')!='existing' for d in inputs.get('response-documents',[])):raise ValueError('失败响应声明必须使用独立existing通道，不接收测试材料')
     expected_channel='test' if task.startswith('test-') else 'existing' if task.startswith('existing-') else 'normal'
     for doc in inputs.get('review-documents',[]):
         if doc.get('channel')!=expected_channel or not doc.get('source_id','').startswith('business-') or not doc.get('review_item_id') or not doc.get('review_revision'):raise ValueError('业务确认材料必须来自本任务独立通道并保留审核身份')
@@ -299,7 +303,7 @@ def packet(task, inputs, case_ids=None):
         if errors:raise ValueError('无效业务确认材料')
     if task not in SCHEMAS or not INPUT_KEYS[task]<=set(inputs) or not set(inputs)<=INPUT_KEYS[task]|optional:
         raise ValueError(f'{task}: expected input keys {sorted(INPUT_KEYS.get(task,()))}')
-    for key in ('documents','RR','SR','AR','existing-documents','test-documents','test-operation-source','normal-documents','import-documents'):
+    for key in ('documents','RR','SR','AR','existing-documents','test-documents','test-operation-source','normal-documents','import-documents','response-documents'):
         if key in inputs:
             errors=list(Draft202012Validator(arr(DOCUMENT)).iter_errors(inputs[key]))
             if errors:raise ValueError('invalid document input: '+errors[0].message)

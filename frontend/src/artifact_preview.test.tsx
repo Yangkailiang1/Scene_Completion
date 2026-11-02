@@ -132,3 +132,59 @@ it("shows readable rules without expanding source JSON inside parameter cells", 
   expect(rules.textContent).toContain("格式：待确认具体约束");
   expect(rules.textContent).not.toContain("source_refs");
 });
+
+it("keeps request, successful response and failed response parameters visibly separated", () => {
+  render(
+    <PayloadView
+      definitions={{}}
+      value={{
+        apis: [
+          {
+            id: "API-1",
+            name: "查询",
+            address: "/items",
+            parameters: [
+              {
+                name: "inputName",
+                location: "body",
+                data_type: "string",
+                required: true,
+                default: null,
+                constraints: [],
+              },
+              {
+                name: "resultName",
+                location: "response",
+                data_type: "string",
+                required: true,
+                default: null,
+                constraints: [],
+              },
+            ],
+            responses: [
+              {
+                kind: "error",
+                status_code: "400",
+                parameters: [
+                  {
+                    name: "errorMessage",
+                    location: "response",
+                    data_type: "string",
+                    required: true,
+                    default: null,
+                    constraints: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("响应分支")).toBeTruthy();
+  expect(screen.getByText("请求")).toBeTruthy();
+  expect(screen.getByText("成功响应")).toBeTruthy();
+  expect(screen.getByText("失败响应 400")).toBeTruthy();
+  expect(screen.getByText("errorMessage")).toBeTruthy();
+});

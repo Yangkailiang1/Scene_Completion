@@ -195,7 +195,9 @@ export function ResultsView({
     const timeout = setTimeout(() => controller.abort(), 20000);
     setIndex(null);
     setError("");
-    api(projectUrl(project, "results?include_artifacts=false"), { signal: controller.signal })
+    api(projectUrl(project, "results?include_artifacts=false"), {
+      signal: controller.signal,
+    })
       .then((r) => {
         if (live) {
           setIndex(r);
@@ -206,7 +208,15 @@ export function ResultsView({
           );
         }
       })
-      .catch((e) => live && setError(e.name === "AbortError" ? "结果目录读取超时，请点击刷新重试。" : e.message))
+      .catch(
+        (e) =>
+          live &&
+          setError(
+            e.name === "AbortError"
+              ? "结果目录读取超时，请点击刷新重试。"
+              : e.message,
+          ),
+      )
       .finally(() => clearTimeout(timeout));
     return () => {
       live = false;
@@ -251,9 +261,15 @@ export function ResultsView({
   useEffect(() => {
     if (!["diagrams", "global"].includes(mode)) return;
     const controller = new AbortController();
-    api(projectUrl(project, "results?include_artifacts=true"), { signal: controller.signal })
-      .then((r) => setIndex((old: any) => old ? { ...old, artifacts: r.artifacts } : r))
-      .catch((e) => { if (e.name !== "AbortError") setError(e.message); });
+    api(projectUrl(project, "results?include_artifacts=true"), {
+      signal: controller.signal,
+    })
+      .then((r) =>
+        setIndex((old: any) => (old ? { ...old, artifacts: r.artifacts } : r)),
+      )
+      .catch((e) => {
+        if (e.name !== "AbortError") setError(e.message);
+      });
     return () => controller.abort();
   }, [project, mode, reload, liveVersion]);
   const catalog =
@@ -385,8 +401,18 @@ export function ResultsView({
             <ChartNoAxesCombined size={15} aria-hidden="true" />
             指标总览
           </button>
-          <button className={mode === "global" ? "active" : ""} onClick={() => setMode("global")}>全局业务依赖</button>
-          <button className={mode === "project" ? "active" : ""} onClick={() => setMode("project")}>项目总指标</button>
+          <button
+            className={mode === "global" ? "active" : ""}
+            onClick={() => setMode("global")}
+          >
+            全局业务依赖
+          </button>
+          <button
+            className={mode === "project" ? "active" : ""}
+            onClick={() => setMode("project")}
+          >
+            项目总指标
+          </button>
           <button
             className={mode === "diagrams" ? "active" : ""}
             onClick={() => setMode("diagrams")}
@@ -409,7 +435,12 @@ export function ResultsView({
             风险推荐
           </button>
         </div>
-        <button className={mode === "quality" ? "active" : ""} onClick={() => setMode("quality")}>指标诊断</button>
+        <button
+          className={mode === "quality" ? "active" : ""}
+          onClick={() => setMode("quality")}
+        >
+          指标诊断
+        </button>
         <label className="results-truth-picker">
           <span>评测依据</span>
           <select
@@ -448,12 +479,29 @@ export function ResultsView({
           {error}
         </div>
       )}
-      {mode === "global" ? <GlobalResults project={project} testSet={testSet} liveVersion={liveVersion} artifacts={index?.artifacts || []} /> : mode === "project" ? <ProjectMetrics project={project} testSet={testSet} liveVersion={liveVersion} /> : mode === "quality" ? (<QualityDiagnostics project={project} caseId={cid} testSet={testSet}/>) : mode === "recommendations" ? (
+      {mode === "global" ? (
+        <GlobalResults
+          project={project}
+          testSet={testSet}
+          liveVersion={liveVersion}
+          artifacts={index?.artifacts || []}
+        />
+      ) : mode === "project" ? (
+        <ProjectMetrics
+          project={project}
+          testSet={testSet}
+          liveVersion={liveVersion}
+        />
+      ) : mode === "quality" ? (
+        <QualityDiagnostics project={project} caseId={cid} testSet={testSet} />
+      ) : mode === "recommendations" ? (
         <RecommendationsView project={project} caseId={cid} testSet={testSet} />
       ) : mode === "tests" ? (
         <TestSources project={project} />
       ) : !index ? (
-        <p className="management-loading">{error ? "目录未能载入，请点击上方刷新重试。" : "正在读取结果目录…"}</p>
+        <p className="management-loading">
+          {error ? "目录未能载入，请点击上方刷新重试。" : "正在读取结果目录…"}
+        </p>
       ) : !index.cases.length ? (
         <p className="management-loading">用例对应完成后显示结果。</p>
       ) : mode === "metrics" ? (
@@ -638,6 +686,14 @@ export function ResultsView({
                 </div>
                 <details className="result-data">
                   <summary>数据属性、交互双方关注点及原文依据</summary>
+                  <p className="muted">
+                    {i.associated_api
+                      ? `已关联接口 ${i.associated_api} · ${i.direction === "return" ? "成功响应字段" : "请求字段"}`
+                      : "接口尚未唯一关联：仅展示SSD明确属性，未知项保持待确认"}
+                    {
+                      "。失败响应分支请在图表总览的接口参数表中查看；历史指标未因属性展示更新而重算。"
+                    }
+                  </p>
                   <div className="result-data-scroll">
                     <table>
                       <thead>

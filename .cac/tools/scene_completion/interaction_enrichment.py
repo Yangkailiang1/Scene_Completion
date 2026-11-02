@@ -16,15 +16,26 @@ def resolved_api_id(i,inputs):
     apis=inputs.get('api-parameters',{}).get('apis',[])
     if i['direction']=='return' and i.get('parent_id'):
         request=next((x for x in interactions(inputs) if x['id']==i['parent_id'] and x['direction']=='request' and x['case_id']==i['case_id']),None)
-        if request and not i['api_id']:return resolved_api_id(request,inputs)
-    if i['api_id'] and any(a['id']==i['api_id'] for a in apis):return i['api_id']
+        if request and not i.get('api_id'):
+            linked=resolved_api_id(request,inputs)
+            if linked:return linked
+    api_id=i.get('associated_api') or i.get('api_id')
+    # Typographic dash/whitespace normalization is identity cleanup, not a
+    # semantic guess. Reject ambiguous identities rather than using all APIs.
+    normalize=lambda x:re.sub(r'\s+','',str(x)).replace('–','-').replace('—','-').casefold()
+    exact=[a['id'] for a in apis if api_id and normalize(a['id'])==normalize(api_id)]
+    if len(exact)==1:return exact[0]
+    explicit_ids={a['id'] for a in apis if re.match(r'API[-_]',a['id'],re.I) and re.search(r'(?<![A-Za-z0-9_/-])'+re.escape(a['id'])+r'(?![A-Za-z0-9_-])',i['operation']['name'])}
+    if len(explicit_ids)==1:return next(iter(explicit_ids))
     # Link independently extracted API tables by an explicit identity/address,
     # never path similarity or overlapping parameter names.
-    explicit_call=re.match(r'^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(/[^\s，。;]+)',i['operation']['name'],re.I)
+    from .http_interfaces import declarations
+    calls=declarations(i['operation']['name'])
+    explicit_call=calls[0] if len(calls)==1 else None
     interfaces=[api for service in inputs.get('api-map',{}).get('services',[]) for api in service['interfaces']
                 if (i['api_id'] and api['id']==i['api_id']) or
                    (service['name']==i['receiver']['name'] and api['name']==i['operation']['name']) or
-                   (explicit_call and api.get('method','') and api['method'].upper()==explicit_call[1].upper() and api.get('address')==explicit_call[2])]
+                   (explicit_call and api.get('method','') and api['method'].upper()==explicit_call[0] and api.get('address')==explicit_call[1])]
     found=set()
     for api in interfaces:
         for a in apis:
@@ -45,6 +56,15 @@ def parameters_for(i, inputs):
         if apis:
             # Use the evidenced union, not a requirements-consistency check.
             # API-only and SSD-only fields/constraints both remain available.
+            # 'business' is a compact SSD placeholder, not a competing wire
+            # location. Resolve it only when this exact API declares one field
+            # of that name in the current direction.
+            candidates={}
+            for declared in apis[0]['parameters']:
+                if valid(declared):candidates.setdefault(declared['name'],set()).add(declared['location'])
+            for actual in params:
+                locations=candidates.get(actual['name'],set())
+                if actual['location']=='business' and len(locations)==1:actual['location']=next(iter(locations))
             by_name={(p['location'],p['name']):p for p in params}
             for p in apis[0]['parameters']:
                 if not valid(p):continue
@@ -78,8 +98,13 @@ def requirement_sources(i,inputs):
             if p['location'] not in ({'response','business'} if origin=='SSD' else {'response'}):return
         elif p['location']=='response':return
         groups.setdefault((p['location'],p['name']),[]).append({'origin':origin,**{k:deepcopy(p[k]) for k in ('data_type','required','default','constraints','source_refs')}})
-    for p in i['data']['sequence']:add(p,'SSD')
     api_id=resolved_api_id(i,inputs)
+    declarations=[p for a in inputs.get('api-parameters',{}).get('apis',[]) if a['id']==api_id for p in a['parameters'] if (p['location']=='response')==(i['direction']=='return')]
+    for p in i['data']['sequence']:
+        p=deepcopy(p)
+        locations={d['location'] for d in declarations if d['name']==p['name']}
+        if p['location']=='business' and len(locations)==1:p['location']=next(iter(locations))
+        add(p,'SSD')
     for a in inputs.get('api-parameters',{}).get('apis',[]):
         if a['id']==api_id:
             for p in a['parameters']:add(p,'API')
@@ -207,3 +232,22 @@ def basic_views(enriched):
         b['data']={'sequence':deepcopy(i['data']['sequence'])}
         result['rr-ssd' if i['layer']=='RR' else 'sr-ssd']['interactions'].append(b)
     return result
+
+
+def display_parameters(enriched,inputs):
+    """Refresh display attributes from passed API facts, without changing scores.
+
+    Saved SSD messages intentionally contain compact names/locations only.
+    Formal semantic analysis still uses the versioned interaction-enrich task.
+    """
+    out=deepcopy(enriched)
+    rows=out.get('interactions',[])
+    context={**inputs,'rr-ssd':{'interactions':[i for i in rows if i.get('layer')=='RR']},'sr-ssd':{'interactions':[i for i in rows if i.get('layer')=='SR']}}
+    for i in rows:
+        if not {'direction','layer','case_id','api_id','sender','receiver','operation','data'}<=i.keys():continue
+        i['parameter_requirement_sources']=requirement_sources(i,context)
+        i['data']['sequence']=parameters_for(i,context)
+        i['associated_api']=resolved_api_id(i,context)
+        i['parameter_display_status']='linked' if i['associated_api'] else 'unresolved'
+    out['parameter_display_note']='数据属性按当前已通过的接口产物关联展示；历史识别结果和指标未改写。属性变化后的分析需定向重跑交互补全及下游。'
+    return out

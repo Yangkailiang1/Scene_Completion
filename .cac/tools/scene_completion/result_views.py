@@ -184,6 +184,8 @@ class ResultView:
         if not enriched and fused:
             from .inverse_alignment import canonical_fused
             enriched=canonical_fused(fused)
+        from .interaction_enrichment import display_parameters
+        enriched=display_parameters(enriched,{'api-parameters':self.payload('api-parameters'),'api-map':self.payload('api-map')})
         evaluation=evaluation_override if evaluation_override is not None else self.payload(cid+':exception-evaluation')
         expanded=evaluation.get('test_set')=='expanded' and test_set=='expanded'
         if test_set=='original':evaluation=evaluation.get('original_evaluation',evaluation)
@@ -227,7 +229,7 @@ class ResultView:
             for aligned in row['alignment_rows']:
                 aligned['anchor']=compact(aligned['anchor'])
                 aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
-        return {'case':case,'matching_version':concern.get('version') or self.manifest.get('matching_version'),'concern_truth_ready':'GT_c' in concern,'concern_excluded':concern.get('excluded',{}),'concern_metrics':concern.get('metrics',{}),'metric_units':evaluation.get('metric_units',{}),'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
+        return {'case':case,'matching_version':concern.get('version') or self.manifest.get('matching_version'),'concern_truth_ready':'GT_c' in concern,'concern_excluded':concern.get('excluded',{}),'concern_metrics':concern.get('metrics',{}),'metric_units':evaluation.get('metric_units',{}),'parameter_display_note':enriched.get('parameter_display_note'),'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
                 'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract'),('GT','test-ground-truth')]},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
                 'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),

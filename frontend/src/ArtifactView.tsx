@@ -204,6 +204,7 @@ function CatalogTable({
               rows={entries}
               columns={[
                 ["direction", "方向"],
+                ["response_branch", "响应分支"],
                 ["location", "位置"],
                 ["name", "参数"],
                 ["data_type", "数据类型"],
@@ -466,8 +467,23 @@ export function PayloadView({
               {a.name} · {a.address || "地址待确认"}
             </h3>
             <Table
-              rows={a.parameters}
+              rows={[
+                ...a.parameters.map((p: any) => ({
+                  ...p,
+                  response_branch:
+                    p.location === "response" ? "成功响应" : "请求",
+                })),
+                ...(a.responses || [])
+                  .filter((v: any) => v.kind === "error")
+                  .flatMap((v: any) =>
+                    v.parameters.map((p: any) => ({
+                      ...p,
+                      response_branch: `失败响应 ${v.status_code || "状态码未声明"}`,
+                    })),
+                  ),
+              ]}
               columns={[
+                ["response_branch", "响应分支"],
                 ["name", "参数"],
                 ["location", "位置"],
                 ["data_type", "数据类型"],

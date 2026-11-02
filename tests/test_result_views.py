@@ -155,3 +155,22 @@ def test_bulk_conversation_graph_view_preserves_questions_and_revisions(tmp_path
     for key in ('a','b','unknown'):
         assert overview.get(key,{}).get('question')==c.pending(key)
         assert overview.get(key,{}).get('revision',0)==c.revision(key)
+
+
+def test_final_detail_refreshes_api_attributes_without_changing_saved_metrics_or_ssd(tmp_path):
+    from tests.test_workflow import exchange,parameter,R
+    fixture(tmp_path);root=tmp_path/'run';state=json.loads((root/'workflow_tasks.json').read_text())['tasks']
+    def put(key,stage,value):
+        file='task_outputs/'+fingerprint(key)+'.json';write_json(root/file,{'payload':value})
+        state[key]={'stage':stage,'case':'C' if ':' in key else 'shared','status':'passed','output_file':file}
+    i=exchange(api='API-M-IF2');i['id']='i1';i['data']['sequence']=[parameter('name','body',None,None)]
+    put('C:enriched-view','enriched-view',{'interactions':[i]})
+    p=parameter('name','body',True,'string');p['default']='demo';p['constraints']=[{'id':'length','kind':'length','value':'1-30','status':'explicit','source_refs':R}]
+    put('api-parameters','api-parameters',{'apis':[{'id':'API-M-IF2','parameters':[p]}]})
+    write_json(root/'workflow_tasks.json',{'tasks':state});write_json(root/'workflow_graph.json',{'nodes':[{'id':k} for k in state]})
+    saved=(root/state['C:enriched-view']['output_file']).read_bytes()
+    result=ResultView(tmp_path).detail('C');row=result['interactions'][0]['interaction'];p=row['data']['sequence'][0]
+    assert (p['data_type'],p['required'],p['default'])==('string',True,'demo') and p['constraints'][0]['kind']=='length'
+    assert row['associated_api']=='API-M-IF2' and len(row['parameter_requirement_sources'][0]['sources'])==2
+    assert result['metrics']=={'generation_validity':{'value':100}}
+    assert (root/state['C:enriched-view']['output_file']).read_bytes()==saved

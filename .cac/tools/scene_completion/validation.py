@@ -187,6 +187,17 @@ def validate_result(task, payload, inputs):
         elif isinstance(v,list):
             for x in v:visit(x)
     visit(payload)
+    if task=='api-parameters':
+        failure_lines={(d['source_id'],r['number']) for d in inputs.get('response-documents',[]) for r in d['lines'] if not __import__('re').match(r'^\s*(?:#{1,6}\s*|\*\*API)',r['text'])}
+        for api in payload['apis']:
+            normal_facts={'source_refs':api['source_refs'],'parameters':api['parameters'],'success_responses':[v for v in api.get('responses',[]) if v['kind']=='success']}
+            for ref in evidence_refs(normal_facts):
+                if any((ref['source_id'],n) in failure_lines for n in range(ref['line_start'],ref['line_end']+1)):
+                    raise ValueError('失败响应依据只能用于responses[kind=error]，不得进入正向接口要求')
+            for variant in api.get('responses',[]):
+                if any(p['location']!='response' for p in variant['parameters']):raise ValueError('响应分支字段location必须为response')
+                code=variant['status_code']
+                if code and (not __import__('re').fullmatch(r'[245]\d\d',code) or (code.startswith('2')!=(variant['kind']=='success'))):raise ValueError('响应状态码与成功/失败分支不一致')
     if task=='api-parameters' and 'interface' in inputs:
         if len(payload['apis'])!=1 or payload['apis'][0]['id']!=inputs['interface']['id']:raise ValueError('API child must output exactly the indexed interface, preserving its ID')
         expected=inputs['interface'].get('address')

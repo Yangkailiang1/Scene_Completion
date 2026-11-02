@@ -6,7 +6,7 @@ from .contracts import PROTOCOL
 
 COLUMNS = [('service','服务名称'),('api_name','API名称'),('method','方法'),('address','接口地址'),
  ('mapping_status','归属状态'),('parameter_status','参数状态'),('direction','方向'),('location','位置'),
- ('name','参数'),('data_type','数据类型'),('required','可选/必填'),('default','默认值'),('constraints','约束条件')]
+ ('response_branch','响应分支'),('name','参数'),('data_type','数据类型'),('required','可选/必填'),('default','默认值'),('constraints','约束条件')]
 
 def combine(mapping, parameters, *, mapping_status='未完成', parameters_complete=False):
     interfaces=[(s,i) for s in mapping.get('services',[]) for i in s['interfaces']]
@@ -31,8 +31,10 @@ def combine(mapping, parameters, *, mapping_status='未完成', parameters_compl
               'source_refs':(i.get('source_refs',[]) if i else [])+(a.get('source_refs',[]) if a else [])}
         params=a['parameters'] if a else []
         if not params:rows.append({**base,'name':'文档未列出参数' if a else '尚未取得参数结果'})
-        for p in params:
-            rows.append({**base,**{k:p.get(k) for k in ('name','location','data_type','default','constraints')},
+        scoped=[('成功响应' if p['location']=='response' else '请求',p) for p in params]
+        scoped += [('失败响应 '+(v.get('status_code') or '状态码未声明'),p) for v in (a or {}).get('responses',[]) if v['kind']=='error' for p in v['parameters']]
+        for branch,p in scoped:
+            rows.append({**base,'response_branch':branch,**{k:p.get(k) for k in ('name','location','data_type','default','constraints')},
                          'direction':'输出' if p['location']=='response' else '输入',
                          'required':'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',
                          'parameter_source_refs':p.get('source_refs',[])})

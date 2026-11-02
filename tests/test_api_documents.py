@@ -71,3 +71,49 @@ def test_bold_interface_and_peer_response_sections_remain_in_parameter_context()
     filled=complete_success_responses(output,{'SR':[doc],'interface':iface})
     assert [(p['name'],p['location'],p['data_type'],p['required']) for p in filled['apis'][0]['parameters']]==[('items','response','array',True)]
     assert output['apis'][0]['parameters']==[]
+
+
+def test_response_contract_variants_keep_success_and_failure_fields_separate():
+    from scene_completion.api_documents import complete_success_responses,response_contract_documents,case_parameters
+    from scene_completion.source_documents import normal_projection
+    from tests.test_workflow import exchange
+    lines=['## API-1 查询','GET /items','### 成功响应 200','| 字段 | 类型 | 是否必填 | 默认值 | 长度 |','| name | string | 是 |  | 1-30 |','### 失败响应 400','| 字段 | 类型 | 是否必填 |','| name | integer | 否 |','| message | string | 是 |','### 失败响应 404','| 字段 | 类型 | 是否必填 |','| code | string | 是 |','## API-2 next','GET /next']
+    raw={'source_id':'s','name':'sr.md','channel':'normal','lines':[{'number':n,'text':t} for n,t in enumerate(lines,1)]}
+    refs=[{'source_id':'s','line_start':1,'line_end':1,'quote':lines[0]}]
+    base={'apis':[{'id':'API-1','name':'查询','address':'/items','parameters':[],'source_refs':refs}]}
+    source=normal_projection([raw]);errors=response_contract_documents([raw])
+    inputs={'SR':source,'interface':{'id':'API-1','address':'/items'},'response-documents':errors}
+    filled=complete_success_responses(base,inputs);validate_result('api-parameters',filled,inputs)
+    a=filled['apis'][0];success=a['parameters'][0]
+    assert (success['name'],success['data_type'],success['required'])==('name','string',True)
+    assert success['constraints'][0]['kind']=='length'
+    variants={(v['kind'],v['status_code']):v for v in a['responses']}
+    assert set(variants)=={('success','200'),('error','400'),('error','404')}
+    assert variants['error','400']['parameters'][0]['data_type']=='integer'
+    assert {p['name'] for p in a['parameters']}=={'name'}
+    assert complete_success_responses(filled,inputs)==filled
+    i=exchange(api='API-1');safe=case_parameters({'api-parameters':filled},{'interactions':[i]})
+    assert 'responses' not in safe['apis'][0] and 'message' not in str(safe)
+    bad=__import__('copy').deepcopy(filled);bad['apis'][0]['parameters'].append(variants['error','404']['parameters'][0])
+    with pytest.raises(ValueError,match='失败响应'):validate_result('api-parameters',bad,inputs)
+
+
+def test_response_table_fills_known_field_missing_attributes_without_erasing_false_or_zero():
+    from scene_completion.api_documents import complete_success_responses
+    from tests.test_workflow import parameter
+    lines=['### 成功响应 201','| 字段 | 类型 | 是否必填 | 默认值 |','| count | integer | 否 | 0 |']
+    doc={'source_id':'s','name':'sr.md','channel':'normal','lines':[{'number':n,'text':t} for n,t in enumerate(lines,1)]}
+    p=parameter('count','response',None,None)
+    out=complete_success_responses({'apis':[{'id':'API-1','parameters':[p]}]},{'SR':[doc],'interface':{'id':'API-1'}})
+    p=out['apis'][0]['parameters'][0]
+    assert p['data_type']=='integer' and p['required'] is False and p['default']==0
+
+
+def test_api_binding_uses_explicit_identifier_or_pure_method_path_not_nearby_names():
+    from scene_completion.interaction_enrichment import resolved_api_id
+    from tests.test_workflow import exchange
+    i=exchange(api=None);ctx={'api-parameters':{'apis':[{'id':'API-M-IF2','name':'查询','address':'/items'}]},'api-map':{'services':[{'name':'svc','interfaces':[{'id':'API-M-IF2','name':'查询','method':'GET','address':'/items'}]}]}}
+    i['operation']['name']='调用 API-M-IF2 查询';assert resolved_api_id(i,ctx)=='API-M-IF2'
+    i['operation']['name']='GET /items<br/>查询';assert resolved_api_id(i,ctx)=='API-M-IF2'
+    i['operation']['name']='POST /items';assert resolved_api_id(i,ctx) is None
+    i['api_id']=' API–M–IF2 ';assert resolved_api_id(i,ctx)=='API-M-IF2'

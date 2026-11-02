@@ -15,8 +15,8 @@ def export_task(root,task,payload,artifact_name=None):
     elif task=='object-operations':headers=['名称','支持的操作'];rows=[[x['name'],'、'.join(o['name'] for o in x['supported_operations'])] for x in payload['objects']]
     elif task=='api-map':headers=['服务名称','对应接口列表'];rows=[[s['name'],'；'.join(' '.join(filter(None,[i['id'],i['method'],i['address']])) for i in s['interfaces'])] for s in payload['services']]
     elif task=='api-parameters':
-        headers=['API名称','接口地址','数据方向','参数位置','参数','数据类型','可选/必填','默认值','约束条件']
-        rows=[[a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for p in a['parameters']]
+        headers=['API名称','接口地址','数据方向','响应分支','参数位置','参数','数据类型','可选/必填','默认值','约束条件']
+        rows=[[a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',branch,p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for branch,p in ([('成功响应' if p['location']=='response' else '请求',p) for p in a['parameters']]+[('失败响应 '+(v.get('status_code') or '状态码未声明'),p) for v in a.get('responses',[]) if v['kind']=='error' for p in v['parameters']])]
     elif task=='business-entities':
         headers=['业务实体','属性','适用操作','数据类型','必填','约束','来源']
         rows=[[e['name'],a['name'],a['operation'],show(a['data_type']),show(a['required']),

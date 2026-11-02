@@ -115,3 +115,24 @@ def test_inverse_size_modes_are_independent_and_do_not_convert_format_or_quantit
     known=deepcopy(file);known['id']='numeric';known['failure_rule']['value']=10
     p['input']['right']=[known]
     assert compare_in_batches(p,c,tmp_path)['decisions'][0]['status']=='unmatched'
+
+
+def test_business_placeholder_is_completed_by_uniquely_identified_api_field():
+    x=inputs_for(parameter('name','business',None,None));i=x['sr-ssd']['interactions'][0]
+    x['api-parameters']['apis'][0]['parameters']=[parameter('name','body',True,'string')]
+    rows=parameters_for(i,x)
+    assert len(rows)==1 and (rows[0]['location'],rows[0]['data_type'],rows[0]['required'])==('body','string',True)
+    x['api-parameters']['apis'][0]['parameters'].append(parameter('name','query',False,'integer'))
+    rows=parameters_for(i,x)
+    assert {p['location'] for p in rows}=={'business','body','query'}
+
+
+def test_return_inherits_parent_api_and_only_success_output_constraints():
+    x=inputs_for(parameter('name','business',None,None));request=deepcopy(x['sr-ssd']['interactions'][0]);request['data']['sequence']=[]
+    i=x['sr-ssd']['interactions'][0];i.update(id='reply',direction='return',parent_id=request['id'],api_id=None)
+    i['sender'],i['receiver']=i['receiver'],i['sender']
+    x['sr-ssd']['interactions'].insert(0,request)
+    api=x['api-parameters']['apis'][0];api['parameters']=[parameter('requestOnly','body',True),parameter('name','response',True,'string')]
+    api['responses']=[{'kind':'error','status_code':'400','parameters':[parameter('errorOnly','response',True,'integer')]}]
+    rows=parameters_for(i,x)
+    assert [(p['name'],p['data_type'],p['required']) for p in rows]==[('name','string',True)]

@@ -698,6 +698,9 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
             return
         index=payload(read_json(ex.root/record['output_file']))['apis'];keys=[]
         mapped=payload(read_json(ex.root/ex.scheduler.state['tasks']['api-map']['output_file']))
+        from .api_documents import response_contract_documents
+        response_docs=response_contract_documents(sr)
+        full_index={a['id']:a for a in index_interfaces({'SR':sr+imported_api_docs,'api-map':mapped})['apis']} if response_docs else {}
         interfaces={i['id']:i for s in mapped['services'] for i in s['interfaces']}
         for n,entry in enumerate(index):
             key='api-parameters-part-'+fingerprint(entry['id'])[:12]
@@ -713,7 +716,12 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
             source_text='\n'.join(r['text'] for doc in docs for r in doc['lines'])
             if re.search(r'(发送|发起|调用).{0,40}\b(GET|POST|PUT|PATCH|DELETE)\s+/',source_text) and not re.search(r'请求参数|请求头|路径参数|查询参数|数据类型|参数名称|必填|可选|枚举',source_text):
                 interface['source_role']='invocation_only'
-            ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,interface=interface:{'SR':docs,'interface':interface})
+            error_docs=[]
+            for doc in response_docs:
+                spans=full_index.get(entry['id'],{}).get('source_ranges',[])
+                lines=[r for r in doc['lines'] if any(span['source_id']==doc['source_id'] and span['start']<=r['number']<=span['end'] for span in spans)]
+                if lines:error_docs.append({**doc,'lines':lines})
+            ex.add(key,'api-parameters',('api-index',),build=lambda d,docs=docs,interface=interface,error_docs=error_docs:{'SR':docs,'interface':interface,**({'response-documents':error_docs} if error_docs else {})})
             ex.scheduler.tasks[key].display_label='接口参数 · '+entry['name']
             keys.append(key)
         def merge(d):
