@@ -56,7 +56,7 @@ test("result view loads one case on demand and shows all three evidence channels
     const path = String(url);
     requests.push(path);
     let data: any;
-    if (path.endsWith("/results"))
+    if (path.split("?")[0].endsWith("/results"))
       data = {
         complete: true,
         cases: [
@@ -150,6 +150,8 @@ test("result view loads one case on demand and shows all three evidence channels
   fireEvent.change(screen.getByLabelText("结果用例"), {
     target: { value: "D" },
   });
+  expect(requests.some((x) => x.endsWith("/results/D"))).toBe(false);
+  fireEvent.click(screen.getByText("交互对照"));
   await waitFor(() =>
     expect(requests.some((x) => x.endsWith("/results/D"))).toBe(true),
   );
@@ -184,7 +186,7 @@ test("BDD is selectable with SVG preview and editable PlantUML download", async 
       ({
         ok: true,
         json: async () =>
-          String(url).endsWith("/results")
+          String(url).split("?")[0].endsWith("/results")
             ? {
                 cases: [{ id: "C", name: "查询" }],
                 artifacts: [

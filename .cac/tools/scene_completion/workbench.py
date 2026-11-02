@@ -257,8 +257,14 @@ class Workbench:
         review=pending_view(p,queue='all',limit=1)
         unresolved=review['counts'].get('unresolved',0)+review['counts'].get('needs_info',0)
         return {'project':rid,'name':project['name'],'job':job,'complete':bool(manifest.get('complete')),'execution_complete':bool(manifest.get('execution_complete',manifest.get('complete'))),'review_complete':not unresolved,'unresolved_questions':unresolved,'review_only':self.review_only,'completed':sum(v['status']=='passed' for v in active.values()),'total':len(nodes),'event_cursor':EventStore(r).latest_id(),'pending_nodes':[{'id':k,'stage':v['stage'],'status':v['status'],'failure':v.get('failure'),'expected_files':nodes[k].get('expected_files',[])} for k,v in active.items() if v['status']!='passed']}
-    def snapshot(self,rid):
+    def snapshot(self,rid,compact=False):
         p=self.run_dir(rid);run=p/'run'
+        if compact:
+            from .worker_runtime import read_job
+            return {'project':read_json(p/'project.json'),'job':read_job(p),
+              'manifest':read_json(run/'run_manifest.json') if (run/'run_manifest.json').exists() else None,
+              'tasks':{'tasks':{},'events':[]},'reviews':[],'artifacts':[],'config':{},
+              'review_only':self.review_only,'compact':True}
         from .reviews import Reviews
         reviews=[]
         for f in (run/'reviews').glob('*.json'):
@@ -272,7 +278,7 @@ class Workbench:
             preview_stem=record['stage'] if ':' in key else key
             prefixes['run/reviews/previews/'+fingerprint(key)+'/'+preview_stem]=key
         for artifact in artifacts:
-            artifact['task_key']=next((key for prefix,key in prefixes.items() if artifact['path'].startswith(prefix+'.')),None)
+            artifact['task_key']=prefixes.get(artifact['path'].rsplit('.',1)[0])
         artifacts=[a for a in artifacts if '/reviews/previews/' not in a['path'] or records.get(a.get('task_key'),{}).get('status') in {'passed','awaiting_review'}]
         for name in ('missing_report.json','missing_report.md'):
             if (run/name).exists():artifacts.append({'path':'run/'+name,'name':name,'bytes':(run/name).stat().st_size})
@@ -431,7 +437,7 @@ def create_app(root=None,client_factory=None,env_file=None):
     @app.get('/api/registry')
     def definitions():return registry()
     @app.get('/api/projects/{rid}')
-    def snapshot(rid:str):return service.snapshot(rid)
+    def snapshot(rid:str,compact:bool=False):return service.snapshot(rid,compact=compact)
     @app.get('/api/projects/{rid}/registry')
     def project_definitions(rid:str,version:str|None=None):
         from .project_review import registry_view
@@ -500,9 +506,9 @@ def create_app(root=None,client_factory=None,env_file=None):
         if not matrix:raise ValueError('本用例尚未形成模式适用性产物')
         with service.lock:return review_candidate(p,body,matrix)
     @app.get('/api/projects/{rid}/results')
-    def results_index(rid:str):
+    def results_index(rid:str,include_artifacts:bool=True):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).index()
+        return ResultView(service.run_dir(rid)).index(include_artifacts=include_artifacts)
     @app.get('/api/projects/{rid}/results/metrics')
     def results_metrics(rid:str,test_set:str='expanded'):
         from .result_views import ResultView

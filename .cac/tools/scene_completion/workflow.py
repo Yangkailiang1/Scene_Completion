@@ -321,6 +321,9 @@ class Execution:
         if task=='api-map':
             from .http_interfaces import normalize_mapping
             value=normalize_mapping(value)
+        if task=='api-parameters':
+            from .api_documents import complete_success_responses
+            value=complete_success_responses(value,inputs)
         attempt=self.root/'attempts'/batch/(str(record.get('rounds',0))+'.json')
         write_json(attempt,{'task':task,'protocol':PROTOCOL,'payload':value,'execution':proof})
         try:

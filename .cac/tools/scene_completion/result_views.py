@@ -62,8 +62,8 @@ class ResultView:
                   'business-entities':7,'business-crud':8,'business-attribute-map':9,'data-dependencies':10,'business-dependencies':11}
         return sorted(out,key=lambda x:(priority.get(x['stage'],10),x['case']!='shared',x['case'],x['label']))
 
-    def index(self):
-        return {'supplement_tests':self.manifest.get('supplement_tests',any(':test-expanded' in k for k in self.state)),'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog(),
+    def index(self,include_artifacts=True):
+        return {'supplement_tests':self.manifest.get('supplement_tests',any(':test-expanded' in k for k in self.state)),'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'cases':self.cases(),'artifacts':self.catalog() if include_artifacts else [],
                 'global_ready':bool(self.payload('global-scenario-compare')),
                 'registry_hash':self.manifest.get('registry_hash'),'recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用'}
 

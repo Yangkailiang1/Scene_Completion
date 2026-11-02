@@ -134,6 +134,9 @@ class DeepAgentsClient(SemanticClient):
                     rejection=self.root/'agent_rejections'/(fingerprint([packet['batch_id'],task_key,attempt,payload,'model-format'])+'.json')
                     write_json(rejection,{'task':packet['task'],'node_key':task_key,'input_hash':fingerprint(original_packet['input']),'payload':payload,'candidate_format':'model','error':str(e)})
                     raise TaskRejected({'error':str(e),'phase':'model_contract','rejected_output':str(rejection.relative_to(self.root))}) from e
+            if packet['task']=='api-parameters':
+                from .api_documents import complete_success_responses
+                payload=complete_success_responses(payload,original_packet['input'])
             if packet['task']=='api-map':
                 from .http_interfaces import normalize_mapping
                 payload=normalize_mapping(payload)

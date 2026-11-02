@@ -9,6 +9,21 @@ class Conversations:
         with self.events.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL, at REAL NOT NULL, revision INTEGER NOT NULL, applied INTEGER NOT NULL DEFAULT 0, detail TEXT NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS checkpoints (task TEXT PRIMARY KEY, identity TEXT NOT NULL, state TEXT NOT NULL)')
+    def overview(self):
+        """One read for an entire graph; avoid two SQLite connections per node."""
+        result={}
+        with self.events.connect() as db:
+            rows=db.execute('SELECT task,kind,text,revision,detail,id,at,applied FROM messages ORDER BY id').fetchall()
+        answered={};questions={}
+        for task,kind,text,revision,detail,mid,at,applied in rows:
+            data=json.loads(detail);item=result.setdefault(task,{'revision':0,'question':None})
+            if kind in {'guidance','answer','context_resolution'}:item['revision']=max(item['revision'],revision)
+            if kind=='question':questions.setdefault(task,[]).append({'id':mid,'kind':kind,'text':text,'at':at,'revision':revision,'applied':bool(applied),'detail':data})
+            if kind in {'answer','context_resolution','question_deferred'}:answered.setdefault(task,set()).add(data.get('question_id'))
+        for task,item in result.items():
+            item['question']=next((q for q in reversed(questions.get(task,[])) if q['detail'].get('question_id') not in answered.get(task,set())),None)
+        return result
+
     def revision(self,task):
         with self.events.connect() as db:return db.execute("SELECT COALESCE(MAX(revision),0) FROM messages WHERE task=? AND kind IN ('guidance','answer','context_resolution')",(task,)).fetchone()[0]
     def list(self,task):

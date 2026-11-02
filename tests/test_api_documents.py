@@ -55,3 +55,19 @@ def test_invocation_values_are_not_global_interface_defaults_or_enum():
     value={'apis':[{'id':'search','name':'search','address':'/search','parameters':[p],'source_refs':[ref]}]}
     with pytest.raises(ValueError,match='默认值'):validate_result('api-parameters',value,inputs)
     p['default']=None;validate_result('api-parameters',value,inputs)
+
+
+def test_bold_interface_and_peer_response_sections_remain_in_parameter_context():
+    lines=['**API-1**','GET /items','## 请求参数','| 参数 | 类型 |','| page | integer |','## 成功响应','| 字段 | 类型 | 是否必填 |','| items | array | 是 |','**API-2**','GET /next']
+    ref={'source_id':'s','line_start':1,'line_end':1,'quote':lines[0]}
+    doc={'source_id':'s','name':'sr.md','channel':'normal','lines':[{'number':i,'text':t} for i,t in enumerate(lines,1)]}
+    iface={'id':'API-1','name':'List','method':'GET','address':'/items','source_refs':[ref]}
+    result=index_interfaces({'SR':[doc],'api-map':{'services':[{'name':'svc','interfaces':[iface]}]}})
+    spans=result['apis'][0]['source_ranges']
+    assert any(s['start']<=8<=s['end'] for s in spans)
+    assert all(s['end']<9 for s in spans)
+    from scene_completion.api_documents import complete_success_responses
+    output={'apis':[{'id':'API-1','parameters':[]}]}
+    filled=complete_success_responses(output,{'SR':[doc],'interface':iface})
+    assert [(p['name'],p['location'],p['data_type'],p['required']) for p in filled['apis'][0]['parameters']]==[('items','response','array',True)]
+    assert output['apis'][0]['parameters']==[]

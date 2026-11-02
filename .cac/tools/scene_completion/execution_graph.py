@@ -49,6 +49,8 @@ def graph_snapshot(root):
         phases=EventStore(root).latest_phases()
     from .node_conversations import Conversations
     conversations=Conversations(root)
+    conversation_state=conversations.overview()
+    artifact_index={}
     nodes=[];edges=[]
     declared=definition['nodes'] or [{'id':k,'case':r.get('case','shared'),'stage':r.get('stage',k),'role':role_for(r.get('stage',k)),'deps':[],'expected_files':expected_files(k,r.get('case','shared'),r.get('stage',k))} for k,r in state.items()]
     for node in declared:
@@ -71,16 +73,22 @@ def graph_snapshot(root):
         started=record.get('started_at');ended=record.get('finished_at')
         actual=[]
         folder=artifact_folder(root,key,node['case']);stem=(key if node['case']=='shared' else key[len(node['case'])+1:]).replace(':','--')
-        for f in folder.glob(stem+'.*'):
+        if folder not in artifact_index:
+            index={}
+            if folder.exists():
+                for f in folder.iterdir():
+                    if f.is_file():index.setdefault(f.name.rsplit('.',1)[0],[]).append(f)
+            artifact_index[folder]=index
+        for f in artifact_index[folder].get(stem,[]):
             if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'saved'})
         if status=='awaiting_review':
             from .storage import fingerprint
             preview=root/'reviews/previews'/fingerprint(key)
             for f in preview.glob('*'):
                 if f.is_file():actual.append({'name':f.name,'path':'run/'+str(f.relative_to(root)).replace('\\','/'),'status':'awaiting_review'})
-        question=conversations.pending(key)
+        question=conversation_state.get(key,{}).get('question')
         provenance=record.get('provenance','原流程生成')
-        nodes.append({**node,'planned':False,'input_summary':INPUTS.get(key,INPUTS.get(node['stage'],'依赖上游已验证产物')),'artifacts':actual,'question':question,'guidance_revision':conversations.revision(key),
+        nodes.append({**node,'planned':False,'input_summary':INPUTS.get(key,INPUTS.get(node['stage'],'依赖上游已验证产物')),'artifacts':actual,'question':question,'guidance_revision':conversation_state.get(key,{}).get('revision',0),
           'provenance':provenance,'import_sources':record.get('import_sources',[]),'recovery_calls':record.get('recovery_calls',0),
           'retry_at':event.get('data',{}).get('retry_at') if event else None,'retry_count':event.get('data',{}).get('retry_count') if event else None,'label':node.get('label') or LABELS.get(node['stage'],node['stage']),'status':status,'phase':phase or 'pending',
           'blocked_by':blocked,'failure':record.get('failure') if status not in {'passed','awaiting_review','disabled'} else None,'attempt':record.get('rounds',0)+1,

@@ -191,7 +191,11 @@ export function ResultsView({
     [zoom, setZoom] = useState(1);
   useEffect(() => {
     let live = true;
-    api(projectUrl(project, "results"))
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    setIndex(null);
+    setError("");
+    api(projectUrl(project, "results?include_artifacts=false"), { signal: controller.signal })
       .then((r) => {
         if (live) {
           setIndex(r);
@@ -202,13 +206,16 @@ export function ResultsView({
           );
         }
       })
-      .catch((e) => live && setError(e.message));
+      .catch((e) => live && setError(e.name === "AbortError" ? "结果目录读取超时，请点击刷新重试。" : e.message))
+      .finally(() => clearTimeout(timeout));
     return () => {
       live = false;
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, [project, reload, liveVersion]);
   useEffect(() => {
-    if (!cid) return;
+    if (!cid || mode !== "steps") return;
     let live = true;
     setDetail(null);
     api(
@@ -240,7 +247,15 @@ export function ResultsView({
     return () => {
       live = false;
     };
-  }, [project, cid, reload, testSet, liveVersion]);
+  }, [project, cid, reload, testSet, liveVersion, mode]);
+  useEffect(() => {
+    if (!["diagrams", "global"].includes(mode)) return;
+    const controller = new AbortController();
+    api(projectUrl(project, "results?include_artifacts=true"), { signal: controller.signal })
+      .then((r) => setIndex((old: any) => old ? { ...old, artifacts: r.artifacts } : r))
+      .catch((e) => { if (e.name !== "AbortError") setError(e.message); });
+    return () => controller.abort();
+  }, [project, mode, reload, liveVersion]);
   const catalog =
     index?.artifacts.filter(
       (a: any) => a.case === "shared" || a.case === cid,
@@ -438,7 +453,7 @@ export function ResultsView({
       ) : mode === "tests" ? (
         <TestSources project={project} />
       ) : !index ? (
-        <p className="management-loading">正在读取结果目录…</p>
+        <p className="management-loading">{error ? "目录未能载入，请点击上方刷新重试。" : "正在读取结果目录…"}</p>
       ) : !index.cases.length ? (
         <p className="management-loading">用例对应完成后显示结果。</p>
       ) : mode === "metrics" ? (

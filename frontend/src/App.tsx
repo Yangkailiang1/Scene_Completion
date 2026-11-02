@@ -120,6 +120,8 @@ export default function App() {
     dirty = useRef(false),
     refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     buffer = useRef<ExecutionEvent[]>([]);
+  const managementRef = useRef(management), refreshBusy = useRef(new Set<string>());
+  managementRef.current = management;
   currentRef.current = current;
   selectedRef.current = selected;
   const project = current ? projects.find((p) => p.id === current) : null,
@@ -142,15 +144,22 @@ export default function App() {
   }
   async function refresh(id = currentRef.current) {
     if (!id) return;
-    const [s, g] = await Promise.all([
-      api<Snapshot>(projectUrl(id)),
-      api<Graph>(projectUrl(id, "graph")),
-    ]);
-    if (currentRef.current !== id) return;
-    jobStatusRef.current = s.job.status;
-    setSnapshot(s);
-    setGraph(g);
+    if (refreshBusy.current.has(id)) return;
+    refreshBusy.current.add(id);
+    try {
+      const compact = managementRef.current !== null;
+      const s = await api<Snapshot & { compact?: boolean }>(projectUrl(id) + (compact ? "?compact=true" : ""));
+      if (currentRef.current !== id) return;
+      jobStatusRef.current = s.job.status;
+      setSnapshot((old) => s.compact && old ? { ...old, project: s.project, job: s.job, manifest: s.manifest } : s);
+      if (!compact) {
+        const g = await api<Graph>(projectUrl(id, "graph"));
+        if (currentRef.current === id) setGraph(g);
+      }
+    } finally { refreshBusy.current.delete(id); }
   }
+  useEffect(() => { if (current) refresh(current).catch(error); }, [management]);
+
   useEffect(() => {
     loadProjects()
       .then((list) => {

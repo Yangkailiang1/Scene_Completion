@@ -120,3 +120,38 @@ def test_project_totals_do_not_mix_original_global_truth_with_expanded_or_busine
         assert other['metrics']['missing_omission']['denominator']==5
         assert other['metrics']['missing_omission']['included_granularities']==['interaction']
         assert other['metrics']['missing_omission']['partial'] and not other['complete']
+
+
+def test_result_directory_can_load_without_scanning_or_generating_artifacts(tmp_path,monkeypatch):
+    fixture(tmp_path)
+    def forbidden(self):raise AssertionError('initial directory must not scan artifacts')
+    monkeypatch.setattr(ResultView,'catalog',forbidden)
+    result=ResultView(tmp_path).index(include_artifacts=False)
+    assert result['cases'][0]['id']=='C' and result['artifacts']==[]
+
+
+def test_compact_snapshot_does_not_scan_review_payloads(tmp_path,monkeypatch):
+    from scene_completion.workbench import Workbench
+    from scene_completion import project_review
+    service=Workbench(tmp_path/'projects')
+    rid=service.create({'name':'large','sources':{'RR':[{'name':'r.md','content':'RR'}],'SR':[{'name':'s.md','content':'SR'}]}})['id']
+    def forbidden(*args,**kwargs):raise AssertionError('compact refresh must not inspect review payloads')
+    monkeypatch.setattr(project_review,'pending_view',forbidden)
+    try:
+        result=service.snapshot(rid,compact=True)
+        assert result['compact'] and result['artifacts']==[] and result['tasks']['tasks']=={}
+    finally:service.pool.shutdown(wait=False)
+
+
+def test_bulk_conversation_graph_view_preserves_questions_and_revisions(tmp_path):
+    from scene_completion.node_conversations import Conversations
+    c=Conversations(tmp_path)
+    c.append('a','guidance','first')
+    q=c.question('a','which rule?','source','decide')
+    c.question('b','which field?','source','decide')
+    c.answer('a',q['detail']['question_id'],'confirmed')
+    c.question('a','next rule?','source','decide')
+    overview=c.overview()
+    for key in ('a','b','unknown'):
+        assert overview.get(key,{}).get('question')==c.pending(key)
+        assert overview.get(key,{}).get('revision',0)==c.revision(key)
