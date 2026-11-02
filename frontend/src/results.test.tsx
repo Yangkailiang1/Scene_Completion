@@ -141,7 +141,9 @@ test("result view loads one case on demand and shows all three evidence channels
     screen.getByRole("columnheader", { name: /独立测试真值 GT/ }),
   ).toBeTruthy();
   expect(screen.getByText("文档未覆盖")).toBeTruthy();
-  expect(requests.some((x) => x.endsWith("/results/D"))).toBe(false);
+  expect(requests.some((x) => x.split("?")[0].endsWith("/results/D"))).toBe(
+    false,
+  );
   fireEvent.click(screen.getByText("图表总览"));
   await screen.findByRole("img", { name: "系统组成" });
   expect(
@@ -150,10 +152,24 @@ test("result view loads one case on demand and shows all three evidence channels
   fireEvent.change(screen.getByLabelText("结果用例"), {
     target: { value: "D" },
   });
-  expect(requests.some((x) => x.endsWith("/results/D"))).toBe(false);
+  expect(requests.some((x) => x.split("?")[0].endsWith("/results/D"))).toBe(
+    false,
+  );
   fireEvent.click(screen.getByText("交互对照"));
   await waitFor(() =>
-    expect(requests.some((x) => x.endsWith("/results/D"))).toBe(true),
+    expect(
+      requests.some(
+        (x) => x.split("?")[0].endsWith("/results/D") && x.includes("scope=SR"),
+      ),
+    ).toBe(true),
+  );
+  fireEvent.change(screen.getByLabelText("指标接口层级"), {
+    target: { value: "RR" },
+  });
+  await waitFor(() =>
+    expect(
+      requests.some((x) => x.includes("/results/D?") && x.includes("scope=RR")),
+    ).toBe(true),
   );
 });
 

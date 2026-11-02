@@ -52,11 +52,25 @@ def freeze(project,test_set=None,case_id=None):
  if test_set=='business':
   from .business_truth import snapshot
   for c in cases:outputs[c['id']+':exception-evaluation']=snapshot(project,c['id'])['evaluation']
+ if view.evaluation_scope!='all':
+  from .evaluation_scope import concern_view,interaction_layers,selected
+  for c in cases:
+   cid=c['id'];raw=outputs.get(cid+':exception-evaluation',{});co=outputs.get(cid+':concern-evaluation',{})
+   layers=interaction_layers(view.scope_inputs(cid))
+   outputs[cid+':exception-evaluation']=view.scoped(cid,raw,co)
+   if raw.get('original_evaluation'):
+    outputs[cid+':exception-evaluation']['original_evaluation']=view.scoped(cid,raw['original_evaluation'],co.get('original_evaluation',co))
+   outputs[cid+':concern-evaluation']=concern_view(co,layers,view.evaluation_scope)
+   rec=deepcopy(outputs.get(cid+':gap-recommend',{}))
+   if rec.get('enabled'):
+    rec['Q']=[r for r in rec.get('Q',[]) if selected(r,layers,view.evaluation_scope)]
+    rec['ranked']=[r for r in rec.get('ranked',[]) if selected(r.get('scenario',{}),layers,view.evaluation_scope)]
+    outputs[cid+':gap-recommend']=rec
  registry=load(Path(project)/'run/registry_override.json',{})
  pointer=load(Path(project)/'pattern-settings.json',{})
  settings=load(Path(project)/'pattern-versions'/(str(pointer.get('version'))+'.json'),{})
  pinned=load(Path(project)/'run/registry_used'/(str(view.manifest.get('registry_hash'))+'.json'),{})
- versions={'diagnostic':VERSION,'execution':summary.get('execution_id'),'test_set':test_set,'test_source':summary.get('test_source_version'),
+ versions={'evaluation_scope':view.evaluation_scope,'diagnostic':VERSION,'execution':summary.get('execution_id'),'test_set':test_set,'test_source':summary.get('test_source_version'),
   'matching':view.manifest.get('matching_version'),'rules':view.manifest.get('ruleset_version'),'registry':view.manifest.get('registry_hash'),
   'current_registry':registry.get('hash'),'pattern':pointer.get('version'),'source_hashes':source_hashes,
   'output_hashes':{k:fingerprint(v) for k,v in outputs.items()},'business':summary.get('business_versions'),'human_review':fingerprint(load(Path(project)/'recommendation-history.json',{}))}

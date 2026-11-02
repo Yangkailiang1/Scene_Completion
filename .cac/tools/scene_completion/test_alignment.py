@@ -8,6 +8,8 @@ def register():
     case=obj(id=S,name=S,association=STR,source_refs=REFS)
     test=obj(id=S,case_id=S,name=S,scenario_type=enum('exception','normal','optional','pending'),declared_type=STR,preconditions=STR,trigger=STR,expected_result=STR,test_data=STR,test_steps=STR,source_refs=REFS)
     test['required']=[k for k in test['required'] if k not in {'test_data','test_steps'}]
+    test['properties'].update(source_location={'type':'object'},classification_reason=STR)
+    case['properties']['source_case_id']=STR
     SCHEMAS['test-inventory']=obj(cases=arr(case),tests=arr(test),pending=arr(obj(reason=S,source_refs=REFS)))
     SCHEMAS['test-case-align']=obj(matches=arr(obj(test_case_id=S,case_group_id={'type':['string','null']},status=enum('confirmed','pending','unmatched'),basis=S,source_refs=REFS)))
     INPUT_KEYS.update({'test-inventory':{'test-documents'},'test-case-align':{'test-inventory','rr-cases','sr-cases','case-groups'}})
@@ -16,8 +18,12 @@ def register():
 
 def known_catalogue(documents):
     from .test_sources import records
-    cases={};tests=[]
+    cases={};tests=[];pending=[]
     for d in documents:
+        from .recovered_tests import catalogue
+        recovered=catalogue(d)
+        if recovered is not None:
+            cases.update({c['id']:c for c in recovered['cases']});tests.extend(recovered['tests']);pending.extend(recovered['pending']);continue
         rows=records([d])
         if not rows and any(r['text'].strip() for r in d['lines']):return None
         for r in rows:
@@ -25,7 +31,7 @@ def known_catalogue(documents):
             refs=[{'source_id':d['source_id'],'line_start':row['number'],'line_end':row['number'],'quote':row['text']} for row in d['lines'] if row['number'] in r.get('context_rows',[])]
             if cid not in cases:cases[cid]={'id':cid,'name':r.get('case_name') or association or d['name'],'association':association,'source_refs':refs or r['source_refs']}
             tests.append({'id':r['id'],'case_id':cid,'name':r['测试名称'],'scenario_type':r['scenario_type'],'declared_type':r.get('declared_type',r['类型']),'preconditions':r['前置条件'],'trigger':r['触发条件'],'expected_result':r['预期结果'],'test_data':r['测试数据'],'test_steps':r['测试步骤'],'source_refs':r['source_refs']})
-    return {'cases':list(cases.values()),'tests':tests,'pending':[]}
+    return {'cases':list(cases.values()),'tests':tests,'pending':pending}
 
 
 def exact_alignment(inputs):
@@ -52,6 +58,8 @@ def as_records(catalogue,documents):
     for t in catalogue['tests']:
         r={k:'' for k in HEADERS};first=t['source_refs'][0]
         r.update({'测试ID':t['id'],'测试名称':t['name'],'类型':{'exception':'异常','normal':'正常','optional':'可选','pending':'待确认'}[t['scenario_type']],'前置条件':t['preconditions'],'触发条件':t['trigger'],'预期结果':t['expected_result'],'测试数据':t.get('test_data',''),'测试步骤':t.get('test_steps',''),'关联需求':cases[t['case_id']]['association'],'来源方式':'独立测试整理'})
+        r.update(**{k:t[k] for k in ('source_location','classification_reason') if k in t})
+        if t.get('source_location',{}).get('format')=='json':r['source_format']='recovered_usecase_json'
         r.update(id=t['id'],scenario_type=t['scenario_type'],source_id=first['source_id'],name=next((d['name'] for d in documents if d['source_id']==first['source_id']),'独立测试'),row=first['line_start'],source_refs=t['source_refs'])
         out.append(r)
     return out
@@ -78,7 +86,10 @@ def validate_test_task(task,value,inputs):
             if t['scenario_type']=='exception':
                 import re
                 text=' '.join(r['quote'] for r in t['source_refs'])
-                if not re.search(r'异常|失败|错误|非法|超时|不可用|不存在|拒绝|越权|负数|超出|缺失|HTTP\s*[45]\d\d|exception|fail|invalid|error|unauthori',text,re.I):raise ValueError('未明示异常类型或失败条件的测试须保持pending，不自行补为异常')
+                from .test_sources import records
+                original=next((r for r in records(inputs['test-documents']) if r['id']==t['id']),{})
+                json_failure=original.get('source_format')=='recovered_usecase_json' and original['scenario_type']=='exception'
+                if not json_failure and not re.search(r'异常|失败|错误|非法|超时|不可用|不存在|拒绝|越权|负数|超出|缺失|HTTP\s*[45]\d\d|exception|fail|invalid|error|unauthori',text,re.I):raise ValueError('未明示异常类型或失败条件的测试须保持pending，不自行补为异常')
         for c in value['cases']:
             if not c['source_refs']:raise ValueError('测试用例必须有原文依据')
         if len(cases)!=len(value['cases']):raise ValueError('测试用例ID重复')

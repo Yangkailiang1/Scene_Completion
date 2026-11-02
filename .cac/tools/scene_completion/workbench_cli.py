@@ -32,7 +32,8 @@ def capabilities():
     command_actions=next(a for a in parser()._actions if isinstance(a,argparse._SubParsersAction))
     parameters={name:[{'flags':a.option_strings or [a.dest],'required':a.required,'type':getattr(a.type,'__name__','boolean' if isinstance(a,(argparse._StoreTrueAction,argparse._StoreFalseAction)) else 'string'),'choices':list(a.choices) if a.choices is not None else None,'help':a.help} for a in command._actions if a.dest!='help'] for name,command in command_actions.choices.items()}
     return {'version':'business-review-v1','format':'JSON/JSONL','command_parameters':parameters,'commands':{
-      'projects/create':'项目列表、新建项目和Markdown/XLSX输入；共享网页数据目录',
+      'projects/create':'项目列表、新建项目；RR/SR为Markdown，测试支持Markdown/JSON/XLSX；--evaluation-scope SR|RR|all（默认SR）',
+      'metrics':'--project ID [--case ID] [--test-set original|expanded|business] [--scope SR|RR|all]；复用冻结匹配按实际接口归属计数，不调用模型',
       'accounts/save-account':'每Key模型允许列表；expected_revision校验、环境变量引用、隐藏输入及--dry-run',
       'configure':'模型、路由、思考、输出/上下文预算、吞吐监视及候选切换；--config-file及--dry-run',
       'pending':'--project ID [--item ID --file answer.json --dry-run]；问题与回答历史，保存不执行模型',
@@ -75,6 +76,8 @@ def parser():
     for role in ('rr','sr','test'):create.add_argument('--'+role,action='append',default=[])
     create.add_argument('--input-dir',help='自动分配明确命名的RR/SR/测试文件，其他文件进入同事产物导入')
     create.add_argument('--mode',choices=('manual','auto'),default='manual');create.add_argument('--case',action='append',default=[])
+    create.add_argument('--evaluation-scope',choices=('SR','RR','all'),default='SR',help='指标按实际接口定义归属筛选，不能由路径前缀猜测')
+    metrics=sub.add_parser('metrics');metrics.add_argument('--project',required=True);metrics.add_argument('--case');metrics.add_argument('--scope',choices=('SR','RR','all'),default='SR');metrics.add_argument('--test-set',choices=('original','expanded','business'),default='original')
     accounts=sub.add_parser('accounts')
     save=sub.add_parser('save-account');save.add_argument('--id');save.add_argument('--dry-run',action='store_true');save.add_argument('--name',required=True);save.add_argument('--base-url',required=True);save.add_argument('--model',action='append',required=True);group=save.add_mutually_exclusive_group();group.add_argument('--api-key-env');group.add_argument('--prompt-key',action='store_true',help='终端隐藏输入API Key；密钥不进入命令历史')
     for cmd in ('status','artifacts','run','events','configure','config','diagnose','repair-export','repair-submit','rerun','guide','answer'):
@@ -161,12 +164,16 @@ def main(argv=None,client=None):
                 if file.suffix.lower()=='.xlsx' and role=='test':row['content_base64']=base64.b64encode(file.read_bytes()).decode()
                 else:row['content']=file.read_text(encoding='utf-8-sig')
                 sources['test' if role=='test' else role.upper()].append(row)
-        value=api.call('projects',{'name':args.name,'sources':sources,'review_mode':args.mode,'case_ids':args.case})
+        value=api.call('projects',{'name':args.name,'sources':sources,'review_mode':args.mode,'case_ids':args.case,'evaluation_scope':args.evaluation_scope})
         if args.input_dir:api.call('projects/'+value['id']+'/input-scan',{'directory':str(Path(args.input_dir).resolve()),'watch':True})
         output(value);return 0
     rid=args.project
     if len(rid)!=32 or any(c not in '0123456789abcdef' for c in rid):raise ValueError('项目ID必须是工作台返回的32位ID')
     path='projects/'+rid
+    if args.command=='metrics':
+        query=urllib.parse.urlencode({'scope':args.scope,'test_set':args.test_set})
+        endpoint='results/'+urllib.parse.quote(args.case,safe='') if args.case else 'results/metrics'
+        output(api.call(path+'/'+endpoint+'?'+query));return 0
     if args.command=='repair-export':
         value=api.call(path+'/node-repair?'+urllib.parse.urlencode({'task_key':args.node}));target=Path(args.out);target.write_text(json.dumps(value,ensure_ascii=False,indent=2),encoding='utf-8');output({'saved_to':str(target),'task_key':args.node,'note':'包含本节点业务材料，保留本地，不提交Git'});return 0
     if args.command=='repair-submit':

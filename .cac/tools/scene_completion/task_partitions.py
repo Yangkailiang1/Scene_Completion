@@ -7,7 +7,7 @@ from .source_documents import evidence_refs
 def _documents_at(documents,refs):
     ranges={}
     for r in refs:ranges.setdefault(r['source_id'],set()).update(range(r['line_start'],r['line_end']+1))
-    return [{**d,'lines':[r for r in d['lines'] if r['number'] in ranges.get(d['source_id'],set())]} for d in documents if any(r['number'] in ranges.get(d['source_id'],set()) for r in d['lines'])]
+    return [{**d,'lines':[deepcopy(r) for r in d['lines'] if r['number'] in ranges.get(d['source_id'],set())]} for d in documents if any(r['number'] in ranges.get(d['source_id'],set()) for r in d['lines'])]
 
 def split_task(task,inputs):
     if task in {'existing-extract','test-ground-truth'} and inputs.get('identified-concerns'):
@@ -97,6 +97,10 @@ def split_task(task,inputs):
         return units
     if task in {'test-ground-truth','test-concerns'}:
         from .test_sources import exception_documents,records,records_for_inputs,is_test_header,ALIASES,HEADERS,cells
+        if 'test-inventory' not in inputs and any(d['name'].lower().endswith('.json') for d in inputs['test-documents']):
+            from .test_alignment import known_catalogue
+            known=known_catalogue(inputs['test-documents'])
+            if known is not None:inputs={**inputs,'test-inventory':known}
         if 'test-inventory' not in inputs:inputs={**inputs,'test-documents':exception_documents(inputs['test-documents'])}
         units=[]
         if 'test-inventory' in inputs:
@@ -104,6 +108,14 @@ def split_task(task,inputs):
                 if record['scenario_type']!='exception':continue
                 q=deepcopy(inputs);cat=q['test-inventory'];cat['tests']=[t for t in cat['tests'] if t['id']==record['id']];owners={t['case_id'] for t in cat['tests']};cat['cases']=[c for c in cat['cases'] if c['id'] in owners]
                 q['test-documents']=_documents_at(inputs['test-documents'],record['source_refs']+[r for c in cat['cases'] for r in c['source_refs']])
+                q.pop('tests',None)  # Remove duplicate full-source alias from the child.
+                # Minified JSON has one real source line. Give a branch its
+                # exact original substring rather than every neighbouring case.
+                for doc in q['test-documents']:
+                    if doc['name'].lower().endswith('.json') and len(doc['lines'])==1:
+                        refs=[r for r in record['source_refs'] if r['source_id']==doc['source_id'] and r['line_start']==r['line_end']==doc['lines'][0]['number']]
+                        if len(refs)==1 and refs[0]['quote'] in doc['lines'][0]['text']:doc['lines'][0]['text']=refs[0]['quote']
+
                 if 'identified-concerns' in q:
                     selected=q['identified-concerns'];selected['matches']=[m for m in selected['matches'] if record['id'] in m.get('source_unit_ids',[]) or not m.get('source_unit_ids') and any(a['source_id']==b['source_id'] and a['line_start']<=b['line_end'] and b['line_start']<=a['line_end'] for a in m['source_refs'] for b in record['source_refs'])]
                 units.append((record['source_id']+':'+record['id'],q))

@@ -343,10 +343,12 @@ function Rate({ value }: { value: any }) {
 export function MetricsPanel({
   project,
   testSet = "expanded",
+  scope = "all",
   onCase,
 }: {
   project: string;
   testSet?: string;
+  scope?: string;
   onCase: (id: string) => void;
 }) {
   const [data, setData] = useState<any>(null),
@@ -357,8 +359,7 @@ export function MetricsPanel({
     api(
       projectUrl(
         project,
-        "results/metrics" +
-          (testSet !== "expanded" ? "?test_set=" + testSet : ""),
+        `results/metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
       ),
     )
       .then((v) => live && setData(v))
@@ -366,12 +367,28 @@ export function MetricsPanel({
     return () => {
       live = false;
     };
-  }, [project, testSet]);
+  }, [project, testSet, scope]);
   if (error) return <p role="alert">{error}</p>;
   if (!data)
     return <p className="management-loading">正在读取已保存的评测计数…</p>;
   return (
     <section className="result-metrics">
+      <a
+        href={projectUrl(
+          project,
+          `results/metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
+        )}
+        download={`metrics-${scope}-${testSet}.json`}
+      >
+        下载当前范围指标 JSON
+      </a>
+      {data.evaluation_scope?.layer &&
+        data.evaluation_scope.layer !== "all" && (
+          <p className="management-notice">
+            当前仅统计 {data.evaluation_scope.layer}{" "}
+            接口范围，按实际接口归属筛选，不按URL前缀判断。其他层级和归属未确认项不混入分母；原始报告保留。
+          </p>
+        )}
       <p className="management-notice">
         {data.matching_version
           ? "两层计分：漏报率与生成有效率按关注点绑定计算；推荐采纳率与误报率按独立异常场景计算。"

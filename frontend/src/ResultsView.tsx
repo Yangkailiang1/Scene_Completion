@@ -179,6 +179,7 @@ export function ResultsView({
   const [comparisonLayer, setComparisonLayer] = useState("concerns");
   const [selectedConcern, setSelectedConcern] = useState("");
   const [testSet, setTestSet] = useState("expanded");
+  const [evaluationScope, setEvaluationScope] = useState("SR");
   const [index, setIndex] = useState<any>(null),
     [cid, setCase] = useState(""),
     [detail, setDetail] = useState<any>(null),
@@ -233,7 +234,7 @@ export function ResultsView({
         project,
         "results/" +
           encodeURIComponent(cid) +
-          (testSet !== "expanded" ? "?test_set=" + testSet : ""),
+          `?test_set=${encodeURIComponent(testSet)}&scope=${evaluationScope}`,
       ),
     )
       .then((r) => {
@@ -257,7 +258,7 @@ export function ResultsView({
     return () => {
       live = false;
     };
-  }, [project, cid, reload, testSet, liveVersion, mode]);
+  }, [project, cid, reload, testSet, evaluationScope, liveVersion, mode]);
   useEffect(() => {
     if (!["diagrams", "global"].includes(mode)) return;
     const controller = new AbortController();
@@ -442,6 +443,18 @@ export function ResultsView({
           指标诊断
         </button>
         <label className="results-truth-picker">
+          <span>指标范围</span>
+          <select
+            aria-label="指标接口层级"
+            value={evaluationScope}
+            onChange={(e) => setEvaluationScope(e.target.value)}
+          >
+            <option value="SR">仅SR接口及内部交互</option>
+            <option value="RR">仅RR接口</option>
+            <option value="all">RR＋SR全部</option>
+          </select>
+        </label>
+        <label className="results-truth-picker">
           <span>评测依据</span>
           <select
             aria-label="结果测试集"
@@ -488,6 +501,7 @@ export function ResultsView({
         />
       ) : mode === "project" ? (
         <ProjectMetrics
+          scope={evaluationScope}
           project={project}
           testSet={testSet}
           liveVersion={liveVersion}
@@ -506,6 +520,7 @@ export function ResultsView({
         <p className="management-loading">用例对应完成后显示结果。</p>
       ) : mode === "metrics" ? (
         <MetricsPanel
+          scope={evaluationScope}
           project={project}
           testSet={testSet}
           onCase={(id) => {
@@ -654,6 +669,16 @@ export function ResultsView({
                     {i.parent_id ? " · 展开自 " + i.parent_id : ""}
                   </span>
                 </div>
+                {evaluationScope !== "all" &&
+                  row?.metric_in_scope === false && (
+                    <p className="result-metric-note">
+                      此交互仍可查看；
+                      {row.interface_source_layer
+                        ? `实际接口属于 ${row.interface_source_layer}`
+                        : "接口归属待确认"}
+                      ，不进入当前 {evaluationScope} 指标分母。
+                    </p>
+                  )}
                 <div className="interaction-four">
                   <div>
                     <small>发送方</small>

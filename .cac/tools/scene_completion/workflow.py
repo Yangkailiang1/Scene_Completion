@@ -61,7 +61,7 @@ def code_version(task):
       'normal-rules':['normal_rules.py','task_partitions.py'],
       'existing-concerns':['concern_alignment.py','task_partitions.py','task_context.py'],
       'test-concerns':['scenario_types.py','concern_alignment.py','task_partitions.py','task_context.py'],
-      'test-inventory':['test_alignment.py','test_sources.py'], 'test-case-align':['test_alignment.py'],
+      'test-inventory':['test_alignment.py','test_sources.py','recovered_tests.py'], 'test-case-align':['test_alignment.py'],
       'concern-compare':['concern_alignment.py'], 'concern-evaluation':['concern_alignment.py'],
       'concern-match':['concern_alignment.py','normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'exception-generate':['concern_alignment.py','normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
@@ -124,6 +124,7 @@ class Execution:
         self.registry_snapshot=retire_obsolete_business_constraint(self.root.parent,install_sr_idempotency_policy(self.root.parent,read_json(self.root/'registry_override.json'))) if (self.root/'registry_override.json').exists() else default_registry()
         self.mode,self.client,self.responses_dir,self.mocks=mode,client,Path(responses_dir) if responses_dir else None,mocks
         self.config=config or getattr(client,'config',{}) or {};self.case_ids=case_ids or []
+        self.evaluation_scope='all'
         from .artifact_imports import snapshot
         self.import_snapshot=snapshot(self.root.parent)
         from .scenario_patterns import normalize_settings
@@ -678,6 +679,8 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
     ex.manifest.update(test_policy='exception-only-v1',test_source_hash=fingerprint(tests),test_supplement_enabled=bool(ex.config.get('supplement_tests',False)))
     if (ex.root.parent/'project.json').exists():
         project=read_json(ex.root.parent/'project.json');ex.manifest['test_source_version']=project.get('test_source_version',fingerprint(project['sources']['test'])[:20])
+        from .evaluation_scope import validate_scope
+        ex.evaluation_scope=validate_scope(project.get('evaluation_scope','all'));ex.manifest['evaluation_scope']=ex.evaluation_scope
     from .source_documents import discover_cases,case_projection,current_projection
     extraction_truth=extraction_truth or {};adjudications=adjudications or {}
     from .indexed_context import markdown_index,task_document_view,catalogue_context

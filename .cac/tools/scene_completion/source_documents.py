@@ -16,8 +16,11 @@ def read_documents(paths, channel):
         if p.suffix.lower()=='.xlsx' and channel=='test':
             from .test_sources import xlsx_documents
             docs.extend(xlsx_documents(p.read_bytes(),p.name,str(p.resolve())));continue
-        if p.suffix.lower() not in {'.md','.markdown'}: raise ValueError('scene-workflow-v1 sources must be Markdown')
+        if p.suffix.lower() not in ({'.md','.markdown','.json'} if channel=='test' else {'.md','.markdown'}): raise ValueError('需求来源必须为Markdown，测试来源支持Markdown、JSON或XLSX')
         text=p.read_text(encoding='utf-8-sig')
+        if p.suffix.lower()=='.json':
+            from .recovered_tests import json_cases
+            json_cases(text)
         lines=text.splitlines()
         docs.append({'source_id':fingerprint(str(p.resolve()))[:20], 'name':p.name,
                      'channel':channel,'lines':[{'number':i,'text':s} for i,s in enumerate(lines,1)]})

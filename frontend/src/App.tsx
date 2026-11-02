@@ -1302,6 +1302,7 @@ export default function App() {
                       body: JSON.stringify({
                         name: form.get("name"),
                         review_mode: form.get("review_mode"),
+                        evaluation_scope: "SR",
                         case_ids: String(form.get("case_ids") || "")
                           .split(/[,，\s]+/)
                           .filter(Boolean),
@@ -1344,7 +1345,7 @@ export default function App() {
                       name={name}
                       accept={
                         name === "test"
-                          ? ".md,.markdown,.xlsx"
+                          ? ".md,.markdown,.json,.xlsx"
                           : ".md,.markdown"
                       }
                       multiple

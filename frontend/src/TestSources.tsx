@@ -61,7 +61,7 @@ export function TestSources({ project }: { project: string }) {
   }
   return (
     <section className="test-sources-panel">
-      <h3>测试集与Excel导入</h3>
+      <h3>测试场景导入</h3>
       <p>
         只有类型为“异常”的记录进入指标。正常、可选及待确认保留查看。扩展测试集自动计分，机器补充与原始测试分别追溯。
       </p>
@@ -152,12 +152,12 @@ export function TestSources({ project }: { project: string }) {
         )}
       </details>
       <label>
-        导入新版本（Markdown / XLSX）
+        导入新版本（Markdown / JSON / XLSX）
         <input
           aria-label="上传测试文件"
           type="file"
           multiple
-          accept=".md,.markdown,.xlsx"
+          accept=".md,.markdown,.json,.xlsx"
           onChange={async (e) => {
             setError("");
             try {
@@ -197,16 +197,61 @@ export function TestSources({ project }: { project: string }) {
       )}
       {data && (
         <>
-          {data.catalogue?.cases?.length > 0 && <details open>
-            <summary>测试用例 → RR/SR需求用例对应</summary>
-            {data.alignment_stale && <p>测试版本已变化，以下为上次运行的对应关系，需继续运行更新。</p>}
-            <div className="alignment-scroll"><table><thead><tr><th>测试用例／原编号</th><th>需求用例组</th><th>状态与依据</th></tr></thead><tbody>{data.catalogue.cases.map((c: any) => {
-              const m = data.alignment?.matches?.find((v: any) => v.test_case_id === c.id);
-              const target = data.requirement_cases?.find((v: any) => v.id === m?.case_group_id);
-              return <tr key={c.id}><td>{c.name}<br />{c.association}</td><td>{m?.case_group_id ? `${m.case_group_id} · ${target?.name || ""}` : "尚未对应"}</td><td>{m?.status === "confirmed" ? "已对应" : "待确认／未匹配"}<br />{m?.basis || "等待对应任务"}</td></tr>;
-            })}</tbody></table></div>
-            <p>只有已确认对应的测试进入该需求用例；随后定位具体交互和四要素，不仅按关注点名称匹配。</p>
-          </details>}
+          {data.catalogue?.cases?.length > 0 && (
+            <details open>
+              <summary>测试用例 → RR/SR需求用例对应</summary>
+              {data.alignment_stale && (
+                <p>
+                  测试版本已变化，以下为上次运行的对应关系，需继续运行更新。
+                </p>
+              )}
+              <div className="alignment-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>测试用例／原编号</th>
+                      <th>需求用例组</th>
+                      <th>状态与依据</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.catalogue.cases.map((c: any) => {
+                      const m = data.alignment?.matches?.find(
+                        (v: any) => v.test_case_id === c.id,
+                      );
+                      const target = data.requirement_cases?.find(
+                        (v: any) => v.id === m?.case_group_id,
+                      );
+                      return (
+                        <tr key={c.id}>
+                          <td>
+                            {c.name}
+                            <br />
+                            {c.association}
+                          </td>
+                          <td>
+                            {m?.case_group_id
+                              ? `${m.case_group_id} · ${target?.name || ""}`
+                              : "尚未对应"}
+                          </td>
+                          <td>
+                            {m?.status === "confirmed"
+                              ? "已对应"
+                              : "待确认／未匹配"}
+                            <br />
+                            {m?.basis || "等待对应任务"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p>
+                只有已确认对应的测试进入该需求用例；随后定位具体交互和四要素，不仅按关注点名称匹配。
+              </p>
+            </details>
+          )}
           <p>当前版本：{data.version}。切换后需继续运行评测，历史报告保留。</p>
           <label>
             历史测试版本

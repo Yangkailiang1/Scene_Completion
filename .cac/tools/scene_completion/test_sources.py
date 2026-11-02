@@ -109,6 +109,10 @@ def narrative_records(document):
 def records(documents):
     out=[]
     for d in documents:
+        from .recovered_tests import catalogue
+        recovered=catalogue(d)
+        if recovered is not None:
+            out.extend(recovered['records']);continue
         for row,values,header in table_rows(d):
             idcol=next((n for n,h in enumerate(header or HEADERS) if h in ALIASES['测试ID']),0)
             if len(values)<=idcol:continue
@@ -146,7 +150,13 @@ def records_for_inputs(inputs):
     return records(inputs.get('test-documents',[]))
 
 def referenced_record_ids(refs,typed_records):
-    return {r['id'] for r in typed_records if any(a['source_id']==b['source_id'] and a['line_start']<=b['line_end'] and b['line_start']<=a['line_end'] for a in refs for b in r['source_refs'])}
+    def matches(a,b,record):
+        if not (a['source_id']==b['source_id'] and a['line_start']<=b['line_end'] and b['line_start']<=a['line_end']):return False
+        if record.get('source_location',{}).get('format')!='json':return True
+        # Minified files put different branches/types on the same physical
+        # line. Range overlap alone would mix normal alternatives into GT.
+        return bool(a.get('quote','').strip() and b.get('quote','').strip() and (a['quote'] in b['quote'] or b['quote'] in a['quote']))
+    return {r['id'] for r in typed_records if any(matches(a,b,r) for a in refs for b in r['source_refs'])}
 
 def preview(documents):
     rs=records(documents);seen=set();issues=[]
@@ -159,9 +169,10 @@ def preview(documents):
     for r in rs:
         if r['id'] in seen:issues.append({'id':r['id'],'row':r['row'],'source':r['name'],'reason':'重复测试ID'})
         seen.add(r['id'])
-        missing=[k for k in ('测试ID','测试名称','前置条件','触发条件','关联需求','预期结果') if not r[k]]
+        required=('测试ID','测试名称','触发条件','关联需求','预期结果') if r.get('source_format')=='recovered_usecase_json' else ('测试ID','测试名称','前置条件','触发条件','关联需求','预期结果')
+        missing=[k for k in required if not r[k]]
         if missing:issues.append({'id':r['id'],'row':r['row'],'source':r['name'],'reason':'缺少：'+ '、'.join(missing)})
-        if r['scenario_type']=='pending':issues.append({'id':r['id'],'row':r['row'],'source':r['name'],'reason':'原文标为待确认，不参与计分' if r.get('declared_type') in {'undetermined','pending'} else '场景类型缺失或未知，不参与计分'})
+        if r['scenario_type']=='pending':issues.append({'id':r['id'],'row':r['row'],'source':r['name'],'reason':r.get('classification_reason') or ('原文标为待确认，不参与计分' if r.get('declared_type') in {'undetermined','pending'} else '场景类型缺失或未知，不参与计分')})
     deferred=[d['name'] for d in documents if not any(r['source_id']==d['source_id'] for r in rs) and any(r['text'].strip() for r in d['lines'])]
     return {'version':VERSION,'records':rs,'counts':{k:sum(r['scenario_type']==k for r in rs) for k in ('exception','normal','optional','pending')},'issues':issues,'semantic_index_required':deferred,'valid':not any('重复' in x['reason'] or '缺少' in x['reason'] for x in issues)}
 
@@ -221,7 +232,11 @@ def decode_source(d,role):
         if not data or len(data)>5_000_000:raise ValueError('Excel为空或超过5MB')
         xlsx_documents(data,Path(d['name']).name,'preview')
         return data,suffix
-    if suffix not in {'.md','.markdown'}:raise ValueError('RR/SR仅支持Markdown；测试支持Markdown或XLSX')
+    if suffix not in ({'.md','.markdown','.json'} if role=='test' else {'.md','.markdown'}):raise ValueError('RR/SR仅支持Markdown；测试支持Markdown、JSON或XLSX')
     content=d.get('content','')
     if not isinstance(content,str) or len(content.encode())>5_000_000:raise ValueError('文档无效或超过5MB')
-    return content.encode(),'.md'
+    if suffix=='.json':
+        from .recovered_tests import json_cases
+        try:json_cases(content.lstrip('\ufeff'))
+        except (ValueError,RecursionError,IndexError) as e:raise ValueError('无效恢复用例JSON：'+str(e)) from e
+    return content.encode(),suffix if suffix=='.json' else '.md'

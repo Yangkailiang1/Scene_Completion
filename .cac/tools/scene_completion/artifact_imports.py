@@ -54,6 +54,10 @@ def view(project,item=None):
 
 def role_hint(name,text):
  name=name.lower()
+ if Path(name).suffix.lower()=='.json':
+  from .recovered_tests import json_cases
+  try:json_cases(text);return 'test'
+  except (ValueError,IndexError,RecursionError):pass
  # A recovery/test body is stronger evidence than an arbitrary file name.
  if re.search(r'测试逆向|测试逆向恢复|^\s*[-*]\s+(?:exception|alternative_success|undetermined)〔SC@',text,re.M):return 'test'
  if re.search(r'(^|[_. -])test(?:[_ -]?(?:spec|cases?|scenarios?))?([_. -]|$)|测试|逆向|recovered',name):return 'test'

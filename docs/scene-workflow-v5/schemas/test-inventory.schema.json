@@ -48,6 +48,9 @@
               ],
               "additionalProperties": false
             }
+          },
+          "source_case_id": {
+            "type": "string"
           }
         },
         "required": [
@@ -132,6 +135,12 @@
               ],
               "additionalProperties": false
             }
+          },
+          "source_location": {
+            "type": "object"
+          },
+          "classification_reason": {
+            "type": "string"
           }
         },
         "required": [

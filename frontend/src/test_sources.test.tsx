@@ -66,3 +66,13 @@ test("xlsx upload preserves bytes rather than reading workbook as text", async (
     content_base64: "UEsDBA==",
   });
 });
+
+test("recovered use-case JSON upload retains its original text and extension", async () => {
+  const text = JSON.stringify([{ id: "T-1", name: "查询", extensions: [] }]);
+  const file = new File([text], "recovered.json");
+  Object.defineProperty(file, "text", { value: async () => text });
+  expect(await sourceFile(file)).toEqual({
+    name: "recovered.json",
+    content: text,
+  });
+});

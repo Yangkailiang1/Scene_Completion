@@ -9,7 +9,7 @@ from .execution_graph import LABELS, artifact_folder
 
 
 class ResultView:
-    def __init__(self, project):
+    def __init__(self, project, evaluation_scope=None):
         self.project=Path(project);self.root=self.project/'run'
         self.state=read_json(self.root/'workflow_tasks.json').get('tasks',{}) if (self.root/'workflow_tasks.json').exists() else {}
         graph=self.root/'workflow_graph.json'
@@ -19,6 +19,9 @@ class ResultView:
         self.manifest=read_json(self.root/'run_manifest.json') if (self.root/'run_manifest.json').exists() else {}
         project=read_json(self.project/'project.json') if (self.project/'project.json').exists() else {}
         self.test_source_changed=bool(project.get('test_source_version') and project['test_source_version']!=self.manifest.get('test_source_version'))
+        from .evaluation_scope import validate_scope
+        self.evaluation_scope=validate_scope(evaluation_scope or project.get('evaluation_scope',self.manifest.get('evaluation_scope','all')))
+        self._scope_inputs_cache={}
 
     def payload(self, key):
         r=self.state.get(key,{})
@@ -26,6 +29,20 @@ class ResultView:
         path=(self.root/r['output_file']).resolve()
         if not path.is_relative_to(self.root.resolve()) or not path.is_file():return {}
         return read_json(path).get('payload',{})
+
+    def scope_inputs(self,cid):
+        if cid not in self._scope_inputs_cache:
+            if not hasattr(self,'_scope_contracts'):self._scope_contracts={'api-map':self.payload('api-map'),'api-parameters':self.payload('api-parameters')}
+            self._scope_inputs_cache[cid]={**self._scope_contracts,
+                'fused-ssd':self.payload(cid+':fused-ssd'),'enriched-interactions':self.payload(cid+':enriched-view'),
+                'gap-recommend':self.payload(cid+':gap-recommend')}
+        return self._scope_inputs_cache[cid]
+
+    def scoped(self,cid,report,concerns=None):
+        if self.evaluation_scope=='all':return report
+        from .evaluation_scope import report_view
+        if concerns is None:concerns=report.get('concern_level',{})
+        return report_view(report,concerns,self.scope_inputs(cid),self.evaluation_scope)
 
     def cases(self):
         names={c['id']:c['name'] for key in ('rr-use-cases','sr-use-cases') for c in self.payload(key).get('cases',[])}
@@ -102,21 +119,22 @@ class ResultView:
             else:case_metric=case_view.get('metrics',{}).get(source,not_evaluated())
             # A global GT derived only from the original test source must not
             # enter an expanded or business-reviewed total under another label.
-            global_metric=global_view.get('metrics',{}).get(target,not_evaluated()) if test_set=='original' else not_evaluated()
+            global_metric=global_view.get('metrics',{}).get(target,not_evaluated()) if test_set=='original' and self.evaluation_scope=='all' else not_evaluated()
             available=[v for v in (case_metric,global_metric) if v.get('status') in {'适用','不适用'}]
             value=rate(sum(v['numerator'] for v in available),sum(v['denominator'] for v in available)) if available else not_evaluated()
             value['included_granularities']=[g for g,v in [('interaction',case_metric),('global',global_metric)] if v.get('status') in {'适用','不适用'}]
-            value['partial']=len(value['included_granularities'])!=2 or not case_view.get('complete') or not global_view.get('complete')
+            expected=['interaction'] if self.evaluation_scope!='all' else ['interaction','global']
+            value['partial']=value['included_granularities']!=expected or not case_view.get('complete') or self.evaluation_scope=='all' and not global_view.get('complete')
             combined[target]=value
         return {'unit_note':'关注点层与场景层分别计数；交互级和全局级的分子分母相加，不平均百分比',
-                'complete':bool(test_set=='original' and case_view.get('complete') and global_view.get('complete')),
+                'evaluation_scope':{'layer':self.evaluation_scope},'complete':bool(case_view.get('complete') and (self.evaluation_scope!='all' or test_set=='original' and global_view.get('complete'))),
                 'interaction':{'status':'已评测' if case_view.get('complete') else '部分或未完成','case_count':len(case_view.get('cases',[])),
                                'metrics':{**case_view.get('metrics',{}),
                                    'baseline_adoption':case_view.get('recommendation_comparison',{}).get('baseline',{}).get('metrics',{}).get('recommendation_adoption',not_evaluated()),
                                    'baseline_false_positive':case_view.get('recommendation_comparison',{}).get('baseline',{}).get('metrics',{}).get('recommendation_false_positive',not_evaluated())}},
                 'global':{'status':global_view['status'],'metrics':global_view['metrics']},'metrics':combined,
                 'test_set':test_set,'global_truth_source':'original',
-                'global_excluded_reason':'全局级尚无该测试来源的GT版本，项目合并指标只包含交互级' if test_set!='original' else None}
+                'global_excluded_reason':'SR/RR指标范围仅含交互级；全局业务级指标单独查看' if self.evaluation_scope!='all' else '全局级尚无该测试来源的GT版本，项目合并指标只包含交互级' if test_set!='original' else None}
 
     def metrics(self,test_set='expanded'):
         if test_set=='business':
@@ -125,7 +143,7 @@ class ResultView:
             from .recommendation import aggregate_comparison
             value=self.metrics('expanded');comparisons=[];versions={}
             for row in value['cases']:
-                review=snapshot(self.project,row['id']);e=review['evaluation'];concern=e.get('concern_level',{})
+                review=snapshot(self.project,row['id']);e=self.scoped(row['id'],review['evaluation']);concern=e.get('concern_level',{})
                 row.update(metrics=e.get('metrics',{}),counts={k:len(concern.get(k+'_c',[])) for k in ('G','E','GT','M')},
                            scenario_counts={k:len(e.get(k,[])) for k in ('G','E','GT','M')},status=review['status'],business_added=len(review['added']))
                 row['recommendation_comparison']=e.get('recommendation_comparison',{});comparisons.append(row['recommendation_comparison']);versions[row['id']]=review.get('version')
@@ -141,6 +159,8 @@ class ResultView:
             if test_set=='original':v=v.get('original_evaluation',v)
             concern=self.payload(c['id']+':concern-evaluation')
             if test_set=='original':concern=concern.get('original_evaluation',concern)
+            if self.evaluation_scope!='all':
+                v=self.scoped(c['id'],v,concern);concern=v.get('concern_level',{})
             if concern and not v:
                 v={'metrics':concern['metrics'],'concern_level':concern,'matching_version':concern['version']}
             pending=len(self.payload(c['id']+(':'+('test-expanded' if test_set=='expanded' and v.get('test_set')=='expanded' else 'test-ground-truth'))).get('pending',[]))
@@ -148,7 +168,7 @@ class ResultView:
             concern_pending=len({(x.get('interaction_id'),x.get('object'),x.get('concern_key'),x.get('reason') or x.get('status_reason')) for x in excluded if x.get('scenario_type') not in {'normal','optional'} and x.get('status')!='not_applicable'})
             from .recommendation import comparison_for_view
             comparison=comparison_for_view(v,self.payload(c['id']+':gap-recommend'))
-            rows.append({**c,'metrics':v.get('metrics',{}),'recommendation_comparison':comparison,'counts':{k:len(concern.get(k+'_c',[])) if concern else len(v.get(k,[])) for k in ('G','E','GT','M')},'metric_units':v.get('metric_units',{}),'matching_version':v.get('matching_version'),'scenario_counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'concern_pending':concern_pending,'concern_excluded_count':len(excluded),'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（关注点或GT有待确认项）' if v and (pending or concern_pending) else '已评测' if v else '未评测'})
+            rows.append({**c,'metrics':v.get('metrics',{}),'recommendation_comparison':comparison,'counts':{k:len(concern.get(k+'_c',[])) if concern else len(v.get(k,[])) for k in ('G','E','GT','M')},'metric_units':v.get('metric_units',{}),'matching_version':v.get('matching_version'),'scenario_counts':{k:len(v.get(k,[])) for k in ('G','E','GT','M')},'evaluation_scope':v.get('evaluation_scope',{'layer':self.evaluation_scope}),'concern_pending':concern_pending,'concern_excluded_count':len(excluded),'truth_pending':pending,'generation_breakdown':v.get('generation_breakdown',{}),'status':'已评测（关注点或GT有待确认项）' if v and (pending or concern_pending) else '已评测' if v else '未评测'})
         sessions=read_json(self.root/'execution_sessions.json') if (self.root/'execution_sessions.json').exists() else []
         history=[]
         for p in (self.root/'report_versions').glob('*/missing_report.json'):
@@ -156,7 +176,7 @@ class ResultView:
             history.append({'name':p.parent.name,'path':p.relative_to(self.project).as_posix(),'metrics':read_json(summary).get('metrics') if summary.exists() else None})
         generated=sum(r['counts']['G'] for r in rows);truth=sum(r['counts']['GT'] for r in rows)
         return {'test_alignment_pending':self.manifest.get('test_import_pending_count',0)+sum(m['status']!='confirmed' for m in self.manifest.get('test_case_correspondence',[])),'matching_version':self.manifest.get('matching_version'),'unit':'关注点绑定' if self.manifest.get('matching_version') else '历史异常场景','cases':rows,'metrics':aggregate_metrics(rows),'recommendation_comparison':aggregate_comparison([r['recommendation_comparison'] for r in rows]),'diagnostic_counts':{'G':generated,'GT':truth,'one_to_one_ceiling':min(100,100*truth/generated) if generated else None},'complete':self.manifest.get('complete',False) and not self.test_source_changed,'test_source_changed':self.test_source_changed,'test_source_version':self.manifest.get('test_source_version'),'ruleset_version':self.manifest.get('ruleset_version'),'execution_id':sessions[-1]['id'] if sessions else None,
-                'registry_hash':self.manifest.get('registry_hash'),'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
+                'registry_hash':self.manifest.get('registry_hash'),'evaluation_scope':{'layer':self.evaluation_scope,'note':'只统计所选范围的实际接口及交互；RR与未定位项不混入SR分母'},'test_set':test_set,'truth_source':'原始异常测试＋独立机器补充（自动GT计分）' if test_set=='expanded' and any(self.payload(c['id']+':exception-evaluation').get('original_evaluation') for c in self.cases()) else '原始异常测试经机器整理（含允许的框架推导）','recommendation':'已启用（风险保底）' if self.manifest.get('recommendation',{}).get('enabled') else '未启用',
                 'history':history,'audit_files':[{'name':p.name,'path':p.relative_to(self.project).as_posix(),'bytes':p.stat().st_size} for folder in ('alignment-quality','exception-test-quality') for p in sorted((self.root/'artifacts/shared'/folder).glob('*')) if p.is_file() and p.suffix in {'.json','.md'}]}
 
     def scenario(self,cid,channel,sid,test_set='expanded'):
@@ -229,9 +249,16 @@ class ResultView:
             for aligned in row['alignment_rows']:
                 aligned['anchor']=compact(aligned['anchor'])
                 aligned['cells']={k:[compact(s) for s in values] for k,values in aligned['cells'].items()}
-        return {'case':case,'matching_version':concern.get('version') or self.manifest.get('matching_version'),'concern_truth_ready':'GT_c' in concern,'concern_excluded':concern.get('excluded',{}),'concern_metrics':concern.get('metrics',{}),'metric_units':evaluation.get('metric_units',{}),'parameter_display_note':enriched.get('parameter_display_note'),'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
+        scoped_evaluation=self.scoped(cid,evaluation,concern)
+        if self.evaluation_scope!='all':
+            from .evaluation_scope import interaction_layers
+            layers=interaction_layers(self.scope_inputs(cid))
+            for row in rows:
+                row['interface_source_layer']=layers.get(row['interaction']['id'],{}).get('layer')
+                row['metric_in_scope']=row['interface_source_layer']==self.evaluation_scope
+        return {'case':case,'evaluation_scope':scoped_evaluation.get('evaluation_scope',{'layer':self.evaluation_scope}),'matching_version':concern.get('version') or self.manifest.get('matching_version'),'concern_truth_ready':'GT_c' in concern,'concern_excluded':concern.get('excluded',{}),'concern_metrics':scoped_evaluation.get('concern_level',concern).get('metrics',{}),'metric_units':evaluation.get('metric_units',{}),'parameter_display_note':enriched.get('parameter_display_note'),'interactions':rows,'unbound':{k:[s for s in v if (s.get('canonical_interaction_id') or s.get('interaction_id')) not in seen] for k,v in channels.items()},
                 'excluded':{k:self.payload(cid+':'+stage).get('excluded',[]) for k,stage in [('G','exception-generate'),('E','existing-extract'),('GT','test-ground-truth')]},
                 'definitions':definitions,'registry_hash':reg_hash,'registry_available':bool(definitions),
-                'metrics':evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),
+                'metrics':scoped_evaluation.get('metrics',{}),'full_matches':evaluation.get('full_matches',report.get('full_matches',{})),
                 'partial_diagnostics':evaluation.get('partial_diagnostics',report.get('partial_diagnostics',{})),
                 'rr_sr_links':fused.get('rr_sr_links',[]),'artifacts':[a for a in self.catalog() if a['case'] in {'shared',cid}]}

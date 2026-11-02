@@ -33,6 +33,8 @@ class Workbench:
         from .test_sources import preview_sources,ImportValidationError
         imported=preview_sources(sources.get('test',[]))
         if not imported['valid']:raise ImportValidationError(imported)
+        from .evaluation_scope import validate_scope
+        evaluation_scope=validate_scope(body.get('evaluation_scope','all'))
         case_ids=body.get('case_ids',[])
         if not isinstance(case_ids,list) or any(not isinstance(x,str) or not x.strip() for x in case_ids):raise ValueError('invalid use-case scope')
         rid=uuid4().hex;p=self.root/rid;p.mkdir()
@@ -44,7 +46,7 @@ class Workbench:
                 filename=f'sources/{role}-{idx}{suffix}';target=p/filename;target.parent.mkdir(exist_ok=True);target.write_bytes(content)
                 saved[role].append({'path':filename,'name':Path(d['name']).name})
         from .normal_rules import RULESET_VERSION
-        meta={'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL,'ruleset_version':RULESET_VERSION}
+        meta={'evaluation_scope':evaluation_scope,'case_ids':case_ids,'id':rid,'name':name,'review_mode':body.get('review_mode','manual'),'created_at':time.time(),'sources':saved,'protocol':PROTOCOL,'ruleset_version':RULESET_VERSION}
         write_json(p/'project.json',meta)
         from .project_review import project_registry
         project_registry(p)
@@ -510,21 +512,21 @@ def create_app(root=None,client_factory=None,env_file=None):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).index(include_artifacts=include_artifacts)
     @app.get('/api/projects/{rid}/results/metrics')
-    def results_metrics(rid:str,test_set:str='expanded'):
+    def results_metrics(rid:str,test_set:str='expanded',scope:str|None=None):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).metrics(test_set)
+        return ResultView(service.run_dir(rid),evaluation_scope=scope).metrics(test_set)
     @app.get('/api/projects/{rid}/results/global')
     def results_global(rid:str,test_set:str='original'):
         from .result_views import ResultView
         return ResultView(service.run_dir(rid)).global_detail(test_set)
     @app.get('/api/projects/{rid}/results/project-metrics')
-    def results_project_metrics(rid:str,test_set:str='original'):
+    def results_project_metrics(rid:str,test_set:str='original',scope:str|None=None):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).project_metrics(test_set)
+        return ResultView(service.run_dir(rid),evaluation_scope=scope).project_metrics(test_set)
     @app.get('/api/projects/{rid}/results/{case_id}')
-    def results_case(rid:str,case_id:str,test_set:str='expanded'):
+    def results_case(rid:str,case_id:str,test_set:str='expanded',scope:str|None=None):
         from .result_views import ResultView
-        return ResultView(service.run_dir(rid)).detail(case_id,test_set)
+        return ResultView(service.run_dir(rid),evaluation_scope=scope).detail(case_id,test_set)
     @app.get('/api/projects/{rid}/results/{case_id}/scenarios/{channel}/{scenario_id}')
     def result_scenario(rid:str,case_id:str,channel:str,scenario_id:str,test_set:str='expanded'):
         from .result_views import ResultView
