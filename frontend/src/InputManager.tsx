@@ -10,6 +10,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { NodeOutput } from "./NodeOutput";
+import { InputBundlePicker } from "./InputBundlePicker";
 
 const labels: Record<string, string> = {
   components: "系统组成",
@@ -19,6 +20,7 @@ const labels: Record<string, string> = {
   "sr-ssd": "SR SSD",
   "fused-ssd": "融合SSD",
   "object-operations": "对象操作",
+  "business-entities": "业务实体属性与约束",
 };
 const statuses: Record<string, string> = {
   candidate: "完整候选，待节点校验",
@@ -52,6 +54,8 @@ export function InputManager({
     [recovery, setRecovery] = useState<any>(null),
     [replace, setReplace] = useState(false);
   const [events, setEvents] = useState<any[]>([]);
+  const [bundleOpen, setBundleOpen] = useState(false);
+  const [bundleFiles, setBundleFiles] = useState<File[] | undefined>();
   const selectedFile = useRef<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
@@ -197,6 +201,14 @@ export function InputManager({
                 <FolderOpen size={16} />
                 添加文件夹
               </button>
+              <button
+                onClick={() => {
+                  setBundleFiles(undefined);
+                  setBundleOpen(true);
+                }}
+              >
+                指定5份路径
+              </button>
               <input
                 ref={fileInput}
                 type="file"
@@ -211,7 +223,11 @@ export function InputManager({
                 multiple
                 hidden
                 {...{ webkitdirectory: "" }}
-                onChange={(e) => upload(e.target.files)}
+                onChange={(e) => {
+                  setBundleFiles(Array.from(e.target.files || []));
+                  setBundleOpen(true);
+                  e.target.value = "";
+                }}
               />
             </>
           )}
@@ -221,6 +237,17 @@ export function InputManager({
           </button>
         </div>
       </header>
+      {bundleOpen && (
+        <InputBundlePicker
+          project={project}
+          initialFiles={bundleFiles}
+          onClose={() => setBundleOpen(false)}
+          onImported={() => {
+            load().catch((e) => setMessage(e.message));
+            setMessage("五类输入已导入；未启动模型，后续只补缺项。");
+          }}
+        />
+      )}
       {message && (
         <p role="status" className="input-message">
           {message}
@@ -402,6 +429,53 @@ export function InputManager({
                     <code key={n}>{labels[n] || n}</code>
                   ))}
                 </div>
+              )}
+              {detail.colleague_product && (
+                <section className="import-readable">
+                  <h3>
+                    {detail.colleague_product.format === "function_tree"
+                      ? "功能树：已声明的实体与属性"
+                      : "接口抽取：映射与请求部分"}
+                  </h3>
+                  <div className="import-type-counts">
+                    {Object.entries(detail.colleague_product.counts || {}).map(
+                      ([k, v]) => (
+                        <span key={k}>
+                          {{
+                            use_cases: "用例",
+                            entities: "实体",
+                            scoped_attributes: "按用例保留的属性记录",
+                            interface_attributes: "接口属性片段",
+                            interfaces: "接口",
+                            services: "实现服务",
+                            request_fields: "请求字段",
+                            success_response_fields: "已提供成功响应字段",
+                          }[k] || k}{" "}
+                          <b>{String(v)}</b>
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <p>
+                    {detail.colleague_product.format === "function_tree"
+                      ? "保留用例适用范围；CRUD类别仍需结合具体交互识别。接口属性只在同层、同方法、同路径及字段位置唯一时补充，未知方向不会猜成请求或响应。"
+                      : "请求部分可复用；文件没有声明的成功／失败响应仍需从允许材料补抽，不能用空响应视作已完成。"}
+                  </p>
+                  {detail.colleague_product.pending?.length > 0 && (
+                    <details>
+                      <summary>
+                        缺项与待定位 {detail.colleague_product.pending.length}
+                      </summary>
+                      {detail.colleague_product.pending.map(
+                        (p: any, n: number) => (
+                          <p key={n}>
+                            {p.object}：{p.reason}
+                          </p>
+                        ),
+                      )}
+                    </details>
+                  )}
+                </section>
               )}
               {detail.test_preview && (
                 <section className="import-readable">

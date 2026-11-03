@@ -17,19 +17,27 @@ def watch_settings(project,body=None):
  if not directory.is_dir():raise ValueError('input目录不存在，请填写服务所在电脑的本地目录')
  if directory==Path(directory.anchor):raise ValueError('不能将整个磁盘登记为input目录')
  if (directory/'serve.py').exists() or (directory/'.git').exists() or (directory/'python.exe').exists():raise ValueError('请登记专用材料目录，不扫描程序或凭证目录')
- row={**value,'directory':str(directory),'watch':body.get('watch',value['watch']),'revision':value['revision']+1}
+ row={**value,'directory':str(directory),'watch':body.get('watch',value['watch']),'mode':body.get('mode',value.get('mode','auto')),'revision':value['revision']+1}
+ if row['mode'] not in {'auto','bundle','generic'}:raise ValueError('扫描模式必须为auto、bundle或generic')
  if type(row['watch']) is not bool:raise ValueError('watch必须为布尔值')
  if str(directory)!=value.get('directory'):row['observed']={}
  if body.get('dry_run'):return {'saved':False,**{k:v for k,v in row.items() if k!='observed'}}
  write_json(p,row);return watch_settings(project)
 
 
-def scan(project):
+def scan(project,service=None):
  project=Path(project);cfg=project/'input-watch.json'
  with LOCK:
   if not cfg.exists():return {'received':[],'waiting':0}
   setting=read_json(cfg);root=Path(setting['directory']).resolve();received=[];waiting=0;seen={}
   if not root.is_dir():return {'error':'input目录当前不可访问','received':[]}
+  bundle_preview=bundle_files=None;allowed=None
+  if setting.get('mode','auto')!='generic':
+   from .input_bundles import discover
+   bundle_preview,bundle_files=discover(directory=str(root))
+   if bundle_files or setting.get('mode')=='bundle':
+    if bundle_preview['issues']:return {**bundle_preview,'received':[],'waiting':0,'error':'同类文件有多个版本，请在五文件预览中选择'}
+    allowed={f['path'] for f in bundle_preview['files']}
   def paths():
    for directory,dirs,files in os.walk(root,followlinks=False):
     dirs[:]=[d for d in dirs if not d.startswith('.') and d not in EXCLUDED and not (Path(directory)/d).is_symlink()]
@@ -37,6 +45,7 @@ def scan(project):
   for n,path in enumerate(paths()):
    if n>10000:raise ValueError('input目录文件过多，请登记专用材料目录')
    relative=path.relative_to(root)
+   if allowed is not None and str(relative) not in allowed:continue
    if any(p.startswith('.') or p in EXCLUDED for p in relative.parts):continue
    if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(root):continue
    if path.suffix.lower() not in {'.md','.markdown','.json','.xlsx'} or any(x in path.name.lower() for x in ('.local.','api-key','api_key','credential','token-budget','ledger')):continue
@@ -54,8 +63,14 @@ def scan(project):
    import base64
    received+=artifacts.receive(project,[{'name':path.name,'content_base64':base64.b64encode(data).decode()}])['received']
    record['hash']=digest
+  adopted=None
+  if service is not None and bundle_files and not waiting and setting.get('last_bundle_hash')!=bundle_preview['preview_hash']:
+   from .worker_runtime import read_job
+   if project.name not in service.active and read_job(project).get('status')!='running':
+    from .input_bundles import apply
+    adopted=apply(service,project,bundle_preview,bundle_files);setting['last_bundle_hash']=bundle_preview['preview_hash']
   setting.update(observed=seen,last_scan=time.time());write_json(cfg,setting)
-  return {'received':received,'waiting':waiting,'scanned_at':setting['last_scan']}
+  return {'received':received,'waiting':waiting,'scanned_at':setting['last_scan'],**({'bundle':bundle_preview,'adopted':bool(adopted)} if allowed is not None else {})}
 
 
 class InputWatcher:
@@ -68,7 +83,7 @@ class InputWatcher:
    for p in self.service.root.glob('*/project.json'):
     try:
      setting=watch_settings(p.parent)
-     if setting.get('watch') or setting.get('directory') and setting.get('last_scan') is None:scan(p.parent)
+     if setting.get('watch') or setting.get('directory') and setting.get('last_scan') is None:scan(p.parent,self.service)
      self.convert_pending(p.parent)
     except Exception as e:
      write_json(p.parent/'imports/watch-error.json',{'error':type(e).__name__,'message':str(e),'at':time.time()})
@@ -106,6 +121,31 @@ def register(app,service):
  def idle(project):
   from .worker_runtime import read_job
   if project.name in service.active or read_job(project).get('status')=='running':raise ValueError('当前执行中，请等本轮结束后确认替换；新文件可先转换为候选')
+ @app.post('/api/input-bundles/preview')
+ def bundle_preview(body:dict):
+  from .input_bundles import discover
+  return discover(directory=body.get('directory'),paths=body.get('paths'),files=body.get('files'))[0]
+ @app.post('/api/projects/from-input-bundle')
+ def create_bundle(body:dict):
+  from .input_bundles import discover,apply,validate_files
+  preview,files=discover(directory=body.get('directory'),paths=body.get('paths'),files=body.get('files'))
+  if not preview['valid'] or any(k not in files for k in ('RR','SR')):raise ValueError('请提供唯一的RR、SR结构模型，先核对导入预览')
+  if body.get('expected_hash') and body['expected_hash']!=preview['preview_hash']:raise ValueError('文件已变化，请重新预览')
+  if body.get('dry_run'):return preview
+  validate_files(files)
+  import base64
+  sources={role:[{'name':files[role]['name'],'content':base64.b64decode(files[role]['content_base64']).decode('utf-8-sig')}] for role in ('RR','SR')}
+  if 'test' in files:sources['test']=[{'name':files['test']['name'],'content':base64.b64decode(files['test']['content_base64']).decode('utf-8-sig')}]
+  meta=service.create({'name':body.get('name',''),'sources':sources,'review_mode':body.get('review_mode','manual'),'evaluation_scope':body.get('evaluation_scope','SR'),'case_ids':body.get('case_ids',[])})
+  imported=apply(service,service.run_dir(meta['id']),preview,files,adopt_partial=bool(body.get('adopt_partial',False)))
+  return {**meta,'input_bundle':imported}
+ @app.post('/api/projects/{rid}/input-bundles')
+ def bundle_import(rid:str,body:dict):
+  from .input_bundles import discover,apply
+  p=service.run_dir(rid)
+  preview,files=discover(directory=body.get('directory'),paths=body.get('paths'),files=body.get('files'))
+  if body.get('dry_run'):return preview
+  return apply(service,p,preview,files,expected_hash=body.get('expected_hash'),adopt_partial=bool(body.get('adopt_partial',False)),replace=bool(body.get('replace',False)))
  @app.get('/api/projects/{rid}/imports')
  def imports(rid:str,item:str|None=None):return artifacts.view(service.run_dir(rid),item)
  @app.post('/api/projects/{rid}/imports')
@@ -130,11 +170,11 @@ def register(app,service):
  def input_scan(rid:str,body:dict):
   p=service.run_dir(rid);setting=watch_settings(p,body)
   if body.get('dry_run'):return setting
-  result=scan(p)
+  result=scan(p,service)
   # The second stable sample is performed by the server, even without watch.
   def second():
    time.sleep(5)
-   scan(p)
+   scan(p,service)
    if service.input_watcher:service.input_watcher.convert_pending(p)
   service.pool.submit(second)
   return {**result,'settings':setting}
@@ -160,11 +200,13 @@ def accept_source(service,p,row,body):
  raw=(p/row['original']).read_bytes()
  from .test_sources import decode_source
  import base64
- decode_source({'name':row['name'],'content_base64':base64.b64encode(raw).decode()},role)
+ decoded={'name':row['name'],'content_base64':base64.b64encode(raw).decode()}
+ if Path(row['name']).suffix.lower()!='.xlsx':decoded['content']=raw.decode('utf-8-sig')
+ decode_source(decoded,role)
  if role=='test':
   from .test_sources import preview_sources
   import base64
-  if not preview_sources([{'name':row['name'],'content_base64':base64.b64encode(raw).decode()}])['valid']:raise ValueError('测试文件未通过导入预览')
+  if not preview_sources([decoded])['valid']:raise ValueError('测试文件未通过导入预览')
  meta=read_json(p/'project.json');old=deepcopy_json(meta)
  same=[f for f in meta['sources'][role] if f['name']==row['name']]
  if same and not body.get('replace'):raise ValueError('已有同名来源，请确认替换或选择其他用途')

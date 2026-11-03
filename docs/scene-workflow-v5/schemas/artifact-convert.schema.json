@@ -24,7 +24,8 @@
               "rr-ssd",
               "sr-ssd",
               "fused-ssd",
-              "object-operations"
+              "object-operations",
+              "business-entities"
             ]
           },
           "case_hint": {

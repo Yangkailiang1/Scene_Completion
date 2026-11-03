@@ -86,7 +86,8 @@ def parameters_for(i, inputs):
                     p['source_refs']=list({fingerprint(r):r for r in p['source_refs']+actual['source_refs']}.values())
                 by_name[(p['location'],p['name'])]=p
             params=list(by_name.values())
-    return params
+    from .colleague_formats import interface_requirements,business_requirements
+    return business_requirements(i,interface_requirements(i,params,inputs),inputs)
 
 
 def requirement_sources(i,inputs):

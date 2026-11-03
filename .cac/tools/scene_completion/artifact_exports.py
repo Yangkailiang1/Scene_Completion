@@ -18,12 +18,12 @@ def export_task(root,task,payload,artifact_name=None):
         headers=['接口定义层级','API名称','接口地址','数据方向','响应分支','参数位置','参数','数据类型','可选/必填','默认值','约束条件']
         rows=[[a.get('source_layer','历史未标注'),a['name'],show(a['address']),'输出' if p['location']=='response' else '输入',branch,p['location'],p['name'],show(p['data_type']),'必填' if p['required'] is True else '可选' if p['required'] is False else '待确认',show(p['default']),'; '.join(r['kind']+'='+show(r['value']) if r['status']=='explicit' else r['kind']+'待确认' for r in p['constraints'])] for a in payload['apis'] for branch,p in ([('成功响应' if p['location']=='response' else '请求',p) for p in a['parameters']]+[('失败响应 '+(v.get('status_code') or '状态码未声明'),p) for v in a.get('responses',[]) if v['kind']=='error' for p in v['parameters']])]
     elif task=='business-entities':
-        headers=['业务实体','属性','适用操作','数据类型','必填','约束','来源']
-        rows=[[e['name'],a['name'],a['operation'],show(a['data_type']),show(a['required']),
+        headers=['业务实体','属性','适用操作','适用用例','数据类型','必填','约束','来源']
+        rows=[[e['name'],a['name'],a['operation'],'、'.join(a.get('case_ids',[])),show(a['data_type']),show(a['required']),
                '；'.join(c['kind']+'='+show(c['value']) for c in a['constraints']),
                '；'.join(r['source_id']+':'+str(r['line_start']) for r in a['source_refs'])]
               for e in payload['entities'] for a in e['attributes']]
-        rows += [[e['name'],'业务规则 '+r['id'],r['operation'],'','',r['condition'],
+        rows += [[e['name'],'业务规则 '+r['id'],r['operation'],'','','',r['condition'],
                   '；'.join(ref['source_id']+':'+str(ref['line_start']) for ref in r['source_refs'])]
                  for e in payload['entities'] for r in e['business_rules']]
     elif task=='business-crud':

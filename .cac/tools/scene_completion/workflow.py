@@ -57,7 +57,7 @@ def code_version(task):
       'fused-ssd':['ssd_tools.py','use_cases.py'], 'ssd-context':['task_context.py'],
       'rr-ssd':['ssd_tools.py'], 'sr-ssd':['ssd_tools.py'],
       'object-operations':['interaction_enrichment.py'], 'interaction-align':['ssd_tools.py'],
-      'interaction-enrich':['interaction_enrichment.py','inverse_alignment.py'],
+      'interaction-enrich':['interaction_enrichment.py','inverse_alignment.py','colleague_formats.py'],
       'normal-rules':['normal_rules.py','task_partitions.py'],
       'existing-concerns':['concern_alignment.py','task_partitions.py','task_context.py'],
       'test-concerns':['scenario_types.py','concern_alignment.py','task_partitions.py','task_context.py'],
@@ -356,6 +356,7 @@ class Execution:
         static=static or {}
         from .artifact_imports import fragments_for
         imported=fragments_for(self.root.parent,task,case,self.import_snapshot)
+        if task=='business-entities' and key!='business-entities':imported=[]
         if transform and key in {'api-map','api-parameters','rr-api-parameters','sr-api-parameters'}:imported=[]
         elif api_scope is not None:
             from .api_layers import scoped_imports
@@ -431,6 +432,7 @@ class Execution:
                 if imported and imported_result is None:
                     from .artifact_imports import merge
                     value=merge(task,value,imported)
+                    proof['import_sources']=[{'file_id':p['file_id'],'name':p['file_name'],'revision':p['file_revision'],'artifact_id':p['id']} for p in imported]
                 if task=='existing-branches':
                     from .scenario_types import filter_branches
                     from .branch_evidence import complete
@@ -693,8 +695,8 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
     from .indexed_context import markdown_index,task_document_view,catalogue_context
     from .structure_models import imported_sources,model_layer
     imported_structure=imported_sources(ex.import_snapshot)
-    if 'RR' in imported_structure:rr=rr+[imported_structure['RR']]
-    if 'SR' in imported_structure:sr=sr+[imported_structure['SR']]
+    if 'RR' in imported_structure:rr=[d for d in rr if model_layer(d)!='RR']+[imported_structure['RR']]
+    if 'SR' in imported_structure:sr=[d for d in sr if model_layer(d)!='SR']+[imported_structure['SR']]
     ar=current_projection(ar or [])
     ex.add('source-index','source-index',static={'documents':rr+sr+ar},transform=lambda d:markdown_index(d['documents']))
     rr=current_projection(rr);sr=current_projection(sr)
@@ -704,23 +706,31 @@ def build_pipeline(ex,rr,sr,tests,extraction_truth=None,adjudications=None,ar=No
         return normal_projection(primary or docs)
     normal_rr=shared_positive(rr,'RR');normal_sr=shared_positive(sr,'SR');normal_ar=normal_projection(ar)
     from .domain_model import source_chunks,merge_entities
+    from .artifact_imports import selections
+    from .colleague_formats import uncovered_entity_documents
+    imported_entities=selections(ex.root.parent,'business-entities',frozen=ex.import_snapshot)
     entity_parts=[]
-    for n,document in enumerate(source_chunks(normal_rr+normal_sr+normal_ar)):
+    if imported_entities:
+        ex.add('business-entities-imports','business-entities',static={'normal-documents':[p['document'] for p in imported_entities]},
+          transform=lambda d:merge_entities([p['payload'] for p in imported_entities]))
+        ex.scheduler.tasks['business-entities-imports'].display_label='业务实体与属性 · 同事已声明部分'
+        entity_parts.append('business-entities-imports')
+    for n,document in enumerate(source_chunks(uncovered_entity_documents(normal_rr+normal_sr+normal_ar,imported_entities))):
         key='business-entities-part-'+str(n+1).zfill(3)
         ex.add(key,'business-entities',static={'normal-documents':[document]})
         ex.scheduler.tasks[key].display_label='业务实体与属性 · 来源片段 '+str(n+1)
         entity_parts.append(key)
     ex.add('business-entities','business-entities',tuple(entity_parts),
-      build=lambda d:d,transform=lambda d:merge_entities(d.values()))
+      build=lambda d:d,transform=lambda d:merge_entities(d[k] for k in entity_parts))
     ex.add('components-context','document-context',('source-index',),static={'RR':normal_rr,'SR':normal_sr},
       transform=lambda d:{role:task_document_view(docs,'components') for role,docs in d.items()})
     ex.add('components','components',('components-context',),build=lambda d:d['components-context'])
     from .api_documents import index_interfaces,response_contract_documents
     from .api_layers import merge_mappings,qualify_index,scoped_parameters
     from .artifact_imports import selections
-    imported_api_docs=[a['document'] for t in ('api-map','api-parameters') for a in selections(ex.root.parent,t,frozen=ex.import_snapshot)]
-    api_documents={'RR':normal_rr,'SR':normal_sr+imported_api_docs}
-    raw_documents={'RR':rr,'SR':sr+imported_api_docs}
+    imported_api_docs={layer:documents_in([a['document'] for t in ('api-map','api-parameters') for a in selections(ex.root.parent,t,frozen=ex.import_snapshot) if (a.get('source_layer') or 'SR')==layer]) for layer in ('RR','SR')}
+    api_documents={'RR':normal_rr+imported_api_docs['RR'],'SR':normal_sr+imported_api_docs['SR']}
+    raw_documents={'RR':rr+imported_api_docs['RR'],'SR':sr+imported_api_docs['SR']}
     import re
     for layer,docs in api_documents.items():
         prefix=layer.lower()+'-api-';context_key=prefix+'context';map_key=prefix+'map'
@@ -830,6 +840,10 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
             if partition and ex.config.get('partition_tasks',True):ex.partitioned(cid+':'+task,task,tuple(local(t) for t in deps),construct,cid)
             else:ex.add(cid+':'+task,task,tuple(local(t) for t in deps),static=static,build=construct,transform=transform,case=cid)
         group=next(g for g in groups if g['id']==cid)
+        from .colleague_formats import scoped_entities
+        entity_scope=group['rr_ids']+group['sr_ids']+[c['name'] for layer in ('RR','SR') for c in catalogue[layer] if c['id'] in group['rr_ids']+group['sr_ids']]
+        active_tree_ids={p['file_id'] for p in __import__('scene_completion.artifact_imports',fromlist=['selections']).selections(ex.root.parent,'business-entities',frozen=ex.import_snapshot)}
+        imported_interface_attributes=[a for row in ex.import_snapshot if row['id'] in active_tree_ids for a in row.get('colleague_product',{}).get('interface_attributes',[]) if a['case_id'] in entity_scope or a['case_name'] in entity_scope]
         scoped_rr=select_documents(rr,[c for c in catalogue['RR'] if c['id'] in group['rr_ids']],catalogue['RR'])
         scoped_sr=select_documents(sr,[c for c in catalogue['SR'] if c['id'] in group['sr_ids']],catalogue['SR'])
         scoped_ar=[]
@@ -868,8 +882,8 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
           build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g},transform=ssd_context)
         add('fused-ssd',('ssd-context',),build=lambda d:d['ssd-context'])
-        def crud_input(d,rr_docs=normal_projection(scoped_rr),sr_docs=normal_projection(scoped_sr),ar_docs=normal_projection(scoped_ar)):
-            return {'normal-documents':rr_docs+sr_docs+ar_docs,'business-entities':d['business-entities'],
+        def crud_input(d,rr_docs=normal_projection(scoped_rr),sr_docs=normal_projection(scoped_sr),ar_docs=normal_projection(scoped_ar),entity_scope=entity_scope):
+            return {'normal-documents':rr_docs+sr_docs+ar_docs,'business-entities':scoped_entities(d['business-entities'],entity_scope),
                     'fused-ssd':d['fused-ssd']}
         add('business-crud',('business-entities','fused-ssd'),build=crud_input)
         for layer in ('RR','SR'):
@@ -885,14 +899,16 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         from .api_layers import qualify_fused_calls
         add('normal-rules',('fused-ssd','api-map','api-parameters'),build=lambda d,positive=positive:{'normal-documents':positive,'fused-ssd':qualify_fused_calls(d['fused-ssd'],d),**({'registry':registry()} if registry()['hash']!=default_registry()['hash'] else {})},partition=True)
         normal=('components','rr-ssd','sr-ssd','api-map','api-parameters','object-operations','normal-rules')
-        add('interaction-enrich',normal+('interaction-align',),build=lambda d:d,transform=lambda d:canonical_enrich(d))
+        def enrich_input(d,scope=entity_scope,attributes=imported_interface_attributes):
+            return {**d,'business-entities':scoped_entities(d['business-entities'],scope),'colleague-interface-attributes':attributes}
+        add('interaction-enrich',normal+('interaction-align','business-crud','business-entities'),build=enrich_input,transform=lambda d:canonical_enrich(d))
         positive=normal_projection(scoped_rr)+normal_projection(scoped_sr)
-        def concern_input(d,positive=positive):
+        def concern_input(d,positive=positive,scope=entity_scope):
             v={k:d[k] for k in normal};v=bind_resource_services(v)
             v.update(basic_views(d['interaction-enrich']))
             v['api-parameters']=case_parameters(v,d['interaction-enrich'])
             return {**v,'enriched-interactions':d['interaction-enrich'],'normal-documents':positive,'registry':registry(),
-                    'business-crud':d['business-crud'],'business-entities':d['business-entities']}
+                    'business-crud':d['business-crud'],'business-entities':scoped_entities(d['business-entities'],scope)}
         add('concern-match',normal+('interaction-enrich','business-crud','business-entities'),static={'normal-documents':positive},build=concern_input,partition=True)
         add('enriched-view',('interaction-enrich','concern-match'),build=lambda d:d,transform=lambda d:with_concerns(d['interaction-enrich'],d['concern-match']))
         def generation_input(d):
@@ -997,7 +1013,8 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
     ex.add('data-dependencies-project','data-dependencies',data_keys,
       build=lambda d:d,transform=lambda d:merge_rows(d.values(),('entities','relations','flows')))
     ex.add('business-attribute-map','business-attribute-map',('api-parameters','business-entities','business-crud-project'),
-      build=lambda d:d,transform=lambda d:exact_field_map(d['api-parameters'],d['business-entities']['entities'],d['business-crud-project']['rows']))
+      build=lambda d:d,transform=lambda d:exact_field_map(d['api-parameters'],d['business-entities']['entities'],d['business-crud-project']['rows'],
+          {g['id']:g['rr_ids']+g['sr_ids']+[c['name'] for layer in ('RR','SR') for c in catalogue[layer] if c['id'] in g['rr_ids']+g['sr_ids']] for g in groups}))
 
     positive_docs=normal_projection(rr)+normal_projection(sr)+normal_projection(ar or [])
     dependency_parts=[]

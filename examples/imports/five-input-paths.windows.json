@@ -1,0 +1,7 @@
+{
+  "RR": "C:\\scene-input\\structure_model_fusion\\RR\\structure_model.json",
+  "SR": "C:\\scene-input\\structure_model_fusion\\SR\\structure_model.json",
+  "function_tree": "C:\\scene-input\\功能树.json",
+  "api_extraction": "C:\\scene-input\\api_extraction.json",
+  "test": "C:\\scene-input\\recovered_usecases.json"
+}

@@ -1,0 +1,267 @@
+"""Literal adapters for the two colleague positive JSON formats.
+
+Only values in the uploaded file are facts. Error codes, external citations and
+missing-constraint notes are never promoted to positive requirements. Unknown
+request/response direction or ownership stays visible rather than being guessed.
+"""
+from copy import deepcopy
+import json,re
+from .storage import fingerprint
+
+VERSION='colleague-positive-json-v1'
+
+
+def format_of(value):
+    if not isinstance(value,dict):return None
+    if isinstance(value.get('functions'),list) and value['functions'] and all(isinstance(f,dict) and 'ucId' in f and 'rrLayer' in f and 'srLayer' in f for f in value['functions']):return 'function_tree'
+    if isinstance(value.get('apis'),list) and value['apis'] and all(isinstance(a,dict) and {'API序号','资源路径','方法'}<=a.keys() for a in value['apis']):return 'api_extraction'
+    return None
+
+
+class Facts:
+    def __init__(self,file_id,name):
+        self.document={'source_id':'import-'+file_id+'-facts-v1','name':name+' · 已声明事实.md','channel':'normal','lines':[]}
+        self.locations=[]
+    def add(self,value,pointer):
+        text=json.dumps(value,ensure_ascii=False,separators=(',',':'));n=len(self.document['lines'])+1
+        self.document['lines'].append({'number':n,'text':text});self.locations.append({'line':n,'json_pointer':pointer})
+        return [{'source_id':self.document['source_id'],'line_start':n,'line_end':n,'quote':text}]
+    def artifact(self,task,payload,**extra):
+        return {'task':task,'case_hint':None,'coverage':'partial','payload':payload,'document':deepcopy(self.document),'json_locations':deepcopy(self.locations),'literal_adapter':VERSION,**extra}
+    def heading(self,text,pointer):
+        n=len(self.document['lines'])+1;self.document['lines'].append({'number':n,'text':'## '+text});self.locations.append({'line':n,'json_pointer':pointer});return n
+
+
+def constraints(rules,field,refs):
+    out=[]
+    def add(kind,value,status='explicit'):
+        out.append({'id':'constraint-'+fingerprint([field,kind,value,refs])[:20],'kind':kind,'value':value,'status':status,'source_refs':deepcopy(refs)})
+    for record in rules:
+        rule=record.get('rule') if isinstance(record,dict) else record
+        if not isinstance(rule,str) or not rule.strip():continue
+        text=rule.strip();compact=re.sub(r'\s+','',text).replace('≤','<=').replace('≥','>=')
+        enum=re.fullmatch(r'\{([^{}]+)\}',text)
+        if enum:add('enum',[v.strip() for v in re.split(r'[|,，]',enum[1])]);continue
+        if '格式' in text:add('format',text);continue
+        if re.search(r'长度|字符',text):add('length',text);continue
+        if re.search(r'大小|字节|(?:MB|KB|bytes)',text,re.I):add('size',text);continue
+        escaped=re.escape(field)
+        both=re.fullmatch(r'(-?\d+(?:\.\d+)?)<=\s*'+escaped+r'<=(-?\d+(?:\.\d+)?)',compact)
+        number=lambda x:float(x) if '.' in x else int(x)
+        if both:add('minimum',number(both[1]));add('maximum',number(both[2]));continue
+        lower=re.fullmatch(r'(?:'+escaped+r')?>=(-?\d+(?:\.\d+)?)',compact)
+        upper=re.fullmatch(r'(?:'+escaped+r')?<=(-?\d+(?:\.\d+)?)',compact)
+        reverse=re.fullmatch(r'(-?\d+(?:\.\d+)?)<='+escaped,compact)
+        if lower or reverse:add('minimum',number((lower or reverse)[1]));continue
+        if upper:add('maximum',number(upper[1]));continue
+        add('other',text)
+    return list({fingerprint([c['kind'],c['value']]):c for c in out}.values())
+
+
+def parameter(name,location,refs,*,dtype=None,required=None,rules=()):
+    return {'name':name,'location':location,'data_type':dtype,'required':required,'default':None,'constraints':constraints(rules,name,refs),'source_refs':deepcopy(refs)}
+
+
+def request_parameters(text,facts,pointer):
+    """Parse only literal field positions and explicit properties, not prose meaning."""
+    parameters=[];unresolved=[]
+    segments=[];chunk=[];depth=0
+    for char in text or '':
+        if char in '（(':depth+=1
+        elif char in '）)':depth=max(0,depth-1)
+        if char in '；;\n' and depth==0:
+            segments.append(''.join(chunk));chunk=[]
+        else:chunk.append(char)
+    if chunk:segments.append(''.join(chunk))
+    for n,segment in enumerate(segments):
+        segment=segment.strip()
+        if not segment:continue
+        refs=facts.add({'request_parameter':segment},pointer)
+        m=re.match(r'^(header|head|path|query|body)\.([A-Za-z_][\w.\[\]-]*)',segment,re.I)
+        if m:location=m[1].lower().replace('head','header') if m[1].lower()=='head' else m[1].lower();name=m[2]
+        elif re.match(r'^Authorization\s+Token\b',segment,re.I):location='header';name='Authorization'
+        else:unresolved.append({'object':segment,'reason':'未声明字段位置，需补充后才能绑定；不把未知字段猜作body','source_refs':refs});continue
+        required_flag=re.search(r'[（(]\s*(必填|必选|可选)',segment)
+        required=(required_flag[1]!='可选') if required_flag else None
+        p=parameter(name,location,refs,required=required)
+        type_=re.search(r'(?:类型\s*[:：=]\s*|\btype\s*[:=]\s*)(integer|int|string|number|boolean|array|object)\b',segment,re.I)
+        if type_:p['data_type']={'int':'integer'}.get(type_[1].lower(),type_[1].lower())
+        default=re.search(r'默认(?:值)?\s*[:：=]?\s*(-?\d+(?:\.\d+)?|true|false)',segment,re.I)
+        if default:p['default']=json.loads(default[1].lower())
+        rules=[]
+        bound=re.search(r'(-?\d+)\s*(?:至|到|[-~～])\s*(-?\d+)',segment)
+        if bound:rules.append({'rule':bound[1]+' <= '+name+' <= '+bound[2]})
+        low=re.search(r'(?:大于等于|不少于|从)(-?\d+(?:\.\d+)?)',segment)
+        if low:rules.append({'rule':'>= '+low[1]})
+        # Preserve the remaining declaration as a positive condition. Tool
+        # expansion can later interpret it; no error response is fabricated.
+        detail=re.search(r'[（(](.*?)[）)]',segment)
+        if detail:
+            clause=re.sub(r'^(?:必填|可选|必选)[；;，,\s]*','',detail[1]).strip()
+            if clause and not bound and not low:rules.append({'rule':clause})
+        p['constraints']=constraints(rules,name,refs);parameters.append(p)
+    return parameters,unresolved
+
+
+def api_product(value,file_id,name):
+    facts=Facts(file_id,name);services={};apis=[];pending=[];seen=set();ranges={}
+    for n,api in enumerate(value['apis']):
+        aid=api['API序号'];method=api['方法'];path=api['资源路径'];pointer='/apis/'+str(n)
+        if not isinstance(aid,str) or not aid or aid in seen:raise ValueError('接口编号缺失或重复：'+str(aid))
+        seen.add(aid)
+        start=facts.heading(aid+' '+str(api.get('接口名称') or aid)+' '+str(method)+' '+str(path),pointer)
+        layer=api.get('source_layer') or ('SR' if api.get('SR编号') else None)
+        if layer not in {'RR','SR'}:raise ValueError('接口未声明RR/SR归属：'+aid)
+        units=[u['name'] for u in value.get('software_units',[]) if aid in u.get('api_keys',[]) and u.get('review_status','confirmed')=='confirmed' and not u.get('candidate')]
+        owners=units or [s['name'] for s in value.get('services',[]) if aid in s.get('api_keys',[])]
+        owners=list(dict.fromkeys(owners))
+        refs=facts.add({'api_id':aid,'name':api.get('接口名称') or aid,'method':method,'address':path,'source_layer':layer,'implementing_services':owners},pointer)
+        if len(owners)==1:services.setdefault((layer,owners[0]),[]).append({'id':aid,'declared_id':aid,'name':api.get('接口名称') or aid,'method':method,'address':path,'source_layer':layer,'source_refs':refs})
+        else:pending.append({'object':aid,'reason':'所属服务缺失或有多个候选；不按URL或名称猜测','source_refs':refs})
+        ps,unknown=request_parameters(api.get('API请求参数',''),facts,pointer+'/API请求参数');pending+=unknown
+        apis.append({'id':aid,'declared_id':aid,'name':api.get('接口名称') or aid,'method':method,'address':path,'source_layer':layer,'parameters':ps,'source_refs':refs})
+        ranges[aid]=(start,len(facts.document['lines']))
+    artifacts=[]
+    for layer in ('RR','SR'):
+        rows=[{'name':owner,'interfaces':entries,'source_refs':list({fingerprint(r):r for a in entries for r in a['source_refs']}.values())} for (kind,owner),entries in services.items() if kind==layer]
+        if rows:artifacts.append(facts.artifact('api-map',{'services':rows},source_layer=layer,coverage='complete' if not any(p['object'] in {a['id'] for a in apis if a['source_layer']==layer} for p in pending if '所属服务' in p['reason']) else 'partial',coverage_details={'interface_inventory':'complete','project_inventory':'file_scope_only'}))
+        for a in apis:
+            if a['source_layer']==layer:
+                artifact=facts.artifact('api-parameters',{'apis':[a]},source_layer=layer,coverage_details={'request':'declared_fields','success_response':'not_supplied','error_response':'not_supplied'})
+                lo,hi=ranges[a['id']];artifact['document']['lines']=[r for r in artifact['document']['lines'] if lo<=r['number']<=hi]
+                artifacts.append(artifact)
+    return {'format':'api_extraction','artifacts':artifacts,'pending':pending,'counts':{'interfaces':len(apis),'services':len(services),'request_fields':sum(len(a['parameters']) for a in apis),'success_response_fields':0},'case_scopes':[]}
+
+
+def function_product(value,file_id,name):
+    facts=Facts(file_id,name);entities={};scopes=[];interface_attributes=[];pending=[];seen=set()
+    for n,f in enumerate(value['functions']):
+        cid=f['ucId'];label=f.get('name') or cid;p='/functions/'+str(n)
+        if cid in seen:raise ValueError('功能树用例ID重复：'+cid)
+        seen.add(cid);scopes.append({'case_id':cid,'case_name':label})
+        names={e['name']:e for e in f['rrLayer'].get('entities',[])}
+        for e in f['srLayer'].get('entities',[]):names.setdefault(e['entity'],{'name':e['entity']})
+        for ename,entry in names.items():
+            refs=facts.add({'case_id':cid,'case_name':label,'entity':ename,'name':entry.get('zh') or ename},p+'/rrLayer/entities')
+            target=entities.setdefault(ename,{'id':ename,'name':entry.get('zh') or ename,'attributes':[],'business_rules':[],'source_refs':[]})
+            target['source_refs']+=refs
+            for en,detail in enumerate(f['srLayer'].get('entities',[])):
+                if detail['entity']!=ename:continue
+                for an,a in enumerate(detail.get('attributes',[])):
+                    safe={k:a[k] for k in ('name','type','tags') if k in a};safe.update(case_id=cid,entity=ename,rules=[c['rule'] for c in a.get('constraints',[]) if isinstance(c,dict) and isinstance(c.get('rule'),str)])
+                    ref=facts.add(safe,p+'/srLayer/entities/'+str(en)+'/attributes/'+str(an))
+                    tags=a.get('tags',[]);dtype={'int':'integer','decimal':'number','object[]':'array','string[]':'array','url':'string','enum':None}.get(a.get('type'),a.get('type'))
+                    target['attributes'].append({'name':a['name'],'data_type':dtype,'required':True if '必填' in tags else False if '可选' in tags else None,'operation':'any','case_ids':[cid],'case_names':[label],'constraints':constraints(a.get('constraints',[]),a['name'],ref),'source_refs':ref})
+        commands={c['apiId']:c for c in f['rrLayer'].get('commands',[])}
+        for cn,c in enumerate(f['srLayer'].get('commands',[])):
+            original=commands.get(c['apiId'],{})
+            declared=re.search(r'(?<!\w)(RR|SR)(?!\w)',str(original.get('source','')))
+            for an,a in enumerate(c.get('attributes',[])):
+                safe={k:a[k] for k in ('name','type','tags') if k in a};safe.update(case_id=cid,api_id=c['apiId'],method=original.get('method'),address=original.get('path'),rules=[r['rule'] for r in a.get('constraints',[]) if isinstance(r,dict) and isinstance(r.get('rule'),str)])
+                refs=facts.add(safe,p+'/srLayer/commands/'+str(cn)+'/attributes/'+str(an))
+                # Do not infer direction from a name such as items[] or from
+                # HTTP GET. Later join requires a known field on this exact API.
+                interface_attributes.append({'case_id':cid,'case_name':label,'api_id':c['apiId'],'source_layer':declared[1] if declared else None,'method':original.get('method'),'address':original.get('path'),'attribute':safe,'source_refs':refs})
+    for n,m in enumerate(value.get('missingConstraints',[])):
+        refs=facts.add({'missing_constraint':{k:m[k] for k in ('function','node','reason') if k in m}},'/missingConstraints/'+str(n))
+        pending.append({'object':str(m.get('node','未指定属性')),'reason':str(m.get('reason','约束未给出')),'source_refs':refs})
+    payload={'entities':list(entities.values()),'pending':pending}
+    return {'format':'function_tree','artifacts':[facts.artifact('business-entities',payload,coverage_details={'case_scopes':scopes,'attributes':'declared_only','project_inventory':'partial'})],
+            'pending':pending,'case_scopes':scopes,'interface_attributes':interface_attributes,
+            'document':deepcopy(facts.document),'json_locations':facts.locations,'counts':{'use_cases':len(scopes),'entities':len(entities),'scoped_attributes':sum(len(e['attributes']) for e in entities.values()),'interface_attributes':len(interface_attributes)}}
+
+
+def convert(value,file_id,name):
+    kind=format_of(value)
+    if kind=='api_extraction':return api_product(value,file_id,name)
+    if kind=='function_tree':return function_product(value,file_id,name)
+    return None
+
+
+def scoped_entities(value,case_ids):
+    """Preserve operation/use-case specificity; never globally union states."""
+    out=deepcopy(value);scope=set(case_ids)
+    for e in out['entities']:
+        e['attributes']=[a for a in e['attributes'] if not a.get('case_ids') or scope.intersection(a['case_ids']+a.get('case_names',[]))]
+    # Entity identity remains usable by CRUD even when its attributes are not
+    # declared for this case (or no attribute was provided at all).
+    return out
+
+
+def uncovered_entity_documents(documents,parts):
+    """Only skip explicitly covered case sections, never an unprovided scope."""
+    from .structure_models import model_layer,CASE_MARKER,MARKER
+    covered={x[k] for p in parts for x in p.get('coverage_details',{}).get('case_scopes',[]) for k in ('case_id','case_name')}
+    if not covered:return documents
+    out=[]
+    for doc in documents:
+        if model_layer(doc) is None:out.append(doc);continue
+        sections=[];current=[]
+        for row in doc['lines']:
+            if row['text'].startswith('## '):
+                if current:sections.append(current)
+                current=[]
+            current.append(row)
+        if current:sections.append(current)
+        for section in sections:
+            marker=next((r for r in section if r['text'].startswith(CASE_MARKER)),None)
+            if not marker:continue  # The compiled preamble contains only actors/components, not business attributes.
+            case=json.loads(marker['text'][len(CASE_MARKER):-4])
+            if case['id'] in covered or case['name'] in covered:continue
+            header=[r for r in doc['lines'] if r['text'].startswith(MARKER)]
+            out.append({**doc,'lines':header+section})
+    return out
+
+
+def interface_requirements(interaction,parameters,inputs):
+    """Join function-tree attributes only to already located fields on the exact API.
+
+    This never guesses whether an unlocated items[] is input or output and never
+    transfers an internal constraint to a public request with the same API ID.
+    """
+    from .interaction_enrichment import resolved_api_id
+    api_id=resolved_api_id(interaction,inputs)
+    apis=inputs.get('api-parameters',{}).get('apis',[]);api=next((a for a in apis if a['id']==api_id),None)
+    if not api:return parameters
+    for item in inputs.get('colleague-interface-attributes',[]):
+        if (item.get('source_layer')!=api.get('source_layer') or not item.get('address') or item['address']!=api.get('address')
+                or not item.get('method') or item['method'].upper()!=(api.get('method') or '').upper()):continue
+        own=[p for p in parameters if p['name']==item['attribute']['name']]
+        if len(own)!=1:continue
+        locations={p['location'] for p in api['parameters'] if p['name']==item['attribute']['name']}
+        if len(locations)!=1 or own[0]['location'] not in locations:continue
+        p=own[0];a=item['attribute'];dtype={'int':'integer','decimal':'number','object[]':'array','string[]':'array','url':'string','enum':None}.get(a.get('type'),a.get('type'))
+        if p['data_type'] is None:p['data_type']=dtype
+        tags=a.get('tags',[])
+        if '必填' in tags:p['required']=True
+        elif p['required'] is None and '可选' in tags:p['required']=False
+        extra=constraints(a.get('rules',[]),p['name'],item['source_refs'])
+        p['constraints']=list({fingerprint([c['kind'],c['value']]):c for c in p['constraints']+extra}.values())
+        p['source_refs']=list({fingerprint(r):r for r in p['source_refs']+item['source_refs']}.values())
+    return parameters
+
+
+def business_requirements(interaction,parameters,inputs):
+    """Intrinsic entity properties can enrich an already located same-name field.
+
+    Entity mandatory/storage annotations never invent API wire requiredness.
+    Distinct business entities or unknown actual CRUD identity remain unresolved.
+    """
+    rows=[r for r in inputs.get('business-crud',{}).get('rows',[]) if r['interaction_id'] in {interaction['id'],interaction.get('parent_id')}]
+    if not rows:return parameters
+    entities={e['id']:e for e in inputs.get('business-entities',{}).get('entities',[])}
+    rows=[r for r in rows if r.get('entity_id') in entities]
+    if not rows:return parameters
+    for p in parameters:
+        hits={}
+        for row in rows:
+            for a in entities.get(row['entity_id'],{}).get('attributes',[]):
+                if a['name']==p['name'] and a['operation'] in ('any',row['operation']):hits.setdefault(row['entity_id'],[]).append(a)
+        if len(hits)!=1:continue
+        for a in next(iter(hits.values())):
+            if p['data_type'] is None:p['data_type']=a['data_type']
+            elif a['data_type'] and a['data_type']!=p['data_type']:
+                p['constraints'].append({'id':'entity-type-'+fingerprint([p['name'],a['data_type']])[:20],'kind':'type','value':a['data_type'],'status':'explicit','source_refs':a['source_refs']})
+            p['constraints']=list({fingerprint([c['kind'],c['value']]):deepcopy(c) for c in p['constraints']+a['constraints']}.values())
+            p['source_refs']=list({fingerprint(r):r for r in p['source_refs']+a['source_refs']}.values())
+    return parameters

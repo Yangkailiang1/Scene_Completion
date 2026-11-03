@@ -38,7 +38,7 @@ def source_documents(project):
             if not any(d['source_id']==raw['source_id'] for d in out):out.append(raw)
         for artifact in item['artifacts']:
             doc=artifact['document']
-            if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_artifact','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'conversion_source_refs':artifact.get('conversion_source_refs',[])})
+            if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_artifact','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'conversion_source_refs':artifact.get('conversion_source_refs',[]),'json_locations':artifact.get('json_locations',[])})
         if item.get('structure_model'):
             model=item['structure_model'];doc=model['document']
             if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_structure','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'json_locations':model['locations']})

@@ -35,6 +35,7 @@ import { UsageView } from "./UsageView";
 import { PatternManager } from "./PatternManager";
 import { ManagerPanel } from "./ManagerPanel";
 import { InputManager } from "./InputManager";
+import { InputBundlePicker } from "./InputBundlePicker";
 import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
@@ -77,6 +78,7 @@ export default function App() {
   const [newTestError, setNewTestError] = useState("");
   const [newTestLoading, setNewTestLoading] = useState(false);
   const [newCreating, setNewCreating] = useState(false);
+  const [bundleCreate, setBundleCreate] = useState(false);
   const newTestRequest = useRef(0);
   const [management, setManagement] = useState<
     | "pending"
@@ -120,7 +122,8 @@ export default function App() {
     dirty = useRef(false),
     refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     buffer = useRef<ExecutionEvent[]>([]);
-  const managementRef = useRef(management), refreshBusy = useRef(new Set<string>());
+  const managementRef = useRef(management),
+    refreshBusy = useRef(new Set<string>());
   managementRef.current = management;
   currentRef.current = current;
   selectedRef.current = selected;
@@ -148,17 +151,27 @@ export default function App() {
     refreshBusy.current.add(id);
     try {
       const compact = managementRef.current !== null;
-      const s = await api<Snapshot & { compact?: boolean }>(projectUrl(id) + (compact ? "?compact=true" : ""));
+      const s = await api<Snapshot & { compact?: boolean }>(
+        projectUrl(id) + (compact ? "?compact=true" : ""),
+      );
       if (currentRef.current !== id) return;
       jobStatusRef.current = s.job.status;
-      setSnapshot((old) => s.compact && old ? { ...old, project: s.project, job: s.job, manifest: s.manifest } : s);
+      setSnapshot((old) =>
+        s.compact && old
+          ? { ...old, project: s.project, job: s.job, manifest: s.manifest }
+          : s,
+      );
       if (!compact) {
         const g = await api<Graph>(projectUrl(id, "graph"));
         if (currentRef.current === id) setGraph(g);
       }
-    } finally { refreshBusy.current.delete(id); }
+    } finally {
+      refreshBusy.current.delete(id);
+    }
   }
-  useEffect(() => { if (current) refresh(current).catch(error); }, [management]);
+  useEffect(() => {
+    if (current) refresh(current).catch(error);
+  }, [management]);
 
   useEffect(() => {
     loadProjects()
@@ -1252,6 +1265,15 @@ export default function App() {
         projectName={project?.name}
         reviewOnly={snapshot?.review_only}
       />
+      {bundleCreate && (
+        <InputBundlePicker
+          project=""
+          onClose={() => setBundleCreate(false)}
+          onImported={(p) => {
+            loadProjects().then(() => openProject(p.id));
+          }}
+        />
+      )}
       {dialog && (
         <div
           className="modal-backdrop"
@@ -1324,6 +1346,15 @@ export default function App() {
                 <span className="eyebrow">NEW PROJECT</span>
                 <h2>新建审核项目</h2>
                 <p>文档与模型结果保存在本地，逐节点检查有据可循。</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDialog(null);
+                    setBundleCreate(true);
+                  }}
+                >
+                  <FolderOpen size={16} /> 从五类JSON文件夹／绝对路径新建
+                </button>
                 <label>
                   项目名称
                   <input

@@ -46,9 +46,10 @@ def merge_entities(parts):
                 pending.append({'reason':'同一业务实体ID对应不同名称','object':key,'source_refs':entity['source_refs']});continue
             refs={fingerprint(r):r for r in current['source_refs']+entity['source_refs']}
             current['source_refs']=list(refs.values())
-            attributes={(a['name'],a.get('operation','')):a for a in current['attributes']}
+            attr_key=lambda a:(a['name'],a.get('operation',''),tuple(sorted(a.get('case_ids',[]))),tuple(sorted(a.get('case_names',[]))))
+            attributes={attr_key(a):a for a in current['attributes']}
             for attribute in entity['attributes']:
-                akey=(attribute['name'],attribute.get('operation',''))
+                akey=attr_key(attribute)
                 if akey not in attributes:attributes[akey]=deepcopy(attribute);continue
                 old=attributes[akey]
                 for prop in ('data_type','required'):
@@ -136,12 +137,13 @@ def crud_for_case(case_id, interactions, entities, declared=None):
     return {'rows':rows,'pending':pending}
 
 
-def exact_field_map(api_parameters, entities, crud_rows):
+def exact_field_map(api_parameters, entities, crud_rows,case_aliases=None):
     """Only same-name fields in the actual operation's business entity scope."""
     scopes=defaultdict(set)
     for row in crud_rows:
         scopes[row['api_id']].add(row['entity_id']) if row.get('api_id') else None
     entities_by_id={e['id']:e for e in entities}
+    case_aliases=case_aliases or {}
     mappings=[];pending=[]
     for api in api_parameters.get('apis',[]):
         ids=scopes.get(api['id'],set())
@@ -152,6 +154,7 @@ def exact_field_map(api_parameters, entities, crud_rows):
                 entity=entities_by_id.get(eid)
                 if entity:
                     matches.extend((eid,a) for a in entity['attributes'] if a['name']==parameter['name']
+                        and (not a.get('case_ids') or any(set(a['case_ids']+a.get('case_names',[])) & set(case_aliases.get(r['case_id'],[r['case_id']])) for r in crud_rows if r['entity_id']==eid and r.get('api_id')==api['id']))
                         and (a['operation']=='any' or any(r['entity_id']==eid and r['api_id']==api['id'] and r['operation']==a['operation'] for r in crud_rows)))
             # Multiple operation-scoped descriptions of one attribute are one
             # identity, but different business entities remain ambiguous.

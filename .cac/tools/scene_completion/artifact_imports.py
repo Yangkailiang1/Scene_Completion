@@ -8,8 +8,8 @@ from .contracts import schema,validate,PROTOCOL
 from .source_documents import normal_projection
 
 LOCK=RLock()
-TASKS={'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'}
-ROOTS={'components':{'components','relations'},'api-map':{'services'},'api-parameters':{'apis'},'rr-ssd':{'interactions'},'sr-ssd':{'interactions'},'fused-ssd':{'interactions','rr_sr_links','pending'},'object-operations':{'objects'}}
+TASKS={'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations','business-entities'}
+ROOTS={'components':{'components','relations'},'api-map':{'services'},'api-parameters':{'apis'},'rr-ssd':{'interactions'},'sr-ssd':{'interactions'},'fused-ssd':{'interactions','rr_sr_links','pending'},'object-operations':{'objects'},'business-entities':{'entities','pending'}}
 
 
 def load(project):
@@ -168,10 +168,13 @@ def receive(project,files):
    if role not in {'RR','SR','test','artifact','unknown'}:raise ValueError('未知文件用途')
    positive=normal_projection([{'source_id':'raw','name':name,'lines':[{'number':i,'text':v} for i,v in enumerate(text.splitlines(),1)]}])[0]
    parse_text='\n'.join(v['text'] for v in positive['lines']) if Path(name).suffix.lower() in {'.md','.markdown'} else text
-   artifacts=deterministic(parse_text,name) if role=='artifact' else []
+   from .colleague_formats import convert as convert_colleague
+   product=convert_colleague(json.loads(text),iid,name) if Path(name).suffix.lower()=='.json' and role=='artifact' and not structured else None
+   artifacts=product['artifacts'] if product else deterministic(parse_text,name) if role=='artifact' else []
    row={'id':iid,'name':name,'hash':digest,'role':role,'status':'converted' if artifacts else 'needs_conversion' if role=='artifact' else 'source_pending','artifacts':[],'created_at':time.time(),'revision':0,'original':str((folder/'original'/name).relative_to(project)),'history':[]}
    if structured:
     row.update(structure_model=structured,structure_enabled=True,status='converted')
+   if product:row.update(colleague_product={k:v for k,v in product.items() if k!='artifacts'},status='converted')
    row['recognition']={'role':role,'reason':'正文含明确测试场景/恢复结构' if role=='test' and re.search(r'SC@|测试逆向',text) else '格式结构与文件用途识别','source_file':name,'source_hash':digest}
    if role=='test':
     from .test_sources import preview
@@ -183,12 +186,14 @@ def receive(project,files):
     row['target_nodes']=['test-inventory','test-case-align','<用例>:test-concerns','<用例>:test-ground-truth','<用例>:concern-evaluation','<用例>:exception-evaluation']
    else:row['target_nodes']=[a['task'] for a in row['artifacts']]
    if bound:row['status']='source_active'
-   _targets(row,artifacts)
+   _targets(row,artifacts,prepared=bool(product))
    row['target_nodes']=(['rr-use-cases' if structured['layer']=='RR' else 'sr-use-cases','<用例>:existing-branches'] if structured else [a['task'] for a in row['artifacts']]) if role=='artifact' else row.get('target_nodes',[])
+   row['target_nodes']=list(dict.fromkeys(row['target_nodes']))
+   if product and product['format']=='function_tree':row['target_nodes']+=['<用例>:business-crud（提供实体范围）','business-attribute-map（提供属性依据）','<用例>:interaction-enrich（精确字段补充）']
    from .artifact_parsers import mermaid_sequences
    row['literal_structure']={'mermaid':mermaid_sequences(parse_text)}
    # A mixed artifact file requires conversion of remaining structures too.
-   if role=='artifact' and not structured and (row['literal_structure']['mermaid'] or artifacts and re.search(r'请求参数|数据类型|参数名称|支持的操作|系统组成',parse_text)):
+   if role=='artifact' and not structured and not product and (row['literal_structure']['mermaid'] or artifacts and re.search(r'请求参数|数据类型|参数名称|支持的操作|系统组成',parse_text)):
     row['status']='needs_conversion'
    record=str((folder/'record.json').relative_to(project));write_json(project/record,row)
    index['items'][iid]={'name':name,'role':role,'status':row['status'],'record':record,'created_at':row['created_at']}
@@ -201,13 +206,19 @@ def archive(project,row):
  write_json(Path(project)/'imports/versions'/row['id']/(str(row['revision'])+'-'+fingerprint(row)[:12]+'.json'),row)
 
 
-def _targets(row,artifacts):
+def _targets(row,artifacts,prepared=False):
  for n,a in enumerate(artifacts):
   if not isinstance(a,dict) or a.get('task') not in TASKS:raise ValueError('导入目标不在支持的正向任务范围')
-  value,doc=cited_payload(a.get('payload'),a['task'],row['id']+'-'+str(n),row['name'])
+  if prepared:
+   value,doc=deepcopy(a['payload']),deepcopy(a['document'])
+   from .source_documents import validate_evidence
+   if doc['source_id']!='import-'+row['id']+'-facts-v1' or doc['channel']!='normal':raise ValueError('结构转换的来源身份无效')
+   validate_evidence(value,[doc])
+  else:value,doc=cited_payload(a.get('payload'),a['task'],row['id']+'-'+str(n),row['name'])
   try:validate(a['task'],value);error=None
   except ValueError as e:error=str(e)
   row['artifacts'].append({'id':row['id']+':'+str(n),'task':a['task'],'case_hint':a.get('case_hint'),'coverage':a.get('coverage','partial'),'payload':value,'document':doc,'status':'needs_confirmation' if a.get('coverage')!='complete' or error else 'candidate','error':error,'accepted_partial':False,'source_layer':a.get('source_layer'),'conversion_source_refs':a.get('source_refs',[])})
+  if prepared:row['artifacts'][-1].update(json_locations=a.get('json_locations',[]),coverage_details=a.get('coverage_details',{}),literal_adapter=a.get('literal_adapter'))
 
 
 def convert(project,iid,client):
@@ -272,7 +283,9 @@ def decide(project,iid,body):
   if a is None:raise ValueError('未知目标产物')
   if body.get('action') not in {'accept','reject'}:raise ValueError('请选择接受或拒绝')
   updated=deepcopy(a)
-  if 'payload' in body and body['action']=='accept':updated['payload'],updated['document']=cited_payload(body['payload'],a['task'],iid+'-'+aid.split(':')[-1],row['name'])
+  if 'payload' in body and body['action']=='accept' and body['payload']!=a['payload']:
+   updated['payload'],updated['document']=cited_payload(body['payload'],a['task'],iid+'-'+aid.split(':')[-1],row['name'])
+   updated.pop('json_locations',None);updated.pop('literal_adapter',None)
   if body.get('case_id'):updated['case_hint']=body['case_id']
   if body.get('coverage') is not None:
    if body['coverage'] not in {'complete','partial'}:raise ValueError('覆盖范围必须明确为完整或部分')
@@ -401,13 +414,19 @@ def merge(task,generated,parts):
     for param in api['parameters']:
      known=next((p for p in target['parameters'] if (p['name'],p['location'])==(param['name'],param['location'])),None)
      if known is None:target['parameters'].append(deepcopy(param));continue
-     for k in ('name','location','data_type','default'):known[k]=union(known.get(k),param.get(k))
+     for k in ('name','location','default'):known[k]=union(known.get(k),param.get(k))
+     if known.get('data_type') is None:known['data_type']=param.get('data_type')
+     elif param.get('data_type') is not None and known['data_type']!=param['data_type']:
+      known['constraints'].append({'id':'import-type-'+fingerprint([param['name'],param['location'],param['data_type']])[:20],'kind':'type','value':param['data_type'],'status':'explicit','source_refs':param['source_refs']})
      known['required']=True if known.get('required') is True or param.get('required') is True else union(known.get('required'),param.get('required'))
      known['source_refs']=union(known['source_refs'],param['source_refs'])
      known['constraints']=combine(known['constraints'],param['constraints'],lambda c:(c['kind'],fingerprint(c['value']),c['status']))
   elif task=='fused-ssd':
    value['interactions']=combine(value['interactions'],other.get('interactions',[]),lambda x:x['id'])
    if part['task']=='fused-ssd':value['rr_sr_links']=combine(value['rr_sr_links'],other.get('rr_sr_links',[]),lambda x:x['rr_id'])
+  elif task=='business-entities':
+   from .domain_model import merge_entities
+   value=merge_entities([value,other])
   else:
    root=next(iter(ROOTS[task])) if task not in {'components'} else 'components'
    identity_key='name' if task=='object-operations' else 'id'
@@ -417,13 +436,15 @@ def merge(task,generated,parts):
 
 
 def record_use(project,key,proof):
- if proof.get('provider') not in {'colleague_import','colleague_structure'}:return
+ if proof.get('provider') not in {'colleague_import','colleague_structure'} and not proof.get('import_sources'):return
  with LOCK:
   path=Path(project)/'imports/usage.json';data=read_json(path) if path.exists() else {}
-  if proof['provider']=='colleague_structure':
+  if proof.get('provider')=='colleague_structure':
    for source in proof.get('source_files',[]):
     data[key+'::'+source['file_id']]={'node':key,**proof,**source,'artifact_id':'structure-model','at':time.time()}
-  else:data[key]={'node':key,**proof,'at':time.time()}
+  elif proof.get('provider')=='colleague_import':data[key]={'node':key,**proof,'at':time.time()}
+  for source in proof.get('import_sources',[]):
+   data[key+'::'+source['artifact_id']]={'node':key,'provider':'colleague_partial',**source,'at':time.time()}
   write_json(path,data)
 
 

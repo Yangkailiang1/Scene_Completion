@@ -32,7 +32,7 @@ def capabilities():
     command_actions=next(a for a in parser()._actions if isinstance(a,argparse._SubParsersAction))
     parameters={name:[{'flags':a.option_strings or [a.dest],'required':a.required,'type':getattr(a.type,'__name__','boolean' if isinstance(a,(argparse._StoreTrueAction,argparse._StoreFalseAction)) else 'string'),'choices':list(a.choices) if a.choices is not None else None,'help':a.help} for a in command._actions if a.dest!='help'] for name,command in command_actions.choices.items()}
     return {'version':'business-review-v1','format':'JSON/JSONL','command_parameters':parameters,'commands':{
-      'projects/create':'项目列表、新建项目；RR/SR为Markdown，测试支持Markdown/JSON/XLSX；--evaluation-scope SR|RR|all（默认SR）',
+      'projects/create':'新建项目；RR/SR支持Markdown/结构模型JSON，测试支持Markdown/JSON/XLSX；--input-dir递归识别五类JSON，或--input-manifest指定五份绝对路径；--evaluation-scope SR|RR|all（默认SR）',
       'metrics':'--project ID [--case ID] [--test-set original|expanded|business] [--scope SR|RR|all]；复用冻结匹配按实际接口归属计数，不调用模型',
       'accounts/save-account':'每Key模型允许列表；expected_revision校验、环境变量引用、隐藏输入及--dry-run',
       'configure':'模型、路由、思考、输出/上下文预算、吞吐监视及候选切换；--config-file及--dry-run',
@@ -50,6 +50,7 @@ def capabilities():
       'repair-export/repair-submit':'外部Code Agent修复必须通过原校验器',
       'input-scan':'--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续',
       'imports':'--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果',
+      'input-bundle':'[--project ID] --directory ABS_PATH 或 --file 五份绝对路径清单.json；--dry-run预览，--adopt-partial采用已声明事实、缺项继续抽取；不启动模型',
       'quality':'diagnose|report|impact|apply：冻结指标损失、证据归因、人工确认及定向重跑；--project ID --diagnosis ID --file approvals.json --dry-run/--rerun',
       'manager':'--project ID --action status|chat|configure|model|memory|operate|run；--file JSON及--dry-run，持久对话与托管',
       'recovery':'--project ID [--file policy.json --dry-run]；版本化恢复策略及持久预算记录',
@@ -74,10 +75,13 @@ def parser():
     p=argparse.ArgumentParser(description='让Code Agent操作同一网页工作台；输出JSON或JSONL，不另建隐藏运行目录。');p.add_argument('--server',default='http://127.0.0.1:8765');sub=p.add_subparsers(dest='command',required=True)
     sub.add_parser('capabilities');sub.add_parser('projects');create=sub.add_parser('create');create.add_argument('--name',required=True)
     for role in ('rr','sr','test'):create.add_argument('--'+role,action='append',default=[])
-    create.add_argument('--input-dir',help='自动分配明确命名的RR/SR/测试文件，其他文件进入同事产物导入')
+    create.add_argument('--input-dir',help='递归识别约定的五类JSON；普通Markdown目录沿用原输入方式')
+    create.add_argument('--input-manifest',help='JSON清单：RR、SR、function_tree、api_extraction、test五份绝对路径')
+    create.add_argument('--adopt-partial',action='store_true',help='采用已校验的部分事实，缺少的响应等继续抽取，不标记整节点完成')
     create.add_argument('--mode',choices=('manual','auto'),default='manual');create.add_argument('--case',action='append',default=[])
     create.add_argument('--evaluation-scope',choices=('SR','RR','all'),default='SR',help='指标按实际接口定义归属筛选，不能由路径前缀猜测')
     metrics=sub.add_parser('metrics');metrics.add_argument('--project',required=True);metrics.add_argument('--case');metrics.add_argument('--scope',choices=('SR','RR','all'),default='SR');metrics.add_argument('--test-set',choices=('original','expanded','business'),default='original')
+    bundle=sub.add_parser('input-bundle');bundle.add_argument('--project');bundle.add_argument('--directory');bundle.add_argument('--file',help='五份绝对路径JSON清单');bundle.add_argument('--dry-run',action='store_true');bundle.add_argument('--adopt-partial',action='store_true');bundle.add_argument('--replace',action='store_true');bundle.add_argument('--expected-hash')
     accounts=sub.add_parser('accounts')
     save=sub.add_parser('save-account');save.add_argument('--id');save.add_argument('--dry-run',action='store_true');save.add_argument('--name',required=True);save.add_argument('--base-url',required=True);save.add_argument('--model',action='append',required=True);group=save.add_mutually_exclusive_group();group.add_argument('--api-key-env');group.add_argument('--prompt-key',action='store_true',help='终端隐藏输入API Key；密钥不进入命令历史')
     for cmd in ('status','artifacts','run','events','configure','config','diagnose','repair-export','repair-submit','rerun','guide','answer'):
@@ -124,6 +128,17 @@ def parser():
 def main(argv=None,client=None):
     args=parser().parse_args(argv);api=client or API(args.server)
     if args.command=='capabilities':output(capabilities());return 0
+    if args.command=='input-bundle':
+        if bool(args.directory)==bool(args.file):raise ValueError('请选择--directory或--file中的一个')
+        body={'directory':args.directory} if args.directory else {'paths':json.loads(Path(args.file).read_text(encoding='utf-8-sig'))}
+        body.update(dry_run=args.dry_run,adopt_partial=args.adopt_partial,replace=args.replace,expected_hash=args.expected_hash)
+        if not args.project:
+            if not args.dry_run:raise ValueError('采用文件请指定--project；只预览可不指定项目')
+            output(api.call('input-bundles/preview',body,'POST'))
+        else:
+            if len(args.project)!=32 or any(c not in '0123456789abcdef' for c in args.project):raise ValueError('无效项目ID')
+            output(api.call('projects/'+args.project+'/input-bundles',body,'POST'))
+        return 0
     if args.command=='quality':
         path='projects/'+args.project+'/quality-diagnostics'
         if args.quality_action=='diagnose':
@@ -146,6 +161,14 @@ def main(argv=None,client=None):
         if args.prompt_key:body['api_key']=getpass.getpass('API Key（隐藏输入）: ')
         output(api.call('model-accounts',body,'PUT'));return 0
     if args.command=='create':
+        if args.input_manifest or args.input_dir:
+            from .input_bundles import discover
+            if args.input_manifest and args.input_dir:raise ValueError('--input-manifest与--input-dir不能同时提供')
+            selection={'paths':json.loads(Path(args.input_manifest).read_text(encoding='utf-8-sig'))} if args.input_manifest else {'directory':str(Path(args.input_dir).resolve())}
+            preview,found=discover(**selection)
+            if args.input_manifest or any(k in found for k in ('RR','SR')):
+                if args.rr or args.sr or args.test:raise ValueError('五文件导入模式不再混用--rr/--sr/--test，请在清单中指定')
+                output(api.call('projects/from-input-bundle',{**selection,'name':args.name,'review_mode':args.mode,'evaluation_scope':args.evaluation_scope,'adopt_partial':args.adopt_partial,'expected_hash':preview['preview_hash'],'case_ids':args.case},'POST'));return 0
         other=[]
         if args.input_dir:
             from .artifact_imports import role_hint

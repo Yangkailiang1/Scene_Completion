@@ -130,7 +130,7 @@ ENRICHED=obj(interactions=arr(ENRICHED_INTERACTION),rr_sr_links=arr(LINK),
  resource_mappings=arr(obj(physical_resource_id=S,logical_service_id=S,source_refs=REFS)))
 
 SCHEMAS = {
- 'artifact-convert':obj(source_role=enum('artifact','RR','SR','test','unknown'),artifacts=arr(obj(task=enum('components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'),case_hint=NULL_S,coverage=enum('complete','partial'),payload={'type':'object'},source_refs=REFS))),
+ 'artifact-convert':obj(source_role=enum('artifact','RR','SR','test','unknown'),artifacts=arr(obj(task=enum('components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations','business-entities'),case_hint=NULL_S,coverage=enum('complete','partial'),payload={'type':'object'},source_refs=REFS))),
  'normal-rules':obj(rules=arr(NORMAL_RULE),pending=arr(obj(interaction_id=S,reason=S,source_refs=REFS))),
  'components':obj(components=arr(COMPONENT), relations=arr(obj(from_id=S,to_id=S,relation=S,source_refs=REFS))),
  'rr-ssd':obj(interactions=arr(INTERACTION)),
@@ -159,6 +159,7 @@ SCHEMAS = {
 DOMAIN_PENDING=obj(object=S,reason=S,source_refs=REFS)
 BUSINESS_ATTRIBUTE=obj(name=S,data_type=NULL_S,required={'type':['boolean','null']},
  operation=enum('create','read','update','delete','any'),constraints=arr(CONSTRAINT),source_refs=REFS)
+BUSINESS_ATTRIBUTE['properties'].update(case_ids=arr(S),case_names=arr(S))
 BUSINESS_RULE=obj(id=S,description=S,operation=enum('create','read','update','delete','any'),
  fields=arr(S),condition=S,source_refs=REFS)
 BUSINESS_ENTITY=obj(id=S,name=S,attributes=arr(BUSINESS_ATTRIBUTE),business_rules=arr(BUSINESS_RULE),source_refs=REFS)
@@ -292,7 +293,7 @@ def packet(task, inputs, case_ids=None):
     if task in {'test-concerns','test-ground-truth'}:optional=optional|{'test-inventory'}
     if task in {'api-map','api-parameters','api-index'}:optional|={'RR','SR','api-map'}
     optional|={'review-documents'}
-    if task in {'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations'}:
+    if task in {'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','object-operations','business-entities'}:
         optional|={'imported-fragments','import-documents'}
         for doc in inputs.get('import-documents',[]):
             if not doc.get('source_id','').startswith('import-') or doc.get('channel')!='normal':raise ValueError('导入材料必须属于正向通道并保留文件身份')

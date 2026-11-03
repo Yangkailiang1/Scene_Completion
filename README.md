@@ -187,6 +187,8 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 ## 同事产物、首例优先与模型切换
 
+五文件接入支持“整个目录自动识别”及“五份绝对路径清单”，不按文件名猜用途。网页在“新建项目 → 从五类JSON文件夹／绝对路径新建”或“输入与导入 → 添加文件夹／指定5份路径”预览后采用；CLI使用`create --input-dir`、`create --input-manifest`及`input-bundle --dry-run`。功能树提供用例范围内的实体属性，接口文件提供明确的服务、方法、路径及请求字段；缺少的成功响应、CRUD与依赖关系不会冒充完成。参见[五类文件使用与节点映射](docs/five-input-bundle.md)。
+
 支持同事提供的 RR／SR `structure_model.json`（`scope.model_level`、`entities`、`relations`）。在“输入与导入”上传后，可直接复用用例目录及 `scenario_kind=exception` 的已有场景分支，跳过对应的重复模型抽取；不跳过RR／SR用例对应、融合SSD和异常关注点逆向识别。主成功与备选分支保留查看，正向模型不读取已有异常、历史基线或原文件内的外部引文。每层可选择一个当前结构版本，来源指向上传JSON及其属性位置。详见[结构模型接入说明](docs/structured-model-import.md)。
 
 网页新增“输入与导入”，CLI提供`input-scan`、`imports`、`recovery`、`run --case/--priority-case`。Windows支持后台启动、状态与停止。客户网关可用`--thinking off --thinking-api chat_template_kwargs`；吞吐监视和候选模型切换须显式启用，成功产物不因运行配置改变而整批失效。见[操作、预算与迁移说明](docs/intake-recovery-and-model-switching.md)。

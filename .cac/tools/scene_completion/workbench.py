@@ -29,7 +29,7 @@ class Workbench:
         if not name:raise ValueError('请填写项目名称')
         if body.get('review_mode','manual') not in {'manual','auto'}:raise ValueError('invalid review mode')
         sources=body.get('sources',{});saved={}
-        if not sources.get('RR') or not sources.get('SR'):raise ValueError('请提供RR和SR Markdown文档')
+        if not sources.get('RR') or not sources.get('SR'):raise ValueError('请提供RR和SR Markdown或结构模型JSON')
         from .test_sources import preview_sources,ImportValidationError
         imported=preview_sources(sources.get('test',[]))
         if not imported['valid']:raise ImportValidationError(imported)
