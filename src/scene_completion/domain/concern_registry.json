@@ -1,0 +1,819 @@
+{
+  "version": "interaction-global-concerns-v5",
+  "definitions": {
+    "service.base.availability": {
+      "key": "service.base.availability",
+      "label": "服务可用性",
+      "layer": "base",
+      "group": "service_base",
+      "parents": [],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "service.base.availability",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "服务可用性"
+    },
+    "service.base.request_data": {
+      "key": "service.base.request_data",
+      "label": "输入数据关注点",
+      "layer": "base",
+      "group": "service_base",
+      "parents": [],
+      "guard": null,
+      "kind": "family",
+      "failure_family": "service.base.request_data",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "请求数据正确性"
+    },
+    "service.base.response_contract": {
+      "key": "service.base.response_contract",
+      "label": "输出数据关注点",
+      "layer": "base",
+      "group": "service_base",
+      "parents": [],
+      "guard": null,
+      "kind": "family",
+      "failure_family": "service.base.response_contract",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "返回契约与数据正确性"
+    },
+    "api.data.completeness": {
+      "key": "api.data.completeness",
+      "label": "数据完整性",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.completeness",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "必填数据缺失或请求体为空"
+    },
+    "api.data.format": {
+      "key": "api.data.format",
+      "label": "数据格式",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.format",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "数据不满足格式规范"
+    },
+    "api.data.length": {
+      "key": "api.data.length",
+      "label": "数据长度",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.length",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "字符串长度超过限制"
+    },
+    "api.data.range": {
+      "key": "api.data.range",
+      "label": "数据范围",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.range",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "数值不满足明确上下界，或取值不属于明示的允许枚举集合（离散取值范围）。不包含笼统的合法性判断。"
+    },
+    "api.data.size": {
+      "key": "api.data.size",
+      "label": "数据大小",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.size",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "文件或请求体超过限制"
+    },
+    "api.data.type": {
+      "key": "api.data.type",
+      "label": "数据类型",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data",
+        "service.base.response_contract"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.type",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "数据类型与接口定义不符"
+    },
+    "service.display_interaction.display_correctness": {
+      "key": "service.display_interaction.display_correctness",
+      "label": "显示正确性",
+      "layer": "functional",
+      "group": "display_interaction",
+      "parents": [],
+      "guard": "result",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "display"
+      ],
+      "technology": null,
+      "description": "显示正确性"
+    },
+    "service.display_interaction.device_adaptation": {
+      "key": "service.display_interaction.device_adaptation",
+      "label": "设备适配性",
+      "layer": "functional",
+      "group": "display_interaction",
+      "parents": [],
+      "guard": "device",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "display"
+      ],
+      "technology": null,
+      "description": "设备适配性"
+    },
+    "service.query_retrieval.resource_existence": {
+      "key": "service.query_retrieval.resource_existence",
+      "label": "资源存在性",
+      "layer": "functional",
+      "group": "query_retrieval",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "read"
+      ],
+      "technology": null,
+      "description": "资源存在性"
+    },
+    "service.query_retrieval.data_visibility": {
+      "key": "service.query_retrieval.data_visibility",
+      "label": "数据可见性",
+      "layer": "functional",
+      "group": "query_retrieval",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service.base.authorization",
+      "operation_kinds": [
+        "read"
+      ],
+      "technology": null,
+      "description": "数据可见性"
+    },
+    "service.resource_mutation.idempotency": {
+      "key": "service.resource_mutation.idempotency",
+      "label": "幂等性",
+      "layer": "functional",
+      "group": "resource_mutation",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.idempotency",
+      "operation_kinds": [
+        "read",
+        "update",
+        "delete"
+      ],
+      "technology": null,
+      "description": "SR内部Service实际R/U/D操作的共享幂等性检查；按用户确认框架规则启用，无需原文明示。C不在本次强制范围内；不假设幂等键或响应码。",
+      "enabled": true
+    },
+    "service.release_activation.prerequisite": {
+      "key": "service.release_activation.prerequisite",
+      "label": "发布前置条件",
+      "layer": "functional",
+      "group": "release_activation",
+      "parents": [],
+      "guard": "release",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "publish"
+      ],
+      "technology": null,
+      "description": "发布前置条件"
+    },
+    "service.release_activation.result_consistency": {
+      "key": "service.release_activation.result_consistency",
+      "label": "发布结果一致性",
+      "layer": "functional",
+      "group": "release_activation",
+      "parents": [],
+      "guard": "result",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "publish"
+      ],
+      "technology": null,
+      "description": "发布结果一致性"
+    },
+    "service.release_activation.failure_recovery": {
+      "key": "service.release_activation.failure_recovery",
+      "label": "失败恢复",
+      "layer": "functional",
+      "group": "release_activation",
+      "parents": [],
+      "guard": "recovery",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "publish"
+      ],
+      "technology": null,
+      "description": "失败恢复"
+    },
+    "database.uniqueness": {
+      "key": "database.uniqueness",
+      "label": "唯一性约束",
+      "layer": "technology",
+      "group": "database",
+      "parents": [
+        "service.business_attribute_constraint"
+      ],
+      "guard": "unique",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "create",
+        "update"
+      ],
+      "technology": "database",
+      "description": "唯一性约束"
+    },
+    "database.referential_integrity": {
+      "key": "database.referential_integrity",
+      "label": "关联一致性",
+      "layer": "technology",
+      "group": "database",
+      "parents": [
+        "service.business_attribute_constraint"
+      ],
+      "guard": "reference",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": "database",
+      "description": "关联完整性"
+    },
+    "llm.grounding": {
+      "key": "llm.grounding",
+      "label": "语义正确性",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [],
+      "guard": "grounding",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "输出语义、事实与本次任务要求及给定依据一致；具体正常要求需有来源。"
+    },
+    "llm.instruction_following": {
+      "key": "llm.instruction_following",
+      "label": "指令遵循",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [],
+      "guard": "instruction",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "指令遵循"
+    },
+    "llm.context_sufficiency": {
+      "key": "llm.context_sufficiency",
+      "label": "上下文完整性",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [
+        "service.base.request_data"
+      ],
+      "guard": "context",
+      "kind": "check",
+      "failure_family": "service.base.request_data",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "上下文充分性"
+    },
+    "llm.prompt_security": {
+      "key": "llm.prompt_security",
+      "label": "提示词安全",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [],
+      "guard": "prompt_security",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "提示词安全"
+    },
+    "llm.output_stability": {
+      "key": "llm.output_stability",
+      "label": "输出稳定性",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [],
+      "guard": "stability",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "输出稳定性"
+    },
+    "service_relation.cross_service_consistency": {
+      "key": "service_relation.cross_service_consistency",
+      "label": "跨服务数据一致性",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "relation",
+      "kind": "check",
+      "failure_family": "service.base.result_correctness",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "一侧成功、一侧失败或版本不一致"
+    },
+    "human.authentication": {
+      "key": "human.authentication",
+      "label": "身份认证",
+      "layer": "human",
+      "group": "human",
+      "parents": [],
+      "guard": "authentication",
+      "kind": "check",
+      "failure_family": "service.base.authentication",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "调用方身份认证"
+    },
+    "service_relation.authentication": {
+      "key": "service_relation.authentication",
+      "label": "调用方身份认证",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authentication",
+      "kind": "check",
+      "failure_family": "service.base.authentication",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "调用方身份认证"
+    },
+    "human.authorization": {
+      "key": "human.authorization",
+      "label": "权限控制",
+      "layer": "human",
+      "group": "human",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service.base.authorization",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "访问授权"
+    },
+    "service_relation.authorization": {
+      "key": "service_relation.authorization",
+      "label": "调用授权",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service.base.authorization",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "访问授权"
+    },
+    "service.analysis_generation.execution_deadline": {
+      "key": "service.analysis_generation.execution_deadline",
+      "label": "执行时限",
+      "layer": "functional",
+      "group": "analysis_generation",
+      "parents": [],
+      "guard": "timing",
+      "kind": "check",
+      "failure_family": "execution_deadline",
+      "operation_kinds": [
+        "process"
+      ],
+      "technology": null,
+      "description": "资源消耗"
+    },
+    "database.query_performance": {
+      "key": "database.query_performance",
+      "label": "查询性能",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "timing",
+      "kind": "check",
+      "failure_family": "execution_deadline",
+      "operation_kinds": [
+        "read"
+      ],
+      "technology": "database",
+      "description": "依据明确的查询时限或性能要求检查数据库查询是否按约定完成；不自行设定秒数，不与已停用的资源消耗混同。"
+    },
+    "service.business_attribute_constraint": {
+      "key": "service.business_attribute_constraint",
+      "label": "业务实体属性约束",
+      "layer": "base",
+      "group": "business_attribute",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "service.business_attribute_constraint",
+      "operation_kinds": [
+        "create",
+        "read",
+        "update",
+        "delete"
+      ],
+      "technology": null,
+      "description": "实体属性的重名、状态不可修改、跨属性类型兼容等明示业务规则"
+    },
+    "service.crud.create.concurrency_consistency": {
+      "key": "service.crud.create.concurrency_consistency",
+      "label": "创建并发一致性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.create.concurrency_consistency",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的并发一致性"
+    },
+    "service.crud.create.idempotency": {
+      "key": "service.crud.create.idempotency",
+      "label": "创建幂等性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.create.idempotency",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的幂等性"
+    },
+    "service.crud.create.resource_existence": {
+      "key": "service.crud.create.resource_existence",
+      "label": "创建对象资源存在性",
+      "layer": "functional",
+      "group": "create",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.create.resource_existence",
+      "operation_kinds": [
+        "create"
+      ],
+      "technology": null,
+      "description": "创建业务实体时的对象资源存在性"
+    },
+    "service.crud.update.concurrency_consistency": {
+      "key": "service.crud.update.concurrency_consistency",
+      "label": "更新并发一致性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.update.concurrency_consistency",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的并发一致性"
+    },
+    "service.crud.update.idempotency": {
+      "key": "service.crud.update.idempotency",
+      "label": "更新幂等性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.update.idempotency",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的幂等性"
+    },
+    "service.crud.update.resource_existence": {
+      "key": "service.crud.update.resource_existence",
+      "label": "更新对象资源存在性",
+      "layer": "functional",
+      "group": "update",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.update.resource_existence",
+      "operation_kinds": [
+        "update"
+      ],
+      "technology": null,
+      "description": "更新业务实体时的对象资源存在性"
+    },
+    "service.crud.delete.concurrency_consistency": {
+      "key": "service.crud.delete.concurrency_consistency",
+      "label": "删除并发一致性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "concurrency",
+      "kind": "check",
+      "failure_family": "service.crud.delete.concurrency_consistency",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的并发一致性"
+    },
+    "service.crud.delete.idempotency": {
+      "key": "service.crud.delete.idempotency",
+      "label": "删除幂等性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "idempotency",
+      "kind": "check",
+      "failure_family": "service.crud.delete.idempotency",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的幂等性"
+    },
+    "service.crud.delete.resource_existence": {
+      "key": "service.crud.delete.resource_existence",
+      "label": "删除对象资源存在性",
+      "layer": "functional",
+      "group": "delete",
+      "parents": [],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "service.crud.delete.resource_existence",
+      "operation_kinds": [
+        "delete"
+      ],
+      "technology": null,
+      "description": "删除业务实体时的对象资源存在性"
+    },
+    "service_relation.data_isolation": {
+      "key": "service_relation.data_isolation",
+      "label": "跨服务数据隔离",
+      "layer": "relation",
+      "group": "service_relation",
+      "parents": [],
+      "guard": "authorization",
+      "kind": "check",
+      "failure_family": "service_relation.data_isolation",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "service-id、租户或数据范围不得越界读取"
+    },
+    "global.call_order": {
+      "key": "global.call_order",
+      "label": "调用顺序",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.call_order",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "跨用例前置或先后条件"
+    },
+    "global.dependency_consistency": {
+      "key": "global.dependency_consistency",
+      "label": "依赖一致性",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.dependency_consistency",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "依赖实体存在、状态、版本或生效条件"
+    },
+    "global.cascade_operation": {
+      "key": "global.cascade_operation",
+      "label": "级联操作",
+      "layer": "global",
+      "group": "business_dependency",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "global.cascade_operation",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "明示级联组内独立清理义务"
+    },
+    "api.data.validity": {
+      "key": "api.data.validity",
+      "label": "输入数据有效性",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data"
+      ],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "api.data.validity",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "输入字段引用的业务资源须在本次操作及归属范围中存在且有效。需要明确引用关系与有效性规则；不按Id字段名称推断，不与格式、枚举或笼统合法性混同；只检查请求方向。"
+    },
+    "database.special_characters": {
+      "key": "database.special_characters",
+      "label": "数据库特殊字符处理",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "database.special_characters",
+      "operation_kinds": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": "database",
+      "description": "依据明确数据库/存储处理要求检查特殊字符、SQL或HTML注入及Unicode/emoji兼容。特殊字符本身不一定非法，不补造禁用字符集合；与接口格式约束独立定位，同一失败不重复计分。"
+    },
+    "database.storage_validity": {
+      "key": "database.storage_validity",
+      "label": "存储数据有效性",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "storage_field",
+      "kind": "check",
+      "failure_family": "database.storage_validity",
+      "operation_kinds": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": "database",
+      "description": "依据明示存储Schema或存储内容规则检查实际存储记录缺少字段、类型或内容不满足要求。与输入/输出接口参数分开，不能将只读请求误判为写入失败；同一失败保留来源并去重。"
+    }
+  },
+  "profiles": {
+    "human": [
+      "human.authentication",
+      "human.authorization"
+    ],
+    "base": [
+      "service.base.request_data",
+      "service.base.response_contract",
+      "service.business_attribute_constraint",
+      "service.base.availability"
+    ],
+    "functional": {
+      "display_interaction": [
+        "service.display_interaction.display_correctness",
+        "service.display_interaction.device_adaptation"
+      ],
+      "query_retrieval": [
+        "service.query_retrieval.resource_existence",
+        "service.query_retrieval.data_visibility",
+        "service.resource_mutation.idempotency"
+      ],
+      "resource_mutation": [],
+      "analysis_generation": [
+        "service.analysis_generation.execution_deadline"
+      ],
+      "release_activation": [
+        "service.release_activation.prerequisite",
+        "service.release_activation.result_consistency",
+        "service.release_activation.failure_recovery"
+      ],
+      "create": [
+        "service.crud.create.concurrency_consistency",
+        "service.crud.create.idempotency",
+        "service.crud.create.resource_existence"
+      ],
+      "update": [
+        "service.crud.update.concurrency_consistency",
+        "service.crud.update.idempotency",
+        "service.crud.update.resource_existence",
+        "service.resource_mutation.idempotency"
+      ],
+      "delete": [
+        "service.crud.delete.concurrency_consistency",
+        "service.crud.delete.idempotency",
+        "service.crud.delete.resource_existence",
+        "service.resource_mutation.idempotency"
+      ]
+    },
+    "technology": {
+      "database": [
+        "database.uniqueness",
+        "database.referential_integrity",
+        "database.query_performance",
+        "database.special_characters",
+        "database.storage_validity"
+      ],
+      "llm": [
+        "llm.grounding",
+        "llm.instruction_following",
+        "llm.context_sufficiency",
+        "llm.prompt_security",
+        "llm.output_stability"
+      ]
+    },
+    "conditional": [],
+    "relation": [
+      "service_relation.cross_service_consistency",
+      "service_relation.authentication",
+      "service_relation.authorization",
+      "service_relation.data_isolation"
+    ],
+    "global": [
+      "global.call_order",
+      "global.dependency_consistency",
+      "global.cascade_operation"
+    ]
+  },
+  "hash": "937c89e2451cdbacb9c08f99ea32e671ab352dd45996092868e2df23a80b736d",
+  "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports.",
+  "framework_policies": {
+    "sr_internal_rud_idempotency": {
+      "version": 1,
+      "policy_id": "sr-internal-rud-idempotency-v1",
+      "enabled": true,
+      "concern_key": "service.resource_mutation.idempotency",
+      "source": "user_confirmed"
+    },
+    "four_level_taxonomy_20261103": {
+      "version": 1,
+      "added_keys": [
+        "api.data.validity",
+        "database.special_characters",
+        "database.storage_validity"
+      ],
+      "retired_keys": [
+        "service.analysis_generation.resource_consumption"
+      ],
+      "reason": "用户确认四层关注点与独立全局业务依赖；枚举仍归数据范围，数据合法性不恢复"
+    }
+  }
+}

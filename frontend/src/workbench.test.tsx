@@ -1,9 +1,8 @@
-import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import App from "./App";
-import { segments, NodeOutput } from "./NodeOutput";
-import type { ExecutionEvent, GraphNode } from "./types";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import App from "./app/App";
+import { NodeOutput, segments } from "./features/execution/NodeOutput";
+import type { ExecutionEvent, GraphNode } from "./shared/types";
 vi.mock("./ExecutionFlow", () => ({
   ExecutionFlow: ({ graph, onSelect }: any) => (
     <div data-testid="graph">

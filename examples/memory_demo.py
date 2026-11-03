@@ -6,9 +6,9 @@ not measure whether a model can extract or semantically compare these facts.
 from pathlib import Path
 from copy import deepcopy
 import argparse,json,sys
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'.cac/tools'))
-from scene_completion.source_documents import read_documents
-from scene_completion.workflow import Execution,build_pipeline
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
+from scene_completion.inputs.source_documents import read_documents
+from scene_completion.workflow.engine import Execution,build_pipeline
 
 
 def main():
@@ -91,9 +91,9 @@ pageSize：可选整数，默认20，范围1-100。
     mocks['business-dependencies']={'dependencies':[],'pending':[]}
     # Explicit simulated recognition response; this is an offline fixture,
     # not a registry fill used by the production recognizer.
-    from scene_completion.concern_matching import complete_data_matches
+    from scene_completion.analysis.concern_matching import complete_data_matches
     def recognize_fixture(packet):
-        from scene_completion.exception_generation import query_matches
+        from scene_completion.analysis.exception_generation import query_matches
         return {'matches':complete_data_matches(packet['input'],[])+query_matches(packet['input']),'pending':[]}
     mocks['concern-match']=recognize_fixture
     mocks['existing-concerns']={'matches':[],'pending':[]}

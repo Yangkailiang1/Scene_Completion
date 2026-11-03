@@ -1,45 +1,44 @@
-> 当前协议：**scene-workflow-v5**。交互级与全局业务依赖级分别识别关注点、展开异常场景并计分。旧项目和报告保留；新规则影响的节点不能直接复用旧结果。字段与任务契约见 [v5 Schema](docs/scene-workflow-v5/schemas/)，历史两层协议见 [v4 说明](docs/scene-workflow-v4/protocol.md)。
-> 输入／输出共用六类数据定义：完整性、类型、格式、长度、大小、范围；另外独立识别仅输入的“数据有效性（引用资源存在且有效）”。枚举属于数据范围，数据合法性保持停用。Service内部按基础／CRUD／业务／技术四层展示，全局业务依赖独立展示与计分。
+# Scene Completion 场景完整性工作台
 
-创建项目可直接上传五份JSON或选择输入文件夹，导入后查看[文件映射与完整依赖图](docs/five-input-bundle.md#上传入口与依赖预览)，区分可复用、部分补齐、提供依据和仍需执行。工作区支持[暂停／停止／继续及新版关注点设置](docs/execution-controls-and-taxonomy.md)，网页和CLI共用接口。
+从RR、SR与可选AR需求，以及已有结构化文件建立模型，独立识别文档已有异常和测试异常，比较两层覆盖并推荐缺失场景。
 
-# Scene Completion 场景完整性审核
+当前仅支持 **scene-workflow-v5** 和最新四层关注点体系。旧协议执行、旧关注点迁移及历史推荐算法已移除；旧数据保留在原目录和实施前备份中，不提供旧协议适配。
 
-以用例为单位融合RR/SR，建立系统组成与完整SSD，逐交互匹配关注点，生成异常G、独立抽取已有异常E并输出缺失M。支持业务手动确认中间产物，以及自动运行后集中审核。推荐器在新版规则下按缺失M执行风险保底排序。
+## 启动
 
-## Windows x64离线使用
-
-下载Release中的 `scene-completion-windows-x64.zip`，完整解压后双击 `start.cmd`；启动器就绪后会打开浏览器，访问 `http://127.0.0.1:8765`。包内包含CPython 3.12.10、全部Windows依赖、后端、前端和测试，不需要客户联网下载Python或环境包。模型通过内网API提供，不携带模型权重。
-
-在界面新建项目，导入RR、SR及可选测试Markdown；填写OpenAI兼容Base URL、实际模型标识、凭证和并发。客户提供的Qwen/DeepSeek部署须支持tool_calls；名称以其API实际公布的标识为准。模型配置只保存在本地，项目导出不包含密钥。
-
-端口占用时可运行`start.cmd --port 8766`。模型可在网页配置，也可复制包根目录`.env.example`为`.env`后填写。数据保存在包根目录`data/`，源码提交见`VERSION.json`。
-
-`check.cmd`检查离线依赖并运行测试。构建包时已经验证Windows wheel匹配及包内文件摘要；原生Windows启动验证应以GitHub Actions记录或客户机器结果为准，不能以macOS测试代替。
-
-## 开发与本地运行
-
-需要Python 3.12。依赖精确锁定在requirements-windows.lock，Windows离线包使用相同版本的Windows wheels。
+Python 3.12及以上，前端开发使用Node.js 22。运行依赖精确锁定在 `requirements-windows.lock`。
 
 ```sh
-python -m pip install -r requirements.txt
-python serve.py
-python -m pytest -q
+python -m pip install -r requirements-dev.txt
+python serve.py --port 8765 --data-dir .workbench --env-file .env
 ```
 
-前端源码使用React / TypeScript / Vite，执行图使用React Flow，基础组件适配shadcn/ui。仓库已提交构建好的web静态文件，由FastAPI本地提供。客户运行无需Node、CDN或联网下载资源；只有开发时需要Node 22：
+打开 http://127.0.0.1:8765 。服务直接提供已构建的网页，日常使用不需要Node.js。
 
-```sh
-npm ci --prefix frontend
-npm test --prefix frontend
-npm run build --prefix frontend
-```
+Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/Scene_Completion/releases)，解压到新目录，双击 `start.cmd`。程序包含Python和全部运行依赖。升级时保留 `data/` 与本地配置，勿用空目录覆盖；只对经过当前Schema、来源及任务规则校验的成功产物复用。原生Windows运行以客户验收记录为准。
 
-默认只监听127.0.0.1。服务端默认读取仓库根目录`.env`中的`ECNU_BASE_URL`、`ECNU_API_KEY`，请求模型默认`ecnu-plus`；可用`python serve.py --env-file /path/to/.env`指定。项目配置优先，未覆盖项继续读取服务端配置。密钥不返回浏览器、不进入项目或Windows导出包。请求模型与服务端实际返回模型分别保存。连接／首响应等待、流中无数据等待、整次生成时限可分别设置：流式默认无数据300秒、总生成900秒，不再把原120秒直接当大产物总时限。超时不自动重POST，错误显示发生阶段及已接收增量；输出上限不等于保证输出长度。
+## 从目录定位代码
 
-## 实际工作流
+| 目录 | 内容 |
+|---|---|
+| `src/scene_completion/domain/` | 当前协议、Schema、关注点和场景类型 |
+| `src/scene_completion/workflow/` | DAG、共享／逐用例／全局节点、执行、恢复和语义缓存 |
+| `src/scene_completion/inputs/` | 文件识别、格式转换、时序引用、采用与追溯 |
+| `src/scene_completion/analysis/` | 建模、关注点、场景、比较、推荐和评测 |
+| `src/scene_completion/models/` | OpenAI兼容连接、模型路由、流式、限流和用量 |
+| `src/scene_completion/review/` | 业务澄清、推荐审核、人工GT和交接 |
+| `src/scene_completion/manager/` | 管理Agent、记忆、托管、补丁和质量诊断 |
+| `src/scene_completion/api/`、`cli/` | HTTP装配／分组路由与CLI |
+| `src/scene_completion/infrastructure/` | 存储、事件、进程与统一资源路径 |
+| `frontend/src/app/` | 页面装配与全局状态 |
+| `frontend/src/features/` | 按功能组织的页面、状态逻辑和测试 |
+| `frontend/src/shared/`、`components/ui/` | 公共请求、类型、工具和基础组件 |
+| `.cac/skills/`、`.cac/agents/` | 独立的任务Skill与角色资源，无Python源码 |
+| `tests/`、`tools/`、`deployment/` | 离线回归、审计／打包和启动器 |
 
-v5 区分交互级与全局业务依赖级。业务实体（例如记忆实例、记忆库、记忆策略）与接口／数据库字段所代表的数据实体分别建模；CRUD 依据用例对业务实体的实际效果识别。全局依赖只在原文或业务确认提供适用条件时进入确定集合。一条全局异常可以关联多个用例，但在项目中只计一次。
+模块迁移明细见 [代码导览](docs/refactor/code-guide.md)，开发命令见 [开发约定](docs/refactor/development.md)。
+
+## 实际流程
 
 ```mermaid
 flowchart TB
@@ -87,145 +86,41 @@ flowchart TB
     GT --> MET
 ```
 
-实际 DAG 把共享实体抽取按文档片段拆分，CRUD 按用例拆分，全局依赖按来源片段及依赖边拆分。正向 G 不读取已有异常 E 或测试 GT；GT 未就绪不阻塞缺失报告和推荐。前端“最终结果”提供交互级、全局级与项目汇总视图；项目汇总按相同指标的分子和分母相加，不平均百分比。原始、扩展和业务审核测试来源分别展示；尚无相应全局 GT 版本时，不把原始全局 GT 混入其他测试来源的项目汇总。
+RR/SR接口分别抽取，区分请求、成功响应及各失败响应。融合SSD按最小实际调用建模；同一次请求的重复描述统一身份，独立下游调用保留展开关系。交互级与全局业务依赖级独立定位、去重、展示，再按计数合并项目指标。
 
-1. RR/SR用例目录、系统组成、API映射并行抽取；API目录由映射完整建立后，并行抽取各接口参数。用例识别由模型基于正文完成，不依赖固定编号格式。
-2. 建立RR/SR用例对应：支持编号不同和一对多；未对应项明确pending，项目不能标为完成。
-3. 对每个confirmed用例组，将两层正向描述一起交给建模器，生成完整SSD及RR步骤—SR展开关系。保留整体系统边界、层级、实际调用及逐层返回；没有AR材料不生成AR。
-4. 从完整SSD投影RR/SR视图，整理名称—支持操作，再结合API表、组成身份补全交互。
-5. 按实际请求整理独立正向正常规则，再匹配双方及输入/输出关注点，按本次实际操作组合功能与技术扩展。规则、关注点按交互，逆向处理按原分支拆分缓存与审核；生成可执行项和有明示依据的条件级异常G。
-6. 检查器并行提取原文异常分支，再绑定融合SSD具体交互、逆向归类和细化E。参数非法可覆盖同交互多个请求细项（含缺失），不覆盖输出。G/E比较输出M及JSON/Markdown报告。测试GT独立绑定、细化后评测。
-7. 可选测试GT及抽取Acc评测独立运行。测试操作仅投影对象和支持操作，不向G提供异常答案。新版在M就绪后确定性推荐Q，GT只用于独立评测。
+G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试。正常、可选和待确认不进入确定集合。关注点由LLM识别，工具根据稳定定位规则比较；已识别关注点再展开细粒度场景。推荐来自M，不能读取当前GT排序。
 
-Deep Agents实际承担建模器和检查器的任务执行，加载各自Skill并通过工具提交结构化结果。任务依赖由持久化DAG约束；每个Agent只拿到本任务包和独立虚拟文件系统，无宿主文件/其他角色结果访问。共用原有传输、模型额度与并发控制，最多两轮任务修复。
+## 已有文件输入
 
-## 三栏执行工作台
+支持Markdown、JSON及测试XLSX。可使用原始RR/SR/AR，也可接入API提取结果、功能树、恢复用例、结构化需求及行为目录；完整且验证通过的输入跳过相应模型抽取，部分输入只补缺项。
 
-中间结果与节点对话区默认占84%、右侧紧凑任务导航16%，支持调宽、恢复默认和最大化工作区。日志正文至少14px，工具参数默认折叠，输入框在底部。可对节点发指导、提问、回答模型阻断疑问；指导在下一次模型调用生效。旧项目继续运行会保留原记录并创建新版项目。
+行为目录中 `ssd.json` 是RR外部交互；`operations/*/complete_behavior.json` 是SR完整交互定义；`main_success.json` 仅提供时序引用。结合场景类型及步骤引用分流成功、异常和备选，无法判定的保留待确认并由原流程补齐。不能把不完整的主成功文件当作SR完整定义。
 
-左侧项目栏可收起，偏好保存在浏览器；中间与右侧可拖动分隔线调整宽度。右侧导航按建模器、检查器、推荐器分组；完整只读执行图可按需展开，节点和连线读取调度器实际DAG，支持缩放、平移、用例筛选和定位当前节点。用例对应完成后展开真实用例节点；历史未保存依赖图的运行只展示原状态，不补造连线。
+见 [五类文件接入](docs/five-input-bundle.md)、[行为目录格式](docs/resource-behavior-input.md)、[接口层级与测试范围](docs/recovered-json-and-sr-metrics.md)。
 
-点击节点，在中间查看实时模型正文、工具参数与返回、校验反馈、文件保存、原文依据和审核版本。等待依赖的节点可点击上游定位。产物通过校验后即可预览与下载；未完成工具参数不会被当成产物。推荐节点按真实M依赖显示，旧版本仍显示“未启用”。阶段由后端提供，不计算虚假的完成百分比。
-
-API映射与参数在页面合并为**API接口总表**：服务名称、API名称、方法、地址及输入／输出参数的类型、必填性、默认值和约束同表展示，可下载JSON/Markdown。内部仍保留服务归属与按接口参数子任务以复用成功结果。总表会显示已完成、待审核和未提取状态；接口身份只按一致ID或双向唯一的地址对应，歧义保留待确认。接口目录节点单独展示标识、名称和原文范围，不能当成参数表。产物预览异常只影响本预览，不会清空工作台。
-
-事件存储在各运行的`execution_events.sqlite3`，先提交后推送；SSE支持`Last-Event-ID`或`after`续接，节点详情按序读取历史。导出包含JSONL事件而不携带数据库锁文件。端点：
-
-- `GET /api/projects/{id}/api-catalog`：合并总表；`?format=json`或`?format=md`下载并保存当前版本，包含中间结果状态。
-- `GET /api/projects/{id}/graph`：实际节点、依赖、文件、阻塞、阶段及耗时。
-- `GET /api/projects/{id}/events`：SSE增量；`events/history?task_key=...&after=...`读取节点历史。
-- `GET /api/projects/{id}/review-history?task_key=...`：审核版本。
-
-系统组成直接使用完整正向RR/SR输入，不重复读取文件。默认采用JSON文本流，适配网关大工具参数迟迟不返回的情况；完整JSON再交给同一提交工具校验并审核，阻断疑问仍进入用户回答流程。可通过服务配置`component_submission_mode=tool_calls`使用工具参数流；两种模式都不接受截断结果。实际请求流断开会显示“模型流中断，可继续”，保留已收字节、模型及完成标记。
-
-Deep Agents有效提交后由中间件直接结束，避免追加模型轮次。单任务默认最多5次模型请求，最后一次强制提交；无效提交使用执行器原有最多两轮定向修复。失败保留部分输出及完整任务诊断，不提高递归上限、不返回空结果冒充成功。
-
-## 业务审核与保存
-
-手动模式在需要确认的产物停下，先查看图表、字段和原文依据，编辑后“保存并通过”，再“继续运行”。自动模式执行所有可运行任务，同样保留结果供之后审核。可切换两种模式。
-
-审核决定绑定输入摘要和版本，修改结果重新校验Schema、来源及任务边界。旧版本保存在reviews/versions，成功任务缓存有摘要校验。重新执行时只重算受输入或审核修改影响的任务；同一上游payload不会使后续重复调用模型。用例失败不阻止其他用例，GT失败不阻止缺失报告。
-
-界面支持下载JSON、Markdown、可编辑SVG和完整项目ZIP。项目导出包括源文、图表、任务记录和审核版本，排除模型密钥。
-
-## CLI与独立绘图
-
-默认packets只准备任务包，不调用模型。真实运行需显式external及模型配置。
+## CLI与管理Agent
 
 ```sh
-python .cac/tools/scene_completion.py pipeline \
-  --rr-spec-document 在线商城购物系统/系统需求_spec.md \
-  --sr-spec-document 在线商城购物系统/功能设计_spec.md \
-  --review-mode auto --output-dir runs/project
-
-python .cac/tools/scene_completion.py pipeline \
-  --rr-spec-document RR.md --sr-spec-document SR.md \
-  --agent-mode external --config workflow.local.json --env-file .env \
-  --review-mode manual --output-dir runs/customer
-
-python .cac/tools/scene_completion.py render-composition \
-  --input-json COMPONENTS.json --output-svg composition.svg
-
-python .cac/tools/scene_completion.py check-run --run-dir runs/customer
-python examples/memory_demo.py --output-dir runs/memory-demo
+python scene.py capabilities
+python scene.py projects
+python scene.py status --project PROJECT_ID
+python scene.py run --project PROJECT_ID --case CASE_ID
+python scene.py diagnose --project PROJECT_ID --task NODE_ID
+python scene.py manager --help
 ```
 
-组成绘图恢复历史分区参与关系设计，适配当前JSON；用例为椭圆、人类Actor旁带小人。不会恢复旧CRUD推导或部署猜测。示例明确使用mock，不代表真实模型效果。
+CLI与网页使用相同项目、DAG、校验和审计。模型配置按连接的可用模型列表管理，账号、并发、路由或显示调整不使成功业务产物整体失效。客户网关合计最多3路请求，未知用量和账号保护线继续生效。
 
-以下 v3/v4 文档和页面说明保留作历史参考。当前运行协议及关注点版本以本页顶部的 v5 说明和仓库内的注册表为准；旧协议项目升级时创建新运行，原记录保留，旧缓存须重新验证后才可复用。
+[模型配置与CLI](docs/workbench-cli-model-accounts.md) · [管理Agent](docs/project-manager.md) · [业务离线审核](docs/business-offline-review.md) · [指标诊断](docs/quality-diagnostics.md) · [Windows打包](docs/windows-portable.md)
 
-本轮质量修订与内嵌用量API见[规则说明](docs/scene-workflow-v3/quality-rules-20261025.md)。用量与费用在当前工作区展示，默认轻量统计，原文上下文及请求详情按需加载；单价配置仅给出估算，实际扣费无依据时显示未知。
+## 检查与发布
 
-异常指标只统计类型为“异常”的测试，正常、可选和待确认不参与匹配。最终结果可切换原始/扩展异常测试集，扩展集由独立正向材料补充后自动计分；集合扩充不代表生成质量提升。测试支持Markdown、恢复用例JSON与XLSX，含预览、原文件定位和项目版本切换；[JSON接入及SR计分范围](docs/recovered-json-and-sr-metrics.md)、[商城Excel示例](examples/tests/mall-exception-tests.xlsx)及[接口/隔离/Token说明](docs/scene-workflow-v3/exception-tests-and-excel.md)可直接使用。
-
-详见[协议与字段](docs/scene-workflow-v3/protocol.md)、[任务依赖](docs/scene-workflow-v3/workflow-map.md)、[关注点体系](docs/scene-workflow-v2/concern-hierarchy.md)及[验证记录](docs/scene-workflow-v3/validation.md)。
-
-项目审核新增“待确认项”和“关注点设置”：按项目保存定义版本与历史报告，支持是否为异常及分类审核；保存审核不会自动调用模型。参见 [项目审核说明](docs/scene-workflow-v3/project-review.md) 和 [质量修订验收](docs/scene-workflow-v3/quality-acceptance-20261025.md)。
-
-最终结果可按用例和具体交互查看发送方、操作、数据、接收方，并列对照需求已有E、生成G、测试GT及缺失标记；图表总览集中预览和下载已抽取图表。待确认项默认只显示异常/归类疑问，规则未声明及结构核查单列，不把内部诊断当作已发现异常。
-
-## 细粒度场景与风险保底推荐
-新版网页增加“模式与风险”和“最终结果 → 风险推荐”。关注点下可以有多个异常模式，按具体交互与正向约束实例化；关键低置信候选先待审。推荐只使用缺失M、风险及项目已人工审核历史，不使用测试GT排序。原始/扩展测试分别评测，人工采纳率单列。
-
-详见 [方法、接口、版本与审核边界](docs/scenario-pattern-recommender.md)。旧Windows Release及旧报告保持可读，本轮不制作新Windows包。
-
-## Code Agent CLI与多API Key模型配置
-
-启动`serve.py`后，可用`python scene.py projects/create/configure/run/status/events/artifacts`操作同一个网页工作台。`run --wait`输出JSONL进度，网页实时查看同一节点、事件和文件。更多操作中的模型设置支持多个API Key连接，每个连接维护独立模型允许列表；项目从对应下拉框选模型。
-
-命令示例、凭证保存方式和运行边界见[CLI与模型连接说明](docs/workbench-cli-model-accounts.md)。结果控制区可收起，默认保留紧凑的快捷选择栏。
-
-“模式与风险”和“用量与费用”提供紧凑配置及具体任务瓶颈排行；最终图表增加可下载的SysML BDD。[BDD及用量排行说明](docs/bdd-and-usage-rankings.md)。
-
-历史 v4 两层流程和此前 v2/v3 报告保留为历史记录。用量页区分累计成本与单次请求峰值；当前 v5 关注点设置按新版层级组织。默认请求上下文上限为200,000 Token，完整请求及输出预留在发送前检查。历史定向样本对比见[上下文优化与网页验收](docs/scene-workflow-v4/context-optimization.md)。
-
-测试Markdown恢复格式、测试与需求用例对应及推荐前后指标，见[说明](docs/test-markdown-alignment.md)。
-
-客户DeepSeek思考模式、CLI运行参数、Windows长路径和失败节点接管，见[客户模型调试与修复](docs/customer-model-debugging.md)。`configure --stream --show-reasoning`可显式显示并保存网关思考流；`configure --thinking off --thinking-api legacy`请求关闭思考，实际是否生效以网关返回及diagnose为准。思考、正文、工具参数分开显示，思考内容不作为正式产物。
-
-## 业务离线审核与反馈回收
-
-使用“待确认项”按问题类型补规则，使用“推荐审核”形成人工增补GT；“审核交接”导出Windows只读审核包，反馈导入仅保存，研发预览真实DAG后手动重跑。CLI支持`capabilities`、`impact`、`rerun --affected`及版本化JSON写入。详见[业务审核闭环说明](docs/business-offline-review.md)。公共Windows包不含业务项目或密钥。
-
-## 已有文件输入、首例优先与模型切换
-
-支持资源／用例行为目录中的 `ssd.json`、`operations/*/main_success.json`、`complete_behavior.json` 及IR／SR场景JSON。按显式用例身份映射到融合SSD上下文和已有异常节点，主成功与异常分流；部分内容作为依据补充，保留原流程补齐及校验，目录名不认定为实体。详见[行为目录输入与兜底说明](docs/resource-behavior-input.md)。
-
-其中RR交互定义读取`ssd.json`，SR内部交互定义读取`complete_behavior.json`；`main_success.json`仅提供时序引用，允许没有完整交互列表。未被时序引用的内容继续按`sr_scenario.json`的类型及步骤引用分流，不能因为主成功时序较短就丢弃SR定义。
-
-五文件接入支持“整个目录自动识别”及“五份绝对路径清单”，不按文件名猜用途。网页在“新建项目 → 从五类JSON文件夹／绝对路径新建”或“输入与导入 → 添加文件夹／指定5份路径”预览后采用；CLI使用`create --input-dir`、`create --input-manifest`及`input-bundle --dry-run`。功能树提供用例范围内的实体属性，接口文件提供明确的服务、方法、路径及请求字段；缺少的成功响应、CRUD与依赖关系不会冒充完成。参见[五类文件使用与节点映射](docs/five-input-bundle.md)。
-
-支持同事提供的 RR／SR `structure_model.json`（`scope.model_level`、`entities`、`relations`）。在“输入与导入”上传后，可直接复用用例目录及 `scenario_kind=exception` 的已有场景分支，跳过对应的重复模型抽取；不跳过RR／SR用例对应、融合SSD和异常关注点逆向识别。主成功与备选分支保留查看，正向模型不读取已有异常、历史基线或原文件内的外部引文。每层可选择一个当前结构版本，来源指向上传JSON及其属性位置。详见[结构模型接入说明](docs/structured-model-import.md)。
-
-网页新增“输入与导入”，CLI提供`input-scan`、`imports`、`recovery`、`run --case/--priority-case`。Windows支持后台启动、状态与停止。客户网关可用`--thinking off --thinking-api chat_template_kwargs`；吞吐监视和候选模型切换须显式启用，成功产物不因运行配置改变而整批失效。见[操作、预算与迁移说明](docs/intake-recovery-and-model-switching.md)。
-
-项目管理Agent、后台托管、补丁回退、同事材料接入及CLI操作见[管理Agent使用说明](docs/project-manager.md)。真实单用例验收范围与限制见[本轮验收记录](docs/manager-acceptance-20261029.md)。
-
-工作区顶部提供可折叠的实时吞吐/切换/剩余时间监视栏，按当前执行轮查看变化图并导出报表。低吞吐策略只尝试已配置候选；预计时间基于真实DAG和成功阶段样本，未知及人工等待不伪造为固定完成时刻。见[监视与估算口径](docs/workspace-throughput-and-estimates.md)。
-
-### 指标诊断与优化建议
-
-“最终结果 → 指标诊断”可展开计分损失、证据原因和修改建议；人工确认后才应用版本化配置及定向重跑。支持`scene.cmd quality diagnose/report/impact/apply`，新完成评测轮自动诊断一次，单次模型预算最多10万Token。原始、扩展及业务审核GT分别冻结，业务包只读保存的诊断。详见[使用说明](docs/quality-diagnostics.md)。
-
-### RR/SR接口与实际交互的边界
-
-RR对外API与SR内部API分别抽取接口映射、请求、成功响应及失败响应；原编号可相同，机器身份按`RR::编号`与`SR::编号`区分。`/v1/...`与`/mx/v1/...`不是同一个接口，参数约束不能按字段同名互相补齐。
-
-```mermaid
-flowchart LR
-    A["开发者 / 管理台"] -->|"RR对外接口 /v1/..."| B["PlatformService：本地字段校验"]
-    B -->|"SR内部接口 /mx/v1/..."| C["AdminService：名称唯一性等检查"]
-    C --> D["数据库查询"]
+```sh
+make check
+make frontend-build
+python tools/build_windows_bundle.py --output-dir dist/windows-latest --offline
 ```
 
-每条SSD消息只描述一对调用双方。RR/SR展开关系不代表整条调用链是一次交互；只有同一次实际请求、调用双方及方向一致、接口不冲突且已确认对应时，才以SR交互ID合并重复视图，同时保留RR中的接口标识、数据要求和原文依据。G、E、GT采用同一定位规则，正常返回和失败传播不另造失败。测试异常归属其明确的实际接口和校验职责，关注点和场景不会仅凭同名字段跨RR/SR接口匹配。
+`make check`运行Ruff、Python回归、ESLint、严格TypeScript、Prettier和前端测试；不调用付费模型。构建离线包前需已缓存Windows wheels与嵌入式Python。原生Windows与客户网关测试单独记录。
 
-
-### SR内部R/U/D默认幂等性
-
-PlatformService→AdminService等内部Service实际R/U/D请求，按用户确认的框架规则 `sr-internal-rud-idempotency-v1` 检查幂等性，不要求原文另有声明。同一次实际调用只计一个绑定；外部Actor/UI→Platform对外调用、RR接口、返回和C操作不在此次强制范围。接口归属优先于RR/SR展示ID。
-
-该默认仅补充生成通道G_c，并从识别结果展开条件级场景；E/GT仍分别从原文异常、测试描述独立整理。场景不猜测幂等键、状态码或响应体，不把“重复请求”本身或动态查询数据变化当成失败。界面标明框架来源；旧项目首次升级保留定义快照，之后手动停用不被再次覆盖。旧评测报告不自动改分，重跑受影响关注点及下游后形成新报告，公共API/组成/SSD可按原契约校验复用。
-
-
-“变更业务约束”（`service.resource_mutation.business_constraint`）为已停用的历史分类。升级时停用旧项目中的该项，并保留定义及报告快照；旧模式不再参与新生成。新版以有来源的“业务实体属性约束”分析重名、不可修改属性、类型兼容等业务规则，旧绑定不会直接改标或改分，需重做受影响识别及下游。
+历史设计和验收见 `docs/history/`；它们不是当前业务规则。当前字段以 `domain/schema_definitions.py` 与 [v5 Schema](docs/scene-workflow-v5/schemas/) 为准。

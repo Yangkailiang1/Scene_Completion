@@ -1,2 +1,3 @@
-# The pinned portable set includes offline regression dependencies.
+# Developer tooling; runtime dependencies use the portable lock.
 -r requirements.txt
+ruff==0.14.3

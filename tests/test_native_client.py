@@ -1,11 +1,12 @@
 """Focused transport tests for the local Luna subprocess client."""
+
 import hashlib
 import json
 import subprocess
 
 import pytest
 
-from scene_completion.native_client import NativeClient, NativeExecutionError
+from scene_completion.models.native_client import NativeClient, NativeExecutionError
 
 
 def events(*rows):
@@ -15,25 +16,34 @@ def events(*rows):
 def valid_events():
     return events(
         {"type": "thread.started", "thread_id": "thread-test-1"},
-        {"type": "item.completed", "item": {"type": "agent_message", "text": "{\"items\":[]}"}},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": '{"items":[]}'}},
         {"type": "turn.completed"},
     )
 
 
 def packet():
-    return {"stage": "fixture", "input": {"scene": "supplied evidence"},
-            "instructions": ["Return items."], "output_contract": {"items": []},
-            "batch_id": "fixture-0000", "input_hash": "abc123"}
+    return {
+        "stage": "fixture",
+        "input": {"scene": "supplied evidence"},
+        "instructions": ["Return items."],
+        "output_contract": {"items": []},
+        "batch_id": "fixture-0000",
+        "input_hash": "abc123",
+    }
 
 
 def client(tmp_path, runner, monkeypatch, **config):
-    monkeypatch.setattr("scene_completion.native_client.shutil.which", lambda name: r"C:\Codex\codex.exe")
+    monkeypatch.setattr(
+        "scene_completion.models.native_client.shutil.which", lambda name: r"C:\Codex\codex.exe"
+    )
     return NativeClient({"native_run_dir": str(tmp_path / "native-runs"), **config}, runner=runner)
 
 
 def test_success_pins_cli_and_attaches_sidecar_identity_not_model_output(tmp_path, monkeypatch):
-    raw_output = json.dumps({"items": [], "execution_model_evidence": {"provider": "model-claim"}},
-                            separators=(",", ":")).encode("utf-8")
+    raw_output = json.dumps(
+        {"items": [], "execution_model_evidence": {"provider": "model-claim"}},
+        separators=(",", ":"),
+    ).encode("utf-8")
     raw_events = valid_events()
     captured = {}
 
@@ -54,10 +64,13 @@ def test_success_pins_cli_and_attaches_sidecar_identity_not_model_output(tmp_pat
     assert argv[argv.index("-s") + 1] == "read-only"
     assert {"--ephemeral", "--json", "--skip-git-repo-check", "-"} <= set(argv)
     assert captured["kwargs"]["shell"] is False
-    assert captured["kwargs"]["cwd"] == result["execution_model_evidence"]["native_execution"]["cwd"]
+    assert (
+        captured["kwargs"]["cwd"] == result["execution_model_evidence"]["native_execution"]["cwd"]
+    )
     assert captured["kwargs"]["input"] == json.dumps(
         {"task": captured_prompt_task(), "packet": packet()},
-        ensure_ascii=False, separators=(",", ":"),
+        ensure_ascii=False,
+        separators=(",", ":"),
     ).encode("utf-8")
     assert "ECNU_MAX_API_KEY" not in captured["kwargs"]["env"]
     assert "OPENAI_API_KEY" not in captured["kwargs"]["env"]
@@ -70,7 +83,10 @@ def test_success_pins_cli_and_attaches_sidecar_identity_not_model_output(tmp_pat
     assert native["thread_id"] == "thread-test-1"
     assert native["observed_model"] is None and native["model_observations"] == []
     assert native["turn_completed"] is True and native["agent_message_present"] is True
-    assert native["batch_id"] == packet()["batch_id"] and native["input_hash"] == packet()["input_hash"]
+    assert (
+        native["batch_id"] == packet()["batch_id"]
+        and native["input_hash"] == packet()["input_hash"]
+    )
     assert native["events_sha256"] == hashlib.sha256(raw_events).hexdigest()
     assert native["output_sha256"] == hashlib.sha256(raw_output).hexdigest()
     assert native["events_relative_path"].startswith("native-runs/")
@@ -101,12 +117,16 @@ def test_nonzero_exit_retains_event_and_stderr_diagnostics(tmp_path, monkeypatch
     assert open(native["stderr_path"], "rb").read() == b"failed after response"
 
 
-@pytest.mark.parametrize("raw_events,raw_output,error", [
-    (b"{not json}\n", b"{}", "Expecting property name"),
-    (valid_events(), b"{\"items\":", "Expecting value"),
-])
+@pytest.mark.parametrize(
+    "raw_events,raw_output,error",
+    [
+        (b"{not json}\n", b"{}", "Expecting property name"),
+        (valid_events(), b'{"items":', "Expecting value"),
+    ],
+)
 def test_malformed_events_or_truncated_output_fail_with_artifacts(
-        tmp_path, monkeypatch, raw_events, raw_output, error):
+    tmp_path, monkeypatch, raw_events, raw_output, error
+):
     def runner(argv, **kwargs):
         with open(argv[argv.index("--output-last-message") + 1], "wb") as stream:
             stream.write(raw_output)
@@ -124,7 +144,9 @@ def test_timeout_preserves_partial_event_stream_and_uses_configured_limit(tmp_pa
 
     def runner(argv, **kwargs):
         assert kwargs["timeout"] == 12.0
-        raise subprocess.TimeoutExpired(argv, kwargs["timeout"], output=partial, stderr=b"websocket retry")
+        raise subprocess.TimeoutExpired(
+            argv, kwargs["timeout"], output=partial, stderr=b"websocket retry"
+        )
 
     client_instance = client(tmp_path, runner, monkeypatch, timeout_seconds=12)
     with pytest.raises(NativeExecutionError, match="timed out") as caught:
@@ -134,11 +156,18 @@ def test_timeout_preserves_partial_event_stream_and_uses_configured_limit(tmp_pa
     assert open(native["stderr_path"], "rb").read() == b"websocket retry"
 
 
-@pytest.mark.parametrize("raw_events,error", [
-    (events({"type": "turn.completed"}, {"type": "agent_message"}), "thread.started thread_id"),
-    (events({"type": "thread.started", "thread_id": "thread-no-turn"},
-            {"type": "agent_message"}), "turn.completed"),
-])
+@pytest.mark.parametrize(
+    "raw_events,error",
+    [
+        (events({"type": "turn.completed"}, {"type": "agent_message"}), "thread.started thread_id"),
+        (
+            events(
+                {"type": "thread.started", "thread_id": "thread-no-turn"}, {"type": "agent_message"}
+            ),
+            "turn.completed",
+        ),
+    ],
+)
 def test_missing_thread_or_turn_provenance_fails(tmp_path, monkeypatch, raw_events, error):
     def runner(argv, **kwargs):
         with open(argv[argv.index("--output-last-message") + 1], "wb") as stream:

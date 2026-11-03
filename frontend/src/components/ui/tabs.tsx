@@ -1,7 +1,7 @@
 // Adapted from shadcn/ui. MIT license: see THIRD_PARTY_NOTICES.md.
-import * as React from "react";
 import * as Primitive from "@radix-ui/react-tabs";
-import { cn } from "../../utils";
+import * as React from "react";
+import { cn } from "../../shared/utils";
 export const Tabs = Primitive.Root;
 export const TabsList = React.forwardRef<
   React.ElementRef<typeof Primitive.List>,

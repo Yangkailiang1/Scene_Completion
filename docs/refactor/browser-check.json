@@ -1,0 +1,31 @@
+{
+  "console_errors": [],
+  "pages": [
+    {
+      "name": "输入与导入",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "最终结果",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "待确认项",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "关注点设置",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "模式与风险",
+      "horizontal_overflow": false
+    },
+    {
+      "name": "用量与费用",
+      "horizontal_overflow": false
+    }
+  ],
+  "managerVisibleAcrossNavigation": true,
+  "errors": []
+}
