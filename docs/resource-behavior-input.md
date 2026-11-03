@@ -19,8 +19,8 @@
 | 文件内容 | 节点及处理 |
 | --- | --- |
 | `ssd.json`的`system_boundary`、`interactions`和`scenario_flows` | 补充本用例`ssd-context`／`fused-ssd`的RR事实；只取唯一相邻IR主成功场景明确覆盖且不属于异常／备选的步骤，保留发送方和接收方 |
-| `main_success.json`的SR flow、interactions、actions | 补充本用例SR主成功事实；保留顺序和显式选择，不将分支摊平；本地action不制造新Service或调用 |
-| `complete_behavior.json` | 完整原文件可预览；只将同操作主成功视图明确引用的交互／本地动作定义提供给正向建模，完整choice的异常guard和失败返回不进入G |
+| `main_success.json`的SR flow | 只提供主成功时序／引用；允许没有interactions/actions或只有不完整重复声明。引用向同用例、同操作的complete_behavior解析，不要求本文件重复包含完整定义 |
+| `complete_behavior.json` | SR内部交互／本地动作的定义来源。既解析main_success引用，也依据sr_scenario的场景类型及source_steps补入未被时序引用的明确主成功内容；异常和备选分流，完整choice的异常guard和失败返回不进入G |
 | `ir_scenario.json`、`sr_scenario.json`的`kind=main` | 本用例的RR／SR正向描述，参与上下文、融合SSD及正常规则整理 |
 | 上述场景文件的`kind=exception` | 进入`existing-branches`的E通道，再执行实际交互绑定、关注点逆向识别及场景细化；不成为GT |
 | `alternative`或未知kind | 保留原文件及预览；不自动当成异常E或测试GT |
@@ -37,6 +37,10 @@
 2. 勾选采用部分已提供内容后，行为文件按用例作为补充输入；也可逐文件“采用此行为版本／停用此行为版本”。未采用时原流程不变。
 3. 导入依赖图显示每份文件涉及的真实节点。“提供依据”与“跳过抽取”分开表示，不把候选或部分事实冒充完成。
 4. 下一次显式执行时使用冻结的输入版本，不覆盖在途结果。相同用例、层级、操作和视图存在多个版本时，先停用非当前版本。
+
+SR定义与时序分别追溯：sender／receiver／message等来自complete_behavior，flow来自main_success；main_success中重复或不完整的定义不覆盖完整文件。缺少完整文件、引用悬空或步骤归属不明确时，在导入详情显示待补齐原因，原建模流程保留。缺少main_success时，仍可采用sr_scenario明确归属的主成功定义，不按数组顺序虚构时序。
+
+旧适配版本重新导入同一文件即可升级，原文件、旧投影和报告保留；新版需重新确认采用，避免将旧版“主成功文件必须自带全部定义”的结果当成新协议结果。
 
 仅上传无用例身份的单份SSD或行为文件，需要同时选择相邻场景文件或通过导入确认接口指定`case_id`。支持`sequence`、`choice`、`optional`、`interaction`、`action`和`empty`；悬空引用及不支持的结构显示为格式待修正，不启动自由格式转换模型，也不阻断原始输入流程。
 

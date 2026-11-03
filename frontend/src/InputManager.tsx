@@ -559,6 +559,7 @@ export function InputManager({
                             main_scenarios: "主成功场景",
                             exception_branches: "已有异常",
                             retained_scenarios: "保留备选",
+                            ordered_references: "时序引用",
                           }[key] || key}{" "}
                           <b>{String(value)}</b>
                         </span>
@@ -569,9 +570,19 @@ export function InputManager({
                     仅主成功内容用于正向建模；明示异常走E通道，备选不自动计分。本地动作不补造Service调用，目录名称不认定为业务实体。
                   </p>
                   <p>
-                    {detail.behavior_enabled
-                      ? "已采用，下次运行按本用例补充；缺项由原流程补齐"
-                      : "待采用，不影响原建模流程"}
+                    RR交互定义来自ssd.json；SR交互定义来自complete_behavior.json；main_success.json仅提供主成功时序引用，不要求重复包含完整定义。
+                  </p>
+                  {detail.behavior_upgrade_required && (
+                    <p role="alert">
+                      此文件使用旧适配版本，请重新导入同一文件后确认采用。旧记录和报告保留。
+                    </p>
+                  )}
+                  <p>
+                    {detail.behavior_upgrade_required
+                      ? "需要升级适配，请重新导入同一文件；原流程仍可用"
+                      : detail.behavior_enabled
+                        ? "已采用，下次运行按本用例补充；缺项由原流程补齐"
+                        : "待采用，不影响原建模流程"}
                   </p>
                   {!reviewOnly && (
                     <button
@@ -598,6 +609,11 @@ export function InputManager({
                         </p>
                       ),
                     )}
+                    {detail.behavior_resolution?.map((p: any, n: number) => (
+                      <p key={"resolution-" + n}>
+                        {p.object}：{p.reason}
+                      </p>
+                    ))}
                     <pre style={{ whiteSpace: "pre-wrap" }}>
                       {detail.behavior_product.kind === "sr_complete"
                         ? JSON.stringify(detail.behavior_product.raw, null, 2)

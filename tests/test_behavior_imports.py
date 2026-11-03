@@ -102,7 +102,8 @@ def test_no_sibling_no_main_inference_and_no_cross_case_step_id_binding(tmp_path
 def test_invalid_optional_behavior_is_visible_and_does_not_break_original_import(tmp_path):
     write_folder(tmp_path/'input');p=fixture(tmp_path/'input')
     bad=behavior();bad['flow']={'type':'interaction','ref':'missing'}
-    (p/'operations/query/main_success.json').write_text(json.dumps(bad))
+    bad['view_type']='complete'
+    (p/'operations/query/complete_behavior.json').write_text(json.dumps(bad))
     preview,files=discover(directory=str(tmp_path/'input'));assert preview['valid']
     assert any(r.get('error') for r in preview['files'])
     service,project_path=project(tmp_path/'data')
@@ -119,7 +120,8 @@ def test_batch_upload_resolves_siblings_and_preserves_original_trace(tmp_path):
     service,p=project(tmp_path/'data')
     try:
         files=[{'name':'ir_scenario.json','relative_path':'outputs/任意/用例/ir_scenario.json','content':json.dumps(scenarios(),ensure_ascii=False)},
-               {'name':'main_success.json','relative_path':'outputs/任意/用例/operations/query/main_success.json','content':json.dumps(behavior(),ensure_ascii=False)}]
+               {'name':'main_success.json','relative_path':'outputs/任意/用例/operations/query/main_success.json','content':json.dumps(behavior(),ensure_ascii=False)},
+               {'name':'complete_behavior.json','relative_path':'outputs/任意/用例/operations/query/complete_behavior.json','content':json.dumps(behavior('complete'),ensure_ascii=False)}]
         receive(p,files);rows=snapshot(p)
         assert all(r['behavior_product']['case_name']=='用例1' for r in rows)
         enable_all(p)
@@ -139,7 +141,7 @@ def test_old_pipeline_without_behavior_is_unchanged_and_preview_shows_real_targe
         apply(service,p,preview,files,adopt_partial=True)
         plan=build(p)
         nodes=[n for n in plan['nodes'] if n['stage']=='fused-ssd']
-        assert any(any(b['purpose']=='SR主成功行为' for b in n['input_bindings']) for n in nodes)
+        assert any(any(b['purpose']=='SR主成功时序（引用）' for b in n['input_bindings']) for n in nodes)
         assert all(n['import_mode']!='reuse' for n in nodes)
         # No fake extracted entities, fabricated formal outputs or test records.
         assert not (p/'run/workflow_tasks.json').exists()
@@ -175,3 +177,105 @@ def test_legacy_provenance_labels_are_display_mapped_without_mutating_history():
     assert provenance_label('同事产物导入')=='已有文件输入'
     assert provenance_label('同事产物合并')=='已有文件输入（补充合并）'
     assert provenance_label('恢复后生成')=='恢复后生成'
+
+
+def test_order_only_main_resolves_definitions_from_complete_and_preserves_two_sources(tmp_path):
+    from scene_completion.review_handoff import source_view
+    write_folder(tmp_path/'input');folder=fixture(tmp_path/'input')
+    main=behavior();main.pop('interactions');main.pop('actions')
+    (folder/'operations/query/main_success.json').write_text(json.dumps(main))
+    complete=behavior('complete');complete['interactions'][0].update(sender='平台',receiver='AdminService',message='SR_DEFINITION_ONLY_QUERY')
+    complete['interactions'][1].update(sender='AdminService',receiver='平台',message='SR_DEFINITION_ONLY_RESULT')
+    (folder/'operations/query/complete_behavior.json').write_text(json.dumps(complete))
+    preview,files=discover(directory=str(tmp_path/'input'))
+    assert not any(r.get('error') for r in preview['files'])
+    service,p=project(tmp_path/'data')
+    try:
+        apply(service,p,preview,files,adopt_partial=True)
+        docs=materials(snapshot(p),['用例1']);sr=docs['SR']
+        assert 'SR_DEFINITION_ONLY_QUERY' in str(sr) and 'AdminService' in str(sr)
+        order=next(d for d in sr if d['name'].startswith('main_success'))
+        definitions=next(d for d in sr if d['name'].startswith('complete_behavior'))
+        assert 'SR_DEFINITION_ONLY_QUERY' not in str(order)
+        assert 'SR_DEFINITION_ONLY_QUERY' in str(definitions)
+        assert 'complete_behavior.json' in str(source_view(p,definitions['source_id']))
+        assert 'main_success.json' in str(source_view(p,order['source_id']))
+        assert '提交查询' in str(docs['RR']) and 'AdminService' not in str(docs['RR'])
+    finally:service.pool.shutdown()
+
+
+def test_partial_main_definitions_do_not_override_complete_and_missing_definition_falls_back(tmp_path):
+    write_folder(tmp_path/'input');folder=fixture(tmp_path/'input')
+    main=behavior();main['interactions']=[{'id':'I1','message':'WRONG_DUPLICATE_MAIN_DEFINITION'}];main['actions']=[]
+    (folder/'operations/query/main_success.json').write_text(json.dumps(main))
+    preview,files=discover(directory=str(tmp_path/'input'));service,p=project(tmp_path/'data')
+    try:
+        apply(service,p,preview,files,adopt_partial=True)
+        assert 'WRONG_DUPLICATE_MAIN_DEFINITION' not in str(materials(snapshot(p),['用例1']))
+        assert '系统内部校验' in str(materials(snapshot(p),['用例1'])['SR'])
+        rows=snapshot(p)
+        rows= [r for r in rows if r.get('behavior_product',{}).get('kind')!='sr_complete']
+        sr=materials(rows,['用例1'])['SR']
+        assert not any(d['name'].startswith('main_success') for d in sr)
+        assert any('场景可读投影' in d['name'] for d in sr)  # Original declared normal material survives.
+    finally:service.pool.shutdown()
+
+
+@pytest.mark.parametrize('with_order',[True,False])
+def test_complete_inventory_not_limited_to_order_view_and_scenario_kinds_split_channels(tmp_path,with_order):
+    write_folder(tmp_path/'input');folder=fixture(tmp_path/'input')
+    sr=scenarios('SR');sr['scenarios'][0]['steps'].append({'id':'S3','text':'正常内部调用完整定义'})
+    (folder/'sr_scenario.json').write_text(json.dumps(sr))
+    comp=behavior('complete');comp['interactions'] += [
+      {'id':'I3','sender':'平台','receiver':'AdminService','message':'UNREFERENCED_NORMAL_SR','source_steps':['S3'],'data_refs':[]},
+      {'id':'IE','sender':'AdminService','receiver':'平台','message':'E_ONLY_COMPLETE_ERROR','source_steps':['E1'],'data_refs':[]},
+      {'id':'IA','sender':'AdminService','receiver':'平台','message':'OPTIONAL_ONLY_COMPLETE','source_steps':['A1'],'data_refs':[]}]
+    (folder/'operations/query/complete_behavior.json').write_text(json.dumps(comp))
+    if not with_order:(folder/'operations/query/main_success.json').unlink()
+    preview,files=discover(directory=str(tmp_path/'input'));service,p=project(tmp_path/'data')
+    try:
+        apply(service,p,preview,files,adopt_partial=True)
+        docs=materials(snapshot(p),['用例1'])
+        assert 'UNREFERENCED_NORMAL_SR' in str(docs['SR'])
+        assert 'E_ONLY' not in str(docs['SR']) and 'OPTIONAL_ONLY' not in str(docs['SR'])
+        assert 'E_ONLY_INVALID_TOKEN' in str(existing_branches(docs['existing']))
+        assert all('AdminService' not in str(d) for d in docs['RR'])
+    finally:service.pool.shutdown()
+
+
+def test_unresolved_order_is_visible_and_does_not_erase_known_complete_definitions(tmp_path):
+    write_folder(tmp_path/'input');folder=fixture(tmp_path/'input')
+    order=behavior();order['flow']={'type':'interaction','ref':'UNKNOWN_REF'};order.pop('interactions');order.pop('actions')
+    (folder/'operations/query/main_success.json').write_text(json.dumps(order))
+    preview,files=discover(directory=str(tmp_path/'input'));assert not any(r.get('error') for r in preview['files'])
+    service,p=project(tmp_path/'data')
+    try:
+        apply(service,p,preview,files,adopt_partial=True)
+        diagnostics=[];docs=materials(snapshot(p),['用例1'],diagnostics=diagnostics)
+        assert 'UNKNOWN_REF' in str(diagnostics)
+        assert '系统内部校验' in str(docs['SR'])
+        assert 'UNKNOWN_REF' not in str(docs['SR'])
+        from scene_completion.artifact_imports import view
+        row=next(r for r in snapshot(p) if r.get('behavior_product',{}).get('kind')=='sr_complete')
+        assert 'UNKNOWN_REF' in str(view(p,row['id'])['behavior_resolution'])
+    finally:service.pool.shutdown()
+
+
+def test_reimport_upgrades_old_adapter_and_keeps_its_source_and_history(tmp_path):
+    from scene_completion.storage import write_json
+    write_folder(tmp_path/'input');fixture(tmp_path/'input');preview,files=discover(directory=str(tmp_path/'input'))
+    service,p=project(tmp_path/'data')
+    try:
+        apply(service,p,preview,files,adopt_partial=True)
+        from scene_completion.artifact_imports import load
+        row=next(r for r in snapshot(p) if r.get('behavior_product',{}).get('kind')=='sr_main')
+        original=(p/row['original']).read_bytes();record=p/load(p)['items'][row['id']]['record']
+        row['behavior_product']['version']='resource-behavior-import-v1';write_json(record,row)
+        apply(service,p,preview,files,adopt_partial=True)
+        new=next(r for r in snapshot(p) if r['id']==row['id'])
+        assert new['behavior_product']['version']!='resource-behavior-import-v1'
+        assert new['behavior_enabled'] and new['revision']>row['revision']
+        assert any(h['action']=='behavior_adapter_upgrade' for h in new['history'])
+        assert list((p/'imports/versions'/row['id']).glob('*.json'))
+        assert (p/new['original']).read_bytes()==original
+    finally:service.pool.shutdown()

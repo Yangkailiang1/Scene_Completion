@@ -63,6 +63,13 @@ def view(project,item=None):
     row['source_registered']=True
   for a in row['artifacts']:
    if any(v['artifact_id']==a['id'] and v['revision']==row['revision'] for v in row['usage']):a['status']='active'
+  if row.get('behavior_product'):
+   from .behavior_imports import materials,VERSION as behavior_version
+   p=row['behavior_product'];row['behavior_upgrade_required']=p.get('version')!=behavior_version
+   row['behavior_resolution']=[]
+   if row.get('behavior_enabled') and not row['behavior_upgrade_required']:
+    try:materials(snapshot(project),p.get('case_ids',[])+([p['case_name']] if p.get('case_name') else []),diagnostics=row['behavior_resolution'])
+    except ValueError as e:row['behavior_resolution'].append({'object':row['name'],'reason':str(e)})
   return {**row,'purpose':purpose(row)}
  return {**index,'items':[{**v,'id':k,'purpose':v.get('purpose') or purpose(read_json(Path(project)/v['record']))} for k,v in index['items'].items()]}
 
@@ -181,7 +188,20 @@ def receive(project,files):
    except (ValueError,UnicodeError):behavior_kind=None
    behavior_context=f.get('behavior_context') or context_for(f.get('relative_path') or name,batch) if behavior_kind else {}
    digest=fingerprint([raw.hex(),behavior_context]) if behavior_kind else fingerprint(raw.hex());iid=digest[:24]
-   if iid in index['items']:out.append({'id':iid,'duplicate':True});continue
+   if iid in index['items']:
+    if behavior_kind:
+     from .behavior_imports import VERSION as behavior_version
+     old=read_json(project/index['items'][iid]['record'])
+     if old.get('behavior_product',{}).get('version')!=behavior_version:
+      try:
+       converted=compile_behavior(json.loads(raw.decode('utf-8-sig')),iid,name,behavior_context)
+      except ValueError:converted=None
+      if converted:
+       archive(project,old);old.update(behavior_product=converted,behavior_enabled=False,status='converted',revision=old['revision']+1)
+       old.pop('behavior_error',None);old['history'].append({'action':'behavior_adapter_upgrade','version':behavior_version,'at':time.time()})
+       write_json(project/index['items'][iid]['record'],old);index['items'][iid].update(status=old['status'],purpose=purpose(old))
+       out.append({'id':iid,'duplicate':True,'adapter_updated':True});continue
+    out.append({'id':iid,'duplicate':True});continue
    folder=project/'imports/files'/iid;folder.mkdir(parents=True,exist_ok=True)
    (folder/'original').mkdir(exist_ok=True)
    (folder/'original'/name).write_bytes(raw)
@@ -309,6 +329,8 @@ def decide(project,iid,body):
   if body.get('expected_revision')!=row['revision']:raise ValueError('文件版本已变化，请刷新')
   if body.get('action') in {'enable_behavior','disable_behavior'}:
    if not row.get('behavior_product'):raise ValueError('本文件不是有效行为建模格式')
+   from .behavior_imports import VERSION as behavior_version
+   if body['action']=='enable_behavior' and row['behavior_product'].get('version')!=behavior_version:raise ValueError('行为适配版本已更新，请重新导入同一文件后确认采用；旧版本与报告保留')
    if body.get('dry_run'):return {'valid':True,'saved':False}
    archive(project,row)
    if body.get('case_id'):

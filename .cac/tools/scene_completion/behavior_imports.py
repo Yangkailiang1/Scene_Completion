@@ -11,9 +11,9 @@ from .storage import fingerprint
 from .colleague_formats import Facts
 from .structure_models import MARKER, CASE_MARKER, BRANCH_MARKER
 
-VERSION = 'resource-behavior-import-v1'
+VERSION = 'resource-behavior-import-v2-complete-definitions'
 LABELS = {'rr_ssd':'RR外部交互SSD', 'sr_complete':'SR完整行为（含分支）',
-          'sr_main':'SR主成功行为', 'scenarios':'需求场景（主成功／异常／备选分流）'}
+          'sr_main':'SR主成功时序（引用）', 'scenarios':'需求场景（主成功／异常／备选分流）'}
 
 
 def format_of(value):
@@ -24,9 +24,9 @@ def format_of(value):
     if (isinstance(value.get('system_boundary'),str) and isinstance(value.get('interactions'),list)
         and isinstance(value.get('scenario_flows'),list)):return 'rr_ssd'
     if (value.get('spec_level')=='SR' and value.get('view_type') in {'complete','main_success'}
-        and isinstance(value.get('flow'),dict) and isinstance(value.get('operation_id'),str)
-        and isinstance(value.get('interactions'),list) and isinstance(value.get('actions'),list)):
-        return 'sr_main' if value['view_type']=='main_success' else 'sr_complete'
+        and isinstance(value.get('flow'),dict) and isinstance(value.get('operation_id'),str)):
+        if value['view_type']=='main_success':return 'sr_main'
+        if isinstance(value.get('interactions'),list) and isinstance(value.get('actions'),list):return 'sr_complete'
     return None
 
 
@@ -57,7 +57,7 @@ def _records(rows,label):
     return {r['id']:r for r in rows}
 
 
-def flow_refs(flow,interactions,actions):
+def flow_refs(flow,interactions,actions,*,allow_external=False):
     """Validate references; do not flatten branching into a fictitious sequence."""
     result=[]
     def walk(node,depth=0):
@@ -66,7 +66,8 @@ def flow_refs(flow,interactions,actions):
         kind=node.get('type')
         if kind in {'interaction','action'}:
             ref=node.get('ref');known=interactions if kind=='interaction' else actions
-            if ref not in known:raise ValueError('行为flow引用不存在的'+kind+'：'+str(ref))
+            if not isinstance(ref,str) or not ref.strip():raise ValueError('行为flow引用必须为非空字符串')
+            if ref not in known and not allow_external:raise ValueError('行为flow引用不存在的'+kind+'：'+str(ref))
             result.append((kind,ref))
         elif kind=='sequence':
             if not isinstance(node.get('steps'),list):raise ValueError('sequence缺少steps')
@@ -86,6 +87,7 @@ def compile_product(value,file_id,name,context=None):
     kind=format_of(value)
     if not kind:return None
     context=deepcopy(context or {});facts=Facts(file_id,name);pending=[]
+    facts.document['source_id']='import-'+file_id+'-behavior-v2'
     layer='RR' if kind=='rr_ssd' or kind=='scenarios' and value['spec_level'] in {'IR','RR'} else 'SR'
     case_name=value.get('use_case_name') or context.get('case_name')
     case_ids=list(dict.fromkeys(([value['use_case_id']] if value.get('use_case_id') else [])+context.get('case_ids',[])))
@@ -93,7 +95,7 @@ def compile_product(value,file_id,name,context=None):
     branches=[];retained=[];locations=[];scenario_doc=None
     if kind=='scenarios':
         scenes=_records(value['scenarios'],'scenarios');lines=[]
-        sid='import-structure-behavior-'+file_id;dumps=lambda x:json.dumps(x,ensure_ascii=False,separators=(',',':'))
+        sid='import-structure-behavior-v2-'+file_id;dumps=lambda x:json.dumps(x,ensure_ascii=False,separators=(',',':'))
         def emit(text,pointer):
             lines.append({'number':len(lines)+1,'text':text});locations.append({'line':len(lines),'json_pointer':pointer})
             return [{'source_id':sid,'line_start':len(lines),'line_end':len(lines),'quote':text}]
@@ -127,18 +129,15 @@ def compile_product(value,file_id,name,context=None):
         # Not a complete project catalogue: these are case-local supplements.
         if not counts['main_scenarios']:pending.append({'object':case_name,'reason':'未提供主成功场景，正向建模继续使用原始需求'})
     else:
-        interactions=_records(value['interactions'],'interactions');actions=_records(value.get('actions',[]),'actions')
-        for i in interactions.values():
+        interactions=_records(value.get('interactions',[]),'interactions');actions=_records(value.get('actions',[]),'actions')
+        for i in interactions.values() if kind!='sr_main' else []:
             if any(not isinstance(i.get(k),str) or not i[k].strip() for k in ('sender','receiver','message')):raise ValueError('交互必须包含明确sender、receiver、message')
         flows=[f['flow'] for f in value['scenario_flows'] if isinstance(f,dict) and isinstance(f.get('flow'),dict)] if kind=='rr_ssd' else [value['flow']]
-        for flow in flows:flow_refs(flow,interactions,actions)
+        for flow in flows:flow_refs(flow,interactions,actions,allow_external=kind=='sr_main')
         if kind=='sr_main':
             facts.add({'operation_id':value['operation_id'],'spec_level':'SR','flow':value['flow']},'/flow')
-            used=flow_refs(value['flow'],interactions,actions)
-            for collection,rows in (('interactions',interactions),('actions',actions)):
-                for n,i in enumerate(rows.values()):
-                    if (('interaction' if collection=='interactions' else 'action'),i['id']) in used:
-                        facts.add({k:i[k] for k in ('id','sender','receiver','message','description','source_steps','data_refs','direction','api_id') if k in i},'/'+collection+'/'+str(n))
+            # This is a reference/order view. Even when it happens to repeat
+            # definitions, the complete view remains their authoritative source.
         elif kind=='rr_ssd':
             facts.add({'system_boundary':value['system_boundary']},'/system_boundary')
             for n,i in enumerate(value['interactions']):
@@ -150,10 +149,11 @@ def compile_product(value,file_id,name,context=None):
         # Mixed complete/SSD bodies are kept privately. Main-path extraction
         # uses sibling declarations below; it never sends exception guards to G.
         pending.append({'object':value.get('operation_id') or case_name or name,'reason':
-          '完整行为含异常/备选，仅结合明确主成功视图采用；本地action不自动变成Service调用' if kind=='sr_complete' else
+          'SR交互定义来自本完整行为文件；主成功时序只用于排序/引用；本地action不自动变成Service调用' if kind=='sr_complete' else
           'RR SSD需结合本用例主成功场景筛选；不将所有分支展开为正常交互' if kind=='rr_ssd' else
-          '提供主成功交互与本地处理依据；完整融合仍需身份、调用粒度及跨层对应校验'})
-        counts={'interactions':len(interactions),'local_actions':len(actions)}
+          '仅提供时序引用；向同操作complete_behavior解析交互定义，不要求本文件包含完整interactions/actions'})
+        counts=({'ordered_references':len(flow_refs(value['flow'],interactions,actions,allow_external=True))}
+                if kind=='sr_main' else {'interactions':len(interactions),'local_actions':len(actions)})
     targets=(['<用例>:existing-branches','<用例>:ssd-context','<用例>:fused-ssd'] if kind=='scenarios' else
              ['<用例>:ssd-context','<用例>:fused-ssd','<用例>:'+('rr-ssd' if layer=='RR' else 'sr-ssd')])
     return {'format':'resource_behavior','version':VERSION,'kind':kind,'label':LABELS[kind], 'layer':layer,
@@ -167,7 +167,7 @@ def selected(rows,scope):
     out=[]
     for row in rows:
         p=row.get('behavior_product')
-        if not p or not row.get('behavior_enabled',False):continue
+        if not p or not row.get('behavior_enabled',False) or p.get('version')!=VERSION:continue
         if p.get('case_name') in scope or set(p.get('case_ids',[]))&set(scope):out.append((row,p))
     # Conflicting versions cannot be resolved by filename or newest timestamp.
     identities={}
@@ -178,23 +178,47 @@ def selected(rows,scope):
     return out
 
 
-def materials(rows,scope):
+def materials(rows,scope,*,diagnostics=None):
     from .source_documents import normal_projection
-    chosen=selected(rows,scope);out={'RR':[],'SR':[],'existing':[]}
+    chosen=selected(rows,scope);out={'RR':[],'SR':[],'existing':[]};diagnostics=diagnostics if diagnostics is not None else []
+    def issue(row,reason):diagnostics.append({'file_id':row['id'],'object':row['name'],'reason':reason})
     for row,p in chosen:
         if p['scenario_document']:
             out[p['layer']]+=normal_projection([p['scenario_document']]);out['existing'].append(deepcopy(p['scenario_document']))
-        if p['kind']=='sr_main' and p['normal_document']['lines']:out['SR'].append(deepcopy(p['normal_document']))
+        # A standalone order view is not an interaction definition. Validate
+        # its references against the complete SR view before using the order.
+        if p['kind']=='sr_main' and not any(s['kind']=='sr_complete' and s['raw']['operation_id']==p['raw']['operation_id'] and s['context'].get('group_path')==p['context'].get('group_path') for _,s in chosen):
+            issue(row,'缺少同操作的complete_behavior交互定义；仅保留时序候选，原建模流程补齐')
         if p['kind']=='sr_complete':
+            used=set();order_document=None;order_conflict=False
             siblings=[s for _,s in chosen if s['kind']=='sr_main' and s['raw']['operation_id']==p['raw']['operation_id'] and s['context'].get('group_path')==p['context'].get('group_path')]
             if len(siblings)==1:
-                m=siblings[0]['raw'];used=set(flow_refs(m['flow'],_records(m['interactions'],'interactions'),_records(m['actions'],'actions')))
-                allowed=set()
-                for collection in ('interactions','actions'):
-                    for n,i in enumerate(p['raw'][collection]):
-                        if (('interaction' if collection=='interactions' else 'action'),i['id']) in used:allowed.add('/'+collection+'/'+str(n))
-                numbers={x['line'] for x in p['json_locations'] if x['json_pointer'] in allowed}
-                if numbers:out['SR'].append({**deepcopy(p['normal_document']),'lines':[deepcopy(r) for r in p['normal_document']['lines'] if r['number'] in numbers]})
+                m=siblings[0]['raw']
+                try:used=set(flow_refs(m['flow'],_records(p['raw']['interactions'],'interactions'),_records(p['raw']['actions'],'actions')))
+                except ValueError as e:issue(row,'主成功时序引用无法由完整SR定义解析：'+str(e)+'；不补造交互，保留原流程')
+                else:order_document=deepcopy(siblings[0]['normal_document'])
+            scenarios=[s for _,s in chosen if s['kind']=='scenarios' and s['layer']=='SR' and s['context'].get('group_path')==p['context'].get('group_path')]
+            main_steps=set();non_main_steps=set()
+            if len(scenarios)==1:
+                for scene in scenarios[0]['raw']['scenarios']:
+                    target=main_steps if scene.get('kind')=='main' else non_main_steps
+                    target.update(step['id'] for step in scene.get('steps',[]) if step.get('id'))
+            allowed=set()
+            for collection in ('interactions','actions'):
+                for n,i in enumerate(p['raw'][collection]):
+                    steps=set(i.get('source_steps',[]));ref=(('interaction' if collection=='interactions' else 'action'),i['id'])
+                    # A reference in a short order view is not the whole SR inventory.
+                    # Also retain explicitly normal scenario steps not in that view.
+                    normal=ref in used or bool(steps and steps<=main_steps)
+                    if steps&non_main_steps:
+                        if ref in used:
+                            order_conflict=True;issue(row,'时序引用与场景类型归属待确认：'+i['id']+'；未进入确定正向交互')
+                        continue
+                    if normal:allowed.add('/'+collection+'/'+str(n))
+                    elif not steps or not steps<=non_main_steps:issue(row,'未明确正常/异常/备选归属：'+i['id']+'；原流程补齐')
+            numbers={x['line'] for x in p['json_locations'] if x['json_pointer'] in allowed}
+            if order_document and not order_conflict:out['SR'].append(order_document)
+            if numbers:out['SR'].append({**deepcopy(p['normal_document']),'lines':[deepcopy(r) for r in p['normal_document']['lines'] if r['number'] in numbers]})
         if p['kind']=='rr_ssd':
             # source_steps are local IDs, so match only a unique RR sibling.
             siblings=[s for _,s in chosen if s['kind']=='scenarios' and s['layer']=='RR' and s['context'].get('group_path')==p['context'].get('group_path')]

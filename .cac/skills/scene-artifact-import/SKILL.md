@@ -3,7 +3,7 @@ name: scene-artifact-import
 description: Convert one colleague artifact section to scoped workflow data with exact citations.
 ---
 # 已有文件输入
-资源／用例行为JSON优先使用behavior_imports工具适配，不通过本Skill重新猜测结构。主成功、完整行为、RR SSD和IR/SR场景分别识别；异常/备选不进入G。完整行为只按相邻主成功视图的明确引用取片，目录名不等于实体名，本地action不制造调用。部分输入不等于融合SSD完成，保留原需求补齐和正式校验。
+资源／用例行为JSON优先使用behavior_imports工具适配，不通过本Skill重新猜测结构。RR交互来自ssd；SR交互定义来自complete_behavior，main_success只提供时序引用，不要求其自带完整interactions/actions。未被时序引用的SR定义按sr_scenario的类型及步骤引用分流；主成功采用，异常/备选不进入G，未定保留原流程补齐。目录名不等于实体名，本地action不制造调用。部分输入不等于融合SSD完成，保留原需求补齐和正式校验。
 输入为当前文件的正向章节、文件名及可选的已抽取用例身份目录（case-catalogue）；不访问项目G、E、GT或其他文件。
 先返回source_role：artifact、RR、SR、test、unknown。需求原文、测试/逆向测试文档不能伪装成同事正向产物；不属于artifact时artifacts必须为空。混合来源无法安全分离时返回unknown。
 识别系统组成、API映射/参数、RR/SR或融合SSD、对象操作。返回artifacts，每项包含task、case_hint、coverage、payload、source_refs；目标字段定义见target_schemas。

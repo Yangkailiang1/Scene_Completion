@@ -12,7 +12,7 @@ from .artifact_imports import snapshot,selections,purpose
 from .execution_graph import LABELS,INPUTS,expected_files
 from .deepagents_client import role_for
 
-VERSION='input-dependency-preview-v2-behavior'
+VERSION='input-dependency-preview-v3-complete-behavior'
 MODES={'reuse':'可复用，跳过对应LLM抽取','partial':'部分已提供，仍补缺项','basis':'作为依据，仍需分析','pending':'未采用，待确认','execute':'仍需执行','tool':'工具整理，不调用模型'}
 
 
@@ -105,15 +105,19 @@ def build(project):
         for row in imports:
             hit=None;why='';model=row.get('structure_model')
             behavior=row.get('behavior_product')
+            from .behavior_imports import VERSION as behavior_version
+            behavior_active=bool(row.get('behavior_enabled') and behavior and behavior.get('version')==behavior_version)
             if behavior and task.case in case_labels:
                 group=next((g for g in groups if g['id']==task.case),{})
                 scope=group.get('rr_ids',[])+group.get('sr_ids',[])+[case_labels[task.case].removesuffix('（待用例对应）')]
                 belongs=behavior.get('case_name') in scope or bool(set(behavior.get('case_ids',[]))&set(scope))
                 if belongs and task.stage in {'ssd-context','fused-ssd','rr-ssd','sr-ssd','normal-rules','business-crud'}:
-                    hit='basis' if row.get('behavior_enabled') else 'pending'
-                    why='行为主成功内容补充本用例；完整融合与最小调用身份仍须校验，缺项由原流程补齐'
+                    hit='basis' if behavior_active else 'pending'
+                    why=('SR内部交互定义来自完整行为；未被主成功时序引用的内容继续按SR场景分流' if behavior['kind']=='sr_complete' else
+                         '主成功文件只提供时序引用，定义向同操作完整行为解析' if behavior['kind']=='sr_main' else
+                         'RR外部交互及已分类场景补充本用例')+'；完整融合与最小调用身份仍须校验，缺项由原流程补齐'
                 if belongs and task.stage=='existing-branches' and behavior['kind']=='scenarios':
-                    hit='basis' if row.get('behavior_enabled') else 'pending'
+                    hit='basis' if behavior_active else 'pending'
                     why='仅明示exception进入已有异常E；主成功/备选分离，不作为测试GT'
             if model and row.get('structure_enabled',True):
                 layer=model['layer']
