@@ -273,7 +273,7 @@ def test_import_plan_separates_predicted_reuse_from_actual_execution_and_keeps_l
     paths=write_folder(tmp_path/'input');preview,files=discover(paths=paths);service,p=project(tmp_path/'data')
     apply(service,p,preview,files,adopt_partial=True)
     first=build(p);api=next(f for f in first['files'] if f['purpose']=='API提取结果')
-    write_json(p/'run/workflow_tasks.json',{'tasks':{'sr-api-map':{'stage':'api-map','case':'shared','status':'passed','provenance':'同事产物导入','import_sources':[{'file_id':api['file_id'],'revision':api['revision'],'name':api['name']}]}}})
+    write_json(p/'run/workflow_tasks.json',{'tasks':{'sr-api-map':{'stage':'api-map','case':'shared','status':'passed','provenance':'已有文件输入','import_sources':[{'file_id':api['file_id'],'revision':api['revision'],'name':api['name']}]}}})
     current=build(p);node=next(n for n in current['nodes'] if n['target_key']=='sr-api-map')
     assert node['planned'] and node['actual_import_reuse'] and node['execution_status']=='passed'
     assert current['identity']==first['identity']

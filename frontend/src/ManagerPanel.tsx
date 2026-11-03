@@ -464,7 +464,7 @@ export function ManagerPanel({
                 aria-label="发送给管理Agent"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="例如：哪个节点卡住了？请检查同事文件并继续首个用例。"
+                placeholder="例如：哪个节点卡住了？请检查已有输入文件并继续首个用例。"
                 disabled={reviewOnly || !project}
               />
               <button disabled={busy || reviewOnly || !project || !text.trim()}>

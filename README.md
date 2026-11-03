@@ -187,7 +187,9 @@ python examples/memory_demo.py --output-dir runs/memory-demo
 
 使用“待确认项”按问题类型补规则，使用“推荐审核”形成人工增补GT；“审核交接”导出Windows只读审核包，反馈导入仅保存，研发预览真实DAG后手动重跑。CLI支持`capabilities`、`impact`、`rerun --affected`及版本化JSON写入。详见[业务审核闭环说明](docs/business-offline-review.md)。公共Windows包不含业务项目或密钥。
 
-## 同事产物、首例优先与模型切换
+## 已有文件输入、首例优先与模型切换
+
+支持资源／用例行为目录中的 `ssd.json`、`operations/*/main_success.json`、`complete_behavior.json` 及IR／SR场景JSON。按显式用例身份映射到融合SSD上下文和已有异常节点，主成功与异常分流；部分内容作为依据补充，保留原流程补齐及校验，目录名不认定为实体。详见[行为目录输入与兜底说明](docs/resource-behavior-input.md)。
 
 五文件接入支持“整个目录自动识别”及“五份绝对路径清单”，不按文件名猜用途。网页在“新建项目 → 从五类JSON文件夹／绝对路径新建”或“输入与导入 → 添加文件夹／指定5份路径”预览后采用；CLI使用`create --input-dir`、`create --input-manifest`及`input-bundle --dry-run`。功能树提供用例范围内的实体属性，接口文件提供明确的服务、方法、路径及请求字段；缺少的成功响应、CRUD与依赖关系不会冒充完成。参见[五类文件使用与节点映射](docs/five-input-bundle.md)。
 

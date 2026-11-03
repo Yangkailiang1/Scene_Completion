@@ -15,7 +15,7 @@ TASKS = {
  'global-existing-scenarios': ('scene-global-existing-scenarios', '全局已有异常细化 E_s'),
  'global-test-scenarios': ('scene-global-test-scenarios', '全局测试异常细化 GT_s'),
  'global-scenarios': ('scene-global-scenarios', '全局业务异常生成 G_s'),
- 'artifact-convert': ('scene-artifact-import', '同事产物格式转换'),
+ 'artifact-convert': ('scene-artifact-import', '已有文件格式转换'),
  'components': ('scene-components', '系统组成抽取'),
  'rr-ssd': ('scene-rr-ssd', 'RR层SSD抽取'),
  'sr-ssd': ('scene-sr-ssd', 'SR层SSD抽取'),

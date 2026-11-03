@@ -2,6 +2,80 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi, test, expect } from "vitest";
 import { InputManager } from "./InputManager";
 
+test("behavior file exposes scoped adoption and keeps fallback instead of a fake completed SSD", async () => {
+  const writes: any[] = [];
+  const detail = {
+    id: "behavior",
+    name: "complete_behavior.json",
+    revision: 2,
+    role: "artifact",
+    status: "converted",
+    original: "imports/files/behavior/original/complete_behavior.json",
+    artifacts: [],
+    history: [],
+    behavior_enabled: false,
+    target_nodes: ["<用例>:fused-ssd"],
+    behavior_product: {
+      label: "SR完整行为（含分支）",
+      kind: "sr_complete",
+      layer: "SR",
+      case_name: "查看订单详情",
+      counts: { interactions: 2, local_actions: 1 },
+      pending: [{ object: "query", reason: "缺少明确内部调用" }],
+      raw: {
+        operation_id: "getOrderDetail",
+        flow: { type: "sequence", steps: [] },
+      },
+      normal_document: { lines: [] },
+    },
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any, init: any) => ({
+      ok: true,
+      json: async () => {
+        if (init?.method === "PUT") {
+          writes.push(JSON.parse(init.body));
+          return { saved: true };
+        }
+        const path = String(url);
+        if (path.includes("imports?item=")) return detail;
+        if (path.endsWith("/imports"))
+          return {
+            items: [
+              {
+                id: detail.id,
+                name: detail.name,
+                role: "artifact",
+                status: "converted",
+              },
+            ],
+          };
+        if (path.endsWith("/results")) return { cases: [] };
+        if (path.endsWith("/recovery")) return null;
+        return { revision: 0 };
+      },
+    })),
+  );
+  render(<InputManager project="behavior" />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: /complete_behavior.json/ }),
+  );
+  expect(await screen.findByText("SR完整行为（含分支）")).toBeTruthy();
+  expect(screen.getByText(/用例：查看订单详情/)).toBeTruthy();
+  expect(screen.getByText(/本地动作不补造Service调用/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "确认本产物" })).toBeNull();
+  expect(screen.queryByText(/请确认本文件角色/)).toBeNull();
+  fireEvent.click(screen.getByText("内容预览与待补齐项"));
+  expect(screen.getByText(/getOrderDetail/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "采用此行为版本" }));
+  await waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({
+    action: "enable_behavior",
+    expected_revision: 2,
+  });
+});
+
 test("partial colleague import requires explicit versioned confirmation and keeps raw file link", async () => {
   const artifact = {
     id: "file:0",

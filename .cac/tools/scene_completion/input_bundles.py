@@ -19,6 +19,8 @@ def identify(text):
     if recognized(value):return value['scope']['model_level']
     kind=format_of(value)
     if kind:return kind
+    from .behavior_imports import format_of as behavior_format
+    if behavior_format(value):return 'behavior'
     try:json_cases(text);return 'test'
     except (ValueError,IndexError,RecursionError):return None
 
@@ -57,7 +59,7 @@ def discover(*,directory=None,paths=None,files=None):
             if '..' in parts or name.startswith('/') or any(x.startswith('.') or x in EXCLUDED for x in parts):continue
             if Path(name).suffix.lower()!='.json':ignored.append({'name':name,'reason':'仅接入约定的五类JSON，不读取Skill或报告作为任务指令'});continue
             candidates.append((name,f,None))
-    selected={};issues=[]
+    selected={};issues=[];behaviors=[]
     for display,source,expected in candidates:
         if isinstance(source,Path):
             if source.stat().st_size>20*1024*1024:raise ValueError('文件超过20MB：'+display)
@@ -73,22 +75,43 @@ def discover(*,directory=None,paths=None,files=None):
             if expected:raise ValueError(display+'不属于约定的五类格式')
             ignored.append({'name':display,'reason':'非约定格式（如AR、融合模型或一致性报告），本次不接入'});continue
         if expected and expected!=role:raise ValueError(display+'声明用途'+expected+'与实际结构'+role+'不同')
-        digest=fingerprint(raw.hex());record={'role':role,'label':LABELS[role],'name':name,'path':display,'hash':digest,'bytes':len(raw),'target_nodes':TARGETS[role]}
+        digest=fingerprint(raw.hex())
+        if role=='behavior':
+            if any(p.lower() in {'inputs','history','backup','backups','archive','archives','versions'} for p in Path(display).parts[:-1]):
+                ignored.append({'name':display,'reason':'行为生成输入/历史备份不与当前outputs混用；请显式选择需要的当前输出版本'});continue
+            behaviors.append({'path':display,'name':name,'value':json.loads(raw.decode('utf-8-sig')),'raw':raw,'hash':digest});continue
+        record={'role':role,'label':LABELS[role],'name':name,'path':display,'hash':digest,'bytes':len(raw),'target_nodes':TARGETS[role]}
         if role in selected:
             if selected[role][0]['hash']!=digest:issues.append({'role':role,'reason':'同一用途存在多个不同版本，请手动指定绝对路径','files':[selected[role][0]['path'],display]})
             else:ignored.append({'name':display,'reason':'同内容副本，按内容哈希去重'})
             continue
         selected[role]=(record,raw)
     rows=[selected[r][0] for r in ROLES if r in selected];missing=[r for r in ROLES if r not in selected]
+    extras={}
+    from .behavior_imports import compile_product,context_for
+    for b in behaviors:
+        context=context_for(b['path'],behaviors);key='behavior:'+fingerprint([b['path'],b['hash']])[:20]
+        try:
+            product=compile_product(b['value'],key.split(':')[1],b['name'],context);error=None
+        except ValueError as e:product=None;error=str(e)
+        record={'role':'behavior','label':product['label'] if product else '行为建模结果（待修正）','name':b['name'],'path':b['path'],'hash':b['hash'],'bytes':len(b['raw']),
+                'target_nodes':product['target_nodes'] if product else [],'case_name':product['case_name'] if product else context.get('case_name'),
+                'counts':product['counts'] if product else {},'coverage':'partial','error':error}
+        rows.append(record)
+        extras[key]={'name':b['name'],'relative_path':b['path'],'behavior_context':context,'content_base64':base64.b64encode(b['raw']).decode()}
     preview={'version':'five-input-bundle-v1','files':rows,'missing':missing,'issues':issues,'ignored':ignored,'valid':not issues,'complete':not missing and not issues,'model_calls':0}
     preview['preview_hash']=fingerprint({'files':rows,'missing':missing,'issues':issues})
-    return preview,{r:{'name':record['name'],'content_base64':base64.b64encode(raw).decode()} for r,(record,raw) in selected.items()}
+    return preview,{**{r:{'name':record['name'],'content_base64':base64.b64encode(raw).decode()} for r,(record,raw) in selected.items()},**extras}
 
 
 def validate_files(files):
     # Validate every decoded format before writing, not halfway through a batch.
     for role,f in files.items():
         raw=base64.b64decode(f['content_base64']);text=raw.decode('utf-8-sig')
+        if role.startswith('behavior:'):
+            # Invalid optional behavior remains visible and falls back. It must
+            # not prevent adopting the five original authoritative sources.
+            continue
         if role in {'RR','SR'}:
             from .structure_models import compile_model
             compile_model(text,f['name'])
@@ -112,13 +135,18 @@ def apply(service,project,preview,files,*,expected_hash=None,adopt_partial=False
     if expected_hash and expected_hash!=preview['preview_hash']:raise ValueError('文件内容或选择已变化，请重新预览')
     if project.name in service.active or read_job(project).get('status')=='running':raise ValueError('当前执行中，五文件采用需等本轮结束；不覆盖在途结果')
     validate_files(files)
-    result=imports.receive(project,list(files.values()));rows={r['hash']:r for r in imports.snapshot(project)}
-    for role,f in files.items():
-        digest=fingerprint(base64.b64decode(f['content_base64']).hex());row=rows[digest]
+    result=imports.receive(project,list(files.values()));rows={r['id']:r for r in imports.snapshot(project)}
+    for (role,f),received in zip(files.items(),result['received']):
+        row=rows[received['id']]
+        if role.startswith('behavior:'):
+            if adopt_partial and row.get('behavior_product'):
+                imports.decide(project,row['id'],{'action':'enable_behavior','expected_revision':row['revision']})
+            continue
         if role in {'RR','SR'} and not row.get('structure_enabled',True):
             imports.decide(project,row['id'],{'action':'enable_structure','expected_revision':row['revision']})
         elif role=='test':
             meta=read_json(project/'project.json')
+            digest=fingerprint(base64.b64decode(f['content_base64']).hex())
             if not any(s.get('path')==row['original'] or fingerprint((project/s['path']).read_bytes().hex())==digest for s in meta['sources']['test']):
                 accept_source(service,project,row,{'role':'test','expected_revision':row['revision'],'replace':replace})
         elif adopt_partial or replace:

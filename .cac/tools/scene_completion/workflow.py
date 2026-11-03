@@ -54,7 +54,7 @@ def code_version(task):
       'api-index':['api_documents.py','api_layers.py'], 'api-parameters':['api_documents.py','api_layers.py'],
       'source-index':['indexed_context.py','source_documents.py'], 'document-context':['indexed_context.py'],
       'use-case-extract':['use_cases.py','structure_models.py'], 'use-case-align':['use_cases.py'],
-      'fused-ssd':['ssd_tools.py','use_cases.py'], 'ssd-context':['task_context.py'],
+      'fused-ssd':['ssd_tools.py','use_cases.py','behavior_imports.py'], 'ssd-context':['task_context.py','behavior_imports.py'],
       'rr-ssd':['ssd_tools.py'], 'sr-ssd':['ssd_tools.py'],
       'object-operations':['interaction_enrichment.py'], 'interaction-align':['ssd_tools.py'],
       'interaction-enrich':['interaction_enrichment.py','inverse_alignment.py','colleague_formats.py'],
@@ -65,7 +65,7 @@ def code_version(task):
       'concern-compare':['concern_alignment.py'], 'concern-evaluation':['concern_alignment.py'],
       'concern-match':['concern_alignment.py','normal_rules.py','concern_matching.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
       'exception-generate':['concern_alignment.py','normal_rules.py','exception_generation.py','concern_hierarchy.py','task_context.py','task_partitions.py'],
-      'existing-branches':['source_documents.py','branch_evidence.py','structure_models.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
+      'existing-branches':['source_documents.py','branch_evidence.py','structure_models.py','behavior_imports.py'], 'existing-bind':['inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'existing-extract':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'test-ground-truth':['concern_alignment.py','inverse_alignment.py','normal_rules.py','task_partitions.py'],
       'gap-compare':['exception_comparison.py','comparison_batches.py','assignment.py','normal_rules.py'],
@@ -426,7 +426,13 @@ class Execution:
             else:value,proof=self.semantic(semantic_task or task,inputs,record)
             if proof.get('provider')=='colleague_structure':
                 proof['source_files']=[{'file_id':row['id'],'name':row['name'],'revision':row['revision']} for row in self.import_snapshot
-                                       if row.get('structure_model',{}).get('document',{}).get('source_id') in proof['source_ids']]
+                                       if row.get('structure_model',{}).get('document',{}).get('source_id') in proof['source_ids'] or
+                                       (row.get('behavior_product',{}).get('scenario_document') or {}).get('source_id') in proof['source_ids']]
+            input_document_ids={doc.get('source_id') for k in ('RR','SR','normal-documents','existing-documents') for doc in inputs.get(k,[]) if isinstance(doc,dict)}
+            behavior_sources=[{'file_id':row['id'],'name':row['name'],'revision':row['revision'],'artifact_id':'behavior-input'} for row in self.import_snapshot
+                              if row.get('behavior_enabled') and any(doc and doc.get('source_id') in input_document_ids for doc in
+                                  (row.get('behavior_product',{}).get('normal_document'),row.get('behavior_product',{}).get('scenario_document')))]
+            if behavior_sources:proof['input_sources']=behavior_sources
             candidate=deepcopy(value)
             try:
                 if imported and imported_result is None:
@@ -846,6 +852,10 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
         imported_interface_attributes=[a for row in ex.import_snapshot if row['id'] in active_tree_ids for a in row.get('colleague_product',{}).get('interface_attributes',[]) if a['case_id'] in entity_scope or a['case_name'] in entity_scope]
         scoped_rr=select_documents(rr,[c for c in catalogue['RR'] if c['id'] in group['rr_ids']],catalogue['RR'])
         scoped_sr=select_documents(sr,[c for c in catalogue['SR'] if c['id'] in group['sr_ids']],catalogue['SR'])
+        base_existing=scoped_rr+scoped_sr
+        from .behavior_imports import materials as behavior_materials
+        behavior=behavior_materials(ex.import_snapshot,entity_scope)
+        scoped_rr+=behavior['RR'];scoped_sr+=behavior['SR']
         scoped_ar=[]
         if ar:
             from .source_documents import case_projection
@@ -877,7 +887,8 @@ def _build_cases(ex,rr,sr,tests,catalogue,groups,extraction_truth,adjudications,
             test_input={'test-inventory':abnormal_catalogue}
         else:test_records=records(scoped_test);abnormal_test=exception_documents(scoped_test);test_input={}
         write_json(ex.root/'test_catalogues'/(cid+'.json'),{'records':test_records,'policy':'exception-only','version':'exception-test-sources-v1'})
-        add('existing-branches',static={'existing-documents':scoped_rr+scoped_sr})
+        existing_docs=list({doc['source_id']:doc for doc in base_existing+behavior['existing']}.values())
+        add('existing-branches',static={'existing-documents':existing_docs})
         from .task_context import ssd_context
         add('ssd-context',('components',),static={'RR':normal_projection(scoped_rr),'SR':normal_projection(scoped_sr),'case-group':group},
           build=lambda d,rr=normal_projection(scoped_rr),sr=normal_projection(scoped_sr),g=group:{'RR':rr,'SR':sr,'components':d['components'],'case-group':g},transform=ssd_context)

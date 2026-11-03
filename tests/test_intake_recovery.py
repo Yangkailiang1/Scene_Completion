@@ -63,7 +63,7 @@ def test_full_import_skips_model_and_is_cited_and_deduplicated(tmp_path):
  assert ex.scheduler.run()['complete']
  record=ex.scheduler.state['tasks']['components'];result=read_json(tmp_path/'run'/record['output_file'])
  assert result['payload']['components'][0]['name']=='Service'
- assert record['provenance']=='同事产物导入'
+ assert record['provenance']=='已有文件输入'
 
 
 def test_partial_import_needs_confirmation_and_only_merges_missing_facts(tmp_path):

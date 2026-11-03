@@ -39,6 +39,11 @@ def source_documents(project):
         for artifact in item['artifacts']:
             doc=artifact['document']
             if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_artifact','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'conversion_source_refs':artifact.get('conversion_source_refs',[]),'json_locations':artifact.get('json_locations',[])})
+        if item.get('behavior_product'):
+            p=item['behavior_product']
+            for doc,locations in ((p['normal_document'],p['json_locations']),(p.get('scenario_document'),p['scenario_locations'])):
+                if doc and doc['lines'] and not any(d['source_id']==doc['source_id'] for d in out):
+                    out.append({**doc,'role':'colleague_behavior','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'json_locations':locations})
         if item.get('structure_model'):
             model=item['structure_model'];doc=model['document']
             if not any(d['source_id']==doc['source_id'] for d in out):out.append({**doc,'role':'colleague_structure','derived_from':'import-raw-'+item['id'],'original_path':item['original'],'json_locations':model['locations']})

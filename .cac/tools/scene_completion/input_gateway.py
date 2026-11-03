@@ -61,7 +61,10 @@ def scan(project,service=None):
    digest=fingerprint(data.hex())
    if digest==old.get('hash'):continue
    import base64
-   received+=artifacts.receive(project,[{'name':path.name,'content_base64':base64.b64encode(data).decode()}])['received']
+   extra={}
+   if bundle_files:
+    extra=next(({k:f[k] for k in ('relative_path','behavior_context') if k in f} for f in bundle_files.values() if f.get('relative_path')==str(relative)),{})
+   received+=artifacts.receive(project,[{'name':path.name,'content_base64':base64.b64encode(data).decode(),**extra}])['received']
    record['hash']=digest
   adopted=None
   if service is not None and bundle_files and not waiting and setting.get('last_bundle_hash')!=bundle_preview['preview_hash']:

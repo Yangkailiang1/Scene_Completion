@@ -218,7 +218,7 @@ export function InputBundlePicker({
           {mode === "upload" && (
             <div className="input-bundle-upload">
               <label>
-                选择五份JSON文件（支持多选）
+                选择JSON文件（五类输入及可选行为文件，支持多选）
                 <input
                   type="file"
                   accept=".json"
@@ -258,7 +258,7 @@ export function InputBundlePicker({
             <>
               <div className="input-bundle-summary">
                 <CheckCircle2 size={16} />
-                {preview.files.length} 类文件已识别 · 模型调用 0 次
+                {preview.files.length} 份文件已识别 · 模型调用 0 次
               </div>
               <div className="input-bundle-table">
                 <table>
@@ -271,11 +271,17 @@ export function InputBundlePicker({
                   </thead>
                   <tbody>
                     {preview.files.map((f: any) => (
-                      <tr key={f.role}>
+                      <tr key={f.role + ":" + f.path}>
                         <td>{f.label}</td>
                         <td>
                           <strong>{f.name}</strong>
                           <small>{f.path}</small>
+                          {f.case_name && <small>用例：{f.case_name}</small>}
+                          {f.error && (
+                            <small role="alert">
+                              格式待修正：{f.error}；保留原流程
+                            </small>
+                          )}
                         </td>
                         <td>
                           {f.target_nodes.map((n: string) => (

@@ -63,7 +63,7 @@ def capabilities():
         'reviews':{'input_hash':'当前预览输入哈希','action':'approve/reject/regenerate','note':'审核说明'},
         'recommendations':{'revision':'feedback_revision','settings_hash':'冻结推荐版本','scenario_id':'Q中的场景ID','choice':'adopt/not_applicable/not_needed/already_covered/defer/withdraw','reviewer':'审核人','note':'决定依据','truth_resolution':'可选 {choice:new} 或 {choice:link,truth_id:现有候选ID}'},
         'feedback':'审核包导出的完整JSON；默认先--dry-run预览，使用--allow-partial显式保留冲突',
-        'imports':{'expected_revision':'文件revision','artifact_id':'目标产物ID（结构模型启停不需要）','action':'accept/reject/retry_conversion/accept_source/enable_structure/disable_structure','case_id':'可选已确认组ID','replace':'显式替换既有成功版本','payload':'可选编辑后的本任务JSON'},
+        'imports':{'expected_revision':'文件revision','artifact_id':'目标产物ID（结构模型/行为视图启停不需要）','action':'accept/reject/retry_conversion/accept_source/enable_structure/disable_structure/enable_behavior/disable_behavior','case_id':'可选已确认组ID；行为文件缺少用例时可在确认采用时指定','replace':'显式替换既有成功版本','payload':'可选编辑后的本任务JSON'},
         'recovery':{'expected_revision':'策略revision','settings':{'enabled':True,'max_node_calls':2,'max_run_calls':20,'allowed_submission_modes':['tool_calls','json_text'],'max_output_tokens':'可选项目明确允许的恢复上限'}},
         'test-sources':{'expected_version':'当前测试源版本','sources':'文件内容/编码列表'}},
       'answer_fields':['revision','choice','answer','reviewer','concern_key(异常判定时)'],

@@ -12,6 +12,11 @@ TASKS={'components','api-map','api-parameters','rr-ssd','sr-ssd','fused-ssd','ob
 ROOTS={'components':{'components','relations'},'api-map':{'services'},'api-parameters':{'apis'},'rr-ssd':{'interactions'},'sr-ssd':{'interactions'},'fused-ssd':{'interactions','rr_sr_links','pending'},'object-operations':{'objects'},'business-entities':{'entities','pending'}}
 
 
+def provenance_label(value):
+ # Historical stored values stay intact; normalize only their visible label.
+ return {'同事产物导入':'已有文件输入','同事产物合并':'已有文件输入（补充合并）'}.get(value,value)
+
+
 def load(project):
  p=Path(project)/'imports/index.json'
  return read_json(p) if p.exists() else {'version':'artifact-imports-v1','revision':0,'items':{},'history':[]}
@@ -22,6 +27,8 @@ def save(project,index):
 
 
 def purpose(row):
+ if row.get('behavior_product'):return row['behavior_product']['label']
+ if row.get('behavior_error'):return '行为建模结果（格式待修正，原流程兜底）'
  if row.get('structure_model'):return row['structure_model']['layer']+'原始文本结构化提取结果'
  kind=row.get('colleague_product',{}).get('format')
  if kind=='api_extraction':return 'API提取结果'
@@ -153,6 +160,15 @@ def cited_payload(payload,task,file_id,name):
 
 def receive(project,files):
  project=Path(project);out=[]
+ from .behavior_imports import format_of as behavior_format,context_for
+ batch=[]
+ for f in files:
+  try:
+   raw=base64.b64decode(f['content_base64'],validate=True) if f.get('content_base64') else str(f.get('content','')).encode('utf8')
+   if len(raw)>20*1024*1024:continue
+   value=json.loads(raw.decode('utf-8-sig'))
+   if behavior_format(value):batch.append({'path':f.get('relative_path') or f.get('name',''),'value':value})
+  except (ValueError,UnicodeError):pass
  with LOCK:
   index=load(project)
   for f in files:
@@ -160,7 +176,11 @@ def receive(project,files):
    if not name or name.startswith('.') or any(x in name.lower() for x in ('.local.','api-key','api_key','credential','token-budget','ledger')) or Path(name).suffix.lower() not in {'.md','.markdown','.json','.xlsx'}:continue
    raw=base64.b64decode(f['content_base64'],validate=True) if f.get('content_base64') else str(f.get('content','')).encode('utf8')
    if len(raw)>20*1024*1024:raise ValueError('导入文件超过20MB，请按章节拆分')
-   digest=fingerprint(raw.hex());iid=digest[:24]
+   from .behavior_imports import format_of as behavior_format,compile_product as compile_behavior
+   try:behavior_kind=behavior_format(json.loads(raw.decode('utf-8-sig'))) if Path(name).suffix.lower()=='.json' else None
+   except (ValueError,UnicodeError):behavior_kind=None
+   behavior_context=f.get('behavior_context') or context_for(f.get('relative_path') or name,batch) if behavior_kind else {}
+   digest=fingerprint([raw.hex(),behavior_context]) if behavior_kind else fingerprint(raw.hex());iid=digest[:24]
    if iid in index['items']:out.append({'id':iid,'duplicate':True});continue
    folder=project/'imports/files'/iid;folder.mkdir(parents=True,exist_ok=True)
    (folder/'original').mkdir(exist_ok=True)
@@ -169,7 +189,7 @@ def receive(project,files):
    role=f.get('role') or role_hint(name,text)
    from .structure_models import compile_model
    structured=compile_model(text,name) if Path(name).suffix.lower()=='.json' else None
-   if structured:role='artifact'
+   if structured or behavior_kind:role='artifact'
    meta=read_json(project/'project.json') if (project/'project.json').exists() else {'sources':{}}
    bound=[r for r,files in meta['sources'].items() for source in files if (project/source['path']).is_file() and (project/source['path']).read_bytes()==raw]
    if len(set(bound))==1:role=bound[0]
@@ -177,12 +197,18 @@ def receive(project,files):
    positive=normal_projection([{'source_id':'raw','name':name,'lines':[{'number':i,'text':v} for i,v in enumerate(text.splitlines(),1)]}])[0]
    parse_text='\n'.join(v['text'] for v in positive['lines']) if Path(name).suffix.lower() in {'.md','.markdown'} else text
    from .colleague_formats import convert as convert_colleague
-   product=convert_colleague(json.loads(text),iid,name) if Path(name).suffix.lower()=='.json' and role=='artifact' and not structured else None
-   artifacts=product['artifacts'] if product else deterministic(parse_text,name) if role=='artifact' else []
+   product=convert_colleague(json.loads(text),iid,name) if Path(name).suffix.lower()=='.json' and role=='artifact' and not structured and not behavior_kind else None
+   behavior=behavior_error=None
+   if behavior_kind:
+    try:behavior=compile_behavior(json.loads(text),iid,name,behavior_context)
+    except ValueError as e:behavior_error=str(e)
+   artifacts=product['artifacts'] if product else deterministic(parse_text,name) if role=='artifact' and not behavior_kind else []
    row={'id':iid,'name':name,'hash':digest,'role':role,'status':'converted' if artifacts else 'needs_conversion' if role=='artifact' else 'source_pending','artifacts':[],'created_at':time.time(),'revision':0,'original':str((folder/'original'/name).relative_to(project)),'history':[]}
    if structured:
     row.update(structure_model=structured,structure_enabled=True,status='converted')
    if product:row.update(colleague_product={k:v for k,v in product.items() if k!='artifacts'},status='converted')
+   if behavior:row.update(behavior_product=behavior,behavior_enabled=False,status='converted',relative_path=f.get('relative_path'))
+   if behavior_error:row.update(behavior_error=behavior_error,status='invalid_behavior',relative_path=f.get('relative_path'))
    row['recognition']={'role':role,'reason':'正文含明确测试场景/恢复结构' if role=='test' and re.search(r'SC@|测试逆向',text) else '格式结构与文件用途识别','source_file':name,'source_hash':digest}
    if role=='test':
     from .test_sources import preview
@@ -198,6 +224,7 @@ def receive(project,files):
    row['target_nodes']=(['rr-use-cases' if structured['layer']=='RR' else 'sr-use-cases','<用例>:existing-branches'] if structured else [a['task'] for a in row['artifacts']]) if role=='artifact' else row.get('target_nodes',[])
    row['target_nodes']=list(dict.fromkeys(row['target_nodes']))
    if product and product['format']=='function_tree':row['target_nodes']+=['<用例>:business-crud（提供实体范围）','business-attribute-map（提供属性依据）','<用例>:interaction-enrich（精确字段补充）']
+   if behavior:row['target_nodes']=behavior['target_nodes']
    from .artifact_parsers import mermaid_sequences
    row['literal_structure']={'mermaid':mermaid_sequences(parse_text)}
    # A mixed artifact file requires conversion of remaining structures too.
@@ -280,6 +307,17 @@ def decide(project,iid,body):
  with LOCK:
   index=load(project);row=view(project,iid)
   if body.get('expected_revision')!=row['revision']:raise ValueError('文件版本已变化，请刷新')
+  if body.get('action') in {'enable_behavior','disable_behavior'}:
+   if not row.get('behavior_product'):raise ValueError('本文件不是有效行为建模格式')
+   if body.get('dry_run'):return {'valid':True,'saved':False}
+   archive(project,row)
+   if body.get('case_id'):
+    row['behavior_product']['case_ids']=list(dict.fromkeys(row['behavior_product']['case_ids']+[body['case_id']]))
+   if body['action']=='enable_behavior' and not (row['behavior_product'].get('case_name') or row['behavior_product']['case_ids']):raise ValueError('请先确认行为文件对应的用例')
+   row['behavior_enabled']=body['action']=='enable_behavior';row['revision']+=1
+   row['history'].append({'action':body['action'],'at':time.time()})
+   write_json(Path(project)/index['items'][iid]['record'],row);save(project,index)
+   return {'saved':True,'revision':row['revision']}
   if body.get('action') in {'enable_structure','disable_structure'}:
    if not row.get('structure_model'):raise ValueError('本文件不是RR/SR结构模型')
    if body.get('dry_run'):return {'valid':True,'saved':False}
@@ -444,7 +482,7 @@ def merge(task,generated,parts):
 
 
 def record_use(project,key,proof):
- if proof.get('provider') not in {'colleague_import','colleague_structure'} and not proof.get('import_sources'):return
+ if proof.get('provider') not in {'colleague_import','colleague_structure'} and not proof.get('import_sources') and not proof.get('input_sources'):return
  with LOCK:
   path=Path(project)/'imports/usage.json';data=read_json(path) if path.exists() else {}
   if proof.get('provider')=='colleague_structure':
@@ -453,6 +491,8 @@ def record_use(project,key,proof):
   elif proof.get('provider')=='colleague_import':data[key]={'node':key,**proof,'at':time.time()}
   for source in proof.get('import_sources',[]):
    data[key+'::'+source['artifact_id']]={'node':key,'provider':'colleague_partial',**source,'at':time.time()}
+  for source in proof.get('input_sources',[]):
+   data[key+'::behavior::'+source['file_id']]={'node':key,'provider':'behavior_input','mode':'basis',**source,'at':time.time()}
   write_json(path,data)
 
 

@@ -141,6 +141,7 @@ export function InputManager({
       const rows = await Promise.all(
         Array.from(files || []).map(async (f) => ({
           name: f.name,
+          relative_path: f.webkitRelativePath || f.name,
           content_base64: await new Promise<string>((resolve, reject) => {
             const r = new FileReader();
             r.onload = () => resolve(String(r.result).split(",")[1]);
@@ -250,7 +251,9 @@ export function InputManager({
           onClose={() => setBundleOpen(false)}
           onImported={() => {
             load().catch((e) => setMessage(e.message));
-            setMessage("五类输入已导入；未启动模型，后续只补缺项。");
+            setMessage(
+              "已有文件输入已保存；未启动模型，后续按采用范围复用或补齐。",
+            );
             onOpenPlan?.();
           }}
         />
@@ -539,6 +542,83 @@ export function InputManager({
                 </section>
               )}
 
+              {detail.behavior_product && (
+                <section className="import-readable">
+                  <h3>{detail.behavior_product.label}</h3>
+                  <p>
+                    用例：{detail.behavior_product.case_name || "待确认归属"} ·{" "}
+                    {detail.behavior_product.layer}层
+                  </p>
+                  <div className="import-type-counts">
+                    {Object.entries(detail.behavior_product.counts || {}).map(
+                      ([key, value]) => (
+                        <span key={key}>
+                          {{
+                            interactions: "交互",
+                            local_actions: "本地动作",
+                            main_scenarios: "主成功场景",
+                            exception_branches: "已有异常",
+                            retained_scenarios: "保留备选",
+                          }[key] || key}{" "}
+                          <b>{String(value)}</b>
+                        </span>
+                      ),
+                    )}
+                  </div>
+                  <p>
+                    仅主成功内容用于正向建模；明示异常走E通道，备选不自动计分。本地动作不补造Service调用，目录名称不认定为业务实体。
+                  </p>
+                  <p>
+                    {detail.behavior_enabled
+                      ? "已采用，下次运行按本用例补充；缺项由原流程补齐"
+                      : "待采用，不影响原建模流程"}
+                  </p>
+                  {!reviewOnly && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        decide(
+                          detail.behavior_enabled
+                            ? "disable_behavior"
+                            : "enable_behavior",
+                        )
+                      }
+                    >
+                      {detail.behavior_enabled
+                        ? "停用此行为版本"
+                        : "采用此行为版本"}
+                    </button>
+                  )}
+                  <details>
+                    <summary>内容预览与待补齐项</summary>
+                    {detail.behavior_product.pending?.map(
+                      (p: any, n: number) => (
+                        <p key={n}>
+                          {p.object}：{p.reason}
+                        </p>
+                      ),
+                    )}
+                    <pre style={{ whiteSpace: "pre-wrap" }}>
+                      {detail.behavior_product.kind === "sr_complete"
+                        ? JSON.stringify(detail.behavior_product.raw, null, 2)
+                        : (
+                            detail.behavior_product.scenario_document?.lines ||
+                            detail.behavior_product.normal_document?.lines ||
+                            []
+                          )
+                            .map((r: any) => r.text)
+                            .join("\n")}
+                    </pre>
+                  </details>
+                </section>
+              )}
+              {detail.behavior_error && (
+                <section className="import-readable">
+                  <h3>行为格式待修正</h3>
+                  <p role="alert">{detail.behavior_error}</p>
+                  <p>未采用，不阻塞原有RR／SR抽取和建模。</p>
+                </section>
+              )}
               {detail.structure_model && (
                 <section className="import-readable">
                   <h3>{detail.structure_model.layer} 结构化需求</h3>
@@ -690,7 +770,9 @@ export function InputManager({
                     </div>
                   )}
                 </>
-              ) : !detail.structure_model ? (
+              ) : !detail.structure_model &&
+                !detail.behavior_product &&
+                !detail.behavior_error ? (
                 <>
                   <p>
                     {statuses[detail.status] || detail.status}

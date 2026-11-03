@@ -97,7 +97,7 @@ def test_pipeline_uses_uploaded_sources_only_in_their_layer(tmp_path):
     assert ex.scheduler.state['tasks']['rr-use-cases']['status']=='passed'
     output=read_json(ex.root/ex.scheduler.state['tasks']['rr-use-cases']['output_file'])
     assert len(output['payload']['cases'])==2
-    assert ex.scheduler.state['tasks']['rr-use-cases']['provenance']=='同事产物导入'
+    assert ex.scheduler.state['tasks']['rr-use-cases']['provenance']=='已有文件输入'
     assert ex.scheduler.state['tasks']['rr-use-cases']['import_sources'][0]['name']=='structure_model.json'
     assert len(read_json(tmp_path/'imports/usage.json'))==1
 

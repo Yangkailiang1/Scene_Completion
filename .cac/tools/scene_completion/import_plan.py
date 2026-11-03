@@ -12,7 +12,7 @@ from .artifact_imports import snapshot,selections,purpose
 from .execution_graph import LABELS,INPUTS,expected_files
 from .deepagents_client import role_for
 
-VERSION='input-dependency-preview-v1'
+VERSION='input-dependency-preview-v2-behavior'
 MODES={'reuse':'可复用，跳过对应LLM抽取','partial':'部分已提供，仍补缺项','basis':'作为依据，仍需分析','pending':'未采用，待确认','execute':'仍需执行','tool':'工具整理，不调用模型'}
 
 
@@ -33,8 +33,10 @@ def with_execution(project,plan):
         node['execution_task_key']=key;node['execution_status']=record['status']
         current={b['file_id']:b['revision'] for b in node.get('input_bindings',[])}
         actual=record.get('import_sources',[])
-        node['actual_import_reuse']=record['status']=='passed' and bool(actual) and all(s['file_id'] in current and s['revision']==current[s['file_id']] for s in actual)
-        node['execution_provenance']=record.get('provenance','原流程生成')
+        node['actual_input_used']=record['status']=='passed' and bool(actual) and all(s['file_id'] in current and s['revision']==current[s['file_id']] for s in actual)
+        node['actual_import_reuse']=node['actual_input_used'] and record.get('provenance') in {'同事产物导入','已有文件输入'}
+        from .artifact_imports import provenance_label
+        node['execution_provenance']=provenance_label(record.get('provenance','原流程生成'))
     return result
 
 class Plan:
@@ -102,6 +104,17 @@ def build(project):
         bindings=[];mode='tool' if task.transform else 'execute'
         for row in imports:
             hit=None;why='';model=row.get('structure_model')
+            behavior=row.get('behavior_product')
+            if behavior and task.case in case_labels:
+                group=next((g for g in groups if g['id']==task.case),{})
+                scope=group.get('rr_ids',[])+group.get('sr_ids',[])+[case_labels[task.case].removesuffix('（待用例对应）')]
+                belongs=behavior.get('case_name') in scope or bool(set(behavior.get('case_ids',[]))&set(scope))
+                if belongs and task.stage in {'ssd-context','fused-ssd','rr-ssd','sr-ssd','normal-rules','business-crud'}:
+                    hit='basis' if row.get('behavior_enabled') else 'pending'
+                    why='行为主成功内容补充本用例；完整融合与最小调用身份仍须校验，缺项由原流程补齐'
+                if belongs and task.stage=='existing-branches' and behavior['kind']=='scenarios':
+                    hit='basis' if row.get('behavior_enabled') else 'pending'
+                    why='仅明示exception进入已有异常E；主成功/备选分离，不作为测试GT'
             if model and row.get('structure_enabled',True):
                 layer=model['layer']
                 if task.key==layer.lower()+'-use-cases':hit='reuse';why='已提供结构化用例目录，运行时工具校验复用'
