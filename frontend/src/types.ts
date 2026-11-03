@@ -9,8 +9,24 @@ export interface Project {
   created_at: number;
 }
 export interface GraphNode {
+  target_key?: string | null;
+  execution_task_key?: string;
+  execution_status?: string;
+  execution_provenance?: string;
+  actual_import_reuse?: boolean;
+  import_mode?: string;
+  import_label?: string;
+  input_bindings?: {
+    file_id: string;
+    name: string;
+    purpose: string;
+    original: string;
+    revision: number;
+    mode: string;
+    explanation: string;
+  }[];
   provenance?: string;
-  import_sources?: {name:string;file_id:string;revision:number}[];
+  import_sources?: { name: string; file_id: string; revision: number }[];
   recovery_calls?: number;
   planned?: boolean;
   input_summary?: string;
@@ -35,6 +51,8 @@ export interface GraphNode {
   last_event_at: number | null;
 }
 export interface Graph {
+  preview_only?: boolean;
+  summary?: Record<string, number>;
   nodes: GraphNode[];
   edges: { id: string; source: string; target: string }[];
   definition_available: boolean;
@@ -57,7 +75,12 @@ export interface Snapshot {
   review_only?: boolean;
   review_summary?: { unresolved: number; counts: Record<string, number> };
   project: Project;
-  job: { status: string; message?: string };
+  job: {
+    status: string;
+    message?: string;
+    reason?: string;
+    control_state?: string;
+  };
   manifest: any;
   tasks: { tasks: Record<string, any>; events: any[] };
   reviews: any[];

@@ -43,6 +43,10 @@ def expected_files(key,case,stage):
 
 def graph_snapshot(root):
     root=Path(root);definition=read_json(root/'workflow_graph.json') if (root/'workflow_graph.json').exists() else {'nodes':[]}
+    legacy=read_json(root/'workflow_tasks.json').get('tasks',{}) if (root/'workflow_tasks.json').exists() else {}
+    if not definition['nodes'] and not legacy and (root.parent/'imports/index.json').exists():
+        from .import_plan import build
+        if preview:=build(root.parent):return preview
     state=read_json(root/'workflow_tasks.json')['tasks'] if (root/'workflow_tasks.json').exists() else {}
     phases={}
     if (root/'execution_events.sqlite3').exists():
@@ -51,12 +55,14 @@ def graph_snapshot(root):
     from .node_conversations import Conversations
     conversations=Conversations(root)
     conversation_state=conversations.overview()
+    job=read_json(root.parent/'job.json') if (root.parent/'job.json').exists() else {}
     artifact_index={}
     nodes=[];edges=[]
     declared=definition['nodes'] or [{'id':k,'case':r.get('case','shared'),'stage':r.get('stage',k),'role':role_for(r.get('stage',k)),'deps':[],'expected_files':expected_files(k,r.get('case','shared'),r.get('stage',k))} for k,r in state.items()]
     for node in declared:
         key=node['id'];record=state.get(key,{});status=record.get('status','pending');event=phases.get(key)
         phase=event.get('data',{}).get('phase') if event else None
+        if status=='running' and job.get('status') in {'interrupted','paused','error'}:status='interrupted';phase='interrupted'
         if status!='running':phase={'passed':'complete','awaiting_review':'awaiting_review','blocked_dependency':'dependency_wait'}.get(status,status)
         elif event and event['kind']=='stream_delta':phase='streaming'
         elif event and event['kind']=='request_started':phase='model_wait'

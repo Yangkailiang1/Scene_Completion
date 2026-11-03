@@ -7,7 +7,7 @@ from .structure_models import recognized
 from .colleague_formats import format_of
 
 ROLES=('RR','SR','function_tree','api_extraction','test')
-LABELS={'RR':'RR用例与已有场景','SR':'SR用例与已有场景','function_tree':'业务实体与接口属性','api_extraction':'接口映射与请求参数','test':'独立测试场景'}
+LABELS={'RR':'RR原始文本结构化提取结果','SR':'SR原始文本结构化提取结果','function_tree':'功能树：业务实体与接口属性','api_extraction':'API提取结果','test':'测试逆向需求场景结果'}
 TARGETS={'RR':['rr-use-cases','<用例>:existing-branches'],'SR':['sr-use-cases','<用例>:existing-branches'],
         'function_tree':['business-entities','<用例>:business-crud（提供依据）','business-attribute-map（提供依据）','<用例>:interaction-enrich（精确字段补充）'],
         'api_extraction':['rr-api-map/sr-api-map（按声明层级）','api-parameters-part-*（请求部分）'],'test':['test-inventory','test-case-align','<用例>:test-concerns','<用例>:test-ground-truth']}

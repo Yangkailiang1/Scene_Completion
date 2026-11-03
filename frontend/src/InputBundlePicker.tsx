@@ -20,9 +20,7 @@ export function InputBundlePicker({
   onClose: () => void;
   onImported: (value?: any) => void;
 }) {
-  const [mode, setMode] = useState(
-    initialFiles?.length ? "upload" : "directory",
-  );
+  const [mode, setMode] = useState("upload");
   const [directory, setDirectory] = useState("");
   const [paths, setPaths] = useState<Record<string, string>>({});
   const [selection, setSelection] = useState<any>(null);
@@ -32,6 +30,9 @@ export function InputBundlePicker({
   const [adopt, setAdopt] = useState(false);
   const [replace, setReplace] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>(
+    initialFiles || [],
+  );
   const inspect = async (body: any) => {
     setBusy(true);
     setError("");
@@ -50,11 +51,11 @@ export function InputBundlePicker({
     }
   };
   useEffect(() => {
-    if (!initialFiles?.length) return;
+    if (mode !== "upload" || !uploadedFiles.length) return;
     let live = true;
     setBusy(true);
     Promise.all(
-      initialFiles
+      uploadedFiles
         .filter((f) => f.name.toLowerCase().endsWith(".json"))
         .map(async (f) => ({
           name: f.name,
@@ -74,7 +75,7 @@ export function InputBundlePicker({
     return () => {
       live = false;
     };
-  }, [initialFiles]);
+  }, [uploadedFiles, mode]);
   const apply = async () => {
     setBusy(true);
     setError("");
@@ -143,9 +144,9 @@ export function InputBundlePicker({
           )}
           <div className="input-bundle-modes">
             {[
+              ["upload", "上传文件／文件夹"],
               ["directory", "本机文件夹"],
               ["paths", "分别指定绝对路径"],
-              ...(initialFiles?.length ? [["upload", "已选择文件夹"]] : []),
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -215,9 +216,37 @@ export function InputBundlePicker({
             </form>
           )}
           {mode === "upload" && (
-            <p>
-              已读取选择文件夹中的JSON；Markdown报告、AR及融合模型不作为这五份输入自动采用。
-            </p>
+            <div className="input-bundle-upload">
+              <label>
+                选择五份JSON文件（支持多选）
+                <input
+                  type="file"
+                  accept=".json"
+                  multiple
+                  aria-label="选择五份JSON文件"
+                  onChange={(e) => {
+                    setPreview(null);
+                    setUploadedFiles(Array.from(e.target.files || []));
+                  }}
+                />
+              </label>
+              <label>
+                或选择整个输入文件夹
+                <input
+                  type="file"
+                  multiple
+                  {...({ webkitdirectory: "", directory: "" } as any)}
+                  aria-label="选择输入文件夹"
+                  onChange={(e) => {
+                    setPreview(null);
+                    setUploadedFiles(Array.from(e.target.files || []));
+                  }}
+                />
+              </label>
+              <p>
+                选择后自动识别用途和目标节点。RR、SR可以同名，按JSON内的层级区分；不要求重新上传原始Markdown。报告和行为建模目录本轮不接入。
+              </p>
+            </div>
           )}
           {busy && <p role="status">正在处理输入文件…</p>}
           {error && (

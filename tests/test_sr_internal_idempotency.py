@@ -84,7 +84,7 @@ def test_manual_disable_respected_and_no_scenario_before_recognition():
 
 def test_existing_project_migration_versions_once_preserves_custom_values(tmp_path):
     from scene_completion.project_review import project_registry
-    r=registry();r.pop('framework_policies');r['definitions'][KEY]['enabled']=False
+    r=registry();r['framework_policies'].pop('sr_internal_rud_idempotency');r['definitions'][KEY]['enabled']=False
     r['definitions']['api.data.type']['description']='项目自定义类型说明';r['hash']=fingerprint({k:v for k,v in r.items() if k!='hash'})
     write_json(tmp_path/'run/registry_override.json',r)
     new=project_registry(tmp_path);assert new['definitions'][KEY]['enabled']

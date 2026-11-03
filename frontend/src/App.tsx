@@ -6,6 +6,8 @@ import {
   PanelLeftOpen,
   Plus,
   Play,
+  Pause,
+  Square,
   Settings2,
   Download,
   FolderOpen,
@@ -36,6 +38,7 @@ import { PatternManager } from "./PatternManager";
 import { ManagerPanel } from "./ManagerPanel";
 import { InputManager } from "./InputManager";
 import { InputBundlePicker } from "./InputBundlePicker";
+import { ImportDependencyPlan } from "./ImportDependencyPlan";
 import { ModelSettings } from "./ModelSettings";
 import { ResultsView } from "./ResultsView";
 import { PendingView } from "./PendingView";
@@ -79,6 +82,7 @@ export default function App() {
   const [newTestLoading, setNewTestLoading] = useState(false);
   const [newCreating, setNewCreating] = useState(false);
   const [bundleCreate, setBundleCreate] = useState(false);
+  const [importPlanOpen, setImportPlanOpen] = useState(false);
   const newTestRequest = useRef(0);
   const [management, setManagement] = useState<
     | "pending"
@@ -365,15 +369,32 @@ export default function App() {
   async function start() {
     if (!current) return;
     setNotice("");
-    const response = await api<any>(projectUrl(current, "run"), {
-      method: "POST",
-      body: "{}",
-    });
+    const held =
+      snapshot?.job.status === "paused" ||
+      snapshot?.job.reason === "user_stop" ||
+      snapshot?.job.reason === "user_pause" ||
+      ["paused", "stopped"].includes(snapshot?.job.control_state || "");
+    const response = await api<any>(
+      projectUrl(current, held ? "execution-control" : "run"),
+      {
+        method: "POST",
+        body: held ? JSON.stringify({ action: "resume" }) : "{}",
+      },
+    );
     if (response.project_id && response.project_id !== current) {
       await loadProjects();
       openProject(response.project_id);
       return;
     }
+    await refresh();
+  }
+  async function controlRun(action: "pause" | "stop") {
+    if (!current) return;
+    const response = await api(projectUrl(current, "execution-control"), {
+      method: "POST",
+      body: JSON.stringify({ action }),
+    });
+    setNotice(response.message || "执行控制已保存，成功产物保留");
     await refresh();
   }
   async function decide(action: string) {
@@ -601,10 +622,42 @@ export default function App() {
                 ? "业务审核模式"
                 : running
                   ? "运行中"
-                  : graph.nodes.length
+                  : graph.nodes.some((n) => !n.planned)
                     ? "继续运行"
                     : "开始运行"}
             </Button>
+            {(running ||
+              ["waiting", "paused", "error"].includes(
+                snapshot?.job.status || "",
+              )) &&
+              !snapshot?.review_only && (
+                <>
+                  {running && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!!snapshot?.job.control_state}
+                      onClick={() => controlRun("pause").catch(error)}
+                    >
+                      <Pause size={13} />
+                      {snapshot?.job.control_state === "pausing"
+                        ? "暂停中…"
+                        : "暂停任务"}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={snapshot?.job.control_state === "stopping"}
+                    onClick={() => controlRun("stop").catch(error)}
+                  >
+                    <Square size={13} />
+                    {snapshot?.job.control_state === "stopping"
+                      ? "停止中…"
+                      : "停止任务"}
+                  </Button>
+                </>
+              )}
           </div>
         </header>
         {notice && (
@@ -643,7 +696,7 @@ export default function App() {
         ) : (
           <>
             {snapshot?.project.protocol &&
-              snapshot.project.protocol !== "scene-workflow-v4" && (
+              snapshot.project.protocol !== "scene-workflow-v5" && (
                 <div className="upgrade-banner">
                   当前是旧版运行记录。继续运行会创建关注点与场景两层新版项目；原项目与失败记录保留。
                 </div>
@@ -655,19 +708,23 @@ export default function App() {
               <strong>
                 {snapshot?.review_only
                   ? "业务审核 · 不运行模型"
-                  : running
-                    ? "正在执行"
-                    : ["complete", "complete_with_questions"].includes(
-                          snapshot?.job.status || "",
-                        )
-                      ? snapshot?.review_summary?.unresolved
-                        ? `执行完成 · ${snapshot.review_summary.unresolved} 项待确认`
-                        : "执行完成"
-                      : failedNodes.length
-                        ? "存在失败节点"
-                        : snapshot?.job.status === "waiting"
-                          ? "等待确认 / 补充"
-                          : "待运行"}
+                  : snapshot?.job.status === "paused"
+                    ? "已暂停"
+                    : snapshot?.job.reason === "user_stop"
+                      ? "已停止"
+                      : running
+                        ? "正在执行"
+                        : ["complete", "complete_with_questions"].includes(
+                              snapshot?.job.status || "",
+                            )
+                          ? snapshot?.review_summary?.unresolved
+                            ? `执行完成 · ${snapshot.review_summary.unresolved} 项待确认`
+                            : "执行完成"
+                          : failedNodes.length
+                            ? "存在失败节点"
+                            : snapshot?.job.status === "waiting"
+                              ? "等待确认 / 补充"
+                              : "待运行"}
               </strong>
               <span className="status-divider" />
               <span>
@@ -793,6 +850,7 @@ export default function App() {
                     <InputManager
                       project={current}
                       reviewOnly={snapshot?.review_only}
+                      onOpenPlan={() => setImportPlanOpen(true)}
                     />
                   ) : management === "handoff" && current ? (
                     <ReviewHandoff
@@ -884,6 +942,16 @@ export default function App() {
                         </div>
                       </div>
                       <h3 className="section-label">当前节点</h3>
+                      {graph.preview_only && (
+                        <div className="info-card">
+                          <p>
+                            输入已识别。可先查看文件映射、可跳过的抽取和完整依赖计划，无需启动模型。
+                          </p>
+                          <Button onClick={() => setImportPlanOpen(true)}>
+                            查看文件映射与完整依赖图
+                          </Button>
+                        </div>
+                      )}
                       {[...activeNodes, ...failedNodes].length === 0 ? (
                         <div className="info-card">
                           {pendingReviews
@@ -1270,8 +1338,17 @@ export default function App() {
           project=""
           onClose={() => setBundleCreate(false)}
           onImported={(p) => {
-            loadProjects().then(() => openProject(p.id));
+            loadProjects().then(() => {
+              openProject(p.id);
+              setImportPlanOpen(true);
+            });
           }}
+        />
+      )}
+      {importPlanOpen && current && (
+        <ImportDependencyPlan
+          project={current}
+          onClose={() => setImportPlanOpen(false)}
         />
       )}
       {dialog && (

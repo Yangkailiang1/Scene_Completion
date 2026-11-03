@@ -298,7 +298,8 @@
         "process"
       ],
       "technology": null,
-      "description": "资源消耗"
+      "description": "资源消耗",
+      "enabled": false
     },
     "service.release_activation.prerequisite": {
       "key": "service.release_activation.prerequisite",
@@ -599,7 +600,7 @@
         "read"
       ],
       "technology": "database",
-      "description": "资源消耗"
+      "description": "依据明确的查询时限或性能要求检查数据库查询是否按约定完成；不自行设定秒数，不与已停用的资源消耗混同。"
     },
     "service.business_attribute_constraint": {
       "key": "service.business_attribute_constraint",
@@ -805,6 +806,57 @@
       "operation_kinds": [],
       "technology": null,
       "description": "明示级联组内独立清理义务"
+    },
+    "api.data.validity": {
+      "key": "api.data.validity",
+      "label": "输入数据有效性",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data"
+      ],
+      "guard": "resource_lookup",
+      "kind": "check",
+      "failure_family": "api.data.validity",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "输入字段引用的业务资源须在本次操作及归属范围中存在且有效。需要明确引用关系与有效性规则；不按Id字段名称推断，不与格式、枚举或笼统合法性混同；只检查请求方向。"
+    },
+    "database.special_characters": {
+      "key": "database.special_characters",
+      "label": "数据库特殊字符处理",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "business",
+      "kind": "check",
+      "failure_family": "database.special_characters",
+      "operation_kinds": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": "database",
+      "description": "依据明确数据库/存储处理要求检查特殊字符、SQL或HTML注入及Unicode/emoji兼容。特殊字符本身不一定非法，不补造禁用字符集合；与接口格式约束独立定位，同一失败不重复计分。"
+    },
+    "database.storage_validity": {
+      "key": "database.storage_validity",
+      "label": "存储数据有效性",
+      "layer": "technology",
+      "group": "database",
+      "parents": [],
+      "guard": "storage_field",
+      "kind": "check",
+      "failure_family": "database.storage_validity",
+      "operation_kinds": [
+        "read",
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": "database",
+      "description": "依据明示存储Schema或存储内容规则检查实际存储记录缺少字段、类型或内容不满足要求。与输入/输出接口参数分开，不能将只读请求误判为写入失败；同一失败保留来源并去重。"
     }
   },
   "profiles": {
@@ -830,7 +882,6 @@
       ],
       "resource_mutation": [],
       "analysis_generation": [
-        "service.analysis_generation.resource_consumption",
         "service.analysis_generation.execution_deadline"
       ],
       "release_activation": [
@@ -860,7 +911,9 @@
       "database": [
         "database.uniqueness",
         "database.referential_integrity",
-        "database.query_performance"
+        "database.query_performance",
+        "database.special_characters",
+        "database.storage_validity"
       ],
       "llm": [
         "llm.grounding",
@@ -1274,7 +1327,7 @@
       "note": "仅迁移对照；按作用域和具体原因映射，不将多目标全部自动启用"
     }
   },
-  "hash": "1b4359b51000705521c6c1ed5ec6355623c48977774482ab96b5bce0ea1dbeac",
+  "hash": "103be1f3a409b52eb9870789ffd6335b3c5fd65fa5f9c9893791b74f77dbea3c",
   "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports.",
   "framework_policies": {
     "sr_internal_rud_idempotency": {
@@ -1283,6 +1336,18 @@
       "enabled": true,
       "concern_key": "service.resource_mutation.idempotency",
       "source": "user_confirmed"
+    },
+    "four_level_taxonomy_20261103": {
+      "version": 1,
+      "added_keys": [
+        "api.data.validity",
+        "database.special_characters",
+        "database.storage_validity"
+      ],
+      "retired_keys": [
+        "service.analysis_generation.resource_consumption"
+      ],
+      "reason": "用户确认四层关注点与独立全局业务依赖；枚举仍归数据范围，数据合法性不恢复"
     }
   }
 }

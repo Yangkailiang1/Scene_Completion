@@ -38,9 +38,11 @@ const statuses: Record<string, string> = {
 export function InputManager({
   project,
   reviewOnly = false,
+  onOpenPlan,
 }: {
   project: string;
   reviewOnly?: boolean;
+  onOpenPlan?: () => void;
 }) {
   const [data, setData] = useState<any>({ items: [] }),
     [watch, setWatch] = useState<any>({}),
@@ -184,6 +186,10 @@ export function InputManager({
           <p>发现文件 → 识别与转换 → 预览 → 交给对应节点</p>
         </div>
         <div className="input-toolbar-actions">
+          <button onClick={onOpenPlan}>
+            <Workflow size={16} />
+            文件映射与完整依赖图
+          </button>
           {!reviewOnly && (
             <>
               <button
@@ -245,6 +251,7 @@ export function InputManager({
           onImported={() => {
             load().catch((e) => setMessage(e.message));
             setMessage("五类输入已导入；未启动模型，后续只补缺项。");
+            onOpenPlan?.();
           }}
         />
       )}
@@ -368,7 +375,7 @@ export function InputManager({
               >
                 <strong>{r.name}</strong>
                 <small>
-                  {r.role} · {statuses[r.status] || r.status}
+                  {r.purpose || r.role} · {statuses[r.status] || r.status}
                 </small>
               </button>
             ))
@@ -399,14 +406,16 @@ export function InputManager({
                 <div>
                   <small>识别用途</small>
                   <strong>
-                    {(
-                      {
-                        test: "测试场景 / 独立GT",
-                        artifact: "同事中间产物",
-                        RR: "RR系统需求",
-                        SR: "SR设计需求",
-                      } as any
-                    )[detail.role] || "待归类"}
+                    {detail.purpose ||
+                      (
+                        {
+                          test: "测试场景 / 独立GT",
+                          artifact: "结构化分析结果",
+                          RR: "RR系统需求",
+                          SR: "SR设计需求",
+                        } as any
+                      )[detail.role] ||
+                      "待归类"}
                   </strong>
                   <p>{detail.recognition?.reason}</p>
                 </div>

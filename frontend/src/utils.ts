@@ -4,6 +4,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 export const phaseLabels: Record<string, string> = {
+  interrupted: "已中断，保留检查点",
+  paused: "已暂停",
+  pausing: "等待在途请求后暂停",
+  stopping: "正在停止",
   pending: "待执行",
   transport_timeout: "请求超时",
   connection_failed: "连接中断",

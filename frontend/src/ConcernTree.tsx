@@ -102,22 +102,30 @@ export function ConcernTree({
       <p className="muted">
         输入／输出可引用同一稳定定义，展示路径不重复计分。
       </p>
-      {Object.values(root.children).sort((a, b) => {
-        const order = ["人类Actor关注点", "Service关注点", "待归类"];
-        const rank = (name: string) => {
-          const i = order.indexOf(name);
-          return i < 0 ? order.length : i;
-        };
-        return rank(a.name) - rank(b.name);
-      }).map((b) => (
-        <BranchView
-          key={b.path}
-          b={b}
-          project={project}
-          selected={selected}
-          pick={pick}
-        />
-      ))}
+      {Object.values(root.children)
+        .sort((a, b) => {
+          const order = [
+            "交互级关注点",
+            "全局业务依赖级关注点",
+            "人类Actor关注点",
+            "Service关注点",
+            "待归类",
+          ];
+          const rank = (name: string) => {
+            const i = order.indexOf(name);
+            return i < 0 ? order.length : i;
+          };
+          return rank(a.name) - rank(b.name);
+        })
+        .map((b) => (
+          <BranchView
+            key={b.path}
+            b={b}
+            project={project}
+            selected={selected}
+            pick={pick}
+          />
+        ))}
       {!Object.keys(root.children).length && <p>无匹配的关注点</p>}
     </div>
   );

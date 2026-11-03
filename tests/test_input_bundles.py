@@ -210,3 +210,73 @@ def test_case_scoped_attribute_mapping_uses_matching_case_evidence():
     result=exact_field_map(apis_,entities,crud,{'G-001':['UC-1']})
     assert len(result['mappings'])==1
     assert all('DRAFT' not in r['quote'] for r in result['mappings'][0]['source_refs'])
+
+
+def test_import_plan_uses_real_dag_without_executing_or_writing_run_results(tmp_path):
+    from scene_completion.import_plan import build
+    from scene_completion.execution_graph import graph_snapshot
+    paths=write_folder(tmp_path/'input');preview,files=discover(paths=paths);service,p=project(tmp_path/'data')
+    apply(service,p,preview,files,adopt_partial=True)
+    plan=build(p);nodes={n['target_key']:n for n in plan['nodes'] if n.get('target_key')}
+    assert plan['preview_only'] and plan['model_calls']==0 and plan['case_preview_count']==2
+    assert nodes['rr-use-cases']['import_mode']=='reuse'
+    assert nodes['sr-api-map']['import_mode']=='reuse'
+    parameters=[n for k,n in nodes.items() if k.startswith('api-parameters-part-')]
+    assert parameters and all(n['import_mode']=='partial' for n in parameters)
+    assert nodes['preview-case-001:fused-ssd']['import_mode']=='basis'
+    assert nodes['preview-case-001:concern-match']['import_mode']=='execute'
+    assert 'planned:preview-case-001:concern-match' in {e['target'] for e in plan['edges']}
+    assert all(n['planned'] and n['status']=='planned' for n in plan['nodes'])
+    assert all(r['completed']==0 for r in plan['roles'])
+    assert not (p/'run/workflow_tasks.json').exists() and not (p/'run/test_catalogues').exists()
+    assert not (p/'job.json').exists()
+    assert graph_snapshot(p/'run')['identity']==plan['identity']
+    assert build(p)['identity']==plan['identity']
+    purposes={f['purpose'] for f in plan['files']}
+    assert {'API提取结果','测试逆向需求场景结果','RR原始文本结构化提取结果','SR原始文本结构化提取结果'}<=purposes
+    service.pool.shutdown()
+
+
+def test_import_plan_pending_partial_and_adoption_invalidate_preview(tmp_path):
+    from scene_completion.import_plan import build
+    paths=write_folder(tmp_path/'input');preview,files=discover(paths=paths);service,p=project(tmp_path/'data')
+    apply(service,p,preview,files)
+    before=build(p);assert before['summary']['pending']>0
+    apply(service,p,preview,files,adopt_partial=True)
+    after=build(p);assert before['identity']!=after['identity'] and after['summary']['partial']>0
+    assert not (p/'run/workflow_tasks.json').exists() and not (p/'run/run_manifest.json').exists()
+    service.pool.shutdown()
+
+
+def test_http_uploaded_files_create_project_and_expose_mapping_graph(tmp_path):
+    paths=write_folder(tmp_path/'input');_,files=discover(paths=paths)
+    rows=[{'name':v['name'],'relative_path':role+'/'+v['name'],'content_base64':v['content_base64']} for role,v in files.items()]
+    with TestClient(create_app(tmp_path/'data')) as c:
+        preview=c.post('/api/input-bundles/preview',json={'files':rows});assert preview.status_code==200
+        assert preview.json()['complete']
+        created=c.post('/api/projects/from-input-bundle',json={'name':'浏览器上传','files':rows,'adopt_partial':True,'expected_hash':preview.json()['preview_hash']});assert created.status_code==200,created.text
+        rid=created.json()['id']
+        plan=c.get('/api/projects/'+rid+'/import-plan');assert plan.status_code==200,plan.text
+        assert plan.json()['nodes'] and plan.json()['edges']
+        graph=c.get('/api/projects/'+rid+'/graph');assert graph.status_code==200 and graph.json()['preview_only']
+        listing=c.get('/api/projects/'+rid+'/imports').json()['items']
+        assert any(r['purpose']=='API提取结果' for r in listing)
+        for row in listing:
+            detail=c.get('/api/projects/'+rid+'/imports?item='+row['id']).json()
+            assert detail['purpose']!='同事中间产物'
+
+
+def test_import_plan_separates_predicted_reuse_from_actual_execution_and_keeps_legacy_graph(tmp_path):
+    from scene_completion.import_plan import build
+    from scene_completion.execution_graph import graph_snapshot
+    from scene_completion.storage import write_json
+    paths=write_folder(tmp_path/'input');preview,files=discover(paths=paths);service,p=project(tmp_path/'data')
+    apply(service,p,preview,files,adopt_partial=True)
+    first=build(p);api=next(f for f in first['files'] if f['purpose']=='API提取结果')
+    write_json(p/'run/workflow_tasks.json',{'tasks':{'sr-api-map':{'stage':'api-map','case':'shared','status':'passed','provenance':'同事产物导入','import_sources':[{'file_id':api['file_id'],'revision':api['revision'],'name':api['name']}]}}})
+    current=build(p);node=next(n for n in current['nodes'] if n['target_key']=='sr-api-map')
+    assert node['planned'] and node['actual_import_reuse'] and node['execution_status']=='passed'
+    assert current['identity']==first['identity']
+    legacy=graph_snapshot(p/'run');assert not legacy.get('preview_only')
+    assert any(n['status']=='passed' and n['id']=='sr-api-map' for n in legacy['nodes'])
+    service.pool.shutdown()

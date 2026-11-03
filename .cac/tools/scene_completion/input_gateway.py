@@ -148,6 +148,10 @@ def register(app,service):
   return apply(service,p,preview,files,expected_hash=body.get('expected_hash'),adopt_partial=bool(body.get('adopt_partial',False)),replace=bool(body.get('replace',False)))
  @app.get('/api/projects/{rid}/imports')
  def imports(rid:str,item:str|None=None):return artifacts.view(service.run_dir(rid),item)
+ @app.get('/api/projects/{rid}/import-plan')
+ def import_plan(rid:str):
+  from .import_plan import build
+  return build(service.run_dir(rid)) or {'nodes':[],'edges':[],'files':[],'preview_only':True,'summary':{},'roles':[],'definition_available':False,'case_expansion_pending':True}
  @app.post('/api/projects/{rid}/imports')
  def upload(rid:str,body:dict):
   p=service.run_dir(rid);result=artifacts.receive(p,body.get('files',[]))

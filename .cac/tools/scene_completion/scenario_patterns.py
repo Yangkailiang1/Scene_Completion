@@ -55,9 +55,16 @@ def normalize_settings(value=None):
     if v['library'].get('version')!=VERSION:raise ValueError('不支持的模式库版本')
     if not isinstance(v['overrides'],dict) or not isinstance(v['reviews'],dict):raise ValueError('项目风险/审核格式无效')
     ids=set();definitions=registry()['definitions']
+    taxonomy=registry().get('framework_policies',{}).get('four_level_taxonomy_20261103',{})
+    known={p['id'] for p in v['library']['patterns']}
+    if v.setdefault('framework_policy_versions',{}).get('four_level_taxonomy_20261103',0)<taxonomy.get('version',0):
+        for p in default_library()['patterns']:
+            if p['concern_keys'][0] in taxonomy.get('added_keys',[]) and p['id'] not in known:v['library']['patterns'].append(p)
+        v['framework_policy_versions']['four_level_taxonomy_20261103']=taxonomy['version']
     for p in v['library']['patterns']:
         if not isinstance(p,dict) or not {'id','concern_keys','label','preconditions','trigger_template','required_evidence','risk_level','risk_reason','enabled','version'}<=p.keys():raise ValueError('模式缺少必要字段')
         if 'service.resource_mutation.business_constraint' in p.get('concern_keys',[]) and not definitions.get('service.resource_mutation.business_constraint',{}).get('enabled',True):p['enabled']=False
+        if any(k in taxonomy.get('retired_keys',[]) and not definitions.get(k,{}).get('enabled',True) for k in p.get('concern_keys',[])):p['enabled']=False
         if not definitions.get('api.data.legality',{}).get('enabled',True):
             if p.get('id')=='data.enum' and p.get('concern_keys')==['api.data.legality']:
                 p['concern_keys']=['api.data.range'];p['version']=p.get('version',1)+1

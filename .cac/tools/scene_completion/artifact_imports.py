@@ -21,6 +21,14 @@ def save(project,index):
  index['revision']+=1;write_json(Path(project)/'imports/index.json',index)
 
 
+def purpose(row):
+ if row.get('structure_model'):return row['structure_model']['layer']+'原始文本结构化提取结果'
+ kind=row.get('colleague_product',{}).get('format')
+ if kind=='api_extraction':return 'API提取结果'
+ if kind=='function_tree':return '功能树：业务实体与接口属性'
+ return {'test':'测试逆向需求场景结果','RR':'RR原始需求文档','SR':'SR原始设计文档','artifact':'结构化分析结果'}.get(row.get('role'),'待归类')
+
+
 def view(project,item=None):
  index=load(project)
  if item:
@@ -48,8 +56,8 @@ def view(project,item=None):
     row['source_registered']=True
   for a in row['artifacts']:
    if any(v['artifact_id']==a['id'] and v['revision']==row['revision'] for v in row['usage']):a['status']='active'
-  return row
- return {**index,'items':[{**v,'id':k} for k,v in index['items'].items()]}
+  return {**row,'purpose':purpose(row)}
+ return {**index,'items':[{**v,'id':k,'purpose':v.get('purpose') or purpose(read_json(Path(project)/v['record']))} for k,v in index['items'].items()]}
 
 
 def role_hint(name,text):
@@ -196,7 +204,7 @@ def receive(project,files):
    if role=='artifact' and not structured and not product and (row['literal_structure']['mermaid'] or artifacts and re.search(r'请求参数|数据类型|参数名称|支持的操作|系统组成',parse_text)):
     row['status']='needs_conversion'
    record=str((folder/'record.json').relative_to(project));write_json(project/record,row)
-   index['items'][iid]={'name':name,'role':role,'status':row['status'],'record':record,'created_at':row['created_at']}
+   index['items'][iid]={'name':name,'role':role,'purpose':purpose(row),'status':row['status'],'record':record,'created_at':row['created_at']}
    out.append({'id':iid,'duplicate':False})
   save(project,index)
  return {'received':out,'revision':index['revision']}

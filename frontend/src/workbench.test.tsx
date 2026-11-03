@@ -208,3 +208,24 @@ describe("workspace interactions", () => {
     expect(screen.queryByText(/100%/)).toBeNull();
   });
 });
+
+it("running workspace exposes pause and stop controls that call the project API", async () => {
+  const old = globalThis.fetch as any;
+  const calls: any[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any, init: any) => {
+      if (String(url).endsWith("/execution-control")) {
+        calls.push(JSON.parse(init.body));
+        return { ok: true, json: async () => ({ message: "已保存执行控制" }) };
+      }
+      return old(url, init);
+    }),
+  );
+  render(<App />);
+  fireEvent.click(await screen.findByText("商城测试"));
+  fireEvent.click(await screen.findByRole("button", { name: "暂停任务" }));
+  await waitFor(() => expect(calls).toContainEqual({ action: "pause" }));
+  fireEvent.click(screen.getByRole("button", { name: "停止任务" }));
+  await waitFor(() => expect(calls).toContainEqual({ action: "stop" }));
+});

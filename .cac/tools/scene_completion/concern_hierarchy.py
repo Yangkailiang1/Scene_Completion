@@ -70,6 +70,11 @@ def _data_rule(match,interaction,inputs):
     params=[p for p in parameters_for(interaction,inputs) if p['name']==match['object'] and (not match.get('data_location') or p['location']==match['data_location'])]
     if len(params)!=1:return 'pending','字段位置或参数定义待确认'
     p=params[0];kind=match['concern_key'].split('.')[-1]
+    if kind=='validity':
+        if interaction['direction']!='request':return 'not_applicable','输入数据有效性只检查请求字段引用的资源'
+        rules=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==interaction['id'] and r['concern_key']==match['concern_key'] and p['name'] in r['fields']]
+        guards=[g for g in explicit_guards(match,'resource_lookup')+explicit_guards(match,'reference') if g.get('field')==p['name']]
+        return ('applicable','有明确的输入字段资源引用及有效性要求') if rules or guards else ('pending','输入字段引用的资源及具体有效性规则待确认；不能仅根据字段名推断')
     indexed=[r for r in inputs.get('normal-rules',{}).get('rules',[]) if r['interaction_id']==interaction['id'] and r['concern_key']==match['concern_key'] and p['name'] in r['fields']]
     if indexed:return 'applicable','本交互的独立正向规则明确声明该字段校验，具体标准可标条件级'
     known={'completeness':p['required'] is True,'type':p['data_type'] is not None,

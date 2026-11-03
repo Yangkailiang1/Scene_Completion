@@ -3,25 +3,33 @@ import { ConcernTree } from "./ConcernTree";
 import { api, projectUrl, fileUrl } from "./api";
 const layers: Record<string, string> = {
   human: "人类Actor",
-  base: "Service基础层",
-  shared: "输入／输出数据",
-  functional: "五类功能层",
-  technology: "技术扩展层",
+  base: "第一层：基础与业务实体属性",
+  shared: "第一层：输入／输出数据",
+  functional: "第二层CRUD／第三层业务",
+  technology: "第四层：技术扩展",
   relation: "Service之间",
+  global: "全局业务依赖级",
 };
 const groups: Record<string, Record<string, string>> = {
   human: { human: "身份与权限" },
-  base: { service_base: "服务基础" },
+  base: {
+    service_base: "基础数据及外部服务",
+    business_attribute: "业务实体属性约束",
+  },
   shared: { api_data: "数据关注点" },
   functional: {
     display_interaction: "展示交互型",
-    query_retrieval: "查询检索型",
-    resource_mutation: "资源变更型",
+    query_retrieval: "R：查询检索",
+    create: "C：创建",
+    update: "U：更新",
+    delete: "D：删除",
+    resource_mutation: "SR内部R/U/D幂等策略（兼容ID）",
     analysis_generation: "分析生成型",
     release_activation: "发布生效型",
   },
   technology: { database: "数据库", llm: "LLM" },
   relation: { service_relation: "服务关系" },
+  global: { business_dependency: "用例与业务实体依赖" },
 };
 const operations: Record<string, string> = {
   read: "查询",
@@ -48,6 +56,7 @@ const guards: Record<string, string> = {
   reference: "关联完整性",
   unique: "唯一约束",
   resource_limit: "资源限制",
+  storage_field: "明示存储Schema或内容约束",
   grounding: "事实依据",
   instruction: "指令要求",
   context: "上下文要求",

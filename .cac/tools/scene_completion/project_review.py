@@ -23,14 +23,14 @@ GROUPS={'base':{'service_base','business_attribute'},'human':{'human'},'relation
 @serialized
 def project_registry(project):
     project=Path(project);p=project/'run/registry_override.json'
-    if p.exists():return retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,read_json(p))))
+    if p.exists():return install_four_level_taxonomy(project,retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,read_json(p)))))
     value=default_registry();manifest=project/'run/run_manifest.json'
     if manifest.exists():
         previous=read_json(manifest).get('registry_hash');used=project/'run/registry_used'/(str(previous)+'.json')
         if used.exists():value=read_json(used)
     # Pin the initial project template, so a later global template update does
     # not silently change definitions in an existing project.
-    write_json(p,value);return retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,value)))
+    write_json(p,value);return install_four_level_taxonomy(project,retire_obsolete_business_constraint(project,install_sr_idempotency_policy(project,retire_ambiguous_data_concern(project,value))))
 
 
 def retire_ambiguous_data_concern(project,value):
@@ -282,3 +282,24 @@ def decide_pending(project,item_id,body):
         for origin in item['origins']:store.append(origin,'guidance',text,{'pending_item_id':item_id,'review_revision':row['revision'],'channel_isolated':True})
     EventStore(project/'run').append('pending_reviewed',item_id=item_id,choice=choice,concern_key=row['concern_key'],revision=row['revision'])
     return row
+
+
+def install_four_level_taxonomy(project,value):
+    """One-time user-confirmed additions/retirement; frozen reports stay intact."""
+    name='four_level_taxonomy_20261103';template=default_registry();policy=template['framework_policies'][name]
+    if value.get('framework_policies',{}).get(name,{}).get('version',0)>=policy['version']:return value
+    value=deepcopy(value);history=Path(project)/'concern_versions';history.mkdir(parents=True,exist_ok=True)
+    versions=[read_json(f) for f in history.glob('*.json')]
+    if not any(v['hash']==value['hash'] for v in versions):write_json(history/(value['hash']+'.json'),{'revision':0,'hash':value['hash'],'at':time.time(),'note':'新版四层关注点调整前','registry':deepcopy(value)})
+    for key in policy['added_keys']:value['definitions'].setdefault(key,deepcopy(template['definitions'][key]))
+    for key in policy['retired_keys']:
+        if key in value['definitions']:value['definitions'][key]['enabled']=False
+    for key in policy['added_keys'][1:]:
+        if key not in value['profiles']['technology']['database']:value['profiles']['technology']['database'].append(key)
+    value['profiles']['functional']['analysis_generation']=[k for k in value['profiles']['functional']['analysis_generation'] if k not in policy['retired_keys']]
+    value.setdefault('framework_policies',{})[name]=deepcopy(policy)
+    value['hash']=fingerprint({k:v for k,v in value.items() if k!='hash'});validate_registry(value)
+    revision=max([v['revision'] for v in versions] or [0])+1;note='用户确认：新增输入数据有效性、数据库特殊字符处理和存储数据有效性；停用资源消耗。旧报告、G/E/GT及计分不改写。'
+    write_json(history/(str(revision)+'-'+value['hash']+'.json'),{'revision':revision,'hash':value['hash'],'at':time.time(),'note':note,'registry':value})
+    write_json(Path(project)/'run/registry_override.json',value);EventStore(Path(project)/'run').append('registry_updated',revision=revision,registry_hash=value['hash'],note=note)
+    return value

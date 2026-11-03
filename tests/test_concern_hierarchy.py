@@ -33,7 +33,8 @@ def find(rows,key,**attrs):
 
 
 def test_registry_is_a_valid_DAG_and_all_57_old_items_have_audit_mapping():
-    r=registry();assert len(r['definitions'])!=57 and len(r['legacy_mapping'])==57
+    r=registry();assert r['version']=='interaction-global-concerns-v5' and len(r['legacy_mapping'])==57
+    assert {'api.data.validity','database.special_characters','database.storage_validity'}<=set(r['definitions'])
     assert 'internal_database.availability' not in r['definitions']
     assert r['legacy_mapping']['internal_database.availability']['targets']==['service.base.availability']
     assert len(r['legacy_mapping']['service.resource_mutation.concurrency_idempotency']['targets'])==2
@@ -174,7 +175,8 @@ def test_request_and_response_use_shared_definitions_but_separate_inheritance_an
     assert ret['inheritance_paths']==[['service.base.response_contract','api.data.type']]
     scenarios=data_exceptions(x)
     assert {'req','returned'}=={s['interaction_id'] for s in scenarios if s['field']=='page'}
-    assert len([k for k in registry()['definitions'] if k.startswith('api.data.')])==7
+    assert not registry()['definitions']['api.data.legality']['enabled']
+    assert registry()['definitions']['api.data.validity']['parents']==['service.base.request_data']
 
 
 def test_same_failure_does_not_duplicate_a_failure_or_its_score():

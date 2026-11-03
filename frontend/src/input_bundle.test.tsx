@@ -110,3 +110,50 @@ test("browser folder reads JSON and excludes Skill instructions", async () => {
   expect(calls[0].files[0].relative_path).toBe("input/SR/arbitrary.json");
   expect(readSkill).not.toHaveBeenCalled();
 });
+
+test("new project uploads five JSON files directly without Markdown form", async () => {
+  const calls: any[] = [];
+  const imported = vi.fn();
+  const close = vi.fn();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: any, init: any) => ({
+      ok: true,
+      json: async () => {
+        calls.push({ url: String(url), body: JSON.parse(init.body) });
+        return String(url).endsWith("/preview")
+          ? preview()
+          : { id: "created-project" };
+      },
+    })),
+  );
+  render(
+    <InputBundlePicker project="" onImported={imported} onClose={close} />,
+  );
+  fireEvent.change(screen.getByLabelText("五文件新项目名称"), {
+    target: { value: "上传验收" },
+  });
+  const files = [
+    "rr.json",
+    "sr.json",
+    "功能树.json",
+    "api_extraction.json",
+    "recovered_usecases.json",
+  ].map((name) => {
+    const f = new File(["{}"], name);
+    Object.defineProperty(f, "text", { value: async () => "{}" });
+    return f;
+  });
+  fireEvent.change(screen.getByLabelText("选择五份JSON文件"), {
+    target: { files },
+  });
+  await screen.findByText("RR用例与已有场景");
+  fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
+  await waitFor(() =>
+    expect(imported).toHaveBeenCalledWith({ id: "created-project" }),
+  );
+  expect(calls[1].url).toBe("/api/projects/from-input-bundle");
+  expect(calls[1].body.files).toHaveLength(5);
+  expect(calls[1].body.name).toBe("上传验收");
+  expect(calls[1].body.expected_hash).toBe("frozen");
+});

@@ -179,6 +179,8 @@ class Workbench:
         return new['id']
     def start(self,rid,options=None):
         if self.review_only:raise ValueError('业务审核包只保存确认记录；请交回研发后重跑')
+        hold=self.run_dir(rid)/'run/pause_requested.json'
+        if hold.exists() and read_json(hold).get('by')=='user':raise ValueError('项目已由用户暂停／停止；请明确点击继续运行，不自动恢复')
         if (self.root/'manager-maintenance.json').exists():raise ValueError('程序正在安全重启或回退，暂不接受新执行；请查看管理Agent操作记录')
         rid=self.upgrade(rid)
         from .scheduler import run_lock
@@ -238,7 +240,9 @@ class Workbench:
                 self.gates[rid]=ex.gate
                 docs={role:read_project_documents(p,project['sources'].get(role,[]),'test' if role=='test' else 'existing') for role in ('RR','SR','AR','test')}
                 build_pipeline(ex,docs['RR'],docs['SR'],docs['test'],ar=docs['AR']);manifest=ex.finish()
-                write_json(p/'job.json',{'status':'complete' if manifest['complete'] else 'complete_with_questions' if manifest.get('execution_complete') else 'waiting','finished_at':time.time()})
+                hold=read_json(p/'run/pause_requested.json') if (p/'run/pause_requested.json').exists() else {}
+                status=('paused' if hold.get('action')=='pause' else 'interrupted') if hold.get('by')=='user' else 'complete' if manifest['complete'] else 'complete_with_questions' if manifest.get('execution_complete') else 'waiting'
+                write_json(p/'job.json',{'status':status,'reason':'user_'+hold['action'] if hold.get('by')=='user' else None,'finished_at':time.time()})
         except Exception as e:
             # Preserve actual diagnostics server-side without returning credentials.
             write_json(p/'job.json',{'status':'error','error_type':type(e).__name__,'message':'执行未完成，请查看任务状态与运行日志','finished_at':time.time()})
@@ -589,6 +593,10 @@ def create_app(root=None,client_factory=None,env_file=None):
         p=service.run_dir(rid);v=read_json(p/'project.json');v['review_mode']=body['review_mode'];write_json(p/'project.json',v);return v
     @app.post('/api/projects/{rid}/run')
     def start(rid:str,body:dict|None=None):return service.start(rid,body)
+    @app.post('/api/projects/{rid}/execution-control')
+    def execution_control(rid:str,body:dict):
+        from .execution_control import control
+        return control(service,rid,body)
     @app.get('/api/projects/{rid}/execution-status')
     def execution_status(rid:str):return service.execution_status(rid)
     @app.get('/api/projects/{rid}/graph')

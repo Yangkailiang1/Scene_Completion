@@ -16,10 +16,7 @@ export function layout(nodes: GraphNode[], selected: string | null) {
     visiting.delete(n.id);
     return (depths[n.id] = Math.max(0, ...d));
   }
-  nodes.filter((n) => !n.planned).forEach(depth);
-  const max = Math.max(0, ...Object.values(depths));
-  let p = 0;
-  for (const n of nodes.filter((n) => n.planned)) depths[n.id] = max + 1 + p++;
+  nodes.forEach(depth);
   const widths: Record<string, number> = {},
     tops: Record<number, number> = {};
   let y = 66;

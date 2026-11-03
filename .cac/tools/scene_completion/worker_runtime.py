@@ -27,6 +27,8 @@ def read_job(project):
  if job.get('status')=='running' and hb.exists():
   row=read_json(hb)
   if row.get('pid')==job.get('pid') and row.get('worker_token')==job.get('worker_token'):job.update(worker_heartbeat=row['at'])
+ hold=p/'run/pause_requested.json'
+ if hold.exists() and (value:=read_json(hold)).get('by')=='user':job['control_state']=('pausing' if value.get('action')=='pause' else 'stopping') if job.get('status')=='running' else ('paused' if value.get('action')=='pause' else 'stopped')
  return job
 
 

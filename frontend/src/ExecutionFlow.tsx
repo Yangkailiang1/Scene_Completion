@@ -47,7 +47,25 @@ function TaskCard({ data }: NodeProps<TaskNode>) {
         </span>
       </div>
       <h3>{n.label}</h3>
-      {n.provenance && n.provenance!=="原流程生成" && <small className="flow-origin">{n.provenance}{n.import_sources?.map(s=>" · "+s.name+" v"+s.revision).join("")}{n.recovery_calls ? " · 恢复"+n.recovery_calls+"次" : ""}</small>}
+      {n.import_label && (
+        <small className={"import-mode " + n.import_mode}>
+          {n.import_label}
+        </small>
+      )}
+      {n.input_bindings?.length ? (
+        <small className="flow-origin">
+          {[...new Set(n.input_bindings.map((s) => s.name))].join(" · ")}
+        </small>
+      ) : null}
+      {n.provenance && n.provenance !== "原流程生成" && (
+        <small className="flow-origin">
+          {n.provenance}
+          {n.import_sources
+            ?.map((s) => " · " + s.name + " v" + s.revision)
+            .join("")}
+          {n.recovery_calls ? " · 恢复" + n.recovery_calls + "次" : ""}
+        </small>
+      )}
       <p className="flow-input">输入：{n.input_summary || "上游已验证产物"}</p>
       <div className="flow-files">
         <b>产物</b>
@@ -122,14 +140,19 @@ function Canvas({
   const cases = [
     ...new Set(
       graph.nodes
-        .filter((n) => !n.planned && n.case !== "shared")
+        .filter(
+          (n) => n.case !== "shared" && (!n.planned || graph.preview_only),
+        )
         .map((n) => n.case),
     ),
   ];
   const visible = graph.nodes.filter(
     (n) =>
       !hidden.includes(n.role) &&
-      (scope === "all" || n.case === "shared" || n.planned || n.case === scope),
+      (scope === "all" ||
+        n.case === "shared" ||
+        (!graph.preview_only && n.planned) ||
+        n.case === scope),
   );
   const nodes = useMemo(
     () => layout(visible, selected),
@@ -164,6 +187,15 @@ function Canvas({
       onSelect(n.id);
     } else flow.fitView({ padding: 0.1, duration: 250 });
   };
+  useEffect(() => {
+    if (selected && visible.some((n) => n.id === selected))
+      flow.fitView({
+        nodes: [{ id: selected }],
+        padding: 0.5,
+        maxZoom: 1,
+        duration: 200,
+      });
+  }, [selected]);
   return (
     <>
       <div className="flow-toolbar">
@@ -274,12 +306,14 @@ export function ExecutionFlow(props: {
               <span className={`role-tiny ${id}`} />
               <span>{roleLabels[id]}</span>
               <strong>
-                {id === "recommender" &&
-                props.graph.nodes
-                  .filter((n) => n.role === id)
-                  .every((n) => n.status === "disabled")
-                  ? "未启用"
-                  : `${r?.completed || 0} / ${r?.known || 0}`}
+                {props.graph.preview_only
+                  ? `计划 ${props.graph.nodes.filter((n) => n.role === id).length} 项`
+                  : id === "recommender" &&
+                      props.graph.nodes
+                        .filter((n) => n.role === id)
+                        .every((n) => n.status === "disabled")
+                    ? "未启用"
+                    : `${r?.completed || 0} / ${r?.known || 0}`}
               </strong>
             </button>
           );

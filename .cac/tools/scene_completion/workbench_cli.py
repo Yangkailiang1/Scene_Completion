@@ -49,6 +49,7 @@ def capabilities():
       'rerun':'--project ID --affected --plan-id ID [--dry-run]；或--node ID定向重跑',
       'repair-export/repair-submit':'外部Code Agent修复必须通过原校验器',
       'input-scan':'--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续',
+      'execution-control':'--project ID --action pause|stop|resume [--dry-run]；暂停等待在途请求，停止保留检查点；明确继续后才派发请求',
       'imports':'--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果',
       'input-bundle':'[--project ID] --directory ABS_PATH 或 --file 五份绝对路径清单.json；--dry-run预览，--adopt-partial采用已声明事实、缺项继续抽取；不启动模型',
       'quality':'diagnose|report|impact|apply：冻结指标损失、证据归因、人工确认及定向重跑；--project ID --diagnosis ID --file approvals.json --dry-run/--rerun',
@@ -81,6 +82,7 @@ def parser():
     create.add_argument('--mode',choices=('manual','auto'),default='manual');create.add_argument('--case',action='append',default=[])
     create.add_argument('--evaluation-scope',choices=('SR','RR','all'),default='SR',help='指标按实际接口定义归属筛选，不能由路径前缀猜测')
     metrics=sub.add_parser('metrics');metrics.add_argument('--project',required=True);metrics.add_argument('--case');metrics.add_argument('--scope',choices=('SR','RR','all'),default='SR');metrics.add_argument('--test-set',choices=('original','expanded','business'),default='original')
+    control=sub.add_parser('execution-control');control.add_argument('--project',required=True);control.add_argument('--action',choices=('pause','stop','resume'),required=True);control.add_argument('--dry-run',action='store_true')
     bundle=sub.add_parser('input-bundle');bundle.add_argument('--project');bundle.add_argument('--directory');bundle.add_argument('--file',help='五份绝对路径JSON清单');bundle.add_argument('--dry-run',action='store_true');bundle.add_argument('--adopt-partial',action='store_true');bundle.add_argument('--replace',action='store_true');bundle.add_argument('--expected-hash')
     accounts=sub.add_parser('accounts')
     save=sub.add_parser('save-account');save.add_argument('--id');save.add_argument('--dry-run',action='store_true');save.add_argument('--name',required=True);save.add_argument('--base-url',required=True);save.add_argument('--model',action='append',required=True);group=save.add_mutually_exclusive_group();group.add_argument('--api-key-env');group.add_argument('--prompt-key',action='store_true',help='终端隐藏输入API Key；密钥不进入命令历史')
@@ -193,6 +195,8 @@ def main(argv=None,client=None):
     rid=args.project
     if len(rid)!=32 or any(c not in '0123456789abcdef' for c in rid):raise ValueError('项目ID必须是工作台返回的32位ID')
     path='projects/'+rid
+    if args.command=='execution-control':
+        output(api.call(path+'/execution-control',{'action':args.action,'dry_run':args.dry_run}));return 0
     if args.command=='metrics':
         query=urllib.parse.urlencode({'scope':args.scope,'test_set':args.test_set})
         endpoint='results/'+urllib.parse.quote(args.case,safe='') if args.case else 'results/metrics'
