@@ -28,11 +28,39 @@ def trigger_snapshot(service, rid):
         if (p / "imports/index.json").exists()
         else 0,
         "config": fingerprint(service.model_config(rid)),
+        "manager_config": fingerprint(read_json(p / "manager/model.local.json"))
+        if (p / "manager/model.local.json").exists()
+        else None,
+        "manager_settings": fingerprint(settings(p)),
+        "context_policy": "bounded-operational-index-v1",
     }
 
 
 def signature(service, rid):
     return fingerprint(trigger_snapshot(service, rid))
+
+
+def failure_state(error, current, policy, pending, trigger, now):
+    """A local configuration block must not be retried as a network outage."""
+    diagnostic = getattr(error, "response_diagnostic", {}) or {}
+    configuration = bool(diagnostic.get("configuration_required"))
+    failures = current.get("reconnect_failures", 0) + (not configuration)
+    return {
+        **current,
+        "status": "awaiting_configuration" if configuration else "waiting_reconnect",
+        "error": type(error).__name__,
+        "reason": str(error)[:2000],
+        "diagnostic": diagnostic,
+        "trigger": trigger if configuration else current.get("trigger"),
+        "reconnect_failures": failures,
+        "retry_at": 0
+        if configuration
+        else now + min(300, policy["reconnect_seconds"] * 2 ** min(failures - 1, 3)),
+        "handled_user": max([r["id"] for r in pending], default=current.get("handled_user", 0))
+        if configuration or policy["mode"] == "collaborative"
+        else current.get("handled_user", 0),
+        "at": now,
+    }
 
 
 def launch_restart(service, rid, patch_id, rollback=False):
@@ -323,28 +351,16 @@ def main():
                 )
             except Exception as e:
                 current = journal.get("runtime", default={})
-                failures = current.get("reconnect_failures", 0) + 1
+                failed = failure_state(e, current, policy, pending, sig, time.time())
                 journal.put(
                     "runtime",
-                    {
-                        **current,
-                        "status": "waiting_reconnect",
-                        "error": type(e).__name__,
-                        "reason": str(e)[:2000],
-                        "reconnect_failures": failures,
-                        "retry_at": time.time()
-                        + min(300, policy["reconnect_seconds"] * 2 ** min(failures - 1, 3)),
-                        "handled_user": max(
-                            [r["id"] for r in pending], default=current.get("handled_user", 0)
-                        )
-                        if policy["mode"] == "collaborative"
-                        else current.get("handled_user", 0),
-                        "at": time.time(),
-                    },
+                    failed,
                 )
                 journal.append(
                     "system",
-                    "本轮管理暂未完成，已保存现场并等待重连。",
+                    "管理Agent请求被本地预算/配置阻止，已保存完整请求，等待配置变化或新的指导；不作网络重连重试。"
+                    if failed["status"] == "awaiting_configuration"
+                    else "本轮管理暂未完成，已保存现场并等待重连。",
                     {"error_type": type(e).__name__},
                 )
             if not (policy["enabled"] and policy["mode"] == "auto"):

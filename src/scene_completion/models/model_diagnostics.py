@@ -159,6 +159,24 @@ def node_diagnostics(project, config, task_key=None, limit=20):
             "同一节点需区分输出截断、JSON语法、业务Schema和本地文件写入失败；诊断不返回思考原文，显式开启后思考文本单列在本地节点事件。",
         ],
     }
+    from scene_completion.manager.manager_store import Journal
+    from scene_completion.manager.manager_store import settings as manager_settings
+    from scene_completion.workflow.node_recovery import settings as recovery_settings
+
+    journal = Journal(project)
+    policy = manager_settings(project)["settings"]
+    runtime = journal.get("runtime", default={})
+    result["manager"] = {
+        "enabled": policy["enabled"],
+        "mode": policy["mode"],
+        "context_limit": policy["context_limit"],
+        "compression_ratio": policy["compression_ratio"],
+        "runtime": {k: runtime.get(k) for k in ("status", "reason", "error", "retry_at")},
+        "active_memory_count": sum(m.get("active", False) for m in journal.memory()),
+        "conversation_summary_saved": bool(journal.get("summary", journal.session()["id"])),
+        "note": "管理会话压缩不会裁剪业务节点原文；节点上下文/模型调用/语义修复/账号额度是独立预算。浮窗可见不代表Auto托管已启用。",
+    }
+    result["recovery_policy"] = recovery_settings(project)["settings"]
     text = json.dumps(result, ensure_ascii=False)
     if config.get("api_key"):
         text = text.replace(config["api_key"], "[redacted]")

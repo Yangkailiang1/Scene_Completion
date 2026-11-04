@@ -929,14 +929,13 @@ def _transport_model(client, stage):
             )
 
             body = request_options(body, self.scene_client.config, self.task_stage)
-            from scene_completion.models.context_budget import check
-
-            context_bound = check(body, self.scene_client.config)
             from uuid import uuid4
 
             from scene_completion.infrastructure.execution_events import emit, fields, phase
+            from scene_completion.models.request_context import prepare
 
             with fields(model_call_id=uuid4().hex):
+                context_bound = prepare(self.scene_client, body, self.task_stage)
                 phase("model_wait")
                 emit(
                     "request_started",

@@ -327,6 +327,12 @@ def register(app, service):
         write_json(p / "project.json", v)
         return v
 
+    @app.get("/api/projects/{rid}/prompts")
+    def node_prompts(rid: str, task_key: str, request_id: str | None = None):
+        from scene_completion.models.request_context import view
+
+        return view(service.run_dir(rid) / "run", task_key, request_id)
+
     @app.get("/api/projects/{rid}/context")
     def model_context(rid: str, task_key: str):
         root = service.run_dir(rid) / "run"

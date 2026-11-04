@@ -7,9 +7,10 @@ DEFAULT_LIMIT = 200000
 
 def estimate(body):
     total = 0
+    messages = []
     for message in body.get("messages", []):
         content = message.get("content")
-        total += (
+        cost = (
             len(content.encode("utf8"))
             + len(
                 json.dumps(
@@ -20,8 +21,10 @@ def estimate(body):
             if isinstance(content, str)
             else len(json.dumps(message, ensure_ascii=False).encode()) + 256
         )
+        total += cost
+        messages.append({"index": len(messages), "role": message.get("role"), "upper_bound": cost})
     # Schema/tools and all other request metadata are part of the bound too.
-    total += len(
+    metadata = len(
         json.dumps(
             {
                 k: v
@@ -31,10 +34,13 @@ def estimate(body):
             ensure_ascii=False,
         ).encode()
     )
+    total += metadata
     return {
         "estimated_input_tokens_upper_bound": total,
         "output_reserve": body.get("max_tokens", body.get("max_completion_tokens")),
         "estimate_method": "UTF-8 bytes plus message framing; conservative upper bound, not provider tokenization",
+        "messages": messages,
+        "metadata_and_tools_upper_bound": metadata,
     }
 
 

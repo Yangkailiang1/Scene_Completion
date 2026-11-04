@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, projectUrl } from "../../shared/api";
 import { NodeOutput } from "../execution/NodeOutput";
+import { NodePrompts } from "../execution/NodePrompts";
 import { ThroughputView } from "../usage/ThroughputView";
 import { ManagerModelProfile } from "./ManagerModelProfile";
 export function ManagerPanel({
@@ -124,6 +125,7 @@ export function ManagerPanel({
         running: "正在处理",
         watching: "正在守护",
         waiting_reconnect: "等待模型连接",
+        awaiting_configuration: "上下文／配置阻塞",
       } as Record<string, string>
     )[data?.runtime?.status] || "项目任务守护";
   return createPortal(
@@ -208,6 +210,7 @@ export function ManagerPanel({
               ["plan", "计划与阻塞"],
               ["actions", "操作与补丁"],
               ["memory", "记忆"],
+              ["prompts", "输入提示词"],
               ["throughput", "吞吐监视"],
               ["model", "模型"],
             ].map(([id, label]) => (
@@ -226,6 +229,9 @@ export function ManagerPanel({
             </p>
           )}
           <div className="manager-content">
+            {tab === "prompts" && project && (
+              <NodePrompts projectId={project} taskKey="__manager__" />
+            )}
             {tab === "chat" && (
               <>
                 <div className="manager-messages">

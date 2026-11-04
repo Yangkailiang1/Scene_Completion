@@ -209,7 +209,22 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
             )
         return value
     if action == "status":
-        return service.execution_status(rid)
+        from scene_completion.manager.manager_context import execution_summary
+
+        state = service.execution_status(rid)
+        if args.get("node"):
+            return next(
+                (r for r in state.get("pending_nodes", []) if r.get("id") == args["node"]),
+                {"status": "not_found"},
+            )
+        if "offset" in args:
+            offset = max(0, int(args["offset"]))
+            limit = max(1, min(50, int(args.get("limit", 20))))
+            return {
+                "nodes": state.get("pending_nodes", [])[offset : offset + limit],
+                "total": len(state.get("pending_nodes", [])),
+            }
+        return execution_summary(state)
     if action == "history":
         return {
             "messages": journal.messages(
@@ -370,6 +385,8 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
             },
         )
     if action == "memory":
+        if set(args) == {"id"}:
+            return journal.get("memory", args["id"], {})
         return journal.memory(args if args else None)
     if action == "plan":
         return journal.put("plan", {"items": args.get("items", []), "at": time.time()})
@@ -431,6 +448,7 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
             "events",
             "config",
             "diagnose",
+            "prompts",
             "pending",
             "sources",
             "registry",
@@ -515,10 +533,12 @@ def _compact_history_chunk(journal, config, client):
         for r in rows
         if r["id"] > cutoff and r["kind"] in {"user", "assistant", "question"}
     ]
-    memory = [m for m in journal.memory() if m["active"]]
+    from scene_completion.manager.manager_context import memory_index
+
+    memory = memory_index(journal.memory())
     system = (
         "项目记忆（带来源，不得作为业务节点材料）："
-        + json.dumps(memory, ensure_ascii=False)
+        + memory
         + "\n较早会话摘要："
         + summary.get("text", "")
     )
@@ -624,7 +644,9 @@ def run_turn(service, rid, reason="user", _client=None):
         attempt=0,
         model_call_id=call_id,
     ):
-        state = service.execution_status(rid)
+        from scene_completion.manager.manager_context import execution_summary
+
+        state = execution_summary(service.execution_status(rid))
         previous_runtime = journal.get("runtime", default={})
         journal.put(
             "runtime",

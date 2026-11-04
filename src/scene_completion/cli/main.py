@@ -94,6 +94,7 @@ def capabilities():
         "commands": {
             "projects/create": "新建项目；RR/SR支持Markdown/结构模型JSON，测试支持Markdown/JSON/XLSX；--input-dir递归识别五类JSON，或--input-manifest指定五份绝对路径；--evaluation-scope SR|RR|all（默认SR）",
             "metrics": "--project ID [--case ID] [--test-set original|expanded|business] [--scope SR|RR|all]；复用冻结匹配按实际接口归属计数，不调用模型",
+            "prompts": "--project ID --node ID [--request ID]；查询节点实际组装请求、系统/Skill/工具Schema/修复历史及预算，凭证已移除；不调用模型",
             "accounts/save-account": "每Key模型允许列表；expected_revision校验、环境变量引用、隐藏输入及--dry-run",
             "configure": "模型、路由、思考、输出/上下文预算、吞吐监视及候选切换；--config-file及--dry-run",
             "pending": "--project ID [--item ID --file answer.json --dry-run]；问题与回答历史，保存不执行模型",
@@ -251,6 +252,7 @@ def parser():
         "configure",
         "config",
         "diagnose",
+        "prompts",
         "repair-export",
         "repair-submit",
         "rerun",
@@ -276,6 +278,9 @@ def parser():
             a.add_argument("--node")
             a.add_argument("--task", default="agent")
             a.add_argument("--limit", type=int, default=20)
+        if cmd == "prompts":
+            a.add_argument("--node", required=True)
+            a.add_argument("--request")
         if cmd in ("repair-export", "repair-submit"):
             a.add_argument("--node", required=True)
             if cmd == "repair-export":
@@ -628,6 +633,12 @@ def main(argv=None, client=None):
                 {"task_key": args.node, "repair": value, "validate_only": args.validate_only},
             )
         )
+        return 0
+    if args.command == "prompts":
+        query = urllib.parse.urlencode(
+            {"task_key": args.node, **({"request_id": args.request} if args.request else {})}
+        )
+        output(api.call(path + "/prompts?" + query))
         return 0
     if args.command in ("config", "diagnose"):
         query = urllib.parse.urlencode(

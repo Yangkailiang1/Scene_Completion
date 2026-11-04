@@ -27,6 +27,7 @@ import { ExecutionFlow } from "../features/execution/ExecutionFlow";
 import { ExecutionNavigator } from "../features/execution/ExecutionNavigator";
 import { NodeConversation } from "../features/execution/NodeConversation";
 import { NodeOutput } from "../features/execution/NodeOutput";
+import { NodePrompts } from "../features/execution/NodePrompts";
 import { WorkspaceMonitor } from "../features/execution/WorkspaceMonitor";
 import { ImportDependencyPlan } from "../features/inputs/ImportDependencyPlan";
 import { InputBundlePicker } from "../features/inputs/InputBundlePicker";
@@ -633,6 +634,10 @@ export default function App() {
                               <BookOpen size={13} />
                               原文依据
                             </TabsTrigger>
+                            <TabsTrigger value="prompts">
+                              <FileText size={13} />
+                              输入提示词
+                            </TabsTrigger>
                             <TabsTrigger value="review">
                               <ClipboardCheck size={13} />
                               审核
@@ -661,6 +666,13 @@ export default function App() {
                             value={value}
                             definitions={definitions}
                             taskKey={selected || undefined}
+                          />
+                        </TabsContent>
+                        <TabsContent value="prompts" className="panel-scroll">
+                          <NodePrompts
+                            key={current + selected}
+                            projectId={current}
+                            taskKey={selected}
                           />
                         </TabsContent>
                         <TabsContent value="evidence" className="panel-scroll">

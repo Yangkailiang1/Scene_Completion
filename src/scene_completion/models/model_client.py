@@ -109,9 +109,9 @@ class SemanticClient:
             body = dict(body)
             if not any(k in body for k in ("max_tokens", "max_completion_tokens")):
                 body["max_tokens"] = self.output_limit("agent")
-            from scene_completion.models.context_budget import check
+            from scene_completion.models.request_context import prepare
 
-            check(body, self.config)
+            prepare(self, body)
         from scene_completion.models.endpoint_admission import endpoint_slot
 
         with endpoint_slot(
