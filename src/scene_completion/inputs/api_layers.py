@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+from scene_completion.inputs.api_identity import identity_parts, qualified_identity
+
 
 def scoped_api_document(document, layer):
     """Filter explicitly layered import blocks, preserving original evidence.
@@ -44,9 +46,9 @@ def qualify_mapping(value, layer, boundary=None):
     out = deepcopy(value)
     for service in out["services"]:
         for api in service["interfaces"]:
-            declared = api.get("declared_id", api["id"])
+            identifier, declared = qualified_identity(api, layer, boundary)
             api.update(
-                id=layer + "::" + ("external::" if boundary == "external" else "") + declared,
+                id=identifier,
                 declared_id=declared,
                 source_layer=layer,
             )
@@ -66,18 +68,19 @@ def merge_mappings(parts):
 
 
 def qualify_index(value, layer, boundary=None):
-    return {
-        "apis": [
+    apis = []
+    for api in value["apis"]:
+        identifier, declared = qualified_identity(api, layer, boundary)
+        apis.append(
             {
-                **deepcopy(a),
-                "id": layer + "::" + ("external::" if boundary == "external" else "") + a["id"],
-                "declared_id": a["id"],
+                **deepcopy(api),
+                "id": identifier,
+                "declared_id": declared,
                 "source_layer": layer,
                 **({"interface_scope": boundary} if boundary else {}),
             }
-            for a in value["apis"]
-        ]
-    }
+        )
+    return {"apis": apis}
 
 
 def scoped_parameters(values, layer):
@@ -86,7 +89,7 @@ def scoped_parameters(values, layer):
             {
                 **deepcopy(a),
                 "source_layer": layer,
-                "declared_id": a.get("declared_id", a["id"].split("::", 1)[-1]),
+                "declared_id": a.get("declared_id", identity_parts(a["id"])[2]),
             }
             for value in values
             for a in value["apis"]

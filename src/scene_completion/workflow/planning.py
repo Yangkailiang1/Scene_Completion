@@ -232,7 +232,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     ex.add(
         "api-index",
         "api-index",
-        ("rr-api-index", "sr-api-index", "external-api-index"),
+        ("rr-api-index", "sr-api-index", "external-api-index", "api-map"),
         build=lambda d: {**d, "RR": api_documents["RR"], "SR": api_documents["SR"]},
         transform=lambda d: {
             "apis": qualify_index(d["rr-api-index"], "RR")["apis"]
@@ -252,7 +252,9 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         keys = {"RR": [], "SR": []}
         external_keys = []
         mapped = payload(read_json(ex.root / ex.scheduler.state["tasks"]["api-map"]["output_file"]))
-        interfaces = {i["id"]: i for service in mapped["services"] for i in service["interfaces"]}
+        from scene_completion.inputs.api_identity import mapping_lookup
+
+        interfaces = mapping_lookup(mapped, {"apis": index})
         services = [
             {"name": service["name"], "source_refs": service["source_refs"]}
             for service in mapped["services"]

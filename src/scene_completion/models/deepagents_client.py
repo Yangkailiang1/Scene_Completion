@@ -165,6 +165,23 @@ class DeepAgentsClient(SemanticClient):
         indexed = EvidenceContext(packet) if self.config.get("indexed_context", False) else None
         if indexed:
             packet = indexed.packet
+        if packet["task"] == "api-map":
+            from scene_completion.inputs.api_identity import (
+                mapping_model_candidate,
+                mapping_model_schema,
+            )
+
+            packet = deepcopy(packet)
+            packet["output_schema"] = mapping_model_schema(packet["output_schema"])
+            if "candidate" in packet.get("repair", {}):
+                packet["repair"]["candidate"] = mapping_model_candidate(
+                    packet["repair"]["candidate"]
+                )
+            packet["instructions"] += (
+                "\n接口机器身份只填写id；存在原文编号时使用原文编号，否则创建稳定本地ID。"
+                "id禁止pending、unknown、TBD、待确认等占位符，也不要自行加RR::或SR::前缀。"
+                "declared_id、source_layer、interface_scope由工具维护，模型不要输出这些字段。"
+            )
         from scene_completion.inputs.reference_contract import (
             instructions as reference_instructions,
         )
@@ -333,6 +350,10 @@ class DeepAgentsClient(SemanticClient):
                 if packet["task"] == "api-map":
                     from jsonschema import Draft202012Validator
 
+                    from scene_completion.inputs.api_identity import validate_mapping_identifiers
+
+                    validate_mapping_identifiers(payload)
+
                     errors = list(
                         Draft202012Validator(packet["output_schema"]).iter_errors(payload)
                     )
@@ -380,6 +401,7 @@ class DeepAgentsClient(SemanticClient):
                         "candidate_format": "model" if indexed else "public",
                         "reference_mode": reference_contract["mode"],
                         "reference_error": getattr(e, "details", None),
+                        "identity_error": getattr(e, "identity_details", None),
                         "error": str(e),
                     },
                 )
@@ -415,6 +437,7 @@ class DeepAgentsClient(SemanticClient):
                             "candidate_format": "model",
                             "reference_mode": "indexed",
                             "reference_error": getattr(e, "details", None),
+                            "identity_error": getattr(e, "identity_details", None),
                             "error": str(e),
                         },
                     )
@@ -547,6 +570,7 @@ class DeepAgentsClient(SemanticClient):
                         "error": str(e),
                         "reference_mode": reference_contract["mode"],
                         "reference_error": getattr(e, "details", None),
+                        "identity_error": getattr(e, "identity_details", None),
                     },
                 )
                 raise TaskRejected(

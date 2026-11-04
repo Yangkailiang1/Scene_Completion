@@ -283,7 +283,10 @@ def validate_result(task, payload, inputs):
                 if code not in quote:
                     raise ValueError("不得补造正常规则未声明的错误响应码")
     if task == "api-map":
+        from scene_completion.inputs.api_identity import validate_mapping_identifiers
         from scene_completion.inputs.http_interfaces import clean_path
+
+        validate_mapping_identifiers(payload)
 
         if "interface-scope" in inputs:
             from scene_completion.inputs.api_boundaries import filter_mapping
@@ -512,6 +515,10 @@ def validate_result(task, payload, inputs):
                             "本次调用固定值不能扩展为接口全局枚举；调用绑定保留在本用例SSD，枚举范围待确认"
                         )
     if task == "api-index":
+        if "api-map" in inputs:
+            from scene_completion.inputs.api_identity import mapping_lookup
+
+            mapping_lookup(inputs["api-map"], payload)
         ids = set()
         docs = {d["source_id"]: d for d in inputs.get("RR", []) + inputs.get("SR", [])}
         for a in payload["apis"]:

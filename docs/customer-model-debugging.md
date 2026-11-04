@@ -16,6 +16,33 @@
 
 所有CLI连接同一本地工作台，网页显示同一任务/产物。先完整解压包、关闭旧服务，再启动`start.cmd`。不要在ZIP预览中运行；建议较短目录如`C:\SceneCompletion`。升级前备份旧目录和data；密钥、账本、审核和项目数据不随发布包分发。
 
+### RR::pending 与 RR::local-rr-s001 的身份错配
+
+旧版有两个独立缺陷：模型可提交 `id="local-rr-s001"`、`declared_id="pending"`；合并器又优先从 `declared_id` 生成限定ID，而接口目录从 `id` 生成，最终参数展开发生KeyError。仅禁止重复增加RR/SR前缀不足以解决它。
+
+当前机器身份统一以 `id` 为准，`declared_id` 只是原始标识的展示元数据，不能作为改名或查找键。有文档API编号时使用原编号，否则生成稳定本地ID。模型侧Schema不再提供 `declared_id`、`source_layer`、`interface_scope`，层级与边界由工具添加。工具兼容保存／导入产物中的合法元数据，不强制把不同用途的机器ID与文档标识改成同一值。
+
+- 提交和缓存读取均拒绝 `pending`、`pending]`、`unknown`、`TBD`、`null`、`待确认` 等身份占位符。方法或路径未知可以按契约保留null，接口身份不能待定。
+- `diagnose.validation_rejections.identity_error`提供错误类别及JSON字段路径，例如 `/services/0/interfaces/0/declared_id`。未知引用与身份错误分别记录。
+- 映射与目录使用同一套、可重复执行的命名空间工具；参数展开前检查两边完整ID集合，不再直接靠字典查找抛KeyError。不按URL、大小写或名称相似度替换ID。
+- 同协议运行中的错误缓存和旧自动审核会重新校验；非法身份缓存不会优先盖过新的修复结果。历史记录保留，无关有效产物仍可复用。
+
+客户升级时先停旧服务并备份整个旧目录；将新版完整解压到新目录，按Windows升级说明迁入原data与本地配置后启动。先查看实际节点状态：
+
+```bat
+scene.cmd diagnose --project PROJECT_ID --node rr-api-map > rr-api-map-diagnose.json
+scene.cmd diagnose --project PROJECT_ID --node api-index > api-index-diagnose.json
+scene.cmd run --project PROJECT_ID --wait
+```
+
+已通过但带占位符的同协议产物在继续运行时会被重新校验。已经耗尽修复预算的失败节点仍须明确发起定向重做（不是自动清空账本）：
+
+```bat
+scene.cmd rerun --project PROJECT_ID --node rr-api-map --text "使用当前接口身份契约：保留有效id，勿输出declared_id等工具元数据；不得使用pending等身份占位符。"
+```
+
+若客户Code Agent已修好候选，使用 `repair-export`／`repair-submit --validate-only`／`repair-submit` 正式提交，避免直接编辑成功产物和 `workflow_tasks.json`。修复包过期时重新导出。此修复针对身份错配，不代表其他SSD、引用或模型故障均已解决；Windows实机及客户网关仍需验证。
+
 ## 本次客户已定位的三种失败
 
 1. `agent_trace_history/...tmp`写入失败：旧临时名在长目标名后追加进程/线程号，容易触及Windows路径限制。现在同目录使用短随机临时名、Windows文件IO使用扩展路径、轨迹历史文件名缩短。审计轨迹写入失败独立记录，不再覆盖原模型/Schema错误。不能据此保证客户杀毒、权限及磁盘异常均已解决。

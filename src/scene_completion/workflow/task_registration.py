@@ -488,6 +488,7 @@ def add(
                     "input_hash": fingerprint(inputs),
                     "payload": candidate,
                     "error": str(exc),
+                    "identity_error": getattr(exc, "identity_details", None),
                 },
             )
             raise TaskRejected(
@@ -495,6 +496,7 @@ def add(
                     "error": str(exc),
                     "phase": "postprocess",
                     "rejected_output": str(rejection.relative_to(self.root)),
+                    "identity_error": getattr(exc, "identity_details", None),
                 }
             ) from exc
         if reviewed is None and not skip_review:

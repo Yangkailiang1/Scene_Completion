@@ -104,6 +104,7 @@ def node_diagnostics(project, config, task_key=None, limit=20):
                         "error": str(v.get("error", ""))[:4000],
                         "reference_mode": v.get("reference_mode"),
                         "reference_error": v.get("reference_error"),
+                        "identity_error": v.get("identity_error"),
                     }
                 )
                 if len(failures) >= 3:

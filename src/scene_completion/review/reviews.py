@@ -63,7 +63,18 @@ class Reviews:
         if self.mode == "manual" and v["status"] != "approved":
             raise TaskBlocked("awaiting_review", {"review": key})
         if task in SCHEMAS:
-            validate_result(task, v["payload"], inputs)
+            from scene_completion.inputs.api_identity import ApiIdentityError
+
+            try:
+                validate_result(task, v["payload"], inputs)
+            except ApiIdentityError as error:
+                # Old automatic reviews could contain placeholder API metadata.
+                # Keep their record; never repeatedly select the invalid cache
+                # ahead of a fresh, bounded generation/review attempt.
+                from scene_completion.infrastructure.execution_events import emit
+
+                emit("review_cache_invalid", review_key=key, identity_error=error.identity_details)
+                return None
         return deepcopy(v["payload"])
 
     def propose(self, key, task, inputs, value, identity=None):
