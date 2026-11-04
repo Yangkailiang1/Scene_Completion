@@ -785,6 +785,7 @@ def _build_cases(
             },
         },
         transform=merge_crud,
+        verify_derivation=True,
     )
     ex.add(
         "data-dependencies-project",
@@ -792,6 +793,7 @@ def _build_cases(
         data_keys,
         build=lambda d: d,
         transform=lambda d: merge_rows(d.values(), ("entities", "relations", "flows")),
+        verify_derivation=True,
     )
     ex.add(
         "business-attribute-map",
@@ -814,6 +816,7 @@ def _build_cases(
                 for g in groups
             },
         ),
+        verify_derivation=True,
     )
 
     positive_docs = normal_projection(rr) + normal_projection(sr) + normal_projection(ar or [])
@@ -870,5 +873,6 @@ def _build_cases(
         tuple(dependency_parts) + ("business-entities",),
         build=lambda d: d,
         transform=lambda d: merge_rows((d[k] for k in dependency_parts), ("dependencies",)),
+        verify_derivation=True,
     )
     _schedule_global_analysis(ex, rr, sr, ar or [], tests)

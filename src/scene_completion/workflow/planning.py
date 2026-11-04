@@ -45,6 +45,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         "source-index",
         static={"documents": rr + sr + ar},
         transform=lambda d: markdown_index(d["documents"]),
+        verify_derivation=True,
     )
     rr = current_projection(rr)
     sr = current_projection(sr)
@@ -69,6 +70,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             "business-entities",
             static={"normal-documents": [p["document"] for p in imported_entities]},
             transform=lambda d: merge_entities([p["payload"] for p in imported_entities]),
+            verify_derivation=True,
         )
         ex.scheduler.tasks[
             "business-entities-imports"
@@ -89,6 +91,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         tuple(entity_parts),
         build=lambda d: d,
         transform=lambda d: merge_entities(d[k] for k in entity_parts),
+        verify_derivation=not bool(imported_entities),
     )
     ex.add(
         "components-context",
@@ -98,6 +101,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         transform=lambda d: {
             role: task_document_view(docs, "components") for role, docs in d.items()
         },
+        verify_derivation=True,
     )
     ex.add(
         "components", "components", ("components-context",), build=lambda d: d["components-context"]
@@ -155,6 +159,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 key: task_document_view(values, "api-map") if key in {"RR", "SR"} else values
                 for key, values in d.items()
             },
+            verify_derivation=True,
         )
         label = "外部Service" if boundary == "external" else "系统及内部Service"
         ex.scheduler.tasks[context_key].display_label = layer + label + "接口定义取片（工具）"
@@ -180,6 +185,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 "api-map": d[k],
             },
             transform=index_interfaces,
+            verify_derivation=True,
         )
         ex.scheduler.tasks[index_key].display_label = layer + "接口参数目录（工具）"
     ex.add(
@@ -197,6 +203,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             ]
         },
         skip_review=True,
+        verify_derivation=True,
     )
     ex.scheduler.tasks["external-api-map"].display_label = "外部Service接口映射汇总（RR/SR来源）"
     ex.add(
@@ -214,6 +221,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             ]
         },
         skip_review=True,
+        verify_derivation=True,
     )
     ex.scheduler.tasks["external-api-index"].display_label = "外部Service接口参数目录（工具）"
     ex.add(
@@ -228,6 +236,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             + d["external-api-map"]["services"]
         },
         skip_review=True,
+        verify_derivation=True,
     )
     ex.add(
         "api-index",
@@ -239,6 +248,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             + qualify_index(d["sr-api-index"], "SR")["apis"]
             + d["external-api-index"]["apis"]
         },
+        verify_derivation=True,
     )
 
     def expand_api():
@@ -370,6 +380,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                     [d[k] for k in parts], layer
                 ),
                 skip_review=True,
+                verify_derivation=True,
             )
             ex.scheduler.tasks[child].display_label = layer + "接口参数与响应分支汇总"
         ex.add(
@@ -381,6 +392,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 "apis": [api for k in parts for api in d[k]["apis"]]
             },
             skip_review=True,
+            verify_derivation=True,
         )
         ex.scheduler.tasks["external-api-parameters"].display_label = "外部Service完整接口契约汇总"
         ex.add(
@@ -394,6 +406,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 + d["external-api-parameters"]["apis"]
             },
             skip_review=True,
+            verify_derivation=True,
         )
 
     ex.expand_api = expand_api
@@ -414,6 +427,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             static={"documents": docs},
             build=lambda d, docs=docs: {"documents": docs, "index": d["source-index"]},
             transform=lambda d: catalogue_context(d["documents"], d["index"]),
+            verify_derivation=True,
         )
         ex.scheduler.tasks[k].display_label = layer + "用例元数据取片（工具）"
         ex.add(

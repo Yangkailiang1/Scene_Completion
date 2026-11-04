@@ -37,6 +37,7 @@ def finish(self):
             "budget_exhausted",
             "awaiting_answer",
             "awaiting_review",
+            "blocked_dependency",
         }:
             # A blocked index still declares the final dependency target;
             # the scheduler will never treat it as a complete API table.

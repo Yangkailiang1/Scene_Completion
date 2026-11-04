@@ -29,6 +29,12 @@ def case_parameters(inputs, views):
 
 
 def index_interfaces(inputs):
+    """Locate source ranges for mapped IDs; never invent a second API identity.
+
+    The model/imported mapping owns the raw interface ID. Method/path and
+    literal identifiers only locate its evidence; no project URL prefix is
+    required, and a declaration alone does not create an index-only API.
+    """
     docs = {d["source_id"]: d for d in inputs.get("RR", []) + inputs.get("SR", [])}
     found = {}
     for service in inputs["api-map"]["services"]:

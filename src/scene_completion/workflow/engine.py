@@ -320,6 +320,7 @@ class Execution:
         case=None,
         skip_review=False,
         api_scope=None,
+        verify_derivation=False,
     ):
         return task_registration.add(
             self,
@@ -333,6 +334,7 @@ class Execution:
             case,
             skip_review,
             api_scope,
+            verify_derivation,
         )
 
     def partitioned(self, key, task, deps, build, case):

@@ -29,7 +29,7 @@ Markdown中的Mermaid时序图与普通段落同样可作为来源。`服务A->>
 
 ## RR/SR接口边界
 
-RR与SR来源接口分别抽取，程序按来源层级保存独立表和接口身份；即使编号、字段或名称相同也不能合并。两层各自都可能声明内部或外部Service接口。只读当前任务提供的那层文档；不能从另一层补类型、必填、默认或约束。参数子任务的interface.id为工具命名空间标识，保留原样；declared_id是原文编号，source_layer表示接口定义来源。输入、成功响应和各失败响应继续分别保存。
+RR与SR来源接口分别抽取，程序按来源层级保存独立表和接口身份；即使编号、字段或名称相同也不能合并。两层各自都可能声明内部或外部Service接口。只读当前任务提供的那层文档；不能从另一层补类型、必填、默认或约束。参数子任务的interface.id为工具命名空间标识，保留原样；declared_id记录限定前的标识，可能是文档编号或生成的本地ID，不能一概声称是原文编号；source_layer表示接口定义来源。输入、成功响应和各失败响应继续分别保存。
 
 引用格式以本次任务为准：启用indexed_context时source_refs是给定evidence_id字符串列表；未启用时source_refs是source_id、line_start、line_end、quote对象列表，没有evidence_catalog，不查找或生成evidence_id。逐字引用本次允许材料，不能混用原始文档和导入可读投影的来源ID、行号或引文。source_commit是程序版本，不是来源文档ID。
 

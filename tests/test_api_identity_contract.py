@@ -188,6 +188,216 @@ def test_real_identifier_containing_pending_is_not_a_placeholder():
     validate_result("api-map", raw, {"RR": [doc]})
 
 
+@pytest.mark.parametrize(
+    "path", ["/V1/memory_instances", "/warehouse/v8/items/{sku}", "/custom_jobs", "/create"]
+)
+def test_http_paths_and_model_local_identifiers_are_project_independent(path):
+    from scene_completion.inputs.http_interfaces import declarations
+
+    doc, raw = fixture()
+    text = f"Caller->>Receiver: POST {path}<br/>创建资源"
+    doc["lines"][0]["text"] = text
+    api = raw["services"][0]["interfaces"][0]
+    api.update(id="arbitrary-model-identity", address=path)
+    for ref in (api["source_refs"][0], raw["services"][0]["source_refs"][0]):
+        ref["quote"] = text
+    assert declarations(text) == [("POST", path)]
+    index = index_interfaces({"RR": [doc], "api-map": raw})
+    assert index["apis"][0]["id"] == "arbitrary-model-identity"
+    assert index_interfaces({"RR": [doc], "api-map": {"services": []}}) == {"apis": []}
+
+
+def test_17_rr_and_23_sr_interfaces_rebuild_stale_aggregates_without_recalling_models(tmp_path):
+    from scene_completion.workflow.engine import Execution, build_pipeline
+    from tests.test_workflow import fake_pipeline
+
+    rr, sr, tests, mocks = fake_pipeline(tmp_path)
+    for layer, docs, count in (("RR", rr, 17), ("SR", sr, 23)):
+        rows = [{"text": row["text"]} for row in docs[0]["lines"][:2]]
+        for n in range(1, count + 1):
+            label = "public" if layer == "RR" else "internal"
+            # This deliberately uses arbitrary paths, with no fixed /v1 prefix.
+            rows.append({"text": f"POST /catalog-{label}/v8/object_{n}"})
+        docs[0]["lines"] = [{"number": n, **row} for n, row in enumerate(rows, 1)]
+    calls = []
+
+    def mapping(p):
+        calls.append((p["node_key"], p["task"]))
+        layer = "RR" if "RR" in p["input"] else "SR"
+        doc = p["input"][layer][0]
+        apis = []
+        for n, row in enumerate(doc["lines"][2:], 1):
+            ref = {
+                "source_id": doc["source_id"],
+                "line_start": row["number"],
+                "line_end": row["number"],
+                "quote": row["text"],
+            }
+            apis.append(
+                {
+                    "id": f"local-rr-s{n:03d}" if layer == "RR" else f"API-S-IF{n}",
+                    "name": f"{layer}操作{n}",
+                    "method": "POST",
+                    "address": row["text"].split()[1],
+                    "source_refs": [ref],
+                }
+            )
+        return {
+            "services": [
+                {
+                    "name": "Platform" if layer == "RR" else "Admin",
+                    "interfaces": apis,
+                    "source_refs": apis[0]["source_refs"],
+                }
+            ]
+        }
+
+    def parameters(p):
+        calls.append((p["node_key"], p["task"]))
+        api = p["input"]["interface"]
+        return {
+            "apis": [
+                {
+                    "id": api["id"],
+                    "name": api["name"],
+                    "address": api["address"],
+                    "parameters": [],
+                    "source_refs": api["source_refs"],
+                }
+            ]
+        }
+
+    mocks.update({"api-map": mapping, "api-parameters": parameters})
+    run = tmp_path / "run"
+    execution = Execution(run, mocks=mocks)
+    build_pipeline(execution, rr, sr, tests)
+    assert execution.finish()["complete"]
+    state = read_json(run / "workflow_tasks.json")
+    originals = {}
+    keys = (
+        "api-map",
+        "rr-api-index",
+        "sr-api-index",
+        "api-index",
+        "rr-api-parameters",
+        "sr-api-parameters",
+        "api-parameters",
+    )
+    for key in keys:
+        record = state["tasks"][key]
+        path = run / record["output_file"]
+        value = read_json(path)
+        originals[key] = deepcopy(value["payload"])
+        if key == "api-map":
+            for service in value["payload"]["services"]:
+                for api in service["interfaces"]:
+                    if api["id"].startswith("SR::"):
+                        api["id"] = api["id"].removeprefix("SR::")
+            # This is schema-valid, and requires a derivation check to reject.
+            validate_result("api-map", value["payload"], {"RR": rr, "SR": sr})
+        else:
+            for api in value["payload"]["apis"]:
+                api["name"] = "stale but structurally valid aggregate"
+        write_json(path, value)
+        record["output_hash"] = fingerprint(value)
+    write_json(run / "workflow_tasks.json", state)
+    before_calls = len(calls)
+    execution = Execution(run, mocks=mocks)
+    build_pipeline(execution, rr, sr, tests)
+    assert execution.finish()["complete"]
+    for key in keys:
+        record = execution.scheduler.state["tasks"][key]
+        assert read_json(run / record["output_file"])["payload"] == originals[key]
+    assert len(calls) == before_calls
+    ids = mapping_lookup(originals["api-map"], originals["api-index"])
+    assert len([i for i in ids if i.startswith("RR::")]) == 17
+    assert len([i for i in ids if i.startswith("SR::")]) == 23
+    assert "RR::local-rr-s001" in ids and "SR::API-S-IF1" in ids
+
+
+def test_repeated_mapping_rejections_block_dependents_without_crashing_the_job(tmp_path):
+    from scene_completion.workflow.engine import Execution, build_pipeline
+    from tests.test_workflow import fake_pipeline
+
+    rr, sr, tests, mocks = fake_pipeline(tmp_path)
+    rr[0]["lines"].insert(2, {"text": "POST /arbitrary/resource"})
+    for n, row in enumerate(rr[0]["lines"], 1):
+        row["number"] = n
+    ref = {
+        "source_id": rr[0]["source_id"],
+        "line_start": 3,
+        "line_end": 3,
+        "quote": "POST /arbitrary/resource",
+    }
+    calls = []
+
+    def mapping(p):
+        if "RR" not in p["input"]:
+            return {"services": []}
+        calls.append(p["node_key"])
+        return {
+            "services": [
+                {
+                    "name": "Platform",
+                    "source_refs": [ref],
+                    "interfaces": [
+                        {
+                            "id": "valid-local-id",
+                            "declared_id": "pending",
+                            "name": "创建资源",
+                            "method": "POST",
+                            "address": "/arbitrary/resource",
+                            "source_refs": [ref],
+                        }
+                    ],
+                }
+            ]
+        }
+
+    mocks["api-map"] = mapping
+    execution = Execution(tmp_path / "run", mocks=mocks)
+    build_pipeline(execution, rr, sr, tests)
+    result = execution.finish()
+    assert not result["complete"]
+    state = execution.scheduler.state["tasks"]
+    assert state["rr-api-map"]["status"] == "rejected"
+    assert state["api-index"]["status"] == "blocked_dependency"
+    assert state["api-parameters"]["status"] == "blocked_dependency"
+    # The existing identical-failure fuse may stop before both repair rounds.
+    assert 1 < len(calls) <= 3
+
+
+def test_pure_tool_cache_guard_also_works_for_non_api_aggregates(tmp_path):
+    from scene_completion.workflow.engine import Execution
+
+    root = tmp_path / "run"
+
+    def register(execution):
+        execution.add(
+            "plain-tool",
+            "document-context",
+            static={"value": ["known fact"]},
+            transform=lambda d: {"merged": d["value"]},
+            verify_derivation=True,
+        )
+
+    execution = Execution(root, mocks={})
+    register(execution)
+    assert execution.scheduler.run()["complete"]
+    state = read_json(root / "workflow_tasks.json")
+    record = state["tasks"]["plain-tool"]
+    path = root / record["output_file"]
+    value = read_json(path)
+    value["payload"] = {"merged": ["stale but schema-valid value"]}
+    write_json(path, value)
+    record["output_hash"] = fingerprint(value)
+    write_json(root / "workflow_tasks.json", state)
+    execution = Execution(root, mocks={})
+    register(execution)
+    assert execution.scheduler.run()["complete"]
+    assert read_json(path)["payload"] == {"merged": ["known fact"]}
+
+
 def test_resume_rejects_old_placeholder_artifact_and_review_without_manual_edits(tmp_path):
     from scene_completion.workflow.engine import Execution, build_pipeline
     from tests.test_workflow import fake_pipeline

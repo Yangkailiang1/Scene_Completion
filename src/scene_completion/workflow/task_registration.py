@@ -46,8 +46,11 @@ def add(
     case=None,
     skip_review=False,
     api_scope=None,
+    verify_derivation=False,
 ):
     static = static or {}
+    if verify_derivation and (transform is None or task in REVIEW_TASKS and not skip_review):
+        raise ValueError("derived validation requires an unreviewed deterministic task")
     from scene_completion.inputs.artifact_imports import fragments_for
 
     imported = fragments_for(self.root.parent, task, case, self.import_snapshot)
@@ -524,6 +527,17 @@ def add(
         # Re-run schema checks on cache reads, not just initial responses.
         if task in SCHEMAS:
             validate_result(task, value["payload"], actual)
+        if verify_derivation:
+            # Schema validity does not prove a saved tool aggregate was derived
+            # correctly. Recompute this bounded, pure transform from validated
+            # dependencies; invalid old aggregates are rebuilt without recalling
+            # the successful upstream model tasks or trusting a code hash.
+            expected = transform(deepcopy(actual))
+            if fingerprint(expected) != fingerprint(value["payload"]):
+                raise ValueError(
+                    "deterministic artifact differs from its current dependencies; "
+                    "rebuild this tool task, preserve valid upstream model outputs"
+                )
 
     from scene_completion.workflow.node_repair import repair_revision
 
