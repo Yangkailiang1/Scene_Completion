@@ -271,6 +271,70 @@
               "null"
             ]
           },
+          "interface_scope": {
+            "enum": [
+              "system",
+              "external"
+            ]
+          },
+          "interface_constraints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "authentication",
+                    "signature",
+                    "authorization",
+                    "transport",
+                    "other"
+                  ]
+                },
+                "requirement": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "source_id": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "line_start": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "line_end": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "quote": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "source_id",
+                      "line_start",
+                      "line_end",
+                      "quote"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "requirement",
+                "source_refs"
+              ],
+              "additionalProperties": false
+            }
+          },
           "responses": {
             "type": "array",
             "items": {

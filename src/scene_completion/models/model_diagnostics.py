@@ -102,6 +102,8 @@ def node_diagnostics(project, config, task_key=None, limit=20):
                     {
                         "file": p.relative_to(project).as_posix(),
                         "error": str(v.get("error", ""))[:4000],
+                        "reference_mode": v.get("reference_mode"),
+                        "reference_error": v.get("reference_error"),
                     }
                 )
                 if len(failures) >= 3:
@@ -139,6 +141,10 @@ def node_diagnostics(project, config, task_key=None, limit=20):
         observation["note"] = (
             "仅报告网关实际返回的字段及计数，不包含思考文本。旧记录缺失的值为null；配置变更仅影响后续请求。"
         )
+        from scene_completion.infrastructure.storage import fingerprint
+
+        context_file = root / "context_index" / (fingerprint(key) + ".json")
+        saved_context = read_json(context_file) if context_file.exists() else {}
         out.append(
             {
                 "task_key": key,
@@ -149,14 +155,19 @@ def node_diagnostics(project, config, task_key=None, limit=20):
                 "stream_observation": observation,
                 "events": recent,
                 "validation_rejections": failures,
+                "reference_contract": saved_context.get("reference_contract"),
             }
         )
+    from scene_completion.infrastructure.program_version import program_version
+
     result = {
+        "program_version": program_version(),
         "nodes": out,
         "llm_called": False,
         "notes": [
             "诊断只读取已有记录，不调用模型、不重置配额或修复预算。",
             "同一节点需区分输出截断、JSON语法、业务Schema和本地文件写入失败；诊断不返回思考原文，显式开启后思考文本单列在本地节点事件。",
+            "program_version.source_commit来自程序VERSION.json或Git；reference_contract.source_ids是允许的文档身份，两者不可互换。旧记录未保存引用模式时显示null，不按当前配置猜测历史请求。",
         ],
     }
     from scene_completion.manager.manager_store import Journal

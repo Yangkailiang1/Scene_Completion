@@ -15,7 +15,7 @@ from scene_completion.infrastructure.storage import fingerprint, read_json, writ
 from scene_completion.inputs.artifact_imports import purpose, selections, snapshot
 from scene_completion.models.deepagents_client import role_for
 
-VERSION = "input-dependency-preview-v3-complete-behavior"
+VERSION = "input-dependency-preview-v4-external-api-contracts"
 MODES = {
     "reuse": "可复用，跳过对应LLM抽取",
     "partial": "部分已提供，仍补缺项",

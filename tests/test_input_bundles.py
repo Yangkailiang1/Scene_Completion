@@ -298,6 +298,8 @@ def test_real_dag_reuses_catalogues_sr_mapping_and_known_entity_parts(tmp_path, 
     assert not any(k.startswith("business-entities-part-") for k in ex.scheduler.tasks)
     keep = {
         "source-index",
+        "components-context",
+        "components",
         "rr-catalogue-context",
         "sr-catalogue-context",
         "rr-use-cases",
@@ -310,11 +312,16 @@ def test_real_dag_reuses_catalogues_sr_mapping_and_known_entity_parts(tmp_path, 
         "test-inventory",
     }
     ex.scheduler.tasks = {k: v for k, v in ex.scheduler.tasks.items() if k in keep}
-    monkeypatch.setattr(
-        ex,
-        "semantic",
-        lambda *a, **k: pytest.fail("Covered extraction must not call a model: " + str(a[0])),
-    )
+
+    def no_model(task, inputs, record):
+        if task == "components":
+            # API ownership is now partitioned after the shared composition.
+            # This offline fixture has no external services. The supplied
+            # catalogues, mappings and entities must still bypass the model.
+            return {"components": [], "relations": []}, {"provider": "offline_fixture"}
+        pytest.fail("Covered extraction must not call a model: " + task)
+
+    monkeypatch.setattr(ex, "semantic", no_model)
     assert ex.scheduler.run()["complete"]
     for k in ("rr-use-cases", "sr-use-cases", "sr-api-map", "business-entities", "test-inventory"):
         assert ex.scheduler.state["tasks"][k]["status"] == "passed"

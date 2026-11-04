@@ -40,12 +40,18 @@ def scoped_api_document(document, layer):
     return {**deepcopy(document), "lines": deepcopy(rows)}
 
 
-def qualify_mapping(value, layer):
+def qualify_mapping(value, layer, boundary=None):
     out = deepcopy(value)
     for service in out["services"]:
         for api in service["interfaces"]:
             declared = api.get("declared_id", api["id"])
-            api.update(id=layer + "::" + declared, declared_id=declared, source_layer=layer)
+            api.update(
+                id=layer + "::" + ("external::" if boundary == "external" else "") + declared,
+                declared_id=declared,
+                source_layer=layer,
+            )
+            if boundary:
+                api["interface_scope"] = boundary
     return out
 
 
@@ -59,14 +65,15 @@ def merge_mappings(parts):
     }
 
 
-def qualify_index(value, layer):
+def qualify_index(value, layer, boundary=None):
     return {
         "apis": [
             {
                 **deepcopy(a),
-                "id": layer + "::" + a["id"],
+                "id": layer + "::" + ("external::" if boundary == "external" else "") + a["id"],
                 "declared_id": a["id"],
                 "source_layer": layer,
+                **({"interface_scope": boundary} if boundary else {}),
             }
             for a in value["apis"]
         ]
@@ -154,6 +161,10 @@ def scoped_imports(parts, scope):
         p = deepcopy(part)
         payload = p["payload"]
         source = p.get("source_layer")
+        # Existing unscoped inputs cannot claim to complete the newly added
+        # external-service extraction task.
+        if scope.get("boundary") == "external" and p.get("interface_scope") != "external":
+            continue
         if "apis" in payload and declared:
             apis = []
             for a in payload["apis"]:

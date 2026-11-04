@@ -8,6 +8,7 @@ from scene_completion.infrastructure.storage import fingerprint, read_json, writ
 
 COLUMNS = [
     ("source_layer", "接口定义层级"),
+    ("interface_scope", "服务边界"),
     ("declared_id", "原接口编号"),
     ("service", "服务名称"),
     ("api_name", "API名称"),
@@ -23,6 +24,7 @@ COLUMNS = [
     ("required", "可选/必填"),
     ("default", "默认值"),
     ("constraints", "约束条件"),
+    ("interface_constraints", "接口级认证及调用约束"),
 ]
 
 
@@ -44,6 +46,7 @@ def combine(mapping, parameters, *, mapping_status="未完成", parameters_compl
                 for j, a in enumerate(apis)
                 if a.get("address") == i["address"]
                 and a.get("source_layer") == i.get("source_layer")
+                and a.get("interface_scope", "system") == i.get("interface_scope", "system")
             ]
         if len(candidates) == 1:
             links[n] = candidates[0]
@@ -57,6 +60,9 @@ def combine(mapping, parameters, *, mapping_status="未完成", parameters_compl
     def append(s, i, a):
         base = {
             "source_layer": i.get("source_layer") if i else a.get("source_layer"),
+            "interface_scope": (i or a).get("interface_scope", "system"),
+            "interface_constraints": (a or {}).get("interface_constraints", [])
+            or (i or {}).get("interface_constraints", []),
             "declared_id": i.get("declared_id", i["id"]) if i else a.get("declared_id", a["id"]),
             "service": s["name"] if s else None,
             "api_id": i["id"] if i else a["id"],

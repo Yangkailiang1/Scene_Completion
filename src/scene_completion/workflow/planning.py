@@ -106,6 +106,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     from scene_completion.inputs.api_layers import (
         merge_mappings,
         qualify_index,
+        qualify_mapping,
         scoped_api_document,
         scoped_parameters,
     )
@@ -129,65 +130,114 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     raw_documents = {"RR": rr + imported_api_docs["RR"], "SR": sr + imported_api_docs["SR"]}
     import re
 
-    for layer, docs in api_documents.items():
-        prefix = layer.lower() + "-api-"
+    from scene_completion.inputs.api_boundaries import (
+        external_services,
+        has_declarations,
+        partition_documents,
+        scope_inputs,
+    )
+
+    for layer, boundary in [
+        (layer, boundary) for layer in ("RR", "SR") for boundary in ("system", "external")
+    ]:
+        docs = api_documents[layer]
+        prefix = layer.lower() + ("-external-api-" if boundary == "external" else "-api-")
         context_key = prefix + "context"
         map_key = prefix + "map"
         ex.add(
             context_key,
             "document-context",
-            ("source-index",),
-            static={layer: docs},
+            ("source-index", "components"),
+            build=lambda d, docs=docs, layer=layer, boundary=boundary: scope_inputs(
+                docs, d["components"], layer, boundary
+            ),
             transform=lambda d: {
-                role: task_document_view(values, "api-map") for role, values in d.items()
+                key: task_document_view(values, "api-map") if key in {"RR", "SR"} else values
+                for key, values in d.items()
             },
         )
-        ex.scheduler.tasks[context_key].display_label = layer + "接口定义取片（工具）"
-        has_rr_api = any(
-            re.search(
-                r"API[-–—][A-Za-z0-9]|\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/",
-                r["text"],
-                re.I,
-            )
-            for d in docs
-            for r in d["lines"]
-        )
+        label = "外部Service" if boundary == "external" else "系统及内部Service"
+        ex.scheduler.tasks[context_key].display_label = layer + label + "接口定义取片（工具）"
+        has_rr_api = has_declarations(docs)
         ex.add(
             map_key,
             "api-map",
             (context_key,),
             build=lambda d, k=context_key: d[k],
-            transform=(lambda d: {"services": []}) if layer == "RR" and not has_rr_api else None,
-            api_scope={"source_layer": layer},
+            transform=(lambda d: {"services": []})
+            if not has_rr_api and layer == "RR" and boundary == "system"
+            else None,
+            api_scope={"source_layer": layer, "boundary": boundary},
         )
-        ex.scheduler.tasks[map_key].display_label = layer + (
-            "对外接口映射" if layer == "RR" else "内部接口映射"
-        )
+        ex.scheduler.tasks[map_key].display_label = layer + label + "接口映射"
         index_key = prefix + "index"
         ex.add(
             index_key,
             "api-index",
-            (map_key,),
-            build=lambda d, k=map_key, layer=layer, docs=docs: {layer: docs, "api-map": d[k]},
+            (map_key, "components"),
+            build=lambda d, k=map_key, layer=layer, docs=docs, boundary=boundary: {
+                layer: partition_documents(docs, external_services(d["components"]), boundary),
+                "api-map": d[k],
+            },
             transform=index_interfaces,
         )
         ex.scheduler.tasks[index_key].display_label = layer + "接口参数目录（工具）"
     ex.add(
+        "external-api-map",
         "api-map",
-        "api-map",
-        ("rr-api-map", "sr-api-map"),
+        ("rr-external-api-map", "sr-external-api-map"),
         build=lambda d: d,
-        transform=lambda d: merge_mappings([("RR", d["rr-api-map"]), ("SR", d["sr-api-map"])]),
+        transform=lambda d: {
+            "services": [
+                service
+                for layer in ("RR", "SR")
+                for service in qualify_mapping(
+                    d[layer.lower() + "-external-api-map"], layer, "external"
+                )["services"]
+            ]
+        },
+        skip_review=True,
+    )
+    ex.scheduler.tasks["external-api-map"].display_label = "外部Service接口映射汇总（RR/SR来源）"
+    ex.add(
+        "external-api-index",
+        "api-index",
+        ("rr-external-api-index", "sr-external-api-index"),
+        build=lambda d: {**d, "RR": api_documents["RR"], "SR": api_documents["SR"]},
+        transform=lambda d: {
+            "apis": [
+                api
+                for layer in ("RR", "SR")
+                for api in qualify_index(
+                    d[layer.lower() + "-external-api-index"], layer, "external"
+                )["apis"]
+            ]
+        },
+        skip_review=True,
+    )
+    ex.scheduler.tasks["external-api-index"].display_label = "外部Service接口参数目录（工具）"
+    ex.add(
+        "api-map",
+        "api-map",
+        ("rr-api-map", "sr-api-map", "external-api-map"),
+        build=lambda d: d,
+        transform=lambda d: {
+            "services": merge_mappings([("RR", d["rr-api-map"]), ("SR", d["sr-api-map"])])[
+                "services"
+            ]
+            + d["external-api-map"]["services"]
+        },
         skip_review=True,
     )
     ex.add(
         "api-index",
         "api-index",
-        ("rr-api-index", "sr-api-index"),
+        ("rr-api-index", "sr-api-index", "external-api-index"),
         build=lambda d: {**d, "RR": api_documents["RR"], "SR": api_documents["SR"]},
         transform=lambda d: {
             "apis": qualify_index(d["rr-api-index"], "RR")["apis"]
             + qualify_index(d["sr-api-index"], "SR")["apis"]
+            + d["external-api-index"]["apis"]
         },
     )
 
@@ -200,33 +250,61 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             return
         index = payload(read_json(ex.root / record["output_file"]))["apis"]
         keys = {"RR": [], "SR": []}
+        external_keys = []
         mapped = payload(read_json(ex.root / ex.scheduler.state["tasks"]["api-map"]["output_file"]))
         interfaces = {i["id"]: i for service in mapped["services"] for i in service["interfaces"]}
+        services = [
+            {"name": service["name"], "source_refs": service["source_refs"]}
+            for service in mapped["services"]
+            if any(a.get("interface_scope") == "external" for a in service["interfaces"])
+        ]
+        contract_docs = {
+            (layer, boundary): partition_documents(docs, services, boundary)
+            for layer, docs in api_documents.items()
+            for boundary in ("system", "external")
+        }
         response_docs = {
-            layer: response_contract_documents(docs) for layer, docs in raw_documents.items()
+            (layer, boundary): response_contract_documents(
+                partition_documents(docs, services, boundary)
+            )
+            for layer, docs in raw_documents.items()
+            for boundary in ("system", "external")
         }
         full_indexes = {}
-        for layer in ("RR", "SR"):
-            raw_mapping = payload(
-                read_json(
-                    ex.root / ex.scheduler.state["tasks"][layer.lower() + "-api-map"]["output_file"]
-                )
-            )
-            full_indexes[layer] = (
+        for layer, boundary in contract_docs:
+            raw_mapping = {
+                "services": [
+                    {
+                        **s,
+                        "interfaces": [
+                            a
+                            for a in s["interfaces"]
+                            if a["source_layer"] == layer
+                            and a.get("interface_scope", "system") == boundary
+                        ],
+                    }
+                    for s in mapped["services"]
+                ]
+            }
+            full_indexes[(layer, boundary)] = (
                 {
                     a["id"]: a
                     for a in index_interfaces(
-                        {layer: raw_documents[layer], "api-map": raw_mapping}
+                        {
+                            layer: partition_documents(raw_documents[layer], services, boundary),
+                            "api-map": raw_mapping,
+                        }
                     )["apis"]
                 }
-                if response_docs[layer]
+                if response_docs[(layer, boundary)]
                 else {}
             )
         for entry in index:
             layer = entry["source_layer"]
+            boundary = entry.get("interface_scope", "system")
             key = "api-parameters-part-" + fingerprint(entry["id"])[:12]
             docs = []
-            for doc in api_documents[layer]:
+            for doc in contract_docs[(layer, boundary)]:
                 ranges = [r for r in entry["source_ranges"] if r["source_id"] == doc["source_id"]]
                 lines = [
                     r
@@ -246,8 +324,8 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             ):
                 interface["source_role"] = "invocation_only"
             error_docs = []
-            spans = full_indexes[layer].get(entry["declared_id"], {}).get("source_ranges", [])
-            for doc in response_docs[layer]:
+            spans = full_indexes[(layer, boundary)].get(entry["id"], {}).get("source_ranges", [])
+            for doc in response_docs[(layer, boundary)]:
                 lines = [
                     r
                     for r in doc["lines"]
@@ -263,15 +341,22 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 key,
                 "api-parameters",
                 ("api-index", "api-map"),
-                build=lambda d, docs=docs, interface=interface, error_docs=error_docs, layer=layer: {
+                build=lambda d,
+                docs=docs,
+                interface=interface,
+                error_docs=error_docs,
+                layer=layer: {
                     layer: docs,
                     "interface": interface,
                     **({"response-documents": error_docs} if error_docs else {}),
                 },
                 api_scope=interface,
             )
-            ex.scheduler.tasks[key].display_label = layer + "接口参数 · " + entry["name"]
-            keys[layer].append(key)
+            is_external = entry.get("interface_scope") == "external"
+            ex.scheduler.tasks[key].display_label = (
+                layer + ("外部Service" if is_external else "") + "接口参数 · " + entry["name"]
+            )
+            (external_keys if is_external else keys[layer]).append(key)
         for layer in ("RR", "SR"):
             child = layer.lower() + "-api-parameters"
             ex.add(
@@ -286,12 +371,25 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             )
             ex.scheduler.tasks[child].display_label = layer + "接口参数与响应分支汇总"
         ex.add(
+            "external-api-parameters",
+            "api-parameters",
+            tuple(external_keys) or ("external-api-index",),
+            build=lambda d: d,
+            transform=lambda d, parts=tuple(external_keys): {
+                "apis": [api for k in parts for api in d[k]["apis"]]
+            },
+            skip_review=True,
+        )
+        ex.scheduler.tasks["external-api-parameters"].display_label = "外部Service完整接口契约汇总"
+        ex.add(
             "api-parameters",
             "api-parameters",
-            ("rr-api-parameters", "sr-api-parameters"),
+            ("rr-api-parameters", "sr-api-parameters", "external-api-parameters"),
             build=lambda d: d,
             transform=lambda d: {
-                "apis": d["rr-api-parameters"]["apis"] + d["sr-api-parameters"]["apis"]
+                "apis": d["rr-api-parameters"]["apis"]
+                + d["sr-api-parameters"]["apis"]
+                + d["external-api-parameters"]["apis"]
             },
             skip_review=True,
         )

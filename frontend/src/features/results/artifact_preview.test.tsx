@@ -2,6 +2,36 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { primaryJsonArtifact } from "../../shared/api";
 import { ArtifactView, PayloadView } from "./ArtifactView";
+
+it("shows external interface security separately when parameter definitions are unavailable", () => {
+  render(
+    <PayloadView
+      definitions={{}}
+      value={{
+        apis: [
+          {
+            id: "SR::external::cloud",
+            name: "外部云接口",
+            address: "/cloudmap/resources",
+            source_layer: "SR",
+            interface_scope: "external",
+            parameters: [],
+            interface_constraints: [
+              {
+                kind: "signature",
+                requirement: "SA+RS256_PSS签名认证",
+                source_refs: [],
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("接口级认证与调用要求")).toBeTruthy();
+  expect(screen.getByText("SA+RS256_PSS签名认证")).toBeTruthy();
+  expect(screen.getByText(/外部Service/)).toBeTruthy();
+});
 it("selects the model data instead of drawing layout metadata", () => {
   const files = [
     "components.layout.json",

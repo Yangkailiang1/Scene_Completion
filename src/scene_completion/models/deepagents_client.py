@@ -49,7 +49,14 @@ def compact_input(value):
 def task_message(packet):
     view = {
         k: packet[k]
-        for k in ("task", "case_ids", "repair", "tool_rule_coverage", "tool_rule_instruction")
+        for k in (
+            "task",
+            "case_ids",
+            "repair",
+            "tool_rule_coverage",
+            "tool_rule_instruction",
+            "interface_declarations",
+        )
         if k in packet
     }
     view["input"] = compact_input(packet["input"])
@@ -130,12 +137,40 @@ class DeepAgentsClient(SemanticClient):
                 original = child.post
                 child.post = lambda *a, **k: self.shared_call_gate.call(original, *a, **k)
             return child.agent(packet)
+        if packet["task"] == "api-map":
+            from scene_completion.inputs.http_interfaces import mapping_declarations
+
+            packet = deepcopy(packet)
+            packet["interface_declarations"] = mapping_declarations(
+                packet["input"].get("RR", []) + packet["input"].get("SR", [])
+            )
+            packet["instructions"] += (
+                "\ninterface_declarations列出当前允许原文中的显式method/path及可确定的调用接收方。"
+                "必须逐项核对内部和外部Service接口；RR/SR是文档来源，不限制服务内外部身份。"
+                "没有明示文档API编号时使用稳定本地ID，不补造地址或约束。"
+            )
+            if scope := packet["input"].get("interface-scope"):
+                packet["instructions"] += (
+                    "\n本节点只抽取"
+                    + (
+                        "外部Service提供的接口，不能混入系统本身或内部Service接口。"
+                        if scope["boundary"] == "external"
+                        else "当前系统及内部Service接口；明确外部Service接口另由独立任务抽取。"
+                    )
+                    + "服务边界以interface-scope中的已验证系统组成为依据，不按URL或文档层级猜测。"
+                )
         original_packet = packet
         from scene_completion.inputs.indexed_context import EvidenceContext
 
         indexed = EvidenceContext(packet) if self.config.get("indexed_context", False) else None
         if indexed:
             packet = indexed.packet
+        from scene_completion.inputs.reference_contract import (
+            instructions as reference_instructions,
+        )
+        from scene_completion.inputs.reference_contract import summary as reference_summary
+
+        reference_contract = reference_summary(original_packet["input"], indexed)
         # Persist the actual model-facing, credential-free packet for inspection.
         context_id = fingerprint(
             {"task": packet["task"], "input": packet["input"], "schema": packet["output_schema"]}
@@ -148,12 +183,16 @@ class DeepAgentsClient(SemanticClient):
                 "input": packet["input"],
                 "output_schema": packet["output_schema"],
                 "context_version": "indexed-evidence-v1" if indexed else "raw",
+                "reference_contract": reference_contract,
             },
         )
         if packet.get("node_key"):
             write_json(
                 self.root / "context_index" / (fingerprint(packet["node_key"]) + ".json"),
-                {"path": "model_contexts/" + context_id + ".json"},
+                {
+                    "path": "model_contexts/" + context_id + ".json",
+                    "reference_contract": reference_contract,
+                },
             )
         from deepagents import create_deep_agent
         from deepagents.backends import StateBackend
@@ -286,7 +325,21 @@ class DeepAgentsClient(SemanticClient):
             from scene_completion.review.review_questions import report
 
             try:
+                if indexed is None:
+                    from scene_completion.inputs.reference_contract import validate_raw_references
+
+                    validate_raw_references(payload)
                 containers(payload, packet["output_schema"])
+                if packet["task"] == "api-map":
+                    from jsonschema import Draft202012Validator
+
+                    errors = list(
+                        Draft202012Validator(packet["output_schema"]).iter_errors(payload)
+                    )
+                    if errors:
+                        raise ValueError(
+                            "; ".join(f"{list(e.path)}: {e.message}" for e in errors[:8])
+                        )
                 checked_questions = questions(review_questions)
                 for question in checked_questions:
                     report(
@@ -325,6 +378,8 @@ class DeepAgentsClient(SemanticClient):
                         "payload": payload,
                         "review_questions": review_questions,
                         "candidate_format": "model" if indexed else "public",
+                        "reference_mode": reference_contract["mode"],
+                        "reference_error": getattr(e, "details", None),
                         "error": str(e),
                     },
                 )
@@ -358,6 +413,8 @@ class DeepAgentsClient(SemanticClient):
                             "input_hash": fingerprint(original_packet["input"]),
                             "payload": payload,
                             "candidate_format": "model",
+                            "reference_mode": "indexed",
+                            "reference_error": getattr(e, "details", None),
                             "error": str(e),
                         },
                     )
@@ -372,10 +429,41 @@ class DeepAgentsClient(SemanticClient):
                 from scene_completion.inputs.api_documents import complete_success_responses
 
                 payload = complete_success_responses(payload, original_packet["input"])
-            if packet["task"] == "api-map":
-                from scene_completion.inputs.http_interfaces import normalize_mapping
+                interface = original_packet["input"].get("interface", {})
+                from scene_completion.inputs.http_interfaces import literal_call_requirements
 
-                payload = normalize_mapping(payload)
+                for api in payload.get("apis", []):
+                    for name in ("source_layer", "declared_id", "interface_scope"):
+                        if name in interface:
+                            api[name] = interface[name]
+                    known = {fingerprint(c) for c in api.get("interface_constraints", [])}
+                    requirements = [
+                        *interface.get("interface_constraints", []),
+                        *literal_call_requirements(interface.get("source_refs", [])),
+                    ]
+                    for constraint in requirements:
+                        if any(
+                            c["kind"] == constraint["kind"]
+                            and c["source_refs"] == constraint["source_refs"]
+                            for c in api.get("interface_constraints", [])
+                        ):
+                            continue
+                        if fingerprint(constraint) not in known:
+                            api.setdefault("interface_constraints", []).append(deepcopy(constraint))
+                            known.add(fingerprint(constraint))
+            if packet["task"] == "api-map":
+                from scene_completion.inputs.http_interfaces import complete_explicit_calls
+
+                if scope := original_packet["input"].get("interface-scope"):
+                    from scene_completion.inputs.api_boundaries import filter_mapping
+
+                    payload = filter_mapping(payload, scope)
+                payload, restored = complete_explicit_calls(
+                    payload,
+                    original_packet["input"].get("RR", []) + original_packet["input"].get("SR", []),
+                )
+                if restored:
+                    emit("explicit_interfaces_restored", interfaces=restored)
             if original_packet["input"].get("imported-fragments"):
                 from scene_completion.inputs.artifact_imports import merge
 
@@ -457,6 +545,8 @@ class DeepAgentsClient(SemanticClient):
                         "input_hash": fingerprint(original_packet["input"]),
                         "payload": payload,
                         "error": str(e),
+                        "reference_mode": reference_contract["mode"],
+                        "reference_error": getattr(e, "details", None),
                     },
                 )
                 raise TaskRejected(
@@ -542,7 +632,7 @@ class DeepAgentsClient(SemanticClient):
         agent = create_deep_agent(
             model=model,
             middleware=[stop_after_submission],
-            tools=[submit_result, ask, lookup],
+            tools=[submit_result, ask] + ([lookup] if indexed else []),
             subagents=[],
             backend=StateBackend(),
             skills=["/skills/"] if packet["skill_text"].lstrip().startswith("---") else [],
@@ -551,7 +641,9 @@ class DeepAgentsClient(SemanticClient):
             + packet["instructions"]
             + "\n指定Skill已全文加载：\n"
             + packet["skill_text"]
-            + "\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包；其余规则可按给定evidence_id使用lookup_evidence查证。原文行号也可在/input/sources/对应文件查证。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。",
+            + "\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。"
+            + "\n"
+            + reference_instructions(indexed is not None),
             permissions=[
                 FilesystemPermission(
                     paths=["/skills/**", "/input/**"], operations=["write"], mode="deny"
@@ -907,12 +999,17 @@ def _transport_model(client, stage):
                     + json.dumps(output_schema, ensure_ascii=False, separators=(",", ":"))
                     + '。每个事实只保留最小充分的原文引用。业务疑问不阻断；需要提问时仍提交已知结果，使用 {"result":业务JSON,"review_questions":[{"question_type":"rule_completion或scenario_classification或binding_confirmation或general_clarification","question":"问题","known_facts":"已有依据","required_answer":"需业务决定事项","source_refs":[]}]}。未知内容不能编造，不可只返回问题。程序将完整JSON交给同一提交校验工具；部分文本不会成为产物。'
                 )
-                if self.request_count < limit and self.task_stage in {
-                    "existing-extract",
-                    "test-ground-truth",
-                    "existing-concerns",
-                    "test-concerns",
-                }:
+                if (
+                    self.request_count < limit
+                    and any(t["function"]["name"] == "lookup_evidence" for t in body["tools"])
+                    and self.task_stage
+                    in {
+                        "existing-extract",
+                        "test-ground-truth",
+                        "existing-concerns",
+                        "test-concerns",
+                    }
+                ):
                     notice += '若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
                 converted[0]["content"] = str(converted[0]["content"]) + "\n" + notice
                 for key in ("tools", "tool_choice", "parallel_tool_calls"):

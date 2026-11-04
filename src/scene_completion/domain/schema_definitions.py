@@ -65,6 +65,15 @@ PARAMETER = obj(
 API_PARAMETERS = obj(id=S, name=S, address=NULL_S, parameters=arr(PARAMETER), source_refs=REFS)
 # Optional extension preserves compatibility with historical parameter artifacts.
 API_PARAMETERS["properties"].update(source_layer=enum("RR", "SR"), declared_id=S, method=NULL_S)
+INTERFACE_CONSTRAINT = obj(
+    kind=enum("authentication", "signature", "authorization", "transport", "other"),
+    requirement=S,
+    source_refs=REFS,
+)
+API_PARAMETERS["properties"].update(
+    interface_scope=enum("system", "external"),
+    interface_constraints=arr(INTERFACE_CONSTRAINT),
+)
 API_PARAMETERS["properties"]["responses"] = arr(
     obj(
         kind=enum("success", "error"),
@@ -130,6 +139,10 @@ COMPONENT = obj(
 )
 INTERFACE = obj(id=S, name=S, method=NULL_S, address=NULL_S, source_refs=REFS)
 INTERFACE["properties"].update(source_layer=enum("RR", "SR"), declared_id=S)
+INTERFACE["properties"].update(
+    interface_scope=enum("system", "external"),
+    interface_constraints=arr(INTERFACE_CONSTRAINT),
+)
 SCENARIO = obj(
     id=S,
     case_id=S,
@@ -462,6 +475,7 @@ SCHEMAS = {
                     )["properties"],
                     "source_layer": enum("RR", "SR"),
                     "declared_id": S,
+                    "interface_scope": enum("system", "external"),
                 },
             }
         )

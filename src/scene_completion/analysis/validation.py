@@ -285,6 +285,12 @@ def validate_result(task, payload, inputs):
     if task == "api-map":
         from scene_completion.inputs.http_interfaces import clean_path
 
+        if "interface-scope" in inputs:
+            from scene_completion.inputs.api_boundaries import filter_mapping
+
+            if filter_mapping(payload, inputs["interface-scope"]) != payload:
+                raise ValueError("接口归属超出本节点的系统/外部Service范围，外部接口须独立抽取")
+
         for service in payload["services"]:
             for api in service["interfaces"]:
                 if api.get("address") and clean_path(api["address"]) != api["address"]:

@@ -106,6 +106,8 @@ def test_current_dag_and_saved_imports_bypass_both_layer_maps_without_model(tmp_
         build_pipeline(ex, [known["RR"]], [known["SR"]], docs)
         keep = {
             "source-index",
+            "components-context",
+            "components",
             "rr-api-context",
             "sr-api-context",
             "rr-api-map",
@@ -115,7 +117,12 @@ def test_current_dag_and_saved_imports_bypass_both_layer_maps_without_model(tmp_
         }
         ex.scheduler.tasks = {k: v for k, v in ex.scheduler.tasks.items() if k in keep}
 
-        def no_model(*args, **kwargs):
+        def no_model(task, inputs, record):
+            if task == "components":
+                # The new scope partition requires a composition result. This
+                # fixture declares no external services; only API model calls
+                # are forbidden by this imported-map reuse test.
+                return {"components": [], "relations": []}, {"provider": "offline_fixture"}
             pytest.fail("Imported complete layer map should not invoke a model")
 
         ex.semantic = no_model

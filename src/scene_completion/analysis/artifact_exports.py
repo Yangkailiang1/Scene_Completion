@@ -105,6 +105,25 @@ def export_task(root, task, payload, artifact_name=None):
                 ]
             )
         ]
+        # Interface-level security remains visible even when no parameter
+        # Schema was provided. It is never relabelled as a field constraint.
+        for a in payload["apis"]:
+            for requirement in a.get("interface_constraints", []):
+                rows.append(
+                    [
+                        a.get("source_layer", "未标注"),
+                        a["name"],
+                        show(a["address"]),
+                        "接口整体",
+                        "认证/调用要求",
+                        "—",
+                        requirement["kind"],
+                        "—",
+                        "—",
+                        "—",
+                        requirement["requirement"],
+                    ]
+                )
     elif task == "business-entities":
         headers = ["业务实体", "属性", "适用操作", "适用用例", "数据类型", "必填", "约束", "来源"]
         rows = [

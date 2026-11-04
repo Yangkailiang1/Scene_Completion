@@ -131,13 +131,22 @@ PREVIEWS = [
 INPUTS.update(
     {
         "api-index": "RR/SR独立接口目录汇总",
-        "api-map": "RR对外接口与SR内部接口独立映射汇总",
+        "api-map": "RR/SR系统接口与外部Service接口的独立映射汇总",
         "api-parameters": "RR/SR各自参数、成功及失败响应（按接口分任务）",
         **{
             layer.lower() + "-api-" + suffix: layer + "正向接口文档（独立抽取，不跨层补约束）"
             for layer in ("RR", "SR")
             for suffix in ("context", "map", "index", "parameters")
         },
+        **{
+            layer.lower() + "-external-api-" + suffix: layer
+            + "正向文档＋系统组成：仅外部Service接口"
+            for layer in ("RR", "SR")
+            for suffix in ("context", "map", "index")
+        },
+        "external-api-map": "RR/SR分别声明的外部Service接口；不按路径前缀猜测归属",
+        "external-api-index": "外部Service独立接口目录",
+        "external-api-parameters": "外部Service的请求、成功/失败响应及接口级认证/签名要求",
     }
 )
 

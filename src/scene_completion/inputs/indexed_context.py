@@ -6,6 +6,7 @@ from copy import deepcopy
 
 from scene_completion.domain.contracts import REF
 from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.inputs.reference_contract import ReferenceContractError
 from scene_completion.inputs.source_documents import documents_in, evidence_refs
 
 VERSION = "indexed-evidence-v1"
@@ -230,6 +231,10 @@ class EvidenceContext:
         }
         self.packet = deepcopy(packet)
         self.packet["input"] = self.input
+        if "interface_declarations" in self.packet:
+            self.packet["interface_declarations"] = self.encode(
+                self.packet["interface_declarations"]
+            )
         if "tool_rule_coverage" in self.packet:
             keys = {
                 "interaction_id",
@@ -751,19 +756,25 @@ class EvidenceContext:
             ):
                 raise ValueError(key + " must be an array of JSON objects; retain the task schema")
 
-        def decode(v, key=None):
+        def decode(v, key=None, path=""):
             if key == "source_refs":
-                if not isinstance(v, list) or any(
-                    not isinstance(r, str) or r not in self.pool for r in v
-                ):
-                    raise ValueError(
-                        "unknown evidence_id; select only IDs supplied in this task input"
+                if not isinstance(v, list) or any(not isinstance(r, str) for r in v):
+                    raise ReferenceContractError(
+                        "reference_format_mismatch", path, "indexed", v, list(self.pool)
+                    )
+                unknown = [r for r in v if r not in self.pool]
+                if unknown:
+                    raise ReferenceContractError(
+                        "unknown_evidence_id", path, "indexed", unknown, list(self.pool)
                     )
                 return [deepcopy(self.pool[r]) for r in v]
             if isinstance(v, dict):
-                return {k: decode(x, k) for k, x in v.items()}
+                return {
+                    k: decode(x, k, path + "/" + k.replace("~", "~0").replace("/", "~1"))
+                    for k, x in v.items()
+                }
             if isinstance(v, list):
-                return [decode(x) for x in v]
+                return [decode(x, path=path + "/" + str(n)) for n, x in enumerate(v)]
             return v
 
         result = decode(value)
@@ -1073,11 +1084,20 @@ def task_document_view(documents, intent):
                     )
                 )
             elif intent == "api-map":
-                keep = bool(head) or bool(
-                    re.search(
-                        r"(?:API|接口)\s*(?:编号|名称|ID)|所属服务|服务名称|方法[/／]路径|资源路径|影响范围|(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+/",
-                        text,
-                        re.I,
+                # HTTP calls can target external systems. Keep Mermaid actor
+                # aliases/fences so mapping can locate the literal receiver.
+                from scene_completion.inputs.http_interfaces import CALL, declarations
+
+                keep = (
+                    bool(head)
+                    or bool(declarations(text))
+                    or bool(CALL.match(text) and "--" not in text.split(":", 1)[0])
+                    or bool(
+                        re.search(
+                            r"(?:API|接口)\s*(?:编号|名称|ID)|所属服务|服务名称|方法[/／]路径|资源路径|影响范围|签名|认证|鉴权|signature|authentication|^\s*(?:participant|actor)\s+|^\s*sequenceDiagram\s*$|^\s*```",
+                            text,
+                            re.I,
+                        )
                     )
                 )
                 # Preserve interface catalog rows as a table block, not only its header.

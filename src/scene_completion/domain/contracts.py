@@ -269,6 +269,13 @@ def packet(task, inputs, case_ids=None):
         optional = optional | {"test-inventory"}
     if task in {"api-map", "api-parameters", "api-index"}:
         optional |= {"RR", "SR", "api-map"}
+    if task == "api-map":
+        optional |= {"interface-scope"}
+        if "interface-scope" in inputs and inputs["interface-scope"].get("boundary") not in {
+            "system",
+            "external",
+        }:
+            raise ValueError("接口抽取范围必须为system或external，不按RR/SR猜测服务边界")
     optional |= {"review-documents"}
     if task in {
         "components",

@@ -1,5 +1,19 @@
 # Windows客户模型调试与Code Agent节点接管
 
+## 外部Service接口与引用模式
+
+`rr-api-map`、`sr-api-map`抽取本层声明的系统及内部Service接口。系统组成已确认的外部Service（含外部数据库）进入独立的`rr-external-api-map`／`sr-external-api-map`，汇总为`external-api-map`、`external-api-index`和`external-api-parameters`。两层仍按实际文档来源分开；路径前缀不决定内外部。原有输入未提供外部接口时，从允许的正向spec抽取，不将部分输入当成外部接口已完成。
+
+外部契约保留请求、成功响应、失败响应和`interface_constraints`。后者单独保存认证、签名、授权和传输要求，如原文明示的SA+RS256_PSS签名认证；字段Schema缺失仍待确认，不推导密钥、头名称、时限或错误码。节点产物和接口总表均可查看接口级要求。
+
+`scene.cmd diagnose --project PROJECT_ID --node sr-api-map`返回`program_version.source_commit`及节点的`reference_contract`。前者读取程序包根目录`VERSION.json`（源码环境读取Git），后者记录该次任务实际使用的引用模式和文档来源。`source_id`不是Git版本，既有文档身份不会因为增加诊断字段而改变。
+
+- `mode=raw`：没有evidence_catalog，source_refs必须为source_id／line_start／line_end／quote对象列表；不提供lookup_evidence工具。
+- `mode=indexed`：source_refs只填本任务证据表给定的ID字符串，lookup_evidence用于补取这些ID对应的允许原文。
+- `validation_rejections.reference_error`区分引用格式错误与未知ID，提供具体JSON字段路径。旧记录没有引用模式时显示null，不按当前配置重建历史。
+
+逐字引文必须对应本次允许的原文或已验证依赖。不能把导入可读投影的行号配上原始文档source_id，也不能为了通过校验任意替换引用。升级不会清空已耗修复预算或额度账本；先检查失败记录，再按实际改变的任务材料定向恢复。
+
 所有CLI连接同一本地工作台，网页显示同一任务/产物。先完整解压包、关闭旧服务，再启动`start.cmd`。不要在ZIP预览中运行；建议较短目录如`C:\SceneCompletion`。升级前备份旧目录和data；密钥、账本、审核和项目数据不随发布包分发。
 
 ## 本次客户已定位的三种失败

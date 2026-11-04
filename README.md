@@ -46,11 +46,14 @@ flowchart TB
     TEST["测试文档：仅明确异常参与GT"] --> TI["测试目录与用例对应"]
 
     subgraph MODEL["建模器"]
-        IDX --> SHARED["并行抽取：用例目录、系统组成、API、业务／数据实体"]
+        IDX --> SHARED["并行抽取：用例目录、系统组成、业务／数据实体"]
+        SHARED --> API["依据组成分流：RR/SR系统接口与外部Service接口分别抽取"]
         SHARED --> SSD["逐用例融合SSD及RR/SR对应"]
         SHARED --> ENTITY["实体属性约束、CRUD矩阵、API字段映射"]
+        API --> ENTITY
         SSD --> LOCAL["交互要求与实际操作补全"]
         ENTITY --> LOCAL
+        API --> LOCAL
         SHARED --> DEP["数据依赖及全局业务依赖图"]
         ENTITY --> DEP
         LOCAL --> GC["交互级关注点识别 G_c"]
@@ -86,7 +89,9 @@ flowchart TB
     GT --> MET
 ```
 
-RR/SR接口分别抽取，区分请求、成功响应及各失败响应。融合SSD按最小实际调用建模；同一次请求的重复描述统一身份，独立下游调用保留展开关系。交互级与全局业务依赖级独立定位、去重、展示，再按计数合并项目指标。
+RR/SR接口分别抽取，区分请求、成功响应及各失败响应。外部Service接口依据系统组成和实际调用接收方单独抽取，分别保存RR/SR来源，不靠URL前缀判断内外部。执行图中的`external-api-map`、`external-api-index`、`external-api-parameters`提供独立映射、目录和契约；已验证契约也进入总表和对应交互分析。接口只声明签名认证而没有参数Schema时，保留`interface_constraints`及原文依据，不补造字段、密钥或响应。
+
+融合SSD按最小实际调用建模；同一次请求的重复描述统一身份，独立下游调用保留展开关系。交互级与全局业务依赖级独立定位、去重、展示，再按计数合并项目指标。
 
 G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试。正常、可选和待确认不进入确定集合。关注点由LLM识别，工具根据稳定定位规则比较；已识别关注点再展开细粒度场景。推荐来自M，不能读取当前GT排序。
 

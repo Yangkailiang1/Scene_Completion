@@ -68,6 +68,12 @@ def index_interfaces(inputs):
                     for row in lines
                     if any(pattern.search(row["text"]) for pattern in patterns)
                 ]
+                if api.get("method") and api.get("address"):
+                    from scene_completion.inputs.http_interfaces import call_contract_lines
+
+                    targets += [
+                        (n, n) for n in call_contract_lines(d, api["method"], api["address"])
+                    ]
                 for start, end in targets:
                     position = next(
                         (n for n, row in enumerate(lines) if row["number"] >= start), None

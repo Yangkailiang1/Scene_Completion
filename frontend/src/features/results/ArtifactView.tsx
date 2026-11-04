@@ -188,6 +188,9 @@ function CatalogTable({
                 <span>{a.service || "服务归属待确认"}</span>
                 <h3>
                   {a.source_layer && <span>{a.source_layer} · </span>}
+                  {a.interface_scope === "external" && (
+                    <span>外部Service · </span>
+                  )}
                   {a.api_name} <small>{a.declared_id || a.api_id}</small>
                 </h3>
                 <code>
@@ -200,6 +203,21 @@ function CatalogTable({
                 {a.mapping_status} · {a.parameter_status}
               </p>
             </header>
+            {!!a.interface_constraints?.length && (
+              <div className="px-5 pb-4">
+                <h4 className="mb-2 text-sm font-semibold">
+                  接口级认证与调用要求
+                </h4>
+                <Table
+                  rows={a.interface_constraints}
+                  columns={[
+                    ["kind", "要求类型"],
+                    ["requirement", "原文要求"],
+                    ["source_refs", "原文依据"],
+                  ]}
+                />
+              </div>
+            )}
             <Table
               rows={entries}
               columns={[
@@ -466,8 +484,24 @@ export function PayloadView({
           <section key={a.id}>
             <h3 className="section-label">
               {a.source_layer ? `${a.source_layer} · ` : ""}
+              {a.interface_scope === "external" ? "外部Service · " : ""}
               {a.name} · {a.address || "地址待确认"}
             </h3>
+            {!!a.interface_constraints?.length && (
+              <div className="px-5 pb-4">
+                <h4 className="mb-2 text-sm font-semibold">
+                  接口级认证与调用要求
+                </h4>
+                <Table
+                  rows={a.interface_constraints}
+                  columns={[
+                    ["kind", "要求类型"],
+                    ["requirement", "原文要求"],
+                    ["source_refs", "原文依据"],
+                  ]}
+                />
+              </div>
+            )}
             <Table
               rows={[
                 ...a.parameters.map((p: any) => ({

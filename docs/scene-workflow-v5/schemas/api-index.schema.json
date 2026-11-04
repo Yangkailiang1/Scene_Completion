@@ -79,6 +79,12 @@
           "declared_id": {
             "type": "string",
             "minLength": 1
+          },
+          "interface_scope": {
+            "enum": [
+              "system",
+              "external"
+            ]
           }
         },
         "required": [

@@ -53,7 +53,15 @@ def add(
     imported = fragments_for(self.root.parent, task, case, self.import_snapshot)
     if task == "business-entities" and key != "business-entities":
         imported = []
-    if transform and key in {"api-map", "api-parameters", "rr-api-parameters", "sr-api-parameters"}:
+    if transform and key in {
+        "api-map",
+        "api-parameters",
+        "rr-api-parameters",
+        "sr-api-parameters",
+        "external-api-map",
+        "external-api-index",
+        "external-api-parameters",
+    }:
         imported = []
     elif api_scope is not None:
         from scene_completion.inputs.api_layers import scoped_imports
@@ -141,6 +149,18 @@ def add(
         elif transform:
             value = transform(inputs)
             proof = {}
+        elif (
+            task == "api-map"
+            and inputs.get("interface-scope", {}).get("boundary") == "external"
+            and not __import__(
+                "scene_completion.inputs.api_boundaries", fromlist=["has_declarations"]
+            ).has_declarations(inputs.get("RR", []) + inputs.get("SR", []), include_abstract=True)
+        ):
+            value = {"services": []}
+            proof = {
+                "provider": "external_interface_inventory",
+                "reason": "本层未声明可抽取外部接口",
+            }
         elif (
             task == "use-case-extract"
             and (
