@@ -10,6 +10,7 @@ import re
 from copy import deepcopy
 
 from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.inputs.api_layers import scoped_api_document
 
 VERSION = "colleague-positive-json-v1"
 
@@ -313,24 +314,30 @@ def api_product(value, file_id, name):
             if kind == layer
         ]
         if rows:
-            artifacts.append(
-                facts.artifact(
-                    "api-map",
-                    {"services": rows},
-                    source_layer=layer,
-                    coverage="complete"
-                    if not any(
-                        p["object"] in {a["id"] for a in apis if a["source_layer"] == layer}
-                        for p in pending
-                        if "所属服务" in p["reason"]
-                    )
-                    else "partial",
-                    coverage_details={
-                        "interface_inventory": "complete",
-                        "project_inventory": "file_scope_only",
-                    },
+            artifact = facts.artifact(
+                "api-map",
+                {"services": rows},
+                source_layer=layer,
+                coverage="complete"
+                if not any(
+                    p["object"] in {a["id"] for a in apis if a["source_layer"] == layer}
+                    for p in pending
+                    if "所属服务" in p["reason"]
                 )
+                else "partial",
+                coverage_details={
+                    "interface_inventory": "complete",
+                    "project_inventory": "file_scope_only",
+                },
             )
+            artifact["document"] = scoped_api_document(artifact["document"], layer)
+            line_numbers = {r["number"] for r in artifact["document"]["lines"]}
+            artifact["json_locations"] = [
+                location
+                for location in artifact["json_locations"]
+                if location["line"] in line_numbers
+            ]
+            artifacts.append(artifact)
         for a in apis:
             if a["source_layer"] == layer:
                 artifact = facts.artifact(

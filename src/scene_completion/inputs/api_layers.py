@@ -3,6 +3,43 @@
 from copy import deepcopy
 
 
+def scoped_api_document(document, layer):
+    """Filter explicitly layered import blocks, preserving original evidence.
+
+    Older API imports saved both inventories in every derived document. Each
+    block starts with its API heading and contains a JSON fact declaring its
+    source_layer. Unknown/unstructured text stays available; URL prefixes and
+    API names never decide the layer.
+    """
+    import json
+    import re
+
+    blocks = []
+    block = []
+    for row in document["lines"]:
+        if re.match(r"^##\s", row["text"]) and block:
+            blocks.append(block)
+            block = []
+        block.append(row)
+    if block:
+        blocks.append(block)
+
+    rows = []
+    for block in blocks:
+        declared = set()
+        for row in block:
+            try:
+                fact = json.loads(row["text"])
+            except (ValueError, TypeError):
+                continue
+            source = fact.get("source_layer") if isinstance(fact, dict) else None
+            if isinstance(source, str) and source in {"RR", "SR"}:
+                declared.add(source)
+        if len(declared) != 1 or layer in declared:
+            rows.extend(block)
+    return {**deepcopy(document), "lines": deepcopy(rows)}
+
+
 def qualify_mapping(value, layer):
     out = deepcopy(value)
     for service in out["services"]:
@@ -151,5 +188,7 @@ def scoped_imports(parts, scope):
             if not services:
                 continue
             p["payload"]["services"] = services
+        if p.get("document"):
+            p["document"] = scoped_api_document(p["document"], layer)
         selected.append(p)
     return selected

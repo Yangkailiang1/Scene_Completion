@@ -103,13 +103,18 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         "components", "components", ("components-context",), build=lambda d: d["components-context"]
     )
     from scene_completion.inputs.api_documents import index_interfaces, response_contract_documents
-    from scene_completion.inputs.api_layers import merge_mappings, qualify_index, scoped_parameters
+    from scene_completion.inputs.api_layers import (
+        merge_mappings,
+        qualify_index,
+        scoped_api_document,
+        scoped_parameters,
+    )
     from scene_completion.inputs.artifact_imports import selections
 
     imported_api_docs = {
         layer: documents_in(
             [
-                a["document"]
+                scoped_api_document(a["document"], layer)
                 for t in ("api-map", "api-parameters")
                 for a in selections(ex.root.parent, t, frozen=ex.import_snapshot)
                 if (a.get("source_layer") or "SR") == layer
@@ -258,11 +263,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 key,
                 "api-parameters",
                 ("api-index", "api-map"),
-                build=lambda d,
-                docs=docs,
-                interface=interface,
-                error_docs=error_docs,
-                layer=layer: {
+                build=lambda d, docs=docs, interface=interface, error_docs=error_docs, layer=layer: {
                     layer: docs,
                     "interface": interface,
                     **({"response-documents": error_docs} if error_docs else {}),

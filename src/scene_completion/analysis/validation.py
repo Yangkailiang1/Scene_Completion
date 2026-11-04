@@ -15,17 +15,33 @@ from scene_completion.inputs.source_documents import documents_in, evidence_refs
 
 
 def refs_required(value):
-    def visit(v):
+    def visit(v, path="", *, pending_record=False):
         if isinstance(v, dict):
             if "source_refs" in v and not v["source_refs"]:
-                # Empty refs are allowed only for pending constraints, never known facts.
-                if v.get("status") != "pending":
-                    raise ValueError("known facts require source evidence")
-            for x in v.values():
-                visit(x)
+                # DOMAIN_PENDING has no status field. It is a question, not a
+                # known fact; do not require it to invent evidence of absence.
+                if v.get("status") != "pending" and not pending_record:
+                    record = {k: v[k] for k in ("id", "name", "object") if k in v}
+                    raise ValueError(
+                        "known facts require source evidence at "
+                        + path
+                        + "/source_refs; record="
+                        + json.dumps(record, ensure_ascii=False)
+                        + "; cite an allowed input source_id, original line_start/line_end "
+                        "and exact quote; if the fact is unknown, omit it and record "
+                        "the missing information in pending (do not invent a citation)"
+                    )
+            for key, x in v.items():
+                escaped = key.replace("~", "~0").replace("/", "~1")
+                child_path = path + "/" + escaped
+                if key == "pending" and isinstance(x, list):
+                    for n, entry in enumerate(x):
+                        visit(entry, child_path + "/" + str(n), pending_record=True)
+                else:
+                    visit(x, child_path)
         elif isinstance(v, list):
-            for x in v:
-                visit(x)
+            for n, x in enumerate(v):
+                visit(x, path + "/" + str(n))
 
     visit(value)
 

@@ -130,3 +130,30 @@ scene.cmd configure --project PROJECT_ID --thinking off --thinking-api legacy
 ```
 
 网关若使用布尔开关则选 `--thinking-api enable_thinking`。此命令发送关闭请求，不保证网关执行；若仍收到思考字段，诊断会如实记录。不要盲目增大重试次数来处理空正文。
+
+## SR接口映射漏项与业务实体证据错误（a7e31f1起的排查）
+
+这两个错误属于本地产物校验，不是模型连接或输出Token不足。先保存失败现场，再定向处理对应节点，不能通过增加重试次数或关闭校验解决。
+
+- `API mapping omitted explicit method/path declarations or downstream calls`：比较当前任务允许材料中的明确方法/path与提交接口列表。错误后的清单包含实际缺项及来源。清单若来自另一层API导入标题，属于导入依据混层；新版按显式`source_layer`取片，保留原始行号和引用，同时兼容旧导入记录的读取。不得凭`/v1`、`/mx`或`/ms`前缀判断层级。若清单确实属于SR本层的下游调用，则须按真实所属服务补入接口；没有编号时建立本地稳定ID，未知归属继续待确认，不能凭空指定服务。
+- `known facts require source evidence`：实体、属性、明示约束、业务规则中存在空`source_refs`。新版报错给出JSON Pointer及记录名称，例如`/entities/0/attributes/1/source_refs`。每项已知事实需引用该任务允许材料中的真实来源、原始行号及完整引文。实体父项有引用不能代替属性本身的引用。没有声明的类型/必填性保留null，没有依据的规则不输出；缺少信息放`pending`。
+- 已修复一处误报：`pending`数组的疑问结构没有`status`字段，旧校验却只允许`status=pending`使用空引用。新版允许待确认记录没有可引用事实，仍严格拒绝确定事实缺证据和伪造引用；不要给旧Schema强加`status`字段。
+
+客户包根目录执行（PROJECT_ID替换成实际项目ID，节点使用真实ID）：
+
+```bat
+scene.cmd diagnose --project PROJECT_ID --node sr-api-map > sr-api-map-diagnose.json
+scene.cmd repair-export --project PROJECT_ID --node sr-api-map --out sr-api-map-repair.json
+scene.cmd diagnose --project PROJECT_ID --node business-entities-part-004 > entities-part-004-diagnose.json
+scene.cmd repair-export --project PROJECT_ID --node business-entities-part-004 --out entities-part-004-repair.json
+```
+
+Code Agent只修复修复包中的payload和说明，不改绑定、原始材料、成功产物或额度账本。升级程序后，如修复包因输入/Schema/规则身份变化过期，重新导出本节点；不要改版本字段强行提交。
+
+```bat
+scene.cmd repair-submit --project PROJECT_ID --node business-entities-part-004 --file entities-part-004-repair.json --validate-only
+scene.cmd repair-submit --project PROJECT_ID --node business-entities-part-004 --file entities-part-004-repair.json
+scene.cmd run --project PROJECT_ID --wait
+```
+
+仅受影响的失败节点及真实下游需要继续执行；成功节点仍按当前输入和契约校验复用。客户侧具体是否还有真正的接口遗漏或属性缺证据，需要对照其缺项清单和被拒绝输出确认，不能仅凭同一条错误文案宣称全部解决。
