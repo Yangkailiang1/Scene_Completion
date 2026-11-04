@@ -81,6 +81,29 @@ def verify_files(bundle):
     return manifest
 
 
+def verify_worker_entrypoints(bundle, executable=None):
+    """Start real child scripts independently, not merely the parent web app."""
+    bundle = Path(bundle).resolve()
+    python = Path(executable) if executable else bundle / "python/python.exe"
+    results = []
+    for name in ("infrastructure/project_worker.py", "manager/manager_worker.py"):
+        script = bundle / "app/src/scene_completion" / name
+        process = subprocess.run(
+            [str(python), "-I", "-X", "utf8", "-B", str(script), "--help"],
+            cwd=bundle.parent,
+            capture_output=True,
+            encoding="utf8",
+            timeout=30,
+        )
+        if process.returncode or "--project" not in process.stdout:
+            raise RuntimeError(
+                f"Worker startup failed: {name}; exit={process.returncode}; "
+                + process.stderr[-4000:]
+            )
+        results.append(name)
+    return {"worker_entrypoints": results, "worker_startup": "passed"}
+
+
 def smoke(bundle):
     if os.name != "nt":
         raise RuntimeError(
@@ -95,6 +118,7 @@ def smoke(bundle):
         shutil.rmtree(work)
     shutil.copytree(bundle, work)
     python = work / "python/python.exe"
+    worker_checks = verify_worker_entrypoints(work)
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -165,6 +189,7 @@ def smoke(bundle):
                             "portable_sources": "passed",
                             "execution_blocked": "passed",
                             "model_calls": 0,
+                            **worker_checks,
                         },
                         ensure_ascii=False,
                     ),
@@ -204,6 +229,7 @@ def smoke(bundle):
                         "launcher_and_http": "passed",
                         "xlsx_preview_and_project": "passed",
                         "model_calls": 0,
+                        **worker_checks,
                     },
                     ensure_ascii=False,
                 ),

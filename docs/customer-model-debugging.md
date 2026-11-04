@@ -16,6 +16,21 @@
 
 所有CLI连接同一本地工作台，网页显示同一任务/产物。先完整解压包、关闭旧服务，再启动`start.cmd`。不要在ZIP预览中运行；建议较短目录如`C:\SceneCompletion`。升级前备份旧目录和data；密钥、账本、审核和项目数据不随发布包分发。
 
+### 独立worker立即报No module named scene_completion
+
+`310adc4`及此前重构包仍有入口顺序错误：`project_worker.py`和`manager_worker.py`在将包内 `app/src` 加入 `sys.path` 之前就导入项目模块。主服务自己的路径修改不会传给新解释器，Windows嵌入式Python也不依赖系统PYTHONPATH；因此网页能启动不能证明worker能启动。
+
+修复版先定位当前脚本所属的 `app/src`，再在入口内导入运行模块。项目worker与管理Agent worker同时修复，不需要安装系统Python、pip安装本工具或修改Windows全局环境变量。
+
+包根目录可先执行无模型调用的独立入口检查：
+
+```bat
+python\python.exe -I -X utf8 -B app\src\scene_completion\infrastructure\project_worker.py --help
+python\python.exe -I -X utf8 -B app\src\scene_completion\manager\manager_worker.py --help
+```
+
+两条均应显示参数帮助并正常退出。它们只验证入口导入，不代表模型连接或业务流水线通过。升级仍需停止原服务与worker、保留data／本地配置，完整解压新版后重启；不要将旧worker文件复制回来。
+
 ### RR::pending 与 RR::local-rr-s001 的身份错配
 
 旧版有两个独立缺陷：模型可提交 `id="local-rr-s001"`、`declared_id="pending"`；合并器又优先从 `declared_id` 生成限定ID，而接口目录从 `id` 生成，最终参数展开发生KeyError。仅禁止重复增加RR/SR前缀不足以解决它。

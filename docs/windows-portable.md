@@ -14,7 +14,7 @@
 - VERSION.json：源码提交、Python版本和依赖锁摘要。
 - SHA256SUMS.json：包内文件摘要；ZIP的.sha256附件用于下载校验。
 
-GitHub Windows工作流在发布前分别运行系统Python测试、包内嵌入式Python测试、中文及空格路径下的启动器、网页HTTP和Excel导入验收。仅当这些检查通过后才上传Release附件；macOS的交叉打包结果不能代替Windows原生验证。包内不含开发机.env、凭证、.workbench运行数据、虚拟环境或node_modules。
+仓库提供Windows原生验收工作流，检查系统Python、包内嵌入式Python、中文及空格路径下的启动器、独立项目／管理Agent worker、网页HTTP和Excel导入。独立worker以隔离模式从非程序目录启动，不能只以主网页可打开判定子进程正常。手工交叉制作的Release明确标注原生验证状态；macOS交叉检查不能代替Windows原生验证。包内不含开发机.env、凭证、.workbench运行数据、虚拟环境或node_modules。
 
 没有Windows环境时可以单独发布交叉制作的离线包，但Release说明必须标注“Windows原生验证待用户完成”，不声称通过上述原生验收。此类包使用`windows-x64-*`标签，与触发原生工作流的`scene-workbench-*`标签区分；旧Release保留。
 
