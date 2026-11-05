@@ -484,8 +484,6 @@ def test_imported_parameter_file_cannot_cross_interface_or_layer():
     ],
 )
 def test_interface_source_and_ownership_do_not_depend_on_URL_prefix(public_path, internal_path):
-    from scene_completion.domain.framework_idempotency import applicable
-
     x = sample()
     rr, sr, inner = x["fused-ssd"]["interactions"]
     for i in (rr, sr):
@@ -506,4 +504,3 @@ def test_interface_source_and_ownership_do_not_depend_on_URL_prefix(public_path,
     assert outer["api_id"] == "RR::API-1" and inner["api_id"] == "SR::API-1"
     assert parameters_for(outer, x)[0]["required"] is True
     assert parameters_for(inner, x)[0]["required"] is False
-    assert not applicable(outer, x) and applicable(inner, x)

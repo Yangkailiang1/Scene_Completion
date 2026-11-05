@@ -304,6 +304,7 @@ SCENARIO["properties"].update(
     source_scenario_id=S,
 )
 SCENARIO["properties"].update(source_unit_ids=arr(S), quality_notes=arr(S))
+SCENARIO["properties"]["activation_evidence"] = arr(ACTIVATION)
 SCENARIO["properties"]["scenario_type"] = enum("exception", "normal", "optional", "pending")
 FAILURE_RULE = obj(kind=S, value=VALUE)
 SCENARIO["properties"]["failure_rule"] = FAILURE_RULE
@@ -604,10 +605,11 @@ BUSINESS_DEPENDENCY = obj(
     cascade_group=NULL_S,
     source_refs=REFS,
 )
-GLOBAL_BINDING = obj(id=S, dependency_id=S, concern_key=S, object=S, basis=S, source_refs=REFS)
+GLOBAL_BINDING = obj(id=S, dependency_id=NULL_S, concern_key=S, object=S, basis=S, source_refs=REFS)
+GLOBAL_BINDING["properties"].update(business_operation_id=S, policy_id=S)
 GLOBAL_SCENARIO = obj(
     id=S,
-    dependency_id=S,
+    dependency_id=NULL_S,
     concern_key=S,
     object=S,
     cause=S,
@@ -617,8 +619,10 @@ GLOBAL_SCENARIO = obj(
     executable={"type": "boolean"},
     source_refs=REFS,
 )
+GLOBAL_SCENARIO["properties"].update(business_operation_id=S)
 SCHEMAS.update(
     {
+        "global-scenario-match": obj(decisions=arr(DECISION)),
         "business-entities": obj(entities=arr(BUSINESS_ENTITY), pending=arr(DOMAIN_PENDING)),
         "business-crud": obj(rows=arr(CRUD_ROW), pending=arr(DOMAIN_PENDING)),
         "business-attribute-map": obj(mappings=arr(FIELD_MAPPING), pending=arr(DOMAIN_PENDING)),
@@ -732,3 +736,6 @@ for task in (
 ):
     SCHEMAS[task]["properties"]["excluded"] = arr(EXCLUSION)
 SCHEMAS["existing-branches"]["properties"]["excluded"] = arr(EXCLUSION)
+
+SCHEMAS["global-scenario-compare"]["properties"]["full_matches"] = {"type": "object"}
+SCHEMAS["global-scenario-compare"]["properties"]["decisions"] = {"type": "object"}

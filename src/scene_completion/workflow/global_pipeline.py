@@ -114,7 +114,14 @@ def _schedule_global_analysis(ex, rr, sr, ar, tests):
                 def empty(d, channel=channel):
                     return {"matches" if channel.endswith("_c") else "scenarios": [], "pending": []}
 
-                ex.add(key, task, parents, build=build, transform=empty if inactive else None)
+                ex.add(
+                    key,
+                    task,
+                    parents,
+                    static=inputs,
+                    build=build,
+                    transform=empty if inactive else None,
+                )
                 ex.scheduler.tasks[key].display_label = (
                     {
                         "G_c": "全局关注点识别",
@@ -127,6 +134,179 @@ def _schedule_global_analysis(ex, rr, sr, ar, tests):
                     + " · "
                     + dependency["id"]
                 )
+
+        from scene_completion.analysis.global_idempotency import (
+            documents_for,
+            operations,
+            recognized,
+        )
+
+        operation_rows = (
+            operations(
+                get("business-crud-project")["rows"],
+                entities,
+                get("use-case-align")["groups"],
+                get("rr-use-cases")["cases"] + get("sr-use-cases")["cases"],
+            )
+            if "global.idempotency" in active
+            else []
+        )
+        for operation in operation_rows:
+            from scene_completion.analysis.interaction_enrichment import resolved_api_id
+
+            fused = get(operation["case_id"] + ":fused-ssd")
+            api_context = {
+                "api-map": get("api-map"),
+                "api-parameters": get("api-parameters"),
+                "fused-ssd": fused,
+            }
+            operation["api_ids"] = sorted(
+                {
+                    resolved
+                    for interaction in fused["interactions"]
+                    if interaction["id"] in operation["interaction_refs"]
+                    and (resolved := resolved_api_id(interaction, api_context))
+                }
+            )
+            suffix = fingerprint(operation["id"])[:12]
+            one = {"operations": [operation]}
+            normal_docs = documents_for(normal, operation, "normal")
+            existing_docs = documents_for(raw, operation, "existing", branches)
+            test_docs = documents_for(test, operation, "test")
+            for channel, task in (
+                ("G_c", "global-concerns"),
+                ("E_c", "global-existing-concerns"),
+                ("GT_c", "global-test-concerns"),
+                ("G_s", "global-scenarios"),
+                ("E_s", "global-existing-scenarios"),
+                ("GT_s", "global-test-scenarios"),
+            ):
+                key = "global-operation-" + suffix + "-" + channel
+                keys[channel].append(key)
+                parent = "global-operation-" + suffix + "-" + channel.replace("_s", "_c")
+                parents = ("business-crud-project",) + ((parent,) if channel.endswith("_s") else ())
+                material = {
+                    "business-dependencies": {"dependencies": [], "pending": []},
+                    "business-operations": one,
+                    "registry": {
+                        **limited_registry,
+                        "definitions": {"global.idempotency": active["global.idempotency"]},
+                    },
+                    "normal-constraints": {
+                        "apis": [
+                            {
+                                k: deepcopy(a[k])
+                                for k in (
+                                    "id",
+                                    "name",
+                                    "source_layer",
+                                    "address",
+                                    "parameters",
+                                    "source_refs",
+                                )
+                                if k in a
+                            }
+                            for a in get("api-parameters").get("apis", [])
+                            if a["id"] in operation["api_ids"]
+                        ]
+                    },
+                }
+                if channel.startswith("G_"):
+                    material.update(
+                        **{
+                            "business-entities": {
+                                "entities": [
+                                    e for e in entities if e["id"] == operation["entity_id"]
+                                ],
+                                "pending": [],
+                            }
+                        },
+                        **{"normal-documents": normal_docs},
+                    )
+                else:
+                    material[
+                        "existing-documents" if channel.startswith("E_") else "test-documents"
+                    ] = existing_docs if channel.startswith("E_") else test_docs
+                    if channel.endswith("_c"):
+                        # Inverse identification needs the operation identity,
+                        # not positive contracts that might be mistaken for E/GT.
+                        material.pop("normal-constraints", None)
+                        material["business-operations"] = {
+                            "operations": [
+                                {
+                                    k: operation[k]
+                                    for k in (
+                                        "id",
+                                        "case_id",
+                                        "case_aliases",
+                                        "case_names",
+                                        "entity_id",
+                                        "entity_name",
+                                        "operation",
+                                    )
+                                }
+                            ]
+                        }
+
+                def build_operation(d, material=material, parent=parent, channel=channel):
+                    inputs = deepcopy(material)
+                    if channel.endswith("_s"):
+                        inputs["identified-concerns"] = d[parent]
+                    return inputs
+
+                transform = None
+                if channel == "G_c":
+
+                    def transform(d, operation=operation):
+                        return recognized(operation)
+                elif (channel.startswith("E_") and not existing_docs) or (
+                    channel.startswith("GT_") and not test_docs
+                ):
+
+                    def transform(d, channel=channel):
+                        return {
+                            "matches" if channel.endswith("_c") else "scenarios": [],
+                            "pending": [],
+                        }
+
+                ex.add(
+                    key, task, parents, static=material, build=build_operation, transform=transform
+                )
+                ex.scheduler.tasks[key].display_label = (
+                    "全局幂等 · "
+                    + operation["case_id"]
+                    + " · "
+                    + operation["entity_name"]
+                    + " · "
+                    + operation["operation"]
+                    + " · "
+                    + channel
+                )
+
+        comparison_keys = {purpose: [] for purpose in ("G_E", "GT_G", "GT_E")}
+        # Each unit owns its candidates; never send the whole project matrix.
+        for offset, g_key in enumerate(keys["G_s"]):
+            unit = {channel: keys[channel][offset] for channel in ("G_s", "E_s", "GT_s")}
+            for purpose, (left_channel, right_channel) in {
+                "G_E": ("G_s", "E_s"),
+                "GT_G": ("GT_s", "G_s"),
+                "GT_E": ("GT_s", "E_s"),
+            }.items():
+                left_key, right_key = unit[left_channel], unit[right_channel]
+                key = g_key + "-match-" + purpose
+                comparison_keys[purpose].append(key)
+                ex.add(
+                    key,
+                    "global-scenario-match",
+                    (left_key, right_key),
+                    static={"purpose": purpose},
+                    build=lambda d, left_key=left_key, right_key=right_key, purpose=purpose: {
+                        "left": d[left_key]["scenarios"],
+                        "right": d[right_key]["scenarios"],
+                        "purpose": purpose,
+                    },
+                )
+                ex.scheduler.tasks[key].display_label = "全局场景对应 · " + purpose + " · " + g_key
 
         def merged(d, channel):
             list_key = "matches" if channel.endswith("_c") else "scenarios"
@@ -153,12 +333,16 @@ def _schedule_global_analysis(ex, rr, sr, ar, tests):
         ex.add(
             "global-scenario-compare",
             "global-scenario-compare",
-            scenario_deps,
+            scenario_deps + tuple(k for items in comparison_keys.values() for k in items),
             build=lambda d: d,
             transform=lambda d: compare_scenarios(
                 merged(d, "G_s"),
                 merged(d, "E_s"),
                 merged(d, "GT_s") if any(d[k]["scenarios"] for k in keys["GT_s"]) else None,
+                decisions={
+                    purpose: [row for key in items for row in d[key]["decisions"]]
+                    for purpose, items in comparison_keys.items()
+                },
             ),
         )
         ex.add(
@@ -187,4 +371,6 @@ def _schedule_global_analysis(ex, rr, sr, ar, tests):
             ),
         )
 
-    ex.partitions.append((("business-dependencies", "existing-branches"), expand))
+    ex.partitions.append(
+        (("business-dependencies", "existing-branches", "business-crud-project"), expand)
+    )

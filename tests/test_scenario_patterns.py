@@ -140,6 +140,25 @@ def test_security_one_to_many_and_unknown_critical_separate():
     assert "SECRET_INVERSE_NOT_READ" not in str(m)
 
 
+def test_validated_security_recognition_is_not_lost_when_normal_rule_index_omits_it():
+    x = positive()
+    auth(x)
+    x["normal-rules"]["rules"] = []
+    m = applicability(x)
+    scenarios = accepted(m)
+    assert any(s["pattern_id"] == "human.credential.expired" for s in scenarios)
+    assert not any(s["pattern_id"] == "human.credential.revoked" for s in scenarios)
+    assert any(
+        s["activation_evidence"] for s in scenarios if s["concern_key"] == "human.authentication"
+    )
+    # Evidence-free labels remain pending: this is not unconditional autofill.
+    for match in x["concern-match"]["matches"]:
+        match["activation_evidence"] = []
+    assert not any(
+        s["pattern_id"] == "human.credential.expired" for s in accepted(applicability(x))
+    )
+
+
 def test_missing_premise_framework_only_never_enters_G():
     x = positive()
     x["concern-match"]["matches"].append(

@@ -250,6 +250,8 @@ class ResultView:
         }
 
     def global_detail(self, test_set="original"):
+        from scene_completion.analysis.global_idempotency import operations
+
         if test_set not in {"original", "expanded", "business"}:
             raise ValueError("未知测试集")
         # Global GT is independently extracted from the original test source.
@@ -280,6 +282,13 @@ class ResultView:
             "status": status,
             "complete": bool(concerns and scenarios and recommendation and evaluation),
             "dependencies": dependencies.get("dependencies", []),
+            "business_operations": operations(
+                self.payload("business-crud-project").get("rows", []),
+                self.payload("business-entities").get("entities", []),
+                self.payload("use-case-align").get("groups", []),
+                self.payload("rr-use-cases").get("cases", [])
+                + self.payload("sr-use-cases").get("cases", []),
+            ),
             "pending": dependencies.get("pending", [])
             + concerns.get("pending", [])
             + scenarios.get("pending", []),

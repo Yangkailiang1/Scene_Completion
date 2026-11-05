@@ -87,7 +87,7 @@ def test_portable_launcher_waits_until_ready_before_browser_and_quotes_paths(tmp
 
     monkeypatch.setattr(launcher.socket, "socket", lambda: Sock())
     monkeypatch.setattr(
-        launcher.subprocess, "Popen", lambda cmd, **kw: (commands.append((cmd, kw)) or Process())
+        launcher.subprocess, "Popen", lambda cmd, **kw: commands.append((cmd, kw)) or Process()
     )
     monkeypatch.setattr(launcher.urllib.request, "urlopen", lambda *a, **kw: Response())
     monkeypatch.setattr(launcher.webbrowser, "open", lambda *a: events.append("browser"))

@@ -14,14 +14,20 @@ def _unique(rows, key):
     return list({key(row): row for row in rows}.values())
 
 
+def anchor_key(row):
+    if row.get("business_operation_id"):
+        return "business_operation", row["business_operation_id"]
+    return "dependency", row["dependency_id"]
+
+
 def concern_key(row):
-    return row["dependency_id"], row["object"], row["concern_key"]
+    return anchor_key(row), row["object"], row["concern_key"]
 
 
 def scenario_key(row):
     # One independent failure is one scene, even if several concerns explain it.
     return (
-        row["dependency_id"],
+        anchor_key(row),
         row["object"],
         row["cause"].strip().casefold(),
         tuple(sorted(x.strip().casefold() for x in row["conditions"])),
@@ -46,7 +52,14 @@ def compare_concerns(g, e, gt=None):
     for key in sorted(g_set | e_set | (truth or set())):
         rows.append(
             {
-                "anchor": {"dependency_id": key[0], "object": key[1], "concern_key": key[2]},
+                "anchor": {
+                    "anchor_kind": key[0][0],
+                    "dependency_id" if key[0][0] == "dependency" else "business_operation_id": key[
+                        0
+                    ][1],
+                    "object": key[1],
+                    "concern_key": key[2],
+                },
                 "cells": {channel: maps[channel].get(key) for channel in maps},
                 "missing": key in missing,
                 "reason": "同一全局依赖、对象和关注点ID精确匹配",
@@ -74,43 +87,86 @@ def compare_concerns(g, e, gt=None):
     return result
 
 
-def compare_scenarios(g, e, gt=None):
-    """Only an independent failure condition counts as a full match."""
-    g_rows = _unique(g["scenarios"], scenario_key)
-    e_rows = _unique(e["scenarios"], scenario_key)
-    gt_rows = _unique(gt["scenarios"], scenario_key) if gt is not None else None
-    gs = {scenario_key(x) for x in g_rows}
-    es = {scenario_key(x) for x in e_rows}
-    truth = {scenario_key(x) for x in gt_rows} if gt_rows is not None else None
-    missing = gs - es
-    maps = {
-        "G": {scenario_key(x): x["id"] for x in g_rows},
-        "E": {scenario_key(x): x["id"] for x in e_rows},
-        "GT": {scenario_key(x): x["id"] for x in gt_rows or []},
+def validate_decisions(left, right, decisions):
+    """A semantic judgment cannot cross a global operation or dependency."""
+    lm, rm = {s["id"]: s for s in left}, {s["id"]: s for s in right}
+    seen = set()
+    for decision in decisions:
+        pair = decision["left_id"], decision["right_id"]
+        if pair in seen or pair[0] not in lm or pair[1] not in rm:
+            raise ValueError("global comparison requires unique pairs of existing scenario IDs")
+        seen.add(pair)
+        a, b = lm[pair[0]], rm[pair[1]]
+        if (anchor_key(a), a["object"]) != (anchor_key(b), b["object"]):
+            raise ValueError(
+                "global comparison cannot cross business operation/dependency and object"
+            )
+
+
+def compare_scenarios(g, e, gt=None, decisions=None):
+    """Exact anchors first; saved full semantic decisions resolve paraphrases."""
+    from scene_completion.analysis.assignment import full_assignment
+    from scene_completion.analysis.result_alignment import align_rows
+
+    channels = {
+        "G": _unique(g["scenarios"], scenario_key),
+        "E": _unique(e["scenarios"], scenario_key),
+        "GT": _unique((gt or {}).get("scenarios", []), scenario_key),
     }
+    saved, pairs = {}, {}
+    for purpose, (lc, rc) in {"G_E": ("G", "E"), "GT_G": ("GT", "G"), "GT_E": ("GT", "E")}.items():
+        left, right = channels[lc], channels[rc]
+        submitted = (decisions or {}).get(purpose, [])
+        validate_decisions(left, right, submitted)
+        exact = [
+            {
+                "left_id": a["id"],
+                "right_id": b["id"],
+                "status": "full",
+                "reason": "同一全局定位及独立失败条件精确一致",
+            }
+            for a in left
+            for b in right
+            if scenario_key(a) == scenario_key(b)
+        ]
+        saved[purpose] = submitted + exact
+        pairs[purpose] = full_assignment(saved[purpose])
+    covered = {p["checker_scenario_id"] for p in pairs["G_E"]}
     rows = []
-    for key in sorted(gs | es | (truth or set())):
-        related = [s for s in g_rows + e_rows + (gt_rows or []) if scenario_key(s) == key]
+    for row in align_rows(channels, pairs, saved):
+        anchor = row["anchor"]
+        scope = anchor_key(anchor)
         rows.append(
             {
                 "anchor": {
-                    "dependency_id": key[0],
-                    "object": key[1],
-                    "cause": key[2],
-                    "conditions": list(key[3]),
-                    "concern_keys": sorted({s["concern_key"] for s in related}),
+                    "anchor_kind": scope[0],
+                    "dependency_id" if scope[0] == "dependency" else "business_operation_id": scope[
+                        1
+                    ],
+                    "object": anchor["object"],
+                    "cause": anchor["cause"],
+                    "conditions": anchor["conditions"],
+                    "concern_keys": sorted(
+                        {s["concern_key"] for values in row["cells"].values() for s in values}
+                    ),
                 },
-                "cells": {channel: maps[channel].get(key) for channel in maps},
-                "missing": key in missing,
-                "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示",
+                "cells": {
+                    k: values[0]["id"] if values else None for k, values in row["cells"].items()
+                },
+                "status": row["status"],
+                "matching": row["matching"],
+                "missing": bool(row["cells"]["G"] and row["cells"]["G"][0]["id"] not in covered),
+                "reason": "同一全局定位；独立失败条件由精确规则或已保存的完整语义判断对应",
             }
         )
     return {
         "rows": rows,
-        "G_count": len(gs),
-        "E_count": len(es),
-        "GT_count": len(truth) if truth is not None else None,
-        "M": [x for x in g_rows if scenario_key(x) in missing],
+        "G_count": len(channels["G"]),
+        "E_count": len(channels["E"]),
+        "GT_count": len(channels["GT"]) if gt is not None else None,
+        "M": [s for s in channels["G"] if s["id"] not in covered],
+        "full_matches": pairs,
+        "decisions": saved,
         "pending": g.get("pending", []) + e.get("pending", []) + (gt or {}).get("pending", []),
     }
 
@@ -199,7 +255,23 @@ def evaluate(concerns, scenarios, recommendation, gt_scenarios=None):
 
         def scored(rows):
             keys = {scenario_key(s) for s in rows}
-            hits = len(keys & truth)
+            if "full_matches" in scenarios:
+                from scene_completion.analysis.assignment import full_assignment
+
+                selected = {s["id"] for s in rows}
+                candidates = scenarios.get("decisions", {}).get("GT_G")
+                if candidates is None:
+                    candidates = [
+                        {
+                            "left_id": p["checker_scenario_id"],
+                            "right_id": p["generated_scenario_id"],
+                            "status": "full",
+                        }
+                        for p in scenarios["full_matches"]["GT_G"]
+                    ]
+                hits = len(full_assignment(candidates, right_ids=selected))
+            else:
+                hits = len(keys & truth)
             return rate(hits, len(keys)), rate(len(keys) - hits, len(truth))
 
         metrics["baseline_adoption"], metrics["baseline_false_positive"] = scored(scenarios["M"])

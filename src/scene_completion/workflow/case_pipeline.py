@@ -176,10 +176,12 @@ def _build_cases(
                 "SR": normal_projection(scoped_sr),
                 "case-group": group,
             },
-            build=lambda d,
-            rr=normal_projection(scoped_rr),
-            sr=normal_projection(scoped_sr),
-            g=group: {"RR": rr, "SR": sr, "components": d["components"], "case-group": g},
+            build=lambda d, rr=normal_projection(scoped_rr), sr=normal_projection(scoped_sr), g=group: {
+                "RR": rr,
+                "SR": sr,
+                "components": d["components"],
+                "case-group": g,
+            },
             transform=ssd_context,
         )
         add("fused-ssd", ("ssd-context",), build=lambda d: d["ssd-context"])
@@ -756,9 +758,11 @@ def _build_cases(
                 "truth": gt,
                 "decisions": ds,
             },
-            transform=lambda d, task=task: accuracy(task, d["actual"], d["truth"], d["decisions"])
-            if d["truth"] is not None
-            else not_evaluated(task),
+            transform=lambda d, task=task: (
+                accuracy(task, d["actual"], d["truth"], d["decisions"])
+                if d["truth"] is not None
+                else not_evaluated(task)
+            ),
             case=cid,
         )
 

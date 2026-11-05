@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v6-local-field-validation-request"
+VERSION = "two-level-concern-scenario-v7-global-cud-idempotency"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -184,10 +184,6 @@ def recognize(inputs, raw, *, inverse=False):
     from scene_completion.analysis.interaction_identity import normalize_records
 
     raw = normalize_records(raw, inputs)
-    if not inverse:
-        from scene_completion.domain.framework_idempotency import recognized_defaults
-
-        raw.setdefault("matches", []).extend(recognized_defaults(inputs))
     definitions = registry()["definitions"]
     accepted = []
     pending = deepcopy(raw.get("pending", []))
@@ -260,13 +256,6 @@ def recognize(inputs, raw, *, inverse=False):
                         }
                     )
                     continue
-        if iid in rows:
-            from scene_completion.domain.framework_idempotency import canonical_key
-
-            canonical = canonical_key(key, rows[iid], inputs)
-            if canonical != key:
-                m["classification_origin"] = key
-                m["concern_key"] = key = canonical
         reason = None
         if iid not in rows:
             reason = "关注点没有绑定到本片实际交互"

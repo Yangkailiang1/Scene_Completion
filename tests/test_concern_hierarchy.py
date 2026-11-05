@@ -559,11 +559,7 @@ def test_all_five_functions_are_open_to_internal_external_and_technical_services
         x["business-crud"] = {"rows": [{"interaction_id": "req", "operation": kinds[0]}]}
     rows = resolved(x)
     expected = set(registry()["profiles"]["functional"][function])
-    # The new default applies only to SR internal Service callers, not this human-call fixture.
-    from scene_completion.domain.framework_idempotency import KEY, applicable
-
-    if not applicable(i, x):
-        expected.discard(KEY)
+    expected = {key for key in expected if registry()["definitions"][key].get("enabled", True)}
     assert expected <= {m["concern_key"] for m in rows}
     assert all(m["functional_types"] == [function] for m in rows)
 

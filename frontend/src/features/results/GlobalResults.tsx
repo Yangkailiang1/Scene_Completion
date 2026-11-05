@@ -133,9 +133,10 @@ export function GlobalResults({
   if (!value) return <p>正在读取全局依赖…</p>;
   return (
     <section className="v5-global-view">
-      <h2>全局业务依赖</h2>
+      <h2>全局业务分析</h2>
       <p>
-        项目级独立计分；一条跨用例依赖只计一次。{value.truth_note}。当前状态：
+        项目级独立计分；跨用例依赖按关系计一次，幂等性按用例、业务实体和C/U/D操作计一次。
+        {value.truth_note}。当前状态：
         {value.status}。
       </p>
       {diagram && (
@@ -168,7 +169,16 @@ export function GlobalResults({
             {value.concerns.map((row: any, index: number) => (
               <tr key={index}>
                 <td>
-                  {row.anchor.dependency_id}
+                  {row.anchor.business_operation_id
+                    ? (() => {
+                        const op = value.business_operations?.find(
+                          (o: any) => o.id === row.anchor.business_operation_id,
+                        );
+                        return op
+                          ? `${op.case_id} · ${op.entity_name} · ${op.operation}`
+                          : row.anchor.business_operation_id;
+                      })()
+                    : row.anchor.dependency_id}
                   <br />
                   {row.anchor.object}
                   <br />
@@ -199,7 +209,16 @@ export function GlobalResults({
             {value.scenarios.map((row: any, index: number) => (
               <tr key={index}>
                 <td>
-                  {row.anchor.dependency_id}
+                  {row.anchor.business_operation_id
+                    ? (() => {
+                        const op = value.business_operations?.find(
+                          (o: any) => o.id === row.anchor.business_operation_id,
+                        );
+                        return op
+                          ? `${op.case_id} · ${op.entity_name} · ${op.operation}`
+                          : row.anchor.business_operation_id;
+                      })()
+                    : row.anchor.dependency_id}
                   <br />
                   {row.anchor.object}
                   <br />

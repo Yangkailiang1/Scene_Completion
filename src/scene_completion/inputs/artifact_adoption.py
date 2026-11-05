@@ -259,9 +259,9 @@ def merge(task, generated, parts):
                 target["interfaces"] = combine(
                     target["interfaces"],
                     service["interfaces"],
-                    lambda a: (a.get("method"), a.get("address"))
-                    if a.get("address")
-                    else ("id", a["id"]),
+                    lambda a: (
+                        (a.get("method"), a.get("address")) if a.get("address") else ("id", a["id"])
+                    ),
                 )
                 target["source_refs"] = union(target["source_refs"], service["source_refs"])
         elif task == "api-parameters":

@@ -101,7 +101,7 @@ def test_new_taxonomy_paths_cover_crud_business_technology_and_global():
         assert "第二层" in "/".join(paths("service.crud." + group + ".idempotency", defs)[0])
     assert "第三层" in "/".join(paths("service.analysis_generation.execution_deadline", defs)[0])
     assert "第四层" in "/".join(paths("database.storage_validity", defs)[0])
-    assert paths("global.cascade_operation", defs)[0][0] == "全局业务依赖级关注点"
+    assert paths("global.cascade_operation", defs)[0][0] == "全局业务级关注点"
     assert (
         paths("api.data.validity", defs)[0][-1] == "输入数据"
         and len(paths("api.data.range", defs)) == 2

@@ -185,10 +185,8 @@ def invoke(client, packet, call):
         if getattr(client, "shared_call_gate", None):
             child.shared_call_gate = client.shared_call_gate
             original = child.post
-            child.post = (
-                lambda *a, _child=child, _post=original, **kw: _child.shared_call_gate.call(
-                    _post, *a, **kw
-                )
+            child.post = lambda *a, _child=child, _post=original, **kw: (
+                _child.shared_call_gate.call(_post, *a, **kw)
             )
         if choice or last:
             phase("switching_model")

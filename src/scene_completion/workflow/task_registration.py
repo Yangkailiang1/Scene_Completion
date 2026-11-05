@@ -313,7 +313,7 @@ def add(
                 "provider": "deterministic_rule_coverage",
                 "reason": "没有额外适用语义规则；字段/查询/可用性等由独立工具生成，不额外调用模型",
             }
-        elif task in {"gap-compare", "semantic-compare"} and (
+        elif task in {"gap-compare", "semantic-compare", "global-scenario-match"} and (
             not inputs["left"] or not inputs["right"]
         ):
             value, proof = (
@@ -397,15 +397,7 @@ def add(
 
                 value = canonical_correspondence(value, inputs)
             if task == "normal-rules":
-                from scene_completion.analysis.concern_alignment import interaction_rows
-                from scene_completion.domain.framework_idempotency import canonical_key
-
-                interactions_by_id = {i["id"]: i for i in interaction_rows(inputs)}
                 for rule in value["rules"]:
-                    if rule["interaction_id"] in interactions_by_id:
-                        rule["concern_key"] = canonical_key(
-                            rule["concern_key"], interactions_by_id[rule["interaction_id"]], inputs
-                        )
                     rule["id"] = (
                         "normal-" + fingerprint({k: v for k, v in rule.items() if k != "id"})[:20]
                     )
@@ -444,15 +436,11 @@ def add(
                 value = normalize_scenarios(value, inputs, truth=task == "test-ground-truth")
                 if task == "exception-generate":
                     from scene_completion.analysis.normal_rules import rule_exceptions
-                    from scene_completion.domain.framework_idempotency import (
-                        scenarios as idempotency_scenarios,
-                    )
 
                     value["scenarios"] = deduplicate(
                         attach_provenance(
                             inputs,
                             value["scenarios"]
-                            + idempotency_scenarios(inputs)
                             + data_exceptions(inputs)
                             + query_exceptions(inputs)
                             + service_exceptions(inputs)

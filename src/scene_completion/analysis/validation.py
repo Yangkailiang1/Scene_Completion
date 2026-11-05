@@ -48,6 +48,11 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task, payload)
+    if task == "global-scenario-match":
+        from scene_completion.analysis.global_analysis import validate_decisions
+
+        validate_decisions(inputs["left"], inputs["right"], payload["decisions"])
+        return payload
     if task in {
         "business-entities",
         "business-crud",
@@ -142,7 +147,23 @@ def validate_result(task, payload, inputs):
                 raise ValueError("global dependency requires an evidenced applicability condition")
     if task in {"global-concerns", "global-existing-concerns", "global-test-concerns"}:
         known = {d["id"] for d in inputs["business-dependencies"]["dependencies"]}
+        operations = {
+            o["id"]: o for o in inputs.get("business-operations", {}).get("operations", [])
+        }
         for row in payload["matches"]:
+            operation = operations.get(row.get("business_operation_id"))
+            if row.get("business_operation_id"):
+                if (
+                    not operation
+                    or row.get("dependency_id") is not None
+                    or operation["operation"] not in {"create", "update", "delete"}
+                    or row["object"] != operation["entity_id"]
+                    or row["concern_key"] != "global.idempotency"
+                ):
+                    raise ValueError(
+                        "global idempotency requires its exact C/U/D business operation anchor"
+                    )
+                continue
             if (
                 row["dependency_id"] not in known
                 or row["concern_key"] not in registry()["definitions"]
@@ -153,11 +174,14 @@ def validate_result(task, payload, inputs):
             if not row["concern_key"].startswith("global."):
                 raise ValueError("interaction concern cannot masquerade as global concern")
     if task in {"global-scenarios", "global-existing-scenarios", "global-test-scenarios"}:
+        from scene_completion.analysis.global_analysis import anchor_key
+
         recognized = {
-            (m["dependency_id"], m["concern_key"]) for m in inputs["identified-concerns"]["matches"]
+            (anchor_key(m), m["object"], m["concern_key"])
+            for m in inputs["identified-concerns"]["matches"]
         }
         for row in payload["scenarios"]:
-            if (row["dependency_id"], row["concern_key"]) not in recognized:
+            if (anchor_key(row), row["object"], row["concern_key"]) not in recognized:
                 raise ValueError("global scenario must follow its independently recognized concern")
     if task == "artifact-convert" and payload["source_role"] != "artifact" and payload["artifacts"]:
         raise ValueError("非正向产物文件不能提交节点替代结果")

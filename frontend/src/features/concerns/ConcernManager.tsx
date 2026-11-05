@@ -29,7 +29,10 @@ const groups: Record<string, Record<string, string>> = {
   },
   technology: { database: "数据库", llm: "LLM" },
   relation: { service_relation: "服务关系" },
-  global: { business_dependency: "用例与业务实体依赖" },
+  global: {
+    business_dependency: "用例与业务实体依赖",
+    business_operation: "业务操作幂等性",
+  },
 };
 const operations: Record<string, string> = {
   read: "查询",

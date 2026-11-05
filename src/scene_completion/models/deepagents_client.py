@@ -104,6 +104,7 @@ CHECKER_TASKS = {
     "global-existing-scenarios",
     "global-test-concerns",
     "global-test-scenarios",
+    "global-scenario-match",
 }
 
 

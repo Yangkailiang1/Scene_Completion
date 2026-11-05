@@ -12,8 +12,10 @@
             "minLength": 1
           },
           "dependency_id": {
-            "type": "string",
-            "minLength": 1
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "concern_key": {
             "type": "string",
@@ -79,6 +81,10 @@
               ],
               "additionalProperties": false
             }
+          },
+          "business_operation_id": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

@@ -20,15 +20,15 @@ CRUD = {
 def paths(key, definitions, direction=None):
     d = definitions.get(key, {})
     layer, group = d.get("layer"), d.get("group")
-    if key == "service.resource_mutation.idempotency":
-        return [
-            BASE + ["第二层：业务实体CRUD关注点", CRUD[group]]
-            for group in ("query_retrieval", "update", "delete")
-        ]
     if layer == "human":
         return [["交互级关注点", "人类Actor关注点"]]
     if layer == "global":
-        return [["全局业务依赖级关注点", "用例与业务实体依赖"]]
+        return [
+            [
+                "全局业务级关注点",
+                "业务操作幂等性" if group == "business_operation" else "用例与业务实体依赖",
+            ]
+        ]
     if layer == "relation":
         return [["交互级关注点", "Service之间"]]
     if layer == "base":

@@ -211,8 +211,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "SR内部Service实际R/U/D操作的共享幂等性检查；按用户确认框架规则启用，无需原文明示。C不在本次强制范围内；不假设幂等键或响应码。",
-      "enabled": true
+      "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
+      "enabled": false
     },
     "service.release_activation.prerequisite": {
       "key": "service.release_activation.prerequisite",
@@ -505,7 +505,8 @@
         "create"
       ],
       "technology": null,
-      "description": "创建业务实体时的幂等性"
+      "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
+      "enabled": false
     },
     "service.crud.create.resource_existence": {
       "key": "service.crud.create.resource_existence",
@@ -550,7 +551,8 @@
         "update"
       ],
       "technology": null,
-      "description": "更新业务实体时的幂等性"
+      "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
+      "enabled": false
     },
     "service.crud.update.resource_existence": {
       "key": "service.crud.update.resource_existence",
@@ -595,7 +597,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "删除业务实体时的幂等性"
+      "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
+      "enabled": false
     },
     "service.crud.delete.resource_existence": {
       "key": "service.crud.delete.resource_existence",
@@ -714,6 +717,23 @@
       ],
       "technology": "database",
       "description": "依据明示存储Schema或存储内容规则检查实际存储记录缺少字段、类型或内容不满足要求。与输入/输出接口参数分开，不能将只读请求误判为写入失败；同一失败保留来源并去重。"
+    },
+    "global.idempotency": {
+      "key": "global.idempotency",
+      "label": "业务操作幂等性",
+      "layer": "global",
+      "group": "business_operation",
+      "parents": [],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "global.idempotency",
+      "operation_kinds": [
+        "create",
+        "update",
+        "delete"
+      ],
+      "technology": null,
+      "description": "按用例、业务实体、实际C/U/D操作计一次。重复执行不得产生超出一次执行的额外业务影响；查询R不强制。具体幂等键、隔离范围、冲突及返回规则须有独立依据。"
     }
   },
   "profiles": {
@@ -734,8 +754,7 @@
       ],
       "query_retrieval": [
         "service.query_retrieval.resource_existence",
-        "service.query_retrieval.data_visibility",
-        "service.resource_mutation.idempotency"
+        "service.query_retrieval.data_visibility"
       ],
       "resource_mutation": [],
       "analysis_generation": [
@@ -748,20 +767,15 @@
       ],
       "create": [
         "service.crud.create.concurrency_consistency",
-        "service.crud.create.idempotency",
         "service.crud.create.resource_existence"
       ],
       "update": [
         "service.crud.update.concurrency_consistency",
-        "service.crud.update.idempotency",
-        "service.crud.update.resource_existence",
-        "service.resource_mutation.idempotency"
+        "service.crud.update.resource_existence"
       ],
       "delete": [
         "service.crud.delete.concurrency_consistency",
-        "service.crud.delete.idempotency",
-        "service.crud.delete.resource_existence",
-        "service.resource_mutation.idempotency"
+        "service.crud.delete.resource_existence"
       ]
     },
     "technology": {
@@ -790,10 +804,11 @@
     "global": [
       "global.call_order",
       "global.dependency_consistency",
-      "global.cascade_operation"
+      "global.cascade_operation",
+      "global.idempotency"
     ]
   },
-  "hash": "937c89e2451cdbacb9c08f99ea32e671ab352dd45996092868e2df23a80b736d",
+  "hash": "9500aea729a9e9a18f3bddbaa8b8c0791b6d8f5cb90cd8dd57869fb7d9cfec3f",
   "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports.",
   "framework_policies": {
     "sr_internal_rud_idempotency": {

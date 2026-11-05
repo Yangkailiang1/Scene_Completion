@@ -87,3 +87,66 @@ def test_global_report_is_exported_without_a_completed_use_case(tmp_path):
     assert "全局业务依赖" in report and "UC-06" in report and "UC-11" in report
     assert "generation_effectiveness" in report
     assert read_json(tmp_path / "missing_report.json")["global"] == global_result
+
+
+def test_semantic_global_match_scores_paraphrase_but_keeps_independent_modes():
+    generated = {
+        "scenarios": [
+            scenario("g-same", "同键同内容重复提交未重放"),
+            scenario("g-different", "同键不同内容未拒绝"),
+        ]
+    }
+    gt = {"scenarios": [scenario("t", "同一幂等键承载变更后的请求仍被执行")]}
+    decisions = {
+        "GT_G": [
+            {
+                "left_id": "t",
+                "right_id": "g-same",
+                "status": "unmatched",
+                "reason": "不同内容与相同内容条件不同",
+            },
+            {
+                "left_id": "t",
+                "right_id": "g-different",
+                "status": "full",
+                "reason": "同一独立失败，措辞不同",
+            },
+        ]
+    }
+    compared = compare_scenarios(generated, {"scenarios": []}, gt, decisions)
+    chosen = recommend(compared["M"], {"global_top_k": 10}, [], run_id="r")
+    metrics = evaluate({"metrics": {}, "G_count": 1}, compared, chosen, gt)["metrics"]
+    assert metrics["recommendation_adoption"] == rate(1, 2)
+    assert metrics["recommendation_false_positive"] == rate(1, 1)
+    assert len(compared["rows"]) == 2
+    assert sum(bool(row["cells"]["GT"]) for row in compared["rows"]) == 1
+
+
+def test_global_semantic_decisions_cannot_cross_operation_or_object():
+    import pytest
+
+    from scene_completion.analysis.global_analysis import validate_decisions
+
+    a, b = scenario("a", "same"), scenario("b", "same")
+    b["dependency_id"] = "other"
+    with pytest.raises(ValueError, match="cannot cross"):
+        validate_decisions([a], [b], [{"left_id": "a", "right_id": "b", "status": "full"}])
+    b["dependency_id"] = a["dependency_id"]
+    b["object"] = "other entity"
+    with pytest.raises(ValueError, match="cannot cross"):
+        validate_decisions([a], [b], [{"left_id": "a", "right_id": "b", "status": "full"}])
+
+
+def test_recommendation_subset_uses_its_own_full_assignment():
+    g = {"scenarios": [scenario("g-a", "同一失败措辞A"), scenario("g-b", "同一失败措辞B")]}
+    gt = {"scenarios": [scenario("t", "同一失败")]}
+    decisions = {
+        "GT_G": [
+            {"left_id": "t", "right_id": gid, "status": "full", "reason": "同一条件"}
+            for gid in ("g-a", "g-b")
+        ]
+    }
+    compared = compare_scenarios(g, {"scenarios": []}, gt, decisions)
+    result = evaluate({"metrics": {}, "G_count": 1}, compared, {"Q": [g["scenarios"][1]]}, gt)
+    assert result["metrics"]["recommendation_adoption"] == rate(1, 1)
+    assert result["metrics"]["baseline_adoption"] == rate(1, 2)

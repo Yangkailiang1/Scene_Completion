@@ -353,11 +353,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 key,
                 "api-parameters",
                 ("api-index", "api-map"),
-                build=lambda d,
-                docs=docs,
-                interface=interface,
-                error_docs=error_docs,
-                layer=layer: {
+                build=lambda d, docs=docs, interface=interface, error_docs=error_docs, layer=layer: {
                     layer: docs,
                     "interface": interface,
                     **({"response-documents": error_docs} if error_docs else {}),

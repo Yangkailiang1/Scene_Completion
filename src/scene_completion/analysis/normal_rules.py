@@ -378,9 +378,6 @@ def rule_exceptions(inputs):
         i = rows.get(r["interaction_id"])
         if not i:
             continue
-        from scene_completion.domain.framework_idempotency import canonical_key
-
-        r = {**r, "concern_key": canonical_key(r["concern_key"], i, inputs)}
         data = r["concern_key"].startswith("api.data.")
         obj = r["fields"][0] if data else rule_subject(r, i)
         matches = [
@@ -516,10 +513,6 @@ def normalize_scenarios(value, inputs, *, truth=False):
                     s.update(
                         object=rule_subject(r, i), field=None, data_location=None, scope="service"
                     )
-        if s["interaction_id"] in rows:
-            from scene_completion.domain.framework_idempotency import canonical_key
-
-            s["concern_key"] = canonical_key(s["concern_key"], rows[s["interaction_id"]], inputs)
         s["field"], s["data_location"] = normalize_location(s.get("field"), s.get("data_location"))
         if s["concern_key"].startswith("api.data.") and s.get("field"):
             s["object"] = s["field"]

@@ -536,23 +536,40 @@ def security_rules(inputs, library=None):
         ):
             continue
         root = "human" if key.startswith("human.") else "service_relation"
+        guards = (
+            [
+                g
+                for g in m.get("activation_evidence", [])
+                if g.get("kind") == key.rsplit(".", 1)[-1]
+                and g.get("status") == "explicit"
+                and g.get("source_refs")
+                and g.get("condition")
+                and g.get("value") is not False
+            ]
+            if m.get("status") == "applicable"
+            else []
+        )
+        supported_text = "；".join(g["condition"] for g in guards)
         for suffix, (label, trigger, selector, level) in AUTH_MODES.items():
             if suffix.startswith("credential.") != key.endswith(".authentication"):
                 continue
             r = {
                 "id": "framework-" + fingerprint([i["id"], key])[:16],
                 "interaction_id": i["id"],
-                "condition": "具体业务前提待确认",
+                "condition": supported_text or "具体业务前提待确认",
                 "concern_key": key,
                 "fields": [],
-                "source_refs": m["source_refs"] or i["source_refs"],
+                "source_refs": [ref for g in guards for ref in g["source_refs"]]
+                or m["source_refs"]
+                or i["source_refs"],
+                "activation_evidence": guards,
             }
             out.append(
                 {
                     "pattern_id": root + "." + suffix,
                     "rule": r,
                     "interaction": i,
-                    "supported": False,
+                    "supported": bool(supported_text and re.search(selector, supported_text, re.I)),
                     "trigger": trigger,
                 }
             )
@@ -618,6 +635,7 @@ def scenario_from_rule(record):
         "resolution": "explicit",
         "executable": True,
         "pending_details": [],
+        "activation_evidence": r.get("activation_evidence", []),
     }
 
 
@@ -781,11 +799,8 @@ def applicability(inputs, settings=None):
     issues = []
     security = security_rules(inputs, settings["library"])
     replaced = {r["rule"]["id"] for r in security}
-    from scene_completion.domain.framework_idempotency import scenarios as idempotency_scenarios
-
     base = (
-        idempotency_scenarios(inputs)
-        + data_exceptions(inputs)
+        data_exceptions(inputs)
         + query_exceptions(inputs)
         + service_exceptions(inputs)
         + storage_exceptions(inputs)
