@@ -553,6 +553,10 @@ class DeepAgentsClient(SemanticClient):
                     )
             phase("validating")
             try:
+                if original_packet["task"] == "concern-match":
+                    from scene_completion.analysis.recognition_coverage import validate_coverage
+
+                    validate_coverage(payload, original_packet["input"])
                 validate_result(original_packet["task"], payload, original_packet["input"])
             except ValueError as e:
                 emit("validation_failed", error=str(e))

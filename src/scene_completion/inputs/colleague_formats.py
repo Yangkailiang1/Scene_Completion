@@ -12,7 +12,7 @@ from copy import deepcopy
 from scene_completion.infrastructure.storage import fingerprint
 from scene_completion.inputs.api_layers import scoped_api_document
 
-VERSION = "colleague-positive-json-v1"
+VERSION = "colleague-positive-json-v2-response-contract"
 
 
 def format_of(value):
@@ -110,6 +110,11 @@ def constraints(rules, field, refs):
         if re.search(r"大小|字节|(?:MB|KB|bytes)", text, re.I):
             add("size", text)
             continue
+        interval = re.fullmatch(r"(-?\d+(?:\.\d+)?)\s*(?:至|到|[-~～])\s*(-?\d+(?:\.\d+)?)", text)
+        if interval:
+            add("minimum", float(interval[1]) if "." in interval[1] else int(interval[1]))
+            add("maximum", float(interval[2]) if "." in interval[2] else int(interval[2]))
+            continue
         escaped = re.escape(field)
         both = re.fullmatch(r"(-?\d+(?:\.\d+)?)<=\s*" + escaped + r"<=(-?\d+(?:\.\d+)?)", compact)
 
@@ -145,7 +150,7 @@ def parameter(name, location, refs, *, dtype=None, required=None, rules=()):
     }
 
 
-def request_parameters(text, facts, pointer):
+def request_parameters(text, facts, pointer, *, response=False):
     """Parse only literal field positions and explicit properties, not prose meaning."""
     parameters = []
     unresolved = []
@@ -168,13 +173,26 @@ def request_parameters(text, facts, pointer):
         segment = segment.strip()
         if not segment:
             continue
-        refs = facts.add({"request_parameter": segment}, pointer)
-        m = re.match(r"^(header|head|path|query|body)\.([A-Za-z_][\w.\[\]-]*)", segment, re.I)
+        refs = facts.add(
+            {"response_parameter" if response else "request_parameter": segment}, pointer
+        )
+        m = re.match(
+            r"^(header|head|path|query|body|response)\.([A-Za-z_][\w.\[\]-]*)", segment, re.I
+        )
         if m:
             location = (
                 m[1].lower().replace("head", "header") if m[1].lower() == "head" else m[1].lower()
             )
             name = m[2]
+            if (location == "response") != response:
+                unresolved.append(
+                    {
+                        "object": segment,
+                        "reason": "字段声明与请求/返回方向不符，未跨方向合并",
+                        "source_refs": refs,
+                    }
+                )
+                continue
         elif re.match(r"^Authorization\s+Token\b", segment, re.I):
             location = "header"
             name = "Authorization"
@@ -201,19 +219,17 @@ def request_parameters(text, facts, pointer):
         if default:
             p["default"] = json.loads(default[1].lower())
         rules = []
-        bound = re.search(r"(-?\d+)\s*(?:至|到|[-~～])\s*(-?\d+)", segment)
-        if bound:
-            rules.append({"rule": bound[1] + " <= " + name + " <= " + bound[2]})
-        low = re.search(r"(?:大于等于|不少于|从)(-?\d+(?:\.\d+)?)", segment)
-        if low:
-            rules.append({"rule": ">= " + low[1]})
-        # Preserve the remaining declaration as a positive condition. Tool
-        # expansion can later interpret it; no error response is fabricated.
-        detail = re.search(r"[（(](.*?)[）)]", segment)
-        if detail:
-            clause = re.sub(r"^(?:必填|可选|必选)[；;，,\s]*", "", detail[1]).strip()
-            if clause and not bound and not low:
-                rules.append({"rule": clause})
+        opening = next((pos for pos, char in enumerate(segment) if char in "（("), None)
+        if opening is not None:
+            detail = segment[opening + 1 :].rstrip("）)")
+            for clause in re.split(r"[；;]", detail):
+                clause = clause.strip()
+                if not clause or re.match(
+                    r"^(必填|必选|可选|类型\s*[:：]|type\s*[:=]|默认)", clause, re.I
+                ):
+                    continue
+                enum = re.fullmatch(r"枚举\s*(\{.*\})", clause)
+                rules.append({"rule": enum[1] if enum else clause})
         p["constraints"] = constraints(rules, name, refs)
         parameters.append(p)
     return parameters, unresolved
@@ -287,6 +303,41 @@ def api_product(value, file_id, name):
             api.get("API请求参数", ""), facts, pointer + "/API请求参数"
         )
         pending += unknown
+        responses = []
+        if api.get("API成功响应参数"):
+            success, unknown = request_parameters(
+                api["API成功响应参数"], facts, pointer + "/API成功响应参数", response=True
+            )
+            pending += unknown
+            ps += success
+            responses.append(
+                {
+                    "kind": "success",
+                    "status_code": str(api["成功状态码"])
+                    if api.get("成功状态码") is not None
+                    else None,
+                    "parameters": success,
+                    "source_refs": [r for p in success for r in p["source_refs"]],
+                }
+            )
+        for j, error in enumerate(api.get("API失败响应", [])):
+            error_ps, unknown = request_parameters(
+                error.get("参数", ""),
+                facts,
+                pointer + "/API失败响应/" + str(j) + "/参数",
+                response=True,
+            )
+            pending += unknown
+            responses.append(
+                {
+                    "kind": "error",
+                    "status_code": str(error["状态码"])
+                    if error.get("状态码") is not None
+                    else None,
+                    "parameters": error_ps,
+                    "source_refs": [r for p in error_ps for r in p["source_refs"]],
+                }
+            )
         apis.append(
             {
                 "id": aid,
@@ -296,6 +347,7 @@ def api_product(value, file_id, name):
                 "address": path,
                 "source_layer": layer,
                 "parameters": ps,
+                "responses": responses,
                 "source_refs": refs,
             }
         )
@@ -346,8 +398,12 @@ def api_product(value, file_id, name):
                     source_layer=layer,
                     coverage_details={
                         "request": "declared_fields",
-                        "success_response": "not_supplied",
-                        "error_response": "not_supplied",
+                        "success_response": "declared_fields"
+                        if any(r["kind"] == "success" for r in a["responses"])
+                        else "not_supplied",
+                        "error_response": "declared_fields"
+                        if any(r["kind"] == "error" for r in a["responses"])
+                        else "not_supplied",
                     },
                 )
                 lo, hi = ranges[a["id"]]
@@ -362,8 +418,12 @@ def api_product(value, file_id, name):
         "counts": {
             "interfaces": len(apis),
             "services": len(services),
-            "request_fields": sum(len(a["parameters"]) for a in apis),
-            "success_response_fields": 0,
+            "request_fields": sum(
+                sum(p["location"] != "response" for p in a["parameters"]) for a in apis
+            ),
+            "success_response_fields": sum(
+                sum(p["location"] == "response" for p in a["parameters"]) for a in apis
+            ),
         },
         "case_scopes": [],
     }

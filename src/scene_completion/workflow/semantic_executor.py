@@ -46,6 +46,10 @@ def semantic(self, task, inputs, record):
         p["tool_rule_instruction"] = (
             "本任务先独立识别本片四要素对象上的全部适用具体关注点，包括可用性和明示字段约束。注册表只是候选，工具不会补成识别结果。逐项返回证据；未知规则写pending，不输出具体异常场景。"
         )
+        if inputs.get("recognition_scope") == "data":
+            p["tool_rule_instruction"] = (
+                "本片仅识别实际接口数据字段的关注点；不输出双方、操作或业务关注点。这些由独立片处理。已声明字段检查须逐项识别并引用证据，工具不会补入G。"
+            )
     if record.get("rounds"):
         p["repair"] = {
             "failure": record.get("failure"),
@@ -217,9 +221,11 @@ def semantic(self, task, inputs, record):
                     self.client,
                     self.root,
                     self.conversations.revision(p["node_key"]),
-                    call=lambda child: self.client.agent(child)
-                    if hasattr(self.client, "post")
-                    else self.gate.call(self.client.agent, child),
+                    call=lambda child: (
+                        self.client.agent(child)
+                        if hasattr(self.client, "post")
+                        else self.gate.call(self.client.agent, child)
+                    ),
                 )
             elif record.get("recovery_dispatch"):
                 from scene_completion.workflow.node_recovery import generate

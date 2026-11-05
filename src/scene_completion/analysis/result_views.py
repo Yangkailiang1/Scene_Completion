@@ -6,6 +6,7 @@ BDD files may be materialized as versioned presentation derivatives of saved fac
 
 from pathlib import Path
 
+from scene_completion.analysis.concern_alignment import VERSION as MATCHING_VERSION
 from scene_completion.infrastructure.execution_graph import LABELS, artifact_folder
 from scene_completion.infrastructure.storage import read_json
 
@@ -681,6 +682,7 @@ class ResultView:
         )
         rows = []
         seen = set()
+        recognition = self.payload(cid + ":concern-match")
         for interaction in sorted(
             enriched.get("interactions", []), key=lambda i: i.get("sequence", 0)
         ):
@@ -697,6 +699,27 @@ class ResultView:
             rows.append(
                 {
                     "interaction": interaction,
+                    "recognition_summary": {
+                        "applicable": sum(
+                            m.get("status") == "applicable"
+                            for m in recognition.get("matches", [])
+                            if m["interaction_id"] == iid
+                        ),
+                        "not_applicable": sum(
+                            m.get("status") == "not_applicable"
+                            for m in recognition.get("matches", [])
+                            if m["interaction_id"] == iid
+                        ),
+                        "pending": [
+                            m
+                            for m in recognition.get("pending", [])
+                            if m.get("interaction_id") == iid
+                        ],
+                        "note": "本地处理未声明独立数据字段，不额外挂载数据关注点；字段约束在实际请求或返回上分析。"
+                        if interaction.get("step_kind") == "action"
+                        and not interaction["data"]["sequence"]
+                        else None,
+                    },
                     "channels": scoped,
                     "alignment_rows": align_rows(scoped, pairs, decisions),
                     "concern_rows": [
@@ -756,6 +779,7 @@ class ResultView:
                 row["metric_in_scope"] = row["interface_source_layer"] == self.evaluation_scope
         return {
             "case": case,
+            "recognition_outdated": self.manifest.get("matching_version") != MATCHING_VERSION,
             "evaluation_scope": scoped_evaluation.get(
                 "evaluation_scope", {"layer": self.evaluation_scope}
             ),

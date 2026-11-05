@@ -395,6 +395,10 @@ def add(
                     rule["id"] = (
                         "normal-" + fingerprint({k: v for k, v in rule.items() if k != "id"})[:20]
                     )
+            if task == "components":
+                from scene_completion.inputs.component_facts import normalize_externality
+
+                value = normalize_externality(value)
             if task == "existing-bind":
                 from scene_completion.analysis.failure_units import normalize_bindings
 
@@ -404,6 +408,10 @@ def add(
 
                 value = recognize(inputs, value, inverse=True)
             if task == "concern-match":
+                if self.mocks is None:
+                    from scene_completion.analysis.recognition_coverage import validate_coverage
+
+                    validate_coverage(value, inputs)
                 resolved = resolve_matches(inputs, value["matches"])
                 value["matches"] = resolved["matches"]
                 value["pending"] = list(

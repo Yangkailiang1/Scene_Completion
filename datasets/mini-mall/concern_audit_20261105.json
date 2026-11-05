@@ -1,0 +1,1770 @@
+{
+  "date": "2026-11-05",
+  "baseline": "924ab567ab40e948d934ca91aa3b1420e5ce4132",
+  "scope": "all five use cases audited offline; targeted recognition recheck, not a complete pipeline reevaluation",
+  "old_active_nodes": 477,
+  "old_saved_task_records": 488,
+  "cases": [
+    {
+      "case": "G-001",
+      "name": "创建商品",
+      "steps": [
+        {
+          "id": "behavior-a71d1e4fdf92e943989dbb61",
+          "step": "R1",
+          "sender": "商家",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 11,
+          "old_data_applicable": 11,
+          "current_contract_review_items": 11,
+          "input_field_count": 4,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "商家",
+              "concern_key": "human.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authorization",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "Product",
+              "concern_key": "database.uniqueness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-bc5f246338ad10915f390637",
+          "step": "S1",
+          "sender": "MiniMallPlatform",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 15,
+          "input_field_count": 5,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product",
+              "concern_key": "api.data.type",
+              "reason": "返回字段的 data_type 未给出，输出侧类型约束待确认"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.create.concurrency_consistency",
+              "reason": "创建并发一致性缺少明确并发/唯一性冲突处理要求，仅有数据库事务同商家名称唯一性"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.length",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。",
+              "concern_key": "service_relation.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.create.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-afe52859c9c8d62b92f44d0f",
+          "step": "S2",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "api.data.type",
+              "reason": "S2 要求校验数据类型，但本条交互未给出具体字段、数据类型定义或约束标准，无法定位字段级类型规则"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "S2 提及明示约束的校验，但未给出具体业务实体属性约束内容，无法确定适用规则"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "service_relation.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-b2eb6334a6c7afbb57786298",
+          "step": "S3",
+          "sender": "ProductAdminService",
+          "receiver": "CatalogDatabaseService资源服务",
+          "old_applicable": 5,
+          "old_data_applicable": 3,
+          "current_contract_review_items": 7,
+          "input_field_count": 4,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "name",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "productType",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "productType",
+              "concern_key": "api.data.range",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "price",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.create.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-72dc84616e7f11c54ae4d7c3",
+          "step": "S5",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "ProductAdminService本地构造成功响应",
+              "concern_key": "service.base.response_contract",
+              "reason": "该交互为本地构造成功响应，原文未给出返回字段、数据类型或格式约束，无法识别具体输出数据关注点。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-f057fc218441f87743f51542",
+          "step": "S7",
+          "sender": "MiniMallPlatform",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "response",
+              "concern_key": "api.data.format",
+              "reason": "原文要求校验成功响应字段、类型和约束，但未给出任何字段的具体格式规范，无法确定格式规则"
+            },
+            {
+              "object": "response",
+              "concern_key": "api.data.length",
+              "reason": "原文未给出任何字段的长度限制标准"
+            },
+            {
+              "object": "response",
+              "concern_key": "api.data.range",
+              "reason": "原文要求校验约束但未给出数值上下界或允许枚举集合"
+            },
+            {
+              "object": "productId",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "productId",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "merchantId",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "name",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "productType",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "price",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "status",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "version",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-8ec098c2c9399c04ce2daea8",
+          "step": "R3",
+          "sender": "MiniMallPlatform",
+          "receiver": "商家",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "response.productId",
+              "concern_key": "api.data.type",
+              "reason": "R3 未给出响应各字段的数据类型"
+            },
+            {
+              "object": "response.merchantId",
+              "concern_key": "api.data.type",
+              "reason": "R3 未给出响应字段数据类型"
+            },
+            {
+              "object": "response.price",
+              "concern_key": "api.data.type",
+              "reason": "R3 未给出响应字段数据类型"
+            },
+            {
+              "object": "response.status",
+              "concern_key": "api.data.range",
+              "reason": "R3 列出 status 但未给出允许取值集合（DRAFT 仅出现在 R2 处理描述，未声明为响应枚举约束）"
+            },
+            {
+              "object": "productId",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "merchantId",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "name",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "productType",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "price",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "status",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "version",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-d94704be053b8c1eae12c344",
+          "step": "S4",
+          "sender": "CatalogDatabaseService资源服务",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 1,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.productId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.status",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.version",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-6f2183fa43e4cba4ae4e4d2c",
+          "step": "S6",
+          "sender": "ProductAdminService",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "Product",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "G-002",
+      "name": "查询商品列表",
+      "steps": [
+        {
+          "id": "behavior-8cb6b5774cc8583306f30cb1",
+          "step": "R1",
+          "sender": "商家",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 9,
+          "old_data_applicable": 9,
+          "current_contract_review_items": 10,
+          "input_field_count": 5,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "商家",
+              "concern_key": "human.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authorization",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-829d620e4c2e7355c366f70e",
+          "step": "S1",
+          "sender": "MiniMallPlatform",
+          "receiver": "ProductAdminService",
+          "old_applicable": 15,
+          "old_data_applicable": 14,
+          "current_contract_review_items": 14,
+          "input_field_count": 6,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "x-merchant-id",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "x-merchant-id来自已认证商家上下文且商品仅可由同一merchantId商家访问，但本作品未明示越界读取service-id的具体校验处理位置与规则细节，按条件级保留待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-9456383d5b7edacf78dd5994",
+          "step": "S2",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "ProductAdminService",
+              "concern_key": "service.base.availability",
+              "reason": "S2声明ProductAdminService在本地校验调用身份，调用双方均为内部服务ProductAdminService自身；无对外部Service的调用，服务可用性不适用，且未明示具体身份校验规则。"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.type",
+              "reason": "S2笼统声明校验数据类型，但本次交互无任何接口字段数据，未明示具体字段与类型定义，无法建立字段级规则。"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.completeness",
+              "reason": "S2提及明示约束但未给出必填字段，本交互无数据序列，无法确定必填性。"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "service.relation.idempotency",
+              "reason": "S2提及“涉及幂等键时先检查成功记录，相同内容重放成功结果”，但本次交互为校验处理步骤，尚未确定对应业务操作为C/R/U/D中的哪一种，且未明示幂等键字段；SR内部R/U/D幂等规则在此无法确认适用操作，保留待确认。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-c2133ef79e13215da2a4ab50",
+          "step": "S3",
+          "sender": "ProductAdminService",
+          "receiver": "CatalogDatabaseService资源服务",
+          "old_applicable": 1,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 3,
+          "input_field_count": 5,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product.page",
+              "concern_key": "api.data.range",
+              "reason": "page为请求携带字段，但原文未明示页码最小值、最大值或枚举等具体范围标准。"
+            },
+            {
+              "object": "Product.pageSize",
+              "concern_key": "api.data.range",
+              "reason": "pageSize为请求携带字段，但原文未明示每页数量的上下界标准。"
+            },
+            {
+              "object": "Product.keyword",
+              "concern_key": "api.data.length",
+              "reason": "keyword为请求携带字段，但原文未明示长度等具体约束。"
+            },
+            {
+              "object": "Product.merchantId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.productType",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-a487689adab595ce25a8a729",
+          "step": "S5",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.availability",
+              "reason": "该交互为ProductAdminService内部本地构造响应的action（自调用），非外部Service调用，且原文未给出任何可用性规则，无法判定适用性。"
+            },
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.response_contract",
+              "reason": "原文仅说明本地构造接口规定的成功响应，未给出返回字段、数据类型、约束等具体规则，缺少可判定的正常约束依据。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-a1737bb1af153b95f6176618",
+          "step": "S7",
+          "sender": "MiniMallPlatform",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "MiniMallPlatform返回结果",
+              "concern_key": "service.base.response_contract",
+              "reason": "S7仅笼统要求校验成功响应的字段、类型和约束，未明示具体字段、类型标准或约束阈值，无法拆出各字段级关注点"
+            },
+            {
+              "object": "MiniMallPlatform返回结果",
+              "concern_key": "api.data.completeness",
+              "reason": "本条交互data.sequence为空，未明示返回或输入的具体字段及其必填性"
+            }
+          ]
+        },
+        {
+          "id": "behavior-5705ffe015e5d14545634dd0",
+          "step": "R3",
+          "sender": "MiniMallPlatform",
+          "receiver": "商家",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 11,
+          "input_field_count": 4,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "total",
+              "concern_key": "api.data.type",
+              "reason": "原文未给出total的数据类型/格式/取值规则"
+            },
+            {
+              "object": "page",
+              "concern_key": "api.data.type",
+              "reason": "原文未给出响应page的数据类型/取值规则"
+            },
+            {
+              "object": "pageSize",
+              "concern_key": "api.data.type",
+              "reason": "原文未给出响应pageSize的数据类型/取值规则"
+            },
+            {
+              "object": "items",
+              "concern_key": "api.data.type",
+              "reason": "原文未给出items的数据类型/元素结构"
+            },
+            {
+              "object": "items",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-2ae00d380cf7d46d622a1e8c",
+          "step": "S4",
+          "sender": "CatalogDatabaseService资源服务",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 1,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product[]",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-e5a5a51ec054680bfbf98556",
+          "step": "S6",
+          "sender": "ProductAdminService",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 11,
+          "input_field_count": 4,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "items",
+              "concern_key": "api.data.type",
+              "reason": "response.items/total/page/pageSize未声明数据类型与必填性，无明示返回数据字段规则"
+            },
+            {
+              "object": "total",
+              "concern_key": "api.data.range",
+              "reason": "响应字段total/page/pageSize无明示上下界或一致性规则"
+            },
+            {
+              "object": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.items、response.total、response.page、response.pageSize。",
+              "concern_key": "service_relation.authentication",
+              "reason": "身份/授权检查须定位到实际调用请求，不能在返回中重复计数"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "G-003",
+      "name": "更新商品",
+      "steps": [
+        {
+          "id": "behavior-80eca5c8fd892b69a73c2482",
+          "step": "R1",
+          "sender": "商家",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 13,
+          "old_data_applicable": 13,
+          "current_contract_review_items": 20,
+          "input_field_count": 7,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "productId",
+              "concern_key": "api.data.validity",
+              "reason": "原文未明确在请求接收处校验path.productId所引用商品记录在本次操作范围存在且有效（存在性/归属核对在R2作为数据库原子核对描述，未定位到请求字段引用有效性规则）。"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authorization",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "Product.productType",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.concurrency_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.resource_existence",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-9fcf07d00715ea8add9998ba",
+          "step": "S1",
+          "sender": "MiniMallPlatform",
+          "receiver": "ProductAdminService",
+          "old_applicable": 2,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 24,
+          "input_field_count": 8,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.length",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.resource_existence",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.concurrency_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.validity",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "database.uniqueness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-0adc16131ddc75f37d552ca6",
+          "step": "S2",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "api.data.type",
+              "reason": "S2要求本地校验数据类型，但本交互data.sequence为空且未指明具体字段及类型定义，无法定位到单一接口字段的数据类型规则"
+            },
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "S2提及校验明示约束，但未给出具体业务实体属性约束内容，规则未知"
+            },
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "api.data.completeness",
+              "reason": "本交互data.sequence为空，未指明必填字段，无法识别完整性规则"
+            },
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "service_relation.authentication",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "service.crud.update.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "ProductAdminService本地校验处理",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-d440fa13d6c4842e5955adfe",
+          "step": "S3",
+          "sender": "ProductAdminService",
+          "receiver": "CatalogDatabaseService资源服务",
+          "old_applicable": 1,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 11,
+          "input_field_count": 6,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product",
+              "concern_key": "api.data.completeness",
+              "reason": "交互数据未标注字段必填性（required均为null），无法确定各字段是否必填"
+            },
+            {
+              "object": "Product",
+              "concern_key": "api.data.type",
+              "reason": "SR-SSD未给出Product各字段的数据类型定义，无法整理类型规则"
+            },
+            {
+              "object": "Product不可变属性",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "原文仅提及'不可变属性'概念，未列明具体不可变属性集合，待确认"
+            },
+            {
+              "object": "CatalogDatabaseService",
+              "concern_key": "service.base.availability",
+              "reason": "未明确CatalogDatabaseService为外部第三方调用及可用性要求，作为SR内部资源服务，按规则不作为外部Service可用性检查"
+            },
+            {
+              "object": "Product.merchantId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。",
+              "concern_key": "service_relation.data_isolation",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "Product.productId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.resource_existence",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.version",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.update.concurrency_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.name",
+              "concern_key": "api.data.length",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.name",
+              "concern_key": "database.uniqueness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.price",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.productType",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.productType",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.status",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.price",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-e0a2277fa123a29327af9d46",
+          "step": "S5",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.response_contract",
+              "reason": "S5为ProductAdminService本地构造成功响应的动作，原文仅要求构造接口规定的成功响应，未给出具体字段、类型、格式或一致性约束依据，无法定位具体字段级关注点。"
+            },
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.crud.update.idempotency",
+              "reason": "normal-rules声称为更新幂等性规则，但本次交互为本地构造响应（process），无数据序列、无下游数据库调用，也无R/U/D业务实体操作证据，是否适用待业务确认。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-518bf7cee0c3f65f013cb0b7",
+          "step": "S7",
+          "sender": "MiniMallPlatform",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "MiniMallPlatform本地校验及向商家返回RR成功结果",
+              "concern_key": "api.data.completeness",
+              "reason": "S7仅笼统声明“校验该成功响应的字段、类型和约束”，未明示具体字段、必填性，无法形成可判定规则，故pending。"
+            },
+            {
+              "object": "MiniMallPlatform本地校验及向商家返回RR成功结果",
+              "concern_key": "api.data.type",
+              "reason": "S7仅笼统声明“校验字段、类型和约束”，未给出具体字段及类型定义，无法形成可判定规则，故pending。"
+            },
+            {
+              "object": "MiniMallPlatform本地校验及向商家返回RR成功结果",
+              "concern_key": "api.data.format",
+              "reason": "S7未给出任何具体格式规范，无法形成可判定规则，故pending。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-7d3a065fa43e947f4413af70",
+          "step": "R3",
+          "sender": "MiniMallPlatform",
+          "receiver": "商家",
+          "old_applicable": 5,
+          "old_data_applicable": 5,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "productType",
+              "concern_key": "api.data.range",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "status",
+              "concern_key": "api.data.range",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-1646de71c020400591ce6fd5",
+          "step": "S4",
+          "sender": "CatalogDatabaseService资源服务",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 1,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "Product",
+              "concern_key": "api.data.completeness",
+              "reason": "返回数据结构及必填字段未明确"
+            }
+          ]
+        },
+        {
+          "id": "behavior-66bda8bb564169df538c5c79",
+          "step": "S6",
+          "sender": "ProductAdminService",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.completeness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.length",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "API-SR-03",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "G-004",
+      "name": "删除商品",
+      "steps": [
+        {
+          "id": "behavior-07eec1fce8e46004bde086fe",
+          "step": "R1",
+          "sender": "商家",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 7,
+          "old_data_applicable": 7,
+          "current_contract_review_items": 12,
+          "input_field_count": 4,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "header.Authorization",
+              "concern_key": "api.data.completeness",
+              "reason": "字段表标注 Authorization 为必填，但正常规则集未实际给出该字段必填缺失的可判定依据；保留待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authorization",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04）",
+              "concern_key": "api.data.validity",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-98720af186a92abf7e13d8ff",
+          "step": "S1",
+          "sender": "MiniMallPlatform",
+          "receiver": "ProductAdminService",
+          "old_applicable": 17,
+          "old_data_applicable": 16,
+          "current_contract_review_items": 16,
+          "input_field_count": 5,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+              "concern_key": "service_relation.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.delete.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+              "concern_key": "service_relation.cross_service_consistency",
+              "reason": "缺少该关注点可判定的正常规则，不生成确定异常"
+            }
+          ]
+        },
+        {
+          "id": "behavior-f56cf61fe432ce62fa7102a4",
+          "step": "S2",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.type",
+              "reason": "该action无具体输入数据字段，无法为数据类型建立字段级规则或确定具体字段"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.completeness",
+              "reason": "原文仅笼统提及明示约束，未给出具体必填字段，无法确定数据完整性规则"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "service_relation.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-d4a053a04b8aa578a17a3962",
+          "step": "S3",
+          "sender": "ProductAdminService",
+          "receiver": "CatalogDatabaseService资源服务",
+          "old_applicable": 1,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 6,
+          "input_field_count": 3,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "CatalogDatabaseService",
+              "concern_key": "service.base.availability",
+              "reason": "本次为外部CatalogDatabaseService调用，但原文未明示服务可用性要求或调用失败处理规则"
+            },
+            {
+              "object": "Product.productId",
+              "concern_key": "api.data.completeness",
+              "reason": "productId标签为存储必填，但本次删除请求的接口必填性原文未明示"
+            },
+            {
+              "object": "Product.merchantId",
+              "concern_key": "api.data.completeness",
+              "reason": "merchantId标签为存储必填，但本次删除请求的接口必填性原文未明示"
+            },
+            {
+              "object": "Product.version",
+              "concern_key": "api.data.completeness",
+              "reason": "version标签为存储必填，但本次删除请求的接口必填性原文未明示"
+            },
+            {
+              "object": "Product.merchantId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.productId",
+              "concern_key": "api.data.format",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.version",
+              "concern_key": "api.data.type",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product.version",
+              "concern_key": "api.data.range",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.delete.resource_existence",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.crud.delete.concurrency_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "Product",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-b43e3af5f867bd8f72d08735",
+          "step": "S5",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.request_data",
+              "reason": "该交互为ProductAdminService对自身的action（S5本地构造接口规定的成功响应），data.sequence为空，原文未明示任何可校验的字段、数据类型、格式、长度、大小、范围或必填约束，无法识别具体输入数据关注点。"
+            },
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.response_contract",
+              "reason": "S5仅说明本地构造接口规定的成功响应，未给出任何响应字段、结构、类型或约束，无法识别具体输出数据关注点；也非外部Service调用，不涉及服务可用性。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-4e69b90b7e39786f119ed212",
+          "step": "S7",
+          "sender": "MiniMallPlatform",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.format",
+              "reason": "原文要求本地校验成功响应的字段、类型和约束，但未给出具体字段格式标准，无法判定具体格式规则。"
+            },
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.type",
+              "reason": "原文要求校验响应的字段和类型，但未给出具体字段的数据类型定义标准。"
+            },
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.completeness",
+              "reason": "原文要求校验字段但未明示具体必填字段清单。"
+            },
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.length",
+              "reason": "原文未给出长度约束标准。"
+            },
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.size",
+              "reason": "原文未给出大小约束标准。"
+            },
+            {
+              "object": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+              "concern_key": "api.data.range",
+              "reason": "原文笼统提及约束，未给出明确数值上下界或枚举集合。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-b6dc9f777bba75c73d38a8cf",
+          "step": "R3",
+          "sender": "MiniMallPlatform",
+          "receiver": "商家",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 5,
+          "input_field_count": 2,
+          "new_response_contract_added": true,
+          "old_pending": []
+        },
+        {
+          "id": "behavior-0bb9038a075711383f8509e7",
+          "step": "S4",
+          "sender": "CatalogDatabaseService资源服务",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 1,
+          "new_response_contract_added": false,
+          "old_pending": []
+        },
+        {
+          "id": "behavior-01efbe7619547de48a187d84",
+          "step": "S6",
+          "sender": "ProductAdminService",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 5,
+          "input_field_count": 2,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "productId",
+              "concern_key": "api.data.completeness",
+              "reason": "S6 仅明示返回 response.productId，未明示必填或可空及类型"
+            },
+            {
+              "object": "deleted",
+              "concern_key": "api.data.type",
+              "reason": "S6 仅明示返回 response.deleted，未明示其类型、必填性及取值约束"
+            },
+            {
+              "object": "deleted",
+              "concern_key": "api.data.completeness",
+              "reason": "S6 仅明示返回 response.deleted，未明示必填或可空"
+            },
+            {
+              "object": "productId",
+              "concern_key": "api.data.type",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "G-005",
+      "name": "发布商品",
+      "steps": [
+        {
+          "id": "behavior-4a0794f2d1ccc198befa716f",
+          "step": "R1",
+          "sender": "商家",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 12,
+          "old_data_applicable": 12,
+          "current_contract_review_items": 12,
+          "input_field_count": 4,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "MiniMallPlatform",
+              "concern_key": "service.base.request_data",
+              "reason": "本交互缺少接收方本地处理规则（R2 未出现在任何交互原文引文中），无法绑定具体校验条件与字段。"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authentication",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            },
+            {
+              "object": "商家",
+              "concern_key": "human.authorization",
+              "reason": "认证或授权的适用条件和正常规则待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-5705c2b0cb2a3519fb0cec32",
+          "step": "S1",
+          "sender": "MiniMallPlatform",
+          "receiver": "ProductAdminService",
+          "old_applicable": 13,
+          "old_data_applicable": 12,
+          "current_contract_review_items": 16,
+          "input_field_count": 5,
+          "new_response_contract_added": false,
+          "old_pending": []
+        },
+        {
+          "id": "behavior-b15d774b1bee824297c69bc6",
+          "step": "S2",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 1,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.length",
+              "reason": "S2提及明示约束但未列出长度标准，无法确定长度规则"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.range",
+              "reason": "S2提及明示约束但未列出数值上下界或枚举集合"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.size",
+              "reason": "S2未明确大小限制要求"
+            },
+            {
+              "object": "ProductAdminService",
+              "concern_key": "api.data.validity",
+              "reason": "S2未明确字段引用关系与有效性规则"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "api.data.type",
+              "reason": "字段位置或参数定义待确认"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "api.data.completeness",
+              "reason": "字段位置或参数定义待确认"
+            },
+            {
+              "object": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+              "concern_key": "api.data.format",
+              "reason": "字段位置或参数定义待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-a93fbc2bada75e5edfdf60b5",
+          "step": "S3",
+          "sender": "ProductAdminService",
+          "receiver": "CatalogDatabaseService资源服务",
+          "old_applicable": 4,
+          "old_data_applicable": 3,
+          "current_contract_review_items": 6,
+          "input_field_count": 3,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.crud.update.resource_existence",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.business_attribute_constraint",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.release_activation.prerequisite",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.crud.update.concurrency_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.release_activation.result_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.resource_mutation.idempotency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-b42d69b3a621097923490921",
+          "step": "S5",
+          "sender": "ProductAdminService",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.response_contract",
+              "reason": "该交互为ProductAdminService本地构造成功响应的action，data.sequence为空，原文未描述任何返回数据字段、类型或约束，无法识别具体的输出数据关注点。"
+            },
+            {
+              "object": "S5. ProductAdminService本地构造接口规定的成功响应。",
+              "concern_key": "service.base.request_data",
+              "reason": "同一服务本地构造响应，无请求输入数据字段，请求数据关注点缺乏具体规则依据。"
+            }
+          ]
+        },
+        {
+          "id": "behavior-77cfeae0a69322825a1ad771",
+          "step": "S7",
+          "sender": "MiniMallPlatform",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 0,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "响应数据 productId/merchantId/name/productType/price/status/version",
+              "concern_key": "service.base.response_contract",
+              "reason": "S7仅声明校验成功响应的字段、类型和约束，未给出具体类型、格式、长度或取值范围标准，无法形成可判定的字段级数据规则"
+            },
+            {
+              "object": "MiniMallPlatform本地校验成功响应",
+              "concern_key": "service.display_interaction.display_correctness",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-a73b14296ad04ac32614f872",
+          "step": "R3",
+          "sender": "MiniMallPlatform",
+          "receiver": "商家",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "MiniMallPlatform",
+              "concern_key": "service.base.response_contract",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            },
+            {
+              "object": "productId",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "merchantId",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "name",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "productType",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "price",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "status",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            },
+            {
+              "object": "version",
+              "concern_key": "api.data.completeness",
+              "reason": "该字段的具体约束待确认"
+            }
+          ]
+        },
+        {
+          "id": "behavior-648e8608dc856456080f2a1f",
+          "step": "S4",
+          "sender": "CatalogDatabaseService资源服务",
+          "receiver": "ProductAdminService",
+          "old_applicable": 0,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 0,
+          "input_field_count": 1,
+          "new_response_contract_added": false,
+          "old_pending": [
+            {
+              "object": "CatalogDatabaseService.compareAndPublishProduct",
+              "concern_key": "service.release_activation.result_consistency",
+              "reason": "四要素位置或具体对象不唯一，需确认；不回退为整个请求"
+            }
+          ]
+        },
+        {
+          "id": "behavior-dc0248ff9a0613de0e495d95",
+          "step": "S6",
+          "sender": "ProductAdminService",
+          "receiver": "MiniMallPlatform",
+          "old_applicable": 1,
+          "old_data_applicable": 0,
+          "current_contract_review_items": 21,
+          "input_field_count": 7,
+          "new_response_contract_added": true,
+          "old_pending": [
+            {
+              "object": "response",
+              "concern_key": "service.base.response_contract",
+              "reason": "S6仅列出返回字段名称，未给出各返回字段类型/必填性/格式等具体约束，无法形成可执行规则"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "verified_recognition_nodes": [
+    {
+      "key": "G-001:recognition-R1",
+      "interaction_id": "behavior-a71d1e4fdf92e943989dbb61",
+      "data_only": false,
+      "applicable": 13,
+      "data_applicable": 11,
+      "human_applicable": [
+        "human.authentication",
+        "human.authorization"
+      ],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-001:recognition-S1",
+      "interaction_id": "behavior-bc5f246338ad10915f390637",
+      "data_only": false,
+      "applicable": 17,
+      "data_applicable": 15,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-001:recognition-R3",
+      "interaction_id": "behavior-8ec098c2c9399c04ce2daea8",
+      "data_only": false,
+      "applicable": 21,
+      "data_applicable": 21,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-001:recognition-S6",
+      "interaction_id": "behavior-6f2183fa43e4cba4ae4e4d2c",
+      "data_only": false,
+      "applicable": 21,
+      "data_applicable": 21,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-002:recognition-R1",
+      "interaction_id": "behavior-8cb6b5774cc8583306f30cb1",
+      "data_only": false,
+      "applicable": 12,
+      "data_applicable": 10,
+      "human_applicable": [
+        "human.authentication",
+        "human.authorization"
+      ],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-002:recognition-S1",
+      "interaction_id": "behavior-829d620e4c2e7355c366f70e",
+      "data_only": false,
+      "applicable": 16,
+      "data_applicable": 14,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-004:recognition-R1",
+      "interaction_id": "behavior-07eec1fce8e46004bde086fe",
+      "data_only": false,
+      "applicable": 14,
+      "data_applicable": 12,
+      "human_applicable": [
+        "human.authentication",
+        "human.authorization"
+      ],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-004:recognition-S6",
+      "interaction_id": "behavior-01efbe7619547de48a187d84",
+      "data_only": false,
+      "applicable": 5,
+      "data_applicable": 5,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    },
+    {
+      "key": "G-003:recognition-S1-data",
+      "interaction_id": "behavior-9fcf07d00715ea8add9998ba",
+      "data_only": true,
+      "applicable": 24,
+      "data_applicable": 24,
+      "human_applicable": [],
+      "notes": "当前规范化重放，复用已完成的独立模型识别；没有工具补入未识别关注点。"
+    }
+  ],
+  "not_reexecuted_nodes": [
+    "G-002:recognition-R3",
+    "G-002:recognition-S6",
+    "G-003:recognition-R1",
+    "G-003:recognition-S1",
+    "G-003:recognition-S6",
+    "G-004:recognition-S1",
+    "G-005:recognition-R1",
+    "G-005:recognition-S1",
+    "G-005:recognition-S6"
+  ],
+  "usage": {
+    "reported_total_tokens": 187203,
+    "approved_incremental_max": 200000,
+    "pipeline_events": {
+      "calls": 37,
+      "not_sent_calls": 27,
+      "completed_calls": 10,
+      "unknown_usage_calls": 0,
+      "in_flight_calls": 0,
+      "input_tokens": 150067,
+      "output_tokens": 26942,
+      "reasoning_tokens": 0,
+      "reported_total_tokens": 177009,
+      "request_seconds": 330.2459292411804
+    },
+    "direct_data_recheck": {
+      "prompt_tokens": 5490,
+      "completion_tokens": 4704,
+      "total_tokens": 10194,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 5490
+    },
+    "unknown_usage_not_counted_as_zero": true
+  },
+  "confirmed_decisions": [
+    "S2本地校验没有独立数据时不另挂数据关注点；数据约束在实际请求上计一次。",
+    "Admin明确承接业务操作并委托数据库时，自己的入口也标对应CRUD；本地校验/响应构造不自动算CRUD。"
+  ],
+  "fixes": [
+    "G/E/GT物理资源与逻辑资源使用同一映射，避免唯一性约束拆成两行。",
+    "显式字段检查增加覆盖校验和字段清单；未定位到字段不能静默作为识别成功。",
+    "已识别安全规则恢复有来源的activation guard；条件明确但通用value为空不再误作规则未知。",
+    "API JSON分别接入请求、成功响应和失败响应，失败字段不混入成功响应。",
+    "字段约束按独立分句解析，长度不误作数值范围，枚举保留离散集合。",
+    "按实际交互拆分识别；返回分片也过滤无关文档、规则及实体上下文。",
+    "CRUD支持已证据化的delegated模式和下游调用定位。",
+    "结果页显示已确认/待确认/不适用数量、原因和历史结果提示。"
+  ],
+  "limitations": [
+    "尚未在新规则及补齐返回契约后重跑所有下游场景、比较和指标；旧指标不宣称为修复后指标。",
+    "新增CRUD委托识别已离线验证，现有模型矩阵未全量重抽。",
+    "本轮部分节点受累计预算预留保护停止；既有成功结果和失败日志均保留。"
+  ]
+}

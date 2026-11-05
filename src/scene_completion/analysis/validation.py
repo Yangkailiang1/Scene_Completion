@@ -97,6 +97,29 @@ def validate_result(task, payload, inputs):
                 )
             if row["case_id"] != interactions[row["interaction_id"]]["case_id"]:
                 raise ValueError("CRUD case/interaction mismatch")
+            if row.get("execution_mode") == "delegated":
+                owner = interactions[row["interaction_id"]]
+                if (
+                    owner["direction"] != "request"
+                    or owner.get("step_kind") == "action"
+                    or row["service"] != owner["receiver"]["name"]
+                ):
+                    raise ValueError(
+                        "delegated CRUD must belong to the actual receiving business service, not a local action"
+                    )
+                delegates = row.get("delegate_interaction_ids", [])
+                if not delegates or any(
+                    key not in interactions
+                    or key == owner["id"]
+                    or interactions[key]["case_id"] != owner["case_id"]
+                    or interactions[key]["direction"] != "request"
+                    or interactions[key].get("step_kind") == "action"
+                    or interactions[key]["sender"]["name"] != row["service"]
+                    for key in delegates
+                ):
+                    raise ValueError(
+                        "delegated CRUD requires an evidenced downstream call by that same service in the same use case"
+                    )
     if task == "business-dependencies":
         known = {e["id"] for e in inputs["business-entities"]["entities"]}
         for row in payload["dependencies"]:
@@ -666,7 +689,22 @@ def validate_result(task, payload, inputs):
             for m in payload["matches"]:
                 i = by_id[m["interaction_id"]]
                 d = definitions[m["concern_key"]]
-                if m["target"] in {"sender", "receiver"} and m["object"] != i[m["target"]]["name"]:
+                if m["concern_key"].startswith("api.data.") and m["target"] != "data":
+                    raise ValueError(
+                        "data concern must target a concrete data field, not a party or operation"
+                    )
+                party_object = m["object"]
+                if m["target"] in {"sender", "receiver"}:
+                    from scene_completion.analysis.interaction_enrichment import resource_metadata
+
+                    components = inputs.get("components", {"components": []})
+                    names = {c["id"]: c["name"] for c in components["components"]}
+                    aliases = {
+                        names[s["physical_resource_id"]]: s["name"]
+                        for s in resource_metadata(components)["resource_services"]
+                    }
+                    party_object = aliases.get(party_object, party_object)
+                if m["target"] in {"sender", "receiver"} and party_object != i[m["target"]]["name"]:
                     raise ValueError(
                         "concern party must be actual sender/receiver: "
                         + m["interaction_id"]

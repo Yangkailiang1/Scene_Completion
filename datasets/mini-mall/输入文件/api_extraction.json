@@ -18,7 +18,46 @@
         "file": "系统需求_spec.md",
         "line": 19,
         "quote": "- 接口：API-RR-01 POST /v1/products；source_layer=RR。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "系统需求_spec.md",
+          "line": 30,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 31,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 32,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 33,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 34,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 35,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 36,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "201"
     },
     {
       "API序号": "API-SR-01",
@@ -37,7 +76,46 @@
         "file": "功能设计_spec.md",
         "line": 13,
         "quote": "- AR-MINI-001实现接口：ProductAdminService.createProduct对应API-SR-01 POST /ms/v1/products，操作Product并调用CatalogDatabaseService.createProduct。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "功能设计_spec.md",
+          "line": 58,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 59,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 60,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 61,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 62,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 63,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 64,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "201"
     },
     {
       "API序号": "API-RR-02",
@@ -56,7 +134,31 @@
         "file": "系统需求_spec.md",
         "line": 47,
         "quote": "- 接口：API-RR-02 GET /v1/products；source_layer=RR。"
-      }
+      },
+      "API成功响应参数": "response.items（必填；类型: array；每项为Product；仅包含当前merchantId商品；数量不超过pageSize）；response.total（必填；类型: integer；total >= 0）；response.page（必填；类型: integer；page >= 1）；response.pageSize（必填；类型: integer；1 <= pageSize <= 100）",
+      "成功响应来源": [
+        {
+          "file": "系统需求_spec.md",
+          "line": 59,
+          "quote": "- response.items（必填；类型: array；每项为Product；仅包含当前merchantId商品；数量不超过pageSize）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 60,
+          "quote": "- response.total（必填；类型: integer；total >= 0）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 61,
+          "quote": "- response.page（必填；类型: integer；page >= 1）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 62,
+          "quote": "- response.pageSize（必填；类型: integer；1 <= pageSize <= 100）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-SR-02",
@@ -75,7 +177,31 @@
         "file": "功能设计_spec.md",
         "line": 14,
         "quote": "- AR-MINI-001实现接口：ProductAdminService.listProducts对应API-SR-02 GET /ms/v1/products，操作Product并调用CatalogDatabaseService.listProducts。"
-      }
+      },
+      "API成功响应参数": "response.items（必填；类型: array；每项为Product；仅包含当前merchantId商品；数量不超过pageSize）；response.total（必填；类型: integer；total >= 0）；response.page（必填；类型: integer；page >= 1）；response.pageSize（必填；类型: integer；1 <= pageSize <= 100）",
+      "成功响应来源": [
+        {
+          "file": "功能设计_spec.md",
+          "line": 96,
+          "quote": "- response.items（必填；类型: array；每项为Product；仅包含当前merchantId商品；数量不超过pageSize）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 97,
+          "quote": "- response.total（必填；类型: integer；total >= 0）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 98,
+          "quote": "- response.page（必填；类型: integer；page >= 1）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 99,
+          "quote": "- response.pageSize（必填；类型: integer；1 <= pageSize <= 100）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-RR-03",
@@ -94,7 +220,46 @@
         "file": "系统需求_spec.md",
         "line": 73,
         "quote": "- 接口：API-RR-03 PUT /v1/products/{productId}；source_layer=RR。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "系统需求_spec.md",
+          "line": 87,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 88,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 89,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 90,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 91,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 92,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 93,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-SR-03",
@@ -113,7 +278,46 @@
         "file": "功能设计_spec.md",
         "line": 15,
         "quote": "- AR-MINI-001实现接口：ProductAdminService.updateProduct对应API-SR-03 PUT /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndUpdateProduct。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "功能设计_spec.md",
+          "line": 132,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 133,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 134,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 135,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 136,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 137,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 138,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-RR-04",
@@ -132,7 +336,21 @@
         "file": "系统需求_spec.md",
         "line": 104,
         "quote": "- 接口：API-RR-04 DELETE /v1/products/{productId}；source_layer=RR。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$）；response.deleted（必填；类型: boolean；成功删除时deleted=true）",
+      "成功响应来源": [
+        {
+          "file": "系统需求_spec.md",
+          "line": 115,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 116,
+          "quote": "- response.deleted（必填；类型: boolean；成功删除时deleted=true）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-SR-04",
@@ -151,7 +369,21 @@
         "file": "功能设计_spec.md",
         "line": 16,
         "quote": "- AR-MINI-001实现接口：ProductAdminService.deleteProduct对应API-SR-04 DELETE /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndDeleteProduct。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$）；response.deleted（必填；类型: boolean；成功删除时deleted=true）",
+      "成功响应来源": [
+        {
+          "file": "功能设计_spec.md",
+          "line": 168,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 169,
+          "quote": "- response.deleted（必填；类型: boolean；成功删除时deleted=true）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-RR-05",
@@ -170,7 +402,46 @@
         "file": "系统需求_spec.md",
         "line": 127,
         "quote": "- 接口：API-RR-05 POST /v1/products/{productId}/publish；source_layer=RR。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "系统需求_spec.md",
+          "line": 138,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 139,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 140,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 141,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 142,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 143,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "系统需求_spec.md",
+          "line": 144,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "200"
     },
     {
       "API序号": "API-SR-05",
@@ -189,7 +460,46 @@
         "file": "功能设计_spec.md",
         "line": 17,
         "quote": "- AR-MINI-001实现接口：ProductAdminService.publishProduct对应API-SR-05 POST /ms/v1/products/{productId}/publish，操作Product并调用CatalogDatabaseService.compareAndPublishProduct。"
-      }
+      },
+      "API成功响应参数": "response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）；response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）；response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）；response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）；response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）；response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）；response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）",
+      "成功响应来源": [
+        {
+          "file": "功能设计_spec.md",
+          "line": 199,
+          "quote": "- response.productId（必填；类型: string；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 200,
+          "quote": "- response.merchantId（必填；类型: string；格式 ^M[0-9]{3}$；商品仅可由同一merchantId的商家访问）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 201,
+          "quote": "- response.name（必填；类型: string；长度 1-50；同一merchantId下name不可重名；不同商家可重名）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 202,
+          "quote": "- response.productType（必填；类型: string；枚举 {STANDARD|SERVICE}；创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 203,
+          "quote": "- response.price（必填；类型: number；0 <= price <= 10000；productType为SERVICE时price必须大于等于1）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 204,
+          "quote": "- response.status（必填；类型: string；枚举 {DRAFT|PUBLISHED}；创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除）"
+        },
+        {
+          "file": "功能设计_spec.md",
+          "line": 205,
+          "quote": "- response.version（必填；类型: integer；version >= 1；创建后为1；有效更新或发布成功增加1；重复幂等请求不增加）"
+        }
+      ],
+      "成功状态码": "200"
     }
   ],
   "srs": [

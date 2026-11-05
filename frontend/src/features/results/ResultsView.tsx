@@ -626,6 +626,11 @@ export function ResultsView({
                     当前为历史场景结果，尚无新版独立关注点识别；请继续运行生成新版结果。旧场景不反推为关注点层G。
                   </p>
                 )}
+                {detail.recognition_outdated && (
+                  <p className="management-notice">
+                    当前展示的是修订前的冻结结果，尚未按新的字段识别和对象定位规则重验。历史指标保持原值；请勿将此表视为修复后的结果。
+                  </p>
+                )}
                 <label className="alignment-filter">
                   <input
                     type="checkbox"
@@ -634,6 +639,28 @@ export function ResultsView({
                   />
                   只看未完整对应／冲突项
                 </label>
+                {comparisonLayer === "concerns" && row.recognition_summary && (
+                  <details className="management-notice">
+                    <summary>
+                      本方法识别状态：已确认{" "}
+                      {row.recognition_summary.applicable} 项 ，待确认{" "}
+                      {row.recognition_summary.pending.length} 项 ，不适用{" "}
+                      {row.recognition_summary.not_applicable} 项 · 点击查看原因
+                    </summary>
+                    {row.recognition_summary.note && (
+                      <p>{row.recognition_summary.note}</p>
+                    )}
+                    {row.recognition_summary.pending.map(
+                      (item: any, n: number) => (
+                        <p key={n}>
+                          <strong>{item.object}</strong> ·{" "}
+                          {defs[item.concern_key]?.label || item.concern_key}：
+                          {item.reason}
+                        </p>
+                      ),
+                    )}
+                  </details>
+                )}
                 {comparisonLayer === "concerns" && detail.matching_version ? (
                   <ConcernAlignmentTable
                     rows={row.concern_rows || []}

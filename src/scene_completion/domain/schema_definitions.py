@@ -565,6 +565,10 @@ CRUD_ROW = obj(
     basis=S,
     source_refs=REFS,
 )
+CRUD_ROW["properties"].update(
+    execution_mode=enum("direct", "delegated"),
+    delegate_interaction_ids=arr(S),
+)
 FIELD_MAPPING = obj(
     api_id=S,
     direction=enum("request", "return"),

@@ -44,10 +44,12 @@ scene.cmd create --name "指定路径验收" --input-manifest "C:\paths.json" --
 | RR结构模型：`scope.model_level=RR`、`entities`、`relations` | `rr-use-cases`；本层已有异常分支发现 | RR/SR对应、融合SSD、实际交互定位 |
 | SR结构模型：`scope.model_level=SR` | `sr-use-cases`；本层已有异常分支发现 | 以上对应与建模；异常逆向关注点及细化 |
 | 功能树：`functions[].rrLayer/srLayer` | `business-entities-imports`中的实体及按用例保留的属性；为CRUD、字段映射和交互属性补全提供依据 | 未覆盖用例的实体信息；实际CRUD、实体依赖和业务依赖；LLM关注点识别 |
-| 接口文件：`apis`中文字段、`services`及`software_units` | 按明确层级的API映射；`api-parameters-part-*`中的已声明请求部分 | 未提供层的独立接口、未知字段属性和成功／失败响应；不伪造完整响应 |
+| 接口文件：`apis`中文字段、`services`及`software_units` | 按明确层级的API映射；`api-parameters-part-*`中的已声明请求、成功及失败响应部分 | 未提供层的独立接口、未知字段属性和未声明响应；不伪造完整响应 |
 | 测试JSON：用例数组及`extensions` | `test-inventory`字面目录 | 测试用例对应、具体交互定位、关注点识别、具体场景与两层计分 |
 
 测试文件自动登记为独立测试来源；不能作为已有需求异常E或正向生成G的输入。场景成功备选不计异常，无法明确分类的保留待确认，未覆盖用例显示未评测。
+
+接口JSON的`API请求参数`继续使用`body.name（必填；类型: string；长度 1-50）`等字面声明。可选字段`API成功响应参数`使用同样格式但以`response.`定位，例如`response.name（必填；类型: string）`；`成功状态码`保存明确的状态码。`API失败响应`为数组，每项包含`状态码`及`参数`，如`{"状态码":400,"参数":"response.error.code（必填；类型: string）"}`。成功响应进入返回契约；失败字段只保存到对应失败响应，不混入成功字段。缺少任一部分时保留缺项，不从另一层接口自动补齐。
 
 ## 明确的复用边界
 

@@ -33,6 +33,23 @@ def validate():
     check({r["id"]: r["name"] for r in test} == CASES, "测试用例不一致")
     api_ids = {a["API序号"] for a in apis}
     check(len(api_ids) == len(apis) == 10, "需要10个独立RR/SR接口")
+    for api in apis:
+        refs = api.get("成功响应来源", [])
+        check(bool(refs), f"{api['API序号']}: 成功响应缺来源")
+        quoted = []
+        for ref in refs:
+            doc = ROOT / ref["file"]
+            lines = doc.read_text(encoding="utf-8").splitlines()
+            line = ref["line"]
+            check(
+                1 <= line <= len(lines) and lines[line - 1] == ref["quote"],
+                f"{api['API序号']}: 成功响应原文定位不符",
+            )
+            quoted.append(ref["quote"].removeprefix("- "))
+        check(
+            "；".join(quoted) == api.get("API成功响应参数"),
+            f"{api['API序号']}: 成功响应字段与引文不符",
+        )
     for n, (cid, name) in enumerate(CASES.items(), 1):
         for layer in ("RR", "SR"):
             aid = f"API-{layer}-{n:02d}"

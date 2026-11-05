@@ -232,3 +232,63 @@ test("BDD is selectable with SVG preview and editable PlantUML download", async 
     screen.getByRole("link", { name: "下载PUML" }).getAttribute("download"),
   ).toBe("system-bdd.puml");
 });
+
+test("frozen results distinguish pending recognition from current successful checks", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(
+    async (url) =>
+      ({
+        ok: true,
+        json: async () =>
+          String(url).split("?")[0].endsWith("/results")
+            ? {
+                complete: true,
+                cases: [{ id: "C", name: "创建" }],
+                artifacts: [],
+              }
+            : {
+                case: { id: "C" },
+                matching_version: "old",
+                recognition_outdated: true,
+                definitions: { type: { label: "数据类型" } },
+                unbound: {},
+                interactions: [
+                  {
+                    interaction: {
+                      id: "i",
+                      sequence: 1,
+                      layer: "SR",
+                      direction: "request",
+                      sender: { name: "P" },
+                      receiver: { name: "A" },
+                      operation: { name: "创建" },
+                      data: { sequence: [] },
+                    },
+                    channels: { E: [], G: [], GT: [] },
+                    concerns: { E: [], G: [], GT: [] },
+                    concern_rows: [],
+                    alignment_rows: [],
+                    missing_ids: [],
+                    recognition_summary: {
+                      applicable: 0,
+                      not_applicable: 1,
+                      pending: [
+                        {
+                          object: "name",
+                          concern_key: "type",
+                          reason: "旧识别未定位字段",
+                        },
+                      ],
+                      note: "本地处理未声明独立数据字段",
+                    },
+                  },
+                ],
+              },
+      }) as Response,
+  );
+  render(<ResultsView project="frozen-recognition" />);
+  await screen.findByText(/修订前的冻结结果/);
+  fireEvent.click(await screen.findByRole("button", { name: "关注点层" }));
+  expect(screen.getByText(/本方法识别状态：已确认/)).toBeTruthy();
+  expect(screen.getByText(/旧识别未定位字段/)).toBeTruthy();
+  expect(screen.getByText("本地处理未声明独立数据字段")).toBeTruthy();
+});

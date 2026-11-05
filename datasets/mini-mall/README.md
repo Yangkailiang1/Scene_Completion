@@ -15,7 +15,7 @@
 | `输入文件/structure_model_fusion/AR/structure_model.json` | 可选AR结构模型；不默认为本轮权威建模材料 |
 | `输入文件/structure_model_fusion.json` | 合并结构视图，保留查看，不冒充额外需求 |
 | `输入文件/功能树.json` | 业务实体、属性及接口对应 |
-| `输入文件/api_extraction.json` | 10个RR/SR独立接口的已声明参数 |
+| `输入文件/api_extraction.json` | 10个RR/SR独立接口的请求与成功响应参数，分别保留来源 |
 | `输入文件/recovered_usecases.json` | 独立测试；明确异常进入GT，成功／待定不计入异常集合 |
 | `输入文件/行为模型/Product/<用例>/SysOperation.json` | 融合操作段的交互与action定义 |
 | `输入文件/行为模型/Product/<用例>/SSD.json` | RR场景及系统操作段对应 |
@@ -38,6 +38,8 @@ python validate_dataset.py
 
 数据集随GitHub／Gitee源码发布，位于`datasets/`，不复制进Windows离线程序包。运行数据、模型响应、密钥和用量账本不在此目录。
 
-## 本轮实测
+## 历史实测与当前修订
 
-5个用例及全局链路已完成，488个有效节点通过。结果质量待核查项、SR指标和历史累计用量见[验收记录](验收记录.md)及[结构化报告](acceptance_report.json)。
+此前5个用例及全局链路完成的冻结记录见[验收记录](验收记录.md)及[结构化报告](acceptance_report.json)。其中488是保存的成功任务记录数；核对当前DAG后，有效节点为477项，其余11项为历史分片，不能作为当前进度计数。
+
+当前版本补齐了原Markdown已经声明、但接口JSON漏带的成功响应契约，并修复字段识别、资源身份及CRUD委托职责处理。全五例核查与9个识别节点的定向重验见[关注点识别核查](关注点识别核查.md)及[结构化核查报告](concern_audit_20261105.json)。旧指标保持冻结，不表示当前修订后的全链路指标；尚未重算所有下游场景、匹配和评测。

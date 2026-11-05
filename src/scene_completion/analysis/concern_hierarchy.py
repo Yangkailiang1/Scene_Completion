@@ -243,6 +243,14 @@ def applicability(match, interaction, inputs):
     if definition["operation_kinds"] and not ctx["kinds"] & set(definition["operation_kinds"]):
         return "not_applicable", "关注点不适用于本次实际操作，不能使用其他支持能力"
     key = match["concern_key"]
+    if (
+        definition["layer"] == "relation"
+        and interaction["sender"]["name"] == interaction["receiver"]["name"]
+    ):
+        return (
+            "not_applicable",
+            "本地处理不是独立的服务间调用边；调用认证、授权与隔离在实际请求上检查",
+        )
     if key == "service.base.availability":
         return (
             ("applicable", "本次调用外部Service")
@@ -341,6 +349,25 @@ def concern_scope(match):
     return "service"
 
 
+def _security_condition_supported(condition, refs):
+    # Normative modality does not change the declared predicate. Negation does.
+    def normalized(text):
+        return text.replace("必须", "").replace("应当", "")
+
+    quoted = normalized(" ".join(r["quote"] for r in refs))
+    for token in condition.split():
+        token = normalized(token)
+        pos = quoted.find(token)
+        if pos < 0:
+            return False
+        prefix = re.split(r"[；;。\n]", quoted[:pos])[-1][-12:]
+        if re.search(r"无需|不要求|不需要|不必", prefix) and not re.search(
+            r"无需|不要求|不需要|不必", condition
+        ):
+            return False
+    return bool(condition)
+
+
 def decorate(match, interaction, inputs):
     m = deepcopy(match)
     ctx = context(interaction, inputs)
@@ -348,6 +375,24 @@ def decorate(match, interaction, inputs):
     m.setdefault("scope", concern_scope(m))
     m.setdefault("data_location", None)
     m.setdefault("activation_evidence", [])
+    # Security applicability is a declared requirement, not a numerical
+    # threshold. A model may correctly cite it but leave the generic value
+    # slot null. Restore only its verbatim, evidenced condition; never infer
+    # authentication from an Authorization field name alone.
+    for guard in m["activation_evidence"]:
+        if (
+            guard.get("kind") not in {"authentication", "authorization"}
+            or guard.get("value") is not None
+            or guard.get("status", "explicit") != "explicit"
+        ):
+            continue
+        condition = guard.get("condition", "").strip()
+        if _security_condition_supported(condition, guard.get("source_refs", [])):
+            guard["value"] = (
+                False
+                if re.search(r"(?:无需|不需要|不要求).*(?:认证|鉴权|授权|权限)", condition)
+                else condition
+            )
     m["service"] = ctx["name"] if ctx["service"] else None
     m["functional_types"] = ctx["functions"]
     m["technologies"] = ctx["technologies"]

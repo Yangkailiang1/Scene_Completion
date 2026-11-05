@@ -71,6 +71,19 @@
               ],
               "additionalProperties": false
             }
+          },
+          "execution_mode": {
+            "enum": [
+              "direct",
+              "delegated"
+            ]
+          },
+          "delegate_interaction_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "required": [

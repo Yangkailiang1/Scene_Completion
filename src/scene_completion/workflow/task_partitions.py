@@ -22,6 +22,39 @@ def _documents_at(documents, refs):
     ]
 
 
+def _scope_recognition_unit(q):
+    """Retain one call's facts, including evidence for its known contract.
+
+    Return-only partitions previously retained every normal rule and document,
+    which hid the response contract among unrelated requests and evidence.
+    """
+    from scene_completion.analysis.interaction_enrichment import resolved_api_id
+
+    rows = q.get("enriched-interactions", {}).get("interactions", [])
+    ids = {i["id"] for i in rows}
+    api_ids = {resolved_api_id(i, q) for i in rows}
+    if "api-parameters" in q:
+        q["api-parameters"]["apis"] = [a for a in q["api-parameters"]["apis"] if a["id"] in api_ids]
+    if "normal-rules" in q:
+        q["normal-rules"] = {
+            k: [r for r in values if r.get("interaction_id") in ids]
+            for k, values in q["normal-rules"].items()
+        }
+    if "business-crud" in q:
+        q["business-crud"]["rows"] = [
+            r for r in q["business-crud"]["rows"] if r["interaction_id"] in ids
+        ]
+        entities = {r["entity_id"] for r in q["business-crud"]["rows"]}
+        if "business-entities" in q:
+            q["business-entities"]["entities"] = [
+                e for e in q["business-entities"]["entities"] if e["id"] in entities
+            ]
+    if "normal-documents" in q:
+        material = {k: v for k, v in q.items() if k != "normal-documents"}
+        q["normal-documents"] = _documents_at(q["normal-documents"], evidence_refs(material))
+    return q
+
+
 def split_task(task, inputs):
     if task in {"existing-extract", "test-ground-truth"} and inputs.get("identified-concerns"):
         # Keep the existing source-unit partition, then refine independent
@@ -130,6 +163,11 @@ def split_task(task, inputs):
                 for i in rows
                 if i["direction"] == "return" and i.get("parent_id") == request["id"]
             }
+            if task == "concern-match":
+                # Recognition has one four-tuple identity per call. Mixing a
+                # typed request with an untyped response encourages entity-level
+                # summaries and loses field-level observations.
+                ids = {request["id"]}
             q = deepcopy(inputs)
             for key in ("rr-ssd", "sr-ssd", "enriched-interactions"):
                 if key in q:
@@ -179,13 +217,17 @@ def split_task(task, inputs):
         }
         missing = [i for i in rows if i["id"] not in covered]
         if missing:
-            q = deepcopy(inputs)
-            for key in ("rr-ssd", "sr-ssd", "enriched-interactions"):
-                if key in q:
-                    q[key]["interactions"] = [
-                        i for i in q[key]["interactions"] if i["id"] in {m["id"] for m in missing}
-                    ]
-            units.append(("unpaired-returns", q))
+            for group in ([m] for m in missing) if task == "concern-match" else [missing]:
+                q = deepcopy(inputs)
+                for key in ("rr-ssd", "sr-ssd", "enriched-interactions"):
+                    if key in q:
+                        q[key]["interactions"] = [
+                            i for i in q[key]["interactions"] if i["id"] in {m["id"] for m in group}
+                        ]
+                units.append((group[0]["id"] if task == "concern-match" else "unpaired-returns", q))
+        if task == "concern-match":
+            for _, q in units:
+                _scope_recognition_unit(q)
         return units
     if task in {"existing-bind", "existing-extract", "existing-concerns"}:
         units = []

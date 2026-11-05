@@ -254,7 +254,9 @@ def packet(task, inputs, case_ids=None):
     }:
         optional = optional | {"normal-rules"}
     if task == "concern-match":
-        optional |= {"business-crud", "business-entities"}
+        optional |= {"business-crud", "business-entities", "recognition_scope"}
+        if inputs.get("recognition_scope", "all") not in {"all", "data"}:
+            raise ValueError("unknown concern recognition scope")
     if task == "normal-rules":
         optional = optional | {"registry"}
     if task == "artifact-convert":

@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v3-sr-idempotency-policy"
+VERSION = "two-level-concern-scenario-v4-resource-identity-field-coverage"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -33,7 +33,16 @@ def interaction_rows(inputs):
     if "fused-ssd" in inputs and "enriched-interactions" not in inputs:
         from scene_completion.analysis.inverse_alignment import canonical_fused
 
-        return canonical_fused(inputs["fused-ssd"], inputs)["interactions"]
+        rows = canonical_fused(inputs["fused-ssd"], inputs)["interactions"]
+        # G uses logical resource services in enriched views. E/GT must use the
+        # same evidenced mapping, rather than count a physical name separately.
+        from scene_completion.analysis.interaction_enrichment import bind_resource_services
+
+        material = bind_resource_services(
+            {**inputs, "sr-ssd": {"interactions": [i for i in rows if i["layer"] == "SR"]}}
+        )
+        sr = {i["id"]: i for i in material["sr-ssd"]["interactions"]}
+        return [sr.get(i["id"], i) for i in rows]
     return interactions(inputs)
 
 
@@ -138,6 +147,16 @@ def recognize(inputs, raw, *, inverse=False):
         m = deepcopy(original)
         iid = m["interaction_id"]
         key = m["concern_key"]
+        if m.get("target") in {"sender", "receiver"}:
+            from scene_completion.analysis.interaction_enrichment import resource_metadata
+
+            resources = resource_metadata(inputs.get("components", {"components": []}))
+            names = {c["id"]: c["name"] for c in inputs.get("components", {}).get("components", [])}
+            aliases = {
+                names[s["physical_resource_id"]]: s["name"] for s in resources["resource_services"]
+            }
+            if m["object"] in aliases:
+                m["object"] = aliases[m["object"]]
         bound_interaction = rows.get(iid)
         if (
             bound_interaction
@@ -423,6 +442,25 @@ def recognize(inputs, raw, *, inverse=False):
                     own = [source_units[0]["id"]]
                 m["source_unit_ids"] = own or m.get("source_unit_ids", [])
         else:
+            # Attach positive rule guards only to an already submitted model
+            # observation. This restores evidence without inventing G members.
+            from scene_completion.analysis.normal_rules import rule_matches
+
+            guard_inputs = {
+                **inputs,
+                "normal-rules": {
+                    "rules": [
+                        r
+                        for r in inputs.get("normal-rules", {}).get("rules", [])
+                        if r["concern_key"] == key and not key.startswith("api.data.")
+                    ]
+                },
+            }
+            for rule in rule_matches(guard_inputs):
+                if rule["interaction_id"] == iid and rule["concern_key"] == key:
+                    m["activation_evidence"] = m.get("activation_evidence", []) + rule.get(
+                        "activation_evidence", []
+                    )
             m = decorate(m, i, inputs)
         from scene_completion.analysis.interaction_enrichment import resolved_api_id
 

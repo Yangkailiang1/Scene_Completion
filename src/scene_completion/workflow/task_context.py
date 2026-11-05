@@ -177,6 +177,10 @@ def semantic_view(task, inputs):
     if "fused-ssd" in out:
         # Inverse binding accepts only canonical interaction IDs, not aliases.
         out["fused-ssd"] = canonical_fused(out["fused-ssd"], inputs)
+        if task in {"existing-concerns", "test-concerns"}:
+            from scene_completion.analysis.concern_alignment import interaction_rows
+
+            out["fused-ssd"]["interactions"] = interaction_rows(inputs)
         out["fused-ssd"].pop("aliases", None)
         out["fused-ssd"].pop("source_views", None)
         if task == "normal-rules":
@@ -239,6 +243,16 @@ def semantic_view(task, inputs):
             "components",
         ):
             out.pop(key, None)
+    if task == "concern-match":
+        from scene_completion.analysis.recognition_coverage import field_reviews
+
+        out["required_field_reviews"] = field_reviews(inputs)
+        out["recognition_instruction"] = (
+            "逐项审阅已声明字段约束并独立提交识别；该清单不是G。matches中的数据关注点"
+            "必须target=data，object为具体字段名并填写data_location，不能统称Product等实体。"
+            "请求和返回分别处理；不得把明确类型、必填或数值约束说成未知。"
+            "身份/权限项须提交明示activation_evidence，或说明确实缺少哪些前提。"
+        )
     if task == "exception-generate" and "concern-match" in out:
         # The full review matrix includes inherited, pending and inapplicable
         # rows for every interaction. Generation receives only semantic checks
@@ -276,6 +290,10 @@ def semantic_view(task, inputs):
             for key, row in out["registry"]["definitions"].items()
             if row.get("enabled", True)
         }
+        if task == "concern-match" and inputs.get("recognition_scope") == "data":
+            out["registry"]["definitions"] = {
+                k: d for k, d in out["registry"]["definitions"].items() if k.startswith("api.data.")
+            }
     if task in {"existing-extract", "test-ground-truth", "existing-concerns", "test-concerns"}:
         # Original branches/test rows are retained; no duplicate composition or
         # full API table. normal-constraints is already scoped to this use case.
