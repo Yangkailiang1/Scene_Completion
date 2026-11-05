@@ -54,3 +54,33 @@ def test_aggregate_index_accepts_disjoint_slices_of_same_original_source():
         ]
     }
     validate_result("api-index", value, inputs)
+
+
+def test_location_prefixes_cannot_hide_known_constraints_or_mix_directions():
+    from scene_completion.analysis.interaction_enrichment import parameters_for
+    from scene_completion.inputs.api_parameters import canonical_contract
+    from tests.test_acceptance import parameter
+    from tests.test_workflow import R, exchange
+
+    api = {
+        "id": "A",
+        "name": "create",
+        "address": "/products",
+        "source_refs": R,
+        "parameters": [
+            parameter("name", "body"),
+            parameter("body.name", "body", True, "string"),
+            parameter("response.items[].name", "response", True, "string"),
+        ],
+    }
+    v = canonical_contract({"apis": [api]})
+    assert [(p["location"], p["name"]) for p in v["apis"][0]["parameters"]] == [
+        ("body", "name"),
+        ("response", "items[].name"),
+    ]
+    req = exchange()
+    req["api_id"] = "A"
+    req["data"]["sequence"] = [parameter("name", "body")]
+    rows = parameters_for(req, {"api-parameters": v})
+    assert len(rows) == 1 and rows[0]["data_type"] == "string" and rows[0]["required"] is True
+    assert canonical_contract(v) == v

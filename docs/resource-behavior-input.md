@@ -67,3 +67,5 @@ SR定义与时序分别追溯：sender／receiver／message等来自complete_beh
 完整SysOperation在参与方均能对应系统组成、Order和返回有效且通过同一融合SSD契约时，由工具采用到`<用例>:fused-ssd`；RR/SR投影仍由该正式结果产生。缺定义、归属歧义或校验失败时仅作为输入依据，保留原模型抽取路径，不把空结果标为完成。相同用例存在多个启用版本时须先解决冲突。
 
 来源保存到原上传文件及实际JSON Pointer。输入内的document、quote及行号仅保留为文件自带的元数据；除非原文件也已提供并验证，不将它们冒充本系统已校验的spec引文。
+
+接口字段的位置与路径分别保存：例如`location=body, name=name`。生成结果若重复写成`location=body, name=body.name`，工具只移除与本字段位置一致的一层前缀，并用既有要求并集规则合并同一字段；嵌套路径`items[].name`保留。不同位置和请求／返回字段不会因此合并，业务实体路径也不作无依据的截短。

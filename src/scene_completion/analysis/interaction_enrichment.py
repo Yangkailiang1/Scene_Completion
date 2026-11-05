@@ -125,6 +125,9 @@ def parameters_for(i, inputs):
         if len(apis) > 1:
             raise ValueError("duplicate API identity")
         if apis:
+            from scene_completion.inputs.api_parameters import canonical_contract
+
+            apis = canonical_contract({"apis": apis})["apis"]
             # Use the evidenced union, not a requirements-consistency check.
             # API-only and SSD-only fields/constraints both remain available.
             # 'business' is a compact SSD placeholder, not a competing wire

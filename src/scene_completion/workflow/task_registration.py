@@ -360,6 +360,10 @@ def add(
                     }
                     for p in imported
                 ]
+            if task == "api-parameters":
+                from scene_completion.inputs.api_parameters import canonical_contract
+
+                value = canonical_contract(value)
             if task == "existing-branches":
                 from scene_completion.analysis.branch_evidence import complete
                 from scene_completion.domain.scenario_types import filter_branches
