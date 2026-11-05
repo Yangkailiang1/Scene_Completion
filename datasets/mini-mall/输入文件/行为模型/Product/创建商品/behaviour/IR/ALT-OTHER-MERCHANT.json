@@ -1,0 +1,103 @@
+{
+  "ID": "创建商品_ALT-OTHER-MERCHANT",
+  "scenario_kind": "alternative",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-001-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 42,
+          "end_line": 42,
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "body.name",
+            "body.productType",
+            "body.price"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-01"
+    },
+    {
+      "id": "RR-001-RES-ALT",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 42,
+          "end_line": 42,
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "productId",
+            "merchantId",
+            "name",
+            "productType",
+            "price",
+            "status",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-01"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-001-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-001-RES-ALT"
+    }
+  ],
+  "sourceChunking": "UC-001_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 42,
+      "end_line": 42,
+      "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+    }
+  ],
+  "guard": "另一merchantId下已有同名商品，但当前merchantId下无同名商品",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

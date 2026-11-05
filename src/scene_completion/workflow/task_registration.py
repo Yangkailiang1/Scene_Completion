@@ -26,6 +26,7 @@ from scene_completion.domain.contracts import (
 )
 from scene_completion.domain.scenario_types import normal_replay_record
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.inputs.ordered_behaviors import fused_candidate
 from scene_completion.review.reviews import REVIEW_TASKS
 from scene_completion.workflow.scheduler import Task, TaskBlocked, TaskRejected
 from scene_completion.workflow.semantics import code_version, component_version
@@ -149,6 +150,15 @@ def add(
         elif reviewed is not None:
             value = reviewed
             proof = {"reviewed": True}
+        elif (
+            task == "fused-ssd"
+            and (native := fused_candidate(self.import_snapshot, inputs)) is not None
+        ):
+            value = native
+            proof = {
+                "provider": "ordered_behavior_import",
+                "reason": "已验证系统操作、参与者及Order转换；未重复调用融合SSD模型",
+            }
         elif transform:
             value = transform(inputs)
             proof = {}

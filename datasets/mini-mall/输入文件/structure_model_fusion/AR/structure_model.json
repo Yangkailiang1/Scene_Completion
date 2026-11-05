@@ -1,0 +1,630 @@
+{
+  "schema_version": 3,
+  "scope": {
+    "target_system": "MiniMallPlatform",
+    "model_level": "AR",
+    "rr_contexts": []
+  },
+  "source_inputs": [
+    {
+      "source_id": "RR-SPEC",
+      "path": "系统需求_spec.md",
+      "role": "RR_spec",
+      "sha256": "308682507a3f98c937f8ab39a105883cdbcbaa1cde98766ffe65376437d1c788"
+    },
+    {
+      "source_id": "SR-SPEC",
+      "path": "功能设计_spec.md",
+      "role": "SR_spec",
+      "sha256": "b78bb871926ce69cb1d82e5b6390cee7bc674d63ded45359637d50b7e40b95d6"
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": "AR-MINI-001",
+      "canonical_name": "ProductAdminService商品持久化实现",
+      "source_name": "ProductAdminService商品持久化实现",
+      "entity_type": "ar_requirement",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-ProductAdminService",
+      "canonical_name": "ProductAdminService",
+      "source_name": "ProductAdminService",
+      "entity_type": "microservice",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-Product",
+      "canonical_name": "Product",
+      "source_name": "Product",
+      "entity_type": "resource_object",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-ProductRepository",
+      "canonical_name": "ProductRepository",
+      "source_name": "ProductRepository",
+      "entity_type": "module",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-IF-createProduct",
+      "canonical_name": "createProduct",
+      "source_name": "createProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L13-L13",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.createProduct对应API-SR-01 POST /ms/v1/products，操作Product并调用CatalogDatabaseService.createProduct。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-01",
+      "api_path": "/ms/v1/products",
+      "method": "POST"
+    },
+    {
+      "entity_id": "AR-IF-listProducts",
+      "canonical_name": "listProducts",
+      "source_name": "listProducts",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L14-L14",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.listProducts对应API-SR-02 GET /ms/v1/products，操作Product并调用CatalogDatabaseService.listProducts。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-02",
+      "api_path": "/ms/v1/products",
+      "method": "GET"
+    },
+    {
+      "entity_id": "AR-IF-updateProduct",
+      "canonical_name": "updateProduct",
+      "source_name": "updateProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L15-L15",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.updateProduct对应API-SR-03 PUT /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndUpdateProduct。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-03",
+      "api_path": "/ms/v1/products/{productId}",
+      "method": "PUT"
+    },
+    {
+      "entity_id": "AR-IF-deleteProduct",
+      "canonical_name": "deleteProduct",
+      "source_name": "deleteProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L16-L16",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.deleteProduct对应API-SR-04 DELETE /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndDeleteProduct。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-04",
+      "api_path": "/ms/v1/products/{productId}",
+      "method": "DELETE"
+    },
+    {
+      "entity_id": "AR-IF-publishProduct",
+      "canonical_name": "publishProduct",
+      "source_name": "publishProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L17-L17",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.publishProduct对应API-SR-05 POST /ms/v1/products/{productId}/publish，操作Product并调用CatalogDatabaseService.compareAndPublishProduct。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-05",
+      "api_path": "/ms/v1/products/{productId}/publish",
+      "method": "POST"
+    },
+    {
+      "entity_id": "AR-MINI-PLATFORM",
+      "canonical_name": "MiniMallPlatform对外入口实现",
+      "source_name": "MiniMallPlatform对外入口实现",
+      "entity_type": "ar_requirement",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L9-L9",
+          "quote": "- AR-MINI-PLATFORM实现说明：MiniMallPlatform为对外入口软件单元，实现RR接口并委派SR内部接口；不直接调用数据库。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-UNIT-MiniMallPlatform",
+      "canonical_name": "MiniMallPlatform",
+      "source_name": "MiniMallPlatform",
+      "entity_type": "microservice",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L9-L9",
+          "quote": "- AR-MINI-PLATFORM实现说明：MiniMallPlatform为对外入口软件单元，实现RR接口并委派SR内部接口；不直接调用数据库。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "AR-IF-MiniMallPlatform-createProduct",
+      "canonical_name": "createProduct",
+      "source_name": "createProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L19-L19",
+          "quote": "- 接口：API-RR-01 POST /v1/products；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-RR-01",
+      "api_path": "/v1/products",
+      "method": "POST"
+    },
+    {
+      "entity_id": "AR-IF-MiniMallPlatform-listProducts",
+      "canonical_name": "listProducts",
+      "source_name": "listProducts",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L47-L47",
+          "quote": "- 接口：API-RR-02 GET /v1/products；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-RR-02",
+      "api_path": "/v1/products",
+      "method": "GET"
+    },
+    {
+      "entity_id": "AR-IF-MiniMallPlatform-updateProduct",
+      "canonical_name": "updateProduct",
+      "source_name": "updateProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L73-L73",
+          "quote": "- 接口：API-RR-03 PUT /v1/products/{productId}；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-RR-03",
+      "api_path": "/v1/products/{productId}",
+      "method": "PUT"
+    },
+    {
+      "entity_id": "AR-IF-MiniMallPlatform-deleteProduct",
+      "canonical_name": "deleteProduct",
+      "source_name": "deleteProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L104-L104",
+          "quote": "- 接口：API-RR-04 DELETE /v1/products/{productId}；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-RR-04",
+      "api_path": "/v1/products/{productId}",
+      "method": "DELETE"
+    },
+    {
+      "entity_id": "AR-IF-MiniMallPlatform-publishProduct",
+      "canonical_name": "publishProduct",
+      "source_name": "publishProduct",
+      "entity_type": "implementation_interface",
+      "model_levels": [
+        "AR"
+      ],
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L127-L127",
+          "quote": "- 接口：API-RR-05 POST /v1/products/{productId}/publish；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-RR-05",
+      "api_path": "/v1/products/{productId}/publish",
+      "method": "POST"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "AR-REL-UNIT",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-MINI-001",
+      "relation_type": "associated_with_ar",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-RES",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-Product",
+      "relation_type": "uses_resource",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-MODULE",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-ProductRepository",
+      "relation_type": "contains_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L8-L8",
+          "quote": "- AR-MINI-001实现说明：ProductAdminService部署为一个内部软件单元；以ProductRepository模块调用外部CatalogDatabaseService；表product_record持久化Product字段。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-createProduct",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-IF-createProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L13-L13",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.createProduct对应API-SR-01 POST /ms/v1/products，操作Product并调用CatalogDatabaseService.createProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-createProduct-MODULE",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-IF-createProduct",
+      "relation_type": "provided_by_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L13-L13",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.createProduct对应API-SR-01 POST /ms/v1/products，操作Product并调用CatalogDatabaseService.createProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-listProducts",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-IF-listProducts",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L14-L14",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.listProducts对应API-SR-02 GET /ms/v1/products，操作Product并调用CatalogDatabaseService.listProducts。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-listProducts-MODULE",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-IF-listProducts",
+      "relation_type": "provided_by_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L14-L14",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.listProducts对应API-SR-02 GET /ms/v1/products，操作Product并调用CatalogDatabaseService.listProducts。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-updateProduct",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-IF-updateProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L15-L15",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.updateProduct对应API-SR-03 PUT /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndUpdateProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-updateProduct-MODULE",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-IF-updateProduct",
+      "relation_type": "provided_by_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L15-L15",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.updateProduct对应API-SR-03 PUT /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndUpdateProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-deleteProduct",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-IF-deleteProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L16-L16",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.deleteProduct对应API-SR-04 DELETE /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndDeleteProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-deleteProduct-MODULE",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-IF-deleteProduct",
+      "relation_type": "provided_by_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L16-L16",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.deleteProduct对应API-SR-04 DELETE /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndDeleteProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-publishProduct",
+      "source_entity_id": "AR-ProductAdminService",
+      "target_entity_id": "AR-IF-publishProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L17-L17",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.publishProduct对应API-SR-05 POST /ms/v1/products/{productId}/publish，操作Product并调用CatalogDatabaseService.compareAndPublishProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-publishProduct-MODULE",
+      "source_entity_id": "AR-ProductRepository",
+      "target_entity_id": "AR-IF-publishProduct",
+      "relation_type": "provided_by_module",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L17-L17",
+          "quote": "- AR-MINI-001实现接口：ProductAdminService.publishProduct对应API-SR-05 POST /ms/v1/products/{productId}/publish，操作Product并调用CatalogDatabaseService.compareAndPublishProduct。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-PLATFORM-UNIT",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-MINI-PLATFORM",
+      "relation_type": "associated_with_ar",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L9-L9",
+          "quote": "- AR-MINI-PLATFORM实现说明：MiniMallPlatform为对外入口软件单元，实现RR接口并委派SR内部接口；不直接调用数据库。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-PLATFORM-ENTRY",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-ProductAdminService",
+      "relation_type": "delegates_to",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L9-L9",
+          "quote": "- AR-MINI-PLATFORM实现说明：MiniMallPlatform为对外入口软件单元，实现RR接口并委派SR内部接口；不直接调用数据库。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-MiniMallPlatform-createProduct",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-IF-MiniMallPlatform-createProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L19-L19",
+          "quote": "- 接口：API-RR-01 POST /v1/products；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-MiniMallPlatform-listProducts",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-IF-MiniMallPlatform-listProducts",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L47-L47",
+          "quote": "- 接口：API-RR-02 GET /v1/products；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-MiniMallPlatform-updateProduct",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-IF-MiniMallPlatform-updateProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L73-L73",
+          "quote": "- 接口：API-RR-03 PUT /v1/products/{productId}；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-MiniMallPlatform-deleteProduct",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-IF-MiniMallPlatform-deleteProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L104-L104",
+          "quote": "- 接口：API-RR-04 DELETE /v1/products/{productId}；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "AR-REL-AR-IF-MiniMallPlatform-publishProduct",
+      "source_entity_id": "AR-UNIT-MiniMallPlatform",
+      "target_entity_id": "AR-IF-MiniMallPlatform-publishProduct",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "RR-SPEC",
+          "locator": "L127-L127",
+          "quote": "- 接口：API-RR-05 POST /v1/products/{productId}/publish；source_layer=RR。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    }
+  ],
+  "trace_anchors": [],
+  "review_items": []
+}

@@ -1,0 +1,95 @@
+{
+  "ID": "查询商品列表_SC_MAIN",
+  "scenario_kind": "main",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-002-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 55,
+          "end_line": 55,
+          "quote": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-02"
+    },
+    {
+      "id": "RR-002-RES",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 57,
+          "end_line": 57,
+          "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含items、total、page、pageSize。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "R3. MiniMallPlatform向商家返回 HTTP 200，包含items、total、page、pageSize。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "response.items",
+            "response.total",
+            "response.page",
+            "response.pageSize"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-02"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-002-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-002-RES"
+    }
+  ],
+  "sourceChunking": "UC-002_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 55,
+      "end_line": 55,
+      "quote": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。"
+    }
+  ]
+}

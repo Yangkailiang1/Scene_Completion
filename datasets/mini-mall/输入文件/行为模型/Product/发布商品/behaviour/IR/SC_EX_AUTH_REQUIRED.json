@@ -1,0 +1,98 @@
+{
+  "ID": "发布商品_SC_EX_AUTH_REQUIRED",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-005-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 146,
+          "end_line": 146,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送POST /v1/products/{productId}/publish（API-RR-05），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-05"
+    },
+    {
+      "id": "RR-005-RES-E-AUTH_REQUIRED",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 146,
+          "end_line": 146,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回HTTP 401，AUTH_REQUIRED",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-05"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-005-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-005-RES-E-AUTH_REQUIRED"
+    }
+  ],
+  "sourceChunking": "UC-005_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 146,
+      "end_line": 146,
+      "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+    }
+  ],
+  "guard": "Authorization未提供或无效",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R1"
+  },
+  "resume_at_main": "end"
+}

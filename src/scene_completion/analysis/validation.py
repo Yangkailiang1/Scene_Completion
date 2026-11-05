@@ -520,7 +520,9 @@ def validate_result(task, payload, inputs):
 
             mapping_lookup(inputs["api-map"], payload)
         ids = set()
-        docs = {d["source_id"]: d for d in inputs.get("RR", []) + inputs.get("SR", [])}
+        docs = {
+            d["source_id"]: d for d in documents_in(inputs.get("RR", []) + inputs.get("SR", []))
+        }
         for a in payload["apis"]:
             if a["id"] in ids or not a["source_ranges"]:
                 raise ValueError("API index requires unique identities and source ranges")

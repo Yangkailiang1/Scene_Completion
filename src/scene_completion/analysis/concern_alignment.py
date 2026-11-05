@@ -67,8 +67,15 @@ def index_elements(inputs):
                 }
             )
 
-        for side in ("sender", "receiver"):
-            add(side, i[side]["name"])
+        if i["sender"]["name"] == i["receiver"]["name"]:
+            # A self interaction has one participant object. Keep both role
+            # observations addressable, but give them the receiver's stable
+            # element identity so identical checks collapse in binding_id.
+            add("receiver", i["receiver"]["name"])
+            out[-1]["role_aliases"] = ["sender", "receiver"]
+        else:
+            for side in ("sender", "receiver"):
+                add(side, i[side]["name"])
         # The call is an actual operation, not a fabricated additional message.
         add(
             "operation",
@@ -133,6 +140,14 @@ def recognize(inputs, raw, *, inverse=False):
         m = deepcopy(original)
         iid = m["interaction_id"]
         key = m["concern_key"]
+        bound_interaction = rows.get(iid)
+        if (
+            bound_interaction
+            and m.get("target") == "sender"
+            and bound_interaction["sender"]["name"] == bound_interaction["receiver"]["name"]
+            and m.get("object") == bound_interaction["sender"]["name"]
+        ):
+            m["target"] = "receiver"
         if inverse:
             own_docs = inputs.get("test-documents", inputs.get("existing-documents", []))
             own_ids = {d["source_id"] for d in own_docs}

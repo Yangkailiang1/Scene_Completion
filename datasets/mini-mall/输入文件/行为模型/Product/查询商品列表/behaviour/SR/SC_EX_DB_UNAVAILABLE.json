@@ -1,0 +1,175 @@
+{
+  "ID": "查询商品列表_SC_EX_DB_UNAVAILABLE",
+  "scenario_kind": "exception",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "DB": {
+      "name": "CatalogDatabaseService",
+      "kind": "external",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-002-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 104,
+          "end_line": 104,
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-02"
+    },
+    {
+      "id": "SR-002-DB-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 104,
+          "end_line": 104,
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "DB",
+      "message": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "merchantId",
+            "page",
+            "pageSize",
+            "keyword",
+            "productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": null
+    },
+    {
+      "id": "SR-002-RES-E-DB_UNAVAILABLE",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 104,
+          "end_line": 104,
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-02"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 104,
+          "end_line": 104,
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    },
+    {
+      "id": "A_E_SR_DB_UNAVAILABLE_TRANSPORT",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 104,
+          "end_line": 104,
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "ProductAdminService本地接收数据库调用连接失败，不存在数据库错误响应消息。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-002-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-002-DB-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_E_SR_DB_UNAVAILABLE_TRANSPORT"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-002-RES-E-DB_UNAVAILABLE"
+    }
+  ],
+  "sourceChunking": "UC-002-API-SR-02_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 104,
+      "end_line": 104,
+      "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "CatalogDatabaseService连接不可达",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S3"
+  },
+  "resume_at_main": "end"
+}

@@ -1,0 +1,98 @@
+{
+  "ID": "创建商品_SC_EX_DUPLICATE_NAME",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-001-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 40,
+          "end_line": 40,
+          "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "body.name",
+            "body.productType",
+            "body.price"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-01"
+    },
+    {
+      "id": "RR-001-RES-E-DUPLICATE_NAME",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 40,
+          "end_line": 40,
+          "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-01"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-001-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-001-RES-E-DUPLICATE_NAME"
+    }
+  ],
+  "sourceChunking": "UC-001_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 40,
+      "end_line": 40,
+      "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "当前商家已有同名商品",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

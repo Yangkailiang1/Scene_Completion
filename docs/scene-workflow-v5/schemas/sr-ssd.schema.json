@@ -462,6 +462,12 @@
               ],
               "additionalProperties": false
             }
+          },
+          "step_kind": {
+            "enum": [
+              "interaction",
+              "action"
+            ]
           }
         },
         "required": [

@@ -18,6 +18,7 @@ def collapse_local_processing(value, normalizations=None):
             row["direction"] != "request"
             or row.get("api_id")
             or row["sender"]["name"] != row["receiver"]["name"]
+            or row.get("step_kind") == "action"
         ):
             continue
         text = " ".join(r["quote"] for r in row["source_refs"])
@@ -83,10 +84,13 @@ def validate_explicit_resources(rows):
     resolve to a unique table here; leave that semantic decision to the model.
     """
     for row in rows:
+        if row.get("step_kind") == "action" and row["sender"]["name"] != row["receiver"]["name"]:
+            raise ValueError("explicit action must belong to one executor, not a network call")
         if (
             row["direction"] == "request"
             and row["sender"]["name"] == row["receiver"]["name"]
             and not row.get("api_id")
+            and row.get("step_kind") != "action"
         ):
             text = " ".join(r["quote"] for r in row.get("source_refs", []))
             if re.search(r"校验|验证|validate", row["operation"]["name"], re.I) and not re.search(

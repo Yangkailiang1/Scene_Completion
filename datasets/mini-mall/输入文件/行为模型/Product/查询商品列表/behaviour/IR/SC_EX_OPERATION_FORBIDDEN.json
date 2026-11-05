@@ -1,0 +1,99 @@
+{
+  "ID": "查询商品列表_SC_EX_OPERATION_FORBIDDEN",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-002-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 64,
+          "end_line": 64,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-02"
+    },
+    {
+      "id": "RR-002-RES-E-OPERATION_FORBIDDEN",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 64,
+          "end_line": 64,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回HTTP 403，OPERATION_FORBIDDEN",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-02"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-002-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-002-RES-E-OPERATION_FORBIDDEN"
+    }
+  ],
+  "sourceChunking": "UC-002_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 64,
+      "end_line": 64,
+      "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+    }
+  ],
+  "guard": "商家没有当前操作权限",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R1"
+  },
+  "resume_at_main": "end"
+}

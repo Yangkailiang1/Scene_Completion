@@ -1,0 +1,213 @@
+{
+  "ID": "删除商品_SC_MAIN",
+  "scenario_kind": "main",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "DB": {
+      "name": "CatalogDatabaseService",
+      "kind": "external",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-004-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 159,
+          "end_line": 159,
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-04"
+    },
+    {
+      "id": "SR-004-DB-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 161,
+          "end_line": 161,
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndDeleteProduct操作，传入当前merchantId及本次业务所需字段。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "DB",
+      "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndDeleteProduct操作，传入当前merchantId及本次业务所需字段。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "merchantId",
+            "productId",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": null
+    },
+    {
+      "id": "SR-004-DB-RES",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 162,
+          "end_line": 162,
+          "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。"
+        }
+      ],
+      "sender": "DB",
+      "receiver": "ADMIN",
+      "message": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "Product"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": null
+    },
+    {
+      "id": "SR-004-RES",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 164,
+          "end_line": 164,
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.deleted。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.deleted。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "response.productId",
+            "response.deleted"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-04"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 160,
+          "end_line": 160,
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    },
+    {
+      "id": "A_S5",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 163,
+          "end_line": 163,
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S5. ProductAdminService本地构造接口规定的成功响应。",
+      "data_ref": null
+    },
+    {
+      "id": "A_S7",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 165,
+          "end_line": 165,
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "executor": "SYS",
+      "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-004-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-DB-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-DB-RES"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S5"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-RES"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S7"
+    }
+  ],
+  "sourceChunking": "UC-004-API-SR-04_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 159,
+      "end_line": 159,
+      "quote": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+    }
+  ]
+}

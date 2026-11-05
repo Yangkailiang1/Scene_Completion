@@ -1,0 +1,1059 @@
+{
+  "resource": "Product",
+  "use_case": "更新商品",
+  "use_case_id": "UC-003",
+  "operations": {
+    "SysOP_UC-003_SC_MAIN": {
+      "ID": "SysOP_UC-003_SC_MAIN",
+      "scenario_kind": "main",
+      "sourceChunking": "UC-003_IR",
+      "sourceSD": "更新商品_SC_MAIN",
+      "source_key": "UC-003::SC_MAIN",
+      "sourceSSD": "SSD_UC-003_SC_MAIN",
+      "system_event": [
+        {
+          "id": "RR-003-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 83,
+              "end_line": 83,
+              "quote": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-03",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-003-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 123,
+              "end_line": 123,
+              "quote": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-03"
+        },
+        {
+          "id": "SR-003-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 125,
+              "end_line": 125,
+              "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "productId",
+                "version",
+                "name",
+                "price",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-DB-RES",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 126,
+              "end_line": 126,
+              "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。"
+            }
+          ],
+          "sender": "DB",
+          "receiver": "ADMIN",
+          "message": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "Product"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-RES",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 128,
+              "end_line": 128,
+              "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.productId",
+                "response.merchantId",
+                "response.name",
+                "response.productType",
+                "response.price",
+                "response.status",
+                "response.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-03"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 124,
+              "end_line": 124,
+              "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S5",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 127,
+              "end_line": 127,
+              "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S5. ProductAdminService本地构造接口规定的成功响应。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S7",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 129,
+              "end_line": 129,
+              "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+            }
+          ],
+          "executor": "SYS",
+          "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-003-RES",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 85,
+              "end_line": 85,
+              "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.productId",
+                "response.merchantId",
+                "response.name",
+                "response.productType",
+                "response.price",
+                "response.status",
+                "response.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-03"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-003-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-RES"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S5"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-RES"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S7"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-003-RES"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-003-REQ",
+        "A_S2",
+        "SR-003-DB-REQ",
+        "SR-003-DB-RES",
+        "A_S5",
+        "SR-003-RES",
+        "A_S7"
+      ]
+    },
+    "SysOP_UC-003_SC_EX_VERSION_CONFLICT": {
+      "ID": "SysOP_UC-003_SC_EX_VERSION_CONFLICT",
+      "scenario_kind": "exception",
+      "sourceChunking": "UC-003_IR",
+      "sourceSD": "更新商品_SC_EX_VERSION_CONFLICT",
+      "source_key": "UC-003::SC_EX_VERSION_CONFLICT",
+      "sourceSSD": "SSD_UC-003_SC_EX_VERSION_CONFLICT",
+      "system_event": [
+        {
+          "id": "RR-003-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 96,
+              "end_line": 96,
+              "quote": "- 请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-03",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-003-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 143,
+              "end_line": 143,
+              "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-03"
+        },
+        {
+          "id": "SR-003-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 143,
+              "end_line": 143,
+              "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "productId",
+                "version",
+                "name",
+                "price",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-DB-RES-E-VERSION_CONFLICT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 143,
+              "end_line": 143,
+              "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "DB",
+          "receiver": "ADMIN",
+          "message": "CatalogDatabaseService向ProductAdminService返回业务校验未通过的结果：VERSION_CONFLICT。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "failure_reason"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-RES-E-VERSION_CONFLICT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 143,
+              "end_line": 143,
+              "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-03"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 143,
+              "end_line": 143,
+              "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-003-RES-E-VERSION_CONFLICT",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 96,
+              "end_line": 96,
+              "quote": "- 请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-03"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-003-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-RES-E-VERSION_CONFLICT"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-RES-E-VERSION_CONFLICT"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-003-RES-E-VERSION_CONFLICT"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-003-REQ",
+        "A_S2",
+        "SR-003-DB-REQ",
+        "SR-003-DB-RES-E-VERSION_CONFLICT",
+        "SR-003-RES-E-VERSION_CONFLICT"
+      ],
+      "guard": "请求version与商品当前version不一致",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-003_SC_MAIN"
+    },
+    "SysOP_UC-003_SC_EX_IMMUTABLE_TYPE": {
+      "ID": "SysOP_UC-003_SC_EX_IMMUTABLE_TYPE",
+      "scenario_kind": "exception",
+      "sourceChunking": "UC-003_IR",
+      "sourceSD": "更新商品_SC_EX_IMMUTABLE_TYPE",
+      "source_key": "UC-003::SC_EX_IMMUTABLE_TYPE",
+      "sourceSSD": "SSD_UC-003_SC_EX_IMMUTABLE_TYPE",
+      "system_event": [
+        {
+          "id": "RR-003-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 97,
+              "end_line": 97,
+              "quote": "- 请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-03",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-003-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 144,
+              "end_line": 144,
+              "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-03"
+        },
+        {
+          "id": "SR-003-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 144,
+              "end_line": 144,
+              "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "productId",
+                "version",
+                "name",
+                "price",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-DB-RES-E-IMMUTABLE_TYPE",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 144,
+              "end_line": 144,
+              "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "DB",
+          "receiver": "ADMIN",
+          "message": "CatalogDatabaseService向ProductAdminService返回业务校验未通过的结果：IMMUTABLE_TYPE。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "failure_reason"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": null
+        },
+        {
+          "id": "SR-003-RES-E-IMMUTABLE_TYPE",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 144,
+              "end_line": 144,
+              "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-03"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 144,
+              "end_line": 144,
+              "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-003-RES-E-IMMUTABLE_TYPE",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 97,
+              "end_line": 97,
+              "quote": "- 请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-03"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-003-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-DB-RES-E-IMMUTABLE_TYPE"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-RES-E-IMMUTABLE_TYPE"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-003-RES-E-IMMUTABLE_TYPE"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-003-REQ",
+        "A_S2",
+        "SR-003-DB-REQ",
+        "SR-003-DB-RES-E-IMMUTABLE_TYPE",
+        "SR-003-RES-E-IMMUTABLE_TYPE"
+      ],
+      "guard": "请求productType与原商品productType不同",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-003_SC_MAIN"
+    },
+    "SysOP_UC-003_ALT-REPLAY": {
+      "ID": "SysOP_UC-003_ALT-REPLAY",
+      "scenario_kind": "alternative",
+      "sourceChunking": "UC-003_IR",
+      "sourceSD": "更新商品_ALT-REPLAY",
+      "source_key": "UC-003::ALT-REPLAY",
+      "sourceSSD": "SSD_UC-003_ALT-REPLAY",
+      "system_event": [
+        {
+          "id": "RR-003-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 99,
+              "end_line": 99,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-03",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-003-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 146,
+              "end_line": 146,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version",
+                "body.name",
+                "body.price",
+                "body.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-03"
+        },
+        {
+          "id": "SR-003-RES-ALT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 146,
+              "end_line": 146,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回首次成功的HTTP 200和结果；不再次写入或增加version",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "productId",
+                "merchantId",
+                "name",
+                "productType",
+                "price",
+                "status",
+                "version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-03"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 146,
+              "end_line": 146,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S7",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 146,
+              "end_line": 146,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "executor": "SYS",
+          "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-003-RES-ALT",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 99,
+              "end_line": 99,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回首次成功的HTTP 200和结果；不再次写入或增加version",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "productId",
+                "merchantId",
+                "name",
+                "productType",
+                "price",
+                "status",
+                "version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-03"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-003-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-003-RES-ALT"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S7"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-003-RES-ALT"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-003-REQ",
+        "A_S2",
+        "SR-003-RES-ALT",
+        "A_S7"
+      ],
+      "guard": "同一商家和接口的相同幂等键、相同请求内容已有成功记录",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-003_SC_MAIN"
+    }
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "ID": "查询商品列表_SC_EX_SIZE_HIGH",
+  "scenario_kind": "exception",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-002-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 105,
+          "end_line": 105,
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-02"
+    },
+    {
+      "id": "SR-002-RES-E-SIZE_HIGH",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 105,
+          "end_line": 105,
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-02"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 105,
+          "end_line": 105,
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-002-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-002-RES-E-SIZE_HIGH"
+    }
+  ],
+  "sourceChunking": "UC-002-API-SR-02_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 105,
+      "end_line": 105,
+      "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "query.pageSize=101，超过100",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S2"
+  },
+  "resume_at_main": "end"
+}

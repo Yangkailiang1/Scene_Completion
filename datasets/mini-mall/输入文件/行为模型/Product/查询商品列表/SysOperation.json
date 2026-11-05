@@ -1,0 +1,1036 @@
+{
+  "resource": "Product",
+  "use_case": "查询商品列表",
+  "use_case_id": "UC-002",
+  "operations": {
+    "SysOP_UC-002_SC_MAIN": {
+      "ID": "SysOP_UC-002_SC_MAIN",
+      "scenario_kind": "main",
+      "sourceChunking": "UC-002_IR",
+      "sourceSD": "查询商品列表_SC_MAIN",
+      "source_key": "UC-002::SC_MAIN",
+      "sourceSSD": "SSD_UC-002_SC_MAIN",
+      "system_event": [
+        {
+          "id": "RR-002-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 55,
+              "end_line": 55,
+              "quote": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-02",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-002-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 87,
+              "end_line": 87,
+              "quote": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-02"
+        },
+        {
+          "id": "SR-002-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 89,
+              "end_line": 89,
+              "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "page",
+                "pageSize",
+                "keyword",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-002-DB-RES",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 90,
+              "end_line": 90,
+              "quote": "S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。"
+            }
+          ],
+          "sender": "DB",
+          "receiver": "ADMIN",
+          "message": "S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "Product[]"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": null
+        },
+        {
+          "id": "SR-002-RES",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 92,
+              "end_line": 92,
+              "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.items、response.total、response.page、response.pageSize。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.items、response.total、response.page、response.pageSize。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.items",
+                "response.total",
+                "response.page",
+                "response.pageSize"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-02"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 88,
+              "end_line": 88,
+              "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S5",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 91,
+              "end_line": 91,
+              "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S5. ProductAdminService本地构造接口规定的成功响应。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S7",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 93,
+              "end_line": 93,
+              "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+            }
+          ],
+          "executor": "SYS",
+          "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-002-RES",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 57,
+              "end_line": 57,
+              "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含items、total、page、pageSize。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "R3. MiniMallPlatform向商家返回 HTTP 200，包含items、total、page、pageSize。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.items",
+                "response.total",
+                "response.page",
+                "response.pageSize"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-02"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-002-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-DB-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-DB-RES"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S5"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-RES"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S7"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-002-RES"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-002-REQ",
+        "A_S2",
+        "SR-002-DB-REQ",
+        "SR-002-DB-RES",
+        "A_S5",
+        "SR-002-RES",
+        "A_S7"
+      ]
+    },
+    "SysOP_UC-002_SC_EX_DB_UNAVAILABLE": {
+      "ID": "SysOP_UC-002_SC_EX_DB_UNAVAILABLE",
+      "scenario_kind": "exception",
+      "sourceChunking": "UC-002_IR",
+      "sourceSD": "查询商品列表_SC_EX_DB_UNAVAILABLE",
+      "source_key": "UC-002::SC_EX_DB_UNAVAILABLE",
+      "sourceSSD": "SSD_UC-002_SC_EX_DB_UNAVAILABLE",
+      "system_event": [
+        {
+          "id": "RR-002-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 65,
+              "end_line": 65,
+              "quote": "- CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-02",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-002-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 104,
+              "end_line": 104,
+              "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-02"
+        },
+        {
+          "id": "SR-002-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 104,
+              "end_line": 104,
+              "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "page",
+                "pageSize",
+                "keyword",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-002-RES-E-DB_UNAVAILABLE",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 104,
+              "end_line": 104,
+              "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-02"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 104,
+              "end_line": 104,
+              "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        },
+        {
+          "id": "A_E_SR_DB_UNAVAILABLE_TRANSPORT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 104,
+              "end_line": 104,
+              "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "ProductAdminService本地接收数据库调用连接失败，不存在数据库错误响应消息。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-002-RES-E-DB_UNAVAILABLE",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 65,
+              "end_line": 65,
+              "quote": "- CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-02"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-002-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-DB-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_E_SR_DB_UNAVAILABLE_TRANSPORT"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-RES-E-DB_UNAVAILABLE"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-002-RES-E-DB_UNAVAILABLE"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-002-REQ",
+        "A_S2",
+        "SR-002-DB-REQ",
+        "A_E_SR_DB_UNAVAILABLE_TRANSPORT",
+        "SR-002-RES-E-DB_UNAVAILABLE"
+      ],
+      "guard": "CatalogDatabaseService连接不可达",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-002_SC_MAIN"
+    },
+    "SysOP_UC-002_SC_EX_SIZE_HIGH": {
+      "ID": "SysOP_UC-002_SC_EX_SIZE_HIGH",
+      "scenario_kind": "exception",
+      "sourceChunking": "UC-002_IR",
+      "sourceSD": "查询商品列表_SC_EX_SIZE_HIGH",
+      "source_key": "UC-002::SC_EX_SIZE_HIGH",
+      "sourceSSD": "SSD_UC-002_SC_EX_SIZE_HIGH",
+      "system_event": [
+        {
+          "id": "RR-002-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 66,
+              "end_line": 66,
+              "quote": "- query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-02",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-002-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 105,
+              "end_line": 105,
+              "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-02"
+        },
+        {
+          "id": "SR-002-RES-E-SIZE_HIGH",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 105,
+              "end_line": 105,
+              "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-02"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 105,
+              "end_line": 105,
+              "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-002-RES-E-SIZE_HIGH",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 66,
+              "end_line": 66,
+              "quote": "- query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-02"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-002-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-RES-E-SIZE_HIGH"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-002-RES-E-SIZE_HIGH"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-002-REQ",
+        "A_S2",
+        "SR-002-RES-E-SIZE_HIGH"
+      ],
+      "guard": "query.pageSize=101，超过100",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-002_SC_MAIN"
+    },
+    "SysOP_UC-002_ALT-EMPTY": {
+      "ID": "SysOP_UC-002_ALT-EMPTY",
+      "scenario_kind": "alternative",
+      "sourceChunking": "UC-002_IR",
+      "sourceSD": "查询商品列表_ALT-EMPTY",
+      "source_key": "UC-002::ALT-EMPTY",
+      "sourceSSD": "SSD_UC-002_ALT-EMPTY",
+      "system_event": [
+        {
+          "id": "RR-002-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 68,
+              "end_line": 68,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-02",
+          "role": "trigger"
+        }
+      ],
+      "interaction": [
+        {
+          "id": "SR-002-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "ADMIN",
+          "message": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.x-service-id",
+                "header.x-merchant-id",
+                "query.page",
+                "query.pageSize",
+                "query.keyword",
+                "query.productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-SR-02"
+        },
+        {
+          "id": "SR-002-DB-REQ",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "DB",
+          "message": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "merchantId",
+                "page",
+                "pageSize",
+                "keyword",
+                "productType"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": null
+        },
+        {
+          "id": "SR-002-DB-RES-ALT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "DB",
+          "receiver": "ADMIN",
+          "message": "返回本次正常备选数据库结果；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "Product[]"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": null
+        },
+        {
+          "id": "SR-002-RES-ALT",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "ADMIN",
+          "receiver": "SYS",
+          "message": "返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "items",
+                "total",
+                "page",
+                "pageSize"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-SR-02"
+        }
+      ],
+      "action": [
+        {
+          "id": "A_S2",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S5",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "executor": "ADMIN",
+          "content": "S5. ProductAdminService本地构造接口规定的成功响应。",
+          "data_ref": null
+        },
+        {
+          "id": "A_S7",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 107,
+              "end_line": 107,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "executor": "SYS",
+          "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+          "data_ref": null
+        }
+      ],
+      "system_response": [
+        {
+          "id": "RR-002-RES-ALT",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 68,
+              "end_line": 68,
+              "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "items",
+                "total",
+                "page",
+                "pageSize"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-02"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "SR-002-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-DB-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-DB-RES-ALT"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S5"
+        },
+        {
+          "kind": "interaction",
+          "ref": "SR-002-RES-ALT"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S7"
+        },
+        {
+          "kind": "response",
+          "ref": "RR-002-RES-ALT"
+        }
+      ],
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "ADMIN": {
+          "name": "ProductAdminService",
+          "kind": "internal",
+          "element_type": "service"
+        },
+        "DB": {
+          "name": "CatalogDatabaseService",
+          "kind": "external",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "source_steps": [
+        "SR-002-REQ",
+        "A_S2",
+        "SR-002-DB-REQ",
+        "SR-002-DB-RES-ALT",
+        "A_S5",
+        "SR-002-RES-ALT",
+        "A_S7"
+      ],
+      "guard": "查询无匹配记录",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "inherited_operation": "SysOP_UC-002_SC_MAIN"
+    }
+  }
+}

@@ -101,6 +101,10 @@ G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试�
 
 行为目录中 `ssd.json` 是RR外部交互；`operations/*/complete_behavior.json` 是SR完整交互定义；`main_success.json` 仅提供时序引用。结合场景类型及步骤引用分流成功、异常和备选，无法判定的保留待确认并由原流程补齐。不能把不完整的主成功文件当作SR完整定义。
 
+同时支持 `行为模型/<资源>/<用例>/SysOperation.json`、`SSD.json` 和 `behaviour/IR|SR/*.json`：用操作内的 `participant` 恢复全称，按入口、`Order`、最终返回展开。明确的 `action` 保留为本地四元组，同一执行对象的双方关注点只计一次。完整转换通过融合SSD校验后可跳过该模型调用；缺项、悬空引用或数据错误保留原流程补齐。
+
+仓库提供 [五用例mini数据集](datasets/mini-mall/README.md)，用于格式与流程测试；该目录不进入Windows离线程序包。
+
 见 [五类文件接入](docs/five-input-bundle.md)、[行为目录格式](docs/resource-behavior-input.md)、[接口层级与测试范围](docs/recovered-json-and-sr-metrics.md)。
 
 ## CLI与管理Agent

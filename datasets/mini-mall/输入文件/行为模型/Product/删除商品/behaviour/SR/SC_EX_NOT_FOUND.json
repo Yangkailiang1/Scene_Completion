@@ -1,0 +1,183 @@
+{
+  "ID": "删除商品_SC_EX_NOT_FOUND",
+  "scenario_kind": "exception",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "DB": {
+      "name": "CatalogDatabaseService",
+      "kind": "external",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-004-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-04"
+    },
+    {
+      "id": "SR-004-DB-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "DB",
+      "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndDeleteProduct操作，传入当前merchantId及本次业务所需字段。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "merchantId",
+            "productId",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": null
+    },
+    {
+      "id": "SR-004-DB-RES-E-NOT_FOUND",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "DB",
+      "receiver": "ADMIN",
+      "message": "CatalogDatabaseService向ProductAdminService返回业务校验未通过的结果：NOT_FOUND。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "failure_reason"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": null
+    },
+    {
+      "id": "SR-004-RES-E-NOT_FOUND",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-04"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-004-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-DB-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-DB-RES-E-NOT_FOUND"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-RES-E-NOT_FOUND"
+    }
+  ],
+  "sourceChunking": "UC-004-API-SR-04_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 174,
+      "end_line": 174,
+      "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "指定productId的商品不存在",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S4"
+  },
+  "resume_at_main": "end"
+}

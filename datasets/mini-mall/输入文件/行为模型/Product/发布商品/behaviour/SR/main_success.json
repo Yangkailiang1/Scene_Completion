@@ -1,0 +1,218 @@
+{
+  "ID": "发布商品_SC_MAIN",
+  "scenario_kind": "main",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "DB": {
+      "name": "CatalogDatabaseService",
+      "kind": "external",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-005-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 190,
+          "end_line": 190,
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-05"
+    },
+    {
+      "id": "SR-005-DB-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 192,
+          "end_line": 192,
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndPublishProduct操作，传入当前merchantId及本次业务所需字段。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "DB",
+      "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndPublishProduct操作，传入当前merchantId及本次业务所需字段。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "merchantId",
+            "productId",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": null
+    },
+    {
+      "id": "SR-005-DB-RES",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 193,
+          "end_line": 193,
+          "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。"
+        }
+      ],
+      "sender": "DB",
+      "receiver": "ADMIN",
+      "message": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "Product"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": null
+    },
+    {
+      "id": "SR-005-RES",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 195,
+          "end_line": 195,
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "response.productId",
+            "response.merchantId",
+            "response.name",
+            "response.productType",
+            "response.price",
+            "response.status",
+            "response.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-05"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 191,
+          "end_line": 191,
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    },
+    {
+      "id": "A_S5",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 194,
+          "end_line": 194,
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S5. ProductAdminService本地构造接口规定的成功响应。",
+      "data_ref": null
+    },
+    {
+      "id": "A_S7",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 196,
+          "end_line": 196,
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "executor": "SYS",
+      "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-005-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-DB-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-DB-RES"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S5"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-RES"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S7"
+    }
+  ],
+  "sourceChunking": "UC-005-API-SR-05_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 190,
+      "end_line": 190,
+      "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+    }
+  ]
+}

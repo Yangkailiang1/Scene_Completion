@@ -1,0 +1,334 @@
+{
+  "schema_version": 12,
+  "apis": [
+    {
+      "API序号": "API-RR-01",
+      "source_layer": "RR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": null,
+      "用例编号": "UC-001",
+      "接口名称": "创建商品",
+      "方法": "POST",
+      "资源路径": "/v1/products",
+      "AR名称": "MiniMallPlatform 对外入口",
+      "实施所有者": "MiniMallPlatform",
+      "实现接口": "createProduct",
+      "API请求参数": "header.Authorization（必填；类型: string；Bearer凭证必须有效且未过期；调用商家必须有当前操作权限）；body.name（必填；类型: string；长度 1-50）；body.productType（必填；类型: string；枚举 {STANDARD|SERVICE}）；body.price（必填；类型: number；0 <= price <= 10000）",
+      "来源": {
+        "file": "系统需求_spec.md",
+        "line": 19,
+        "quote": "- 接口：API-RR-01 POST /v1/products；source_layer=RR。"
+      }
+    },
+    {
+      "API序号": "API-SR-01",
+      "source_layer": "SR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": "SR-MINI-001",
+      "用例编号": "UC-001-API-SR-01",
+      "接口名称": "创建商品",
+      "方法": "POST",
+      "资源路径": "/ms/v1/products",
+      "AR名称": "ProductAdminService Product 商品",
+      "实施所有者": "ProductAdminService",
+      "实现接口": "createProduct",
+      "API请求参数": "header.x-service-id（必填；类型: string；枚举 {mini-platform}；只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据）；header.x-merchant-id（必填；类型: string；格式 ^M[0-9]{3}$；来自已认证商家上下文，不可由请求正文覆盖）；body.name（必填；类型: string；长度 1-50）；body.productType（必填；类型: string；枚举 {STANDARD|SERVICE}）；body.price（必填；类型: number；0 <= price <= 10000）",
+      "来源": {
+        "file": "功能设计_spec.md",
+        "line": 13,
+        "quote": "- AR-MINI-001实现接口：ProductAdminService.createProduct对应API-SR-01 POST /ms/v1/products，操作Product并调用CatalogDatabaseService.createProduct。"
+      }
+    },
+    {
+      "API序号": "API-RR-02",
+      "source_layer": "RR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": null,
+      "用例编号": "UC-002",
+      "接口名称": "查询商品列表",
+      "方法": "GET",
+      "资源路径": "/v1/products",
+      "AR名称": "MiniMallPlatform 对外入口",
+      "实施所有者": "MiniMallPlatform",
+      "实现接口": "listProducts",
+      "API请求参数": "header.Authorization（必填；类型: string；Bearer凭证必须有效且未过期；调用商家必须有当前操作权限）；query.page（可选；类型: integer；默认1；page >= 1）；query.pageSize（可选；类型: integer；默认20；1 <= pageSize <= 100）；query.keyword（可选；类型: string；长度 0-30）；query.productType（可选；类型: string；枚举 {STANDARD|SERVICE}）",
+      "来源": {
+        "file": "系统需求_spec.md",
+        "line": 47,
+        "quote": "- 接口：API-RR-02 GET /v1/products；source_layer=RR。"
+      }
+    },
+    {
+      "API序号": "API-SR-02",
+      "source_layer": "SR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": "SR-MINI-001",
+      "用例编号": "UC-002-API-SR-02",
+      "接口名称": "查询商品列表",
+      "方法": "GET",
+      "资源路径": "/ms/v1/products",
+      "AR名称": "ProductAdminService Product 商品",
+      "实施所有者": "ProductAdminService",
+      "实现接口": "listProducts",
+      "API请求参数": "header.x-service-id（必填；类型: string；枚举 {mini-platform}；只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据）；header.x-merchant-id（必填；类型: string；格式 ^M[0-9]{3}$；来自已认证商家上下文，不可由请求正文覆盖）；query.page（可选；类型: integer；默认1；page >= 1）；query.pageSize（可选；类型: integer；默认20；1 <= pageSize <= 100）；query.keyword（可选；类型: string；长度 0-30）；query.productType（可选；类型: string；枚举 {STANDARD|SERVICE}）",
+      "来源": {
+        "file": "功能设计_spec.md",
+        "line": 14,
+        "quote": "- AR-MINI-001实现接口：ProductAdminService.listProducts对应API-SR-02 GET /ms/v1/products，操作Product并调用CatalogDatabaseService.listProducts。"
+      }
+    },
+    {
+      "API序号": "API-RR-03",
+      "source_layer": "RR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": null,
+      "用例编号": "UC-003",
+      "接口名称": "更新商品",
+      "方法": "PUT",
+      "资源路径": "/v1/products/{productId}",
+      "AR名称": "MiniMallPlatform 对外入口",
+      "实施所有者": "MiniMallPlatform",
+      "实现接口": "updateProduct",
+      "API请求参数": "header.Authorization（必填；类型: string；Bearer凭证必须有效且未过期；调用商家必须有当前操作权限）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）；body.name（必填；类型: string；长度 1-50）；body.price（必填；类型: number；0 <= price <= 10000）；body.productType（可选；类型: string；枚举 {STANDARD|SERVICE}；若提供必须等于原productType，不得改变）",
+      "来源": {
+        "file": "系统需求_spec.md",
+        "line": 73,
+        "quote": "- 接口：API-RR-03 PUT /v1/products/{productId}；source_layer=RR。"
+      }
+    },
+    {
+      "API序号": "API-SR-03",
+      "source_layer": "SR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": "SR-MINI-001",
+      "用例编号": "UC-003-API-SR-03",
+      "接口名称": "更新商品",
+      "方法": "PUT",
+      "资源路径": "/ms/v1/products/{productId}",
+      "AR名称": "ProductAdminService Product 商品",
+      "实施所有者": "ProductAdminService",
+      "实现接口": "updateProduct",
+      "API请求参数": "header.x-service-id（必填；类型: string；枚举 {mini-platform}；只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据）；header.x-merchant-id（必填；类型: string；格式 ^M[0-9]{3}$；来自已认证商家上下文，不可由请求正文覆盖）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）；body.name（必填；类型: string；长度 1-50）；body.price（必填；类型: number；0 <= price <= 10000）；body.productType（可选；类型: string；枚举 {STANDARD|SERVICE}；若提供必须等于原productType，不得改变）",
+      "来源": {
+        "file": "功能设计_spec.md",
+        "line": 15,
+        "quote": "- AR-MINI-001实现接口：ProductAdminService.updateProduct对应API-SR-03 PUT /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndUpdateProduct。"
+      }
+    },
+    {
+      "API序号": "API-RR-04",
+      "source_layer": "RR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": null,
+      "用例编号": "UC-004",
+      "接口名称": "删除商品",
+      "方法": "DELETE",
+      "资源路径": "/v1/products/{productId}",
+      "AR名称": "MiniMallPlatform 对外入口",
+      "实施所有者": "MiniMallPlatform",
+      "实现接口": "deleteProduct",
+      "API请求参数": "header.Authorization（必填；类型: string；Bearer凭证必须有效且未过期；调用商家必须有当前操作权限）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）",
+      "来源": {
+        "file": "系统需求_spec.md",
+        "line": 104,
+        "quote": "- 接口：API-RR-04 DELETE /v1/products/{productId}；source_layer=RR。"
+      }
+    },
+    {
+      "API序号": "API-SR-04",
+      "source_layer": "SR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": "SR-MINI-001",
+      "用例编号": "UC-004-API-SR-04",
+      "接口名称": "删除商品",
+      "方法": "DELETE",
+      "资源路径": "/ms/v1/products/{productId}",
+      "AR名称": "ProductAdminService Product 商品",
+      "实施所有者": "ProductAdminService",
+      "实现接口": "deleteProduct",
+      "API请求参数": "header.x-service-id（必填；类型: string；枚举 {mini-platform}；只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据）；header.x-merchant-id（必填；类型: string；格式 ^M[0-9]{3}$；来自已认证商家上下文，不可由请求正文覆盖）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）",
+      "来源": {
+        "file": "功能设计_spec.md",
+        "line": 16,
+        "quote": "- AR-MINI-001实现接口：ProductAdminService.deleteProduct对应API-SR-04 DELETE /ms/v1/products/{productId}，操作Product并调用CatalogDatabaseService.compareAndDeleteProduct。"
+      }
+    },
+    {
+      "API序号": "API-RR-05",
+      "source_layer": "RR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": null,
+      "用例编号": "UC-005",
+      "接口名称": "发布商品",
+      "方法": "POST",
+      "资源路径": "/v1/products/{productId}/publish",
+      "AR名称": "MiniMallPlatform 对外入口",
+      "实施所有者": "MiniMallPlatform",
+      "实现接口": "publishProduct",
+      "API请求参数": "header.Authorization（必填；类型: string；Bearer凭证必须有效且未过期；调用商家必须有当前操作权限）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）",
+      "来源": {
+        "file": "系统需求_spec.md",
+        "line": 127,
+        "quote": "- 接口：API-RR-05 POST /v1/products/{productId}/publish；source_layer=RR。"
+      }
+    },
+    {
+      "API序号": "API-SR-05",
+      "source_layer": "SR",
+      "RR编号": "RR-MINI-001",
+      "SR编号": "SR-MINI-001",
+      "用例编号": "UC-005-API-SR-05",
+      "接口名称": "发布商品",
+      "方法": "POST",
+      "资源路径": "/ms/v1/products/{productId}/publish",
+      "AR名称": "ProductAdminService Product 商品",
+      "实施所有者": "ProductAdminService",
+      "实现接口": "publishProduct",
+      "API请求参数": "header.x-service-id（必填；类型: string；枚举 {mini-platform}；只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据）；header.x-merchant-id（必填；类型: string；格式 ^M[0-9]{3}$；来自已认证商家上下文，不可由请求正文覆盖）；header.Idempotency-Key（必填；类型: string；长度 8-36；格式 ^[A-Za-z0-9_-]{8,36}$；同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝）；path.productId（必填；类型: string；格式 ^P[0-9]{4}$）；body.version（必填；类型: integer；version >= 1）",
+      "来源": {
+        "file": "功能设计_spec.md",
+        "line": 17,
+        "quote": "- AR-MINI-001实现接口：ProductAdminService.publishProduct对应API-SR-05 POST /ms/v1/products/{productId}/publish，操作Product并调用CatalogDatabaseService.compareAndPublishProduct。"
+      }
+    }
+  ],
+  "srs": [
+    {
+      "id": "SR-MINI-001",
+      "name": "Mini商城商品管理服务能力",
+      "rr_refs": [
+        {
+          "id": "RR-MINI-001",
+          "name": "Mini商城商品管理能力"
+        }
+      ],
+      "description": "根据契约支持商品创建、查询、更新、删除及发布。",
+      "service_names": [
+        "ProductAdminService"
+      ],
+      "api_keys": [
+        "API-SR-01",
+        "API-SR-02",
+        "API-SR-03",
+        "API-SR-04",
+        "API-SR-05"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "MiniMallPlatform",
+      "is_external": false,
+      "sr_ids": [
+        "SR-MINI-001"
+      ],
+      "api_keys": [
+        "API-RR-01",
+        "API-RR-02",
+        "API-RR-03",
+        "API-RR-04",
+        "API-RR-05"
+      ]
+    },
+    {
+      "name": "ProductAdminService",
+      "is_external": false,
+      "sr_ids": [
+        "SR-MINI-001"
+      ],
+      "api_keys": [
+        "API-SR-01",
+        "API-SR-02",
+        "API-SR-03",
+        "API-SR-04",
+        "API-SR-05"
+      ]
+    },
+    {
+      "name": "CatalogDatabaseService",
+      "is_external": true,
+      "sr_ids": [
+        "SR-MINI-001"
+      ],
+      "api_keys": []
+    }
+  ],
+  "ars": [
+    {
+      "id": "AR-MINI-PLATFORM",
+      "name": "MiniMallPlatform 对外入口",
+      "sr_ids": [
+        "SR-MINI-001"
+      ],
+      "software_unit_names": [
+        "MiniMallPlatform"
+      ],
+      "managed_resource": null,
+      "api_keys": [
+        "API-RR-01",
+        "API-RR-02",
+        "API-RR-03",
+        "API-RR-04",
+        "API-RR-05"
+      ]
+    },
+    {
+      "id": "AR-MINI-001",
+      "name": "ProductAdminService Product 商品",
+      "sr_ids": [
+        "SR-MINI-001"
+      ],
+      "software_unit_names": [
+        "ProductAdminService"
+      ],
+      "managed_resource": "Product",
+      "api_keys": [
+        "API-SR-01",
+        "API-SR-02",
+        "API-SR-03",
+        "API-SR-04",
+        "API-SR-05"
+      ]
+    }
+  ],
+  "software_units": [
+    {
+      "name": "MiniMallPlatform",
+      "is_external": false,
+      "candidate": false,
+      "review_status": "confirmed",
+      "ar_names": [
+        "MiniMallPlatform 对外入口"
+      ],
+      "api_keys": [
+        "API-RR-01",
+        "API-RR-02",
+        "API-RR-03",
+        "API-RR-04",
+        "API-RR-05"
+      ],
+      "service_names": [
+        "MiniMallPlatform"
+      ]
+    },
+    {
+      "name": "ProductAdminService",
+      "is_external": false,
+      "candidate": false,
+      "review_status": "confirmed",
+      "ar_names": [
+        "ProductAdminService Product 商品"
+      ],
+      "api_keys": [
+        "API-SR-01",
+        "API-SR-02",
+        "API-SR-03",
+        "API-SR-04",
+        "API-SR-05"
+      ],
+      "service_names": [
+        "ProductAdminService"
+      ]
+    }
+  ]
+}

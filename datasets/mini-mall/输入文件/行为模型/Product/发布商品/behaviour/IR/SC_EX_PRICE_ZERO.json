@@ -1,0 +1,98 @@
+{
+  "ID": "发布商品_SC_EX_PRICE_ZERO",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-005-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 148,
+          "end_line": 148,
+          "quote": "- 待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送POST /v1/products/{productId}/publish（API-RR-05），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-05"
+    },
+    {
+      "id": "RR-005-RES-E-PRICE_ZERO",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 148,
+          "end_line": 148,
+          "quote": "- 待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-05"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-005-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-005-RES-E-PRICE_ZERO"
+    }
+  ],
+  "sourceChunking": "UC-005_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 148,
+      "end_line": 148,
+      "quote": "- 待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "待发布商品price=0，不满足发布前置条件price>0",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

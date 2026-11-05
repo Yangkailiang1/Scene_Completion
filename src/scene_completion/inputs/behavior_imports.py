@@ -22,6 +22,10 @@ LABELS = {
 
 
 def format_of(value):
+    from scene_completion.inputs.ordered_behaviors import format_of as ordered_format
+
+    if found := ordered_format(value):
+        return found
     if not isinstance(value, dict):
         return None
     if (
@@ -59,6 +63,11 @@ def group_path(path):
 
 
 def context_for(path, files):
+    from scene_completion.inputs.ordered_behaviors import context_for as ordered_context
+    from scene_completion.inputs.ordered_behaviors import format_of as ordered_format
+
+    if any(ordered_format(f["value"]) for f in files if f["path"] == path):
+        return ordered_context(path, files)
     group = group_path(path)
     hits = []
     for item in files:
@@ -130,6 +139,11 @@ def flow_refs(flow, interactions, actions, *, allow_external=False):
 
 
 def compile_product(value, file_id, name, context=None):
+    from scene_completion.inputs.ordered_behaviors import compile_product as compile_ordered
+    from scene_completion.inputs.ordered_behaviors import format_of as ordered_format
+
+    if ordered_format(value):
+        return compile_ordered(value, file_id, name, context or {}, VERSION)
     kind = format_of(value)
     if not kind:
         return None
@@ -395,7 +409,12 @@ def selected(rows, scope):
     # Conflicting versions cannot be resolved by filename or newest timestamp.
     identities = {}
     for row, p in out:
-        key = (p["case_name"], p["kind"], p["layer"], p["raw"].get("operation_id"))
+        key = (
+            p["case_name"],
+            p["kind"],
+            p["layer"],
+            p["raw"].get("operation_id") or p["raw"].get("ID"),
+        )
         if key in identities and identities[key] != row["hash"]:
             raise ValueError("行为导入存在同用例同视图多个版本，请停用旧版本")
         identities[key] = row["hash"]
@@ -413,6 +432,15 @@ def materials(rows, scope, *, diagnostics=None):
         diagnostics.append({"file_id": row["id"], "object": row["name"], "reason": reason})
 
     for row, p in chosen:
+        if p["format"] == "ordered_behavior":
+            if p.get("normal_document", {}).get("lines"):
+                for layer in ("RR", "SR") if p["kind"] == "system_operations" else (p["layer"],):
+                    out[layer].append(deepcopy(p["normal_document"]))
+            if p.get("scenario_document"):
+                out["existing"].append(deepcopy(p["scenario_document"]))
+            for entry in p["pending"]:
+                issue(row, entry["reason"])
+            continue
         if p["scenario_document"]:
             out[p["layer"]] += normal_projection([p["scenario_document"]])
             out["existing"].append(deepcopy(p["scenario_document"]))

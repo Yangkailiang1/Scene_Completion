@@ -1,0 +1,648 @@
+{
+  "resource": "Product",
+  "use_case": "创建商品",
+  "scenarios": {
+    "SC_MAIN": {
+      "ID": "创建商品_SC_MAIN",
+      "scenario_kind": "main",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 26,
+              "end_line": 26,
+              "quote": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 28,
+              "end_line": 28,
+              "quote": "R3. MiniMallPlatform向商家返回 HTTP 201，包含productId、merchantId、name、productType、price、status、version。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "R3. MiniMallPlatform向商家返回 HTTP 201，包含productId、merchantId、name、productType、price、status、version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.productId",
+                "response.merchantId",
+                "response.name",
+                "response.productType",
+                "response.price",
+                "response.status",
+                "response.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 26,
+          "end_line": 26,
+          "quote": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。"
+        }
+      ],
+      "SSD_ID": "SSD_UC-001_SC_MAIN",
+      "source_key": "UC-001::SC_MAIN",
+      "sourceSD": "创建商品_SC_MAIN",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-001_SC_MAIN"
+      ]
+    },
+    "SC_EX_NAME_MISSING": {
+      "ID": "创建商品_SC_EX_NAME_MISSING",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 39,
+              "end_line": 39,
+              "quote": "- body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES-E-NAME_MISSING",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 39,
+              "end_line": 39,
+              "quote": "- body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES-E-NAME_MISSING"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 39,
+          "end_line": 39,
+          "quote": "- body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "guard": "body.name未提供",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-001_SC_EX_NAME_MISSING",
+      "source_key": "UC-001::SC_EX_NAME_MISSING",
+      "sourceSD": "创建商品_SC_EX_NAME_MISSING",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-001_SC_EX_NAME_MISSING"
+      ]
+    },
+    "SC_EX_DUPLICATE_NAME": {
+      "ID": "创建商品_SC_EX_DUPLICATE_NAME",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 40,
+              "end_line": 40,
+              "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES-E-DUPLICATE_NAME",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 40,
+              "end_line": 40,
+              "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES-E-DUPLICATE_NAME"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 40,
+          "end_line": 40,
+          "quote": "- 当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "guard": "当前商家已有同名商品",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-001_SC_EX_DUPLICATE_NAME",
+      "source_key": "UC-001::SC_EX_DUPLICATE_NAME",
+      "sourceSD": "创建商品_SC_EX_DUPLICATE_NAME",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-001_SC_EX_DUPLICATE_NAME"
+      ]
+    },
+    "SC_EX_AUTH_REQUIRED": {
+      "ID": "创建商品_SC_EX_AUTH_REQUIRED",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 38,
+              "end_line": 38,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES-E-AUTH_REQUIRED",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 38,
+              "end_line": 38,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回HTTP 401，AUTH_REQUIRED",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES-E-AUTH_REQUIRED"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 38,
+          "end_line": 38,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "guard": "Authorization未提供或无效",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R1"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-001_SC_EX_AUTH_REQUIRED",
+      "source_key": "UC-001::SC_EX_AUTH_REQUIRED",
+      "sourceSD": "创建商品_SC_EX_AUTH_REQUIRED",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": []
+    },
+    "SC_EX_OPERATION_FORBIDDEN": {
+      "ID": "创建商品_SC_EX_OPERATION_FORBIDDEN",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 38,
+              "end_line": 38,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES-E-OPERATION_FORBIDDEN",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 38,
+              "end_line": 38,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回HTTP 403，OPERATION_FORBIDDEN",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES-E-OPERATION_FORBIDDEN"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 38,
+          "end_line": 38,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "guard": "商家没有当前操作权限",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R1"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-001_SC_EX_OPERATION_FORBIDDEN",
+      "source_key": "UC-001::SC_EX_OPERATION_FORBIDDEN",
+      "sourceSD": "创建商品_SC_EX_OPERATION_FORBIDDEN",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": []
+    },
+    "ALT-OTHER-MERCHANT": {
+      "ID": "创建商品_ALT-OTHER-MERCHANT",
+      "scenario_kind": "alternative",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-001-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 42,
+              "end_line": 42,
+              "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送POST /v1/products（API-RR-01），按字段表传递必填及实际提供的可选参数：header.Authorization、body.name、body.productType、body.price。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "body.name",
+                "body.productType",
+                "body.price"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-01"
+        },
+        {
+          "id": "RR-001-RES-ALT",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 42,
+              "end_line": 42,
+              "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "productId",
+                "merchantId",
+                "name",
+                "productType",
+                "price",
+                "status",
+                "version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-01"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-001-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-001-RES-ALT"
+        }
+      ],
+      "sourceChunking": "UC-001_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 42,
+          "end_line": 42,
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        }
+      ],
+      "guard": "另一merchantId下已有同名商品，但当前merchantId下无同名商品",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-001_ALT-OTHER-MERCHANT",
+      "source_key": "UC-001::ALT-OTHER-MERCHANT",
+      "sourceSD": "创建商品_ALT-OTHER-MERCHANT",
+      "system_event": [
+        "RR-001-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-001_ALT-OTHER-MERCHANT"
+      ]
+    }
+  }
+}

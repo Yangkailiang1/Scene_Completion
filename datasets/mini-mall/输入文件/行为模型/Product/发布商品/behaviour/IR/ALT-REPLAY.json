@@ -1,0 +1,103 @@
+{
+  "ID": "发布商品_ALT-REPLAY",
+  "scenario_kind": "alternative",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-005-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 150,
+          "end_line": 150,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送POST /v1/products/{productId}/publish（API-RR-05），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-05"
+    },
+    {
+      "id": "RR-005-RES-ALT",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 150,
+          "end_line": 150,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回首次成功的HTTP 200和结果；不再次写入或增加version",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "productId",
+            "merchantId",
+            "name",
+            "productType",
+            "price",
+            "status",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-05"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-005-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-005-RES-ALT"
+    }
+  ],
+  "sourceChunking": "UC-005_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 150,
+      "end_line": 150,
+      "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+    }
+  ],
+  "guard": "同一商家和接口的相同幂等键、相同请求内容已有成功记录",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

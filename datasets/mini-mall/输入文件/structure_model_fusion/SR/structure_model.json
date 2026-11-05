@@ -1,0 +1,1477 @@
+{
+  "schema_version": 3,
+  "scope": {
+    "target_system": "MiniMallPlatform",
+    "model_level": "SR",
+    "rr_contexts": []
+  },
+  "source_inputs": [
+    {
+      "source_id": "SR-SPEC",
+      "path": "功能设计_spec.md",
+      "role": "SR_spec",
+      "sha256": "b78bb871926ce69cb1d82e5b6390cee7bc674d63ded45359637d50b7e40b95d6"
+    }
+  ],
+  "entities": [
+    {
+      "entity_id": "SR-MINI-001",
+      "canonical_name": "Mini商城商品管理服务能力",
+      "source_name": "Mini商城商品管理服务能力",
+      "entity_type": "sr_requirement",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L5-L5",
+          "quote": "## 架构与实现范围"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "SR-SYSTEM",
+      "canonical_name": "MiniMallPlatform",
+      "source_name": "MiniMallPlatform",
+      "entity_type": "system",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L6-L6",
+          "quote": "- MiniMallPlatform是对外入口及SR调用方；ProductAdminService是内部服务及SR接口实现方。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "SR-SVC-MiniMallPlatform",
+      "canonical_name": "MiniMallPlatform",
+      "source_name": "MiniMallPlatform",
+      "entity_type": "abstract_service",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L6-L6",
+          "quote": "- MiniMallPlatform是对外入口及SR调用方；ProductAdminService是内部服务及SR接口实现方。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "is_external": false
+    },
+    {
+      "entity_id": "SR-SVC-ProductAdminService",
+      "canonical_name": "ProductAdminService",
+      "source_name": "ProductAdminService",
+      "entity_type": "abstract_service",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L6-L6",
+          "quote": "- MiniMallPlatform是对外入口及SR调用方；ProductAdminService是内部服务及SR接口实现方。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "is_external": false
+    },
+    {
+      "entity_id": "SR-SVC-CatalogDatabaseService",
+      "canonical_name": "CatalogDatabaseService",
+      "source_name": "CatalogDatabaseService",
+      "entity_type": "abstract_service",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L7-L7",
+          "quote": "- CatalogDatabaseService是外部数据库逻辑资源服务，负责product_record表的原子读写；不是HTTP接口，不补造其URL。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "is_external": true
+    },
+    {
+      "entity_id": "SR-DB-product_record",
+      "canonical_name": "product_record",
+      "source_name": "product_record",
+      "entity_type": "data_store",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L7-L7",
+          "quote": "- CatalogDatabaseService是外部数据库逻辑资源服务，负责product_record表的原子读写；不是HTTP接口，不补造其URL。"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。"
+    },
+    {
+      "entity_id": "SR-UC-001",
+      "canonical_name": "创建商品",
+      "source_name": "创建商品",
+      "entity_type": "use_case",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L38-L38",
+          "quote": "## UC-001-API-SR-01 创建商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "use_case_id": "UC-001-API-SR-01"
+    },
+    {
+      "entity_id": "SR-UC-001-SC-MAIN",
+      "canonical_name": "创建商品主成功场景",
+      "source_name": "创建商品主成功场景",
+      "entity_type": "scenario",
+      "scenario_kind": "main_success",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。",
+        "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+        "S3. ProductAdminService调用外部CatalogDatabaseService的createProduct操作，传入当前merchantId及本次业务所需字段。",
+        "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。",
+        "S5. ProductAdminService本地构造接口规定的成功响应。",
+        "S6. ProductAdminService向MiniMallPlatform返回 HTTP 201，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。",
+        "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L49-L49",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L50-L50",
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L51-L51",
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的createProduct操作，传入当前merchantId及本次业务所需字段。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L52-L52",
+          "quote": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L53-L53",
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L54-L54",
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 201，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L55-L55",
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "expected_result": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-001-SC-EX-NAME_MISSING",
+      "canonical_name": "E-NAME_MISSING",
+      "source_name": "E-NAME_MISSING",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。",
+        "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L70-L70",
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L70-L70",
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-001-SC-EX-DUPLICATE_NAME",
+      "canonical_name": "E-DUPLICATE_NAME",
+      "source_name": "E-DUPLICATE_NAME",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。",
+        "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L71-L71",
+          "quote": "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L71-L71",
+          "quote": "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-001-SC-ALT-OTHER-MERCHANT",
+      "canonical_name": "不同商家使用相同商品名称，正常创建",
+      "source_name": "不同商家使用相同商品名称，正常创建",
+      "entity_type": "scenario",
+      "scenario_kind": "alternative",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。",
+        "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L73-L73",
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L73-L73",
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        }
+      ],
+      "expected_result": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-002",
+      "canonical_name": "查询商品列表",
+      "source_name": "查询商品列表",
+      "entity_type": "use_case",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L75-L75",
+          "quote": "## UC-002-API-SR-02 查询商品列表"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "use_case_id": "UC-002-API-SR-02"
+    },
+    {
+      "entity_id": "SR-UC-002-SC-MAIN",
+      "canonical_name": "查询商品列表主成功场景",
+      "source_name": "查询商品列表主成功场景",
+      "entity_type": "scenario",
+      "scenario_kind": "main_success",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。",
+        "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+        "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。",
+        "S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。",
+        "S5. ProductAdminService本地构造接口规定的成功响应。",
+        "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.items、response.total、response.page、response.pageSize。",
+        "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L87-L87",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L88-L88",
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L89-L89",
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的listProducts操作，传入当前merchantId及本次业务所需字段。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L90-L90",
+          "quote": "S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L91-L91",
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L92-L92",
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.items、response.total、response.page、response.pageSize。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L93-L93",
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "expected_result": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-002-SC-EX-DB_UNAVAILABLE",
+      "canonical_name": "E-DB_UNAVAILABLE",
+      "source_name": "E-DB_UNAVAILABLE",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。",
+        "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L104-L104",
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L104-L104",
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-002-SC-EX-SIZE_HIGH",
+      "canonical_name": "E-SIZE_HIGH",
+      "source_name": "E-SIZE_HIGH",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。",
+        "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L105-L105",
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L105-L105",
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-002-SC-ALT-EMPTY",
+      "canonical_name": "无匹配商品，正常空列表",
+      "source_name": "无匹配商品，正常空列表",
+      "entity_type": "scenario",
+      "scenario_kind": "alternative",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。",
+        "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L107-L107",
+          "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L107-L107",
+          "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+        }
+      ],
+      "expected_result": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-003",
+      "canonical_name": "更新商品",
+      "source_name": "更新商品",
+      "entity_type": "use_case",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L109-L109",
+          "quote": "## UC-003-API-SR-03 更新商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "use_case_id": "UC-003-API-SR-03"
+    },
+    {
+      "entity_id": "SR-UC-003-SC-MAIN",
+      "canonical_name": "更新商品主成功场景",
+      "source_name": "更新商品主成功场景",
+      "entity_type": "scenario",
+      "scenario_kind": "main_success",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+        "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+        "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。",
+        "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。",
+        "S5. ProductAdminService本地构造接口规定的成功响应。",
+        "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。",
+        "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L123-L123",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L124-L124",
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L125-L125",
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndUpdateProduct操作，传入当前merchantId及本次业务所需字段。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L126-L126",
+          "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L127-L127",
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L128-L128",
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L129-L129",
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "expected_result": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-003-SC-EX-VERSION_CONFLICT",
+      "canonical_name": "E-VERSION_CONFLICT",
+      "source_name": "E-VERSION_CONFLICT",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。",
+        "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L143-L143",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L143-L143",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-003-SC-EX-IMMUTABLE_TYPE",
+      "canonical_name": "E-IMMUTABLE_TYPE",
+      "source_name": "E-IMMUTABLE_TYPE",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。",
+        "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L144-L144",
+          "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L144-L144",
+          "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-003-SC-ALT-REPLAY",
+      "canonical_name": "同键同内容重复提交，正常重放成功",
+      "source_name": "同键同内容重复提交，正常重放成功",
+      "entity_type": "scenario",
+      "scenario_kind": "alternative",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L146-L146",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L146-L146",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "expected_result": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-004",
+      "canonical_name": "删除商品",
+      "source_name": "删除商品",
+      "entity_type": "use_case",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L148-L148",
+          "quote": "## UC-004-API-SR-04 删除商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "use_case_id": "UC-004-API-SR-04"
+    },
+    {
+      "entity_id": "SR-UC-004-SC-MAIN",
+      "canonical_name": "删除商品主成功场景",
+      "source_name": "删除商品主成功场景",
+      "entity_type": "scenario",
+      "scenario_kind": "main_success",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+        "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+        "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndDeleteProduct操作，传入当前merchantId及本次业务所需字段。",
+        "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。",
+        "S5. ProductAdminService本地构造接口规定的成功响应。",
+        "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.deleted。",
+        "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L159-L159",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L160-L160",
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L161-L161",
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndDeleteProduct操作，传入当前merchantId及本次业务所需字段。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L162-L162",
+          "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L163-L163",
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L164-L164",
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.deleted。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L165-L165",
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "expected_result": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-004-SC-EX-NOT_FOUND",
+      "canonical_name": "E-NOT_FOUND",
+      "source_name": "E-NOT_FOUND",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。",
+        "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L174-L174",
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L174-L174",
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-004-SC-EX-STATE",
+      "canonical_name": "E-STATE",
+      "source_name": "E-STATE",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。",
+        "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L175-L175",
+          "quote": "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L175-L175",
+          "quote": "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-004-SC-ALT-REPLAY",
+      "canonical_name": "同键同内容重复提交，正常重放成功",
+      "source_name": "同键同内容重复提交，正常重放成功",
+      "entity_type": "scenario",
+      "scenario_kind": "alternative",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L177-L177",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L177-L177",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "expected_result": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-005",
+      "canonical_name": "发布商品",
+      "source_name": "发布商品",
+      "entity_type": "use_case",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L179-L179",
+          "quote": "## UC-005-API-SR-05 发布商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "use_case_id": "UC-005-API-SR-05"
+    },
+    {
+      "entity_id": "SR-UC-005-SC-MAIN",
+      "canonical_name": "发布商品主成功场景",
+      "source_name": "发布商品主成功场景",
+      "entity_type": "scenario",
+      "scenario_kind": "main_success",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+        "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+        "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndPublishProduct操作，传入当前merchantId及本次业务所需字段。",
+        "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。",
+        "S5. ProductAdminService本地构造接口规定的成功响应。",
+        "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。",
+        "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L190-L190",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L191-L191",
+          "quote": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L192-L192",
+          "quote": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndPublishProduct操作，传入当前merchantId及本次业务所需字段。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L193-L193",
+          "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L194-L194",
+          "quote": "S5. ProductAdminService本地构造接口规定的成功响应。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L195-L195",
+          "quote": "S6. ProductAdminService向MiniMallPlatform返回 HTTP 200，数据为response.productId、response.merchantId、response.name、response.productType、response.price、response.status、response.version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L196-L196",
+          "quote": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。"
+        }
+      ],
+      "expected_result": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-005-SC-EX-VERSION_CONFLICT",
+      "canonical_name": "E-VERSION_CONFLICT",
+      "source_name": "E-VERSION_CONFLICT",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。",
+        "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L211-L211",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L211-L211",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-005-SC-EX-PRICE_ZERO",
+      "canonical_name": "E-PRICE_ZERO",
+      "source_name": "E-PRICE_ZERO",
+      "entity_type": "scenario",
+      "scenario_kind": "exception",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。",
+        "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L212-L212",
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L212-L212",
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "expected_result": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-UC-005-SC-ALT-REPLAY",
+      "canonical_name": "同键同内容重复提交，正常重放成功",
+      "source_name": "同键同内容重复提交，正常重放成功",
+      "entity_type": "scenario",
+      "scenario_kind": "alternative",
+      "model_levels": [
+        "SR"
+      ],
+      "steps": [
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+        "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L214-L214",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        },
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L214-L214",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "expected_result": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。",
+      "inference_basis": "场景步骤及结果摘录自当前用例章节；不外推未声明行为。"
+    },
+    {
+      "entity_id": "SR-API-SR-01",
+      "canonical_name": "API-SR-01",
+      "source_name": "API-SR-01",
+      "entity_type": "api",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L38-L38",
+          "quote": "## UC-001-API-SR-01 创建商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-01",
+      "method": "POST",
+      "api_path": "/ms/v1/products"
+    },
+    {
+      "entity_id": "SR-API-SR-02",
+      "canonical_name": "API-SR-02",
+      "source_name": "API-SR-02",
+      "entity_type": "api",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L75-L75",
+          "quote": "## UC-002-API-SR-02 查询商品列表"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-02",
+      "method": "GET",
+      "api_path": "/ms/v1/products"
+    },
+    {
+      "entity_id": "SR-API-SR-03",
+      "canonical_name": "API-SR-03",
+      "source_name": "API-SR-03",
+      "entity_type": "api",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L109-L109",
+          "quote": "## UC-003-API-SR-03 更新商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-03",
+      "method": "PUT",
+      "api_path": "/ms/v1/products/{productId}"
+    },
+    {
+      "entity_id": "SR-API-SR-04",
+      "canonical_name": "API-SR-04",
+      "source_name": "API-SR-04",
+      "entity_type": "api",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L148-L148",
+          "quote": "## UC-004-API-SR-04 删除商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-04",
+      "method": "DELETE",
+      "api_path": "/ms/v1/products/{productId}"
+    },
+    {
+      "entity_id": "SR-API-SR-05",
+      "canonical_name": "API-SR-05",
+      "source_name": "API-SR-05",
+      "entity_type": "api",
+      "model_levels": [
+        "SR"
+      ],
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L179-L179",
+          "quote": "## UC-005-API-SR-05 发布商品"
+        }
+      ],
+      "inference_basis": "由契约字段与对应spec内容建立。",
+      "api_key": "API-SR-05",
+      "method": "POST",
+      "api_path": "/ms/v1/products/{productId}/publish"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "SR-REL-UC-001-REQ",
+      "source_entity_id": "SR-UC-001",
+      "target_entity_id": "SR-MINI-001",
+      "relation_type": "associated_with_sr",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L38-L38",
+          "quote": "## UC-001-API-SR-01 创建商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-001-SC-MAIN",
+      "source_entity_id": "SR-UC-001-SC-MAIN",
+      "target_entity_id": "SR-UC-001",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L49-L49",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-001-SC-EX-NAME_MISSING",
+      "source_entity_id": "SR-UC-001-SC-EX-NAME_MISSING",
+      "target_entity_id": "SR-UC-001",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L70-L70",
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-001-SC-EX-DUPLICATE_NAME",
+      "source_entity_id": "SR-UC-001-SC-EX-DUPLICATE_NAME",
+      "target_entity_id": "SR-UC-001",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L71-L71",
+          "quote": "- E-DUPLICATE_NAME：在S4，当前商家已有同名商品；返回 HTTP 409，error.code=NAME_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-001-SC-ALT-OTHER-MERCHANT",
+      "source_entity_id": "SR-UC-001-SC-ALT-OTHER-MERCHANT",
+      "target_entity_id": "SR-UC-001",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L73-L73",
+          "quote": "- 另一merchantId下已有同名商品，但当前merchantId下无同名商品；返回 HTTP 201，创建当前商家的新商品；两个商家数据保持隔离。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-UC-002-REQ",
+      "source_entity_id": "SR-UC-002",
+      "target_entity_id": "SR-MINI-001",
+      "relation_type": "associated_with_sr",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L75-L75",
+          "quote": "## UC-002-API-SR-02 查询商品列表"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-002-SC-MAIN",
+      "source_entity_id": "SR-UC-002-SC-MAIN",
+      "target_entity_id": "SR-UC-002",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L87-L87",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送GET /ms/v1/products（API-SR-02），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、query.page、query.pageSize、query.keyword、query.productType。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-002-SC-EX-DB_UNAVAILABLE",
+      "source_entity_id": "SR-UC-002-SC-EX-DB_UNAVAILABLE",
+      "target_entity_id": "SR-UC-002",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L104-L104",
+          "quote": "- E-DB_UNAVAILABLE：在S3，CatalogDatabaseService连接不可达；返回 HTTP 503，error.code=DATABASE_UNAVAILABLE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-002-SC-EX-SIZE_HIGH",
+      "source_entity_id": "SR-UC-002-SC-EX-SIZE_HIGH",
+      "target_entity_id": "SR-UC-002",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L105-L105",
+          "quote": "- E-SIZE_HIGH：在S2，query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-002-SC-ALT-EMPTY",
+      "source_entity_id": "SR-UC-002-SC-ALT-EMPTY",
+      "target_entity_id": "SR-UC-002",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L107-L107",
+          "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-UC-003-REQ",
+      "source_entity_id": "SR-UC-003",
+      "target_entity_id": "SR-MINI-001",
+      "relation_type": "associated_with_sr",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L109-L109",
+          "quote": "## UC-003-API-SR-03 更新商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-003-SC-MAIN",
+      "source_entity_id": "SR-UC-003-SC-MAIN",
+      "target_entity_id": "SR-UC-003",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L123-L123",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送PUT /ms/v1/products/{productId}（API-SR-03），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-003-SC-EX-VERSION_CONFLICT",
+      "source_entity_id": "SR-UC-003-SC-EX-VERSION_CONFLICT",
+      "target_entity_id": "SR-UC-003",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L143-L143",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-003-SC-EX-IMMUTABLE_TYPE",
+      "source_entity_id": "SR-UC-003-SC-EX-IMMUTABLE_TYPE",
+      "target_entity_id": "SR-UC-003",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L144-L144",
+          "quote": "- E-IMMUTABLE_TYPE：在S4，请求productType与原商品productType不同；返回 HTTP 409，error.code=IMMUTABLE_ATTRIBUTE；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-003-SC-ALT-REPLAY",
+      "source_entity_id": "SR-UC-003-SC-ALT-REPLAY",
+      "target_entity_id": "SR-UC-003",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L146-L146",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-UC-004-REQ",
+      "source_entity_id": "SR-UC-004",
+      "target_entity_id": "SR-MINI-001",
+      "relation_type": "associated_with_sr",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L148-L148",
+          "quote": "## UC-004-API-SR-04 删除商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-004-SC-MAIN",
+      "source_entity_id": "SR-UC-004-SC-MAIN",
+      "target_entity_id": "SR-UC-004",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L159-L159",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-004-SC-EX-NOT_FOUND",
+      "source_entity_id": "SR-UC-004-SC-EX-NOT_FOUND",
+      "target_entity_id": "SR-UC-004",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L174-L174",
+          "quote": "- E-NOT_FOUND：在S4，指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-004-SC-EX-STATE",
+      "source_entity_id": "SR-UC-004-SC-EX-STATE",
+      "target_entity_id": "SR-UC-004",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L175-L175",
+          "quote": "- E-STATE：在S4，商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-004-SC-ALT-REPLAY",
+      "source_entity_id": "SR-UC-004-SC-ALT-REPLAY",
+      "target_entity_id": "SR-UC-004",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L177-L177",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-UC-005-REQ",
+      "source_entity_id": "SR-UC-005",
+      "target_entity_id": "SR-MINI-001",
+      "relation_type": "associated_with_sr",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L179-L179",
+          "quote": "## UC-005-API-SR-05 发布商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-005-SC-MAIN",
+      "source_entity_id": "SR-UC-005-SC-MAIN",
+      "target_entity_id": "SR-UC-005",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L190-L190",
+          "quote": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-005-SC-EX-VERSION_CONFLICT",
+      "source_entity_id": "SR-UC-005-SC-EX-VERSION_CONFLICT",
+      "target_entity_id": "SR-UC-005",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L211-L211",
+          "quote": "- E-VERSION_CONFLICT：在S4，请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-005-SC-EX-PRICE_ZERO",
+      "source_entity_id": "SR-UC-005-SC-EX-PRICE_ZERO",
+      "target_entity_id": "SR-UC-005",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L212-L212",
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-SR-UC-005-SC-ALT-REPLAY",
+      "source_entity_id": "SR-UC-005-SC-ALT-REPLAY",
+      "target_entity_id": "SR-UC-005",
+      "relation_type": "associated_with_usecase",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L214-L214",
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-API-SR-01",
+      "source_entity_id": "SR-API-SR-01",
+      "target_entity_id": "SR-UC-001",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L38-L38",
+          "quote": "## UC-001-API-SR-01 创建商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-API-SR-02",
+      "source_entity_id": "SR-API-SR-02",
+      "target_entity_id": "SR-UC-002",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L75-L75",
+          "quote": "## UC-002-API-SR-02 查询商品列表"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-API-SR-03",
+      "source_entity_id": "SR-API-SR-03",
+      "target_entity_id": "SR-UC-003",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L109-L109",
+          "quote": "## UC-003-API-SR-03 更新商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-API-SR-04",
+      "source_entity_id": "SR-API-SR-04",
+      "target_entity_id": "SR-UC-004",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L148-L148",
+          "quote": "## UC-004-API-SR-04 删除商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    },
+    {
+      "relation_id": "SR-REL-API-SR-05",
+      "source_entity_id": "SR-API-SR-05",
+      "target_entity_id": "SR-UC-005",
+      "relation_type": "implements",
+      "assertion_status": "explicit",
+      "evidence": [
+        {
+          "source_id": "SR-SPEC",
+          "locator": "L179-L179",
+          "quote": "## UC-005-API-SR-05 发布商品"
+        }
+      ],
+      "inference_basis": "关系由对应spec声明及契约映射确定。"
+    }
+  ],
+  "trace_anchors": [],
+  "review_items": []
+}

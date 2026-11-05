@@ -1,0 +1,118 @@
+{
+  "ID": "创建商品_SC_EX_NAME_MISSING",
+  "scenario_kind": "exception",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-001-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 70,
+          "end_line": 70,
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products（API-SR-01），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、body.name、body.productType、body.price。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "body.name",
+            "body.productType",
+            "body.price"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-01"
+    },
+    {
+      "id": "SR-001-RES-E-NAME_MISSING",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 70,
+          "end_line": 70,
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-01"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 70,
+          "end_line": 70,
+          "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-001-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-001-RES-E-NAME_MISSING"
+    }
+  ],
+  "sourceChunking": "UC-001-API-SR-01_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 70,
+      "end_line": 70,
+      "quote": "- E-NAME_MISSING：在S2，body.name未提供；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "body.name未提供",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S2"
+  },
+  "resume_at_main": "end"
+}

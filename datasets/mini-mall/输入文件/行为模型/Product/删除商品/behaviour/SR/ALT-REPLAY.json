@@ -1,0 +1,136 @@
+{
+  "ID": "删除商品_ALT-REPLAY",
+  "scenario_kind": "alternative",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-004-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 177,
+          "end_line": 177,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送DELETE /ms/v1/products/{productId}（API-SR-04），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-04"
+    },
+    {
+      "id": "SR-004-RES-ALT",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 177,
+          "end_line": 177,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回首次成功的HTTP 200和结果；不再次写入或增加version",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "productId",
+            "deleted"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-04"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 177,
+          "end_line": 177,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    },
+    {
+      "id": "A_S7",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 177,
+          "end_line": 177,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "executor": "SYS",
+      "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-004-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-004-RES-ALT"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S7"
+    }
+  ],
+  "sourceChunking": "UC-004-API-SR-04_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 177,
+      "end_line": 177,
+      "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+    }
+  ],
+  "guard": "同一商家和接口的相同幂等键、相同请求内容已有成功记录",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S2"
+  },
+  "resume_at_main": "end"
+}

@@ -347,12 +347,13 @@ class DeepAgentsClient(SemanticClient):
 
                     validate_raw_references(payload)
                 containers(payload, packet["output_schema"])
-                if packet["task"] == "api-map":
+                if packet["task"] in {"api-map", "api-parameters"}:
                     from jsonschema import Draft202012Validator
 
                     from scene_completion.inputs.api_identity import validate_mapping_identifiers
 
-                    validate_mapping_identifiers(payload)
+                    if packet["task"] == "api-map":
+                        validate_mapping_identifiers(payload)
 
                     errors = list(
                         Draft202012Validator(packet["output_schema"]).iter_errors(payload)

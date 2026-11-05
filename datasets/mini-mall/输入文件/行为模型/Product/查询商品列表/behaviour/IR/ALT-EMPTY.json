@@ -1,0 +1,101 @@
+{
+  "ID": "查询商品列表_ALT-EMPTY",
+  "scenario_kind": "alternative",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-002-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 68,
+          "end_line": 68,
+          "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-02"
+    },
+    {
+      "id": "RR-002-RES-ALT",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 68,
+          "end_line": 68,
+          "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "items",
+            "total",
+            "page",
+            "pageSize"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-02"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-002-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-002-RES-ALT"
+    }
+  ],
+  "sourceChunking": "UC-002_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 68,
+      "end_line": 68,
+      "quote": "- 查询无匹配记录；返回 HTTP 200，items=[]、total=0，page和pageSize仍为有效值。"
+    }
+  ],
+  "guard": "查询无匹配记录",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

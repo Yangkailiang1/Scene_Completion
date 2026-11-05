@@ -1,0 +1,638 @@
+{
+  "resource": "Product",
+  "use_case": "删除商品",
+  "scenarios": {
+    "SC_MAIN": {
+      "ID": "删除商品_SC_MAIN",
+      "scenario_kind": "main",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 111,
+              "end_line": 111,
+              "quote": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 113,
+              "end_line": 113,
+              "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、deleted。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、deleted。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "response.productId",
+                "response.deleted"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 111,
+          "end_line": 111,
+          "quote": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。"
+        }
+      ],
+      "SSD_ID": "SSD_UC-004_SC_MAIN",
+      "source_key": "UC-004::SC_MAIN",
+      "sourceSD": "删除商品_SC_MAIN",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-004_SC_MAIN"
+      ]
+    },
+    "SC_EX_NOT_FOUND": {
+      "ID": "删除商品_SC_EX_NOT_FOUND",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 119,
+              "end_line": 119,
+              "quote": "- 指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES-E-NOT_FOUND",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 119,
+              "end_line": 119,
+              "quote": "- 指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES-E-NOT_FOUND"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 119,
+          "end_line": 119,
+          "quote": "- 指定productId的商品不存在；返回 HTTP 404，error.code=PRODUCT_NOT_FOUND；不执行或不重复本次业务变更。"
+        }
+      ],
+      "guard": "指定productId的商品不存在",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-004_SC_EX_NOT_FOUND",
+      "source_key": "UC-004::SC_EX_NOT_FOUND",
+      "sourceSD": "删除商品_SC_EX_NOT_FOUND",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-004_SC_EX_NOT_FOUND"
+      ]
+    },
+    "SC_EX_STATE": {
+      "ID": "删除商品_SC_EX_STATE",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 120,
+              "end_line": 120,
+              "quote": "- 商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES-E-STATE",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 120,
+              "end_line": 120,
+              "quote": "- 商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES-E-STATE"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 120,
+          "end_line": 120,
+          "quote": "- 商品status=PUBLISHED，不允许本次更新或删除；返回 HTTP 409，error.code=STATE_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "guard": "商品status=PUBLISHED，不允许本次更新或删除",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-004_SC_EX_STATE",
+      "source_key": "UC-004::SC_EX_STATE",
+      "sourceSD": "删除商品_SC_EX_STATE",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-004_SC_EX_STATE"
+      ]
+    },
+    "SC_EX_AUTH_REQUIRED": {
+      "ID": "删除商品_SC_EX_AUTH_REQUIRED",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 118,
+              "end_line": 118,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES-E-AUTH_REQUIRED",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 118,
+              "end_line": 118,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回HTTP 401，AUTH_REQUIRED",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES-E-AUTH_REQUIRED"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 118,
+          "end_line": 118,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "guard": "Authorization未提供或无效",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R1"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-004_SC_EX_AUTH_REQUIRED",
+      "source_key": "UC-004::SC_EX_AUTH_REQUIRED",
+      "sourceSD": "删除商品_SC_EX_AUTH_REQUIRED",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": []
+    },
+    "SC_EX_OPERATION_FORBIDDEN": {
+      "ID": "删除商品_SC_EX_OPERATION_FORBIDDEN",
+      "scenario_kind": "exception",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 118,
+              "end_line": 118,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES-E-OPERATION_FORBIDDEN",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 118,
+              "end_line": 118,
+              "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回HTTP 403，OPERATION_FORBIDDEN",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "error.code",
+                "error.message"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES-E-OPERATION_FORBIDDEN"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 118,
+          "end_line": 118,
+          "quote": "- Authorization未提供或无效返回401 AUTH_REQUIRED；无当前操作权限返回403 OPERATION_FORBIDDEN。"
+        }
+      ],
+      "guard": "商家没有当前操作权限",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R1"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-004_SC_EX_OPERATION_FORBIDDEN",
+      "source_key": "UC-004::SC_EX_OPERATION_FORBIDDEN",
+      "sourceSD": "删除商品_SC_EX_OPERATION_FORBIDDEN",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": []
+    },
+    "ALT-REPLAY": {
+      "ID": "删除商品_ALT-REPLAY",
+      "scenario_kind": "alternative",
+      "participant": {
+        "SYS": {
+          "name": "MiniMallPlatform",
+          "kind": "system",
+          "element_type": "service"
+        },
+        "U": {
+          "name": "商家",
+          "kind": "external",
+          "element_type": "human"
+        }
+      },
+      "interaction": [
+        {
+          "id": "RR-004-REQ",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 122,
+              "end_line": 122,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "SYS",
+          "message": "R1. 商家向MiniMallPlatform发送DELETE /v1/products/{productId}（API-RR-04），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version。",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "header.Authorization",
+                "header.Idempotency-Key",
+                "path.productId",
+                "body.version"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "request",
+          "api_id": "API-RR-04"
+        },
+        {
+          "id": "RR-004-RES-ALT",
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 122,
+              "end_line": 122,
+              "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+            }
+          ],
+          "sender": "SYS",
+          "receiver": "U",
+          "message": "返回首次成功的HTTP 200和结果；不再次写入或增加version",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "productId",
+                "deleted"
+              ],
+              "operation": "carry"
+            }
+          ],
+          "direction": "return",
+          "api_id": "API-RR-04"
+        }
+      ],
+      "action": [],
+      "Order": [
+        {
+          "kind": "interaction",
+          "ref": "RR-004-REQ"
+        },
+        {
+          "kind": "interaction",
+          "ref": "RR-004-RES-ALT"
+        }
+      ],
+      "sourceChunking": "UC-004_IR",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 122,
+          "end_line": 122,
+          "quote": "- 同一商家和接口的相同幂等键、相同请求内容已有成功记录；返回首次成功的HTTP 200和结果；不再次写入或增加version。"
+        }
+      ],
+      "guard": "同一商家和接口的相同幂等键、相同请求内容已有成功记录",
+      "extend_at_main": {
+        "scenario": "SC_MAIN",
+        "after": "R2"
+      },
+      "resume_at_main": "end",
+      "SSD_ID": "SSD_UC-004_ALT-REPLAY",
+      "source_key": "UC-004::ALT-REPLAY",
+      "sourceSD": "删除商品_ALT-REPLAY",
+      "system_event": [
+        "RR-004-REQ"
+      ],
+      "system_operations": [
+        "SysOP_UC-004_ALT-REPLAY"
+      ]
+    }
+  }
+}

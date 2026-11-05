@@ -114,6 +114,7 @@ INTERACTION = obj(
     api_id=NULL_S,
     source_refs=REFS,
 )
+INTERACTION["properties"]["step_kind"] = enum("interaction", "action")
 COMPONENT = obj(
     id=S,
     name=S,
@@ -397,6 +398,7 @@ ENRICHED_INTERACTION = obj(
     associated_api=NULL_S,
     classification=CLASSIFICATION,
 )
+ENRICHED_INTERACTION["required"].remove("step_kind")
 ENRICHED_INTERACTION["properties"]["source_views"] = arr(
     obj(id=S, layer=enum("RR", "SR"), api_id=NULL_S, operation=S, source_refs=REFS)
 )

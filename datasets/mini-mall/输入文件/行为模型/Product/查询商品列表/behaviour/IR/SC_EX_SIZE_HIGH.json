@@ -1,0 +1,99 @@
+{
+  "ID": "查询商品列表_SC_EX_SIZE_HIGH",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-002-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 66,
+          "end_line": 66,
+          "quote": "- query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送GET /v1/products（API-RR-02），按字段表传递必填及实际提供的可选参数：header.Authorization、query.page、query.pageSize、query.keyword、query.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "query.page",
+            "query.pageSize",
+            "query.keyword",
+            "query.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-02"
+    },
+    {
+      "id": "RR-002-RES-E-SIZE_HIGH",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 66,
+          "end_line": 66,
+          "quote": "- query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-02"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-002-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-002-RES-E-SIZE_HIGH"
+    }
+  ],
+  "sourceChunking": "UC-002_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 66,
+      "end_line": 66,
+      "quote": "- query.pageSize=101，超过100；返回 HTTP 400，error.code=INVALID_REQUEST；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "query.pageSize=101，超过100",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

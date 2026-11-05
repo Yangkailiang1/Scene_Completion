@@ -462,7 +462,7 @@ def basic_views(enriched):
 
     result = {"rr-ssd": {"interactions": []}, "sr-ssd": {"interactions": []}}
     for i in enriched["interactions"]:
-        b = {k: deepcopy(i[k]) for k in INTERACTION["properties"]}
+        b = {k: deepcopy(i[k]) for k in INTERACTION["properties"] if k in i}
         for side in ("sender", "receiver"):
             b[side] = {k: deepcopy(i[side][k]) for k in PARTY["properties"]}
         b["data"] = {"sequence": deepcopy(i["data"]["sequence"])}

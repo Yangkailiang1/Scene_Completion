@@ -174,6 +174,10 @@ def scoped_imports(parts, scope):
                 owner = a.get("source_layer", source)
                 address = a.get("address")
                 known = scope.get("address")
+                method = a.get("method")
+                expected_method = scope.get("method")
+                if method and expected_method and method.upper() != expected_method.upper():
+                    continue
                 exact_path = bool(address and known and address == known)
                 id_match = a.get("declared_id", a["id"]) in {declared, scope["id"]}
                 if owner and owner != layer:

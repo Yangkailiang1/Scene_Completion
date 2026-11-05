@@ -1,0 +1,183 @@
+{
+  "ID": "发布商品_SC_EX_PRICE_ZERO",
+  "scenario_kind": "exception",
+  "participant": {
+    "ADMIN": {
+      "name": "ProductAdminService",
+      "kind": "internal",
+      "element_type": "service"
+    },
+    "DB": {
+      "name": "CatalogDatabaseService",
+      "kind": "external",
+      "element_type": "service"
+    },
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    }
+  },
+  "interaction": [
+    {
+      "id": "SR-005-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "ADMIN",
+      "message": "S1. MiniMallPlatform向ProductAdminService发送POST /ms/v1/products/{productId}/publish（API-SR-05），按字段表传递必填及实际提供的可选参数：header.x-service-id、header.x-merchant-id、header.Idempotency-Key、path.productId、body.version。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.x-service-id",
+            "header.x-merchant-id",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-SR-05"
+    },
+    {
+      "id": "SR-005-DB-REQ",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "DB",
+      "message": "S3. ProductAdminService调用外部CatalogDatabaseService的compareAndPublishProduct操作，传入当前merchantId及本次业务所需字段。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "merchantId",
+            "productId",
+            "version"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": null
+    },
+    {
+      "id": "SR-005-DB-RES-E-PRICE_ZERO",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "DB",
+      "receiver": "ADMIN",
+      "message": "CatalogDatabaseService向ProductAdminService返回业务校验未通过的结果：PRICE_ZERO。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "failure_reason"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": null
+    },
+    {
+      "id": "SR-005-RES-E-PRICE_ZERO",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "ADMIN",
+      "receiver": "SYS",
+      "message": "返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-SR-05"
+    }
+  ],
+  "action": [
+    {
+      "id": "A_S2",
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+        }
+      ],
+      "executor": "ADMIN",
+      "content": "S2. ProductAdminService在本地校验调用身份、数据类型及明示约束；涉及幂等键时先检查成功记录，相同内容重放成功结果，不重复请求数据库。",
+      "data_ref": null
+    }
+  ],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "SR-005-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_S2"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-DB-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-DB-RES-E-PRICE_ZERO"
+    },
+    {
+      "kind": "interaction",
+      "ref": "SR-005-RES-E-PRICE_ZERO"
+    }
+  ],
+  "sourceChunking": "UC-005-API-SR-05_SR",
+  "source_refs": [
+    {
+      "document": "sr",
+      "start_line": 212,
+      "end_line": 212,
+      "quote": "- E-PRICE_ZERO：在S4，待发布商品price=0，不满足发布前置条件price>0；返回 HTTP 409，error.code=PUBLISH_PREREQUISITE_FAILED；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "待发布商品price=0，不满足发布前置条件price>0",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "S4"
+  },
+  "resume_at_main": "end"
+}

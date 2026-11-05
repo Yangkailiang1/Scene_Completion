@@ -1,0 +1,1352 @@
+{
+  "functions": [
+    {
+      "ucId": "UC-001",
+      "name": "创建商品",
+      "rrLayer": {
+        "entities": [
+          {
+            "name": "Product",
+            "zh": "商品",
+            "source": "功能设计_spec.md:L27 - Product.productId（持久化实体属性，不是通用请求体定义）：类型 string；存储必有；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段"
+          }
+        ],
+        "commands": [
+          {
+            "method": "POST",
+            "path": "/v1/products",
+            "apiId": "API-RR-01",
+            "name": "创建商品",
+            "source": "RR:API-RR-01",
+            "attributes": [
+              "Authorization",
+              "name",
+              "productType",
+              "price"
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/ms/v1/products",
+            "apiId": "API-SR-01",
+            "name": "创建商品",
+            "source": "SR:API-SR-01",
+            "attributes": [
+              "x-service-id",
+              "x-merchant-id",
+              "name",
+              "productType",
+              "price"
+            ]
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "唯一标识，由数据库服务生成；创建请求不传此字段",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "merchantId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "商品仅可由同一merchantId的商家访问",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一merchantId下name不可重名；不同商家可重名",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  },
+                  {
+                    "rule": "productType为SERVICE时price必须大于等于1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "status",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {DRAFT|PUBLISHED}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为1；有效更新或发布成功增加1；重复幂等请求不增加",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "API-SR-01",
+            "attributes": [
+              {
+                "name": "x-service-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {mini-platform}",
+                    "error": null
+                  },
+                  {
+                    "rule": "只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "x-merchant-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "来自已认证商家上下文，不可由请求正文覆盖",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "ucId": "UC-002",
+      "name": "查询商品列表",
+      "rrLayer": {
+        "entities": [
+          {
+            "name": "Product",
+            "zh": "商品",
+            "source": "功能设计_spec.md:L27 - Product.productId（持久化实体属性，不是通用请求体定义）：类型 string；存储必有；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段"
+          }
+        ],
+        "commands": [
+          {
+            "method": "GET",
+            "path": "/v1/products",
+            "apiId": "API-RR-02",
+            "name": "查询商品列表",
+            "source": "RR:API-RR-02",
+            "attributes": [
+              "Authorization",
+              "page",
+              "pageSize",
+              "keyword",
+              "productType"
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/ms/v1/products",
+            "apiId": "API-SR-02",
+            "name": "查询商品列表",
+            "source": "SR:API-SR-02",
+            "attributes": [
+              "x-service-id",
+              "x-merchant-id",
+              "page",
+              "pageSize",
+              "keyword",
+              "productType"
+            ]
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "唯一标识，由数据库服务生成；创建请求不传此字段",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "merchantId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "商品仅可由同一merchantId的商家访问",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一merchantId下name不可重名；不同商家可重名",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  },
+                  {
+                    "rule": "productType为SERVICE时price必须大于等于1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "status",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {DRAFT|PUBLISHED}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为1；有效更新或发布成功增加1；重复幂等请求不增加",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "API-SR-02",
+            "attributes": [
+              {
+                "name": "x-service-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {mini-platform}",
+                    "error": null
+                  },
+                  {
+                    "rule": "只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "x-merchant-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "来自已认证商家上下文，不可由请求正文覆盖",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "page",
+                "type": "integer",
+                "tags": [
+                  "可选"
+                ],
+                "constraints": [
+                  {
+                    "rule": "page >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "默认值 1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "pageSize",
+                "type": "integer",
+                "tags": [
+                  "可选"
+                ],
+                "constraints": [
+                  {
+                    "rule": "1 <= pageSize <= 100",
+                    "error": null
+                  },
+                  {
+                    "rule": "默认值 20",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "keyword",
+                "type": "string",
+                "tags": [
+                  "可选"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 0-30",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "可选"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "ucId": "UC-003",
+      "name": "更新商品",
+      "rrLayer": {
+        "entities": [
+          {
+            "name": "Product",
+            "zh": "商品",
+            "source": "功能设计_spec.md:L27 - Product.productId（持久化实体属性，不是通用请求体定义）：类型 string；存储必有；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段"
+          }
+        ],
+        "commands": [
+          {
+            "method": "PUT",
+            "path": "/v1/products/{productId}",
+            "apiId": "API-RR-03",
+            "name": "更新商品",
+            "source": "RR:API-RR-03",
+            "attributes": [
+              "Authorization",
+              "Idempotency-Key",
+              "productId",
+              "version",
+              "name",
+              "price",
+              "productType"
+            ]
+          },
+          {
+            "method": "PUT",
+            "path": "/ms/v1/products/{productId}",
+            "apiId": "API-SR-03",
+            "name": "更新商品",
+            "source": "SR:API-SR-03",
+            "attributes": [
+              "x-service-id",
+              "x-merchant-id",
+              "Idempotency-Key",
+              "productId",
+              "version",
+              "name",
+              "price",
+              "productType"
+            ]
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "唯一标识，由数据库服务生成；创建请求不传此字段",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "merchantId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "商品仅可由同一merchantId的商家访问",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一merchantId下name不可重名；不同商家可重名",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  },
+                  {
+                    "rule": "productType为SERVICE时price必须大于等于1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "status",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {DRAFT|PUBLISHED}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为1；有效更新或发布成功增加1；重复幂等请求不增加",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "API-SR-03",
+            "attributes": [
+              {
+                "name": "x-service-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {mini-platform}",
+                    "error": null
+                  },
+                  {
+                    "rule": "只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "x-merchant-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "来自已认证商家上下文，不可由请求正文覆盖",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "Idempotency-Key",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 8-36",
+                    "error": null
+                  },
+                  {
+                    "rule": "格式 ^[A-Za-z0-9_-]{8,36}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "可选"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "若提供必须等于原productType，不得改变",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "ucId": "UC-004",
+      "name": "删除商品",
+      "rrLayer": {
+        "entities": [
+          {
+            "name": "Product",
+            "zh": "商品",
+            "source": "功能设计_spec.md:L27 - Product.productId（持久化实体属性，不是通用请求体定义）：类型 string；存储必有；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段"
+          }
+        ],
+        "commands": [
+          {
+            "method": "DELETE",
+            "path": "/v1/products/{productId}",
+            "apiId": "API-RR-04",
+            "name": "删除商品",
+            "source": "RR:API-RR-04",
+            "attributes": [
+              "Authorization",
+              "Idempotency-Key",
+              "productId",
+              "version"
+            ]
+          },
+          {
+            "method": "DELETE",
+            "path": "/ms/v1/products/{productId}",
+            "apiId": "API-SR-04",
+            "name": "删除商品",
+            "source": "SR:API-SR-04",
+            "attributes": [
+              "x-service-id",
+              "x-merchant-id",
+              "Idempotency-Key",
+              "productId",
+              "version"
+            ]
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "唯一标识，由数据库服务生成；创建请求不传此字段",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "merchantId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "商品仅可由同一merchantId的商家访问",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一merchantId下name不可重名；不同商家可重名",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  },
+                  {
+                    "rule": "productType为SERVICE时price必须大于等于1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "status",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {DRAFT|PUBLISHED}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为1；有效更新或发布成功增加1；重复幂等请求不增加",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "API-SR-04",
+            "attributes": [
+              {
+                "name": "x-service-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {mini-platform}",
+                    "error": null
+                  },
+                  {
+                    "rule": "只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "x-merchant-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "来自已认证商家上下文，不可由请求正文覆盖",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "Idempotency-Key",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 8-36",
+                    "error": null
+                  },
+                  {
+                    "rule": "格式 ^[A-Za-z0-9_-]{8,36}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "ucId": "UC-005",
+      "name": "发布商品",
+      "rrLayer": {
+        "entities": [
+          {
+            "name": "Product",
+            "zh": "商品",
+            "source": "功能设计_spec.md:L27 - Product.productId（持久化实体属性，不是通用请求体定义）：类型 string；存储必有；格式 ^P[0-9]{4}$；唯一标识，由数据库服务生成；创建请求不传此字段"
+          }
+        ],
+        "commands": [
+          {
+            "method": "POST",
+            "path": "/v1/products/{productId}/publish",
+            "apiId": "API-RR-05",
+            "name": "发布商品",
+            "source": "RR:API-RR-05",
+            "attributes": [
+              "Authorization",
+              "Idempotency-Key",
+              "productId",
+              "version"
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/ms/v1/products/{productId}/publish",
+            "apiId": "API-SR-05",
+            "name": "发布商品",
+            "source": "SR:API-SR-05",
+            "attributes": [
+              "x-service-id",
+              "x-merchant-id",
+              "Idempotency-Key",
+              "productId",
+              "version"
+            ]
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "唯一标识，由数据库服务生成；创建请求不传此字段",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "merchantId",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "商品仅可由同一merchantId的商家访问",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "name",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 1-50",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一merchantId下name不可重名；不同商家可重名",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productType",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {STANDARD|SERVICE}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后不可修改；更新时若提供相同值则允许，提供不同值则拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "price",
+                "type": "number",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "0 <= price <= 10000",
+                    "error": null
+                  },
+                  {
+                    "rule": "productType为SERVICE时price必须大于等于1",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "status",
+                "type": "string",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {DRAFT|PUBLISHED}",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "存储必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  },
+                  {
+                    "rule": "创建后为1；有效更新或发布成功增加1；重复幂等请求不增加",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "API-SR-05",
+            "attributes": [
+              {
+                "name": "x-service-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "枚举 {mini-platform}",
+                    "error": null
+                  },
+                  {
+                    "rule": "只允许MiniMallPlatform身份调用；不得以其他service-id访问本服务的数据",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "x-merchant-id",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^M[0-9]{3}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "来自已认证商家上下文，不可由请求正文覆盖",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "Idempotency-Key",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "长度 8-36",
+                    "error": null
+                  },
+                  {
+                    "rule": "格式 ^[A-Za-z0-9_-]{8,36}$",
+                    "error": null
+                  },
+                  {
+                    "rule": "同一商家、接口、幂等键和相同请求内容重复提交时复用首次成功结果，不重复写入；同键不同内容拒绝",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "productId",
+                "type": "string",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "格式 ^P[0-9]{4}$",
+                    "error": null
+                  }
+                ]
+              },
+              {
+                "name": "version",
+                "type": "integer",
+                "tags": [
+                  "必填"
+                ],
+                "constraints": [
+                  {
+                    "rule": "version >= 1",
+                    "error": null
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "missingConstraints": [],
+  "corrections": []
+}

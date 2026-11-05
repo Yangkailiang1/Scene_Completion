@@ -1,0 +1,101 @@
+{
+  "ID": "更新商品_SC_EX_VERSION_CONFLICT",
+  "scenario_kind": "exception",
+  "participant": {
+    "SYS": {
+      "name": "MiniMallPlatform",
+      "kind": "system",
+      "element_type": "service"
+    },
+    "U": {
+      "name": "商家",
+      "kind": "external",
+      "element_type": "human"
+    }
+  },
+  "interaction": [
+    {
+      "id": "RR-003-REQ",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 96,
+          "end_line": 96,
+          "quote": "- 请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "U",
+      "receiver": "SYS",
+      "message": "R1. 商家向MiniMallPlatform发送PUT /v1/products/{productId}（API-RR-03），按字段表传递必填及实际提供的可选参数：header.Authorization、header.Idempotency-Key、path.productId、body.version、body.name、body.price、body.productType。",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "header.Authorization",
+            "header.Idempotency-Key",
+            "path.productId",
+            "body.version",
+            "body.name",
+            "body.price",
+            "body.productType"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "request",
+      "api_id": "API-RR-03"
+    },
+    {
+      "id": "RR-003-RES-E-VERSION_CONFLICT",
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 96,
+          "end_line": 96,
+          "quote": "- 请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+        }
+      ],
+      "sender": "SYS",
+      "receiver": "U",
+      "message": "返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更",
+      "data_ref": [
+        {
+          "entity": "Product",
+          "fields": [
+            "error.code",
+            "error.message"
+          ],
+          "operation": "carry"
+        }
+      ],
+      "direction": "return",
+      "api_id": "API-RR-03"
+    }
+  ],
+  "action": [],
+  "Order": [
+    {
+      "kind": "interaction",
+      "ref": "RR-003-REQ"
+    },
+    {
+      "kind": "interaction",
+      "ref": "RR-003-RES-E-VERSION_CONFLICT"
+    }
+  ],
+  "sourceChunking": "UC-003_IR",
+  "source_refs": [
+    {
+      "document": "spec",
+      "start_line": 96,
+      "end_line": 96,
+      "quote": "- 请求version与商品当前version不一致；返回 HTTP 409，error.code=VERSION_CONFLICT；不执行或不重复本次业务变更。"
+    }
+  ],
+  "guard": "请求version与商品当前version不一致",
+  "extend_at_main": {
+    "scenario": "SC_MAIN",
+    "after": "R2"
+  },
+  "resume_at_main": "end"
+}

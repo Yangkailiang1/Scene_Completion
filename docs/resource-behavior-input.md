@@ -45,3 +45,25 @@ SR定义与时序分别追溯：sender／receiver／message等来自complete_beh
 仅上传无用例身份的单份SSD或行为文件，需要同时选择相邻场景文件或通过导入确认接口指定`case_id`。支持`sequence`、`choice`、`optional`、`interaction`、`action`和`empty`；悬空引用及不支持的结构显示为格式待修正，不启动自由格式转换模型，也不阻断原始输入流程。
 
 原文件逐字节保存。可读投影有独立来源ID和JSON属性位置，追溯回该输入文件；文件中列出的未提供spec、原始行号及`evidence`不被伪装成本系统已验证证据。采用不自动执行模型，也不改写业务实体、API约束、关注点定义或GT。
+
+## SysOperation与有序行为格式
+
+```text
+行为模型/<资源分组>/<用例>/
+  SysOperation.json
+  SSD.json
+  behaviour/IR/main_success.json
+  behaviour/IR/<分支>.json
+  behaviour/SR/main_success.json
+  behaviour/SR/<分支>.json
+```
+
+`SysOperation.operations`保存操作段定义，段内的`participant`只在该操作作用域解析缩写。先加入`system_event`，再严格解析`Order`的`kind/ref`，最后加入未出现的`system_response`。同种类、同ID只展开一次，不同操作段或不同真实执行不合并。多段主成功须由相邻SSD的`system_operations`明确排序；没有排序时不按JSON字典顺序推断。
+
+`interaction`与`action`分别按原类型处理。显式action以executor作为发送方和接收方，保存`step_kind=action`，保留操作、数据及对象关注点；同一对象的sender/receiver绑定归一为receiver，避免重复计分。普通interaction双方相同属于输入数据疑点，不自动改成action。没有类型依据的本地校验仍由原建模流程整理，不能虚构网络自调用。
+
+`scenario_kind=main`进入正向材料；`exception`进入已有异常E；`alternative`保留查看；未知类型待确认。可省略scenario_kind：明确的main_success标识可识别主成功，其余不凭分支名称猜异常。行为分支不是测试GT，独立测试仍从recovered_usecases等测试文件进入。
+
+完整SysOperation在参与方均能对应系统组成、Order和返回有效且通过同一融合SSD契约时，由工具采用到`<用例>:fused-ssd`；RR/SR投影仍由该正式结果产生。缺定义、归属歧义或校验失败时仅作为输入依据，保留原模型抽取路径，不把空结果标为完成。相同用例存在多个启用版本时须先解决冲突。
+
+来源保存到原上传文件及实际JSON Pointer。输入内的document、quote及行号仅保留为文件自带的元数据；除非原文件也已提供并验证，不将它们冒充本系统已校验的spec引文。
