@@ -195,3 +195,36 @@ def test_exact_normal_rules_and_approved_broad_coverage_need_no_model(tmp_path):
     p["node_key"] = "test:GT_G"
     compare_in_batches(p, client, tmp_path)
     assert len(client.calls) == 1
+
+
+def test_partition_consumes_only_input_bound_external_repair(tmp_path):
+    import pytest
+
+    from scene_completion.infrastructure.storage import write_json
+    from scene_completion.workflow.node_repair import binding, path
+
+    a, b = scenario("a"), scenario("b")
+    p = packet("semantic-compare", {"left": [a], "right": [b], "purpose": "GT_G"})
+    p["node_key"] = "case:GT_G"
+    client = Client()
+
+    def handoff(child):
+        value = client.agent(child)
+        write_json(
+            path(tmp_path, child["node_key"]),
+            {
+                "binding": binding(child, 0),
+                "payload": value,
+                "revision": 1,
+            },
+        )
+        raise RuntimeError("simulated model failure before task completion")
+
+    with pytest.raises(RuntimeError):
+        compare_in_batches(p, client, tmp_path, call=handoff)
+    result = compare_in_batches(p, client, tmp_path)
+    assert len(client.calls) == 1
+    assert result["decisions"][0]["status"] == "full"
+    # Changed guidance must not accept an obsolete partition repair.
+    compare_in_batches(p, client, tmp_path, guidance_revision=1)
+    assert len(client.calls) == 2

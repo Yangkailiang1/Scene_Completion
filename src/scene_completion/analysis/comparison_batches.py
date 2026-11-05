@@ -1,6 +1,7 @@
 """Compare within canonical interactions; retain an exhaustive flat decision matrix."""
 
 import re
+from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.analysis.exception_comparison import missing_report
@@ -287,7 +288,19 @@ def compare_in_batches(parent, client, root, guidance_revision=0, call=None):
         cache = root / "comparison_parts" / (identity + ".json")
         value = None
         proof = {}
-        if cache.exists():
+        # A failed partition exports its own scoped packet for Code Agent repair.
+        # The parent packet has different inputs and cannot consume that repair.
+        from scene_completion.workflow.node_repair import read_repair
+
+        repaired = read_repair(root, child, guidance_revision)
+        if repaired is not None:
+            validate_result("semantic-compare", repaired["payload"], child_input)
+            value = deepcopy(repaired["payload"])
+            proof = {
+                "provider": "external_code_agent_repair",
+                "revision": repaired["revision"],
+            }
+        if value is None and cache.exists():
             try:
                 v = read_json(cache)
                 if isinstance(v, dict) and v.get("protocol") == PROTOCOL:

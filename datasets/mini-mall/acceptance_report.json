@@ -1,0 +1,4566 @@
+{
+  "date": "2026-11-05",
+  "protocol": "scene-workflow-v5",
+  "source_base": "a5412f7490e002ba9e3a9b94461d922f956322ba",
+  "additional_code_fixes": [
+    "source JSON pointer metadata",
+    "input-bound comparison partition repairs"
+  ],
+  "status": "execution_complete_quality_followup_required",
+  "active_nodes": {
+    "passed": 477
+  },
+  "cases": [
+    {
+      "id": "G-001",
+      "name": "创建商品",
+      "analysis_complete": true,
+      "evaluation_complete": true,
+      "graphs_ready": true,
+      "analysis_ready": true,
+      "recommendation_ready": true,
+      "evaluation_ready": true,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 100.0,
+          "numerator": 4,
+          "denominator": 4,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "generation_validity": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 16,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "recommendation_adoption": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 10,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 166.66666666666666,
+          "numerator": 10,
+          "denominator": 6,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        }
+      },
+      "recommendation_comparison": {
+        "baseline": {
+          "set": "M",
+          "label": "推荐前：全部缺失场景",
+          "candidate_count": 16,
+          "gt_count": 6,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 16,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 266.6666666666667,
+              "numerator": 16,
+              "denominator": 6,
+              "status": "适用"
+            }
+          }
+        },
+        "recommended": {
+          "set": "Q",
+          "label": "推荐后：算法筛选场景",
+          "candidate_count": 10,
+          "gt_count": 6,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 10,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 166.66666666666666,
+              "numerator": 10,
+              "denominator": 6,
+              "status": "适用"
+            }
+          }
+        },
+        "unit": "独立异常场景",
+        "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+      },
+      "counts": {
+        "G": 16,
+        "E": 5,
+        "GT": 5,
+        "M": 15
+      },
+      "metric_units": {
+        "missing_exception_miss_rate": "关注点绑定",
+        "generation_validity": "关注点绑定",
+        "recommendation_adoption": "独立异常场景",
+        "recommendation_false_positive": "独立异常场景",
+        "critical_missing_recall": "独立异常场景"
+      },
+      "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+      "scenario_counts": {
+        "G": 17,
+        "E": 6,
+        "GT": 6,
+        "M": 16
+      },
+      "evaluation_scope": {
+        "layer": "all"
+      },
+      "concern_pending": 60,
+      "concern_excluded_count": 77,
+      "truth_pending": 9,
+      "generation_breakdown": {
+        "explicit": {
+          "count": 17,
+          "matched": 0
+        },
+        "conditional": {
+          "count": 0,
+          "matched": 0
+        }
+      },
+      "status": "已评测（关注点或GT有待确认项）",
+      "main_interactions": 9,
+      "explicit_actions": 3,
+      "rr_sr_links": 0,
+      "fused_provider": null
+    },
+    {
+      "id": "G-002",
+      "name": "查询商品列表",
+      "analysis_complete": true,
+      "evaluation_complete": true,
+      "graphs_ready": true,
+      "analysis_ready": true,
+      "recommendation_ready": true,
+      "evaluation_ready": true,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 3,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "generation_validity": {
+          "value": 16.0,
+          "numerator": 4,
+          "denominator": 25,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "recommendation_adoption": {
+          "value": 20.0,
+          "numerator": 2,
+          "denominator": 10,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 160.0,
+          "numerator": 8,
+          "denominator": 5,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        }
+      },
+      "recommendation_comparison": {
+        "baseline": {
+          "set": "M",
+          "label": "推荐前：全部缺失场景",
+          "candidate_count": 26,
+          "gt_count": 5,
+          "matched": 4,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 15.384615384615385,
+              "numerator": 4,
+              "denominator": 26,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 440.0,
+              "numerator": 22,
+              "denominator": 5,
+              "status": "适用"
+            }
+          }
+        },
+        "recommended": {
+          "set": "Q",
+          "label": "推荐后：算法筛选场景",
+          "candidate_count": 10,
+          "gt_count": 5,
+          "matched": 2,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 20.0,
+              "numerator": 2,
+              "denominator": 10,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 160.0,
+              "numerator": 8,
+              "denominator": 5,
+              "status": "适用"
+            }
+          }
+        },
+        "unit": "独立异常场景",
+        "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+      },
+      "counts": {
+        "G": 25,
+        "E": 4,
+        "GT": 4,
+        "M": 23
+      },
+      "metric_units": {
+        "missing_exception_miss_rate": "关注点绑定",
+        "generation_validity": "关注点绑定",
+        "recommendation_adoption": "独立异常场景",
+        "recommendation_false_positive": "独立异常场景",
+        "critical_missing_recall": "独立异常场景"
+      },
+      "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+      "scenario_counts": {
+        "G": 28,
+        "E": 4,
+        "GT": 5,
+        "M": 26
+      },
+      "evaluation_scope": {
+        "layer": "all"
+      },
+      "concern_pending": 34,
+      "concern_excluded_count": 42,
+      "truth_pending": 7,
+      "generation_breakdown": {
+        "explicit": {
+          "count": 28,
+          "matched": 5
+        },
+        "conditional": {
+          "count": 0,
+          "matched": 0
+        }
+      },
+      "status": "已评测（关注点或GT有待确认项）",
+      "main_interactions": 9,
+      "explicit_actions": 3,
+      "rr_sr_links": 0,
+      "fused_provider": null
+    },
+    {
+      "id": "G-003",
+      "name": "更新商品",
+      "analysis_complete": true,
+      "evaluation_complete": true,
+      "graphs_ready": true,
+      "analysis_ready": true,
+      "recommendation_ready": true,
+      "evaluation_ready": true,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 100.0,
+          "numerator": 4,
+          "denominator": 4,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "generation_validity": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 21,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "recommendation_adoption": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 10,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 250.0,
+          "numerator": 10,
+          "denominator": 4,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        }
+      },
+      "recommendation_comparison": {
+        "baseline": {
+          "set": "M",
+          "label": "推荐前：全部缺失场景",
+          "candidate_count": 25,
+          "gt_count": 4,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 25,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 625.0,
+              "numerator": 25,
+              "denominator": 4,
+              "status": "适用"
+            }
+          }
+        },
+        "recommended": {
+          "set": "Q",
+          "label": "推荐后：算法筛选场景",
+          "candidate_count": 10,
+          "gt_count": 4,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 10,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 250.0,
+              "numerator": 10,
+              "denominator": 4,
+              "status": "适用"
+            }
+          }
+        },
+        "unit": "独立异常场景",
+        "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+      },
+      "counts": {
+        "G": 21,
+        "E": 5,
+        "GT": 5,
+        "M": 20
+      },
+      "metric_units": {
+        "missing_exception_miss_rate": "关注点绑定",
+        "generation_validity": "关注点绑定",
+        "recommendation_adoption": "独立异常场景",
+        "recommendation_false_positive": "独立异常场景",
+        "critical_missing_recall": "独立异常场景"
+      },
+      "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+      "scenario_counts": {
+        "G": 25,
+        "E": 5,
+        "GT": 4,
+        "M": 25
+      },
+      "evaluation_scope": {
+        "layer": "all"
+      },
+      "concern_pending": 68,
+      "concern_excluded_count": 77,
+      "truth_pending": 8,
+      "generation_breakdown": {
+        "explicit": {
+          "count": 24,
+          "matched": 0
+        },
+        "conditional": {
+          "count": 1,
+          "matched": 0
+        }
+      },
+      "status": "已评测（关注点或GT有待确认项）",
+      "main_interactions": 9,
+      "explicit_actions": 3,
+      "rr_sr_links": 0,
+      "fused_provider": null
+    },
+    {
+      "id": "G-004",
+      "name": "删除商品",
+      "analysis_complete": true,
+      "evaluation_complete": true,
+      "graphs_ready": true,
+      "analysis_ready": true,
+      "recommendation_ready": true,
+      "evaluation_ready": true,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 100.0,
+          "numerator": 3,
+          "denominator": 3,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "generation_validity": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 25,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "recommendation_adoption": {
+          "value": 0.0,
+          "numerator": 0,
+          "denominator": 10,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 333.3333333333333,
+          "numerator": 10,
+          "denominator": 3,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        }
+      },
+      "recommendation_comparison": {
+        "baseline": {
+          "set": "M",
+          "label": "推荐前：全部缺失场景",
+          "candidate_count": 27,
+          "gt_count": 3,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 27,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 900.0,
+              "numerator": 27,
+              "denominator": 3,
+              "status": "适用"
+            }
+          }
+        },
+        "recommended": {
+          "set": "Q",
+          "label": "推荐后：算法筛选场景",
+          "candidate_count": 10,
+          "gt_count": 3,
+          "matched": 0,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 0.0,
+              "numerator": 0,
+              "denominator": 10,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 333.3333333333333,
+              "numerator": 10,
+              "denominator": 3,
+              "status": "适用"
+            }
+          }
+        },
+        "unit": "独立异常场景",
+        "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+      },
+      "counts": {
+        "G": 25,
+        "E": 4,
+        "GT": 3,
+        "M": 24
+      },
+      "metric_units": {
+        "missing_exception_miss_rate": "关注点绑定",
+        "generation_validity": "关注点绑定",
+        "recommendation_adoption": "独立异常场景",
+        "recommendation_false_positive": "独立异常场景",
+        "critical_missing_recall": "独立异常场景"
+      },
+      "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+      "scenario_counts": {
+        "G": 28,
+        "E": 6,
+        "GT": 3,
+        "M": 27
+      },
+      "evaluation_scope": {
+        "layer": "all"
+      },
+      "concern_pending": 46,
+      "concern_excluded_count": 56,
+      "truth_pending": 7,
+      "generation_breakdown": {
+        "explicit": {
+          "count": 27,
+          "matched": 0
+        },
+        "conditional": {
+          "count": 1,
+          "matched": 0
+        }
+      },
+      "status": "已评测（关注点或GT有待确认项）",
+      "main_interactions": 9,
+      "explicit_actions": 3,
+      "rr_sr_links": 0,
+      "fused_provider": null
+    },
+    {
+      "id": "G-005",
+      "name": "发布商品",
+      "analysis_complete": true,
+      "evaluation_complete": true,
+      "graphs_ready": true,
+      "analysis_ready": true,
+      "recommendation_ready": true,
+      "evaluation_ready": true,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 40.0,
+          "numerator": 2,
+          "denominator": 5,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "generation_validity": {
+          "value": 9.67741935483871,
+          "numerator": 3,
+          "denominator": 31,
+          "status": "适用",
+          "unit": "关注点绑定"
+        },
+        "recommendation_adoption": {
+          "value": 10.0,
+          "numerator": 1,
+          "denominator": 10,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 150.0,
+          "numerator": 9,
+          "denominator": 6,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        }
+      },
+      "recommendation_comparison": {
+        "baseline": {
+          "set": "M",
+          "label": "推荐前：全部缺失场景",
+          "candidate_count": 31,
+          "gt_count": 6,
+          "matched": 1,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 3.225806451612903,
+              "numerator": 1,
+              "denominator": 31,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 500.0,
+              "numerator": 30,
+              "denominator": 6,
+              "status": "适用"
+            }
+          }
+        },
+        "recommended": {
+          "set": "Q",
+          "label": "推荐后：算法筛选场景",
+          "candidate_count": 10,
+          "gt_count": 6,
+          "matched": 1,
+          "metrics": {
+            "recommendation_adoption": {
+              "value": 10.0,
+              "numerator": 1,
+              "denominator": 10,
+              "status": "适用"
+            },
+            "recommendation_false_positive": {
+              "value": 150.0,
+              "numerator": 9,
+              "denominator": 6,
+              "status": "适用"
+            }
+          }
+        },
+        "unit": "独立异常场景",
+        "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+      },
+      "counts": {
+        "G": 31,
+        "E": 3,
+        "GT": 5,
+        "M": 30
+      },
+      "metric_units": {
+        "missing_exception_miss_rate": "关注点绑定",
+        "generation_validity": "关注点绑定",
+        "recommendation_adoption": "独立异常场景",
+        "recommendation_false_positive": "独立异常场景",
+        "critical_missing_recall": "独立异常场景"
+      },
+      "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+      "scenario_counts": {
+        "G": 32,
+        "E": 3,
+        "GT": 6,
+        "M": 31
+      },
+      "evaluation_scope": {
+        "layer": "all"
+      },
+      "concern_pending": 44,
+      "concern_excluded_count": 57,
+      "truth_pending": 9,
+      "generation_breakdown": {
+        "explicit": {
+          "count": 31,
+          "matched": 1
+        },
+        "conditional": {
+          "count": 1,
+          "matched": 0
+        }
+      },
+      "status": "已评测（关注点或GT有待确认项）",
+      "main_interactions": 9,
+      "explicit_actions": 3,
+      "rr_sr_links": 0,
+      "fused_provider": null
+    }
+  ],
+  "global": {
+    "granularity": "global",
+    "test_set": "original",
+    "requested_test_set": "original",
+    "truth_note": "独立原始异常测试",
+    "status": "已评测",
+    "complete": true,
+    "dependencies": [
+      {
+        "id": "dep-001",
+        "from_case_id": "UC-001",
+        "to_case_id": "UC-005",
+        "from_entity_id": "Product",
+        "to_entity_id": "Product",
+        "dependency_type": "order",
+        "condition": "商品必须先处于DRAFT状态才能发布",
+        "obligation": "UC-005（发布商品）的执行依赖于UC-001（创建商品）生成的草稿商品实例存在且状态为DRAFT",
+        "cascade_group": null,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 57,
+            "line_end": 57,
+            "quote": "{\"case_id\":\"UC-005\",\"case_name\":\"发布商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "dep-002",
+        "from_case_id": "UC-001",
+        "to_case_id": "UC-003",
+        "from_entity_id": "Product",
+        "to_entity_id": "Product",
+        "dependency_type": "order",
+        "condition": "商品必须先存在（由UC-001创建或UC-003自身更新前需存在），且版本一致性校验依赖已创建实例",
+        "obligation": "UC-003（更新商品）要求目标商品实例已通过UC-001创建，且更新操作需基于当前version进行原子核对",
+        "cascade_group": null,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "dep-003",
+        "from_case_id": "UC-003",
+        "to_case_id": "UC-004",
+        "from_entity_id": "Product",
+        "to_entity_id": "Product",
+        "dependency_type": "order",
+        "condition": "仅DRAFT状态的商品可被删除；若商品已被UC-005发布为PUBLISHED，则不可删除",
+        "obligation": "UC-004（删除商品）的可行性受UC-005（发布商品）状态变更影响，发布后状态变为PUBLISHED即阻断删除",
+        "cascade_group": null,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 44,
+            "line_end": 44,
+            "quote": "{\"case_id\":\"UC-004\",\"case_name\":\"删除商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-59548b20064de48bd6a13b28-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-004_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-004-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":162,\"end_line\":162,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "dep-004",
+        "from_case_id": "UC-002",
+        "to_case_id": "UC-002",
+        "from_entity_id": "Product",
+        "to_entity_id": "Product",
+        "dependency_type": "consistency",
+        "condition": "查询结果需反映最新创建的、更新的或发布的商品状态（包括version和status）",
+        "obligation": "UC-002（查询商品列表）必须包含UC-001创建、UC-003更新、UC-005发布后的最新数据快照，确保视图一致性",
+        "cascade_group": null,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 14,
+            "line_end": 14,
+            "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      }
+    ],
+    "pending": [
+      {
+        "object": "跨用例前置依赖",
+        "reason": "文档未明示任何用例之间的前置创建、状态一致性或级联义务关系。CRUD矩阵仅描述单个用例内的操作，未建立用例间的依赖链。",
+        "source_refs": [
+          {
+            "source_id": "import-structure-d0cc6350fcdadc82fe5a7a20",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "<!-- colleague-structure-v1 {\"layer\":\"SR\"} -->"
+          },
+          {
+            "source_id": "import-structure-d0cc6350fcdadc82fe5a7a20",
+            "line_start": 2,
+            "line_end": 2,
+            "quote": "# SR 结构化需求（同事JSON可读投影）"
+          },
+          {
+            "source_id": "import-structure-d0cc6350fcdadc82fe5a7a20",
+            "line_start": 3,
+            "line_end": 3,
+            "quote": "- {\"entity_id\":\"SR-SYSTEM\",\"entity_type\":\"system\",\"canonical_name\":\"MiniMallPlatform\"}"
+          }
+        ]
+      },
+      {
+        "object": "Cross-case prerequisites and cascade obligations",
+        "reason": "Input documents define CRUD operations for Product (Create, Read, Update, Delete, Publish) within isolated SR用例 groups (G-001 to G-005). Explicit cross-case dependencies (e.g., 'UC-003 requires UC-001 to have created the product'), version consistency rules across cases, or mandatory cascade obligations (e.g., 'Delete triggers cleanup in another entity') are not explicitly stated in the provided text. The status changes (DRAFT -> PUBLISHED) imply a logical sequence but do not mandate specific case execution order between different test cases without explicit textual constraints.",
+        "source_refs": []
+      },
+      {
+        "object": "跨用例级联义务明确性",
+        "reason": "文档未明示UC-001与UC-005之间是否存在强制的级联触发机制或业务规则约束，仅能从状态依赖推断先后顺序。",
+        "source_refs": []
+      },
+      {
+        "object": "dep-001",
+        "reason": "不同片段对同一记录给出不同内容，保留首个版本待确认",
+        "source_refs": [
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 41,
+            "line_end": 41,
+            "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。"
+          },
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 53,
+            "line_end": 53,
+            "quote": "R2. MiniMallPlatform确认身份和操作权限，完成删除商品；数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除。"
+          }
+        ]
+      },
+      {
+        "object": "dep-002",
+        "reason": "不同片段对同一记录给出不同内容，保留首个版本待确认",
+        "source_refs": [
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 41,
+            "line_end": 41,
+            "quote": "R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。"
+          },
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 68,
+            "line_end": 68,
+            "quote": "成功结果：R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。"
+          }
+        ]
+      },
+      {
+        "object": "dep-003",
+        "reason": "不同片段对同一记录给出不同内容，保留首个版本待确认",
+        "source_refs": [
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 68,
+            "line_end": 68,
+            "quote": "成功结果：R3. MiniMallPlatform向商家返回 HTTP 200，包含productId、merchantId、name、productType、price、status、version。"
+          },
+          {
+            "source_id": "import-structure-70b5884a259a9fc3ac2425ba",
+            "line_start": 53,
+            "line_end": 53,
+            "quote": "R2. MiniMallPlatform确认身份和操作权限，完成删除商品；数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除。"
+          }
+        ]
+      },
+      {
+        "object": "dep-001",
+        "reason": "不同片段对同一记录给出不同内容，保留首个版本待确认",
+        "source_refs": [
+          {
+            "source_id": "import-structure-d0cc6350fcdadc82fe5a7a20",
+            "line_start": 73,
+            "line_end": 73,
+            "quote": "## UC-005-API-SR-05：发布商品"
+          }
+        ]
+      },
+      {
+        "object": "dep-002",
+        "reason": "不同片段对同一记录给出不同内容，保留首个版本待确认",
+        "source_refs": [
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "object": "Product",
+        "reason": "未明确说明在跨用例场景下，依赖实体的状态或版本是否需要全局一致性检查。",
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 14,
+            "line_end": 14,
+            "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "object": "Product",
+        "reason": "未明确说明在跨用例场景下，依赖实体的状态或版本是否需要全局一致性检查的具体实现机制。",
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 14,
+            "line_end": 14,
+            "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      }
+    ],
+    "concerns": [
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "concern_key": "global.call_order"
+        },
+        "cells": {
+          "G": null,
+          "E": "global-002",
+          "GT": "match-002"
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "concern_key": "global.dependency_consistency"
+        },
+        "cells": {
+          "G": "match-001",
+          "E": "global-001",
+          "GT": "match-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "concern_key": "global.call_order"
+        },
+        "cells": {
+          "G": null,
+          "E": "match-002",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "concern_key": "global.dependency_consistency"
+        },
+        "cells": {
+          "G": "match-001",
+          "E": "match-001",
+          "GT": "match-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-003",
+          "object": "Product",
+          "concern_key": "global.dependency_consistency"
+        },
+        "cells": {
+          "G": "match-001",
+          "E": "concern-002",
+          "GT": "match-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "concern_key": "global.dependency_consistency"
+        },
+        "cells": {
+          "G": "match-001",
+          "E": "RR::RR-UC-005-SC-EX-PRICE_ZERO",
+          "GT": "match-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖、对象和关注点ID精确匹配"
+      }
+    ],
+    "scenarios": [
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "uc-005执行时依赖的draft状态商品实例不存在或状态非draft",
+          "conditions": [
+            "商品存在但status不为draft",
+            "商品未通过uc-001创建"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scn-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "uc-005（发布）在uc-001（创建draft）之前执行或缺乏前置draft实例",
+          "conditions": [
+            "独立执行uc-005且无对应draft实例",
+            "调用顺序违反：先发布后创建草稿"
+          ],
+          "concern_keys": [
+            "global.call_order"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scn-002"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "依赖实体不存在",
+          "conditions": [
+            "uc-005（发布商品）执行时，uc-001（创建商品）未生成对应的商品实例"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-001",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "依赖实体状态不满足条件",
+          "conditions": [
+            "uc-005（发布商品）执行时，目标商品实例存在但status属性不为draft（例如为published或不存在该枚举值）"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-002",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "商品实例不存在或状态非draft",
+          "conditions": [
+            "uc-005（发布商品）执行时，依赖的uc-001（创建商品）生成的草稿商品实例不存在",
+            "uc-005（发布商品）执行时，依赖的草稿商品实例状态不为draft"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-001",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-001",
+          "object": "Product",
+          "cause": "未先执行创建操作或跳过draft状态直接发布",
+          "conditions": [
+            "uc-005（发布商品）在uc-001（创建商品）生成draft实例之前被调用",
+            "uc-005（发布商品）尝试发布一个从未处于draft状态的实例"
+          ],
+          "concern_keys": [
+            "global.call_order"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-002",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "uc-003在uc-001之前调用，导致依赖失败",
+          "conditions": [
+            "uc-003被触发但uc-001尚未创建目标商品"
+          ],
+          "concern_keys": [
+            "global.call_order"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-002",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "版本一致性校验失败",
+          "conditions": [
+            "uc-003 更新商品操作触发时，目标商品 version 值与当前数据库记录不一致"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-002"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "版本一致性校验失败",
+          "conditions": [
+            "uc-003（更新商品）执行时，请求提供的version值与数据库中当前存储的version值不一致"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-dep-002-consistency-003",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "目标商品实例不存在",
+          "conditions": [
+            "uc-003 更新商品操作触发时，目标商品未通过 uc-001 创建"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "目标商品实例不存在",
+          "conditions": [
+            "uc-003（更新商品）执行时，指定的productid在系统中未由uc-001创建或未被其他操作创建"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-dep-002-consistency-001",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "目标商品实例不存在或未通过uc-001创建，违反依赖条件",
+          "conditions": [
+            "uc-003执行更新操作时目标商品未创建",
+            "请求version与当前商品version不一致"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-001",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-002",
+          "object": "Product",
+          "cause": "目标商品状态非draft",
+          "conditions": [
+            "uc-003（更新商品）执行时，指定的productid存在但status不为draft（例如为published）"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-dep-002-consistency-002",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-003",
+          "object": "Product",
+          "cause": "商品状态为published时尝试删除",
+          "conditions": [
+            "商品已通过uc-005发布，状态为published",
+            "调用uc-004删除商品"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-003",
+          "object": "Product",
+          "cause": "商品状态为published时尝试执行删除操作",
+          "conditions": [
+            "operation is delete (uc-004)",
+            "product.status == published"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "scenario-001",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-003",
+          "object": "Product",
+          "cause": "商品状态变更导致依赖冲突",
+          "conditions": [
+            "uc-004删除操作要求商品处于draft状态",
+            "uc-005发布操作将商品状态变更为published",
+            "商品status=published"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-001",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "catalogdatabaseservice连接不可达导致查询失败，无法反映最新状态",
+          "conditions": [
+            "catalogdatabaseservice连接不可达"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-001",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "商家已有同名商品导致创建失败，查询结果不包含预期商品",
+          "conditions": [
+            "当前商家已有同名商品"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-002",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "待发布商品price=0导致发布失败，查询结果不包含已发布的商品",
+          "conditions": [
+            "待发布商品price=0"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-004",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "查询商品列表未反映最新创建的商品状态（version和status）。",
+          "conditions": [
+            "catalogdatabaseservice返回的商品列表中不包含最新创建的商品。",
+            "uc-001创建草稿商品后，uc-002查询商品列表未包含新创建商品。"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-001"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "查询商品列表未反映最新发布的商品状态（status为published）。",
+          "conditions": [
+            "catalogdatabaseservice返回的商品列表中不包含最新发布的商品。",
+            "uc-005发布商品后，uc-002查询商品列表未包含已发布的商品。"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-003"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "查询商品列表未反映最新更新的商品状态（version和price）。",
+          "conditions": [
+            "catalogdatabaseservice返回的商品列表中不包含最新更新的商品。",
+            "uc-003更新商品后，uc-002查询商品列表未包含已更新的商品。"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": null,
+          "GT": "scenario-002"
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（status）",
+          "conditions": [
+            "uc-001创建商品后，uc-002查询时status仍为draft（若预期已发布）",
+            "uc-005发布商品后，uc-002查询时status未变为published"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "s-dep-004-consistency-status",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（version）",
+          "conditions": [
+            "uc-001创建商品后，uc-002查询时version仍为初始值",
+            "uc-003更新商品后，uc-002查询时version未增加",
+            "uc-005发布商品后，uc-002查询时version未增加"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": "s-dep-004-consistency-version",
+          "E": null,
+          "GT": null
+        },
+        "missing": true,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      },
+      {
+        "anchor": {
+          "dependency_id": "dep-004",
+          "object": "Product",
+          "cause": "请求version与商品当前version不一致导致更新失败，查询结果不反映最新状态",
+          "conditions": [
+            "请求version与商品当前version不一致"
+          ],
+          "concern_keys": [
+            "global.dependency_consistency"
+          ]
+        },
+        "cells": {
+          "G": null,
+          "E": "scenario-003",
+          "GT": null
+        },
+        "missing": false,
+        "reason": "同一全局依赖与独立失败条件精确匹配；关注点分类差异另行展示"
+      }
+    ],
+    "missing": [
+      {
+        "id": "scenario-001",
+        "dependency_id": "dep-001",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "依赖实体不存在",
+        "conditions": [
+          "UC-005（发布商品）执行时，UC-001（创建商品）未生成对应的商品实例"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 57,
+            "line_end": 57,
+            "quote": "{\"case_id\":\"UC-005\",\"case_name\":\"发布商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "scenario-002",
+        "dependency_id": "dep-001",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "依赖实体状态不满足条件",
+        "conditions": [
+          "UC-005（发布商品）执行时，目标商品实例存在但status属性不为DRAFT（例如为PUBLISHED或不存在该枚举值）"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 57,
+            "line_end": 57,
+            "quote": "{\"case_id\":\"UC-005\",\"case_name\":\"发布商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 7,
+            "line_end": 7,
+            "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 20,
+            "line_end": 20,
+            "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+          }
+        ]
+      },
+      {
+        "id": "scenario-dep-002-consistency-001",
+        "dependency_id": "dep-002",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "目标商品实例不存在",
+        "conditions": [
+          "UC-003（更新商品）执行时，指定的productId在系统中未由UC-001创建或未被其他操作创建"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "scenario-dep-002-consistency-002",
+        "dependency_id": "dep-002",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "目标商品状态非DRAFT",
+        "conditions": [
+          "UC-003（更新商品）执行时，指定的productId存在但status不为DRAFT（例如为PUBLISHED）"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "scenario-dep-002-consistency-003",
+        "dependency_id": "dep-002",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "版本一致性校验失败",
+        "conditions": [
+          "UC-003（更新商品）执行时，请求提供的version值与数据库中当前存储的version值不一致"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "scenario-001",
+        "dependency_id": "dep-003",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "商品状态为PUBLISHED时尝试执行删除操作",
+        "conditions": [
+          "Product.status == PUBLISHED",
+          "Operation is Delete (UC-004)"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 28,
+            "line_end": 28,
+            "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 44,
+            "line_end": 44,
+            "quote": "{\"case_id\":\"UC-004\",\"case_name\":\"删除商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-59548b20064de48bd6a13b28-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-004_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-004-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":162,\"end_line\":162,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          }
+        ]
+      },
+      {
+        "id": "s-dep-004-consistency-version",
+        "dependency_id": "dep-004",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（version）",
+        "conditions": [
+          "UC-001创建商品后，UC-002查询时version仍为初始值",
+          "UC-003更新商品后，UC-002查询时version未增加",
+          "UC-005发布商品后，UC-002查询时version未增加"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 14,
+            "line_end": 14,
+            "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 8,
+            "line_end": 8,
+            "quote": "{\"name\":\"version\",\"type\":\"integer\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"version >= 1\",\"创建后为1；有效更新或发布成功增加1；重复幂等请求不增加\"]}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 21,
+            "line_end": 21,
+            "quote": "{\"name\":\"version\",\"type\":\"integer\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"version >= 1\",\"创建后为1；有效更新或发布成功增加1；重复幂等请求不增加\"]}"
+          }
+        ]
+      },
+      {
+        "id": "s-dep-004-consistency-status",
+        "dependency_id": "dep-004",
+        "concern_key": "global.dependency_consistency",
+        "object": "Product",
+        "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（status）",
+        "conditions": [
+          "UC-001创建商品后，UC-002查询时status仍为DRAFT（若预期已发布）",
+          "UC-005发布商品后，UC-002查询时status未变为PUBLISHED"
+        ],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": true,
+        "source_refs": [
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 14,
+            "line_end": 14,
+            "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+          },
+          {
+            "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+            "line_start": 5,
+            "line_end": 5,
+            "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 7,
+            "line_end": 7,
+            "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+          },
+          {
+            "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+            "line_start": 20,
+            "line_end": 20,
+            "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+          }
+        ]
+      }
+    ],
+    "recommendations": [
+      {
+        "scenario_id": "s-dep-004-consistency-status",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "s-dep-004-consistency-status",
+          "dependency_id": "dep-004",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（status）",
+          "conditions": [
+            "UC-001创建商品后，UC-002查询时status仍为DRAFT（若预期已发布）",
+            "UC-005发布商品后，UC-002查询时status未变为PUBLISHED"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 14,
+              "line_end": 14,
+              "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 7,
+              "line_end": 7,
+              "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 20,
+              "line_end": 20,
+              "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+            }
+          ]
+        },
+        "rank": 1,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "s-dep-004-consistency-version",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "s-dep-004-consistency-version",
+          "dependency_id": "dep-004",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "查询结果未反映最新创建的、更新的或发布的商品状态（version）",
+          "conditions": [
+            "UC-001创建商品后，UC-002查询时version仍为初始值",
+            "UC-003更新商品后，UC-002查询时version未增加",
+            "UC-005发布商品后，UC-002查询时version未增加"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 14,
+              "line_end": 14,
+              "quote": "{\"case_id\":\"UC-002\",\"case_name\":\"查询商品列表\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-0c9dcebf580466082f5786e6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-002_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-002-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":90,\"end_line\":90,\"quote\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product[]\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 8,
+              "line_end": 8,
+              "quote": "{\"name\":\"version\",\"type\":\"integer\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"version >= 1\",\"创建后为1；有效更新或发布成功增加1；重复幂等请求不增加\"]}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 21,
+              "line_end": 21,
+              "quote": "{\"name\":\"version\",\"type\":\"integer\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"version >= 1\",\"创建后为1；有效更新或发布成功增加1；重复幂等请求不增加\"]}"
+            }
+          ]
+        },
+        "rank": 2,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-001",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-001",
+          "dependency_id": "dep-001",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "依赖实体不存在",
+          "conditions": [
+            "UC-005（发布商品）执行时，UC-001（创建商品）未生成对应的商品实例"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 1,
+              "line_end": 1,
+              "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 57,
+              "line_end": 57,
+              "quote": "{\"case_id\":\"UC-005\",\"case_name\":\"发布商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            }
+          ]
+        },
+        "rank": 3,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-001",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-001",
+          "dependency_id": "dep-003",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "商品状态为PUBLISHED时尝试执行删除操作",
+          "conditions": [
+            "Product.status == PUBLISHED",
+            "Operation is Delete (UC-004)"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 28,
+              "line_end": 28,
+              "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 44,
+              "line_end": 44,
+              "quote": "{\"case_id\":\"UC-004\",\"case_name\":\"删除商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-59548b20064de48bd6a13b28-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-004_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-004-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":162,\"end_line\":162,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            }
+          ]
+        },
+        "rank": 4,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-002",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-002",
+          "dependency_id": "dep-001",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "依赖实体状态不满足条件",
+          "conditions": [
+            "UC-005（发布商品）执行时，目标商品实例存在但status属性不为DRAFT（例如为PUBLISHED或不存在该枚举值）"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 1,
+              "line_end": 1,
+              "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 57,
+              "line_end": 57,
+              "quote": "{\"case_id\":\"UC-005\",\"case_name\":\"发布商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-15d48aa75fe8b9c94d7cc09a-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-005_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-005-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":193,\"end_line\":193,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、name非空且price>0，成功将status设为PUBLISHED并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 7,
+              "line_end": 7,
+              "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-001\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 20,
+              "line_end": 20,
+              "quote": "{\"name\":\"status\",\"type\":\"string\",\"tags\":[\"存储必填\"],\"case_id\":\"UC-002\",\"entity\":\"Product\",\"rules\":[\"枚举 {DRAFT|PUBLISHED}\",\"创建后为DRAFT；仅UC-005可由DRAFT改为PUBLISHED；仅DRAFT可更新或删除\"]}"
+            }
+          ]
+        },
+        "rank": 5,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-dep-002-consistency-001",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-dep-002-consistency-001",
+          "dependency_id": "dep-002",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "目标商品实例不存在",
+          "conditions": [
+            "UC-003（更新商品）执行时，指定的productId在系统中未由UC-001创建或未被其他操作创建"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 1,
+              "line_end": 1,
+              "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 28,
+              "line_end": 28,
+              "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            }
+          ]
+        },
+        "rank": 6,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-dep-002-consistency-002",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-dep-002-consistency-002",
+          "dependency_id": "dep-002",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "目标商品状态非DRAFT",
+          "conditions": [
+            "UC-003（更新商品）执行时，指定的productId存在但status不为DRAFT（例如为PUBLISHED）"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 1,
+              "line_end": 1,
+              "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 28,
+              "line_end": 28,
+              "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            }
+          ]
+        },
+        "rank": 7,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      },
+      {
+        "scenario_id": "scenario-dep-002-consistency-003",
+        "priority": 0.5,
+        "risk_level": "normal",
+        "history_score": 0.5,
+        "history_count": 0,
+        "mandatory": false,
+        "scenario": {
+          "id": "scenario-dep-002-consistency-003",
+          "dependency_id": "dep-002",
+          "concern_key": "global.dependency_consistency",
+          "object": "Product",
+          "cause": "版本一致性校验失败",
+          "conditions": [
+            "UC-003（更新商品）执行时，请求提供的version值与数据库中当前存储的version值不一致"
+          ],
+          "source_status": "explicit",
+          "resolution": "explicit",
+          "executable": true,
+          "source_refs": [
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 1,
+              "line_end": 1,
+              "quote": "{\"case_id\":\"UC-001\",\"case_name\":\"创建商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-ef6ee2b80bafd7c1b047f6c2-facts-v1",
+              "line_start": 28,
+              "line_end": 28,
+              "quote": "{\"case_id\":\"UC-003\",\"case_name\":\"更新商品\",\"entity\":\"Product\",\"name\":\"商品\"}"
+            },
+            {
+              "source_id": "import-1d127d0b782bfa08d4c799b6-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-001_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-001-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":52,\"end_line\":52,\"quote\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            },
+            {
+              "source_id": "import-2a78c2ec79c7072ea7c5a5e8-ordered-facts-v1",
+              "line_start": 5,
+              "line_end": 5,
+              "quote": "{\"operation_id\":\"SysOP_UC-003_SC_MAIN\",\"kind\":\"interaction\",\"node\":{\"id\":\"SR-003-DB-RES\",\"source_refs\":[{\"document\":\"sr\",\"start_line\":126,\"end_line\":126,\"quote\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\"}],\"sender\":\"DB\",\"receiver\":\"ADMIN\",\"message\":\"S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version，并向ProductAdminService返回结果。\",\"data_ref\":[{\"entity\":\"Product\",\"fields\":[\"Product\"],\"operation\":\"carry\"}],\"direction\":\"return\",\"api_id\":null},\"participant\":{\"DB\":{\"name\":\"CatalogDatabaseService\",\"kind\":\"external\",\"element_type\":\"service\"},\"ADMIN\":{\"name\":\"ProductAdminService\",\"kind\":\"internal\",\"element_type\":\"service\"}}}"
+            }
+          ]
+        },
+        "rank": 8,
+        "selected": true,
+        "reason": "风险与项目内已审核历史排序"
+      }
+    ],
+    "metrics": {
+      "missing_omission": {
+        "numerator": 0,
+        "denominator": 0,
+        "value": null,
+        "status": "不适用"
+      },
+      "generation_effectiveness": {
+        "numerator": 4,
+        "denominator": 4,
+        "value": 100.0,
+        "status": "适用"
+      },
+      "baseline_adoption": {
+        "numerator": 0,
+        "denominator": 8,
+        "value": 0.0,
+        "status": "适用"
+      },
+      "baseline_false_positive": {
+        "numerator": 8,
+        "denominator": 8,
+        "value": 100.0,
+        "status": "适用"
+      },
+      "recommendation_adoption": {
+        "numerator": 0,
+        "denominator": 8,
+        "value": 0.0,
+        "status": "适用"
+      },
+      "recommendation_false_positive": {
+        "numerator": 8,
+        "denominator": 8,
+        "value": 100.0,
+        "status": "适用"
+      }
+    },
+    "counts": {
+      "concern": {
+        "G": 4,
+        "E": 6,
+        "M": 0
+      },
+      "scenario": {
+        "G": 8,
+        "E": 9,
+        "GT": 8
+      },
+      "Q": 8
+    }
+  },
+  "interaction_metrics_all": {
+    "test_alignment_pending": 0,
+    "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+    "unit": "关注点绑定",
+    "cases": [
+      {
+        "id": "G-001",
+        "name": "创建商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 4,
+            "denominator": 4,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 16,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 10,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 166.66666666666666,
+            "numerator": 10,
+            "denominator": 6,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 16,
+            "gt_count": 6,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 16,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 266.6666666666667,
+                "numerator": 16,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 10,
+            "gt_count": 6,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 10,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 166.66666666666666,
+                "numerator": 10,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 16,
+          "E": 5,
+          "GT": 5,
+          "M": 15
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 17,
+          "E": 6,
+          "GT": 6,
+          "M": 16
+        },
+        "evaluation_scope": {
+          "layer": "all"
+        },
+        "concern_pending": 60,
+        "concern_excluded_count": 77,
+        "truth_pending": 9,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 17,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 0,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-002",
+        "name": "查询商品列表",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 3,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 16.0,
+            "numerator": 4,
+            "denominator": 25,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 20.0,
+            "numerator": 2,
+            "denominator": 10,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 160.0,
+            "numerator": 8,
+            "denominator": 5,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 26,
+            "gt_count": 5,
+            "matched": 4,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 15.384615384615385,
+                "numerator": 4,
+                "denominator": 26,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 440.0,
+                "numerator": 22,
+                "denominator": 5,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 10,
+            "gt_count": 5,
+            "matched": 2,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 20.0,
+                "numerator": 2,
+                "denominator": 10,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 160.0,
+                "numerator": 8,
+                "denominator": 5,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 25,
+          "E": 4,
+          "GT": 4,
+          "M": 23
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 28,
+          "E": 4,
+          "GT": 5,
+          "M": 26
+        },
+        "evaluation_scope": {
+          "layer": "all"
+        },
+        "concern_pending": 34,
+        "concern_excluded_count": 42,
+        "truth_pending": 7,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 28,
+            "matched": 5
+          },
+          "conditional": {
+            "count": 0,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-003",
+        "name": "更新商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 4,
+            "denominator": 4,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 21,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 10,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 250.0,
+            "numerator": 10,
+            "denominator": 4,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 25,
+            "gt_count": 4,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 25,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 625.0,
+                "numerator": 25,
+                "denominator": 4,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 10,
+            "gt_count": 4,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 10,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 250.0,
+                "numerator": 10,
+                "denominator": 4,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 21,
+          "E": 5,
+          "GT": 5,
+          "M": 20
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 25,
+          "E": 5,
+          "GT": 4,
+          "M": 25
+        },
+        "evaluation_scope": {
+          "layer": "all"
+        },
+        "concern_pending": 68,
+        "concern_excluded_count": 77,
+        "truth_pending": 8,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 24,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-004",
+        "name": "删除商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 3,
+            "denominator": 3,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 25,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 10,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 333.3333333333333,
+            "numerator": 10,
+            "denominator": 3,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 27,
+            "gt_count": 3,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 27,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 900.0,
+                "numerator": 27,
+                "denominator": 3,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 10,
+            "gt_count": 3,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 10,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 333.3333333333333,
+                "numerator": 10,
+                "denominator": 3,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 25,
+          "E": 4,
+          "GT": 3,
+          "M": 24
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 28,
+          "E": 6,
+          "GT": 3,
+          "M": 27
+        },
+        "evaluation_scope": {
+          "layer": "all"
+        },
+        "concern_pending": 46,
+        "concern_excluded_count": 56,
+        "truth_pending": 7,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 27,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-005",
+        "name": "发布商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 40.0,
+            "numerator": 2,
+            "denominator": 5,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 9.67741935483871,
+            "numerator": 3,
+            "denominator": 31,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 10.0,
+            "numerator": 1,
+            "denominator": 10,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 150.0,
+            "numerator": 9,
+            "denominator": 6,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 31,
+            "gt_count": 6,
+            "matched": 1,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 3.225806451612903,
+                "numerator": 1,
+                "denominator": 31,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 500.0,
+                "numerator": 30,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 10,
+            "gt_count": 6,
+            "matched": 1,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 10.0,
+                "numerator": 1,
+                "denominator": 10,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 150.0,
+                "numerator": 9,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 31,
+          "E": 3,
+          "GT": 5,
+          "M": 30
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 32,
+          "E": 3,
+          "GT": 6,
+          "M": 31
+        },
+        "evaluation_scope": {
+          "layer": "all"
+        },
+        "concern_pending": 44,
+        "concern_excluded_count": 57,
+        "truth_pending": 9,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 31,
+            "matched": 1
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      }
+    ],
+    "metrics": {
+      "missing_exception_miss_rate": {
+        "value": 68.42105263157895,
+        "numerator": 13,
+        "denominator": 19,
+        "status": "适用"
+      },
+      "generation_validity": {
+        "value": 5.932203389830509,
+        "numerator": 7,
+        "denominator": 118,
+        "status": "适用"
+      },
+      "recommendation_adoption": {
+        "value": 6.0,
+        "numerator": 3,
+        "denominator": 50,
+        "status": "适用"
+      },
+      "recommendation_false_positive": {
+        "value": 195.83333333333334,
+        "numerator": 47,
+        "denominator": 24,
+        "status": "适用"
+      },
+      "critical_missing_recall": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "status": "不适用"
+      }
+    },
+    "recommendation_comparison": {
+      "unit": "独立异常场景",
+      "basis": "按用例合并分子分母；推荐前取完整M，推荐后取Q",
+      "baseline": {
+        "set": "M",
+        "label": "推荐前：全部缺失场景",
+        "evaluated_cases": 5,
+        "metrics": {
+          "recommendation_adoption": {
+            "value": 4.0,
+            "numerator": 5,
+            "denominator": 125,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 500.0,
+            "numerator": 120,
+            "denominator": 24,
+            "status": "适用"
+          }
+        },
+        "candidate_count": 125,
+        "gt_count": 24,
+        "matched": 5
+      },
+      "recommended": {
+        "set": "Q",
+        "label": "推荐后：算法筛选场景",
+        "evaluated_cases": 5,
+        "metrics": {
+          "recommendation_adoption": {
+            "value": 6.0,
+            "numerator": 3,
+            "denominator": 50,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 195.83333333333334,
+            "numerator": 47,
+            "denominator": 24,
+            "status": "适用"
+          }
+        },
+        "candidate_count": 50,
+        "gt_count": 24,
+        "matched": 3
+      }
+    },
+    "diagnostic_counts": {
+      "G": 118,
+      "GT": 22,
+      "one_to_one_ceiling": 18.64406779661017
+    },
+    "complete": true,
+    "test_source_changed": false,
+    "test_source_version": "b225506c7b6856c8efe8",
+    "ruleset_version": "two-level-concern-scenario-20261026-v2-union-size",
+    "execution_id": "fd54e3adbce0ca4927d1",
+    "registry_hash": "937c89e2451cdbacb9c08f99ea32e671ab352dd45996092868e2df23a80b736d",
+    "evaluation_scope": {
+      "layer": "all",
+      "note": "只统计所选范围的实际接口及交互；RR与未定位项不混入SR分母"
+    },
+    "test_set": "expanded",
+    "truth_source": "原始异常测试经机器整理（含允许的框架推导）",
+    "recommendation": "已启用（风险保底）",
+    "history": [
+      {
+        "name": "field-path-normalization-baseline",
+        "path": "run/report_versions/field-path-normalization-baseline/missing_report.json",
+        "metrics": null
+      }
+    ],
+    "audit_files": []
+  },
+  "interaction_metrics_SR": {
+    "test_alignment_pending": 0,
+    "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+    "unit": "关注点绑定",
+    "cases": [
+      {
+        "id": "G-001",
+        "name": "创建商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 4,
+            "denominator": 4,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 5,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 4,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 66.66666666666667,
+            "numerator": 4,
+            "denominator": 6,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 5,
+            "gt_count": 6,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 5,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 83.33333333333333,
+                "numerator": 5,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 4,
+            "gt_count": 6,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 4,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 66.66666666666667,
+                "numerator": 4,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 5,
+          "E": 2,
+          "GT": 5,
+          "M": 5
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 5,
+          "E": 3,
+          "GT": 6,
+          "M": 5
+        },
+        "evaluation_scope": {
+          "layer": "SR",
+          "excluded_binding_counts": {
+            "G": 11,
+            "E": 3,
+            "GT": 0
+          },
+          "unresolved_interaction_ids": [],
+          "note": "RR/SR仅按实际接口归属；其他层与未定位项不进入本范围分母",
+          "excluded_scenario_counts": {
+            "G": 12,
+            "E": 3,
+            "GT": 0,
+            "M": 11
+          },
+          "source": "由已保存结果按实际接口定义来源重新计数，未调用模型，未改写原报告"
+        },
+        "concern_pending": 60,
+        "concern_excluded_count": 77,
+        "truth_pending": 9,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 5,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 0,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-002",
+        "name": "查询商品列表",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 3,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 25.0,
+            "numerator": 4,
+            "denominator": 16,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 25.0,
+            "numerator": 2,
+            "denominator": 8,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 120.0,
+            "numerator": 6,
+            "denominator": 5,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 17,
+            "gt_count": 5,
+            "matched": 4,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 23.529411764705884,
+                "numerator": 4,
+                "denominator": 17,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 260.0,
+                "numerator": 13,
+                "denominator": 5,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 8,
+            "gt_count": 5,
+            "matched": 2,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 25.0,
+                "numerator": 2,
+                "denominator": 8,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 120.0,
+                "numerator": 6,
+                "denominator": 5,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 16,
+          "E": 1,
+          "GT": 4,
+          "M": 15
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 18,
+          "E": 1,
+          "GT": 5,
+          "M": 17
+        },
+        "evaluation_scope": {
+          "layer": "SR",
+          "excluded_binding_counts": {
+            "G": 9,
+            "E": 3,
+            "GT": 0
+          },
+          "unresolved_interaction_ids": [],
+          "note": "RR/SR仅按实际接口归属；其他层与未定位项不进入本范围分母",
+          "excluded_scenario_counts": {
+            "G": 10,
+            "E": 3,
+            "GT": 0,
+            "M": 9
+          },
+          "source": "由已保存结果按实际接口定义来源重新计数，未调用模型，未改写原报告"
+        },
+        "concern_pending": 34,
+        "concern_excluded_count": 42,
+        "truth_pending": 7,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 18,
+            "matched": 5
+          },
+          "conditional": {
+            "count": 0,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-003",
+        "name": "更新商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 4,
+            "denominator": 4,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 3,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 1,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 25.0,
+            "numerator": 1,
+            "denominator": 4,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 3,
+            "gt_count": 4,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 3,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 75.0,
+                "numerator": 3,
+                "denominator": 4,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 1,
+            "gt_count": 4,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 1,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 25.0,
+                "numerator": 1,
+                "denominator": 4,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 3,
+          "E": 2,
+          "GT": 5,
+          "M": 3
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 3,
+          "E": 2,
+          "GT": 4,
+          "M": 3
+        },
+        "evaluation_scope": {
+          "layer": "SR",
+          "excluded_binding_counts": {
+            "G": 18,
+            "E": 3,
+            "GT": 0
+          },
+          "unresolved_interaction_ids": [],
+          "note": "RR/SR仅按实际接口归属；其他层与未定位项不进入本范围分母",
+          "excluded_scenario_counts": {
+            "G": 22,
+            "E": 3,
+            "GT": 0,
+            "M": 22
+          },
+          "source": "由已保存结果按实际接口定义来源重新计数，未调用模型，未改写原报告"
+        },
+        "concern_pending": 68,
+        "concern_excluded_count": 77,
+        "truth_pending": 8,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 2,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-004",
+        "name": "删除商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 100.0,
+            "numerator": 3,
+            "denominator": 3,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 18,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 0.0,
+            "numerator": 0,
+            "denominator": 7,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 233.33333333333334,
+            "numerator": 7,
+            "denominator": 3,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 21,
+            "gt_count": 3,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 21,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 700.0,
+                "numerator": 21,
+                "denominator": 3,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 7,
+            "gt_count": 3,
+            "matched": 0,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 0.0,
+                "numerator": 0,
+                "denominator": 7,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 233.33333333333334,
+                "numerator": 7,
+                "denominator": 3,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 18,
+          "E": 0,
+          "GT": 3,
+          "M": 18
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 21,
+          "E": 0,
+          "GT": 3,
+          "M": 21
+        },
+        "evaluation_scope": {
+          "layer": "SR",
+          "excluded_binding_counts": {
+            "G": 7,
+            "E": 4,
+            "GT": 0
+          },
+          "unresolved_interaction_ids": [],
+          "note": "RR/SR仅按实际接口归属；其他层与未定位项不进入本范围分母",
+          "excluded_scenario_counts": {
+            "G": 7,
+            "E": 6,
+            "GT": 0,
+            "M": 6
+          },
+          "source": "由已保存结果按实际接口定义来源重新计数，未调用模型，未改写原报告"
+        },
+        "concern_pending": 46,
+        "concern_excluded_count": 56,
+        "truth_pending": 7,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 20,
+            "matched": 0
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      },
+      {
+        "id": "G-005",
+        "name": "发布商品",
+        "analysis_complete": true,
+        "evaluation_complete": true,
+        "graphs_ready": true,
+        "analysis_ready": true,
+        "recommendation_ready": true,
+        "evaluation_ready": true,
+        "metrics": {
+          "missing_exception_miss_rate": {
+            "value": 40.0,
+            "numerator": 2,
+            "denominator": 5,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "generation_validity": {
+            "value": 15.789473684210526,
+            "numerator": 3,
+            "denominator": 19,
+            "status": "适用",
+            "unit": "关注点绑定"
+          },
+          "recommendation_adoption": {
+            "value": 16.666666666666668,
+            "numerator": 1,
+            "denominator": 6,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 83.33333333333333,
+            "numerator": 5,
+            "denominator": 6,
+            "status": "适用"
+          },
+          "critical_missing_recall": {
+            "value": null,
+            "numerator": 0,
+            "denominator": 0,
+            "status": "不适用"
+          }
+        },
+        "recommendation_comparison": {
+          "baseline": {
+            "set": "M",
+            "label": "推荐前：全部缺失场景",
+            "candidate_count": 20,
+            "gt_count": 6,
+            "matched": 1,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 5.0,
+                "numerator": 1,
+                "denominator": 20,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 316.6666666666667,
+                "numerator": 19,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "recommended": {
+            "set": "Q",
+            "label": "推荐后：算法筛选场景",
+            "candidate_count": 6,
+            "gt_count": 6,
+            "matched": 1,
+            "metrics": {
+              "recommendation_adoption": {
+                "value": 16.666666666666668,
+                "numerator": 1,
+                "denominator": 6,
+                "status": "适用"
+              },
+              "recommendation_false_positive": {
+                "value": 83.33333333333333,
+                "numerator": 5,
+                "denominator": 6,
+                "status": "适用"
+              }
+            }
+          },
+          "unit": "独立异常场景",
+          "basis": "同一冻结GT与已保存完整匹配；推荐排序不读取GT"
+        },
+        "counts": {
+          "G": 19,
+          "E": 0,
+          "GT": 5,
+          "M": 19
+        },
+        "metric_units": {
+          "missing_exception_miss_rate": "关注点绑定",
+          "generation_validity": "关注点绑定",
+          "recommendation_adoption": "独立异常场景",
+          "recommendation_false_positive": "独立异常场景",
+          "critical_missing_recall": "独立异常场景"
+        },
+        "matching_version": "two-level-concern-scenario-v3-sr-idempotency-policy",
+        "scenario_counts": {
+          "G": 20,
+          "E": 0,
+          "GT": 6,
+          "M": 20
+        },
+        "evaluation_scope": {
+          "layer": "SR",
+          "excluded_binding_counts": {
+            "G": 12,
+            "E": 3,
+            "GT": 0
+          },
+          "unresolved_interaction_ids": [],
+          "note": "RR/SR仅按实际接口归属；其他层与未定位项不进入本范围分母",
+          "excluded_scenario_counts": {
+            "G": 12,
+            "E": 3,
+            "GT": 0,
+            "M": 11
+          },
+          "source": "由已保存结果按实际接口定义来源重新计数，未调用模型，未改写原报告"
+        },
+        "concern_pending": 44,
+        "concern_excluded_count": 57,
+        "truth_pending": 9,
+        "generation_breakdown": {
+          "explicit": {
+            "count": 19,
+            "matched": 1
+          },
+          "conditional": {
+            "count": 1,
+            "matched": 0
+          }
+        },
+        "status": "已评测（关注点或GT有待确认项）"
+      }
+    ],
+    "metrics": {
+      "missing_exception_miss_rate": {
+        "value": 68.42105263157895,
+        "numerator": 13,
+        "denominator": 19,
+        "status": "适用"
+      },
+      "generation_validity": {
+        "value": 11.475409836065573,
+        "numerator": 7,
+        "denominator": 61,
+        "status": "适用"
+      },
+      "recommendation_adoption": {
+        "value": 11.538461538461538,
+        "numerator": 3,
+        "denominator": 26,
+        "status": "适用"
+      },
+      "recommendation_false_positive": {
+        "value": 95.83333333333333,
+        "numerator": 23,
+        "denominator": 24,
+        "status": "适用"
+      },
+      "critical_missing_recall": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "status": "不适用"
+      }
+    },
+    "recommendation_comparison": {
+      "unit": "独立异常场景",
+      "basis": "按用例合并分子分母；推荐前取完整M，推荐后取Q",
+      "baseline": {
+        "set": "M",
+        "label": "推荐前：全部缺失场景",
+        "evaluated_cases": 5,
+        "metrics": {
+          "recommendation_adoption": {
+            "value": 7.575757575757576,
+            "numerator": 5,
+            "denominator": 66,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 254.16666666666666,
+            "numerator": 61,
+            "denominator": 24,
+            "status": "适用"
+          }
+        },
+        "candidate_count": 66,
+        "gt_count": 24,
+        "matched": 5
+      },
+      "recommended": {
+        "set": "Q",
+        "label": "推荐后：算法筛选场景",
+        "evaluated_cases": 5,
+        "metrics": {
+          "recommendation_adoption": {
+            "value": 11.538461538461538,
+            "numerator": 3,
+            "denominator": 26,
+            "status": "适用"
+          },
+          "recommendation_false_positive": {
+            "value": 95.83333333333333,
+            "numerator": 23,
+            "denominator": 24,
+            "status": "适用"
+          }
+        },
+        "candidate_count": 26,
+        "gt_count": 24,
+        "matched": 3
+      }
+    },
+    "diagnostic_counts": {
+      "G": 61,
+      "GT": 22,
+      "one_to_one_ceiling": 36.0655737704918
+    },
+    "complete": true,
+    "test_source_changed": false,
+    "test_source_version": "b225506c7b6856c8efe8",
+    "ruleset_version": "two-level-concern-scenario-20261026-v2-union-size",
+    "execution_id": "fd54e3adbce0ca4927d1",
+    "registry_hash": "937c89e2451cdbacb9c08f99ea32e671ab352dd45996092868e2df23a80b736d",
+    "evaluation_scope": {
+      "layer": "SR",
+      "note": "只统计所选范围的实际接口及交互；RR与未定位项不混入SR分母"
+    },
+    "test_set": "expanded",
+    "truth_source": "原始异常测试经机器整理（含允许的框架推导）",
+    "recommendation": "已启用（风险保底）",
+    "history": [
+      {
+        "name": "field-path-normalization-baseline",
+        "path": "run/report_versions/field-path-normalization-baseline/missing_report.json",
+        "metrics": null
+      }
+    ],
+    "audit_files": []
+  },
+  "project_metrics": {
+    "unit_note": "关注点层与场景层分别计数；交互级和全局级的分子分母相加，不平均百分比",
+    "evaluation_scope": {
+      "layer": "all"
+    },
+    "complete": true,
+    "interaction": {
+      "status": "已评测",
+      "case_count": 5,
+      "metrics": {
+        "missing_exception_miss_rate": {
+          "value": 68.42105263157895,
+          "numerator": 13,
+          "denominator": 19,
+          "status": "适用"
+        },
+        "generation_validity": {
+          "value": 5.932203389830509,
+          "numerator": 7,
+          "denominator": 118,
+          "status": "适用"
+        },
+        "recommendation_adoption": {
+          "value": 6.0,
+          "numerator": 3,
+          "denominator": 50,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "value": 195.83333333333334,
+          "numerator": 47,
+          "denominator": 24,
+          "status": "适用"
+        },
+        "critical_missing_recall": {
+          "value": null,
+          "numerator": 0,
+          "denominator": 0,
+          "status": "不适用"
+        },
+        "baseline_adoption": {
+          "value": 4.0,
+          "numerator": 5,
+          "denominator": 125,
+          "status": "适用"
+        },
+        "baseline_false_positive": {
+          "value": 500.0,
+          "numerator": 120,
+          "denominator": 24,
+          "status": "适用"
+        }
+      }
+    },
+    "global": {
+      "status": "已评测",
+      "metrics": {
+        "missing_omission": {
+          "numerator": 0,
+          "denominator": 0,
+          "value": null,
+          "status": "不适用"
+        },
+        "generation_effectiveness": {
+          "numerator": 4,
+          "denominator": 4,
+          "value": 100.0,
+          "status": "适用"
+        },
+        "baseline_adoption": {
+          "numerator": 0,
+          "denominator": 8,
+          "value": 0.0,
+          "status": "适用"
+        },
+        "baseline_false_positive": {
+          "numerator": 8,
+          "denominator": 8,
+          "value": 100.0,
+          "status": "适用"
+        },
+        "recommendation_adoption": {
+          "numerator": 0,
+          "denominator": 8,
+          "value": 0.0,
+          "status": "适用"
+        },
+        "recommendation_false_positive": {
+          "numerator": 8,
+          "denominator": 8,
+          "value": 100.0,
+          "status": "适用"
+        }
+      }
+    },
+    "metrics": {
+      "missing_omission": {
+        "numerator": 13,
+        "denominator": 19,
+        "value": 68.42105263157895,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      },
+      "generation_effectiveness": {
+        "numerator": 11,
+        "denominator": 122,
+        "value": 9.01639344262295,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      },
+      "recommendation_adoption": {
+        "numerator": 3,
+        "denominator": 58,
+        "value": 5.172413793103448,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      },
+      "recommendation_false_positive": {
+        "numerator": 55,
+        "denominator": 32,
+        "value": 171.875,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      },
+      "baseline_adoption": {
+        "numerator": 5,
+        "denominator": 133,
+        "value": 3.7593984962406015,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      },
+      "baseline_false_positive": {
+        "numerator": 128,
+        "denominator": 32,
+        "value": 400.0,
+        "status": "适用",
+        "included_granularities": [
+          "interaction",
+          "global"
+        ],
+        "partial": false
+      }
+    },
+    "test_set": "original",
+    "global_truth_source": "original",
+    "global_excluded_reason": null
+  },
+  "test_source_counts": {
+    "exception": 41,
+    "normal": 5,
+    "pending": 5
+  },
+  "machine_test_supplement": false,
+  "usage": {
+    "pipeline_events": {
+      "calls": 885,
+      "not_sent_calls": 77,
+      "completed_calls": 711,
+      "unknown_usage_calls": 97,
+      "in_flight_calls": 0,
+      "input_tokens": 7133084,
+      "output_tokens": 507449,
+      "reasoning_tokens": 0,
+      "reported_total_tokens": 7640533,
+      "request_seconds": 13853.2674036026
+    },
+    "metered_recovery_requests_outside_pipeline_events": [
+      {
+        "task_key": "G-005:test-ground-truth--part-8b31251872",
+        "provider_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 6473,
+          "total_tokens": 7473,
+          "completion_tokens": 1000,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "reasoning_tokens": 0,
+          "completion_tokens_details": null
+        },
+        "finish_reason": "length"
+      },
+      {
+        "task_key": "G-005:test-ground-truth--part-8b31251872",
+        "provider_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 3521,
+          "completion_tokens": 604,
+          "total_tokens": 4125,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "prompt_cache_hit_tokens": 0,
+          "prompt_cache_miss_tokens": 3521
+        },
+        "finish_reason": "stop"
+      },
+      {
+        "task_key": "G-005:GT_G",
+        "provider_model": "deepseek-flash",
+        "usage": {
+          "prompt_tokens": 2273,
+          "total_tokens": 2878,
+          "completion_tokens": 605,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "reasoning_tokens": 0,
+          "completion_tokens_details": null
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "reported_total_including_recovery": 7655009,
+    "note": "所有历史尝试及修复累计，不是一次干净运行成本；未知usage单列，不能记作0。ECNU本地4M上限及历史账本完整保留。"
+  },
+  "validated_external_repairs": 6,
+  "tests": {
+    "backend_expected": 746,
+    "frontend_passed": 87,
+    "format_contract_passed": true
+  },
+  "known_issues": [
+    {
+      "kind": "model_classification",
+      "status": "open",
+      "example": "CatalogDatabaseService在结构化正向来源明确is_external=true，但组成模型输出内部数据库；源数据正确，模型分类尚需修订，会影响外部可用性分析。"
+    },
+    {
+      "kind": "inverse_localization",
+      "status": "open",
+      "example": "部分测试关注点定位为长描述而非唯一四要素对象，工具将其列待确认，没有改成整个请求兜底；导致GT可计分覆盖偏少。"
+    },
+    {
+      "kind": "gt_refinement",
+      "status": "open",
+      "example": "发布幂等冲突分支被独立识别关联到Idempotency-Key长度/格式，细化产生框架推导场景；其不是原测试直接明示的异常，应在业务审查中复核。"
+    },
+    {
+      "kind": "response_contract",
+      "status": "partial",
+      "example": "本次使用结构化RR/SR JSON作主输入；完整MD成功响应表未逐一进入这些结构化文件，不能据此宣称全部输出类型约束均已核验。"
+    },
+    {
+      "kind": "quality",
+      "status": "not_accepted",
+      "example": "技术链路完成不代表关注点识别/场景质量合格；没有通过删除G、修改测试或放宽匹配提高分数。"
+    }
+  ],
+  "windows_native_validation": "pending_customer",
+  "source_files": [
+    {
+      "path": "输入文件/api_extraction.json",
+      "sha256": "9b76993c5edffa2fac7752435b8e1f4bda9220b2347d55291561cd8d6c23510d"
+    },
+    {
+      "path": "输入文件/recovered_usecases.json",
+      "sha256": "7d6deac51a7355f6cf39326ea1999e1a1a8a7d47f26a3fc3807cd1be9c02f955"
+    },
+    {
+      "path": "输入文件/structure_model_fusion/AR/structure_model.json",
+      "sha256": "7c1adda33bff8d1d47e81222cdfac8aff120e7110f8eb66901b8dc84d858e07a"
+    },
+    {
+      "path": "输入文件/structure_model_fusion/RR/structure_model.json",
+      "sha256": "168187c0860ad0ed9d93c3a2ab5b36b9b07e1bfc6a6ba66c2595083d76ee5b2a"
+    },
+    {
+      "path": "输入文件/structure_model_fusion/SR/structure_model.json",
+      "sha256": "91ef60e125805e989078b9d8f6646216e79b37bf07f8a74acf64badc2ac5a72a"
+    },
+    {
+      "path": "输入文件/structure_model_fusion.json",
+      "sha256": "b94411e1aaec5deb28198b8f412a28d689931f2b5c0ddd1156f490f01f444b58"
+    },
+    {
+      "path": "输入文件/功能树.json",
+      "sha256": "8a60d73c24bf2e369d2d5caa5da8e51759f183d1a7950b0b7e655a2e3f058d55"
+    },
+    {
+      "path": "输入文件/功能设计_spec.md",
+      "sha256": "b78bb871926ce69cb1d82e5b6390cee7bc674d63ded45359637d50b7e40b95d6"
+    },
+    {
+      "path": "输入文件/系统需求_spec.md",
+      "sha256": "308682507a3f98c937f8ab39a105883cdbcbaa1cde98766ffe65376437d1c788"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/SSD.json",
+      "sha256": "6e0617d0e7682859eac646601a724dee553b4402b6a735cdc1976979d4e6ddd0"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/SysOperation.json",
+      "sha256": "7c337b000842e883a6826f4d1df84d2b85e8975bd528729087e9b956be5bae4a"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/ALT-OTHER-MERCHANT.json",
+      "sha256": "360641de58bf32bc09a64434fcb9f787c1a4b385cfd40bafbc650c5ee4965214"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/SC_EX_AUTH_REQUIRED.json",
+      "sha256": "b8883dcdef5b02e5a7ec718e72e60e227cad887beeaf58b0c4830c9e7ea22fc2"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/SC_EX_DUPLICATE_NAME.json",
+      "sha256": "a6bad49701ec9064d31d59c85ea86f2c102f09344d234a270ac47bd35c0f530a"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/SC_EX_NAME_MISSING.json",
+      "sha256": "f4193dc25169470a64fefe2470e1658ddab7a590df2d1fd7763d9add977b86cc"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/SC_EX_OPERATION_FORBIDDEN.json",
+      "sha256": "e06664282561925d047cbed89c7ef9e0c9cfe4402518ea3a8dd5df717500e862"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/IR/main_success.json",
+      "sha256": "599133c6c3628f2fa23811e2957ac5a298e1b6afa9aac318494dea2808bfce1c"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/SR/ALT-OTHER-MERCHANT.json",
+      "sha256": "409e0223687a34dd53a2b548be8319c16c985a6b2ae3856d926c12eeeaf81e5e"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/SR/SC_EX_DUPLICATE_NAME.json",
+      "sha256": "631463a8a7da62e73791718b4e08df51a490fd01a80895b10073abab74ea153a"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/SR/SC_EX_NAME_MISSING.json",
+      "sha256": "2557d7df369d18dc4409de866a4f1b7bed50733195349ef11d061bbe79008e95"
+    },
+    {
+      "path": "输入文件/行为模型/Product/创建商品/behaviour/SR/main_success.json",
+      "sha256": "0f517d96aa397866474aa84316bf25e6c0137bb4b2636e88d3464bb1359038c2"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/SSD.json",
+      "sha256": "b3bdb967b9beb551296b12faabdca8ba0edae74dba34c6cee84cd15520c388af"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/SysOperation.json",
+      "sha256": "50bca59dcfe03fec12ee99ab2ec3990ee9696413c01d2c848b3a16894fd85244"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/ALT-REPLAY.json",
+      "sha256": "604d2c219d3be502c8fca010c3eea095fc011db0ea1797043425eb4277a9b18e"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/SC_EX_AUTH_REQUIRED.json",
+      "sha256": "145a74c3bc9b521ef936eedc066104673de6cbeab2849722e1e1d93fc28b5b3e"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/SC_EX_NOT_FOUND.json",
+      "sha256": "fef6dee8e76f81afb082cf408d9432693f32237545e1aebd930ce1ab84109aff"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/SC_EX_OPERATION_FORBIDDEN.json",
+      "sha256": "6fd3f933b6943639cf490086b3c2f96a0627a9124fffbf7e05aa151a4e9ef128"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/SC_EX_STATE.json",
+      "sha256": "cf1f18cc84e9663622281788fb77a57bfe1af99e9e93662f2e346430074eaadf"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/IR/main_success.json",
+      "sha256": "1bb29016bd673584ae61be3672b0f14768689d2deb85925edcbed52114e39b32"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/SR/ALT-REPLAY.json",
+      "sha256": "07bfefa001b5859b78366b3a4e6c9a2349ce2fffc7ff0951fb004e0fdaf02e1f"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/SR/SC_EX_NOT_FOUND.json",
+      "sha256": "7d02f15016ce84fd9c4021cea9a1b33978ea36b270440d5e9726a8e8e5a3960d"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/SR/SC_EX_STATE.json",
+      "sha256": "670916abedc29206f157e009761a2115a54a89cf857d173a21139ea4d66eedf6"
+    },
+    {
+      "path": "输入文件/行为模型/Product/删除商品/behaviour/SR/main_success.json",
+      "sha256": "2dcfb08a2a3c9b55c3b2e5a9340fe9f046ea4fe963a0fe67c4a41f826709a2d9"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/SSD.json",
+      "sha256": "02ba676dc578d7352cc8e1d20b03f8843d2a155bd8974a255bb651afc7fbe753"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/SysOperation.json",
+      "sha256": "c8f1081ad0025ba47896eda84e13ee9ee8873690ab8071422a255b2f39fbcdf0"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/ALT-REPLAY.json",
+      "sha256": "cdd7ee872d61cac4ce9e052972c159890e19649e4b200f282575528f7aa64197"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/SC_EX_AUTH_REQUIRED.json",
+      "sha256": "1ed25e7176124c7100709f78917c01276417c5fb5899c95ea3d905ac5cc59662"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/SC_EX_OPERATION_FORBIDDEN.json",
+      "sha256": "37527501e089d744ee63c7987b5f332d9879d358aa781326b3ae8787eb91bec1"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/SC_EX_PRICE_ZERO.json",
+      "sha256": "d8b8d5ff82d3ae8fe75240d4bf4e421bd7569befbb100aaba4bf1b60f8a6b286"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/SC_EX_VERSION_CONFLICT.json",
+      "sha256": "db645b2610c69b6a693112978b0af6fd951bfff7c3872a11878075a20b55fb7c"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/IR/main_success.json",
+      "sha256": "f5665d86b65f4680dc3e039559c4308da337052d13060c00c68f42dba9cb4a15"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/SR/ALT-REPLAY.json",
+      "sha256": "09c2363683d8f0eb3c57b469c9fc216f58f3f6e17d108ac45f1dfafffbc67be5"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/SR/SC_EX_PRICE_ZERO.json",
+      "sha256": "87670c92e908d7f9a1d155667921abe52429207854e5decb8b52f8959d551c48"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/SR/SC_EX_VERSION_CONFLICT.json",
+      "sha256": "737955077e704945f60439add4bb17715b0bdef2e3c7e98c0d3506267b0016b6"
+    },
+    {
+      "path": "输入文件/行为模型/Product/发布商品/behaviour/SR/main_success.json",
+      "sha256": "277bfc287dcf60d0e190c32f455b79274655336436e9fe5f881cac817d13ed58"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/SSD.json",
+      "sha256": "05a90eae2302a102f0dc452737368a155a9a62c54b6df889ce13b882af3fbbbf"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/SysOperation.json",
+      "sha256": "2562a98b11e9421f977374026167f8ba8343d41720d295d81073df769caaf934"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/ALT-REPLAY.json",
+      "sha256": "ec078263766c216fd058510eadf2079ff12cbbed127f29cf71b8419b371e1ffb"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/SC_EX_AUTH_REQUIRED.json",
+      "sha256": "f526f6dc718fc89f7cffcf3c293ea07f357a2febd669d4a5e8f49b4e8417ac7f"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/SC_EX_IMMUTABLE_TYPE.json",
+      "sha256": "227c8bf1d44a2a3a5358198d33f92d4fa95fdcd5f7a9731402341246eef54175"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/SC_EX_OPERATION_FORBIDDEN.json",
+      "sha256": "d381c8b75c4b7de42e8df9eb5d8263bcabea4d55d8e2463ab365cce6ac2ea7a6"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/SC_EX_VERSION_CONFLICT.json",
+      "sha256": "a2279b8581782c0b947f3b77d3e1bbc3fe3d553b4f370cceb2df881679ff6947"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/IR/main_success.json",
+      "sha256": "1bd94cb87d2551727519939059edc4552d9fe170facceb0a34ef46d882800b34"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/SR/ALT-REPLAY.json",
+      "sha256": "c1edb6813dbcfc712f5be9ba13274197009dd6acf0a755e0fe0096e64e3ec0fc"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/SR/SC_EX_IMMUTABLE_TYPE.json",
+      "sha256": "6a5922f25501a4f566a02a2632d02051fbb22109ccd86f9604858871fe10fb14"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/SR/SC_EX_VERSION_CONFLICT.json",
+      "sha256": "8ec8e31ca71f32396859831e7358acc571edb88ab322edd78c28e431aafc1c98"
+    },
+    {
+      "path": "输入文件/行为模型/Product/更新商品/behaviour/SR/main_success.json",
+      "sha256": "f89bbb31a3b2d12794cf1adbecc67af5d18e61f56f056e37543bb2993f1d0c3b"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/SSD.json",
+      "sha256": "db8bd403574537cbc0b98344b71488e13ed9b6bfb5a5020ccf9bcc80a93cf71d"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/SysOperation.json",
+      "sha256": "1a18bf692977dbce7c0bfac56bd74bfa1e750fe592c634578d1479d9ca28d261"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/ALT-EMPTY.json",
+      "sha256": "8eb6285172ebc23887923016e246ef1a50e888423d2a6635b764c6d33c151133"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/SC_EX_AUTH_REQUIRED.json",
+      "sha256": "01731d1483184e6536a89f7736b4b182e788d5ebc08bea265b18a34a4d0a2b11"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/SC_EX_DB_UNAVAILABLE.json",
+      "sha256": "9cfa0ff0f8163439663d28f26fc362cb1a584486aabd965b6b6f194e7de669b3"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/SC_EX_OPERATION_FORBIDDEN.json",
+      "sha256": "815b75a277a4ef928ff8343488dc2f52e531bf794a443b0df37f68cff3cf5f91"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/SC_EX_SIZE_HIGH.json",
+      "sha256": "b0695a91ed3e21d32335d67943b5d8c5f040168af6a4b1b896f18c5990d4eeb1"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/IR/main_success.json",
+      "sha256": "82e22aaed55e1cae30013c8b27bd5edc17f8a0977f8406cfb5da38926a5b0729"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/SR/ALT-EMPTY.json",
+      "sha256": "fccf70bb242b5f526c9545151342ce75176a5c90395e7110d7e10806fe3e7d3b"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/SR/SC_EX_DB_UNAVAILABLE.json",
+      "sha256": "4c2ad62f676300f70abf157476d06bd5089d8a0642bdc4baf14db893904ce340"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/SR/SC_EX_SIZE_HIGH.json",
+      "sha256": "b4b9e533ba0d8ec2390d2f050a874684bc068dabf6a8e23f4ff570473e95fab5"
+    },
+    {
+      "path": "输入文件/行为模型/Product/查询商品列表/behaviour/SR/main_success.json",
+      "sha256": "58f21f3061e3f7183922ea3974be69cd53dd502b38285ae1659b8bcdf99984b3"
+    }
+  ]
+}

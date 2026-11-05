@@ -342,7 +342,7 @@ def compile_product(value, file_id, name, context, version):
         "normal_document": normal,
         "scenario_document": scenario_doc,
         "json_locations": facts.locations,
-        "scenario_locations": [],
+        "scenario_locations": [{"line": 1, "json_pointer": ""}] if scenario_doc else [],
         "retained": retained,
         "target_nodes": ["<用例>:fused-ssd", "<用例>:rr-ssd", "<用例>:sr-ssd"]
         if kind == "system_operations"

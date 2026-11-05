@@ -101,6 +101,7 @@ def test_exception_scenario_is_retained_without_becoming_positive_normal_input()
     assert p["scenario_document"] is not None
     assert "invalid" in p["scenario_document"]["lines"][0]["text"]
     assert p["normal_document"]["lines"] == []
+    assert p["scenario_locations"] == [{"line": 1, "json_pointer": ""}]
 
 
 def test_missing_order_reference_is_rejected():
