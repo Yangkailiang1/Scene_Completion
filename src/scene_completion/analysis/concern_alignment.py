@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v5-call-role-participant-identity"
+VERSION = "two-level-concern-scenario-v6-local-field-validation-request"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -133,6 +133,48 @@ def _normalize_field(row):
         row.update(object=m[2], data_location=m[1])
 
 
+def _local_field_request(match, rows, inputs):
+    """Locate an identified local field check on its unique actual data call.
+
+    This does not copy fields onto an action or guess between repeated calls.
+    The model has already identified the field and the checking interaction.
+    """
+    owner = rows.get(match["interaction_id"])
+    if (
+        match.get("target") != "data"
+        or not owner
+        or owner.get("step_kind") != "action"
+        or owner["sender"]["name"] != owner["receiver"]["name"]
+        or not re.search(r"校验|验证|validate|check", owner["operation"]["name"], re.I)
+    ):
+        return None
+    from scene_completion.analysis.interaction_enrichment import parameters_for
+
+    _normalize_field(match)
+    material = {
+        **inputs,
+        "api-parameters": inputs.get("api-parameters", inputs.get("normal-constraints", {})),
+    }
+    direction = "return" if match.get("data_location") == "response" else "request"
+    candidates = []
+    for call in rows.values():
+        if (
+            call["case_id"] != owner["case_id"]
+            or call["direction"] != direction
+            or call.get("step_kind") == "action"
+            or call["sender"]["name"] == call["receiver"]["name"]
+            or call["receiver"]["name"] != owner["receiver"]["name"]
+        ):
+            continue
+        if any(
+            p["name"] == match["object"]
+            and (match.get("data_location") is None or p["location"] == match["data_location"])
+            for p in parameters_for(call, material)
+        ):
+            candidates.append(call)
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def recognize(inputs, raw, *, inverse=False):
     """Validate submitted rows, plus the explicitly approved internal-RUD policy."""
     from scene_completion.analysis.concern_hierarchy import decorate
@@ -192,6 +234,12 @@ def recognize(inputs, raw, *, inverse=False):
                 elif old and m["object"] == old["operation"]["name"]:
                     m["object"] = owner["operation"]["name"]
         if inverse and m.get("target") == "data":
+            checked_request = _local_field_request(m, rows, inputs)
+            if checked_request is not None:
+                m["interaction_id"] = iid = checked_request["id"]
+                m["basis"] += (
+                    "；本地校验未声明独立数据，绑定同一校验方唯一且明示该字段的实际数据调用，不在本地action重复计数"
+                )
             from scene_completion.inputs.api_layers import explicit_api_target
 
             targets = explicit_api_target(own_text, inputs, list(rows.values()))

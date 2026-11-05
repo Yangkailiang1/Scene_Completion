@@ -35,6 +35,39 @@ def test_review_checklist_respects_project_disabled_definitions():
     validate_coverage({"matches": []}, x)
 
 
+def test_inverse_local_field_check_binds_unique_input_without_copying_action_data():
+    x = memory_inputs()
+    req = x["sr-ssd"]["interactions"][0]
+    local = deepcopy(req)
+    local.update(id="local", step_kind="action", layer="SR")
+    local["api_id"] = None
+    local["sender"] = deepcopy(req["receiver"])
+    local["operation"]["name"] = "S2. Platform本地校验page"
+    local["data"]["sequence"] = []
+    x["fused-ssd"] = {"interactions": [req, local], "rr_sr_links": []}
+    x.pop("rr-ssd")
+    x.pop("sr-ssd")
+    x.pop("enriched-interactions")
+    m = {
+        "interaction_id": "local",
+        "target": "data",
+        "object": "page",
+        "data_location": "query",
+        "concern_key": "api.data.type",
+        "basis": "本地检查字段",
+        "concrete_rule": "integer",
+        "source_refs": R,
+    }
+    out = recognize(x, {"matches": [m]}, inverse=True)
+    assert out["matches"][0]["interaction_id"] == req["id"]
+    assert local["data"]["sequence"] == []
+    second = deepcopy(req)
+    second["id"] = "second-actual-request"
+    x["fused-ssd"]["interactions"].append(second)
+    ambiguous = recognize(x, {"matches": [m]}, inverse=True)
+    assert not ambiguous["matches"] and ambiguous["pending"]
+
+
 def test_crud_entry_review_prevents_database_only_silent_omissions():
     from scene_completion.analysis.crud_review import context, validate_reviews
 
