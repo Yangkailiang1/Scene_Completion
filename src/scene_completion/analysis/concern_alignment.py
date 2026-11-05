@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v4-resource-identity-field-coverage"
+VERSION = "two-level-concern-scenario-v5-call-role-participant-identity"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -56,6 +56,12 @@ def index_elements(inputs):
 
         def add(target, name, location=None, scope=None, **extra):
             canonical = name.casefold() if location == "header" else name
+            if target in {"sender", "receiver"}:
+                # An actual call has exactly one party in each role. Physical
+                # and logical display names may differ across independent
+                # channels, including when an inverse task has no components
+                # table. Names must not split that same party into two objects.
+                canonical = "participant:" + target
             identity = [
                 *base.values(),
                 target,

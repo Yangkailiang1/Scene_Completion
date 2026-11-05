@@ -222,6 +222,20 @@ def add(
                 "provider": "documented_normal_tolerance",
                 "reason": "本测试明确为可选容错且预期允许隐藏/缺省，不违反约定，不进入异常GT；测试原文保存在任务输入",
             }
+        elif (
+            task in {"global-scenarios", "global-existing-scenarios", "global-test-scenarios"}
+            and not inputs["identified-concerns"]["matches"]
+        ):
+            # Scene expansion cannot invent a concern that its independent
+            # recognition channel did not identify. Carry questions forward.
+            value = {
+                "scenarios": [],
+                "pending": deepcopy(inputs["identified-concerns"].get("pending", [])),
+            }
+            proof = {
+                "provider": "no_identified_global_concerns",
+                "reason": "本通道未识别全局关注点，不调用模型扩写场景；未决事项保留",
+            }
         elif task == "test-supplement" and not any(
             not r["concern_key"].startswith("api.data.") for r in inputs["normal-rules"]["rules"]
         ):

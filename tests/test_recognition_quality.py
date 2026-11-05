@@ -64,6 +64,41 @@ def test_crud_entry_review_prevents_database_only_silent_omissions():
         )
 
 
+def test_global_expansion_without_identified_concerns_does_not_call_model(tmp_path):
+    from scene_completion.domain.contracts import registry
+    from scene_completion.infrastructure.storage import read_json
+    from scene_completion.workflow.engine import Execution
+
+    class NeverCall:
+        config = {}
+
+        def model(self, role):
+            return "test"
+
+        def agent(self, packet):
+            raise AssertionError("no recognized global concern means no scene expansion")
+
+    ex = Execution(tmp_path / "run", mode="external", client=NeverCall())
+    questions = [{"object": "Thing", "reason": "缺少前提", "source_refs": []}]
+    ex.add(
+        "global-empty",
+        "global-existing-scenarios",
+        static={
+            "business-dependencies": {"dependencies": [], "pending": []},
+            "identified-concerns": {"matches": [], "pending": questions},
+            "registry": registry(),
+            "existing-documents": [],
+        },
+    )
+    ex.scheduler.run()
+    row = ex.scheduler.state["tasks"]["global-empty"]
+    assert row["status"] == "passed"
+    assert read_json(ex.root / row["output_file"])["payload"] == {
+        "scenarios": [],
+        "pending": questions,
+    }
+
+
 def test_import_parses_each_independent_constraint_and_separates_response_variants():
     v = {
         "apis": [
@@ -135,6 +170,22 @@ def test_physical_and_logical_database_observations_share_one_binding():
     g = recognize(forward, {"matches": [observation("DB资源服务")]})["matches"][0]
     e = recognize(inverse, {"matches": [observation("DB")]}, inverse=True)["matches"][0]
     assert g["binding_id"] == e["binding_id"] and e["object"] == "DB资源服务"
+
+    # Real inverse packets need not carry the components table. Identity comes
+    # from the already established actual call and participant role, not names.
+    e_without_map = recognize(
+        {"fused-ssd": {"interactions": [i], "rr_sr_links": []}},
+        {"matches": [observation("DB")]},
+        inverse=True,
+    )["matches"][0]
+    assert g["binding_id"] == e_without_map["binding_id"]
+    from scene_completion.analysis.concern_alignment import index_elements
+
+    altered = deepcopy(i)
+    altered["id"] = "another-call"
+    elements = index_elements({"fused-ssd": {"interactions": [i, altered]}})
+    parties = [e for e in elements if e["target"] in {"sender", "receiver"}]
+    assert len({e["element_id"] for e in parties}) == 4
 
 
 def test_explicit_security_condition_with_null_generic_value_is_not_unknown():
