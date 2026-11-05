@@ -501,7 +501,27 @@ def inverse_concern_context(inputs):
     broad = any(broad_input_branch(b["description"]) for b in branches)
     rows = canonical_fused(out["fused-ssd"], inputs)["interactions"]
     if bound:
-        rows = [i for i in rows if i["id"] in bound]
+        # A branch may name a local validation action. Keep the actual calls
+        # delivering data to that executor visible; otherwise the model sees
+        # only an action without fields and cannot identify its input/return.
+        executors = {
+            (i["case_id"], i["receiver"]["name"])
+            for i in rows
+            if i["id"] in bound
+            and i.get("step_kind") == "action"
+            and i["sender"]["name"] == i["receiver"]["name"]
+            and re.search(r"校验|验证|validate|check", i["operation"]["name"], re.I)
+        }
+        rows = [
+            i
+            for i in rows
+            if i["id"] in bound
+            or (
+                (i["case_id"], i["receiver"]["name"]) in executors
+                and i.get("step_kind") != "action"
+                and i["sender"]["name"] != i["receiver"]["name"]
+            )
+        ]
     # Explicit source identifiers establish relevance. Generic actor/system
     # names shared by every message do not select every local business rule.
     fields = {p["name"] for i in rows for p in i["data"]["sequence"] if p["name"] in text}

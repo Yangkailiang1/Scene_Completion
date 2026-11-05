@@ -68,6 +68,70 @@ def test_inverse_local_field_check_binds_unique_input_without_copying_action_dat
     assert not ambiguous["matches"] and ambiguous["pending"]
 
 
+def test_inverse_field_scene_keeps_original_check_provenance_and_exact_call():
+    from scene_completion.analysis.inverse_alignment import expand_inverse
+    from tests.test_workflow import scenario
+
+    x = memory_inputs()
+    req = x["sr-ssd"]["interactions"][0]
+    local = deepcopy(req)
+    local.update(id="local", step_kind="action", api_id=None)
+    local["sender"] = deepcopy(req["receiver"])
+    local["operation"]["name"] = "S2. Platform本地校验page"
+    local["data"]["sequence"] = []
+    x["fused-ssd"] = {"interactions": [req, local], "rr_sr_links": []}
+    x["normal-constraints"] = x["api-parameters"]
+    x["branches"] = {"branches": [{"id": "b", "description": "字段类型错误", "source_refs": R}]}
+    x["bindings"] = {
+        "bindings": [
+            {
+                "branch_id": "b",
+                "interaction_id": "local",
+                "status": "confirmed",
+                "basis": "本地校验",
+            }
+        ]
+    }
+    match = {
+        "interaction_id": req["id"],
+        "target": "data",
+        "object": "page",
+        "data_location": "query",
+        "concern_key": "api.data.type",
+        "status": "applicable",
+        "source_branch_ids": ["b"],
+    }
+    x["identified-concerns"] = {"matches": [match]}
+    from scene_completion.workflow.task_context import inverse_concern_context
+
+    context = inverse_concern_context(x)
+    assert {i["id"] for i in context["fused-ssd"]["interactions"]} == {"req", "local"}
+    s = scenario("field-type")
+    s.update(
+        original_branch_id="b",
+        interaction_id=req["id"],
+        field="page",
+        object="page",
+        data_location="query",
+        concern_key="api.data.type",
+        coverage_kind="exact",
+        cause="type",
+        conditions=["page不是整数"],
+    )
+    assert expand_inverse({"scenarios": [s]}, x)["scenarios"][0]["interaction_id"] == req["id"]
+    assert x["bindings"]["bindings"][0]["interaction_id"] == "local"
+    for changed in ({"source_branch_ids": ["other"]}, {"object": "pageSize"}):
+        x["identified-concerns"] = {"matches": [{**match, **changed}]}
+        with pytest.raises(ValueError, match="已确认的原分支"):
+            expand_inverse({"scenarios": [s]}, x)
+    x["identified-concerns"] = {"matches": [match]}
+    second = deepcopy(req)
+    second["id"] = "repeated-call"
+    x["fused-ssd"]["interactions"].append(second)
+    with pytest.raises(ValueError, match="已确认的原分支"):
+        expand_inverse({"scenarios": [s]}, x)
+
+
 def test_crud_entry_review_prevents_database_only_silent_omissions():
     from scene_completion.analysis.crud_review import context, validate_reviews
 

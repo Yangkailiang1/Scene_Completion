@@ -54,6 +54,37 @@ def broad_input_branch(description):
     )
 
 
+def _confirmed_field_request(scenario, branch_id, verified_bindings, rows, inputs):
+    """Retain the source check while validating its independently identified field call.
+
+    A local check is not another copy of the incoming data. Only an exact field
+    identified from this same source branch may move to its unique actual call;
+    operation checks and ambiguous repeated calls keep their original binding.
+    """
+    from scene_completion.analysis.concern_alignment import _local_field_request
+
+    by_id = {row["id"]: row for row in rows}
+    for match in inputs.get("identified-concerns", {}).get("matches", []):
+        if (
+            match.get("status") != "applicable"
+            or match.get("target") != "data"
+            or branch_id not in match.get("source_branch_ids", [])
+            or match["interaction_id"] != scenario["interaction_id"]
+            or match["concern_key"] != scenario["concern_key"]
+            or match["object"] != (scenario.get("field") or scenario["object"])
+            or match.get("data_location") != scenario.get("data_location")
+        ):
+            continue
+        for binding in verified_bindings.get("bindings", []):
+            if binding["branch_id"] != branch_id or binding["status"] != "confirmed":
+                continue
+            source = {**match, "interaction_id": binding["interaction_id"]}
+            request = _local_field_request(source, by_id, inputs)
+            if request is not None and request["id"] == scenario["interaction_id"]:
+                return True
+    return False
+
+
 def expand_inverse(value, inputs):
     from scene_completion.analysis.normal_rules import normalize_scenarios
 
@@ -76,7 +107,13 @@ def expand_inverse(value, inputs):
     broad_parents = {}
     for s in value["scenarios"]:
         branch = s.get("original_branch_id")
-        if branches and (branch not in branches or (branch, s["interaction_id"]) not in bindings):
+        if branches and (
+            branch not in branches
+            or (
+                (branch, s["interaction_id"]) not in bindings
+                and not _confirmed_field_request(s, branch, verified_bindings, rows, inputs)
+            )
+        ):
             raise ValueError("细化项必须有已确认的原分支和交互绑定")
         if s.get("coverage_kind") != "input_parameters":
             out.append(s)
