@@ -35,6 +35,35 @@ def test_review_checklist_respects_project_disabled_definitions():
     validate_coverage({"matches": []}, x)
 
 
+def test_crud_entry_review_prevents_database_only_silent_omissions():
+    from scene_completion.analysis.crud_review import context, validate_reviews
+
+    entry = exchange()
+    entry["sender"]["name"], entry["receiver"]["name"] = "Platform", "Admin"
+    entry["step_kind"] = "interaction"
+    action = deepcopy(entry)
+    action.update(id="local", step_kind="action")
+    action["sender"]["name"] = "Admin"
+    x = {
+        "fused-ssd": {"interactions": [entry, action], "source_views": ["duplicate"]},
+        "business-entities": {
+            "entities": [{"id": "Thing", "name": "Thing", "attributes": [], "source_refs": R}]
+        },
+        "normal-documents": [],
+    }
+    compact = context(x)
+    assert [r["interaction_id"] for r in compact["required_entry_reviews"]] == ["req"]
+    assert "source_views" not in compact["fused-ssd"]
+    assert x["fused-ssd"]["source_views"] == ["duplicate"]
+    with pytest.raises(ValueError, match="missing=.*req"):
+        validate_reviews({"rows": [], "pending": []}, x)
+    validate_reviews({"rows": [], "reviews": [{"interaction_id": "req", "decision": "pending"}]}, x)
+    with pytest.raises(ValueError, match="review/rows disagree"):
+        validate_reviews(
+            {"rows": [], "reviews": [{"interaction_id": "req", "decision": "crud"}]}, x
+        )
+
+
 def test_import_parses_each_independent_constraint_and_separates_response_variants():
     v = {
         "apis": [

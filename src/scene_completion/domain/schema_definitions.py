@@ -675,6 +675,17 @@ SCHEMAS.update(
     }
 )
 
+# Each actual request needs an explicit decision, rather than treating a
+# database-only matrix as proof that the receiving service was reviewed.
+SCHEMAS["business-crud"]["properties"]["reviews"] = arr(
+    obj(
+        interaction_id=S,
+        decision=enum("crud", "not_crud", "pending"),
+        basis=S,
+        source_refs=REFS,
+    )
+)
+
 SCHEMAS["pattern-applicability"] = obj(
     instances=arr(
         obj(id=S, pattern_id=S, status=enum("accepted", "pending", "excluded"), scenario=SCENARIO)

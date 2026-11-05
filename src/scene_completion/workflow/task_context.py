@@ -83,6 +83,10 @@ def generation_matches(inputs):
 
 
 def semantic_view(task, inputs):
+    if task == "business-crud":
+        from scene_completion.analysis.crud_review import context
+
+        return context(inputs)
     if task == "test-operation-project":
         from scene_completion.inputs.test_sources import records
 

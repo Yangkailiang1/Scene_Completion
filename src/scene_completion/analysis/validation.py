@@ -118,7 +118,20 @@ def validate_result(task, payload, inputs):
                     for key in delegates
                 ):
                     raise ValueError(
-                        "delegated CRUD requires an evidenced downstream call by that same service in the same use case"
+                        "delegated CRUD requires an evidenced downstream call by that same service in the same use case; "
+                        f"entry={owner['id']}, service={row['service']}, submitted={delegates}; "
+                        "eligible direct calls="
+                        + str(
+                            [
+                                i["id"]
+                                for i in interactions.values()
+                                if i["case_id"] == owner["case_id"]
+                                and i["direction"] == "request"
+                                and i.get("step_kind") != "action"
+                                and i["sender"]["name"] == row["service"]
+                                and i["receiver"]["name"] != row["service"]
+                            ]
+                        )
                     )
     if task == "business-dependencies":
         known = {e["id"] for e in inputs["business-entities"]["entities"]}

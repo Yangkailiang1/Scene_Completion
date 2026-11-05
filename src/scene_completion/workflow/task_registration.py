@@ -403,6 +403,10 @@ def add(
                 from scene_completion.analysis.failure_units import normalize_bindings
 
                 value = normalize_bindings(value, inputs)
+            if task == "business-crud" and self.mocks is None and not transform:
+                from scene_completion.analysis.crud_review import validate_reviews
+
+                validate_reviews(value, inputs)
             if task in {"existing-concerns", "test-concerns"}:
                 from scene_completion.analysis.concern_alignment import recognize
 

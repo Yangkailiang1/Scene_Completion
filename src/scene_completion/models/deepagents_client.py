@@ -553,6 +553,10 @@ class DeepAgentsClient(SemanticClient):
                     )
             phase("validating")
             try:
+                if original_packet["task"] == "business-crud":
+                    from scene_completion.analysis.crud_review import validate_reviews
+
+                    validate_reviews(payload, original_packet["input"])
                 if original_packet["task"] == "concern-match":
                     from scene_completion.analysis.recognition_coverage import validate_coverage
 
