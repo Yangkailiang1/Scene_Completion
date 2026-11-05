@@ -51,11 +51,18 @@ def interaction_layers(inputs):
             if (
                 request["layer"] == "SR"
                 and not has_RR
-                and request["sender"]["name"] != request["receiver"]["name"]
+                and (
+                    request["sender"]["name"] != request["receiver"]["name"]
+                    or request.get("step_kind") == "action"
+                )
                 and all(internal(request[k]) for k in ("sender", "receiver"))
             ):
                 layer = "SR"
-                basis = "SR中的实际内部Service交互；未借用另一层接口约束"
+                basis = (
+                    "SR显式本地action；不代表额外接口调用"
+                    if request.get("step_kind") == "action"
+                    else "SR中的实际内部Service交互；未借用另一层接口约束"
+                )
             else:
                 layer = None
                 basis = "未能确定实际接口定义来源，不以展示层级或路径前缀猜测"

@@ -28,6 +28,10 @@ def test_self_sender_and_receiver_same_binding_merge_refs_once():
     result = recognize(x, {"matches": [row("req", "sender"), row("req", "receiver", refs=refs2)]})
     matches = [m for m in result["matches"] if m["concern_key"] == "service.base.availability"]
     assert len(matches) == 1
+    assert "role_aliases" not in matches[0]
+    from scene_completion.domain.contracts import validate
+
+    validate("concern-match", result)
     assert matches[0]["target"] == "receiver"
     assert {r["source_id"] for r in matches[0]["source_refs"]} == {"positive", "second"}
 
@@ -42,3 +46,18 @@ def test_self_normalization_does_not_merge_interactions_or_directions():
     assert (
         len([m for m in result["matches"] if m["concern_key"] == "service.base.availability"]) == 2
     )
+
+
+def test_explicit_internal_action_remains_in_sr_metric_scope():
+    from scene_completion.analysis.evaluation_scope import interaction_layers
+
+    x = packet()
+    i = x["enriched-interactions"]["interactions"][0]
+    i["layer"] = "SR"
+    i["step_kind"] = "action"
+    i["api_id"] = None
+    for side in ("sender", "receiver"):
+        i[side]["position"] = "内部服务"
+    assert interaction_layers(x)["req"]["layer"] == "SR"
+    i.pop("step_kind")
+    assert interaction_layers(x)["req"]["layer"] is None

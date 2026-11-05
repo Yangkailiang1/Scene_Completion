@@ -68,11 +68,9 @@ def index_elements(inputs):
             )
 
         if i["sender"]["name"] == i["receiver"]["name"]:
-            # A self interaction has one participant object. Keep both role
-            # observations addressable, but give them the receiver's stable
-            # element identity so identical checks collapse in binding_id.
+            # A self interaction has one participant object. Recognition maps
+            # either role to this canonical identity before creating a binding.
             add("receiver", i["receiver"]["name"])
-            out[-1]["role_aliases"] = ["sender", "receiver"]
         else:
             for side in ("sender", "receiver"):
                 add(side, i[side]["name"])
