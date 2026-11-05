@@ -139,8 +139,9 @@
       "status": "已评测（关注点或GT有待确认项）",
       "main_interactions": 9,
       "explicit_actions": 3,
-      "rr_sr_links": 0,
-      "fused_provider": null
+      "rr_sr_links": 1,
+      "fused_provider": "validated_input_review",
+      "input_source_count": 3
     },
     {
       "id": "G-002",
@@ -270,8 +271,9 @@
       "status": "已评测（关注点或GT有待确认项）",
       "main_interactions": 9,
       "explicit_actions": 3,
-      "rr_sr_links": 0,
-      "fused_provider": null
+      "rr_sr_links": 1,
+      "fused_provider": "validated_input_review",
+      "input_source_count": 3
     },
     {
       "id": "G-003",
@@ -401,8 +403,9 @@
       "status": "已评测（关注点或GT有待确认项）",
       "main_interactions": 9,
       "explicit_actions": 3,
-      "rr_sr_links": 0,
-      "fused_provider": null
+      "rr_sr_links": 1,
+      "fused_provider": "validated_input_review",
+      "input_source_count": 3
     },
     {
       "id": "G-004",
@@ -532,8 +535,9 @@
       "status": "已评测（关注点或GT有待确认项）",
       "main_interactions": 9,
       "explicit_actions": 3,
-      "rr_sr_links": 0,
-      "fused_provider": null
+      "rr_sr_links": 1,
+      "fused_provider": "validated_input_review",
+      "input_source_count": 3
     },
     {
       "id": "G-005",
@@ -663,8 +667,9 @@
       "status": "已评测（关注点或GT有待确认项）",
       "main_interactions": 9,
       "explicit_actions": 3,
-      "rr_sr_links": 0,
-      "fused_provider": null
+      "rr_sr_links": 1,
+      "fused_provider": "validated_input_review",
+      "input_source_count": 3
     }
   ],
   "global": {
@@ -4562,5 +4567,6 @@
       "path": "输入文件/行为模型/Product/查询商品列表/behaviour/SR/main_success.json",
       "sha256": "58f21f3061e3f7183922ea3974be69cd53dd502b38285ae1659b8bcdf99984b3"
     }
-  ]
+  ],
+  "acceptance_code_commit": "61d003942555d624abf9f1133278883fde435849"
 }
