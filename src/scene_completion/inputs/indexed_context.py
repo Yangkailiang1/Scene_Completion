@@ -311,7 +311,12 @@ class EvidenceContext:
                     for k, v in registry()["definitions"].items()
                     if v.get("enabled", True)
                     and v["kind"] == "check"
-                    and (not only_returns or k.startswith("api.data.") and k != "api.data.validity")
+                    and (
+                        not only_returns
+                        or k.startswith("api.data.")
+                        and k != "api.data.validity"
+                        or k == "service.business_attribute_constraint"
+                    )
                 ]
             }
             fields["interaction_id"] = {

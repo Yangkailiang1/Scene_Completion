@@ -7,7 +7,7 @@ description: 从单个用例的正向RR/SR正文建立服务本地正常规则�
 
 condition最多500字符，只摘录支持当前一个独立失败的原文子句。引用可以指向包含多个字段的完整JSON行，但condition不得复制整行JSON或混入邻近规则；不要为了缩短而截断必要条件。
 
-返回报文也需整理明确的输出约束：绑定实际return交互，owner_service为发送响应的服务，仅使用api.data.*与对应响应字段。接口的通用枚举不替代本次成功操作的具体输出要求；例如正向材料明确发布成功status=PUBLISHED时，单独保留该条件，不能仅输出DRAFT/PUBLISHED通用枚举。请求与返回、成功与失败响应分别定位，不从测试答案补充后置条件。
+返回报文也需整理明确的输出约束：绑定实际return交互，owner_service为发送响应的服务。独立字段检查使用api.data.*；成功响应明示的跨属性业务条件使用service.business_attribute_constraint，fields保留参与关系的实际返回字段，整条关系只计一次。例如productType为SERVICE时price>=1仍为业务约束，不能拆成两个字段范围，也不能迁到数据库或请求。数据库实际业务检查与返回契约独立定位。接口的通用枚举不替代本次成功操作的具体输出要求；例如发布成功status=PUBLISHED需单独保留，不能仅输出DRAFT/PUBLISHED通用枚举。请求与返回、成功与失败响应分别定位，不从测试答案补充后置条件。
 
 每条rule引用直接支持条件的原文，condition逐字摘录所引原文的一段完整正常条件，不改写、不用相邻句支撑；violation写该条件的具体反面。绑定负责执行该条件的Service接收请求交互。校验属于服务本地处理，不编造自调用消息。保存owner_service、interaction_id、condition、violation、concern_key、fields、functional_kinds、resolution、pending_details、source_refs；id使用稳定、互不冲突的标识。
 

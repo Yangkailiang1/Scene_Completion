@@ -5,6 +5,8 @@ description: 关注点匹配。用于场景工作流中的该独立任务，按�
 
 # 关注点匹配
 
+成功返回报文明示的跨属性条件仍归service.business_attribute_constraint，绑定该return的发送服务（契约提供者）。完整保留参与关系的字段和输出来源，不拆成独立字段范围。数据库业务执行与返回契约是两处独立检查，不能因条件相同将返回迁到数据库；只有请求或存储约束的证据不能自动用作输出契约。
+
 ## 输入
 仅使用任务包input中的 `api-map, api-parameters, components, enriched-interactions, object-operations, registry, rr-ssd, sr-ssd`。文档格式为保留原始行号及source_id的DOCUMENT JSON，正文源为Markdown；图表输入为已验证的任务JSON。字段以output_schema及当前协议文档为准。
 

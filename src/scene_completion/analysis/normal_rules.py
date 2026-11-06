@@ -24,7 +24,7 @@ def identity_concern(key, interaction):
 
 def rule_subject(rule, interaction):
     caller = caller_concern(rule["concern_key"])
-    party = interaction["sender" if caller else "receiver"]
+    party = interaction["sender" if caller or interaction["direction"] == "return" else "receiver"]
     if party.get("resource_service"):
         return party["resource_service"]["name"]
     if "数据库" in party["position"]:
@@ -251,7 +251,10 @@ def validate_rules(value, inputs):
             raise ValueError("normal rule must bind an existing actual message")
         response = i["direction"] == "return"
         if response and (
-            not rule["concern_key"].startswith("api.data.")
+            not (
+                rule["concern_key"].startswith("api.data.")
+                or rule["concern_key"] == "service.business_attribute_constraint"
+            )
             or rule["concern_key"] == "api.data.validity"
         ):
             raise ValueError(
@@ -289,6 +292,14 @@ def validate_rules(value, inputs):
             raise ValueError(
                 "normal condition must be an exact clause of its cited normal evidence, not a neighbouring or paraphrased claim"
             )
+        if response and rule["concern_key"] == "service.business_attribute_constraint":
+            from scene_completion.analysis.concern_hierarchy import response_business_contract
+
+            if not response_business_contract(rule, i, inputs):
+                raise ValueError(
+                    "response business rule needs an explicit output contract relating actual response fields; "
+                    "do not move a request or database check to the return"
+                )
         invoked = re.search(
             r"调用\s*([A-Za-z_][A-Za-z0-9_]*Service)\s*(?:的)?(?:校验|验证)", rule["condition"]
         )
@@ -355,7 +366,7 @@ def rule_matches(inputs):
         out.append(
             {
                 "interaction_id": r["interaction_id"],
-                "target": "sender" if caller else "receiver",
+                "target": "sender" if caller or i["direction"] == "return" else "receiver",
                 "object": rule_subject(r, i),
                 "concern_key": r["concern_key"],
                 "basis": "独立正向正常规则索引",

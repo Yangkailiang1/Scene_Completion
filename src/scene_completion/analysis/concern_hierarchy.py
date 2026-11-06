@@ -205,6 +205,29 @@ def effective_operation_kinds(match, interaction, inputs):
     return kinds
 
 
+def response_business_contract(rule, interaction, inputs):
+    """A declared relation between response fields is its own output obligation."""
+    from scene_completion.analysis.interaction_enrichment import parameters_for
+
+    if interaction["direction"] != "return":
+        return False
+    if rule.get("value") is False:
+        return False
+    names = {
+        p["name"].removeprefix("response.")
+        for p in parameters_for(interaction, inputs)
+        if p["location"] == "response"
+    }
+    condition = rule.get("condition", "")
+    referenced = {
+        n
+        for n in names
+        if re.search(r"(?<![A-Za-z0-9_])" + re.escape(n) + r"(?![A-Za-z0-9_])", condition)
+    }
+    quote = " ".join(r["quote"] for r in rule.get("source_refs", []))
+    return len(referenced) >= 2 and bool(re.search(r"response|响应|返回|output", quote, re.I))
+
+
 def _data_rule(match, interaction, inputs):
     from scene_completion.analysis.interaction_enrichment import parameters_for
 
@@ -313,6 +336,16 @@ def applicability(match, interaction, inputs):
         return _data_rule(match, interaction, inputs)
     if not ctx["service"]:
         return "not_applicable", "本次对应对象不是被调用Service"
+    if (
+        match["concern_key"] == "service.business_attribute_constraint"
+        and interaction["direction"] == "return"
+    ):
+        if any(
+            response_business_contract(g, interaction, inputs)
+            for g in explicit_guards(match, "business")
+        ):
+            return "applicable", "成功返回契约明示跨属性业务约束，独立于数据库业务执行检查"
+        return "pending", "缺少本次实际返回字段之间的明示业务约束，不转用请求或数据库规则"
     if definition["technology"] and definition["technology"] not in ctx["technologies"]:
         # Explicit technology evidence can establish an otherwise unknown model type.
         if not any(

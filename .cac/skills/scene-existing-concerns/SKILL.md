@@ -5,6 +5,8 @@ description: 独立识别原文已有异常的关注点与四要素定位，形�
 
 # 独立识别原文已有异常的关注点与四要素定位，形成E_c。
 
+原分支明确违反成功返回报文的跨属性业务关系时，使用service.business_attribute_constraint并绑定实际return的发送方；不要迁到请求或数据库执行。只有原分支自己的失败条件确实指向输出关系时才纳入E，不能从G或正常契约补造已有异常。
+
 条件级跨字段业务规则保持整体：如productType=SERVICE时price>=1，归service.business_attribute_constraint，不拆成productType和price的两个数据范围项。该判断仅依据本来源分支与正向约束。一个触发关联多个关注点时保留关联，不因此增加独立场景条数。数据库唯一性定位实际自检，非字段服务职责不使用interface作用域。
 
 ## 输入

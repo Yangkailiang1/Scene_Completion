@@ -321,13 +321,15 @@ def test_recognition_explanation_does_not_invalidate_scene_semantics_but_field_d
     assert key(x) != key(y)
 
 
-def test_only_audited_tool_policy_skill_pair_can_reuse_G_observations():
+def test_response_business_skill_keeps_new_semantic_identity():
     from scene_completion.infrastructure.paths import skill_file
     from scene_completion.workflow.semantic_reuse import skill_identity
 
     current = skill_file("scene-concern-match").read_text(encoding="utf8")
     canonical = skill_identity("concern-match", current)
-    assert canonical == "audited-v8-v9-G-observation-with-tool-policies-v1"
+    # The new output-business semantics are not part of the audited v8/v9
+    # policy-only prompt pair; require the full current instruction identity.
+    assert canonical == current
     assert skill_identity("test-concerns", current) == current  # No GT shortcut.
     assert skill_identity("concern-match", current + "\n改变业务规则") != canonical
     assert (

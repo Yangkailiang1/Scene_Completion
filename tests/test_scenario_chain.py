@@ -314,6 +314,153 @@ def test_return_rule_contract_owner_is_responder_and_cannot_bind_request_checks(
         validate_rules({"rules": [{**r, "concern_key": "human.authentication"}]}, inp)
 
 
+def response_business_example():
+    x, call = internal()
+    response = deepcopy(call)
+    response.update(id="response", direction="return", parent_id=call["id"], sequence=5)
+    response["sender"], response["receiver"] = deepcopy(call["receiver"]), deepcopy(call["sender"])
+    response["operation"]["name"] = "返回商品成功结果"
+    response["operation"]["sequence"] = [response["operation"]["name"]]
+    response["data"]["sequence"] = [
+        parameter("productType", "response"),
+        parameter("price", "response"),
+    ]
+    x["enriched-interactions"]["interactions"].append(response)
+    condition = "成功响应中productType为SERVICE时price必须大于等于1"
+    refs = [{**R[0], "quote": condition}]
+    rule = {
+        "id": "output-price",
+        "interaction_id": response["id"],
+        "owner_service": "Admin",
+        "concern_key": "service.business_attribute_constraint",
+        "condition": condition,
+        "violation": "成功响应中productType为SERVICE时price小于1",
+        "fields": ["productType", "price"],
+        "functional_kinds": [],
+        "resolution": "explicit",
+        "pending_details": [],
+        "source_refs": refs,
+    }
+    x["fused-ssd"] = {**x["enriched-interactions"], "rr_sr_links": [], "pending": []}
+    x["normal-documents"] = [
+        {
+            "source_id": "positive",
+            "name": "SR",
+            "channel": "normal",
+            "lines": [{"number": 1, "text": condition}],
+        }
+    ]
+    return x, response, rule
+
+
+def test_response_business_contract_is_not_relocated_to_database_check():
+    from scene_completion.analysis.normal_rules import rule_matches
+
+    x, response, rule = response_business_example()
+    check = deepcopy(x["enriched-interactions"]["interactions"][0])
+    check.update(id="local-check", step_kind="action", sequence=2)
+    check["sender"] = deepcopy(check["receiver"])
+    check["data"]["sequence"] = []
+    x["enriched-interactions"]["interactions"].append(check)
+    execution_rule = {**rule, "id": "execution-price", "interaction_id": check["id"]}
+    x["normal-rules"] = {"rules": [rule, execution_rule], "pending": []}
+    validate_rules({"rules": [rule]}, x)
+    x["concern-match"] = recognize(x, {"matches": rule_matches(x)})
+    matches = x["concern-match"]["matches"]
+    assert len(matches) == 2 and all(m["status"] == "applicable" for m in matches)
+    returned = next(m for m in matches if m["interaction_id"] == response["id"])
+    assert returned["target"] == "sender" and returned["object"] == "Admin"
+    scenes = generated(applicability(x))["scenarios"]
+    business = [s for s in scenes if s["concern_key"] == rule["concern_key"]]
+    assert {s["interaction_id"] for s in business} == {response["id"], check["id"]}
+    assert len({b for s in business for b in s["concern_binding_ids"]}) == 2
+    # The normal pipeline also retains the LLM-recognized output rule when
+    # the separate field observation omitted it; no registry-only backfill.
+    defaults = resolve_matches(x, [])
+    assert any(
+        m["interaction_id"] == response["id"] and m["concern_key"] == rule["concern_key"]
+        for m in defaults["matches"]
+    )
+
+
+def test_response_business_guard_requires_actual_output_contract():
+    from scene_completion.analysis.normal_rules import rule_matches
+
+    x, response, rule = response_business_example()
+    # Output validity is independent of whether its originating request was R or U.
+    x["business-crud"] = {"rows": []}
+    x["business-entities"] = {"entities": []}
+    x["normal-rules"] = {"rules": [rule], "pending": []}
+    out = recognize(x, {"matches": rule_matches(x)})
+    assert out["matches"][0]["status"] == "applicable"
+    bad = deepcopy(rule)
+    bad["condition"] = "请求中productType为SERVICE时price必须大于等于1"
+    bad["source_refs"][0]["quote"] = bad["condition"]
+    x["normal-documents"][0]["lines"][0]["text"] = bad["condition"]
+    with pytest.raises(ValueError, match="explicit output contract"):
+        validate_rules({"rules": [bad]}, x)
+    response["data"]["sequence"] = [parameter("price", "response")]
+    with pytest.raises(ValueError, match="explicit output contract"):
+        validate_rules(
+            {"rules": [rule]},
+            {
+                **x,
+                "normal-documents": [
+                    {
+                        **x["normal-documents"][0],
+                        "lines": [{"number": 1, "text": rule["condition"]}],
+                    }
+                ],
+            },
+        )
+
+
+def test_response_transport_schema_allows_business_attribute_constraints():
+    from scene_completion.domain.contracts import packet
+    from scene_completion.inputs.indexed_context import EvidenceContext
+
+    x, response, rule = response_business_example()
+    p = packet(
+        "normal-rules",
+        {
+            "fused-ssd": {"interactions": [response], "rr_sr_links": [], "pending": []},
+            "normal-documents": x["normal-documents"],
+        },
+    )
+    ctx = EvidenceContext(p)
+    keys = ctx.packet["output_schema"]["properties"]["rules"]["items"]["properties"]["concern_key"][
+        "enum"
+    ]
+    assert rule["concern_key"] in keys
+    assert "human.authentication" not in keys and "service.base.availability" not in keys
+
+
+@pytest.mark.parametrize("channel", ["test", "existing"])
+def test_inverse_output_business_rule_keeps_return_and_matches_its_own_location(channel):
+    from scene_completion.analysis.normal_rules import rule_matches
+
+    x, response, rule = response_business_example()
+    x["normal-rules"] = {"rules": [rule], "pending": []}
+    original = rule_matches(x)[0]
+    expected = recognize(x, {"matches": [original]})["matches"][0]["binding_id"]
+    quote = "S6成功响应返回productType=SERVICE且price=0，违反输出业务约束"
+    refs = [{"source_id": channel, "line_start": 1, "line_end": 1, "quote": quote}]
+    x[channel + "-documents"] = [
+        {
+            "source_id": channel,
+            "name": channel + ".md",
+            "channel": channel,
+            "lines": [{"number": 1, "text": quote}],
+        }
+    ]
+    x.pop("concern-match", None)
+    original["source_refs"] = refs
+    inverse = recognize(x, {"matches": [original]}, inverse=True)
+    row = inverse["matches"][0]
+    assert row["binding_id"] == expected and row["interaction_id"] == response["id"]
+    assert row["target"] == "sender" and row["object"] == "Admin"
+
+
 def test_global_key_conflict_is_separate_and_requires_its_own_positive_premise():
     inp = {
         "business-operations": {"operations": [{"id": "op"}]},

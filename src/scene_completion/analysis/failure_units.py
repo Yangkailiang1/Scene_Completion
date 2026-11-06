@@ -369,6 +369,15 @@ def local_rule_owner(match, rows, inputs):
     data checks, callers and availability stay on their original messages.
     """
     key = match["concern_key"]
+    current = next((i for i in rows if i["id"] == match.get("interaction_id")), None)
+    if (
+        key == "service.business_attribute_constraint"
+        and current
+        and current["direction"] == "return"
+    ):
+        # Output obligations belong to this message's provider. A database's
+        # execution of the same invariant does not own the response contract.
+        return None
     if key.startswith(("api.data.", "human.", "service_relation.")) or key in {
         "service.base.availability",
         "service.base.request_data",

@@ -173,6 +173,17 @@ def rows(inputs):
         i = by_id.get(m["interaction_id"])
         if (
             i
+            and i["direction"] == "return"
+            and m["concern_key"] == "service.business_attribute_constraint"
+        ):
+            from scene_completion.analysis.concern_hierarchy import response_business_contract
+
+            if any(
+                response_business_contract(g, i, inputs) for g in m.get("activation_evidence", [])
+            ):
+                add(i, m["concern_key"], "sender", m["concrete_rule"], m["source_refs"], POSITIVE)
+        if (
+            i
             and "resource_existence" in m["concern_key"]
             and context(i, inputs)["kinds"] & {"read", "update", "delete"}
             and re.search(r"存在|exist", m.get("concrete_rule") or "", re.I)
