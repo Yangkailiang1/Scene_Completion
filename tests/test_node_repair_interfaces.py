@@ -127,6 +127,36 @@ def test_failure_does_not_block_independent_nodes(tmp_path):
     assert state["independent"]["status"] == "passed" and state["bad"]["status"] != "passed"
 
 
+def test_cli_repair_uses_project_registry_even_outside_http_registry_context(tmp_path):
+    from scene_completion.domain.concern_registry import default_registry
+    from scene_completion.infrastructure.storage import fingerprint
+    from scene_completion.review.project_review import project_registry
+
+    custom = default_registry()
+    custom["definitions"]["global.idempotency"]["description"] += " 项目独立审核版本。"
+    custom["hash"] = fingerprint({k: v for k, v in custom.items() if k != "hash"})
+    write_json(tmp_path / "run/registry_override.json", custom)
+    calls = []
+
+    def broken(packet):
+        calls.append(packet["task"])
+        return {"invalid": True}
+
+    ex = Execution(tmp_path / "run", mocks={"api-map": broken})
+    ex.add("api-map", "api-map", static={"SR": [document("abstract")]})
+    assert not ex.finish()["complete"]
+    repair = export_repair(tmp_path, "api-map")
+    assert repair["binding"]["registry_hash"] == project_registry(tmp_path)["hash"]
+    assert repair["binding"]["registry_hash"] != default_registry()["hash"]
+    repair.update(payload={"services": []}, note="抽象原文无HTTP声明，保持空接口清单")
+    submit_repair(tmp_path, "api-map", repair)
+    count = len(calls)
+    resumed = Execution(tmp_path / "run", mocks={"api-map": broken})
+    resumed.add("api-map", "api-map", static={"SR": [document("abstract")]})
+    assert resumed.finish()["complete"]
+    assert len(calls) == count
+
+
 def test_cli_handoff_exports_validates_and_commits_without_direct_artifact_overwrite(
     tmp_path, capsys
 ):

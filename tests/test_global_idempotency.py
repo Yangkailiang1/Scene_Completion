@@ -87,6 +87,41 @@ def test_global_validation_requires_real_operation_and_independent_source():
         validate_result("global-test-concerns", recognized(op), {**inputs, "test-documents": []})
 
 
+def test_dependency_scene_can_explicitly_leave_business_operation_anchor_null():
+    from scene_completion.domain.contracts import validate
+
+    row = {
+        "id": "scene",
+        "dependency_id": "actual-dependency",
+        "business_operation_id": None,
+        "concern_key": "global.call_order",
+        "object": "entity",
+        "cause": "前置操作未完成便执行后续操作",
+        "conditions": ["有明确前置顺序"],
+        "source_status": "explicit",
+        "resolution": "explicit",
+        "executable": True,
+        "source_refs": R,
+    }
+    validate("global-scenarios", {"scenarios": [row], "pending": []})
+    # Null is an alternative-anchor placeholder, never a replacement for a
+    # real C/U/D operation identity when the identified concern is idempotency.
+    entities, groups, cases, crud = fixture()
+    op = operations(crud, entities, groups, cases)[0]
+    bad = recognized(op)
+    bad["matches"][0]["business_operation_id"] = None
+    with pytest.raises(ValueError):
+        validate_result(
+            "global-concerns",
+            bad,
+            {
+                "business-operations": {"operations": [op]},
+                "business-dependencies": {"dependencies": []},
+                "registry": registry(),
+            },
+        )
+
+
 def test_interaction_recognition_never_auto_adds_idempotency_even_for_CUD_or_R():
     for operation in ("create", "read", "update", "delete"):
         x = memory_inputs()

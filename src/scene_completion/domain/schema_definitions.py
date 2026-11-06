@@ -608,7 +608,7 @@ BUSINESS_DEPENDENCY = obj(
     source_refs=REFS,
 )
 GLOBAL_BINDING = obj(id=S, dependency_id=NULL_S, concern_key=S, object=S, basis=S, source_refs=REFS)
-GLOBAL_BINDING["properties"].update(business_operation_id=S, policy_id=S)
+GLOBAL_BINDING["properties"].update(business_operation_id=NULL_S, policy_id=S)
 GLOBAL_SCENARIO = obj(
     id=S,
     dependency_id=NULL_S,
@@ -621,7 +621,7 @@ GLOBAL_SCENARIO = obj(
     executable={"type": "boolean"},
     source_refs=REFS,
 )
-GLOBAL_SCENARIO["properties"].update(business_operation_id=S)
+GLOBAL_SCENARIO["properties"].update(business_operation_id=NULL_S)
 SCHEMAS.update(
     {
         "global-scenario-match": obj(decisions=arr(DECISION)),

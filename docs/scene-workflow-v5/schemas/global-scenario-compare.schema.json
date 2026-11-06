@@ -101,8 +101,10 @@
             }
           },
           "business_operation_id": {
-            "type": "string",
-            "minLength": 1
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [

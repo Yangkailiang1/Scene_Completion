@@ -2,11 +2,26 @@
 
 from copy import deepcopy
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 
 from scene_completion.analysis.validation import validate_result
 from scene_completion.domain.contracts import PROTOCOL, registry
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+
+
+def project_scoped(fn):
+    """CLI and direct callers must bind repairs to the executing project's registry."""
+
+    @wraps(fn)
+    def call(project, *args, **kwargs):
+        from scene_completion.domain.concern_registry import registry_scope
+        from scene_completion.review.project_review import project_registry
+
+        with registry_scope(project_registry(Path(project))):
+            return fn(project, *args, **kwargs)
+
+    return call
 
 
 def path(root, key):
@@ -43,6 +58,7 @@ def packet_for(root, key):
     return max(rows, key=lambda row: row[0])[1]
 
 
+@project_scoped
 def export_repair(project, key):
     root = Path(project) / "run"
     state = read_json(root / "workflow_tasks.json")["tasks"]
@@ -72,6 +88,7 @@ def export_repair(project, key):
     }
 
 
+@project_scoped
 def submit_repair(project, key, document, *, validate_only=False):
     current = export_repair(project, key)
     if (
