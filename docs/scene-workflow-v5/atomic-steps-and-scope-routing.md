@@ -14,6 +14,7 @@
 - 本地字段校验通过 `validates` 引用实际消息，不增加同一字段的计分绑定。
 - 明确由数据库执行的存在性、唯一性、版本、状态等业务检查归实际自检；上游只保留关联。
 - 外部Service及外部数据库的已确认调用必须识别可用性，逻辑资源服务仍保留物理来源和外部身份。具体超时需要独立依据。
+- 可用性失败定位只检查真实跨对象调用。本地action虽然在SSD中使用request方向，也不能成为第二个网络调用候选；两次真实调用仍分别保留。
 
 ## 独立分流与全局分析
 
@@ -22,6 +23,8 @@
 交互级进入请求／响应／自检定位。全局级进入调用顺序、依赖一致性、级联清理义务或C/U/D幂等业务操作定位，不伪造交互ID。跨服务数据一致性仍属于交互级。G、E和GT分别识别、细化，不共享异常答案。
 
 G/E完成后先输出 `global-concern-compare`、`global-scenario-compare` 和 `global-recommend`。GT单独完成后生成 `global-concern-evaluation`、`global-scenario-evaluation`、`global-evaluation`。GT独立发现的关系可以揭示G遗漏，不能因G未抽到依赖而删除GT。
+
+每个全局子任务只提供该依赖类型对应的关注点定义；C/U/D幂等任务单独提供幂等定义，不能把幂等场景挂到调用顺序依赖边。依赖场景使用真实 `dependency_id`，不适用的 `business_operation_id` 可为空；幂等场景必须使用真实C/U/D业务操作身份，不能用空值通过业务校验。
 
 `existing-locations` 将已经独立识别的E_c实际检查位置提供给E_s细化，保留最初的原分支绑定和修改理由。不能将其他分支的校验职责用于当前分支；存在多个可行位置时保留待确认，不任意选取第一个。
 
@@ -44,6 +47,8 @@ scene.cmd scope-review --project PROJECT_ID --file scope-answer.json
 输入包含 `task_key`、`expected_version`、完整 `units`，可附 `reviewer`、`reason`。单位字段：`source_id`、`trigger`、`scope`、`global_kind`、`entity_ids`、`related_cases`、`reason`。全局关联用例和实体的顺序表示依赖方向；不能随意排序。
 
 保存保留审核人、时间、历史及输入身份，返回实际下游影响范围，不调用模型。研发再显式定向重跑；输入或审核版本改变时拒绝覆盖。审核包携带粒度回答，反馈导入先预览冲突，重复反馈不重复应用。
+
+CLI或直接调用修复交接接口时，导出、校验和提交均使用该项目的关注点快照。恢复时仍核对输入、Schema、Skill和指导版本；过期修复不启用，并记录 `external_repair_not_reused` 事件的版本差异字段，避免提交成功后无法解释为何未复用。
 
 ## 验证与限制
 

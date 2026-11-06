@@ -141,4 +141,16 @@ def read_repair(root, packet, guidance):
     if not f.exists():
         return None
     row = read_json(f)
-    return row if row["binding"] == binding(packet, guidance) else None
+    expected = binding(packet, guidance)
+    if row["binding"] != expected:
+        from scene_completion.infrastructure.execution_events import EventStore
+
+        EventStore(root).append(
+            "external_repair_not_reused",
+            task_key=packet["node_key"],
+            revision=row.get("revision"),
+            changed_fields=[k for k in expected if row["binding"].get(k) != expected[k]],
+            reason="修复包与当前输入或项目版本不同；未将过期修复用作正式结果",
+        )
+        return None
+    return row

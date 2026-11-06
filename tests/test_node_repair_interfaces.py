@@ -113,6 +113,14 @@ def test_external_agent_repair_is_input_bound_validated_and_used_without_model(t
     ex3 = Execution(root, mocks={"api-map": broken})
     ex3.add("api-map", "api-map", static={"SR": [document("different input")]})
     assert not ex3.finish()["complete"] and len(calls) > count
+    from scene_completion.infrastructure.execution_events import EventStore
+
+    skipped = [
+        e
+        for e in EventStore(root).read(task_key="api-map", limit=1000)
+        if e["kind"] == "external_repair_not_reused"
+    ]
+    assert skipped and "input_hash" in skipped[-1]["data"]["changed_fields"]
 
 
 def test_failure_does_not_block_independent_nodes(tmp_path):
