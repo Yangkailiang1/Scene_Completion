@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ScopeReview } from "./ScopeReview";
 import { api, fileUrl, projectUrl } from "../../shared/api";
 
 const names: Record<string, string> = {
@@ -153,6 +154,7 @@ export function GlobalResults({
       {value.pending?.length > 0 && (
         <p>待确认：{value.pending.length} 项；未纳入确定集合。</p>
       )}
+      <ScopeReview project={project} />
       <h3>关注点层 E / G / GT</h3>
       <div className="alignment-scroll">
         <table className="alignment-table">
@@ -185,7 +187,29 @@ export function GlobalResults({
                   <strong>{row.anchor.concern_key}</strong>
                 </td>
                 {(["E", "G", "GT"] as const).map((channel) => (
-                  <td key={channel}>{row.cells[channel] || "—"}</td>
+                  <td key={channel}>
+                    {(() => {
+                      const item = value.records?.[row.cells[channel]];
+                      return item ? (
+                        <>
+                          <strong>{item.concern_key}</strong>
+                          <p>
+                            {item.concrete_rule || item.cause || item.object}
+                          </p>
+                          {item.conditions?.join("；")}
+                          <details>
+                            <summary>识别依据与定位</summary>
+                            {item.reason}
+                            <pre>
+                              {JSON.stringify(item.source_refs, null, 2)}
+                            </pre>
+                          </details>
+                        </>
+                      ) : (
+                        row.cells[channel] || "未识别到对应项"
+                      );
+                    })()}
+                  </td>
                 ))}
                 <td>{row.missing ? "文档缺失" : "已覆盖／仅单方"}</td>
               </tr>
@@ -229,7 +253,29 @@ export function GlobalResults({
                   <small>{row.anchor.concern_keys.join("、")}</small>
                 </td>
                 {(["E", "G", "GT"] as const).map((channel) => (
-                  <td key={channel}>{row.cells[channel] || "—"}</td>
+                  <td key={channel}>
+                    {(() => {
+                      const item = value.records?.[row.cells[channel]];
+                      return item ? (
+                        <>
+                          <strong>{item.concern_key}</strong>
+                          <p>
+                            {item.concrete_rule || item.cause || item.object}
+                          </p>
+                          {item.conditions?.join("；")}
+                          <details>
+                            <summary>识别依据与定位</summary>
+                            {item.reason}
+                            <pre>
+                              {JSON.stringify(item.source_refs, null, 2)}
+                            </pre>
+                          </details>
+                        </>
+                      ) : (
+                        row.cells[channel] || "未识别到对应项"
+                      );
+                    })()}
+                  </td>
                 ))}
                 <td>
                   {value.recommendations.find(

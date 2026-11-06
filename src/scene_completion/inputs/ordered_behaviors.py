@@ -154,7 +154,9 @@ def compile_product(value, file_id, name, context, version):
                 "source_refs": refs,
             }
 
-        node_layer = "RR" if node_kind in {"event", "response"} else "SR"
+        node_layer = "RR" if node_kind in {"event", "response"} else row.get("source_layer", layer)
+        if node_layer not in {"RR", "SR"}:
+            raise ValueError("步骤来源层必须为RR或SR")
         data = []
         for field in row.get("data_ref") or []:
             names = (

@@ -259,6 +259,14 @@ def packet(task, inputs, case_ids=None):
         optional |= {"business-crud", "business-entities", "recognition_scope"}
         if inputs.get("recognition_scope", "all") not in {"all", "data"}:
             raise ValueError("unknown concern recognition scope")
+    if task in {
+        "existing-bind",
+        "existing-concerns",
+        "existing-extract",
+        "test-concerns",
+        "test-ground-truth",
+    }:
+        optional |= {"scope_units"}
     if task == "normal-rules":
         optional = optional | {"registry"}
     if task == "artifact-convert":
@@ -465,3 +473,11 @@ import scene_completion.analysis.use_cases as use_cases  # noqa: E402
 use_cases.register()
 
 test_alignment.register()
+
+from scene_completion.analysis import atomic_steps as atomic_steps  # noqa: E402
+
+atomic_steps.register()
+
+from scene_completion.analysis import exception_scopes as exception_scopes  # noqa: E402
+
+exception_scopes.register()

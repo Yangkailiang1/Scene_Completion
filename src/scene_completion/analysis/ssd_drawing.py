@@ -9,6 +9,8 @@ PALETTE = ("#2563eb", "#7c3aed", "#0f766e", "#c2410c", "#be185d", "#0369a1")
 
 def ordered_messages(value):
     rows = value["interactions"]
+    if rows and all(i.get("execution_order") is not None for i in rows):
+        return sorted(rows, key=lambda i: i["execution_order"]), []
     by_id = {i["id"]: i for i in rows}
     used = set()
     out = []

@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v7-global-cud-idempotency"
+VERSION = "two-level-concern-scenario-v8-atomic-scoped-failures"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -157,9 +157,12 @@ def _local_field_request(match, rows, inputs):
     }
     direction = "return" if match.get("data_location") == "response" else "request"
     candidates = []
+    referenced = set(owner.get("validates", []))
     for call in rows.values():
         if (
-            call["case_id"] != owner["case_id"]
+            referenced
+            and call["id"] not in referenced
+            or call["case_id"] != owner["case_id"]
             or call["direction"] != direction
             or call.get("step_kind") == "action"
             or call["sender"]["name"] == call["receiver"]["name"]
@@ -191,6 +194,7 @@ def recognize(inputs, raw, *, inverse=False):
         m = deepcopy(original)
         iid = m["interaction_id"]
         key = m["concern_key"]
+        aliases = {}
         if m.get("target") in {"sender", "receiver"}:
             from scene_completion.analysis.interaction_enrichment import resource_metadata
 
@@ -201,6 +205,30 @@ def recognize(inputs, raw, *, inverse=False):
             }
             if m["object"] in aliases:
                 m["object"] = aliases[m["object"]]
+        if m.get("element_id"):
+            exact = [
+                e
+                for e in elements
+                if e["element_id"] == m["element_id"] and e["interaction_id"] == iid
+            ]
+            if len(exact) == 1:
+                m.update(
+                    {
+                        k: v
+                        for k, v in exact[0].items()
+                        if k in {"target", "object", "data_location", "operation_index"}
+                    }
+                )
+        # Resource aliases are grounded in the physical/logical mapping, but
+        # the final name must be the party actually present in this step.
+        actual = rows.get(iid)
+        if actual and m.get("target") in {"sender", "receiver"}:
+            for physical, logical in aliases.items():
+                if m["object"] in {physical, logical} and actual[m["target"]]["name"] in {
+                    physical,
+                    logical,
+                }:
+                    m["object"] = actual[m["target"]]["name"]
         bound_interaction = rows.get(iid)
         if (
             bound_interaction
@@ -381,6 +409,10 @@ def recognize(inputs, raw, *, inverse=False):
             required = definitions[key].get("operation_kinds", [])
             if kinds <= {"read", "display"} and required and not kinds & set(required):
                 reason = "本次为只读交互，不能绑定变更关注点；实际失败调用或分类待确认"
+        if key.startswith("global."):
+            raise ValueError(
+                "全局关注点必须先进入异常粒度分流，不能绑定交互或四要素；请使用全局分析节点"
+            )
         if definitions[key].get("layer") == "relation":
             m.update(target="operation")
             if m.get("operation_index") is None:

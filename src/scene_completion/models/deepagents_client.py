@@ -105,6 +105,7 @@ CHECKER_TASKS = {
     "global-test-concerns",
     "global-test-scenarios",
     "global-scenario-match",
+    "exception-scope",
 }
 
 

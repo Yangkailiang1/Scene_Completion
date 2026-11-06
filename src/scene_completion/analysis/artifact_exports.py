@@ -532,7 +532,8 @@ def export_sequence_svg(root, task, payload):
 
     for cid in dict.fromkeys(i["case_id"] for i in payload["interactions"]):
         rows = sorted(
-            (i for i in payload["interactions"] if i["case_id"] == cid), key=lambda i: i["sequence"]
+            (i for i in payload["interactions"] if i["case_id"] == cid),
+            key=lambda i: i.get("execution_order", i["sequence"]),
         )
         names = list(dict.fromkeys(p["name"] for i in rows for p in (i["sender"], i["receiver"])))
         width = max(720, len(names) * 260)

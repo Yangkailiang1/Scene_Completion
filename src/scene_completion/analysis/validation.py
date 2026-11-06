@@ -48,6 +48,14 @@ def refs_required(value):
 
 def validate_result(task, payload, inputs):
     validate(task, payload)
+    if task == "exception-scope":
+        from scene_completion.analysis.exception_scopes import validate_scope
+
+        validate_scope(payload, inputs)
+    if task == "interaction-normalize":
+        from scene_completion.analysis.atomic_steps import validate_plan
+
+        validate_plan(payload, inputs)
     if task == "global-scenario-match":
         from scene_completion.analysis.global_analysis import validate_decisions
 

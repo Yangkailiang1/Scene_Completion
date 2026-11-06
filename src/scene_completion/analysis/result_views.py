@@ -118,6 +118,8 @@ class ResultView:
             "test-case-align",
             "components",
             "fused-ssd",
+            "interaction-normalize",
+            "exception-scope",
             "rr-ssd",
             "sr-ssd",
             "object-operations",
@@ -257,8 +259,12 @@ class ResultView:
         # Global GT is independently extracted from the original test source.
         # An expanded/business GT has no global version yet; never relabel it.
         dependencies = self.payload("business-dependencies")
-        concerns = self.payload("global-concern-compare")
-        scenarios = self.payload("global-scenario-compare")
+        concerns = self.payload("global-concern-evaluation") or self.payload(
+            "global-concern-compare"
+        )
+        scenarios = self.payload("global-scenario-evaluation") or self.payload(
+            "global-scenario-compare"
+        )
         recommendation = self.payload("global-recommend")
         evaluation = self.payload("global-evaluation")
         status = (
@@ -281,7 +287,34 @@ class ResultView:
             else "独立原始异常测试",
             "status": status,
             "complete": bool(concerns and scenarios and recommendation and evaluation),
-            "dependencies": dependencies.get("dependencies", []),
+            "dependencies": [
+                d
+                for d in self.payload("global-anchor-catalogue").get(
+                    "dependencies", dependencies.get("dependencies", [])
+                )
+                if "dependency_type" in d
+            ],
+            "records": {
+                row["id"]: row
+                for key, task in self.state.items()
+                if key.startswith("global-")
+                and task.get("stage")
+                in {
+                    "global-concerns",
+                    "global-existing-concerns",
+                    "global-test-concerns",
+                    "global-scenarios",
+                    "global-existing-scenarios",
+                    "global-test-scenarios",
+                }
+                for row in self.payload(key).get("matches", self.payload(key).get("scenarios", []))
+            },
+            "scope_routing": [
+                {"case_id": c["id"], "channel": channel, **u}
+                for c in self.cases()
+                for channel, stage in (("E", "existing-scope"), ("GT", "test-scope"))
+                for u in self.payload(c["id"] + ":" + stage).get("units", [])
+            ],
             "business_operations": operations(
                 self.payload("business-crud-project").get("rows", []),
                 self.payload("business-entities").get("entities", []),
@@ -693,7 +726,8 @@ class ResultView:
         seen = set()
         recognition = self.payload(cid + ":concern-match")
         for interaction in sorted(
-            enriched.get("interactions", []), key=lambda i: i.get("sequence", 0)
+            enriched.get("interactions", []),
+            key=lambda i: i.get("execution_order", enriched.get("interactions", []).index(i) + 1),
         ):
             iid = interaction["id"]
             seen.add(iid)
@@ -788,6 +822,11 @@ class ResultView:
                 row["metric_in_scope"] = row["interface_source_layer"] == self.evaluation_scope
         return {
             "case": case,
+            "scope_routing": {
+                channel: self.payload(cid + ":" + stage).get("units", [])
+                for channel, stage in (("E", "existing-scope"), ("GT", "test-scope"))
+            },
+            "step_normalization": self.payload(cid + ":fused-ssd").get("normalization"),
             "recognition_outdated": self.manifest.get("matching_version") != MATCHING_VERSION,
             "evaluation_scope": scoped_evaluation.get(
                 "evaluation_scope", {"layer": self.evaluation_scope}

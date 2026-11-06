@@ -13,6 +13,18 @@ WEB = PROJECT / "web"
 
 
 def register(app, service):
+    @app.get("/api/projects/{rid}/analysis-scopes")
+    def analysis_scopes(rid: str):
+        from scene_completion.review.scope_reviews import view
+
+        return view(service.run_dir(rid))
+
+    @app.put("/api/projects/{rid}/analysis-scopes")
+    def update_analysis_scopes(rid: str, body: dict):
+        from scene_completion.review.scope_reviews import save
+
+        return save(service.run_dir(rid), body)
+
     @app.get("/api/projects/{rid}/results")
     def results_index(rid: str, include_artifacts: bool = True):
         from scene_completion.analysis.result_views import ResultView

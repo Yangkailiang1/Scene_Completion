@@ -94,7 +94,7 @@ export function ResultsView({
               onChange={(e) => setMode(e.target.value)}
             >
               <option value="steps">交互对照</option>
-              <option value="global">全局业务依赖</option>
+              <option value="global">全局异常对照</option>
               <option value="project">项目总指标</option>
               <option value="metrics">指标总览</option>
               <option value="quality">指标诊断</option>
@@ -176,7 +176,7 @@ export function ResultsView({
             className={mode === "global" ? "active" : ""}
             onClick={() => setMode("global")}
           >
-            全局业务依赖
+            全局异常对照
           </button>
           <button
             className={mode === "project" ? "active" : ""}
@@ -639,6 +639,12 @@ export function ResultsView({
                   />
                   只看未完整对应／冲突项
                 </label>
+                {row.recognition_summary?.applicable > 0 &&
+                  row.channels.G.length === 0 && (
+                    <p className="management-notice">
+                      本步骤已有已确认关注点，但尚无生成场景；关注点识别与场景展开分别记录，不将场景缺口显示为未识别。
+                    </p>
+                  )}
                 {comparisonLayer === "concerns" && row.recognition_summary && (
                   <details className="management-notice">
                     <summary>

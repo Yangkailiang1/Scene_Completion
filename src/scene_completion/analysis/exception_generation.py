@@ -1,4 +1,5 @@
 import json
+import re
 from copy import deepcopy
 
 from scene_completion.analysis.concern_hierarchy import context, match_is_applicable
@@ -115,13 +116,34 @@ def scenario_key(s):
         "超时": "timeout",
         "结果错误": "incorrect_result",
     }.get(s["cause"], s["cause"])
+    if s["concern_key"] in {"human.authentication", "human.authorization"}:
+        text = s["cause"] + " " + " ".join(s["conditions"])
+        if s["concern_key"] == "human.authentication":
+            missing = bool(re.search(r"未提供|缺失|未携带|missing|未传", text, re.I))
+            invalid = bool(re.search(r"无效|invalid", text, re.I))
+            expired = not invalid and bool(re.search(r"过期|expired", text, re.I))
+            modes = tuple(
+                k
+                for k, v in (("missing", missing), ("invalid", invalid), ("expired", expired))
+                if v
+            )
+            if modes:
+                cause, normalized_conditions = "authentication", modes
+            else:
+                normalized_conditions = tuple(sorted({normalize(x) for x in s["conditions"]}))
+        elif not re.search(r"水平|垂直|跨租户|其他用户|他人|其他商家|角色", text):
+            cause, normalized_conditions = "authorization", ("operation_permission_denied",)
+        else:
+            normalized_conditions = tuple(sorted({normalize(x) for x in s["conditions"]}))
+    else:
+        normalized_conditions = tuple(sorted({normalize(x) for x in s["conditions"]}))
     return (
         s["case_id"],
         s.get("canonical_interaction_id", s["interaction_id"]),
         s["object"],
         s["operation"],
         cause,
-        tuple(sorted({normalize(x) for x in s["conditions"]})),
+        normalized_conditions,
         (
             s.get("scope", "interface" if s.get("field") else "service")
             if s.get("field") or s.get("scope") in {"interface", "storage", "context"}
@@ -171,10 +193,17 @@ def deduplicate(scenarios):
             "concern_origins",
             "source_unit_ids",
             "quality_notes",
+            "source_branch_ids",
         ):
             chosen[field] = list(
                 {fingerprint(v): v for v in previous.get(field, []) + s.get(field, [])}.values()
             )
+        chosen["source_branch_ids"] = list(
+            dict.fromkeys(
+                chosen.get("source_branch_ids", [])
+                + [r["original_branch_id"] for r in (previous, s) if r.get("original_branch_id")]
+            )
+        )
         chosen["steps"]["documented_follow_up"] = list(
             {
                 fingerprint(v): v

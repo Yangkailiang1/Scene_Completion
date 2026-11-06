@@ -28,7 +28,7 @@ def create_app(root=None, client_factory=None, env_file=None):
             import re
 
             allowed = re.fullmatch(
-                r"/api/projects/[a-f0-9]{32}/(?:pending/[a-f0-9]+|recommendations/feedback)",
+                r"/api/projects/[a-f0-9]{32}/(?:pending/[a-f0-9]+|recommendations/feedback|analysis-scopes)",
                 request.url.path,
             )
             if not allowed and request.url.path != "/api/runtime/control":

@@ -251,6 +251,9 @@ def semantic_view(task, inputs):
         from scene_completion.analysis.recognition_coverage import field_reviews
 
         out["required_field_reviews"] = field_reviews(inputs)
+        from scene_completion.analysis.concern_alignment import index_elements
+
+        out["four_element_index"] = index_elements(inputs)
         out["recognition_instruction"] = (
             "逐项审阅已声明字段约束并独立提交识别；该清单不是G。matches中的数据关注点"
             "必须target=data，object为具体字段名并填写data_location，不能统称Product等实体。"
@@ -298,6 +301,10 @@ def semantic_view(task, inputs):
             out["registry"]["definitions"] = {
                 k: d for k, d in out["registry"]["definitions"].items() if k.startswith("api.data.")
             }
+    if task in {"existing-concerns", "test-concerns"}:
+        from scene_completion.analysis.concern_alignment import index_elements
+
+        out["four_element_index"] = index_elements(inputs)
     if task in {"existing-extract", "test-ground-truth", "existing-concerns", "test-concerns"}:
         # Original branches/test rows are retained; no duplicate composition or
         # full API table. normal-constraints is already scoped to this use case.

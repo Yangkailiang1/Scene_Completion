@@ -25,4 +25,6 @@ normal-rules是独立正向事实，不是G。测试失败对应某正常规则�
 除测试表格外，也支持用例标题与EXT扩展分支：保留SC@场景原编号，按显式exception/alternative_success/undetermined分别识别为异常/正常/待确认。主成功路径仅保留查看，不进入GT。test_record_index为同一原文的工具索引，不是新增事实；source_refs仍引用上传文件原始行。不能把运行说明中的converged/pending统计替代具体分支类型。
 
 ## RR/SR接口与实际校验职责
-测试自己的接口路径、调用双方和触发原因先定位实际请求，再细化GT。RR对外接口与SR内部接口分表，不能按字段同名合并约束。平台字段校验归进入平台请求；AdminService唯一性检查归进入AdminService请求。参考interface_ownership及正常规则owner_service；只有已确认的同一次请求重复视图共用SR身份。rule_id不能将场景移到另一个接口。未知约束待确认，不以G或E补GT。
+测试自己的接口路径、调用双方和触发原因先定位实际请求，再细化GT。RR对外接口与SR内部接口分表，不能按字段同名合并约束。平台字段校验归进入平台请求；明确由数据库或服务本地执行的唯一性、存在性、版本检查归实际自检步骤，上游仅保存关联。参考interface_ownership及正常规则owner_service；只有已确认的同一次请求重复视图共用SR身份。rule_id不能将场景移到另一个接口。未知约束待确认，不以G或E补GT。
+
+最新定位口径：scope_units只允许interaction项细化；全局项在全局GT独立整理。业务校验绑定实际action，数据仍绑定实际请求/响应并引用校验步骤；原文接口路径不能将数据库职责迁到上游。相同来源失败保留一次，预期处理不另造场景。

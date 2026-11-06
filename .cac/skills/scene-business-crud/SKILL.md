@@ -18,3 +18,5 @@ description: 用例业务实体CRUD识别，用于 scene-workflow-v5 的独立�
 对`required_entry_reviews`中的每个实际请求填写`reviews`：interaction_id、decision（crud／not_crud／pending）、basis、source_refs。判为crud时必须有对应rows；不能只输出数据库行而不审阅Admin入口。not_crud需要说明其只转发等有据原因；未知写pending，不伪装为明确不适用。
 
 委托仅指当前服务直接发出的下一跳。A→B→C中，A入口的delegate引用A→B，B入口的delegate引用B→C，不能跳过B把A直接连到B→C。引用真实交互ID，不引用本地校验action。返回消息本身不额外创建CRUD，执行效果已由对应请求承载时不要在返回上再标一次。
+
+required_entry_reviews包含实际请求与自检。只有自检明确执行业务实体读/写/删时才填direct CRUD；纯认证、字段校验和响应构造判not_crud。数据库执行已拆为action时，将执行效果标到该action，进入数据库请求可以保留承接操作身份，不在返回上标CRUD。全局按业务操作去重，不按委托层数增加幂等关注点。

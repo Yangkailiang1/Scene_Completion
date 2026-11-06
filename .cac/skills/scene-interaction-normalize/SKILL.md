@@ -1,0 +1,10 @@
+---
+name: scene-interaction-normalize
+description: 根据正向材料将已有SSD整理为本地处理、请求和返回的最小实际步骤计划。
+---
+# 交互最小步骤规范化
+仅读取candidate、normal-documents和组件。输出有序steps，不复制数据字段或API约束。每步key为本用例短稳定角色标识，origin_ids引用candidate中完整原步骤ID（原文件声明ID只有唯一对应时工具才解析）；从正向spec补回的本地自检可用空origin_ids但必须有其独立source_refs。其他消息必须引用原步骤，source_refs引用允许原文。
+kind=action表示同一对象本地处理，sender=receiver；request与return是不同对象间的一次实际消息。数据库执行/校验和返回必须分开；系统响应校验和向Actor返回必须分开。若原SSD已经有同一次返回，只保留一次。不得仅按“然后”拆分同一原子处理，不虚构网络调用。
+RR中明示平台确认身份/权限时保留独立平台自检，排在入口请求后、内部调用前。RR概括实现步骤的业务执行由SR展开承接，不能复制整条实现。数据库本地校验、写入原子操作独立于返回；单个原子事务内多项条件可以保持一个本地步骤。
+数据和API由工具依据origin_ids、消息方向与双方身份从原消息恢复，模型不输出data_from，也不能把RR报文字段复制到SR。自检不复制入站/出站字段，validates引用它校验的规范化请求/响应key；业务操作检查保留在实际自检描述。新请求不得借另一接口数据。return的request_ref引用本层、反向端点的原请求key；其他步骤request_ref=null。
+保留所有真实重复调用及原有顺序，RR/SR重复视图保持原展开关系。source_step_ids由工具维护；无法确认的写pending，不补造参与者/调用/顺序。不读取E或GT。

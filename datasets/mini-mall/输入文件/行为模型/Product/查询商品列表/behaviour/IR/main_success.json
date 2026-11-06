@@ -72,11 +72,31 @@
       "api_id": "API-RR-02"
     }
   ],
-  "action": [],
+  "action": [
+    {
+      "id": "A_R2",
+      "executor": "SYS",
+      "source_layer": "RR",
+      "content": "R2. MiniMallPlatform在本地确认商家身份和本次操作权限。",
+      "data_ref": [],
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 56,
+          "end_line": 56,
+          "quote": "R2. MiniMallPlatform确认身份和操作权限，完成查询商品列表；按当前merchantId过滤商品，再按productId升序、过滤条件及分页查询；不修改商品；无匹配项返回空列表。"
+        }
+      ]
+    }
+  ],
   "Order": [
     {
       "kind": "interaction",
       "ref": "RR-002-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_R2"
     },
     {
       "kind": "interaction",

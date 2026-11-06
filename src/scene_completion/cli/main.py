@@ -190,6 +190,10 @@ def parser():
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("capabilities")
     sub.add_parser("projects")
+    scopes = sub.add_parser("scope-review", help="查看或版本化更正E/GT的交互/全局粒度，不自动重跑")
+    scopes.add_argument("--project", required=True)
+    scopes.add_argument("--file", help="包含task_key、expected_version及units的JSON")
+    scopes.add_argument("--dry-run", action="store_true")
     create = sub.add_parser("create")
     create.add_argument("--name", required=True)
     for role in ("rr", "sr", "test"):
@@ -442,6 +446,13 @@ def main(argv=None, client=None):
     api = client or API(args.server)
     if args.command == "capabilities":
         output(capabilities())
+        return 0
+    if args.command == "scope-review":
+        path = "projects/" + urllib.parse.quote(args.project, safe="") + "/analysis-scopes"
+        body = json.loads(Path(args.file).read_text(encoding="utf-8")) if args.file else None
+        if body is not None:
+            body["dry_run"] = args.dry_run
+        output(api.call(path, body, method="PUT" if body is not None else "GET"))
         return 0
     if args.command == "input-bundle":
         if bool(args.directory) == bool(args.file):

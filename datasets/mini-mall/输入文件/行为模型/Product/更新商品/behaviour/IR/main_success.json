@@ -77,11 +77,31 @@
       "api_id": "API-RR-03"
     }
   ],
-  "action": [],
+  "action": [
+    {
+      "id": "A_R2",
+      "executor": "SYS",
+      "source_layer": "RR",
+      "content": "R2. MiniMallPlatform在本地确认商家身份和本次操作权限。",
+      "data_ref": [],
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 84,
+          "end_line": 84,
+          "quote": "R2. MiniMallPlatform确认身份和操作权限，完成更新商品；数据库原子核对商品归属、存在性、DRAFT状态、version、名称唯一性和不可变属性，成功更新name/price并增加version。"
+        }
+      ]
+    }
+  ],
   "Order": [
     {
       "kind": "interaction",
       "ref": "RR-003-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_R2"
     },
     {
       "kind": "interaction",

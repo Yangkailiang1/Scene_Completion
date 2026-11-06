@@ -7,6 +7,10 @@ from scene_completion.infrastructure.storage import read_json
 from scene_completion.models.deepagents_client import role_for
 
 LABELS = {
+    "interaction-normalize": "交互最小步骤规范化",
+    "exception-scope": "交互／全局异常分流",
+    "global-concern-evaluation": "全局关注点评测",
+    "global-scenario-evaluation": "全局场景评测",
     "normal-rules": "正向正常规则整理",
     "ssd-context": "用例SSD上下文取片（工具）",
     "source-index": "Markdown章节与证据索引（工具）",

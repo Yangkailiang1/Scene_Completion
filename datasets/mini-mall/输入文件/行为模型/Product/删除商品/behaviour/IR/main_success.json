@@ -69,11 +69,31 @@
       "api_id": "API-RR-04"
     }
   ],
-  "action": [],
+  "action": [
+    {
+      "id": "A_R2",
+      "executor": "SYS",
+      "source_layer": "RR",
+      "content": "R2. MiniMallPlatform在本地确认商家身份和本次操作权限。",
+      "data_ref": [],
+      "source_refs": [
+        {
+          "document": "spec",
+          "start_line": 112,
+          "end_line": 112,
+          "quote": "R2. MiniMallPlatform确认身份和操作权限，完成删除商品；数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除。"
+        }
+      ]
+    }
+  ],
   "Order": [
     {
       "kind": "interaction",
       "ref": "RR-004-REQ"
+    },
+    {
+      "kind": "action",
+      "ref": "A_R2"
     },
     {
       "kind": "interaction",

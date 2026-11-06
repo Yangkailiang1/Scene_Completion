@@ -468,6 +468,24 @@
               "interaction",
               "action"
             ]
+          },
+          "source_step_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "validates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "execution_order": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": [

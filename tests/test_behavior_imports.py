@@ -358,9 +358,10 @@ def test_registered_tasks_receive_main_materials_but_not_exception_answers(tmp_p
         assert "提交查询" in str(context.static["RR"])
         assert "系统内部校验" in str(context.static["SR"])
         assert "E_ONLY" not in str(context.static)
-        branches = plan.scheduler.tasks["G-1:existing-branches"]
+        branches = plan.scheduler.tasks["G-1:existing-branches-source"]
         assert "E_ONLY" in str(branches.static)
-        assert plan.scheduler.tasks["G-1:fused-ssd"].transform is None
+        assert plan.scheduler.tasks["G-1:fused-ssd-source"].transform is None
+        assert plan.scheduler.tasks["G-1:fused-ssd"].transform is not None
         assert plan.scheduler.tasks["G-1:rr-ssd"].transform is not None
     finally:
         service.pool.shutdown()

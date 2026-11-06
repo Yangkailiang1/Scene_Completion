@@ -181,6 +181,7 @@ def canonical_fused(value, api_context=None):
             ]
         kept.append(row)
     return {
+        **({"normalization": deepcopy(value["normalization"])} if "normalization" in value else {}),
         "interactions": kept,
         "aliases": [{"source_id": k, "interaction_id": v} for k, v in aliases.items()],
         "source_views": origins,

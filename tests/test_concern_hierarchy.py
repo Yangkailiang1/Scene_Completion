@@ -280,9 +280,10 @@ def test_database_uses_shared_query_base_and_only_relevant_extensions(physical):
     x["sr-ssd"]["interactions"][0]["receiver"].update(name="Database", position=physical)
     x = bind_resource_services(x)
     rows = resolved(x)
-    # The SSD receiver is a logical internal resource service after wrapping;
-    # availability belongs to a documented external call, not physical origin alone.
-    assert find(rows, "service.base.availability")["status"] == "not_applicable"
+    # A facade retains the evidenced physical external boundary.
+    assert find(rows, "service.base.availability")["status"] == (
+        "applicable" if physical == "外部数据库" else "not_applicable"
+    )
     assert find(rows, "database.uniqueness")["status"] == "not_applicable"
     assert find(rows, "database.query_performance")["status"] == "not_applicable"
     assert "database.transaction_atomicity" not in registry()["definitions"]

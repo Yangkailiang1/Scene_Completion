@@ -303,7 +303,9 @@ SCENARIO["properties"].update(
     normalization_origin=obj(interaction_id=S, object=S, field=NULL_S, data_location=NULL_S),
     source_scenario_id=S,
 )
-SCENARIO["properties"].update(source_unit_ids=arr(S), quality_notes=arr(S))
+SCENARIO["properties"].update(
+    source_unit_ids=arr(S), quality_notes=arr(S), source_branch_ids=arr(S)
+)
 SCENARIO["properties"]["activation_evidence"] = arr(ACTIVATION)
 SCENARIO["properties"]["scenario_type"] = enum("exception", "normal", "optional", "pending")
 FAILURE_RULE = obj(kind=S, value=VALUE)

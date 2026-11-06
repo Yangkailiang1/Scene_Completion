@@ -55,6 +55,8 @@ def add(
     from scene_completion.inputs.artifact_imports import fragments_for
 
     imported = fragments_for(self.root.parent, task, case, self.import_snapshot)
+    if transform and task == "fused-ssd":
+        imported = []
     if task == "business-entities" and key != "business-entities":
         imported = []
     if transform and key in {
@@ -152,6 +154,7 @@ def add(
             proof = {"reviewed": True}
         elif (
             task == "fused-ssd"
+            and transform is None
             and (native := fused_candidate(self.import_snapshot, inputs)) is not None
         ):
             value = native
@@ -213,6 +216,34 @@ def add(
                 "provider": "explicit_test_structure",
                 "reason": "按原文明示字段/EXT标签整理，不改变场景类型",
             }
+        elif (
+            task == "exception-scope"
+            and (
+                scope_review := __import__(
+                    "scene_completion.review.scope_reviews", fromlist=["reviewed"]
+                ).reviewed(self.root.parent, key, inputs)
+            )
+            is not None
+        ):
+            value, proof = scope_review, {"provider": "human_scope_review"}
+        elif (
+            task == "interaction-normalize"
+            and (
+                literal := __import__(
+                    "scene_completion.analysis.atomic_steps", fromlist=["literal_plan"]
+                ).literal_plan(inputs["candidate"])
+            )
+            is not None
+        ):
+            value, proof = (
+                literal,
+                {
+                    "provider": "validated_literal_order",
+                    "reason": "逐条核对已提供的结构化定义、双方、顺序和返回对应；混合或歧义仍走模型审查",
+                },
+            )
+        elif task == "exception-scope" and not inputs["source-records"]:
+            value, proof = {"units": []}, {"provider": "empty_exception_source"}
         elif task == "test-case-align" and (aligned := exact_alignment(inputs)) is not None:
             value = aligned
             proof = {"provider": "explicit_case_identifiers"}
@@ -602,6 +633,10 @@ def add(
     }
     from scene_completion.review.review_questions import materials
 
+    if task == "exception-scope":
+        from scene_completion.review.scope_reviews import revision
+
+        version["scope_review"] = revision(self.root.parent, key)
     if confirmation := materials(self.root.parent, key):
         version["business_confirmation"] = fingerprint(confirmation)
     if revision := repair_revision(self.root, key):

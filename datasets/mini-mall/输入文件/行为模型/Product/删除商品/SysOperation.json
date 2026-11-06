@@ -110,7 +110,7 @@
           ],
           "sender": "DB",
           "receiver": "ADMIN",
-          "message": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。",
+          "message": "S4b. CatalogDatabaseService向ProductAdminService返回本次原子操作的结果。",
           "data_ref": [
             {
               "entity": "Product",
@@ -152,6 +152,21 @@
       ],
       "action": [
         {
+          "id": "A_R2",
+          "executor": "SYS",
+          "source_layer": "RR",
+          "content": "R2. MiniMallPlatform在本地确认商家身份和本次操作权限。",
+          "data_ref": [],
+          "source_refs": [
+            {
+              "document": "spec",
+              "start_line": 112,
+              "end_line": 112,
+              "quote": "R2. MiniMallPlatform确认身份和操作权限，完成删除商品；数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除。"
+            }
+          ]
+        },
+        {
           "id": "A_S2",
           "source_refs": [
             {
@@ -190,8 +205,22 @@
             }
           ],
           "executor": "SYS",
-          "content": "S7. MiniMallPlatform本地校验该成功响应的字段、类型和约束后，向商家返回RR成功结果；本地校验不构造额外SR网络交互。",
+          "content": "S7. MiniMallPlatform在本地校验收到的成功响应的字段、类型和约束。",
           "data_ref": null
+        },
+        {
+          "id": "A_S4",
+          "executor": "DB",
+          "content": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除。",
+          "data_ref": [],
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 162,
+              "end_line": 162,
+              "quote": "S4. CatalogDatabaseService执行原子操作：数据库原子核对商品归属、存在性、DRAFT状态和version后删除商品；PUBLISHED商品不允许删除，并向ProductAdminService返回结果。"
+            }
+          ]
         }
       ],
       "system_response": [
@@ -224,6 +253,10 @@
       ],
       "Order": [
         {
+          "kind": "action",
+          "ref": "A_R2"
+        },
+        {
           "kind": "interaction",
           "ref": "SR-004-REQ"
         },
@@ -234,6 +267,10 @@
         {
           "kind": "interaction",
           "ref": "SR-004-DB-REQ"
+        },
+        {
+          "kind": "action",
+          "ref": "A_S4"
         },
         {
           "kind": "interaction",

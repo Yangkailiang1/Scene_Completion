@@ -4,13 +4,7 @@ from copy import deepcopy
 
 
 def request_index(inputs):
-    return [
-        i
-        for i in inputs["fused-ssd"]["interactions"]
-        if i["direction"] == "request"
-        and i.get("step_kind") != "action"
-        and i["sender"]["name"] != i["receiver"]["name"]
-    ]
+    return [i for i in inputs["fused-ssd"]["interactions"] if i["direction"] == "request"]
 
 
 def validate_reviews(value, inputs):

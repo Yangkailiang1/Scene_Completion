@@ -324,4 +324,7 @@ def explicit_check_owner(text, rows):
             text,
         )
     ]
+    local = [i for i in candidates if i.get("step_kind") == "action"]
+    if len(local) == 1:
+        return local[0]
     return candidates[0] if len(candidates) == 1 else None

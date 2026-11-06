@@ -93,8 +93,11 @@ def context(interaction, inputs):
     external = any(
         s in position for s in ("外部服务", "外部Actor（系统）", "外部数据库", "外部资源")
     )
-    if party.get("resource_service"):
-        external = party["resource_service"].get("resource_origin") == "external"
+    resource = party.get("resource_service") or next(
+        (r for r in resources if r["name"] == name), None
+    )
+    if resource:
+        external = resource.get("resource_origin") == "external"
     return {
         "view": view,
         "request": request,
@@ -247,6 +250,12 @@ def applicability(match, interaction, inputs):
             "本地处理不是独立的服务间调用边；调用认证、授权与隔离在实际请求上检查",
         )
     if key == "service.base.availability":
+        if (
+            interaction.get("step_kind") == "action"
+            or interaction["direction"] != "request"
+            or interaction["sender"]["name"] == interaction["receiver"]["name"]
+        ):
+            return "not_applicable", "可用性定位独立外部请求，不在本地处理或返回上重复挂载"
         return (
             ("applicable", "本次调用外部Service")
             if ctx["external"]

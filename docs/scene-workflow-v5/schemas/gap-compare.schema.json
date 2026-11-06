@@ -360,6 +360,13 @@
               "minLength": 1
             }
           },
+          "source_branch_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "activation_evidence": {
             "type": "array",
             "items": {

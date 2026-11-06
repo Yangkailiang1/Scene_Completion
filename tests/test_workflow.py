@@ -545,6 +545,45 @@ def install_catalogue_mocks(m):
     m.setdefault("existing-branches", {"branches": []})
     m.setdefault("existing-bind", {"bindings": []})
     m.setdefault("api-index", api_index)
+
+    def atomic(p):
+        return {
+            "steps": [
+                {
+                    "key": i["id"],
+                    "origin_ids": [i["id"]],
+                    "kind": "action" if i.get("step_kind") == "action" else i["direction"],
+                    "layer": i["layer"],
+                    "sender": i["sender"]["name"],
+                    "receiver": i["receiver"]["name"],
+                    "operation": i["operation"]["name"],
+                    "request_ref": i["parent_id"] if i["direction"] == "return" else None,
+                    "validates": [],
+                    "source_refs": i["source_refs"],
+                }
+                for i in p["input"]["candidate"]["interactions"]
+            ],
+            "pending": [],
+        }
+
+    def scopes(p):
+        return {
+            "units": [
+                {
+                    "source_id": r["id"],
+                    "trigger": r["description"],
+                    "scope": "interaction",
+                    "global_kind": None,
+                    "entity_ids": [],
+                    "related_cases": [],
+                    "reason": "explicit fixture local failure",
+                }
+                for r in p["input"]["source-records"]
+            ]
+        }
+
+    m.setdefault("interaction-normalize", atomic)
+    m.setdefault("exception-scope", scopes)
     m.update({"use-case-extract": catalogue, "use-case-align": align, "fused-ssd": fused})
 
 

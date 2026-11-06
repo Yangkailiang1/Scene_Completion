@@ -43,7 +43,16 @@ def _build_cases(
             return cid + ":" + t
 
         # Translate scheduler keys to task contract names only within this case.
-        def add(task, deps=(), static=None, build=None, transform=None, cid=cid, partition=False):
+        def add(
+            task,
+            deps=(),
+            static=None,
+            build=None,
+            transform=None,
+            cid=cid,
+            partition=False,
+            stage=None,
+        ):
             def local(t):
                 return (
                     t
@@ -62,7 +71,7 @@ def _build_cases(
             else:
                 ex.add(
                     cid + ":" + task,
-                    task,
+                    stage or task,
                     tuple(local(t) for t in deps),
                     static=static,
                     build=construct,
@@ -165,7 +174,11 @@ def _build_cases(
         existing_docs = list(
             {doc["source_id"]: doc for doc in base_existing + behavior["existing"]}.values()
         )
-        add("existing-branches", static={"existing-documents": existing_docs})
+        add(
+            "existing-branches-source",
+            static={"existing-documents": existing_docs},
+            stage="existing-branches",
+        )
         from scene_completion.workflow.task_context import ssd_context
 
         add(
@@ -184,7 +197,82 @@ def _build_cases(
             },
             transform=ssd_context,
         )
-        add("fused-ssd", ("ssd-context",), build=lambda d: d["ssd-context"])
+        add(
+            "fused-ssd-source",
+            ("ssd-context",),
+            build=lambda d: d["ssd-context"],
+            stage="fused-ssd",
+        )
+        from scene_completion.analysis.atomic_steps import apply_plan, compact
+
+        add(
+            "interaction-normalize",
+            ("fused-ssd-source", "ssd-context"),
+            build=lambda d: {
+                "candidate": compact(d["fused-ssd-source"]),
+                "normal-documents": d["ssd-context"]["RR"] + d["ssd-context"]["SR"],
+                "components": d["ssd-context"]["components"],
+                "case-group": d["ssd-context"]["case-group"],
+            },
+        )
+        add(
+            "fused-ssd",
+            ("fused-ssd-source", "interaction-normalize", "ssd-context"),
+            build=lambda d: {
+                **d["ssd-context"],
+                "raw": d["fused-ssd-source"],
+                "plan": d["interaction-normalize"],
+            },
+            transform=lambda d: apply_plan(d["raw"], d["plan"], d["case-group"]["id"]),
+        )
+
+        from scene_completion.analysis.exception_scopes import (
+            interaction_branches,
+            records_from_tests,
+        )
+
+        scope_catalogue = [{"id": g["id"], "aliases": g["rr_ids"] + g["sr_ids"]} for g in groups]
+        add(
+            "existing-scope",
+            ("existing-branches-source", "business-entities"),
+            build=lambda d, cat=scope_catalogue: {
+                "channel": "existing",
+                "source-records": d["existing-branches-source"]["branches"],
+                "case-catalogue": cat,
+                "entity-index": {
+                    "entities": [
+                        {"id": e["id"], "name": e["name"]}
+                        for e in d["business-entities"]["entities"]
+                    ]
+                },
+            },
+            stage="exception-scope",
+        )
+        add(
+            "test-scope",
+            ("business-entities",),
+            static={"source-records": records_from_tests(test_records)},
+            build=lambda d, records=records_from_tests(test_records), cat=scope_catalogue: {
+                "channel": "test",
+                "source-records": records,
+                "case-catalogue": cat,
+                "entity-index": {
+                    "entities": [
+                        {"id": e["id"], "name": e["name"]}
+                        for e in d["business-entities"]["entities"]
+                    ]
+                },
+            },
+            stage="exception-scope",
+        )
+        add(
+            "existing-branches",
+            ("existing-branches-source", "existing-scope"),
+            build=lambda d, docs=existing_docs: {**d, "existing-documents": docs},
+            transform=lambda d: interaction_branches(
+                d["existing-branches-source"], d["existing-scope"]
+            ),
+        )
 
         def crud_input(
             d,
@@ -504,9 +592,10 @@ def _build_cases(
             )
         add(
             "test-concerns",
-            ("api-parameters", "api-map", "fused-ssd", "normal-rules"),
+            ("api-parameters", "api-map", "fused-ssd", "normal-rules", "test-scope"),
             build=lambda d, tt=abnormal_test, ti=test_input: {
                 "test-documents": tt,
+                "scope_units": [u for u in d["test-scope"]["units"] if u["scope"] == "interaction"],
                 **ti,
                 "normal-constraints": case_parameters(d, d["fused-ssd"]),
                 "fused-ssd": d["fused-ssd"],
@@ -518,10 +607,18 @@ def _build_cases(
         )
         add(
             "test-ground-truth",
-            ("api-parameters", "api-map", "fused-ssd", "normal-rules", "test-concerns"),
+            (
+                "api-parameters",
+                "api-map",
+                "fused-ssd",
+                "normal-rules",
+                "test-concerns",
+                "test-scope",
+            ),
             static={"tests": abnormal_test},
             build=lambda d, tt=abnormal_test, ti=test_input: {
                 "test-documents": tt,
+                "scope_units": [u for u in d["test-scope"]["units"] if u["scope"] == "interaction"],
                 **ti,
                 "normal-constraints": case_parameters(d, d["fused-ssd"]),
                 "fused-ssd": d["fused-ssd"],

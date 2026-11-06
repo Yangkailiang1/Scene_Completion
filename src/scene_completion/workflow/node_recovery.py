@@ -115,7 +115,17 @@ def generate(ex, packet, record):
     config["_resilience_active"] = True
     policy = settings(ex.root.parent)["settings"]
     key = packet["node_key"]
-    number = reserve(ex.root.parent, key, ex.recovery_epoch, fingerprint(packet["input"]))
+    from scene_completion.workflow.semantics import code_version
+
+    recovery_identity = fingerprint(
+        {
+            "input": packet["input"],
+            "schema": packet["output_schema"],
+            "skill": packet.get("skill_text", ""),
+            "logic": code_version(packet["task"]),
+        }
+    )
+    number = reserve(ex.root.parent, key, ex.recovery_epoch, recovery_identity)
     config["agent_max_model_calls"] = 1
     mode = submission_mode(config, packet["task"], config["agent_model"])
     failure = record.get("failure", {})

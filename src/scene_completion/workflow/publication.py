@@ -136,7 +136,13 @@ def finish(self):
             "business-attribute-map",
             "data-dependencies",
         }:
-            global_results[stage] = value["payload"]
+            global_results[
+                key if key in {"global-concern-evaluation", "global-scenario-evaluation"} else stage
+            ] = value["payload"]
+    if "global-concern-evaluation" in global_results:
+        global_results["global-concern-compare"] = global_results["global-concern-evaluation"]
+    if "global-scenario-evaluation" in global_results:
+        global_results["global-scenario-compare"] = global_results["global-scenario-evaluation"]
     if reports or "global-scenario-compare" in global_results:
         from scene_completion.analysis.artifact_exports import export_missing_report
 

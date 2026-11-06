@@ -149,15 +149,28 @@ def test_crud_entry_review_prevents_database_only_silent_omissions():
         "normal-documents": [],
     }
     compact = context(x)
-    assert [r["interaction_id"] for r in compact["required_entry_reviews"]] == ["req"]
+    assert [r["interaction_id"] for r in compact["required_entry_reviews"]] == ["req", "local"]
     assert "source_views" not in compact["fused-ssd"]
     assert x["fused-ssd"]["source_views"] == ["duplicate"]
     with pytest.raises(ValueError, match="missing=.*req"):
         validate_reviews({"rows": [], "pending": []}, x)
-    validate_reviews({"rows": [], "reviews": [{"interaction_id": "req", "decision": "pending"}]}, x)
+    validate_reviews(
+        {
+            "rows": [],
+            "reviews": [{"interaction_id": k, "decision": "pending"} for k in ("req", "local")],
+        },
+        x,
+    )
     with pytest.raises(ValueError, match="review/rows disagree"):
         validate_reviews(
-            {"rows": [], "reviews": [{"interaction_id": "req", "decision": "crud"}]}, x
+            {
+                "rows": [],
+                "reviews": [
+                    {"interaction_id": "req", "decision": "crud"},
+                    {"interaction_id": "local", "decision": "not_crud"},
+                ],
+            },
+            x,
         )
 
 

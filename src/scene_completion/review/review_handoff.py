@@ -246,6 +246,15 @@ def review_snapshot(project):
             }
             for cid, r in recommendations.items()
         },
+        "scope_review_history_count": len(
+            load(p, "scope_reviews.json", {"history": []})["history"]
+        ),
+        "scope_versions": {
+            r["task_key"]: r["expected_version"]
+            for r in __import__("scene_completion.review.scope_reviews", fromlist=["view"]).view(p)[
+                "records"
+            ]
+        },
         "answer_history_count": len(current["history"]),
         "feedback_history_count": len(hist["feedback"]),
         "base_feedback_ids": [r["id"] for r in hist["feedback"]],
@@ -266,6 +275,7 @@ def project_archive(project):
         "project.json",
         "job.json",
         "pending_decisions.json",
+        "scope_reviews.json",
         "business_questions.json",
         "review_applied.json",
         "pattern-settings.json",
@@ -401,6 +411,9 @@ def export_feedback(project):
         "snapshot_id": snap["snapshot_id"],
         "project_id": snap["project_id"],
         "source_hash": snap["source_hash"],
+        "scope_reviews": load(p, "scope_reviews.json", {"history": []})["history"][
+            snap.get("scope_review_history_count", 0) :
+        ],
         "answers": answers,
         "recommendation_feedback": feedback,
         "exported_at": time.time(),
@@ -552,6 +565,38 @@ def import_feedback(project, document, *, dry_run=True, allow_partial=False):
         feedback(staged, simulated, result)
         ready.append(("recommendation", case, body))
     overlay.cleanup()
+    from scene_completion.review.scope_reviews import save as save_scope
+    from scene_completion.review.scope_reviews import view as scope_view
+
+    current_scopes = {r["task_key"]: r for r in scope_view(p)["records"]}
+    scope_rows = document.get("scope_reviews", [])
+    if (
+        not isinstance(scope_rows, list)
+        or len(scope_rows) > 10000
+        or any(
+            not isinstance(r, dict) or not isinstance(r.get("task_key"), str) for r in scope_rows
+        )
+    ):
+        raise ValueError("粒度反馈记录无效")
+    latest = {r["task_key"]: r for r in scope_rows}
+    for key, row in latest.items():
+        current_scope = current_scopes.get(key)
+        if (
+            not current_scope
+            or current_scope["expected_version"] != snap.get("scope_versions", {}).get(key)
+            or current_scope["input_hash"] != row.get("input_hash")
+        ):
+            conflicts.append({"id": key, "reason": "粒度判定来源或本地审核已变化"})
+            continue
+        body = {
+            "task_key": key,
+            "expected_version": current_scope["expected_version"],
+            "units": row.get("value", {}).get("units", []),
+            "reviewer": row.get("reviewer", "离线业务反馈"),
+            "reason": row.get("reason", ""),
+        }
+        save_scope(p, {**body, "dry_run": True})
+        ready.append(("scope", key, body))
     plan = {
         "feedback_id": supplied,
         "ready_count": len(ready),
@@ -570,6 +615,8 @@ def import_feedback(project, document, *, dry_run=True, allow_partial=False):
     for kind, key, body in ready:
         if kind == "answer":
             answer(p, items[key], body)
+        elif kind == "scope":
+            save_scope(p, body)
         else:
             body["revision"] = history(p)["revision"]
             feedback(p, body, view.payload(key + ":gap-recommend"))

@@ -62,6 +62,18 @@
               "optional",
               "pending"
             ]
+          },
+          "original_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope_unit_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "trigger_condition": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [

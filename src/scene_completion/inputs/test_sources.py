@@ -346,8 +346,13 @@ def records_for_inputs(inputs):
     if "test-inventory" in inputs:
         from scene_completion.analysis.test_alignment import as_records
 
-        return as_records(inputs["test-inventory"], inputs.get("test-documents", []))
-    return records(inputs.get("test-documents", []))
+        result = as_records(inputs["test-inventory"], inputs.get("test-documents", []))
+    else:
+        result = records(inputs.get("test-documents", []))
+    if "scope_units" in inputs:
+        allowed = {u["source_id"] for u in inputs["scope_units"] if u["scope"] == "interaction"}
+        result = [r for r in result if r["id"] in allowed]
+    return result
 
 
 def referenced_record_ids(refs, typed_records):
