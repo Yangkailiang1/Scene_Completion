@@ -8,6 +8,25 @@ from scene_completion.infrastructure.storage import fingerprint, read_json
 from scene_completion.workflow.support import payload
 
 
+def registry_for_anchor(current, anchor):
+    """Offer only the concern method belonging to this scoped global task."""
+    key = (
+        "global.idempotency"
+        if "operation" in anchor
+        else {
+            "order": "global.call_order",
+            "consistency": "global.dependency_consistency",
+            "cascade": "global.cascade_operation",
+        }[anchor["dependency_type"]]
+    )
+    return {
+        **current,
+        "definitions": {
+            k: v for k, v in current["definitions"].items() if k == key and v.get("enabled", True)
+        },
+    }
+
+
 def _cited_documents(records, channel):
     lines = defaultdict(dict)
     for record in records:
@@ -123,11 +142,7 @@ def _schedule_global_analysis(ex, rr, sr, ar, tests):
         suffix = fingerprint(aid)[:12]
         prefix = "global-" + suffix
         kind = "G" if channel == "G" else channel
-        unit_registry = active_registry()
-        if is_op:
-            unit_registry["definitions"] = {
-                k: v for k, v in unit_registry["definitions"].items() if k == "global.idempotency"
-            }
+        unit_registry = registry_for_anchor(active_registry(), anchor)
         deps = {"dependencies": [] if is_op else [anchor], "pending": []}
         own = select(scoped_records.get(channel, []), anchor, is_op)
         base = {"registry": unit_registry, "business-dependencies": deps}

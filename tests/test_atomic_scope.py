@@ -371,6 +371,24 @@ def test_local_security_check_keeps_caller_boundary_without_crossing_layers():
     assert local_caller_request(match, [request, local, duplicate]) is None
 
 
+def test_global_dependency_task_does_not_offer_business_operation_idempotency():
+    from scene_completion.domain.contracts import registry
+    from scene_completion.workflow.global_pipeline import registry_for_anchor
+
+    current = registry()
+    for kind, key in (
+        ("order", "global.call_order"),
+        ("consistency", "global.dependency_consistency"),
+        ("cascade", "global.cascade_operation"),
+    ):
+        assert set(registry_for_anchor(current, {"dependency_type": kind})["definitions"]) == {key}
+    assert set(registry_for_anchor(current, {"operation": "update"})["definitions"]) == {
+        "global.idempotency"
+    }
+    # Candidate definitions constrain analysis; they do not create G members.
+    assert "matches" not in registry_for_anchor(current, {"dependency_type": "order"})
+
+
 def test_failed_service_call_does_not_include_its_local_action_or_return():
     from scene_completion.analysis.failure_units import failed_requests
 
