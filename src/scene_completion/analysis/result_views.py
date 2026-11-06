@@ -624,7 +624,10 @@ class ResultView:
 
             evaluation = snapshot(self.project, cid)["evaluation"]
             concern = evaluation.get("concern_level", {})
-        concern = self.scoped(cid, evaluation, concern).get("concern_level", concern)
+        scoped = self.scoped(cid, evaluation, concern)
+        concern = scoped.get("concern_level", concern)
+        from scene_completion.analysis.scenario_losses import summarize
+
         losses = [
             {
                 "binding_id": r["id"],
@@ -645,6 +648,7 @@ class ResultView:
             "case": case,
             "complete": bool(case.get("evaluation_ready")) and not self.test_source_changed,
             "loss_items": losses,
+            "scenario_diagnostic": summarize(scoped),
             "historical": self.manifest.get("matching_version") != MATCHING_VERSION,
         }
 

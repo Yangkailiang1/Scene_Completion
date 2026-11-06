@@ -8,6 +8,36 @@ import {
 } from "./ResultComparison";
 afterEach(() => vi.restoreAllMocks());
 
+test("zero concern omission never hides nonzero scenario losses or triad conflicts", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      matching_version: "v10",
+      complete: true,
+      cases: [],
+      history: [],
+      metrics: {
+        missing_exception_miss_rate: { value: 0, numerator: 0, denominator: 6 },
+      },
+      scenario_diagnostic: {
+        value: 44.44,
+        numerator: 4,
+        denominator: 9,
+        note: "场景缺失诊断，与关注点层漏报率分别展示",
+        conflicts: [{}],
+        loss_items: [{ id: "lost", cause: "调用方身份不被接受" }],
+      },
+    }),
+  } as Response);
+  render(<MetricsPanel project="p" caseId="G-001" onCase={() => {}} />);
+  expect(await screen.findByText(/44\.44%/)).toBeTruthy();
+  expect(screen.getByText("（4/9）")).toBeTruthy();
+  expect(screen.getByText("0.00%")).toBeTruthy();
+  expect(screen.getByText("（0/6）")).toBeTruthy();
+  expect(screen.getByText(/发现 1 项三方判断冲突/)).toBeTruthy();
+  expect(screen.getByText("调用方身份不被接受")).toBeTruthy();
+});
+
 test("one concern cell merges repeated branch citations without merging distinct bindings", () => {
   const first = {
     binding_id: "one",

@@ -191,6 +191,10 @@ def validate_result(task, payload, inputs):
         for row in payload["scenarios"]:
             if (anchor_key(row), row["object"], row["concern_key"]) not in recognized:
                 raise ValueError("global scenario must follow its independently recognized concern")
+        if task == "global-scenarios":
+            from scene_completion.analysis.global_idempotency import validate_explicit_modes
+
+            validate_explicit_modes(payload, inputs)
     if task == "artifact-convert" and payload["source_role"] != "artifact" and payload["artifacts"]:
         raise ValueError("非正向产物文件不能提交节点替代结果")
     if task in {"test-inventory", "test-case-align"}:

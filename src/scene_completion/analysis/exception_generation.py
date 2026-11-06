@@ -434,7 +434,7 @@ def storage_exceptions(inputs):
         i = by_id.get(m["interaction_id"])
         if i is None or m.get("scope") != "storage" or not match_is_applicable(m, i, inputs):
             continue
-        for g in m.get("activation_evidence", []):
+        for g in storage_guards(m):
             kind = g.get("constraint_kind")
             value = g.get("value")
             if (
@@ -445,7 +445,7 @@ def storage_exceptions(inputs):
                 or not g.get("field")
             ):
                 continue
-            if "api.data." + labels[kind] != m["concern_key"]:
+            if m["concern_key"] not in {"api.data." + labels[kind], "database.storage_validity"}:
                 continue
             if kind == "required" and value is not True:
                 continue
@@ -472,6 +472,15 @@ def storage_exceptions(inputs):
                     "cause": "missing_required" if kind == "required" else kind,
                     "conditions": conditions,
                     "concern_key": m["concern_key"],
+                    "failure_rule": {"kind": kind, "value": value},
+                    "activation_evidence": [
+                        {
+                            **g,
+                            "value": json.dumps(value, ensure_ascii=False)
+                            if isinstance(value, dict)
+                            else value,
+                        }
+                    ],
                     "field": g["field"],
                     "rule_id": rule,
                     "source_status": "framework_inferred",
@@ -485,6 +494,36 @@ def storage_exceptions(inputs):
                 }
             )
     return deduplicate(out)
+
+
+def storage_guards(match):
+    """Typed storage bounds only; never copy interface constraints into storage."""
+    for original in match.get("activation_evidence", []):
+        g = deepcopy(original)
+        kind, value = g.get("constraint_kind"), g.get("value")
+        if kind == "length" and isinstance(value, str):
+            interval = re.fullmatch(r"(\d+)\s*[-~～]\s*(\d+)", value)
+            if interval:
+                g["value"] = {"minLength": int(interval[1]), "maxLength": int(interval[2])}
+        if kind in {"minimum", "maximum"} and isinstance(value, list):
+            # A model may transport an explicitly written closed interval in
+            # the minimum value slot. Require the complete literal interval
+            # in this guard's own condition before recovering both bounds.
+            if len(value) != 2 or not all(type(v) in (int, float) for v in value):
+                continue
+            literal = (
+                r"\[\s*"
+                + re.escape(str(value[0]))
+                + r"\s*,\s*"
+                + re.escape(str(value[1]))
+                + r"\s*\]"
+            )
+            if not re.search(literal, g.get("condition", "")):
+                continue
+            for side, number in zip(("minimum", "maximum"), value):
+                yield {**g, "constraint_kind": side, "value": number}
+            continue
+        yield g
 
 
 def attach_provenance(inputs, scenarios):

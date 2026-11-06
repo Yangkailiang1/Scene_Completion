@@ -242,11 +242,24 @@ def validate_rules(value, inputs):
     if len({r["id"] for r in value["rules"]}) != len(value["rules"]):
         raise ValueError("normal rule IDs must be unique")
     for rule in value["rules"]:
+        if len(rule["condition"]) > 500 or rule["condition"].lstrip().startswith(("{", "[")):
+            raise ValueError(
+                "normal condition must be a short verbatim business clause, not a whole JSON document"
+            )
         i = rows.get(rule["interaction_id"])
-        if not i or i["direction"] != "request":
-            raise ValueError("normal rule must bind an existing actual request")
-        if rule["owner_service"] != i["receiver"]["name"]:
-            raise ValueError("normal rule owner must be this actual receiver")
+        if not i:
+            raise ValueError("normal rule must bind an existing actual message")
+        response = i["direction"] == "return"
+        if response and (
+            not rule["concern_key"].startswith("api.data.")
+            or rule["concern_key"] == "api.data.validity"
+        ):
+            raise ValueError(
+                "response normal rules must describe response fields, not request checks"
+            )
+        owner = i["sender" if response else "receiver"]["name"]
+        if rule["owner_service"] != owner:
+            raise ValueError("normal rule owner must be this message's actual contract provider")
         if (
             rule["concern_key"] not in registry()["definitions"]
             or not registry()["definitions"][rule["concern_key"]].get("enabled", True)

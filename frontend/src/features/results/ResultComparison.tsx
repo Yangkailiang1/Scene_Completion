@@ -445,9 +445,38 @@ export function MetricsPanel({
         )}
       <p className="management-notice">
         {data.matching_version
-          ? "两层计分：漏报率与生成有效率按关注点绑定计算；推荐采纳率与误报率按独立异常场景计算。"
+          ? "两层计分：下方漏报率与生成有效率按关注点绑定计算；关注点覆盖不代表其全部场景已生成。推荐采纳率与误报率按独立异常场景计算。"
           : "历史评测：以下前两项仍按旧版异常场景计数，不能作为新版关注点层指标。升级运行后显示两层结果。"}
       </p>
+      {caseId && data.scenario_diagnostic && (
+        <section className="management-notice" aria-label="场景缺失诊断">
+          <strong>
+            本用例场景缺失诊断：
+            <Rate value={data.scenario_diagnostic} />
+          </strong>
+          <p>{data.scenario_diagnostic.note}</p>
+          {!!data.scenario_diagnostic.conflicts?.length && (
+            <p>
+              发现 {data.scenario_diagnostic.conflicts.length}{" "}
+              项三方判断冲突，需核查，不自动补计命中。
+            </p>
+          )}
+          {!!data.scenario_diagnostic.loss_items?.length && (
+            <details>
+              <summary>
+                查看未命中的场景（{data.scenario_diagnostic.loss_items.length}）
+              </summary>
+              <ul>
+                {data.scenario_diagnostic.loss_items.map(
+                  (s: { id: string; cause: string }) => (
+                    <li key={s.id}>{s.cause}</li>
+                  ),
+                )}
+              </ul>
+            </details>
+          )}
+        </section>
+      )}
       {!!data.test_alignment_pending && (
         <p className="management-notice">
           测试整理或用例对应有 {data.test_alignment_pending}{" "}

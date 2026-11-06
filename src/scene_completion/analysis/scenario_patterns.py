@@ -792,6 +792,7 @@ def applicability(inputs, settings=None):
         storage_exceptions,
     )
     from scene_completion.analysis.normal_rules import rule_exceptions
+    from scene_completion.analysis.recognized_scenarios import scenarios as recognized_scenarios
 
     settings = normalize_settings(settings)
     rows = {i["id"]: i for i in inputs["enriched-interactions"]["interactions"]}
@@ -805,6 +806,14 @@ def applicability(inputs, settings=None):
         + service_exceptions(inputs)
         + storage_exceptions(inputs)
         + [s for s in rule_exceptions(inputs) if s["rule_id"] not in replaced]
+        + recognized_scenarios(
+            inputs,
+            {
+                (r["interaction"]["id"], r["rule"]["concern_key"])
+                for r in security
+                if r["supported"]
+            },
+        )
     )
     from scene_completion.domain.scenario_types import filter_scenarios
 

@@ -4,6 +4,7 @@ Only G gets the explicit framework default. E and GT must independently find
 their own exception evidence; neither the default nor generated scenes fill them.
 """
 
+import re
 from copy import deepcopy
 
 from scene_completion.infrastructure.storage import fingerprint
@@ -11,6 +12,46 @@ from scene_completion.infrastructure.storage import fingerprint
 KEY = "global.idempotency"
 POLICY = "global-cud-idempotency-v2"
 RULE = "同一用例对同一业务实体执行同一C/U/D操作时，重复执行不得产生超出一次执行的额外业务影响。"
+
+
+def validate_explicit_modes(value, inputs):
+    """Require an evidenced key-conflict mode, never infer it from C/U/D alone."""
+    ops = inputs.get("business-operations", {}).get("operations", [])
+    if len(ops) != 1:
+        return
+    op = ops[0]
+    identified = inputs.get("identified-concerns", {}).get("matches", [])
+    if not any(
+        m.get("business_operation_id") == op["id"] and m["concern_key"] == KEY for m in identified
+    ):
+        return
+    text = " ".join(
+        row["text"]
+        for doc in inputs.get("normal-documents", [])
+        if doc.get("channel") == "normal"
+        for row in doc["lines"]
+    )
+    if not re.search(
+        r"同键不同内容|(?:相同|同一)[^。；\n]{0,30}(?:幂等键|Idempotency-Key)"
+        r"[^。；\n]{0,60}(?:内容|指纹)[^。；\n]{0,30}(?:不同|不一致)",
+        text,
+        re.I,
+    ):
+        return
+    for s in value.get("scenarios", []):
+        cause = s["cause"] + " " + " ".join(s["conditions"])
+        if (
+            s.get("business_operation_id") == op["id"]
+            and s["concern_key"] == KEY
+            and re.search(r"同键|同一.*键|相同.*键|Idempotency-Key", cause, re.I)
+            and re.search(r"(?:内容|指纹).*?(?:不同|不一致)|不同内容", cause)
+        ):
+            return
+    raise ValueError(
+        "global idempotency omitted evidenced same-key/different-content rejection; "
+        "expand it separately from same-content replay or duplicate side effects; "
+        "use only this operation's positive evidence"
+    )
 
 
 def operations(crud, entities, groups, cases):

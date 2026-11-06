@@ -202,7 +202,6 @@ def semantic_view(task, inputs):
                     )
                 }
                 for i in out["fused-ssd"]["interactions"]
-                if i["direction"] == "request"
             ]
     if "enriched-interactions" in out:
         rows = out.pop("enriched-interactions")["interactions"]

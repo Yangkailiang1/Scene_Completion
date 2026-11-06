@@ -301,27 +301,27 @@ class EvidenceContext:
         if packet["task"] == "normal-rules":
             from scene_completion.domain.contracts import registry
 
+            only_returns = bool(packet["input"]["fused-ssd"]["interactions"]) and all(
+                i["direction"] == "return" for i in packet["input"]["fused-ssd"]["interactions"]
+            )
             fields = self.packet["output_schema"]["properties"]["rules"]["items"]["properties"]
             fields["concern_key"] = {
                 "enum": [
                     k
                     for k, v in registry()["definitions"].items()
-                    if v.get("enabled", True) and v["kind"] == "check"
+                    if v.get("enabled", True)
+                    and v["kind"] == "check"
+                    and (not only_returns or k.startswith("api.data.") and k != "api.data.validity")
                 ]
             }
             fields["interaction_id"] = {
-                "enum": [
-                    i["id"]
-                    for i in packet["input"]["fused-ssd"]["interactions"]
-                    if i["direction"] == "request"
-                ]
+                "enum": [i["id"] for i in packet["input"]["fused-ssd"]["interactions"]]
             }
             fields["owner_service"] = {
                 "enum": list(
                     {
-                        i["receiver"]["name"]
+                        i["sender" if i["direction"] == "return" else "receiver"]["name"]
                         for i in packet["input"]["fused-ssd"]["interactions"]
-                        if i["direction"] == "request"
                     }
                 )
             }
@@ -345,12 +345,9 @@ class EvidenceContext:
                     },
                 }
             ]
-            fields.pop("condition", None)
-            self.packet["output_schema"]["properties"]["rules"]["items"]["required"].remove(
-                "condition"
-            )
+            fields["condition"] = {"type": "string", "minLength": 1, "maxLength": 500}
             self.packet["instructions"] += (
-                "\n不输出condition。正常条件由程序从你选择的source_refs恢复原文；只判断独立violation、责任服务、字段、关注点和功能类别。引用必须直接支持该反面条件。独立原因逐条输出，不用或连接。"
+                "\ncondition仅摘录所选证据中直接支持本规则的一段原文（最多500字符），不复制整段JSON或相邻规则。工具核验其确实是引用原文子句。独立原因逐条输出，不用或连接。成功返回字段的固定值属于api.data.range，不是输入引用资源有效性。"
             )
         if packet["task"] == "semantic-compare" and packet["input"].get("candidate_pairs"):
             self.packet["output_schema"]["properties"]["decisions"]["items"]["anyOf"] = [
@@ -882,14 +879,16 @@ class EvidenceContext:
                             }
                         )
                         r["concern_key"] = key
-                r["condition"] = " ".join(ref["quote"] for ref in r["source_refs"])
-                self.normalizations.append(
-                    {
-                        "rule_id": r["id"],
-                        "field": "condition",
-                        "action": "restore verbatim positive condition from selected source evidence, no generated quote",
-                    }
-                )
+                condition = r.get("condition", "")
+                quote = " ".join(ref["quote"] for ref in r["source_refs"])
+                if (
+                    not condition
+                    or len(condition) > 500
+                    or re.sub(r"\s+", "", condition) not in re.sub(r"\s+", "", quote)
+                ):
+                    raise ValueError(
+                        "normal condition must be a short verbatim clause of selected evidence; do not restore the entire JSON citation"
+                    )
             result = separate_unknown_criteria(result, self.normalizations)
             result = separate_foreign_checks(result, self.original["input"], self.normalizations)
         if self.original["task"] == "semantic-compare":

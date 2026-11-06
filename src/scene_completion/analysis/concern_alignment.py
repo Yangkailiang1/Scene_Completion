@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v9-mandatory-rules-global-idempotency"
+VERSION = "two-level-concern-scenario-v10-evidenced-scenario-expansion"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -98,6 +98,8 @@ def index_elements(inputs):
             callee=i["receiver"]["name"],
         )
         for n, name in enumerate(i["operation"].get("sequence", [])):
+            if name == i["operation"]["name"] and len(i["operation"]["sequence"]) == 1:
+                continue  # A single item's label is an alias of the whole operation.
             add(
                 "operation",
                 name,
@@ -178,7 +180,7 @@ def _local_field_request(match, rows, inputs):
     return candidates[0] if len(candidates) == 1 else None
 
 
-def recognize(inputs, raw, *, inverse=False):
+def recognize(inputs, raw, *, inverse=False, relocate=True):
     """Validate source-specific observations; G policies are supplied separately."""
     from scene_completion.analysis.concern_hierarchy import decorate
 
@@ -265,7 +267,7 @@ def recognize(inputs, raw, *, inverse=False):
                 )
             from scene_completion.analysis.failure_units import explicit_check_owner
 
-            owner = explicit_check_owner(own_text, list(rows.values()))
+            owner = explicit_check_owner(own_text, list(rows.values())) if relocate else None
             if owner is not None and m.get("target") in {"receiver", "operation"}:
                 old = rows.get(iid)
                 iid = m["interaction_id"] = owner["id"]
@@ -273,7 +275,7 @@ def recognize(inputs, raw, *, inverse=False):
                     m["object"] = owner["receiver"]["name"]
                 elif old and m["object"] == old["operation"]["name"]:
                     m["object"] = owner["operation"]["name"]
-        if m.get("target") in {"receiver", "operation"}:
+        if relocate and m.get("target") in {"receiver", "operation"}:
             if (
                 key
                 in {
@@ -312,7 +314,7 @@ def recognize(inputs, raw, *, inverse=False):
                     m["object"] = owner["receiver"]["name"]
                 elif old and m["object"] == old["operation"]["name"]:
                     m["object"] = owner["operation"]["name"]
-        if inverse and key == "service.base.availability":
+        if inverse and relocate and key == "service.base.availability":
             from scene_completion.analysis.failure_units import failed_requests
 
             calls = failed_requests(own_text, list(rows.values()))
@@ -321,7 +323,7 @@ def recognize(inputs, raw, *, inverse=False):
                 iid = m["interaction_id"] = failed_call["id"]
                 m.update(target="receiver", object=failed_call["receiver"]["name"])
                 m.pop("operation_index", None)
-        if inverse and m.get("target") == "data":
+        if inverse and relocate and m.get("target") == "data":
             checked_request = _local_field_request(m, rows, inputs)
             if checked_request is not None:
                 m["interaction_id"] = iid = checked_request["id"]
@@ -352,7 +354,7 @@ def recognize(inputs, raw, *, inverse=False):
                     continue
         from scene_completion.analysis.failure_units import local_caller_request
 
-        caller_request = local_caller_request(m, list(rows.values()))
+        caller_request = local_caller_request(m, list(rows.values())) if relocate else None
         if caller_request is not None:
             m["basis"] += (
                 "；本地身份/权限自检关联唯一入站调用，按真实调用方分类并计一次；自检步骤=" + iid
@@ -376,6 +378,12 @@ def recognize(inputs, raw, *, inverse=False):
             )
             continue
         i = rows[iid]
+        if (
+            m.get("target") == "operation"
+            and i["operation"].get("sequence") == [i["operation"]["name"]]
+            and m.get("operation_index") == 0
+        ):
+            m["operation_index"] = None
         if inverse and ("test-documents" in inputs or "existing-documents" in inputs):
             own_docs = inputs.get("test-documents", inputs.get("existing-documents", []))
             own_docs = own_docs + [
@@ -420,6 +428,7 @@ def recognize(inputs, raw, *, inverse=False):
 
         if (
             inverse
+            and relocate
             and key == "service_relation.authorization"
             and "人类" not in i["sender"]["position"]
         ):
@@ -457,6 +466,30 @@ def recognize(inputs, raw, *, inverse=False):
                 m["concern_key"] = key = canonical
         elif key.startswith("api.data.") and len(kinds) > 1:
             reason = "同一关注点识别项混合多个分类的约束，请分别识别"
+        if key.startswith("api.data."):
+            names = {p["name"] for p in i["data"]["sequence"]}
+            for guard in m.get("activation_evidence", []):
+                text = guard.get("condition", "")
+                if (
+                    guard.get("status") == "explicit"
+                    and not text.lstrip().startswith(("{", "["))
+                    and re.search(r"时|when|如果|一致|只能", text, re.I)
+                    and len(
+                        {
+                            n
+                            for n in names
+                            if re.search(
+                                r"(?<![A-Za-z0-9_])" + re.escape(n) + r"(?![A-Za-z0-9_])", text
+                            )
+                        }
+                    )
+                    > 1
+                ):
+                    raise ValueError(
+                        "cross-field conditional business rule must remain one "
+                        "service.business_attribute_constraint on its actual operation/provider; "
+                        "do not split it into independent field ranges: " + text
+                    )
         if key == "service.base.availability":
             provider = "receiver" if i["direction"] == "request" else "sender"
             if not inverse and i.get("step_kind") != "action" and i["direction"] == "request":
@@ -807,7 +840,7 @@ def scenario_bindings(s, inputs):
         if definition.get("kind") != "check":
             continue
         field = s.get("field")
-        if key.startswith("api.data."):
+        if key.startswith("api.data.") or s.get("scope") == "storage" and field:
             target = "data"
             name = field or s["object"]
         elif definition.get("layer") == "relation":
@@ -840,7 +873,10 @@ def scenario_bindings(s, inputs):
         }
         if target == "operation" and name != i["operation"]["name"]:
             raw["operation_index"] = i["operation"]["sequence"].index(name)
-        value = recognize(inputs, {"matches": [raw]}, inverse=True)
+        # A scene has already been located by its own channel. Reinterpreting
+        # its positive citations as inverse failure prose can move an external
+        # call to a different service merely mentioned in the same JSON quote.
+        value = recognize(inputs, {"matches": [raw]}, inverse=True, relocate=False)
         result += list(definite(value).values())
     return result
 
@@ -904,6 +940,21 @@ def bind_scenarios(value, inputs, recognized=None, *, gate=False):
                 )
             continue
         s["concern_binding_ids"] = [b["binding_id"] for b in bindings]
+        if not s["concern_key"].startswith("api.data.") and not s.get("field"):
+            # Channel-specific defaults are not independent failure scopes.
+            # Keep actual data/storage-field constraints separate; provider
+            # responsibilities use the same scope in G, E and GT.
+            s["scope"] = (
+                "storage"
+                if s["concern_key"].startswith("database.")
+                else "context"
+                if s["concern_key"].startswith("llm.")
+                else "relation"
+                if s["concern_key"].startswith("service_relation.")
+                else "service"
+            )
+            if s.get("predicate"):
+                s["predicate"]["scope"] = s["scope"]
         s["element_anchors"] = [
             {
                 k: b.get(k)

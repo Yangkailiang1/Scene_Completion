@@ -168,6 +168,14 @@ def normalize_test_assertions(value, inputs):
                 s.setdefault("quality_notes", []).append(
                     "handling_assertion：采用测试动作栏明示的失败原因，绑定唯一实际调用；预期恢复仅作处理断言。保留原关注点分类供分类核查，不因分类决定失败匹配"
                 )
+    from scene_completion.analysis.inverse_duplicates import merge_caller_enum
+
+    for group in groups.values():
+        removed.update(
+            merge_caller_enum(
+                [s for s in group["units"] if s["id"] not in removed], group["record"], inputs
+            )
+        )
     out["scenarios"] = [s for s in out.get("scenarios", []) if s["id"] not in removed]
     return out
 

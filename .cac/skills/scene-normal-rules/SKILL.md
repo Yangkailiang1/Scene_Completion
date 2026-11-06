@@ -5,6 +5,10 @@ description: 从单个用例的正向RR/SR正文建立服务本地正常规则�
 
 读取normal-documents和fused-ssd，仅整理本用例正常业务校验，不读异常分支、测试或评测结果。输出rules、pending，遵守提交Schema。
 
+condition最多500字符，只摘录支持当前一个独立失败的原文子句。引用可以指向包含多个字段的完整JSON行，但condition不得复制整行JSON或混入邻近规则；不要为了缩短而截断必要条件。
+
+返回报文也需整理明确的输出约束：绑定实际return交互，owner_service为发送响应的服务，仅使用api.data.*与对应响应字段。接口的通用枚举不替代本次成功操作的具体输出要求；例如正向材料明确发布成功status=PUBLISHED时，单独保留该条件，不能仅输出DRAFT/PUBLISHED通用枚举。请求与返回、成功与失败响应分别定位，不从测试答案补充后置条件。
+
 每条rule引用直接支持条件的原文，condition逐字摘录所引原文的一段完整正常条件，不改写、不用相邻句支撑；violation写该条件的具体反面。绑定负责执行该条件的Service接收请求交互。校验属于服务本地处理，不编造自调用消息。保存owner_service、interaction_id、condition、violation、concern_key、fields、functional_kinds、resolution、pending_details、source_refs；id使用稳定、互不冲突的标识。
 
 从原文明示操作选择功能类别，可组合：发布含写入和版本校验可标publish、update，读取不能因支持写入而标update。引用行须支持字段、条件及阈值，不把相邻句当作依据。
