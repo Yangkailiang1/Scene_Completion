@@ -371,6 +371,25 @@ def test_local_security_check_keeps_caller_boundary_without_crossing_layers():
     assert local_caller_request(match, [request, local, duplicate]) is None
 
 
+def test_failed_service_call_does_not_include_its_local_action_or_return():
+    from scene_completion.analysis.failure_units import failed_requests
+
+    call, response = candidate()["interactions"]
+    local = deepcopy(call)
+    local.update(id="db-local-check", step_kind="action")
+    local["sender"] = deepcopy(local["receiver"])
+    # An older self step may omit step_kind; its equal parties still exclude it.
+    old_local = deepcopy(local)
+    old_local.update(id="legacy-local-check")
+    old_local.pop("step_kind")
+    assert set(failed_requests("Database连接不可达", [call, local, old_local, response])) == {
+        "call"
+    }
+    duplicate = deepcopy(call)
+    duplicate["id"] = "another-real-call"
+    assert len(failed_requests("Database不可用", [call, duplicate, local])) == 2
+
+
 def test_explicit_api_response_fields_remain_on_the_response_of_that_call():
     from scene_completion.analysis.concern_alignment import response_targets
 

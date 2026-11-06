@@ -173,7 +173,16 @@ def normalize_test_assertions(value, inputs):
 
 
 def failed_requests(text, rows):
-    requests = [i for i in rows if i.get("direction") == "request"]
+    # Self actions use direction=request in the SSD contract, but are not
+    # transport calls. Counting them creates two candidate failure locations
+    # for one service and wrongly demotes a known failed call to pending.
+    requests = [
+        i
+        for i in rows
+        if i.get("direction") == "request"
+        and i.get("step_kind") != "action"
+        and i.get("sender", {}).get("name") != i["receiver"]["name"]
+    ]
     explicit = [
         i
         for i in requests
