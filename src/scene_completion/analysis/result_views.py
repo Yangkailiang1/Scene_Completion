@@ -826,6 +826,11 @@ class ResultView:
                     "missing_ids": [s["id"] for s in scoped["G"] if s["id"] in missing],
                 }
             )
+        from scene_completion.analysis.check_references import references
+
+        linked_checks = references(rows)
+        for row in rows:
+            row["business_check_refs"] = linked_checks.get(row["interaction"]["id"], [])
         reg_hash = self.manifest.get("registry_hash")
         p = self.root / "registry_used" / (str(reg_hash) + ".json")
         definitions = read_json(p).get("definitions", {}) if p.is_file() else {}

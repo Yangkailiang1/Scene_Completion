@@ -226,3 +226,88 @@ def test_policy_resolves_same_binding_pending_without_hiding_other_pending_field
     result = resolve_matches(x, [old])
     assert len([m for m in result["matches"] if m["concern_key"] == "human.authentication"]) == 1
     assert not result["pending"]
+
+
+def test_inverse_resource_check_uses_own_explicit_step_and_positive_CRUD_family():
+    x = inputs()
+    request = x["sr-ssd"]["interactions"][0]
+    request["sender"].update(name="Platform", position="内部服务")
+    request["receiver"].update(name="Admin", position="内部服务")
+    local = deepcopy(request)
+    local.update(id="S4", step_kind="action", api_id=None)
+    local["sender"].update(name="Database", position="外部服务")
+    local["receiver"] = deepcopy(local["sender"])
+    local["operation"].update(name="S4. 数据库核对商品存在性后更新", kinds=["update"])
+    x["sr-ssd"]["interactions"].append(local)
+    own = [{**R[0], "source_id": "test", "quote": "指定productId不存在，失败于步骤S4。"}]
+    x["test-documents"] = [
+        {
+            "source_id": "test",
+            "name": "test.json",
+            "channel": "test",
+            "lines": [{"number": 1, "text": own[0]["quote"]}],
+        }
+    ]
+    raw = {
+        "interaction_id": "req",
+        "target": "receiver",
+        "object": "Admin",
+        "concern_key": "service.query_retrieval.resource_existence",
+        "basis": "独立测试",
+        "source_refs": own,
+        "concrete_rule": None,
+    }
+    result = recognize(x, {"matches": [raw]}, inverse=True)
+    item = next(iter(definite(result).values()))
+    assert (item["interaction_id"], item["object"], item["concern_key"]) == (
+        "S4",
+        "Database",
+        "service.crud.update.resource_existence",
+    )
+    assert item["classification_origin"] == "service.query_retrieval.resource_existence"
+
+
+def test_inverse_isolation_needs_own_failure_and_explicit_access_boundary_not_enum():
+    x = inputs()
+    i = x["sr-ssd"]["interactions"][0]
+    i["sender"].update(name="Platform", position="内部服务")
+    own = [{**R[0], "source_id": "test", "quote": "x-service-id=other，访问本服务数据被拒绝"}]
+    x["test-documents"] = [
+        {
+            "source_id": "test",
+            "name": "test.json",
+            "channel": "test",
+            "lines": [{"number": 1, "text": own[0]["quote"]}],
+        }
+    ]
+    raw = {
+        "interaction_id": "req",
+        "target": "operation",
+        "object": i["operation"]["name"],
+        "concern_key": "service_relation.authorization",
+        "basis": "本条独立异常",
+        "source_refs": own,
+        "concrete_rule": None,
+    }
+    first = recognize(x, {"matches": [raw]}, inverse=True)
+    assert first["matches"][0]["concern_key"] == "service_relation.authorization"
+    raw["source_refs"] += [{**R[0], "quote": "不得以其他service-id访问本服务的数据"}]
+    second = recognize(x, {"matches": [raw]}, inverse=True)
+    assert second["matches"][0]["concern_key"] == "service_relation.data_isolation"
+
+
+def test_isolation_local_check_keeps_unique_inbound_call_identity():
+    from scene_completion.analysis.failure_units import local_caller_request
+    from tests.test_workflow import exchange
+
+    request = exchange(sid="S1")
+    request["sender"].update(name="Platform", position="内部服务")
+    local = deepcopy(request)
+    local.update(id="S2", step_kind="action", validates=["S1"])
+    local["sender"] = deepcopy(local["receiver"])
+    match = {"concern_key": "service_relation.data_isolation", "interaction_id": "S2"}
+    assert local_caller_request(match, [request, local])["id"] == "S1"
+    duplicate = deepcopy(request)
+    duplicate["id"] = "another-request"
+    local["validates"] = []
+    assert local_caller_request(match, [request, duplicate, local]) is None

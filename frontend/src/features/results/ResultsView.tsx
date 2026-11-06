@@ -423,6 +423,24 @@ export function ResultsView({
                     {i.parent_id ? " · 展开自 " + i.parent_id : ""}
                   </span>
                 </div>
+                {!!row?.business_check_refs?.length && (
+                  <div className="result-metric-note">
+                    <p>
+                      调用期间的本地业务检查（在执行步骤计分，此处仅关联）：
+                    </p>
+                    {row.business_check_refs.map((check: any) => (
+                      <button
+                        key={check.interaction_id}
+                        onClick={() => {
+                          setStep(check.interaction_id);
+                          setSelectedConcern("");
+                        }}
+                      >
+                        查看 {check.operation}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {evaluationScope !== "all" &&
                   row?.metric_in_scope === false && (
                     <p className="result-metric-note">

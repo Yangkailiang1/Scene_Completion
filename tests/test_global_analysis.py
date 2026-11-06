@@ -70,7 +70,19 @@ def test_global_report_is_exported_without_a_completed_use_case(tmp_path):
                 }
             ]
         },
-        "global-concern-compare": {"rows": []},
+        "global-concern-compare": {
+            "rows": [
+                {
+                    "anchor": {
+                        "business_operation_id": "business-operation-create-product",
+                        "object": "Product",
+                        "concern_key": "global.idempotency",
+                    },
+                    "cells": {"G": ["g"], "E": [], "GT": []},
+                    "missing": True,
+                }
+            ]
+        },
         "global-scenario-compare": {"rows": []},
         "global-evaluation": {"metrics": {"generation_effectiveness": rate(1, 2)}},
     }
@@ -86,6 +98,7 @@ def test_global_report_is_exported_without_a_completed_use_case(tmp_path):
     report = (tmp_path / "missing_report.md").read_text()
     assert "全局业务依赖" in report and "UC-06" in report and "UC-11" in report
     assert "generation_effectiveness" in report
+    assert "business-operation-create-product" in report
     assert read_json(tmp_path / "missing_report.json")["global"] == global_result
 
 

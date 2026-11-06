@@ -323,6 +323,21 @@ def normalize_inverse_units(value, inputs):
 
 def explicit_check_owner(text, rows):
     """Only an explicitly named checking service establishes a unique owner."""
+    labels = set(
+        re.findall(r"(?:失败于|检查于|校验于)\s*(?:步骤)?\s*([RS]\d+[A-Za-z]?)\b", text, re.I)
+    )
+    if labels:
+        named = [
+            i
+            for i in rows
+            if i.get("step_kind") == "action"
+            and any(
+                re.match(re.escape(label) + r"[.．、\s]", i["operation"]["name"], re.I)
+                for label in labels
+            )
+        ]
+        if len(named) == 1:
+            return named[0]
     candidates = [
         i
         for i in rows
@@ -390,6 +405,7 @@ def local_caller_request(match, rows):
         "human.authorization",
         "service_relation.authentication",
         "service_relation.authorization",
+        "service_relation.data_isolation",
     }:
         return None
     owner = next((i for i in rows if i["id"] == match["interaction_id"]), None)

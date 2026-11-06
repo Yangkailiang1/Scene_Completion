@@ -778,7 +778,9 @@ def export_missing_report(root, combined):
                     + " | ".join(
                         cell(x)
                         for x in (
-                            anchor["dependency_id"],
+                            anchor.get("dependency_id")
+                            or anchor.get("business_operation_id")
+                            or "未定位",
                             anchor["object"],
                             label,
                             row["cells"]["E"] or "",

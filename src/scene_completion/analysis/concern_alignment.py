@@ -274,6 +274,29 @@ def recognize(inputs, raw, *, inverse=False):
                 elif old and m["object"] == old["operation"]["name"]:
                     m["object"] = owner["operation"]["name"]
         if m.get("target") in {"receiver", "operation"}:
+            if (
+                key
+                in {
+                    "service.query_retrieval.resource_existence",
+                    "service.crud.update.resource_existence",
+                    "service.crud.delete.resource_existence",
+                }
+                and iid in rows
+            ):
+                from scene_completion.analysis.concern_hierarchy import context
+
+                effects = context(rows[iid], inputs)["kinds"]
+                mutations = effects.intersection({"create", "update", "delete"})
+                canonical = (
+                    "service.crud." + next(iter(mutations)) + ".resource_existence"
+                    if len(mutations) == 1 and mutations <= {"update", "delete"}
+                    else "service.query_retrieval.resource_existence"
+                    if not mutations and "read" in effects
+                    else key
+                )
+                if key != canonical:
+                    m["classification_origin"] = key
+                    m["concern_key"] = key = canonical
             from scene_completion.analysis.failure_units import local_rule_owner
 
             owner = local_rule_owner(m, list(rows.values()), inputs)
@@ -394,6 +417,19 @@ def recognize(inputs, raw, *, inverse=False):
                 )
                 continue
         from scene_completion.analysis.normal_rules import identity_concern
+
+        if (
+            inverse
+            and key == "service_relation.authorization"
+            and "人类" not in i["sender"]["position"]
+        ):
+            # Own failure + own positive access-range citation, not G's label.
+            cited = " ".join(r["quote"] for r in m.get("source_refs", []))
+            if re.search(r"service[-_]?id.*访问.*数据", own_text, re.I) and re.search(
+                r"不得.*其他.*service[-_]?id.*访问.*数据", cited, re.I
+            ):
+                m["classification_origin"] = key
+                m["concern_key"] = key = "service_relation.data_isolation"
 
         canonical = identity_concern(key, i)
         if canonical != key:
