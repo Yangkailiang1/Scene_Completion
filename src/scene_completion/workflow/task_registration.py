@@ -86,6 +86,9 @@ def add(
             and old.get("revision") == a["file_revision"]
         ]
     import_identity = fingerprint(imported) if imported else None
+    from scene_completion.workflow.node_repair import repair_revision as supplied_repair_revision
+
+    supplied_repair = supplied_repair_revision(self.root, key)
     review_identity = fingerprint(
         [
             self.reviews.execution_identity,
@@ -93,6 +96,7 @@ def add(
             schema(task) if task in SCHEMAS else None,
             self.conversations.revision(key),
             import_identity,
+            *([supplied_repair] if supplied_repair else []),
         ]
     )
 
@@ -130,7 +134,7 @@ def add(
         inputs = inputs_for(dependencies)
         reviewed = (
             self.reviews.cached(key, task, inputs, review_identity)
-            if task in REVIEW_TASKS and not skip_review
+            if task in REVIEW_TASKS and not skip_review and not supplied_repair
             else None
         )
         from scene_completion.inputs.artifact_imports import candidate as imported_candidate

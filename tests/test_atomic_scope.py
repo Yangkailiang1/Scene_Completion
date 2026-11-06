@@ -320,3 +320,118 @@ def test_latest_native_mini_steps_pass_literal_audit_but_mixed_inputs_fall_back(
         assert len(normalized["steps"]) == 11
         assert any(s["kind"] == "action" and s["layer"] == "RR" for s in normalized["steps"])
     assert literal_plan(compact(candidate())) is None
+
+
+def test_business_check_uses_unique_positive_local_owner_not_upstream_or_return():
+    from scene_completion.analysis.failure_units import local_rule_owner
+
+    raw = candidate()["interactions"]
+    local = deepcopy(raw[1])
+    local.update(id="db-check", step_kind="action", direction="request")
+    local["receiver"] = deepcopy(local["sender"])
+    m = {"concern_key": "database.uniqueness", "field": None}
+    inputs = {
+        "normal-rules": {
+            "rules": [
+                {
+                    "interaction_id": "db-check",
+                    "owner_service": "Database",
+                    "concern_key": "database.uniqueness",
+                    "fields": ["name"],
+                    "source_refs": R,
+                }
+            ]
+        }
+    }
+    assert local_rule_owner(m, raw + [local], inputs)["id"] == "db-check"
+    another = deepcopy(local)
+    another["id"] = "another-check"
+    inputs["normal-rules"]["rules"].append(
+        {**inputs["normal-rules"]["rules"][0], "interaction_id": "another-check"}
+    )
+    assert local_rule_owner(m, raw + [local, another], inputs) is None
+    assert local_rule_owner({"concern_key": "api.data.type"}, raw + [local], inputs) is None
+
+
+def test_local_security_check_keeps_caller_boundary_without_crossing_layers():
+    from scene_completion.analysis.failure_units import local_caller_request
+
+    request = exchange()
+    request.update(id="inbound", step_kind="interaction", layer="RR")
+    local = deepcopy(request)
+    local.update(id="check", step_kind="action")
+    local["sender"] = deepcopy(local["receiver"])
+    match = {"interaction_id": "check", "concern_key": "service_relation.authorization"}
+    assert local_caller_request(match, [request, local])["id"] == "inbound"
+    sr = deepcopy(request)
+    sr.update(id="SR-call", layer="SR")
+    assert local_caller_request(match, [request, local, sr])["id"] == "inbound"
+    duplicate = deepcopy(request)
+    duplicate["id"] = "another-inbound"
+    assert local_caller_request(match, [request, local, duplicate]) is None
+
+
+def test_explicit_api_response_fields_remain_on_the_response_of_that_call():
+    from scene_completion.analysis.concern_alignment import response_targets
+
+    raw = candidate()["interactions"]
+    unrelated = deepcopy(raw[1])
+    unrelated.update(id="RR-response", parent_id="another-public-api")
+    assert response_targets(["call"], raw + [unrelated]) == ["mixed"]
+    assert response_targets(["another-public-api"], raw + [unrelated]) == ["RR-response"]
+
+
+def test_scene_bindings_follow_own_identified_E_location_and_mark_ambiguity():
+    from scene_completion.analysis.exception_scopes import bindings_at_recognitions
+
+    inputs = {
+        "bindings": {
+            "bindings": [
+                {"branch_id": "b", "interaction_id": "call", "status": "confirmed", "basis": "raw"}
+            ]
+        },
+        "identified-concerns": {
+            "matches": [
+                {"status": "applicable", "interaction_id": "mixed", "source_branch_ids": ["b"]}
+            ]
+        },
+        "fused-ssd": candidate(),
+    }
+    assert bindings_at_recognitions(inputs)["bindings"][0]["interaction_id"] == "mixed"
+    inputs["identified-concerns"]["matches"].append(
+        {"status": "applicable", "interaction_id": "call", "source_branch_ids": ["b"]}
+    )
+    row = bindings_at_recognitions(inputs)["bindings"][0]
+    assert row["status"] == "pending" and row["interaction_id"] is None
+    assert inputs["bindings"]["bindings"][0]["interaction_id"] == "call"
+
+
+def test_raw_observation_replay_recovers_observations_and_rejects_lossy_legacy_cache(tmp_path):
+    from scene_completion.workflow.semantic_reuse import replay
+    from tests.test_two_level_matching import memory_inputs, raw
+
+    original = {"matches": [raw("api.data.type", "page", data_location="query")], "pending": []}
+    write_json(
+        tmp_path / "semantic_raw_responses/original.json",
+        {"task": "test-concerns", "payload": original},
+    )
+    cached = {
+        "payload": {"matches": [], "pending": [{"reason": "四要素位置或具体对象不唯一"}]},
+        "proof": {
+            "execution_model_evidence": {
+                "raw_payload_file": "semantic_raw_responses/original.json",
+                "raw_payload_hash": fingerprint(original),
+            }
+        },
+    }
+    result = replay(tmp_path, cached, "test-concerns", memory_inputs())
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["object"] == "page"
+    with pytest.raises(ValueError, match="lossy"):
+        replay(tmp_path, {"payload": cached["payload"]}, "test-concerns", memory_inputs())
+    write_json(
+        tmp_path / "semantic_raw_responses/original.json",
+        {"task": "test-concerns", "payload": {"matches": []}},
+    )
+    with pytest.raises(ValueError, match="identity changed"):
+        replay(tmp_path, cached, "test-concerns", memory_inputs())

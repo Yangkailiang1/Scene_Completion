@@ -125,8 +125,11 @@ def semantic(self, task, inputs, record):
     ):
         cached = read_json(cached_response)
         try:
-            validate_result(task, cached["payload"], inputs)
-        except ValueError:
+            from scene_completion.workflow.semantic_reuse import replay
+
+            replayed = replay(self.root, cached, task, inputs)
+            validate_result(task, replayed, inputs)
+        except (ValueError, KeyError, TypeError):
             pass
         else:
             emit(
@@ -134,7 +137,7 @@ def semantic(self, task, inputs, record):
                 source_file=str(cached_response.relative_to(self.root)),
                 reason="相同语义输入、Schema、Skill、模型及指导；重新执行工具规范化",
             )
-            return deepcopy(cached["payload"]), {
+            return replayed, {
                 "semantic_response_reused": True,
                 "original_execution": cached.get("proof"),
             }
@@ -172,12 +175,10 @@ def semantic(self, task, inputs, record):
         seed = self._semantic_seeds.get(projected)
         if seed:
             cached = read_json(seed)
-            value = deepcopy(cached["payload"])
-            if task in {"concern-match", "existing-concerns", "test-concerns"}:
-                from scene_completion.analysis.concern_alignment import recognize
-
-                value = recognize(inputs, value, inverse=task != "concern-match")
             try:
+                from scene_completion.workflow.semantic_reuse import replay
+
+                value = replay(self.root, cached, task, inputs)
                 validate_result(task, value, inputs)
             except (ValueError, KeyError, TypeError):
                 pass

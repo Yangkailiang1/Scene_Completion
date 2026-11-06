@@ -367,7 +367,7 @@ class ResultView:
             # enter an expanded or business-reviewed total under another label.
             global_metric = (
                 global_view.get("metrics", {}).get(target, not_evaluated())
-                if test_set == "original" and self.evaluation_scope == "all"
+                if test_set == "original"
                 else not_evaluated()
             )
             available = [
@@ -385,14 +385,11 @@ class ResultView:
                 for g, v in [("interaction", case_metric), ("global", global_metric)]
                 if v.get("status") in {"适用", "不适用"}
             ]
-            expected = (
-                ["interaction"] if self.evaluation_scope != "all" else ["interaction", "global"]
-            )
+            expected = ["interaction", "global"]
             value["partial"] = (
                 value["included_granularities"] != expected
                 or not case_view.get("complete")
-                or self.evaluation_scope == "all"
-                and not global_view.get("complete")
+                or not global_view.get("complete")
             )
             combined[target] = value
         return {
@@ -400,11 +397,7 @@ class ResultView:
             "evaluation_scope": {"layer": self.evaluation_scope},
             "complete": bool(
                 case_view.get("complete")
-                and (
-                    self.evaluation_scope != "all"
-                    or test_set == "original"
-                    and global_view.get("complete")
-                )
+                and (test_set == "original" and global_view.get("complete"))
             ),
             "interaction": {
                 "status": "已评测" if case_view.get("complete") else "部分或未完成",
@@ -425,9 +418,7 @@ class ResultView:
             "metrics": combined,
             "test_set": test_set,
             "global_truth_source": "original",
-            "global_excluded_reason": "SR/RR指标范围仅含交互级；全局业务级指标单独查看"
-            if self.evaluation_scope != "all"
-            else "全局级尚无该测试来源的GT版本，项目合并指标只包含交互级"
+            "global_excluded_reason": "全局级尚无该测试来源的GT版本，项目合并指标只包含交互级"
             if test_set != "original"
             else None,
         }

@@ -246,7 +246,12 @@ def recognize(inputs, raw, *, inverse=False):
                 if not own_ids or r["source_id"] in own_ids
             )
             if inputs.get("branches", {}).get("branches"):
-                own_text = " ".join(b["description"] for b in inputs["branches"]["branches"])
+                branch_ids = set(m.get("source_branch_ids", []))
+                own_text = " ".join(
+                    b["description"]
+                    for b in inputs["branches"]["branches"]
+                    if not branch_ids or b["id"] in branch_ids
+                )
             from scene_completion.analysis.failure_units import explicit_check_owner
 
             owner = explicit_check_owner(own_text, list(rows.values()))
@@ -257,6 +262,31 @@ def recognize(inputs, raw, *, inverse=False):
                     m["object"] = owner["receiver"]["name"]
                 elif old and m["object"] == old["operation"]["name"]:
                     m["object"] = owner["operation"]["name"]
+        if m.get("target") in {"receiver", "operation"}:
+            from scene_completion.analysis.failure_units import local_rule_owner
+
+            owner = local_rule_owner(m, list(rows.values()), inputs)
+            if owner is not None:
+                old = rows.get(iid)
+                if owner["id"] != iid:
+                    m["basis"] += "；按正向规则明示的唯一自检职责统一定位；原定位=" + iid
+                iid = m["interaction_id"] = owner["id"]
+                if key.startswith("database."):
+                    m.update(target="receiver", object=owner["receiver"]["name"])
+                    m.pop("operation_index", None)
+                elif m["target"] == "receiver":
+                    m["object"] = owner["receiver"]["name"]
+                elif old and m["object"] == old["operation"]["name"]:
+                    m["object"] = owner["operation"]["name"]
+        if inverse and key == "service.base.availability":
+            from scene_completion.analysis.failure_units import failed_requests
+
+            calls = failed_requests(own_text, list(rows.values()))
+            if len(calls) == 1:
+                failed_call = next(iter(calls.values()))
+                iid = m["interaction_id"] = failed_call["id"]
+                m.update(target="receiver", object=failed_call["receiver"]["name"])
+                m.pop("operation_index", None)
         if inverse and m.get("target") == "data":
             checked_request = _local_field_request(m, rows, inputs)
             if checked_request is not None:
@@ -267,6 +297,8 @@ def recognize(inputs, raw, *, inverse=False):
             from scene_completion.inputs.api_layers import explicit_api_target
 
             targets = explicit_api_target(own_text, inputs, list(rows.values()))
+            if targets is not None and m.get("data_location") == "response":
+                targets = response_targets(targets, list(rows.values()))
             if targets is not None and iid not in targets:
                 if len(targets) == 1:
                     m["interaction_id"] = iid = targets[0]
@@ -284,6 +316,15 @@ def recognize(inputs, raw, *, inverse=False):
                         }
                     )
                     continue
+        from scene_completion.analysis.failure_units import local_caller_request
+
+        caller_request = local_caller_request(m, list(rows.values()))
+        if caller_request is not None:
+            m["basis"] += (
+                "；本地身份/权限自检关联唯一入站调用，按真实调用方分类并计一次；自检步骤=" + iid
+            )
+            iid = m["interaction_id"] = caller_request["id"]
+            m.pop("operation_index", None)
         reason = None
         if iid not in rows:
             reason = "关注点没有绑定到本片实际交互"
@@ -371,6 +412,9 @@ def recognize(inputs, raw, *, inverse=False):
             reason = "同一关注点识别项混合多个分类的约束，请分别识别"
         if key == "service.base.availability":
             provider = "receiver" if i["direction"] == "request" else "sender"
+            if not inverse and i.get("step_kind") != "action" and i["direction"] == "request":
+                m.update(target="receiver", object=i["receiver"]["name"])
+                m.pop("operation_index", None)
             if m["object"] != i[provider]["name"]:
                 reason = "可用性异常的对象不是本次被调用服务，实际失败位置待确认"
         if definitions[key].get("layer") in {"base", "functional", "technology"} and m[
@@ -415,7 +459,19 @@ def recognize(inputs, raw, *, inverse=False):
             )
         if definitions[key].get("layer") == "relation":
             m.update(target="operation")
-            if m.get("operation_index") is None:
+            if key in {"service_relation.authentication", "service_relation.authorization"}:
+                sequence = i["operation"].get("sequence", [])
+                index = m.get("operation_index")
+                exact_item = (
+                    type(index) is int
+                    and 0 <= index < len(sequence)
+                    and m["object"] == sequence[index]
+                )
+                duplicate_whole = len(sequence) == 1 and sequence[0] == i["operation"]["name"]
+                if not exact_item or duplicate_whole:
+                    m.update(operation_index=None, object=i["operation"]["name"])
+                m["scope"] = "relation"
+            elif m.get("operation_index") is None:
                 m["object"] = i["operation"]["name"]
         elif key.startswith("human."):
             m.update(target="sender", object=i["sender"]["name"])
@@ -884,3 +940,10 @@ def attach_report(report, concerns, *, original=None):
     if original is not None and result.get("original_evaluation"):
         result["original_evaluation"] = attach_report(result["original_evaluation"], original)
     return result
+
+
+def response_targets(request_ids, rows):
+    """An explicitly named interface identifies its response, not its request fields."""
+    return [
+        i["id"] for i in rows if i["direction"] == "return" and i.get("parent_id") in request_ids
+    ]

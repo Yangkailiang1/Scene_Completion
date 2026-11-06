@@ -328,3 +328,72 @@ def explicit_check_owner(text, rows):
     if len(local) == 1:
         return local[0]
     return candidates[0] if len(candidates) == 1 else None
+
+
+def local_rule_owner(match, rows, inputs):
+    """Locate an already identified business check using its positive owner.
+
+    No concern or failure is invented. Multiple local owners remain ambiguous;
+    data checks, callers and availability stay on their original messages.
+    """
+    key = match["concern_key"]
+    if key.startswith(("api.data.", "human.", "service_relation.")) or key in {
+        "service.base.availability",
+        "service.base.request_data",
+        "service.base.response_contract",
+    }:
+        return None
+    by_id = {i["id"]: i for i in rows}
+    candidates = {}
+    component_names = {
+        c["id"]: c["name"] for c in inputs.get("components", {}).get("components", [])
+    }
+    for rule in inputs.get("normal-rules", {}).get("rules", []):
+        if rule["concern_key"] != key or not rule.get("source_refs"):
+            continue
+        owner = by_id.get(rule["interaction_id"])
+        if (
+            not owner
+            or owner.get("step_kind") != "action"
+            or owner["sender"]["name"] != owner["receiver"]["name"]
+        ):
+            continue
+        if rule.get("owner_service") != owner["receiver"]["name"]:
+            # Positive rules may name the physical database behind its explicit facade.
+            resource = owner["receiver"].get("resource_service") or {}
+            if rule.get("owner_service") not in {
+                resource.get("physical_resource_name"),
+                resource.get("physical_resource_id"),
+                component_names.get(resource.get("physical_resource_id")),
+            }:
+                continue
+        field = match.get("field")
+        if field and rule.get("fields") and field not in rule["fields"]:
+            continue
+        candidates[owner["id"]] = owner
+    return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+
+def local_caller_request(match, rows):
+    """A local caller check retains the identity of its unique inbound caller."""
+    if match["concern_key"] not in {
+        "human.authentication",
+        "human.authorization",
+        "service_relation.authentication",
+        "service_relation.authorization",
+    }:
+        return None
+    owner = next((i for i in rows if i["id"] == match["interaction_id"]), None)
+    if not owner or owner.get("step_kind") != "action":
+        return None
+    refs = set(owner.get("validates", []))
+    calls = [
+        i
+        for i in rows
+        if i["direction"] == "request"
+        and i.get("step_kind") != "action"
+        and i["layer"] == owner["layer"]
+        and i["receiver"]["name"] == owner["receiver"]["name"]
+        and (not refs or i["id"] in refs)
+    ]
+    return calls[0] if len(calls) == 1 else None

@@ -33,6 +33,9 @@ def register():
         )
     )
     SCHEMAS["exception-scope"]["properties"].update(version=S)
+    SCHEMAS["existing-locations"] = deepcopy(SCHEMAS["existing-bind"])
+    TASKS["existing-locations"] = ("scene-existing-bind", "已有异常实际计分定位")
+    INPUT_KEYS["existing-locations"] = {"bindings", "identified-concerns", "fused-ssd"}
     TASKS["exception-scope"] = ("scene-exception-scope", "异常分析粒度分流")
     INPUT_KEYS["exception-scope"] = {
         "channel",
@@ -191,3 +194,35 @@ def documents_at_units(documents, records):
     from scene_completion.workflow.task_partitions import _documents_at
 
     return _documents_at(documents, [ref for r in records for ref in r["source_refs"]])
+
+
+def bindings_at_recognitions(inputs):
+    """Publish the independently recognized E location before E scene expansion."""
+    out = deepcopy(inputs["bindings"])
+    actual = {i["id"] for i in inputs["fused-ssd"]["interactions"]}
+    matches = inputs["identified-concerns"]["matches"]
+    for binding in out["bindings"]:
+        selected = {
+            m["interaction_id"]
+            for m in matches
+            if m.get("status") == "applicable"
+            and binding["branch_id"] in m.get("source_branch_ids", [])
+        }
+        if len(selected) == 1 and selected <= actual:
+            target = next(iter(selected))
+            if target != binding.get("interaction_id"):
+                binding["basis"] += (
+                    "；E独立识别后的实际计分位置="
+                    + target
+                    + "；原始分支绑定="
+                    + str(binding.get("interaction_id"))
+                )
+            binding.update(interaction_id=target, status="confirmed")
+        elif len(selected) > 1:
+            binding.update(
+                interaction_id=None,
+                status="pending",
+                basis=binding["basis"]
+                + "；同一原分支识别到多个独立失败位置，需继续拆分，不统一迁到第一个步骤",
+            )
+    return out

@@ -106,6 +106,7 @@ CHECKER_TASKS = {
     "global-test-scenarios",
     "global-scenario-match",
     "exception-scope",
+    "existing-locations",
 }
 
 
@@ -225,6 +226,7 @@ class DeepAgentsClient(SemanticClient):
         from langchain_core.tools import StructuredTool
 
         submitted = []
+        raw_submitted = []
         from scene_completion.infrastructure.execution_events import context
         from scene_completion.review.node_conversations import Conversations
 
@@ -528,6 +530,7 @@ class DeepAgentsClient(SemanticClient):
                             "rejected_output": str(rejection.relative_to(self.root)),
                         }
                     ) from e
+            raw_public_submission = deepcopy(payload)
             if packet["task"] == "fused-ssd":
                 from scene_completion.analysis.use_cases import canonical_case_ids
 
@@ -593,6 +596,7 @@ class DeepAgentsClient(SemanticClient):
                     }
                 ) from e
             submitted.append(payload)
+            raw_submitted.append(raw_public_submission)
             emit("result_validated")
             return "结果已通过校验，任务完成。"
 
@@ -851,9 +855,30 @@ class DeepAgentsClient(SemanticClient):
                 if getattr(m, "response_metadata", {}).get("provider_model")
             }
         )
+        raw_evidence = {}
+        if (
+            packet["task"] in {"concern-match", "existing-concerns", "test-concerns"}
+            and raw_submitted
+        ):
+            raw_hash = fingerprint(raw_submitted[-1])
+            raw_path = (
+                "semantic_raw_responses/"
+                + fingerprint([original_packet["task"], original_packet["input"], raw_hash])
+                + ".json"
+            )
+            write_json(
+                self.root / raw_path,
+                {
+                    "task": original_packet["task"],
+                    "input_hash": fingerprint(original_packet["input"]),
+                    "payload": raw_submitted[-1],
+                },
+            )
+            raw_evidence = {"raw_payload_file": raw_path, "raw_payload_hash": raw_hash}
         return {
             **submitted[-1],
             "execution_model_evidence": {
+                **raw_evidence,
                 "provider": "deepagents_openai_compatible",
                 "requested_model": self.model("agent"),
                 "observed_models": observed,

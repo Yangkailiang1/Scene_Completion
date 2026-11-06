@@ -1,6 +1,6 @@
 """Reuse verified model responses across tool-only display/identity changes.
 
-Only this v4 run's responses qualify. A seed is rebound to the same independent
+Only the current protocol's responses qualify. A seed is rebound to the same independent
 task input projection, Skill and model owner, then validated again by the caller.
 """
 
@@ -89,3 +89,48 @@ def index(root, model, endpoint, conversations):
             continue
         seeds[normalized] = file
     return seeds
+
+
+def replay(root, cached, task, inputs):
+    """Reprocess raw submitted observations, never a lossy derived empty set.
+
+    Older normalized caches may have discarded invalid object observations into
+    pending. They cannot establish that a new locator has rechecked those facts.
+    """
+    import re
+    from pathlib import Path
+
+    evidence = cached.get("proof") or {}
+    for _ in range(8):
+        if isinstance(evidence.get("execution_model_evidence"), dict):
+            evidence = evidence["execution_model_evidence"]
+            break
+        evidence = evidence.get("original_execution") or {}
+    raw_file = evidence.get("raw_payload_file")
+    if raw_file:
+        path = (Path(root) / raw_file).resolve()
+        if not path.is_relative_to(Path(root).resolve()) or not path.is_file():
+            raise ValueError("raw semantic evidence is absent or outside run")
+        original = read_json(path)
+        if original.get("task") != task or fingerprint(original.get("payload")) != evidence.get(
+            "raw_payload_hash"
+        ):
+            raise ValueError("raw semantic evidence identity changed")
+        value = deepcopy(original["payload"])
+    else:
+        value = deepcopy(cached["payload"])
+        if task in {"concern-match", "existing-concerns", "test-concerns"} and any(
+            re.search(
+                r"四要素位置|具体对象不唯一|可用性异常的对象|没有绑定到本片|已确认的原分支和交互绑定",
+                r.get("reason", ""),
+            )
+            for r in value.get("pending", [])
+        ):
+            raise ValueError(
+                "lossy normalized cache requires original model observations or re-identification"
+            )
+    if task in {"concern-match", "existing-concerns", "test-concerns"}:
+        from scene_completion.analysis.concern_alignment import recognize
+
+        value = recognize(inputs, value, inverse=task != "concern-match")
+    return value

@@ -487,11 +487,23 @@ def _build_cases(
             build=lambda d: d,
             transform=lambda d: compare_concerns(d["concern-match"], d["existing-concerns"]),
         )
+        from scene_completion.analysis.exception_scopes import bindings_at_recognitions
+
+        add(
+            "existing-locations",
+            ("existing-bind", "existing-concerns", "fused-ssd"),
+            build=lambda d: {
+                "bindings": d["existing-bind"],
+                "identified-concerns": d["existing-concerns"],
+                "fused-ssd": d["fused-ssd"],
+            },
+            transform=bindings_at_recognitions,
+        )
         add(
             "existing-extract",
             (
                 "existing-branches",
-                "existing-bind",
+                "existing-locations",
                 "fused-ssd",
                 "api-parameters",
                 "api-map",
@@ -502,7 +514,7 @@ def _build_cases(
                 "existing-documents": docs,
                 "registry": registry(),
                 "branches": d["existing-branches"],
-                "bindings": d["existing-bind"],
+                "bindings": d["existing-locations"],
                 "fused-ssd": d["fused-ssd"],
                 "normal-constraints": case_parameters(d, d["fused-ssd"]),
                 "normal-rules": d["normal-rules"],

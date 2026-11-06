@@ -214,7 +214,9 @@ def test_http_scope_can_switch_without_discarding_rr_display_or_rewriting_frozen
     total = client.get(
         base + "/project-metrics", params={"scope": "SR", "test_set": "original"}
     ).json()
-    assert total["complete"] and not total["metrics"]["generation_effectiveness"]["partial"]
+    # SR filters interaction interfaces only. A complete project total still
+    # requires its independently evaluated global channel.
+    assert not total["complete"] and total["metrics"]["generation_effectiveness"]["partial"]
     assert total["metrics"]["generation_effectiveness"]["included_granularities"] == ["interaction"]
     assert all(p.read_bytes() == v for p, v in raw.items())
 
