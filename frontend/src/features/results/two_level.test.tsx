@@ -4,8 +4,32 @@ import {
   AlignmentTable,
   ConcernAlignmentTable,
   MetricsPanel,
+  mergeConcernCells,
 } from "./ResultComparison";
 afterEach(() => vi.restoreAllMocks());
+
+test("one concern cell merges repeated branch citations without merging distinct bindings", () => {
+  const first = {
+    binding_id: "one",
+    source_refs: [{ quote: "401" }],
+    source_branch_ids: ["a"],
+  };
+  const second = {
+    binding_id: "one",
+    source_refs: [{ quote: "403" }],
+    source_branch_ids: ["b"],
+  };
+  const rows = mergeConcernCells([
+    first,
+    second,
+    first,
+    { binding_id: "another-field" },
+  ]);
+  expect(rows).toHaveLength(2);
+  expect(rows[0].source_refs).toEqual([{ quote: "401" }, { quote: "403" }]);
+  expect(rows[0].source_branch_ids).toEqual(["a", "b"]);
+  expect(first.source_refs).toHaveLength(1);
+});
 
 test("a recognized concern remains visible without scenes and drills by binding identity", () => {
   const select = vi.fn();
@@ -36,7 +60,7 @@ test("a recognized concern remains visible without scenes and drills by binding 
   );
   expect(screen.getByText("三方完整对应")).toBeTruthy();
   expect(screen.getByText(/已识别关注点，尚无确定场景/)).toBeTruthy();
-  expect(screen.getByText("本方法识别 G_c")).toBeTruthy();
+  expect(screen.getByText("本方法 G_c（规则／模型）")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "查看该关注点的场景 →" }));
   expect(select).toHaveBeenCalledWith("c1");
 });

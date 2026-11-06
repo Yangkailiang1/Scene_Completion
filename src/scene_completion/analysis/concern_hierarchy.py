@@ -90,6 +90,37 @@ def context(interaction, inputs):
             for row in inputs["business-crud"].get("rows", [])
             if row["interaction_id"] == request["id"]
         )
+        if (
+            not kinds.intersection({"read", "update", "delete"})
+            and request.get("step_kind") == "action"
+            and request["sender"]["name"] == request["receiver"]["name"]
+            and re.search(r"存在性|(?:检查|核对|校验|验证).*存在", request["operation"]["name"])
+        ):
+            # Use a unique evidenced inbound effect for the explicit local
+            # check. A URL or a verb alone never establishes a business effect.
+            local_names = {request["receiver"]["name"]}
+            if resource := party.get("resource_service"):
+                local_names.update(
+                    filter(None, [resource.get("name"), resource.get("physical_resource_name")])
+                )
+            calls = {
+                x["id"]
+                for x in interactions(inputs)
+                if x["case_id"] == request["case_id"]
+                and x["direction"] == "request"
+                and x.get("step_kind") != "action"
+                and x["receiver"]["name"] in local_names
+            }
+            effects = {
+                r["operation"]
+                for r in inputs["business-crud"].get("rows", [])
+                if r["interaction_id"] in calls
+            }
+            mutations = effects.intersection({"create", "update", "delete"})
+            if len(mutations) == 1:
+                kinds.update(mutations)
+            elif not mutations and effects == {"read"}:
+                kinds.add("read")
     external = any(
         s in position for s in ("外部服务", "外部Actor（系统）", "外部数据库", "外部资源")
     )
@@ -552,7 +583,9 @@ def match_is_applicable(match, interaction, inputs):
 
 
 def resolve_matches(inputs, matches):
-    """Only actual model recognitions; inheritance is not a recognition source."""
+    """Model observations plus explicitly mandated/evidenced deterministic G rules."""
     from scene_completion.analysis.concern_alignment import recognize
+    from scene_completion.analysis.positive_concern_rules import rows
 
-    return recognize(inputs, {"matches": matches})
+    model_rows = [{k: v for k, v in m.items() if k != "policy_id"} for m in matches]
+    return recognize(inputs, {"matches": [*model_rows, *rows(inputs)]})

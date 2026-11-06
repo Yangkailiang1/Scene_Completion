@@ -14,6 +14,7 @@ DERIVED = {
     "case_id",
     "direction",
     "identification",
+    "policy_id",
     "classification_origin",
     "element_origin",
     "caller",

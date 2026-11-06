@@ -10,7 +10,7 @@ from copy import deepcopy
 from scene_completion.domain.concern_registry import registry
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "two-level-concern-scenario-v8-atomic-scoped-failures"
+VERSION = "two-level-concern-scenario-v9-mandatory-rules-global-idempotency"
 TARGETS = {"sender": "发送方", "operation": "操作序列", "data": "数据序列", "receiver": "接收方"}
 DATA_KEYS = {
     "required": "completeness",
@@ -179,7 +179,7 @@ def _local_field_request(match, rows, inputs):
 
 
 def recognize(inputs, raw, *, inverse=False):
-    """Validate submitted rows, plus the explicitly approved internal-RUD policy."""
+    """Validate source-specific observations; G policies are supplied separately."""
     from scene_completion.analysis.concern_hierarchy import decorate
 
     rows = {i["id"]: i for i in interaction_rows(inputs)}
@@ -189,11 +189,22 @@ def recognize(inputs, raw, *, inverse=False):
     raw = normalize_records(raw, inputs)
     definitions = registry()["definitions"]
     accepted = []
+    excluded = deepcopy(raw.get("excluded", []))
     pending = deepcopy(raw.get("pending", []))
     for original in raw.get("matches", []):
         m = deepcopy(original)
         iid = m["interaction_id"]
         key = m["concern_key"]
+        if key == "global.idempotency" or key.endswith(".idempotency"):
+            excluded.append(
+                {
+                    "original_id": m.get("binding_id", iid + ":" + key),
+                    "scenario_type": "pending",
+                    "reason": "幂等性仅按全局用例＋业务实体＋C/U/D操作计分；须在独立全局通道重新定位，不转用交互ID",
+                    "source_refs": m.get("source_refs", []),
+                }
+            )
+            continue
         aliases = {}
         if m.get("target") in {"sender", "receiver"}:
             from scene_completion.analysis.interaction_enrichment import resource_metadata
@@ -638,10 +649,32 @@ def recognize(inputs, raw, *, inverse=False):
                 old[name] = list(
                     {fingerprint(v): v for v in old.get(name, []) + m.get(name, [])}.values()
                 )
+    # A mandatory, applicable policy resolves this exact binding, not other
+    # pending fields/roles. Keep raw model submissions in the execution audit.
+    policy_bound = {
+        m["binding_id"]
+        for m in unique.values()
+        if m.get("policy_id") and m["status"] == "applicable"
+    }
+    resolved = [
+        m
+        for m in unique.values()
+        if m["binding_id"] not in policy_bound or m["status"] == "applicable"
+    ]
+    resolved_keys = {
+        (m["interaction_id"], m["object"], m["concern_key"])
+        for m in resolved
+        if m["binding_id"] in policy_bound
+    }
+    pending = [
+        p
+        for p in pending
+        if (p.get("interaction_id"), p.get("object"), p.get("concern_key")) not in resolved_keys
+    ]
     return {
-        "matches": list(unique.values()),
+        "matches": resolved,
         "pending": list({fingerprint(p): p for p in pending}.values()),
-        **({"excluded": deepcopy(raw["excluded"])} if raw.get("excluded") else {}),
+        **({"excluded": excluded} if excluded else {}),
     }
 
 

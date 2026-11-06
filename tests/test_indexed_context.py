@@ -362,7 +362,7 @@ def test_fused_evidence_ids_expose_layer_and_reject_foreign_layer():
 def test_concern_model_does_not_author_applicability_or_receive_duplicate_views():
     from tests.test_workflow import memory_inputs
 
-    # Empty recognition remains empty: candidates must not silently enter G_c.
+    # Empty recognition gains only explicitly approved call policies, never the registry.
     inp = memory_inputs()
     inp.pop("concern-match")
     inp["components"] = fused_fixture()["input"]["components"]
@@ -377,7 +377,10 @@ def test_concern_model_does_not_author_applicability_or_receive_duplicate_views(
     props = ctx.packet["output_schema"]["properties"]["matches"]["items"]["properties"]
     assert "status" not in props and "functional_types" not in props
     result = ctx.expand({"matches": [], "pending": []})
-    assert result["matches"] == []
+    assert {m["concern_key"] for m in result["matches"]} == {
+        "human.authentication",
+        "human.authorization",
+    }
 
 
 def test_case_index_prefers_formal_details_over_duplicate_brief_summary():

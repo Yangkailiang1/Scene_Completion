@@ -3,6 +3,62 @@ import { afterEach, expect, test, vi } from "vitest";
 import { MetricsPanel } from "./ResultComparison";
 import { ResultsView } from "./ResultsView";
 afterEach(() => vi.restoreAllMocks());
+
+test("case metrics use their own endpoint and global/project hide the case selector", async () => {
+  localStorage.setItem("scene-result-controls-collapsed", "true");
+  const requests: string[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    const path = String(url);
+    requests.push(path);
+    const data = path.split("?")[0].endsWith("/results")
+      ? {
+          cases: [{ id: "G-001", name: "创建" }],
+          artifacts: [],
+          historical: true,
+        }
+      : {
+          metrics: {},
+          history: [],
+          cases: [],
+          interactions: [],
+          definitions: {},
+          unbound: {},
+          case: { id: "G-001", name: "创建" },
+          counts: {},
+          concern_level: {},
+          scenario_level: {},
+          test_set: "original",
+          complete: false,
+        };
+    return { ok: true, json: async () => data } as Response;
+  });
+  render(<ResultsView project="navigation-scope" />);
+  await screen.findByRole("option", { name: "G-001 · 创建" });
+  fireEvent.change(screen.getByLabelText("当前范围视图"), {
+    target: { value: "metrics" },
+  });
+  await waitFor(() =>
+    expect(requests.some((p) => p.includes("/results/G-001/metrics?"))).toBe(
+      true,
+    ),
+  );
+  expect(requests.some((p) => p.includes("/results/metrics?"))).toBe(false);
+  fireEvent.click(screen.getByRole("tab", { name: "全局业务分析" }));
+  expect(screen.queryByLabelText("结果用例")).toBeNull();
+  expect(screen.queryByLabelText("当前范围视图")).toBeNull();
+  fireEvent.click(screen.getByRole("tab", { name: "项目指标" }));
+  expect(screen.queryByLabelText("结果用例")).toBeNull();
+  expect(screen.getByLabelText("当前范围视图").textContent).toContain(
+    "项目总指标",
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "用例结果" }));
+  expect((screen.getByLabelText("结果用例") as HTMLSelectElement).value).toBe(
+    "G-001",
+  );
+  expect(
+    (screen.getByLabelText("当前范围视图") as HTMLSelectElement).value,
+  ).toBe("metrics");
+});
 test("metrics are visible with counts and cases can be opened without a new page", async () => {
   const select = vi.fn();
   const rate = {
@@ -144,7 +200,7 @@ test("result view loads one case on demand and shows all three evidence channels
   expect(requests.some((x) => x.split("?")[0].endsWith("/results/D"))).toBe(
     false,
   );
-  fireEvent.click(screen.getByText("图表总览"));
+  fireEvent.click(screen.getByRole("button", { name: "用例图表" }));
   await screen.findByRole("img", { name: "系统组成" });
   expect(
     screen.getByRole("link", { name: "下载SVG" }).getAttribute("href"),
@@ -155,7 +211,7 @@ test("result view loads one case on demand and shows all three evidence channels
   expect(requests.some((x) => x.split("?")[0].endsWith("/results/D"))).toBe(
     false,
   );
-  fireEvent.click(screen.getByText("交互对照"));
+  fireEvent.click(screen.getByRole("button", { name: "交互对照" }));
   await waitFor(() =>
     expect(
       requests.some(
@@ -180,13 +236,13 @@ test("results controls collapse to a compact bar and persist the choice", async 
     json: async () => ({ complete: true, cases: [], artifacts: [] }),
   } as Response);
   render(<ResultsView project="compact" />);
-  expect(screen.getByLabelText("快捷结果视图")).toBeTruthy();
+  expect(screen.getByLabelText("当前范围视图")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "测试场景" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
   expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();
   expect(localStorage.getItem("scene-result-controls-collapsed")).toBe("false");
   fireEvent.click(screen.getByRole("button", { name: "收起工具栏" }));
-  expect(screen.getByLabelText("快捷结果视图")).toBeTruthy();
+  expect(screen.getByLabelText("当前范围视图")).toBeTruthy();
   expect(localStorage.getItem("scene-result-controls-collapsed")).toBe("true");
 });
 
@@ -224,8 +280,8 @@ test("BDD is selectable with SVG preview and editable PlantUML download", async 
       }) as Response,
   );
   render(<ResultsView project="bdd-view" />);
-  await screen.findByRole("button", { name: "图表总览" });
-  fireEvent.click(screen.getByRole("button", { name: "图表总览" }));
+  await screen.findByRole("button", { name: "用例图表" });
+  fireEvent.click(screen.getByRole("button", { name: "用例图表" }));
   const img = await screen.findByAltText("BDD 块定义图（系统上下文）");
   expect(img.getAttribute("src")).toContain("system-bdd.svg");
   expect(

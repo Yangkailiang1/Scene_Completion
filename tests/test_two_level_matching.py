@@ -54,11 +54,18 @@ def recognized(x, rows):
     return recognize(x, {"matches": rows, "pending": []})
 
 
-def test_empty_model_recognition_is_not_registry_or_mechanical_candidates():
+def test_empty_model_recognition_only_adds_explicitly_approved_policies():
     x = memory_inputs()
-    assert resolve_matches(x, []) == {"matches": [], "pending": []}
-    x["concern-match"] = resolve_matches(x, [])
-    assert not generated(applicability(x))["scenarios"]
+    resolved = resolve_matches(x, [])
+    assert {m["concern_key"] for m in resolved["matches"]} == {
+        "human.authentication",
+        "human.authorization",
+    }
+    assert not any(m["concern_key"].startswith("api.data.") for m in resolved["matches"])
+    x["concern-match"] = resolved
+    assert all(
+        s["concern_key"].startswith("human.") for s in generated(applicability(x))["scenarios"]
+    )
 
 
 def test_one_recognized_range_is_one_concern_but_two_failure_scenarios():

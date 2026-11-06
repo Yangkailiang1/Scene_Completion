@@ -1,11 +1,30 @@
 """Independent source-unit routing. Generated answers never decide E/GT scope."""
 
+import re
 from copy import deepcopy
 
 from scene_completion.infrastructure.storage import fingerprint
 
-VERSION = "independent-exception-scope-v1"
+VERSION = "independent-exception-scope-v2-global-idempotency"
 KINDS = ("sequence", "dependency_consistency", "cascade", "idempotency")
+
+
+def explicit_idempotency(trigger):
+    """Recognize an explicit failure predicate, not every repeated operation.
+
+    For example, '重复名称' is uniqueness, not idempotency. Missing an
+    idempotency header remains a request-field failure unless an actual
+    repeat-execution predicate is also stated.
+    """
+    return bool(
+        re.search(
+            r"同(?:一)?键不同(?:内容|参数|请求)|同(?:一)?(?:幂等键|idempotency.?key).*不同|"
+            r"(?:幂等(?:性)?(?:校验|检查)?(?:失败|冲突|不满足|异常))|"
+            r"重复(?:提交|执行|请求).*(?:额外|重复创建|多次生效|重复扣|重复执行|副作用)",
+            trigger,
+            re.I,
+        )
+    )
 
 
 def register():
@@ -89,6 +108,11 @@ def validate_scope(value, inputs):
             )
         if unit["scope"] != "global" and unit["global_kind"] is not None:
             raise ValueError("only global units have a global kind")
+        if unit["scope"] == "interaction" and explicit_idempotency(unit["trigger"]):
+            raise ValueError(
+                "idempotency failures belong to global C/U/D business operations, never an interaction; "
+                "bind case/entity/operation independently, or keep pending if its owner is unknown"
+            )
         seen.add(unit["source_id"])
     if seen != originals.keys():
         raise ValueError(

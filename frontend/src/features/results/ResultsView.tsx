@@ -1,15 +1,10 @@
+import { useState } from "react";
 import {
-  ChartNoAxesCombined,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Download,
   FileStack,
-  FlaskConical,
-  GitCompareArrows,
-  Network,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { fileUrl, projectUrl } from "../../shared/api";
 import { RecommendationsView } from "../patterns/PatternManager";
@@ -56,6 +51,7 @@ export function ResultsView({
     mode,
     setMode,
     error,
+    reload,
     setReload,
     setArtifact,
     artifactValue,
@@ -69,75 +65,57 @@ export function ResultsView({
     diagram,
     unresolved,
   } = useResultsViewController({ project, liveVersion });
+  const [resultArea, setResultArea] = useState<"case" | "global" | "project">(
+    "case",
+  );
+  const [caseMode, setCaseMode] = useState("steps");
+  const caseViews = [
+    ["steps", "交互对照"],
+    ["metrics", "本用例指标"],
+    ["diagrams", "用例图表"],
+    ["tests", "测试场景"],
+    ["recommendations", "风险推荐"],
+    ["quality", "用例诊断"],
+  ];
+  const projectViews = [
+    ["project", "项目总指标"],
+    ["metrics", "交互级汇总"],
+  ];
+  function changeArea(area: "case" | "global" | "project") {
+    setResultArea(area);
+    setMode(area === "case" ? caseMode : area);
+  }
+  function chooseMode(next: string) {
+    setMode(next);
+    if (resultArea === "case") setCaseMode(next);
+  }
   return (
     <div className="management-view results-view">
-      <div className="results-compact-controls" aria-label="结果快捷控制">
-        {controlsCollapsed ? (
-          <>
-            <select
-              aria-label="快捷用例"
-              value={cid}
-              onChange={(e) => setCase(e.target.value)}
-            >
-              <option value="" disabled>
-                选择用例
-              </option>
-              {index?.cases.map((c: any) => (
-                <option key={c.id} value={c.id}>
-                  {c.id} · {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              aria-label="快捷结果视图"
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-            >
-              <option value="steps">交互对照</option>
-              <option value="global">全局异常对照</option>
-              <option value="project">项目总指标</option>
-              <option value="metrics">指标总览</option>
-              <option value="quality">指标诊断</option>
-              <option value="diagrams">图表总览</option>
-              <option value="tests">测试场景</option>
-              <option value="recommendations">风险推荐</option>
-            </select>
-            <span
-              className="results-compact-description"
-              title={mode === "diagrams" ? artifact?.label : undefined}
-            >
-              {mode === "diagrams"
-                ? artifact?.label
-                : testSet === "business"
-                  ? "业务审核后GT（扩展＋人工增补）"
-                  : testSet === "expanded"
-                    ? "扩展异常测试场景"
-                    : "原始异常测试场景"}
-            </span>
-          </>
-        ) : (
-          <span>结果显示与产物设置</span>
-        )}
-        <button
-          onClick={toggleControls}
-          aria-expanded={!controlsCollapsed}
-          aria-controls="results-main-controls"
-        >
-          {controlsCollapsed ? (
-            <ChevronDown size={14} />
-          ) : (
-            <ChevronUp size={14} />
-          )}{" "}
-          {controlsCollapsed ? "展开工具栏" : "收起工具栏"}
-        </button>
-      </div>
       <div
-        id="results-main-controls"
-        className="results-toolbar"
-        hidden={controlsCollapsed}
+        className="results-area-nav view-segments"
+        role="tablist"
+        aria-label="结果统计范围"
       >
-        <label className="results-case-picker">
-          <span>当前用例</span>
+        {(
+          [
+            ["case", "用例结果"],
+            ["global", "全局业务分析"],
+            ["project", "项目指标"],
+          ] as const
+        ).map(([area, label]) => (
+          <button
+            key={area}
+            role="tab"
+            aria-selected={resultArea === area}
+            className={resultArea === area ? "active" : ""}
+            onClick={() => changeArea(area)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="results-compact-controls" aria-label="结果快捷控制">
+        {resultArea === "case" && (
           <select
             aria-label="结果用例"
             value={cid}
@@ -152,78 +130,87 @@ export function ResultsView({
               </option>
             ))}
           </select>
-        </label>
+        )}
+        {resultArea !== "global" && (
+          <select
+            aria-label="当前范围视图"
+            value={mode}
+            onChange={(e) => chooseMode(e.target.value)}
+          >
+            {(resultArea === "case" ? caseViews : projectViews).map(
+              ([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ),
+            )}
+          </select>
+        )}
+        <span className="results-compact-description">
+          {index?.historical
+            ? "历史保存报告"
+            : index?.complete
+              ? "本轮已完成"
+              : "本轮部分结果"}
+          {" · "}
+          {testSet === "business"
+            ? "业务审核后GT"
+            : testSet === "expanded"
+              ? "扩展异常测试场景"
+              : "原始异常测试场景"}
+        </span>
+        <button
+          onClick={toggleControls}
+          aria-expanded={!controlsCollapsed}
+          aria-controls="results-main-controls"
+        >
+          {controlsCollapsed ? (
+            <ChevronDown size={14} />
+          ) : (
+            <ChevronUp size={14} />
+          )}
+          {controlsCollapsed ? "展开工具栏" : "收起工具栏"}
+        </button>
+      </div>
+      <div
+        id="results-main-controls"
+        className="results-toolbar"
+        hidden={controlsCollapsed}
+      >
         <div
           className="view-segments results-view-tabs"
           role="navigation"
-          aria-label="结果视图"
+          aria-label="当前范围结果视图"
         >
-          <button
-            className={mode === "steps" ? "active" : ""}
-            onClick={() => setMode("steps")}
-          >
-            <GitCompareArrows size={15} aria-hidden="true" />
-            交互对照
-          </button>
-          <button
-            className={mode === "metrics" ? "active" : ""}
-            onClick={() => setMode("metrics")}
-          >
-            <ChartNoAxesCombined size={15} aria-hidden="true" />
-            指标总览
-          </button>
-          <button
-            className={mode === "global" ? "active" : ""}
-            onClick={() => setMode("global")}
-          >
-            全局异常对照
-          </button>
-          <button
-            className={mode === "project" ? "active" : ""}
-            onClick={() => setMode("project")}
-          >
-            项目总指标
-          </button>
-          <button
-            className={mode === "diagrams" ? "active" : ""}
-            onClick={() => setMode("diagrams")}
-          >
-            <Network size={15} aria-hidden="true" />
-            图表总览
-          </button>
-          <button
-            className={mode === "tests" ? "active" : ""}
-            onClick={() => setMode("tests")}
-          >
-            <FlaskConical size={15} aria-hidden="true" />
-            测试场景
-          </button>
-          <button
-            className={mode === "recommendations" ? "active" : ""}
-            onClick={() => setMode("recommendations")}
-          >
-            <ShieldCheck size={15} aria-hidden="true" />
-            风险推荐
-          </button>
+          {(resultArea === "case"
+            ? caseViews
+            : resultArea === "project"
+              ? projectViews
+              : []
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              className={mode === key ? "active" : ""}
+              onClick={() => chooseMode(key)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <button
-          className={mode === "quality" ? "active" : ""}
-          onClick={() => setMode("quality")}
-        >
-          指标诊断
-        </button>
-        <label className="results-truth-picker">
-          <span>指标范围</span>
-          <select
-            aria-label="指标接口层级"
-            value={evaluationScope}
-            onChange={(e) => setEvaluationScope(e.target.value)}
-          >
-            <option value="SR">仅SR接口及内部交互</option>
-            <option value="RR">仅RR接口</option>
-            <option value="all">RR＋SR全部</option>
-          </select>
-        </label>
+        {resultArea !== "global" && (
+          <label className="results-truth-picker">
+            <span>交互接口范围</span>
+            <select
+              aria-label="指标接口层级"
+              value={evaluationScope}
+              onChange={(e) => setEvaluationScope(e.target.value)}
+            >
+              <option value="SR">仅SR接口及内部交互</option>
+              <option value="RR">仅RR接口</option>
+              <option value="all">RR＋SR全部</option>
+            </select>
+          </label>
+        )}
         <label className="results-truth-picker">
           <span>评测依据</span>
           <select
@@ -231,29 +218,17 @@ export function ResultsView({
             value={testSet}
             onChange={(e) => setTestSet(e.target.value)}
           >
-            <option value="expanded">扩展异常测试场景</option>
             <option value="original">原始异常测试场景</option>
+            <option value="expanded">扩展异常测试场景</option>
             <option value="business">业务审核后GT（扩展＋人工增补）</option>
           </select>
         </label>
-        <span
-          className={
-            "results-run-state " + (index?.complete ? "is-complete" : "")
-          }
-          title={
-            index?.complete
-              ? "全部可执行节点已完成；业务待确认项单独保留"
-              : "当前展示已保存产物，未完成不视为空集合"
-          }
-        >
-          {index?.complete && <CheckCircle2 size={14} aria-hidden="true" />}
-          {index?.complete ? "已完成" : "已保存结果"}
-        </span>
+        <small>报告版本：{index?.matching_version || "尚无报告"}</small>
         <button
           className="results-refresh"
           onClick={() => setReload((x) => x + 1)}
         >
-          <RefreshCw size={14} aria-hidden="true" />
+          <RefreshCw size={14} />
           刷新
         </button>
       </div>
@@ -266,7 +241,7 @@ export function ResultsView({
         <GlobalResults
           project={project}
           testSet={testSet}
-          liveVersion={liveVersion}
+          liveVersion={String(liveVersion || "") + ":" + reload}
           artifacts={index?.artifacts || []}
         />
       ) : mode === "project" ? (
@@ -274,10 +249,15 @@ export function ResultsView({
           scope={evaluationScope}
           project={project}
           testSet={testSet}
-          liveVersion={liveVersion}
+          liveVersion={String(liveVersion || "") + ":" + reload}
         />
       ) : mode === "quality" ? (
-        <QualityDiagnostics project={project} caseId={cid} testSet={testSet} />
+        <QualityDiagnostics
+          project={project}
+          caseId={cid}
+          testSet={testSet}
+          caseLocked
+        />
       ) : mode === "recommendations" ? (
         <RecommendationsView project={project} caseId={cid} testSet={testSet} />
       ) : mode === "tests" ? (
@@ -290,10 +270,14 @@ export function ResultsView({
         <p className="management-loading">用例对应完成后显示结果。</p>
       ) : mode === "metrics" ? (
         <MetricsPanel
+          caseId={resultArea === "case" ? cid : undefined}
+          liveVersion={String(liveVersion || "") + ":" + reload}
           scope={evaluationScope}
           project={project}
           testSet={testSet}
           onCase={(id) => {
+            setResultArea("case");
+            setCaseMode("steps");
             setCase(id);
             setMode("steps");
             setOnlyUnmatched(true);

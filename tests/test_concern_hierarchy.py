@@ -449,7 +449,11 @@ def test_pipeline_exports_applicability_and_passes_only_positive_rule_documents(
     manifest = read_json(ex.root / "run_manifest.json")
     assert manifest["registry_version"] == "interaction-global-concerns-v5"
     report = read_json(ex.root / "missing_report.json")["cases"]["UC-X"]
-    assert report["concerns"] == []  # empty model recognition stays empty in the report
+    assert {r["concern_key"] for r in report["concerns"]} == {
+        "human.authentication",
+        "human.authorization",
+    }
+    assert all(r["identification"] == "framework_policy" for r in report["concerns"])
     assert all(m["inheritance_paths"] for m in report["concerns"])
 
 

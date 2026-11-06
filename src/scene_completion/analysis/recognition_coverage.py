@@ -65,6 +65,23 @@ def validate_coverage(value, inputs):
         }
     )
     for m in value.get("matches", []):
+        if m["concern_key"].startswith("human."):
+            from scene_completion.analysis.concern_alignment import interaction_rows
+
+            call = next(
+                (i for i in interaction_rows(inputs) if i["id"] == m["interaction_id"]), None
+            )
+            if (
+                call
+                and call["direction"] == "request"
+                and call.get("step_kind") != "action"
+                and call["sender"]["name"] != call["receiver"]["name"]
+                and "人类" in call["sender"]["position"]
+            ):
+                # The user explicitly requires both checks for every human
+                # call. Do not spend model repair budget asking it to invent
+                # a credential mechanism; G's policy resolver supplies basis.
+                continue
         if m["concern_key"] in {
             "human.authentication",
             "human.authorization",
@@ -122,27 +139,3 @@ def validate_coverage(value, inputs):
             "not a parent entity such as Product. Known constraints cannot be silently "
             "downgraded to unknown. Missing reviews: " + json.dumps(missing, ensure_ascii=False)
         )
-
-    if inputs.get("recognition_scope") != "data":
-        from scene_completion.analysis.concern_alignment import interaction_rows
-        from scene_completion.analysis.concern_hierarchy import context
-
-        observed_calls = {
-            m["interaction_id"]
-            for m in value.get("matches", [])
-            if m["concern_key"] == "service.base.availability"
-        }
-        missing_calls = [
-            i["id"]
-            for i in interaction_rows(inputs)
-            if i["direction"] == "request"
-            and i.get("step_kind") != "action"
-            and i["sender"]["name"] != i["receiver"]["name"]
-            and context(i, inputs)["external"]
-            and i["id"] not in observed_calls
-        ]
-        if missing_calls:
-            raise ValueError(
-                "recognition omitted external Service availability; an evidenced external call is sufficient, no SLA/timeout required: "
-                + str(missing_calls)
-            )

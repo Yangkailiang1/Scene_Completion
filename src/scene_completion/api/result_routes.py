@@ -49,6 +49,16 @@ def register(app, service):
 
         return ResultView(service.run_dir(rid), evaluation_scope=scope).project_metrics(test_set)
 
+    @app.get("/api/projects/{rid}/results/{case_id}/metrics")
+    def results_case_metrics(
+        rid: str, case_id: str, test_set: str = "original", scope: str | None = None
+    ):
+        from scene_completion.analysis.result_views import ResultView
+
+        return ResultView(service.run_dir(rid), evaluation_scope=scope).case_metrics(
+            case_id, test_set
+        )
+
     @app.get("/api/projects/{rid}/results/{case_id}")
     def results_case(rid: str, case_id: str, test_set: str = "expanded", scope: str | None = None):
         from scene_completion.analysis.result_views import ResultView

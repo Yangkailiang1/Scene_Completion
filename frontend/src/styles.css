@@ -3465,6 +3465,20 @@ td {
 .results-diagram-controls[hidden] {
   display: none;
 }
+.results-area-nav {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 6px 18px;
+  border-bottom: 1px solid #e7edf5;
+  background: #fff;
+}
+.results-area-nav button {
+  min-height: 30px;
+  padding: 5px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
 .results-compact-controls {
   min-height: 38px;
   padding: 5px 18px;

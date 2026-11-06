@@ -98,6 +98,31 @@ def test_results_are_lazy_snapshot_based_and_do_not_reclassify_or_hide_unbound(t
     assert row["missing_ids"] == ["g"] and v["unbound"]["GT"][0]["id"] == "unbound"
     assert v["definitions"]["key"]["label"] == "执行时定义"
     assert row["channels"]["G"][0]["lazy_detail"] and "source_refs" not in row["channels"]["G"][0]
+
+
+def test_case_metrics_load_only_selected_case_and_do_not_return_project_numbers(
+    tmp_path, monkeypatch
+):
+    fixture(tmp_path)
+    view = ResultView(tmp_path)
+    original_cases = view.cases()
+    monkeypatch.setattr(view, "cases", lambda: original_cases + [{"id": "D", "name": "其他用例"}])
+    read = view.payload
+    calls = []
+
+    def payload(key):
+        calls.append(key)
+        assert not key.startswith("D:"), "case endpoint must not read another case's evaluation"
+        return read(key)
+
+    monkeypatch.setattr(view, "payload", payload)
+    data = view.case_metrics("C", "original")
+    assert data["scope_kind"] == "case" and data["case_id"] == "C"
+    assert [row["id"] for row in data["cases"]] == ["C"]
+    assert data["historical"] and data["history"] == []
+    assert "C:exception-evaluation" in calls
+    with pytest.raises(ValueError, match="未知结果用例"):
+        view.case_metrics("missing")
     assert view.scenario("C", "G", "g")["id"] == "g"
     with pytest.raises(ValueError, match="未知用例"):
         view.detail("../invalid")

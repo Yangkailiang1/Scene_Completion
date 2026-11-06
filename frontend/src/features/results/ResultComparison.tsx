@@ -61,6 +61,37 @@ const elementNames: Record<string, string> = {
   data: "数据序列",
 };
 
+export function mergeConcernCells(cells: any[]) {
+  const merged = new Map<string, any>();
+  for (const cell of cells) {
+    const key =
+      cell.binding_id ||
+      [
+        cell.interaction_id,
+        cell.target,
+        cell.data_location,
+        cell.object,
+        cell.concern_key,
+      ].join(":");
+    const old = merged.get(key);
+    if (!old) {
+      merged.set(key, { ...cell });
+      continue;
+    }
+    for (const field of [
+      "source_refs",
+      "source_branch_ids",
+      "source_unit_ids",
+    ]) {
+      const items = [...(old[field] || []), ...(cell[field] || [])];
+      old[field] = [
+        ...new Map(items.map((x) => [JSON.stringify(x), x])).values(),
+      ];
+    }
+  }
+  return [...merged.values()];
+}
+
 export function ConcernAlignmentTable({
   rows,
   definitions,
@@ -87,7 +118,7 @@ export function ConcernAlignmentTable({
             {[
               "四要素对象／关注点",
               "需求文档已有 E_c",
-              "本方法识别 G_c",
+              "本方法 G_c（规则／模型）",
               "独立测试 GT_c",
               "规则对应／场景展开",
             ].map((t) => (
@@ -125,7 +156,7 @@ export function ConcernAlignmentTable({
                 {["E", "G", "GT"].map((ch) => (
                   <td key={ch}>
                     {r.cells[ch].length ? (
-                      r.cells[ch].map((m: any) => (
+                      mergeConcernCells(r.cells[ch]).map((m: any) => (
                         <article key={m.binding_id} className="concern-cell">
                           <strong>
                             {definitions[m.concern_key]?.label || m.concern_key}
@@ -133,7 +164,12 @@ export function ConcernAlignmentTable({
                           <p>{m.basis || m.status_reason}</p>
                           {m.policy_id && (
                             <small className="shared-branch">
-                              框架默认：SR内部R/U/D幂等性（非原文明示）
+                              {m.policy_id === "mandatory-call-concerns-v1"
+                                ? "规则必挂载（用户确认策略，非原文明示）"
+                                : m.policy_id ===
+                                    "evidenced-positive-concerns-v1"
+                                  ? "正向规则挂载"
+                                  : "历史框架策略：" + m.policy_id}
                             </small>
                           )}
                           {ch === "E" &&
@@ -145,7 +181,10 @@ export function ConcernAlignmentTable({
                               </small>
                             )}
                           <details>
-                            <summary>识别依据与定位</summary>
+                            <summary>
+                              识别依据与定位（{m.source_refs?.length || 0}
+                              处来源）
+                            </summary>
                             <small>{m.binding_id}</small>
                             {m.element_origin && (
                               <p>
@@ -342,11 +381,15 @@ function Rate({ value }: { value: any }) {
 }
 export function MetricsPanel({
   project,
+  caseId,
+  liveVersion,
   testSet = "expanded",
   scope = "all",
   onCase,
 }: {
   project: string;
+  caseId?: string;
+  liveVersion?: string;
   testSet?: string;
   scope?: string;
   onCase: (id: string) => void;
@@ -356,10 +399,11 @@ export function MetricsPanel({
   useEffect(() => {
     let live = true;
     setData(null);
+    setError("");
     api(
       projectUrl(
         project,
-        `results/metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
+        `results/${caseId ? encodeURIComponent(caseId) + "/" : ""}metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
       ),
     )
       .then((v) => live && setData(v))
@@ -367,18 +411,28 @@ export function MetricsPanel({
     return () => {
       live = false;
     };
-  }, [project, testSet, scope]);
+  }, [project, caseId, testSet, scope, liveVersion]);
   if (error) return <p role="alert">{error}</p>;
   if (!data)
     return <p className="management-loading">正在读取已保存的评测计数…</p>;
   return (
     <section className="result-metrics">
+      <h2>
+        {caseId
+          ? `${caseId} · ${data.case?.name || ""} · 本用例指标`
+          : "交互级汇总（全部用例）"}
+      </h2>
+      {data.historical && (
+        <p className="management-notice">
+          历史保存报告，尚未应用本轮规则；不作为新版验收结果。
+        </p>
+      )}
       <a
         href={projectUrl(
           project,
-          `results/metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
+          `results/${caseId ? encodeURIComponent(caseId) + "/" : ""}metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
         )}
-        download={`metrics-${scope}-${testSet}.json`}
+        download={`metrics-${caseId || "all-cases"}-${scope}-${testSet}.json`}
       >
         下载当前范围指标 JSON
       </a>
@@ -414,7 +468,7 @@ export function MetricsPanel({
         ；只计类型为异常的记录。集合扩充导致的变化不代表生成模型质量提升。
       </p>
       <p className="muted">
-        全部用例合并 · 已评测{" "}
+        {caseId ? "当前用例 · 已评测" : "全部用例合并 · 已评测"}{" "}
         {data.cases.filter((c: any) => c.status.startsWith("已评测")).length}/
         {data.cases.length}
         {!data.complete ? " · 本轮尚未完成，中间计数不作为最终指标" : ""}

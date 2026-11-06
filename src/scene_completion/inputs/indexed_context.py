@@ -371,6 +371,7 @@ class EvidenceContext:
                 "case_id",
                 "direction",
                 "identification",
+                "policy_id",
                 "classification_origin",
                 "caller",
                 "callee",
@@ -541,7 +542,7 @@ class EvidenceContext:
         )
         if packet["task"] in {"concern-match", "existing-concerns", "test-concerns"}:
             self.packet["instructions"] += (
-                "\n识别本片实际适用的全部具体关注点并返回依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies，这些由工具按原始正常约束确定。未知规则列pending，不能声称适用。基础可用性和字段规则也要由本次识别明确提交；工具只校验，不自动补入识别结果。"
+                "\n识别本片实际适用的具体关注点并返回依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies/policy_id，这些由工具确定。字段规则须由本次识别明确提交。人类调用身份权限、外部服务可用性另由用户确认的规则保底；不要编造认证机制。未知规则列pending。幂等性属于全局C/U/D，不在交互识别中输出。"
             )
         if packet["task"] == "exception-generate":
             self.packet["instructions"] += (
@@ -703,6 +704,7 @@ class EvidenceContext:
                     "case_id",
                     "direction",
                     "identification",
+                    "policy_id",
                     "classification_origin",
                     "caller",
                     "callee",

@@ -37,8 +37,18 @@ const scopeLabel: Record<string, string> = {
   baseline: "推荐前M",
   recommended: "推荐后Q",
 };
-type Props = { project: string; caseId: string; testSet: string };
-export function QualityDiagnostics({ project, caseId, testSet }: Props) {
+type Props = {
+  project: string;
+  caseId: string;
+  testSet: string;
+  caseLocked?: boolean;
+};
+export function QualityDiagnostics({
+  project,
+  caseId,
+  testSet,
+  caseLocked = false,
+}: Props) {
   const [page, setPage] = useState(0);
   const [items, setItems] = useState<any[]>([]),
     [report, setReport] = useState<any>(null);
@@ -52,7 +62,7 @@ export function QualityDiagnostics({ project, caseId, testSet }: Props) {
     [comparison, setComparison] = useState<any>(null);
   const [evidence, setEvidence] = useState<any>(null),
     [readonly, setReadonly] = useState(true),
-    [caseOnly, setCaseOnly] = useState(false);
+    [caseOnly, setCaseOnly] = useState(caseLocked);
   const base = projectUrl(project, "quality-diagnostics");
   async function refresh(id?: string) {
     const r = await api(base);
@@ -157,7 +167,8 @@ export function QualityDiagnostics({ project, caseId, testSet }: Props) {
               <label>
                 <input
                   type="checkbox"
-                  checked={caseOnly}
+                  checked={caseLocked || caseOnly}
+                  disabled={caseLocked}
                   onChange={(e) => setCaseOnly(e.target.checked)}
                 />
                 仅当前用例
@@ -171,7 +182,7 @@ export function QualityDiagnostics({ project, caseId, testSet }: Props) {
                       method: "POST",
                       body: JSON.stringify({
                         test_set: testSet,
-                        case_id: caseOnly ? caseId : null,
+                        case_id: caseLocked || caseOnly ? caseId : null,
                       }),
                     });
                     setReport(v);
@@ -253,7 +264,8 @@ export function QualityDiagnostics({ project, caseId, testSet }: Props) {
             <label>
               <input
                 type="checkbox"
-                checked={showAll}
+                checked={!caseLocked && showAll}
+                disabled={caseLocked}
                 onChange={(e) => {
                   setShowAll(e.target.checked);
                   setMetric("");

@@ -244,6 +244,8 @@ class ResultView:
             "test_source_changed": self.test_source_changed,
             "cases": self.cases(),
             "artifacts": self.catalog() if include_artifacts else [],
+            "matching_version": self.manifest.get("matching_version"),
+            "historical": self.manifest.get("matching_version") != MATCHING_VERSION,
             "global_ready": bool(self.payload("global-scenario-compare")),
             "registry_hash": self.manifest.get("registry_hash"),
             "recommendation": "已启用（风险保底）"
@@ -423,13 +425,13 @@ class ResultView:
             else None,
         }
 
-    def metrics(self, test_set="expanded"):
+    def metrics(self, test_set="expanded", case_id=None):
         if test_set == "business":
             from scene_completion.analysis.recommendation import aggregate_comparison
             from scene_completion.analysis.result_alignment import aggregate_metrics
             from scene_completion.review.business_truth import snapshot
 
-            value = self.metrics("expanded")
+            value = self.metrics("expanded", case_id=case_id)
             comparisons = []
             versions = {}
             for row in value["cases"]:
@@ -461,7 +463,12 @@ class ResultView:
         from scene_completion.analysis.result_alignment import aggregate_metrics
 
         rows = []
-        for c in self.cases():
+        selected = self.cases()
+        if case_id is not None:
+            selected = [c for c in selected if c["id"] == case_id]
+            if not selected:
+                raise ValueError("未知结果用例")
+        for c in selected:
             v = self.payload(c["id"] + ":exception-evaluation")
             if test_set == "original":
                 v = v.get("original_evaluation", v)
@@ -537,7 +544,11 @@ class ResultView:
             else []
         )
         history = []
-        for p in (self.root / "report_versions").glob("*/missing_report.json"):
+        for p in (
+            ()
+            if case_id is not None
+            else (self.root / "report_versions").glob("*/missing_report.json")
+        ):
             summary = p.parent / "metrics_summary.json"
             history.append(
                 {
@@ -581,7 +592,7 @@ class ResultView:
             if test_set == "expanded"
             and any(
                 self.payload(c["id"] + ":exception-evaluation").get("original_evaluation")
-                for c in self.cases()
+                for c in selected
             )
             else "原始异常测试经机器整理（含允许的框架推导）",
             "recommendation": "已启用（风险保底）"
@@ -598,6 +609,43 @@ class ResultView:
                 for p in sorted((self.root / "artifacts/shared" / folder).glob("*"))
                 if p.is_file() and p.suffix in {".json", ".md"}
             ],
+        }
+
+    def case_metrics(self, cid, test_set="original"):
+        summary = self.metrics(test_set, case_id=cid)
+        case = summary["cases"][0]
+        evaluation = self.payload(cid + ":exception-evaluation")
+        concern = self.payload(cid + ":concern-evaluation")
+        if test_set == "original":
+            evaluation = evaluation.get("original_evaluation", evaluation)
+            concern = concern.get("original_evaluation", concern)
+        if test_set == "business":
+            from scene_completion.review.business_truth import snapshot
+
+            evaluation = snapshot(self.project, cid)["evaluation"]
+            concern = evaluation.get("concern_level", {})
+        concern = self.scoped(cid, evaluation, concern).get("concern_level", concern)
+        losses = [
+            {
+                "binding_id": r["id"],
+                "interaction_id": r["anchor"]["interaction_id"],
+                "target": r["anchor"]["target"],
+                "object": r["anchor"]["object"],
+                "concern_key": r["anchor"]["concern_key"],
+                "data_location": r["anchor"].get("data_location"),
+                "reason": "GT已识别、文档未覆盖且G未对应；展开交互核对来源与定位",
+            }
+            for r in concern.get("rows", [])
+            if r["cells"].get("GT") and not r["cells"].get("E") and not r["cells"].get("G")
+        ]
+        return {
+            **summary,
+            "scope_kind": "case",
+            "case_id": cid,
+            "case": case,
+            "complete": bool(case.get("evaluation_ready")) and not self.test_source_changed,
+            "loss_items": losses,
+            "historical": self.manifest.get("matching_version") != MATCHING_VERSION,
         }
 
     def scenario(self, cid, channel, sid, test_set="expanded"):
