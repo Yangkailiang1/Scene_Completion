@@ -767,9 +767,12 @@ def validate_result(task, payload, inputs):
                         + i["receiver"]["name"]
                         + ". Keep the evidenced object and select its actual side; do not replace it with another service."
                     )
-                kinds = context(i, inputs)["kinds"]
+                from scene_completion.analysis.concern_hierarchy import effective_operation_kinds
+
+                kinds = effective_operation_kinds(m, i, inputs)
                 if (
-                    kinds <= {"read", "display"}
+                    kinds
+                    and kinds <= {"read", "display"}
                     and d["operation_kinds"]
                     and not kinds & set(d["operation_kinds"])
                     and m.get("status") not in {"not_applicable", "pending"}

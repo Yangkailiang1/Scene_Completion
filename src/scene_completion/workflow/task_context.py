@@ -194,12 +194,15 @@ def semantic_view(task, inputs):
                     for k in (
                         "id",
                         "direction",
+                        "step_kind",
+                        "validates",
                         "sender",
                         "receiver",
                         "operation",
                         "data",
                         "source_refs",
                     )
+                    if k in i
                 }
                 for i in out["fused-ssd"]["interactions"]
             ]

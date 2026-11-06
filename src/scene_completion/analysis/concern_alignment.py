@@ -193,6 +193,11 @@ def recognize(inputs, raw, *, inverse=False, relocate=True):
     accepted = []
     excluded = deepcopy(raw.get("excluded", []))
     pending = deepcopy(raw.get("pending", []))
+    test_records = []
+    if inverse and inputs.get("test-documents"):
+        from scene_completion.inputs.test_sources import records_for_inputs
+
+        test_records = records_for_inputs(inputs)
     for original in raw.get("matches", []):
         m = deepcopy(original)
         iid = m["interaction_id"]
@@ -258,6 +263,20 @@ def recognize(inputs, raw, *, inverse=False, relocate=True):
                 for r in m.get("source_refs", [])
                 if not own_ids or r["source_id"] in own_ids
             )
+            if test_records:
+                from scene_completion.inputs.test_sources import referenced_record_ids
+
+                record_ids = referenced_record_ids(m.get("source_refs", []), test_records)
+                selected = [r for r in test_records if r["id"] in record_ids]
+                if len(selected) == 1:
+                    # A model may cite only the trigger line and omit the
+                    # same test's explicit failure-step note. Read that own
+                    # record, never another channel or an adjacent test.
+                    refs = selected[0]["source_refs"]
+                    own_text = " ".join(r["quote"] for r in refs)
+                    m["source_refs"] = list(
+                        {fingerprint(r): r for r in m["source_refs"] + refs}.values()
+                    )
             if inputs.get("branches", {}).get("branches"):
                 branch_ids = set(m.get("source_branch_ids", []))
                 own_text = " ".join(
@@ -453,6 +472,17 @@ def recognize(inputs, raw, *, inverse=False, relocate=True):
             _normalize_field(m)
         except ValueError as e:
             reason = str(e)
+        if (
+            m.get("target") == "data"
+            and m["object"] not in {e["object"] for e in elements if e["target"] == "data"}
+            and re.search(r"\s\+\s|\s&\s|[,，、]", m["object"])
+        ):
+            raise ValueError(
+                "composite data target is not one field: "
+                + m["object"]
+                + "; keep a relational business rule whole under service.business_attribute_constraint "
+                "or identify independent field constraints separately; use an actual provider/operation"
+            )
         # Classification is normalized from this row's own structured evidence.
         kinds = {
             DATA_KEYS[g["constraint_kind"]]
@@ -468,12 +498,15 @@ def recognize(inputs, raw, *, inverse=False, relocate=True):
             reason = "同一关注点识别项混合多个分类的约束，请分别识别"
         if key.startswith("api.data."):
             names = {p["name"] for p in i["data"]["sequence"]}
-            for guard in m.get("activation_evidence", []):
+            guards = list(m.get("activation_evidence", []))
+            if m.get("concrete_rule"):
+                guards.append({"status": "explicit", "condition": m["concrete_rule"]})
+            for guard in guards:
                 text = guard.get("condition", "")
                 if (
                     guard.get("status") == "explicit"
                     and not text.lstrip().startswith(("{", "["))
-                    and re.search(r"时|when|如果|一致|只能", text, re.I)
+                    and re.search(r"时|when|如果|一致|只能|跨字段|业务.*约束", text, re.I)
                     and len(
                         {
                             n
@@ -527,11 +560,11 @@ def recognize(inputs, raw, *, inverse=False, relocate=True):
                 ):
                     reason = None
         if inverse:
-            from scene_completion.analysis.concern_hierarchy import context
+            from scene_completion.analysis.concern_hierarchy import effective_operation_kinds
 
-            kinds = context(i, inputs)["kinds"]
+            kinds = effective_operation_kinds(m, i, inputs)
             required = definitions[key].get("operation_kinds", [])
-            if kinds <= {"read", "display"} and required and not kinds & set(required):
+            if kinds and kinds <= {"read", "display"} and required and not kinds & set(required):
                 reason = "本次为只读交互，不能绑定变更关注点；实际失败调用或分类待确认"
         if key.startswith("global."):
             raise ValueError(

@@ -155,6 +155,56 @@ def explicit_guards(match, kind):
     ]
 
 
+def business_rows(interaction, inputs, match):
+    """Resolve a local check's entity through one evidenced inbound business effect.
+
+    This is an association for checking applicability, not a new CRUD operation
+    or a generated concern. Ambiguous callers/entities stay unresolved.
+    """
+    rows = inputs.get("business-crud", {}).get("rows", [])
+    direct = [r for r in rows if r["interaction_id"] == interaction["id"]]
+    if direct:
+        return direct
+    if not (
+        interaction.get("step_kind") == "action"
+        and interaction["sender"]["name"] == interaction["receiver"]["name"]
+        and explicit_guards(match, "business")
+    ):
+        return []
+    from scene_completion.analysis.concern_alignment import interaction_rows
+
+    party = interaction["receiver"]
+    resource = party.get("resource_service") or {}
+    names = {party["name"]} | set(
+        filter(None, [resource.get("name"), resource.get("physical_resource_name")])
+    )
+    refs = set(interaction.get("validates", []))
+    calls = [
+        i
+        for i in interaction_rows(inputs)
+        if i["case_id"] == interaction["case_id"]
+        and i["layer"] == interaction["layer"]
+        and i["direction"] == "request"
+        and i.get("step_kind") != "action"
+        and i["sender"]["name"] != i["receiver"]["name"]
+        and i["receiver"]["name"] in names
+        and i.get("source_refs")
+        and (not refs or i["id"] in refs)
+    ]
+    if len(calls) != 1:
+        return []
+    inherited = [r for r in rows if r["interaction_id"] == calls[0]["id"]]
+    effects = {(r.get("entity_id"), r["operation"]) for r in inherited}
+    return inherited if len(effects) == 1 and next(iter(effects))[0] else []
+
+
+def effective_operation_kinds(match, interaction, inputs):
+    kinds = context(interaction, inputs)["kinds"]
+    if match["concern_key"] == "service.business_attribute_constraint":
+        kinds = kinds | {r["operation"] for r in business_rows(interaction, inputs, match)}
+    return kinds
+
+
 def _data_rule(match, interaction, inputs):
     from scene_completion.analysis.interaction_enrichment import parameters_for
 
@@ -269,7 +319,8 @@ def applicability(match, interaction, inputs):
             g["value"] == definition["technology"] for g in explicit_guards(match, "technology")
         ):
             return "not_applicable", "本次对象没有对应的技术身份依据"
-    if definition["operation_kinds"] and not ctx["kinds"] & set(definition["operation_kinds"]):
+    effective_kinds = effective_operation_kinds(match, ctx["request"], inputs)
+    if definition["operation_kinds"] and not effective_kinds & set(definition["operation_kinds"]):
         return "not_applicable", "关注点不适用于本次实际操作，不能使用其他支持能力"
     key = match["concern_key"]
     if (
@@ -294,11 +345,7 @@ def applicability(match, interaction, inputs):
         )
     if key == "service.business_attribute_constraint":
         entities = {e["id"]: e for e in inputs.get("business-entities", {}).get("entities", [])}
-        rows = [
-            r
-            for r in inputs.get("business-crud", {}).get("rows", [])
-            if r["interaction_id"] == ctx["request"]["id"]
-        ]
+        rows = business_rows(ctx["request"], inputs, match)
         known = [entities[r["entity_id"]] for r in rows if r.get("entity_id") in entities]
         if not known:
             return "not_applicable", "本次操作没有已确认的业务实体归属"

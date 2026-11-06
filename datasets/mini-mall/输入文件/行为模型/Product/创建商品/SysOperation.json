@@ -106,7 +106,7 @@
               "document": "sr",
               "start_line": 52,
               "end_line": 52,
-              "quote": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。"
+              "quote": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，并检查productType为SERVICE时price必须大于等于1，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。"
             }
           ],
           "sender": "DB",
@@ -217,14 +217,14 @@
         {
           "id": "A_S4",
           "executor": "DB",
-          "content": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1。",
+          "content": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，并检查productType为SERVICE时price必须大于等于1，生成productId，status=DRAFT、version=1。",
           "data_ref": [],
           "source_refs": [
             {
               "document": "sr",
               "start_line": 52,
               "end_line": 52,
-              "quote": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。"
+              "quote": "S4. CatalogDatabaseService执行原子操作：创建草稿商品；数据库事务实施同商家名称唯一性，并检查productType为SERVICE时price必须大于等于1，生成productId，status=DRAFT、version=1，并向ProductAdminService返回结果。"
             }
           ]
         }

@@ -121,6 +121,143 @@ def test_cross_field_conditional_rule_cannot_be_split_into_data_range():
         identified(x, i, "api.data.range", "productType为SERVICE时price必须大于等于1", "range")
 
 
+def test_composite_field_is_contract_error_instead_of_success_with_empty_truth():
+    x, i = internal()
+    i["data"]["sequence"] = [parameter("productType"), parameter("price")]
+    with pytest.raises(ValueError, match="composite data target"):
+        recognize(
+            x,
+            {
+                "matches": [
+                    {
+                        "interaction_id": i["id"],
+                        "target": "data",
+                        "object": "productType + price",
+                        "data_location": "body",
+                        "concern_key": "api.data.range",
+                        "basis": "业务类型价格约束",
+                        "source_refs": R,
+                        "activation_evidence": [],
+                    }
+                ]
+            },
+        )
+
+
+def test_cross_field_contract_cannot_bypass_validation_by_omitting_guards():
+    x, i = internal()
+    i["data"]["sequence"] = [parameter("productType"), parameter("price")]
+    with pytest.raises(ValueError, match="cross-field conditional"):
+        recognize(
+            x,
+            {
+                "matches": [
+                    {
+                        "interaction_id": i["id"],
+                        "target": "data",
+                        "object": "price",
+                        "data_location": "body",
+                        "concern_key": "api.data.range",
+                        "basis": "类型价格关系",
+                        "concrete_rule": "productType=SERVICE时price必须>=1",
+                        "source_refs": R,
+                    }
+                ]
+            },
+            inverse=True,
+        )
+
+
+def test_local_business_check_keeps_entity_without_adding_crud_rows():
+    x, call = internal()
+    local = deepcopy(call)
+    local.update(id="local", step_kind="action", sequence=call["sequence"] + 1)
+    local["sender"] = deepcopy(local["receiver"])
+    local["data"]["sequence"] = []
+    x["enriched-interactions"]["interactions"].append(local)
+    before = deepcopy(x["business-crud"])
+    rows = identified(
+        x, local, "service.business_attribute_constraint", "类型为SERVICE时price>=1", "business"
+    )
+    assert rows["matches"][0]["status"] == "applicable"
+    assert x["business-crud"] == before
+    # A second real call without an explicit validates link is ambiguous.
+    other = deepcopy(call)
+    other["id"] = "another-call"
+    x["enriched-interactions"]["interactions"].append(other)
+    rows = identified(
+        x, local, "service.business_attribute_constraint", "类型为SERVICE时price>=1", "business"
+    )
+    assert rows["matches"][0]["status"] == "not_applicable"
+    local["validates"] = [call["id"]]
+    rows = identified(
+        x, local, "service.business_attribute_constraint", "类型为SERVICE时price>=1", "business"
+    )
+    assert rows["matches"][0]["status"] == "applicable"
+
+
+def test_inverse_uses_complete_own_test_note_and_not_neighbour_note():
+    x, call = internal()
+    local = deepcopy(call)
+    local.update(id="database-check", step_kind="action", sequence=call["sequence"] + 1)
+    local["sender"] = deepcopy(local["receiver"])
+    local["operation"]["name"] = "S4. Admin执行原子业务检查"
+    x["enriched-interactions"]["interactions"].append(local)
+    refs = [
+        {
+            **R[0],
+            "source_id": "test",
+            "line_start": 1,
+            "line_end": 1,
+            "quote": "SERVICE商品价格为0",
+        },
+        {**R[0], "source_id": "test", "line_start": 2, "line_end": 2, "quote": "失败于步骤S4。"},
+    ]
+    x["test-documents"] = [
+        {
+            "source_id": "test",
+            "name": "test.json",
+            "channel": "test",
+            "lines": [{"number": n + 1, "text": r["quote"]} for n, r in enumerate(refs)],
+        }
+    ]
+    test = {
+        "id": "own",
+        "case_id": "tc",
+        "name": "价格关系",
+        "scenario_type": "exception",
+        "preconditions": "",
+        "trigger": refs[0]["quote"],
+        "expected_result": "失败",
+        "source_refs": refs,
+    }
+    x["test-inventory"] = {"cases": [{"id": "tc", "association": ""}], "tests": [test]}
+    m = {
+        "interaction_id": call["id"],
+        "target": "receiver",
+        "object": "Admin",
+        "concern_key": "service.business_attribute_constraint",
+        "basis": "测试自己的业务约束",
+        "source_refs": refs[:1],
+        "activation_evidence": [
+            {
+                "kind": "business",
+                "condition": "SERVICE价格>=1",
+                "status": "explicit",
+                "value": True,
+                "source_refs": refs[:1],
+            }
+        ],
+    }
+    out = recognize(x, {"matches": [m]}, inverse=True)
+    assert out["matches"][0]["interaction_id"] == local["id"]
+    assert refs[1] in out["matches"][0]["source_refs"]
+    test["source_refs"] = refs[:1]
+    x["test-inventory"]["tests"].append({**test, "id": "neighbour", "source_refs": refs[1:]})
+    out = recognize(x, {"matches": [m]}, inverse=True)
+    assert out["matches"][0]["interaction_id"] == call["id"]
+
+
 def test_non_field_database_scene_normalizes_scope_without_widening_data_scope():
     x, i = internal()
     i["receiver"].update(name="Catalog", position="外部数据库")
@@ -288,6 +425,7 @@ def test_normal_rule_excerpt_is_not_replaced_with_full_multirule_citation():
     from scene_completion.inputs.indexed_context import EvidenceContext
 
     x, i = internal()
+    i.update(step_kind="action", validates=["inbound"])
     doc = {
         "source_id": "positive",
         "name": "SR",
@@ -299,6 +437,10 @@ def test_normal_rule_excerpt_is_not_replaced_with_full_multirule_citation():
         "normal-documents": [doc],
     }
     p = packet("normal-rules", inp)
+    from scene_completion.workflow.task_context import semantic_view
+
+    compact = semantic_view("normal-rules", inp)["fused-ssd"]["interactions"][0]
+    assert compact["step_kind"] == "action" and compact["validates"] == ["inbound"]
     ctx = EvidenceContext(p)
     row = {
         "id": "r",
