@@ -44,7 +44,7 @@ def semantic(self, task, inputs, record):
         )
     if task == "concern-match":
         p["tool_rule_instruction"] = (
-            "本任务先独立识别本片四要素对象上的全部适用具体关注点，包括可用性和明示字段约束。注册表只是候选，工具不会补成识别结果。逐项返回证据；未知规则写pending，不输出具体异常场景。"
+            "本任务独立识别本片四要素对象上的适用具体关注点，明示字段约束须逐项返回证据。注册表只是候选；已确认的人类调用身份/权限、外部服务可用性由工具策略保底。不得填写policy_id，不编造认证机制；未知规则写pending，不输出具体场景。幂等性由全局C/U/D任务处理。"
         )
         if inputs.get("recognition_scope") == "data":
             p["tool_rule_instruction"] = (
@@ -186,7 +186,7 @@ def semantic(self, task, inputs, record):
                 emit(
                     "result_reused",
                     source_file=str(seed.relative_to(self.root)),
-                    reason="同一识别输入与Skill，工具定位/展示字段变化；已重新规范化及校验，不重复调用模型",
+                    reason="同一识别输入及相同或明确审计兼容的Skill；已重新规范化及校验，不重复调用模型",
                 )
                 return value, {
                     "semantic_response_reused": True,

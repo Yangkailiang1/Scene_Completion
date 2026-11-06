@@ -5,6 +5,7 @@ task input projection, Skill and model owner, then validated again by the caller
 """
 
 from copy import deepcopy
+from hashlib import sha256
 
 from scene_completion.infrastructure.storage import fingerprint, read_json
 
@@ -27,6 +28,26 @@ DERIVED = {
     "technologies",
 }
 
+# Audited v8 -> v9 G instructions differ only in the ownership of deterministic
+# call defaults and the reminder to use already defined business-effect rules.
+# This is NOT a general prompt-ignore policy: every other prompt still has its
+# full identity. Replayed raw observations must pass the current normalizer,
+# source/field coverage and applicability checks before reuse.
+_G_POLICY_SKILLS = {
+    "17e5d1c0e05caee7a044dade5c00f85890a0132c790305f8cb8c87cb2e69feea",
+    "ecf33210d8e362dfd7353e5f36aac647b7807127fd63eaa4b070c02242d35a39",
+}
+
+
+def skill_identity(task, text):
+    if (
+        task == "concern-match"
+        and isinstance(text, str)
+        and sha256(text.encode("utf8")).hexdigest() in _G_POLICY_SKILLS
+    ):
+        return "audited-v8-v9-G-observation-with-tool-policies-v1"
+    return text
+
 
 def identity(task, inputs, skill, output, model, endpoint, guidance):
     from scene_completion.workflow.task_context import semantic_view
@@ -45,7 +66,15 @@ def identity(task, inputs, skill, output, model, endpoint, guidance):
         for key in ("interaction_id", "object", "concern_key"):
             contract["properties"]["excluded"]["items"]["properties"].pop(key, None)
     return fingerprint(
-        [task, semantic_view(task, inputs), skill, contract, model, endpoint, guidance]
+        [
+            task,
+            semantic_view(task, inputs),
+            skill_identity(task, skill),
+            contract,
+            model,
+            endpoint,
+            guidance,
+        ]
     )
 
 

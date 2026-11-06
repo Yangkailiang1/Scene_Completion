@@ -321,6 +321,21 @@ def test_recognition_explanation_does_not_invalidate_scene_semantics_but_field_d
     assert key(x) != key(y)
 
 
+def test_only_audited_tool_policy_skill_pair_can_reuse_G_observations():
+    from scene_completion.infrastructure.paths import skill_file
+    from scene_completion.workflow.semantic_reuse import skill_identity
+
+    current = skill_file("scene-concern-match").read_text(encoding="utf8")
+    canonical = skill_identity("concern-match", current)
+    assert canonical == "audited-v8-v9-G-observation-with-tool-policies-v1"
+    assert skill_identity("test-concerns", current) == current  # No GT shortcut.
+    assert skill_identity("concern-match", current + "\n改变业务规则") != canonical
+    assert (
+        skill_identity("concern-match", current.replace("未知规则进入pending", "未知规则视为确定"))
+        != canonical
+    )
+
+
 def test_single_test_partition_does_not_receive_other_test_concern_answers():
     from scene_completion.workflow.task_partitions import split_task
 
