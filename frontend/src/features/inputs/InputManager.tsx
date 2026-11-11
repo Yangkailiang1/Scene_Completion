@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   CheckCircle2,
   FileText,
@@ -9,6 +10,7 @@ import {
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import { NodeOutput } from "../execution/NodeOutput";
 import { ArtifactView } from "../results/ArtifactView";
+import { SuppliedCases, type SuppliedPreview } from "./SuppliedCases";
 import { InputBundlePicker } from "./InputBundlePicker";
 import { useInputManagerController } from "./useInputManagerController";
 export function InputManager({
@@ -20,6 +22,7 @@ export function InputManager({
   reviewOnly?: boolean;
   onOpenPlan?: () => void;
 }) {
+  const [supplied, setSupplied] = useState<SuppliedPreview>();
   const {
     labels,
     statuses,
@@ -94,6 +97,18 @@ export function InputManager({
               >
                 指定5份路径
               </button>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  action(async () => {
+                    setSupplied(
+                      await api(projectUrl(project, "supplied-cases")),
+                    );
+                  })
+                }
+              >
+                预检已有 SSD
+              </button>
               <input
                 ref={fileInput}
                 type="file"
@@ -140,6 +155,27 @@ export function InputManager({
         <p role="status" className="input-message">
           {message}
         </p>
+      )}
+      {!reviewOnly && supplied && (
+        <section className="supplied-cases-panel" aria-label="已有 SSD 校验">
+          <SuppliedCases preview={supplied} />
+          <button
+            disabled={busy || !supplied.accepted.length}
+            onClick={() =>
+              action(() =>
+                api(projectUrl(project, "run"), {
+                  method: "POST",
+                  body: JSON.stringify({
+                    supplied_only: true,
+                    case_ids: supplied.accepted,
+                  }),
+                }),
+              )
+            }
+          >
+            仅运行已校验的用例
+          </button>
+        </section>
       )}
       {!reviewOnly && (
         <details className="input-controls">

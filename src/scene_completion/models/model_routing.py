@@ -6,6 +6,7 @@ from scene_completion.models.model_configuration import model_name
 from scene_completion.workflow.runtime_settings import KEYS
 
 PROFILE_KEYS = KEYS - {
+    "agent_evidence_pilot",
     "model_profiles",
     "task_models",
     "role_models",

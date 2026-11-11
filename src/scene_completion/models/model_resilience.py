@@ -134,7 +134,7 @@ def invoke(client, packet, call):
     from scene_completion.infrastructure.execution_events import emit, phase
     from scene_completion.models.deepagents_client import DeepAgentsClient, role_for
     from scene_completion.models.model_routing import routed_config
-    from scene_completion.workflow.scheduler import TaskRejected
+    from scene_completion.workflow_core import TaskRejected
 
     cfg = fresh(client.config)
     if not cfg.get("_live_project"):
@@ -271,7 +271,7 @@ def mark_degraded(config, p, reason):
     path = health_path(config)
     if not path:
         return
-    from scene_completion.workflow.scheduler import run_lock
+    from scene_completion.workflow_core import run_lock
 
     with run_lock(path.parent / "model-health-lock"):
         value = read_json(path) if path.exists() else {"models": {}, "history": []}

@@ -2,6 +2,8 @@ import { CheckCircle2, FolderSearch, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, projectUrl } from "../../shared/api";
 
+import { SuppliedCases } from "./SuppliedCases";
+
 const roles = [
   ["RR", "RR结构模型"],
   ["SR", "SR结构模型"],
@@ -244,7 +246,8 @@ export function InputBundlePicker({
                 />
               </label>
               <p>
-                选择后自动识别用途和目标节点。RR、SR可以同名，按JSON内的层级区分；不要求重新上传原始Markdown。报告和行为建模目录本轮不接入。
+                选择后自动识别用途和目标节点。RR、SR可以同名，按JSON内的层级区分；不要求重新上传原始Markdown。有效的行为模型进入融合
+                SSD 预检。
               </p>
             </div>
           )}
@@ -260,6 +263,9 @@ export function InputBundlePicker({
                 <CheckCircle2 size={16} />
                 {preview.files.length} 份文件已识别 · 模型调用 0 次
               </div>
+              {!!preview.supplied_cases?.cases.length && (
+                <SuppliedCases preview={preview.supplied_cases} />
+              )}
               <div className="input-bundle-table">
                 <table>
                   <thead>
@@ -278,9 +284,7 @@ export function InputBundlePicker({
                           <small>{f.path}</small>
                           {f.case_name && <small>用例：{f.case_name}</small>}
                           {f.error && (
-                            <small role="alert">
-                              格式待修正：{f.error}；保留原流程
-                            </small>
+                            <small role="alert">格式待修正：{f.error}</small>
                           )}
                         </td>
                         <td>
@@ -305,7 +309,8 @@ export function InputBundlePicker({
                 </p>
               ))}
               <p>
-                接口文件中的请求部分与成功／失败响应分开处理；缺少的响应继续抽取。功能树不直接证明CRUD、依赖关系或关注点已经识别完成。
+                请求、成功响应和失败响应分别保留。仅运行已校验用例时，只使用已提供的
+                SR 接口契约，缺项留待补充。
               </p>
               <label className="input-bundle-checkbox">
                 <input
@@ -313,7 +318,7 @@ export function InputBundlePicker({
                   checked={adopt}
                   onChange={(e) => setAdopt(e.target.checked)}
                 />
-                采用已校验的部分字段和属性，其余仍由对应节点补齐
+                采用可校验的字段、属性和行为文件
               </label>
               <label className="input-bundle-checkbox">
                 <input

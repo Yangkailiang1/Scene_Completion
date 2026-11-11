@@ -40,7 +40,7 @@ def endpoint_slot(
 
     while handle is None:
         if pause_file and Path(pause_file).exists():
-            from scene_completion.workflow.scheduler import TaskBlocked
+            from scene_completion.workflow_core import TaskBlocked
 
             raise TaskBlocked("pending", {"admission_paused": True})
         for n in range(limit):

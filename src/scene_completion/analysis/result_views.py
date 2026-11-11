@@ -42,10 +42,12 @@ class ResultView:
         )
         from scene_completion.analysis.evaluation_scope import validate_scope
 
-        self.evaluation_scope = validate_scope(
-            evaluation_scope
-            or project.get("evaluation_scope", self.manifest.get("evaluation_scope", "all"))
+        default_scope = (
+            "SR"
+            if "supplied_case_scope" in self.manifest
+            else project.get("evaluation_scope", self.manifest.get("evaluation_scope", "all"))
         )
+        self.evaluation_scope = validate_scope(evaluation_scope or default_scope)
         self._scope_inputs_cache = {}
 
     def payload(self, key):
@@ -278,7 +280,9 @@ class ResultView:
             )
             else "未评测"
         )
-        if not concerns or not scenarios:
+        if "supplied_case_scope" in self.manifest:
+            status = "本轮未运行全局分析"
+        elif not concerns or not scenarios:
             status = "未完成"
         return {
             "granularity": "global",
@@ -420,7 +424,9 @@ class ResultView:
             "metrics": combined,
             "test_set": test_set,
             "global_truth_source": "original",
-            "global_excluded_reason": "全局级尚无该测试来源的GT版本，项目合并指标只包含交互级"
+            "global_excluded_reason": "本轮仅运行已校验的用例，项目合并指标只包含入选交互"
+            if "supplied_case_scope" in self.manifest
+            else "全局级尚无该测试来源的GT版本，项目合并指标只包含交互级"
             if test_set != "original"
             else None,
         }

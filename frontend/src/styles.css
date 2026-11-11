@@ -5468,6 +5468,19 @@ td {
   font-size: 12px;
   font-weight: 400;
 }
+.supplied-cases-panel {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+.supplied-cases-panel button {
+  justify-self: start;
+}
+.input-bundle-table caption {
+  text-align: left;
+  padding: 8px;
+  font-weight: 600;
+}
 .input-control-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

@@ -200,7 +200,7 @@ def test_patch(project, program, patch_id):
 
 
 def apply(project, program, patch_id, all_projects, *, confirmed=False, rollback=False):
-    from scene_completion.workflow.scheduler import run_lock
+    from scene_completion.workflow_core import run_lock
 
     with run_lock(Path(project).parent / "manager-code-activation"):
         return _apply(

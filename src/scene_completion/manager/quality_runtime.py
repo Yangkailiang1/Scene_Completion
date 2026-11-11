@@ -602,7 +602,7 @@ class QualityHost:
 
 
 def run_job(service, rid, did, client=None):
-    from scene_completion.workflow.scheduler import run_lock
+    from scene_completion.workflow_core import run_lock
 
     p = service.run_dir(rid)
     try:

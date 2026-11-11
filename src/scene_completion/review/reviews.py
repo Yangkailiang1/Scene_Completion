@@ -7,7 +7,7 @@ from pathlib import Path
 from scene_completion.analysis.validation import validate_result
 from scene_completion.domain.contracts import SCHEMAS
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
-from scene_completion.workflow.scheduler import TaskBlocked
+from scene_completion.workflow_core import TaskBlocked
 
 REVIEW_TASKS = {
     "test-inventory",
@@ -128,7 +128,7 @@ class Reviews:
         comment="",
         dry_run=False,
     ):
-        from scene_completion.workflow.scheduler import run_lock
+        from scene_completion.workflow_core import run_lock
 
         with run_lock(self.root.parent):
             return self._decide(

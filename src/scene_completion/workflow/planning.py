@@ -21,6 +21,10 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
 
         ex.evaluation_scope = validate_scope(project.get("evaluation_scope", "all"))
         ex.manifest["evaluation_scope"] = ex.evaluation_scope
+    if getattr(ex, "supplied_only", False):
+        from scene_completion.workflow.supplied_pipeline import build_supplied
+
+        return build_supplied(ex, tests, extraction_truth or {}, adjudications or {})
     from scene_completion.inputs.source_documents import (
         current_projection,
     )

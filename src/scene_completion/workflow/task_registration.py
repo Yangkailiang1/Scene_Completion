@@ -20,7 +20,6 @@ from scene_completion.domain.concern_registry import scoped_execution
 from scene_completion.domain.contracts import (
     PROTOCOL,
     SCHEMAS,
-    TASKS,
     registry,
     schema,
 )
@@ -28,10 +27,10 @@ from scene_completion.domain.scenario_types import normal_replay_record
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
 from scene_completion.inputs.ordered_behaviors import fused_candidate
 from scene_completion.review.reviews import REVIEW_TASKS
-from scene_completion.workflow.scheduler import Task, TaskBlocked, TaskRejected
 from scene_completion.workflow.semantics import code_version, component_version
 from scene_completion.workflow.support import analysis_settings, payload
 from scene_completion.workflow.task_context import generation_matches
+from scene_completion.workflow_core import Task, TaskRejected
 
 
 @scoped_execution
@@ -62,7 +61,7 @@ def add(
     }
 
     imported = fragments_for(self.root.parent, task, case, self.import_snapshot)
-    if transform and task == "fused-ssd":
+    if transform and (task == "fused-ssd" or self.supplied_only):
         imported = []
     if task == "business-entities" and key != "business-entities":
         imported = []
@@ -188,7 +187,19 @@ def add(
             }
         elif transform:
             value = transform(inputs)
-            proof = {}
+            proof = (
+                {"provider": "supplied_files"}
+                if self.supplied_only and "supplied" in inputs
+                else {}
+            )
+            if proof and task == "fused-ssd":
+                source_ids = {d["source_id"] for d in inputs["RR"]}
+                proof["input_sources"] = [
+                    {"file_id": row["id"], "name": row["name"], "revision": row["revision"]}
+                    for row in self.import_snapshot
+                    if row.get("behavior_product", {}).get("normal_document", {}).get("source_id")
+                    in source_ids
+                ]
         elif (
             task == "api-map"
             and inputs.get("interface-scope", {}).get("boundary") == "external"
@@ -716,75 +727,28 @@ def add(
             verify=verify,
         )
     )
-    self.scheduler.tasks[key].attempt_identity = fingerprint(
-        {
-            k: v
-            for k, v in self.config.items()
-            if k not in {"run_root", "cache_dir", "priority_cases", "supplement_tests"}
+    attempt_options = {
+        k: v
+        for k, v in self.config.items()
+        if k
+        not in {
+            "run_root",
+            "cache_dir",
+            "priority_cases",
+            "supplement_tests",
+            "agent_evidence_pilot",
         }
-    )
+    }
+    if (
+        self.config.get("agent_evidence_pilot")
+        and not transform
+        and (task == "business-crud" and case or task == "api-map" and api_scope)
+    ):
+        attempt_options["agent_evidence_pilot"] = True
+    self.scheduler.tasks[key].attempt_identity = fingerprint(attempt_options)
     self.scheduler.tasks[key].recoverable = bool(
         self.mode == "external"
         and self.mocks is None
         and not transform
         and task not in {"gap-compare", "semantic-compare"}
     )
-
-
-def partitioned(self, key, task, deps, build, case):
-    """Expand after inputs validate; each child has its own review/cache/retry."""
-    from scene_completion.workflow.task_partitions import merge_parts, split_task
-
-    def waiting(d):
-        raise TaskBlocked("dependency_wait", {"reason": "等待子任务展开"})
-
-    self.add(key, task, deps, build=build, transform=waiting, case=case)
-    self.scheduler.tasks[key].deferred = True
-
-    def expand():
-        inputs = build(
-            {
-                d: payload(read_json(self.root / self.scheduler.state["tasks"][d]["output_file"]))
-                for d in deps
-            }
-        )
-        units = split_task(task, inputs)
-        children = []
-        for unit, part in units:
-            child = key + "--part-" + fingerprint(unit)[:10]
-            children.append(child)
-            inherited = {
-                m["detail"].get("parent_message_id") for m in self.conversations.list(child)
-            }
-            for message in self.conversations.list(key):
-                if message["kind"] == "guidance" and message["id"] not in inherited:
-                    self.conversations.append(
-                        child,
-                        "guidance",
-                        message["text"],
-                        {"parent_message_id": message["id"], "parent_task": key},
-                    )
-            self.add(
-                child, task, deps, static=part, build=lambda d, part=part: deepcopy(part), case=case
-            )
-            self.scheduler.tasks[child].display_label = (
-                TASKS.get(task, ("", task))[1] + " · " + unit
-            )
-        self.scheduler.tasks.pop(key)
-        self.add(
-            key,
-            task,
-            tuple(children) or deps,
-            build=lambda d, inputs=inputs: inputs,
-            transform=lambda d, children=children: merge_parts(
-                task,
-                [
-                    payload(read_json(self.root / self.scheduler.state["tasks"][c]["output_file"]))
-                    for c in children
-                ],
-            ),
-            case=case,
-            skip_review=True,
-        )
-
-    self.partitions.append((tuple(deps), expand))

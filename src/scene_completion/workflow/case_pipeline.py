@@ -30,6 +30,9 @@ def _build_cases(
     test_catalogue=None,
     test_alignment=None,
     ar=None,
+    *,
+    supplied=None,
+    reference_groups=None,
 ):
     from scene_completion.analysis.use_cases import select_documents
     from scene_completion.inputs.api_documents import case_parameters
@@ -66,6 +69,8 @@ def _build_cases(
             stage=None,
         ):
             def local(t):
+                if supplied is not None and t in {"components", "api-map", "api-parameters"}:
+                    return cid + ":" + t
                 return (
                     t
                     if t in {"components", "api-map", "api-parameters", "business-entities"}
@@ -180,11 +185,61 @@ def _build_cases(
         existing_docs = list(
             {doc["source_id"]: doc for doc in base_existing + behavior["existing"]}.values()
         )
-        add(
-            "existing-branches-source",
-            static={"existing-documents": existing_docs},
-            stage="existing-branches",
-        )
+        if supplied is not None:
+            from scene_completion.inputs.structure_models import existing_branches
+            from scene_completion.workflow_core import TaskBlocked
+
+            # Structured requirement files explicitly enumerate their existing
+            # branches. If neither channel supplied an inventory, absence is unknown.
+            def imported_branches(d):
+                import json
+
+                from scene_completion.inputs.structure_models import BRANCH_MARKER, model_layer
+
+                branches = []
+                has_inventory = False
+                for document in d["existing-documents"]:
+                    if model_layer(document):
+                        known = existing_branches([document])
+                        branches.extend(known["branches"])
+                        has_inventory = has_inventory or bool(known["branches"])
+                    elif document["channel"] == "existing":
+                        for line in document["lines"]:
+                            if not line["text"].startswith(BRANCH_MARKER):
+                                continue
+                            branch = json.loads(line["text"][len(BRANCH_MARKER) :])
+                            branches.append(
+                                {
+                                    **branch,
+                                    "source_refs": [
+                                        {
+                                            "source_id": document["source_id"],
+                                            "line_start": line["number"],
+                                            "line_end": line["number"],
+                                            "quote": line["text"],
+                                        }
+                                    ],
+                                }
+                            )
+                            has_inventory = True
+                if not has_inventory:
+                    raise TaskBlocked(
+                        "awaiting_context", {"reason": "尚未提供本用例的已有异常目录"}
+                    )
+                return {"branches": list({b["id"]: b for b in branches}.values())}
+
+            add(
+                "existing-branches-source",
+                static={"existing-documents": existing_docs},
+                transform=imported_branches,
+                stage="existing-branches",
+            )
+        else:
+            add(
+                "existing-branches-source",
+                static={"existing-documents": existing_docs},
+                stage="existing-branches",
+            )
         from scene_completion.workflow.task_context import ssd_context
 
         add(
@@ -203,41 +258,64 @@ def _build_cases(
             },
             transform=ssd_context,
         )
-        add(
-            "fused-ssd-source",
-            ("ssd-context",),
-            build=lambda d: d["ssd-context"],
-            stage="fused-ssd",
-        )
-        from scene_completion.analysis.atomic_steps import apply_plan, compact
+        if supplied is not None:
+            frozen = supplied[cid]
+            source = frozen["row"]["behavior_product"]["normal_document"]
+            ex.add(
+                key("fused-ssd"),
+                "fused-ssd",
+                static={
+                    "RR": [source],
+                    "SR": [source],
+                    "components": frozen["components"],
+                    "case-group": group,
+                    "supplied": frozen["fused"],
+                },
+                transform=lambda d: deepcopy(d["supplied"]),
+                skip_review=True,
+                verify_derivation=True,
+                case=cid,
+            )
+            ex.scheduler.tasks[key("fused-ssd")].display_label = "融合 SSD · 已有文件输入"
+        else:
+            add(
+                "fused-ssd-source",
+                ("ssd-context",),
+                build=lambda d: d["ssd-context"],
+                stage="fused-ssd",
+            )
+            from scene_completion.analysis.atomic_steps import apply_plan, compact
 
-        add(
-            "interaction-normalize",
-            ("fused-ssd-source", "ssd-context"),
-            build=lambda d: {
-                "candidate": compact(d["fused-ssd-source"]),
-                "normal-documents": d["ssd-context"]["RR"] + d["ssd-context"]["SR"],
-                "components": d["ssd-context"]["components"],
-                "case-group": d["ssd-context"]["case-group"],
-            },
-        )
-        add(
-            "fused-ssd",
-            ("fused-ssd-source", "interaction-normalize", "ssd-context"),
-            build=lambda d: {
-                **d["ssd-context"],
-                "raw": d["fused-ssd-source"],
-                "plan": d["interaction-normalize"],
-            },
-            transform=lambda d: apply_plan(d["raw"], d["plan"], d["case-group"]["id"]),
-        )
+            add(
+                "interaction-normalize",
+                ("fused-ssd-source", "ssd-context"),
+                build=lambda d: {
+                    "candidate": compact(d["fused-ssd-source"]),
+                    "normal-documents": d["ssd-context"]["RR"] + d["ssd-context"]["SR"],
+                    "components": d["ssd-context"]["components"],
+                    "case-group": d["ssd-context"]["case-group"],
+                },
+            )
+            add(
+                "fused-ssd",
+                ("fused-ssd-source", "interaction-normalize", "ssd-context"),
+                build=lambda d: {
+                    **d["ssd-context"],
+                    "raw": d["fused-ssd-source"],
+                    "plan": d["interaction-normalize"],
+                },
+                transform=lambda d: apply_plan(d["raw"], d["plan"], d["case-group"]["id"]),
+            )
 
         from scene_completion.analysis.exception_scopes import (
             interaction_branches,
             records_from_tests,
         )
 
-        scope_catalogue = [{"id": g["id"], "aliases": g["rr_ids"] + g["sr_ids"]} for g in groups]
+        scope_catalogue = [
+            {"id": g["id"], "aliases": g["rr_ids"] + g["sr_ids"]}
+            for g in (reference_groups or groups)
+        ]
         add(
             "existing-scope",
             ("existing-branches-source", "business-entities"),
@@ -331,20 +409,22 @@ def _build_cases(
         )
         positive = normal_projection(scoped_rr) + normal_projection(scoped_sr)
 
-        def data_dependency_input(d, docs=positive + normal_projection(scoped_ar)):
-            return {
-                "normal-documents": docs,
-                "components": d["components"],
-                "api-map": d["api-map"],
-                "api-parameters": case_parameters(d, d["fused-ssd"]),
-                "fused-ssd": d["fused-ssd"],
-            }
+        if supplied is None:
 
-        add(
-            "data-dependencies",
-            ("components", "api-map", "api-parameters", "fused-ssd"),
-            build=data_dependency_input,
-        )
+            def data_dependency_input(d, docs=positive + normal_projection(scoped_ar)):
+                return {
+                    "normal-documents": docs,
+                    "components": d["components"],
+                    "api-map": d["api-map"],
+                    "api-parameters": case_parameters(d, d["fused-ssd"]),
+                    "fused-ssd": d["fused-ssd"],
+                }
+
+            add(
+                "data-dependencies",
+                ("components", "api-map", "api-parameters", "fused-ssd"),
+                build=data_dependency_input,
+            )
         from scene_completion.inputs.api_layers import qualify_fused_calls
 
         add(
@@ -794,7 +874,11 @@ def _build_cases(
             build=lambda d: d,
             transform=concern_evaluation,
         )
-        if scoped_test or ex.config.get("supplement_tests", False):
+        if (
+            any(r["scenario_type"] == "exception" for r in test_records)
+            if supplied is not None
+            else scoped_test or ex.config.get("supplement_tests", False)
+        ):
             extra = (
                 ("test-expanded", "GT_expanded_G", "GT_expanded_E")
                 if ex.config.get("supplement_tests", False)
@@ -883,6 +967,9 @@ def _build_cases(
             ),
             case=cid,
         )
+
+    if supplied is not None:
+        return
 
     # Shared v5 views depend on validated per-case facts, but do not wait for
     # anomaly generation or evaluation. A failed use case remains isolated.

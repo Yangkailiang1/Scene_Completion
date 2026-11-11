@@ -89,7 +89,8 @@ def select_indexed_sections(documents, index, section_ids):
 
 
 class EvidenceContext:
-    def __init__(self, packet):
+    def __init__(self, packet, *, evidence_pilot=False):
+        self.evidence_pilot = evidence_pilot
         self.original = packet
         self.pool = {}
         self.components = {}
@@ -239,6 +240,33 @@ class EvidenceContext:
                 for key in sorted(entity_ids | self.deferred_ids)
             }
             self.input["crud-entity-scope"].pop("source_locations", None)
+        if evidence_pilot:
+            from scene_completion.inputs.crud_evidence import INLINE_BYTES, size
+
+            for doc in documents_in(self.input):
+                for row in doc["lines"]:
+                    key = row.get("evidence_id")
+                    if key and size(self.pool[key]) > INLINE_BYTES:
+                        self.deferred_ids.add(key)
+
+            # Keep the exact text in the evidence pool. The request view can
+            # point to it without duplicating exceptionally long source rows.
+            def defer_long_lines(value):
+                if isinstance(value, dict):
+                    if (
+                        "text" in value
+                        and isinstance(key := value.get("evidence_id"), str)
+                        and key in self.deferred_ids
+                    ):
+                        value["text"] = "（较长原文，按 evidence_id 分页读取）"
+                    else:
+                        for item in value.values():
+                            defer_long_lines(item)
+                elif isinstance(value, list):
+                    for item in value:
+                        defer_long_lines(item)
+
+            defer_long_lines(self.input)
         initial_evidence = set(self.pool)
         if packet["task"] in {"existing-extract", "test-ground-truth"}:
             present = {r["id"] for r in inputs.get("normal-rules", {}).get("rules", [])}
@@ -606,7 +634,7 @@ class EvidenceContext:
             or any(not isinstance(k, str) or k not in self.pool for k in evidence_ids)
         ):
             raise ValueError("select 1..8 evidence IDs from this isolated task")
-        if self.scoped_crud:
+        if self.scoped_crud or self.evidence_pilot:
             from scene_completion.inputs.crud_evidence import lookup
 
             return lookup(self, evidence_ids, offsets)
@@ -616,7 +644,9 @@ class EvidenceContext:
 
     def visible_reference(self, key):
         return key in self.pool and (
-            not self.scoped_crud or key not in self.deferred_ids or key in self.crud_read
+            not (self.scoped_crud or self.evidence_pilot)
+            or key not in self.deferred_ids
+            or key in self.crud_read
         )
 
     def register(self, ref):
@@ -1100,7 +1130,7 @@ def task_document_view(documents, intent):
     identity/routing declarations. Positive flow bodies remain with the SSD
     task. Unknown large formats fail for review rather than reverting to full.
     """
-    from scene_completion.workflow.scheduler import TaskBlocked
+    from scene_completion.workflow_core import TaskBlocked
 
     out = []
     index = markdown_index(documents)

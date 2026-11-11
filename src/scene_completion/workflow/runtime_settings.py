@@ -15,6 +15,7 @@ INTS = {
     "agent_max_model_calls": (5, 1, 20),
 }
 BOOLS = {
+    "agent_evidence_pilot",
     "stream",
     "stream_usage",
     "send_reasoning_effort",

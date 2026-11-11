@@ -56,6 +56,7 @@ def task_message(packet):
             "tool_rule_coverage",
             "tool_rule_instruction",
             "interface_declarations",
+            "evidence_tool_records",
         )
         if k in packet
     }
@@ -176,12 +177,23 @@ class DeepAgentsClient(SemanticClient):
                     + "服务边界以interface-scope中的已验证系统组成为依据，不按URL或文档层级猜测。"
                 )
         original_packet = packet
+        from scene_completion.inputs.task_evidence_tools import (
+            TaskEvidenceTools,
+            require_positive_documents,
+        )
+        from scene_completion.inputs.task_evidence_tools import (
+            enabled as evidence_pilot_enabled,
+        )
+
+        evidence_pilot = evidence_pilot_enabled(self.config, packet["task"], packet["input"])
+        if evidence_pilot:
+            require_positive_documents(packet["input"])
         from scene_completion.inputs.indexed_context import EvidenceContext
 
         scoped_crud = packet["task"] == "business-crud" and "crud-entity-scope" in packet["input"]
         indexed = (
-            EvidenceContext(packet)
-            if scoped_crud or self.config.get("indexed_context", False)
+            EvidenceContext(packet, evidence_pilot=evidence_pilot)
+            if scoped_crud or evidence_pilot or self.config.get("indexed_context", False)
             else None
         )
         if indexed:
@@ -207,6 +219,23 @@ class DeepAgentsClient(SemanticClient):
                 "id禁止pending、unknown、TBD、待确认等占位符，也不要自行加RR::或SR::前缀。"
                 "declared_id、source_layer、interface_scope由工具维护，模型不要输出这些字段。"
             )
+        evidence_tools = TaskEvidenceTools(indexed) if evidence_pilot else None
+        if evidence_tools:
+            if packet["task"] == "api-map":
+                packet["interface_declarations"] = [
+                    {"record_id": key, **record}
+                    for key, record in evidence_tools.records["interface_declaration"].items()
+                ]
+                packet["evidence_tool_records"] = [
+                    item for item in evidence_tools.index if item["kind"] == "imported_interface"
+                ]
+            packet["instructions"] += (
+                "\n只在需要补证时使用search_evidence查询本节点正向材料；"
+                "按evidence_id与offset用lookup_evidence读取原文，引用返回的citation_id。"
+                "用inspect_task_record按kind和record_id查任务记录，必要时指定JSON Pointer。"
+                "CRUD支持entity和interaction；接口映射支持interface_declaration和imported_interface。"
+                "查证结果只包含本任务允许的记录。较长原文按页获取，不重复粘贴全文。"
+            )
         from scene_completion.inputs.reference_contract import (
             instructions as reference_instructions,
         )
@@ -215,7 +244,12 @@ class DeepAgentsClient(SemanticClient):
         reference_contract = reference_summary(original_packet["input"], indexed)
         # Persist the actual model-facing, credential-free packet for inspection.
         context_id = fingerprint(
-            {"task": packet["task"], "input": packet["input"], "schema": packet["output_schema"]}
+            {
+                "task": packet["task"],
+                "input": packet["input"],
+                "schema": packet["output_schema"],
+                **({"agent_evidence_pilot": True} if evidence_pilot else {}),
+            }
         )
         write_json(
             self.root / "model_contexts" / (context_id + ".json"),
@@ -225,6 +259,7 @@ class DeepAgentsClient(SemanticClient):
                 "input": packet["input"],
                 "output_schema": packet["output_schema"],
                 "context_version": "indexed-evidence-v1" if indexed else "raw",
+                **({"agent_evidence_pilot": True} if evidence_pilot else {}),
                 "reference_contract": reference_contract,
             },
         )
@@ -273,7 +308,7 @@ class DeepAgentsClient(SemanticClient):
         checkpoint_id = fingerprint(checkpoint_parts)
         saved = conversations.checkpoint(task_key, checkpoint_id) or {}
         model_calls = saved.get("model_calls", 0)
-        if scoped_crud and not saved:
+        if (scoped_crud or evidence_pilot) and not saved:
             model_calls = conversations.unfinished_call_count(task_key, attempt)
         pending = conversations.pending(task_key)
         if pending:
@@ -303,6 +338,7 @@ class DeepAgentsClient(SemanticClient):
             "count": model_calls,
             "initial_count": model_calls,
             "scoped_crud": scoped_crud,
+            "evidence_pilot": evidence_pilot,
             "repair": packet.get("repair"),
         }
         if packet["task"] == "business-crud" and "candidate" in packet.get("repair", {}):
@@ -376,8 +412,23 @@ class DeepAgentsClient(SemanticClient):
             description="仅按当前任务给定evidence_id补取原文依据，最多8条；不会访问其他任务、G/E/GT结果或本机文件。",
         )
 
+        discovery = []
+        if evidence_tools:
+            discovery = [
+                StructuredTool.from_function(
+                    func=evidence_tools.search,
+                    name="search_evidence",
+                    description="字面搜索当前任务的证据或接口声明。可按source_id筛选，按next_after继续。返回定位，使用lookup_evidence读取原文。",
+                ),
+                StructuredTool.from_function(
+                    func=evidence_tools.inspect,
+                    name="inspect_task_record",
+                    description="按任务内kind、record_id查看结构化记录。可用RFC 6901 JSON Pointer取字段，例如/operation/name。",
+                ),
+            ]
+
         from scene_completion.infrastructure.execution_events import emit, phase
-        from scene_completion.workflow.scheduler import TaskRejected
+        from scene_completion.workflow_core import TaskRejected
 
         def submit(payload: dict, review_questions: list[dict] | None = None) -> str:
             from scene_completion.models.model_submission import containers, questions
@@ -711,7 +762,7 @@ class DeepAgentsClient(SemanticClient):
             )
         ]
         middleware = [stop_after_submission]
-        if packet["task"] == "business-crud":
+        if packet["task"] == "business-crud" or evidence_pilot:
             from deepagents.middleware.filesystem import FilesystemMiddleware
             from deepagents.middleware.summarization import SummarizationMiddleware
 
@@ -733,7 +784,7 @@ class DeepAgentsClient(SemanticClient):
         agent = create_deep_agent(
             model=model,
             middleware=middleware,
-            tools=[submit_result, ask] + ([lookup] if indexed else []),
+            tools=[submit_result, ask] + ([lookup] if indexed else []) + discovery,
             subagents=[],
             backend=backend,
             skills=["/skills/"] if packet["skill_text"].lstrip().startswith("---") else [],
@@ -754,7 +805,7 @@ class DeepAgentsClient(SemanticClient):
                 skill_path: file(packet["skill_text"]),
                 **(
                     {}
-                    if scoped_crud
+                    if scoped_crud or evidence_pilot
                     else {
                         "/input/task.json": file(json.dumps(packet, ensure_ascii=False, indent=2)),
                         **{path: file(text) for path, text in task_files(packet).items()},
@@ -762,7 +813,7 @@ class DeepAgentsClient(SemanticClient):
                 ),
             },
         }
-        if self.config.get("reasoning_replay") and saved.get("messages"):
+        if (self.config.get("reasoning_replay") or evidence_pilot) and saved.get("messages"):
             emit(
                 "resume_context_restarted",
                 reason="网关要求的思考上下文仅保留于内存；恢复时使用原任务和已有指导，保留累计调用预算",
@@ -770,6 +821,7 @@ class DeepAgentsClient(SemanticClient):
         if (
             not self.config.get("reasoning_replay")
             and packet["task"] != "business-crud"
+            and not evidence_pilot
             and saved.get("status") in {"awaiting_answer", "transport_wait"}
             and saved.get("messages")
         ):
@@ -881,7 +933,9 @@ class DeepAgentsClient(SemanticClient):
                     if error == "TaskBlocked"
                     else ("failed" if error else "complete")
                 ),
-                "messages": [] if packet["task"] == "business-crud" else messages_to_dict(history),
+                "messages": []
+                if packet["task"] == "business-crud" or evidence_pilot
+                else messages_to_dict(history),
                 "model_calls": session["count"],
                 "attempt": attempt,
             }
@@ -1062,6 +1116,12 @@ def _transport_model(client, stage):
                     if k in {"tools", "tool_choice", "parallel_tool_calls"}
                 },
             }
+            pilot = bool(session and session.get("evidence_pilot"))
+            from scene_completion.inputs.task_evidence_tools import DISCOVERY_TOOLS
+
+            allowed_tools = {"submit_result", "ask_user", "lookup_evidence"}
+            if pilot:
+                allowed_tools.update(DISCOVERY_TOOLS)
             if not self.task_stage.startswith("manager"):
                 # Business nodes receive their exact material and loaded Skill.
                 # Generic filesystem/planning tools repeat schemas and invite
@@ -1069,8 +1129,7 @@ def _transport_model(client, stage):
                 body["tools"] = [
                     t
                     for t in body.get("tools", [])
-                    if t.get("function", {}).get("name")
-                    in {"submit_result", "ask_user", "lookup_evidence"}
+                    if t.get("function", {}).get("name") in allowed_tools
                 ]
             repair = session.get("repair") if session else None
             if repair and "truncat" in json.dumps(repair.get("failure", {})).lower():
@@ -1129,7 +1188,8 @@ def _transport_model(client, stage):
                     self.request_count < limit
                     and any(t["function"]["name"] == "lookup_evidence" for t in body["tools"])
                     and (
-                        bool(session and session.get("scoped_crud"))
+                        pilot
+                        or bool(session and session.get("scoped_crud"))
                         or self.task_stage
                         in {
                             "existing-extract",
@@ -1140,8 +1200,14 @@ def _transport_model(client, stage):
                     )
                 ):
                     notice += '若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
-                    if session and session.get("scoped_crud"):
+                    if pilot or (session and session.get("scoped_crud")):
                         notice += '分页时可附 "offsets":{"evidence_id":next_offset}；引用返回的citation_id。'
+                if pilot and self.request_count < limit:
+                    notice += (
+                        '如需搜索或查看结构化记录，返回 {"evidence_tool":"search_evidence","arguments":{"query":"字面关键词"}}'
+                        '或 {"evidence_tool":"inspect_task_record","arguments":{"kind":"interaction","record_id":"任务内ID","pointer":"/operation/name"}}。'
+                        "每轮只提交一个查询请求。完成后提交结果。"
+                    )
                 converted[0]["content"] = str(converted[0]["content"]) + "\n" + notice
                 for key in ("tools", "tool_choice", "parallel_tool_calls"):
                     body.pop(key, None)
@@ -1177,7 +1243,7 @@ def _transport_model(client, stage):
                 try:
                     context_bound = prepare(self.scene_client, body, self.task_stage)
                 except RuntimeError as exc:
-                    from scene_completion.workflow.scheduler import TaskBlocked
+                    from scene_completion.workflow_core import TaskBlocked
 
                     details = dict(exc.response_diagnostic)
                     if session:
@@ -1243,7 +1309,7 @@ def _transport_model(client, stage):
                     self.scene_client.config.get("max_tokens", output_limit(body)),
                     self.scene_client.output_limit(self.task_stage),
                 ):
-                    from scene_completion.workflow.scheduler import TaskBlocked
+                    from scene_completion.workflow_core import TaskBlocked
 
                     raise TaskBlocked(
                         "awaiting_configuration",
@@ -1291,9 +1357,17 @@ def _transport_model(client, stage):
                     ):
                         raise ValueError("incomplete task clarification")
                     name, args = "ask_user", detail
+                elif pilot and set(decoded) == {"evidence_tool", "arguments"}:
+                    name, args = decoded["evidence_tool"], decoded["arguments"]
+                    if (
+                        self.request_count >= limit
+                        or not isinstance(name, str)
+                        or name not in DISCOVERY_TOOLS
+                        or not isinstance(args, dict)
+                    ):
+                        raise ValueError("unavailable evidence tool or exhausted model-call budget")
                 elif set(decoded) == {"evidence_request"} or (
-                    session
-                    and session.get("scoped_crud")
+                    (pilot or (session and session.get("scoped_crud")))
                     and set(decoded) == {"evidence_request", "offsets"}
                 ):
                     if self.request_count >= limit:
@@ -1318,9 +1392,14 @@ def _transport_model(client, stage):
                     raise ValueError(
                         "provider returned tool calls despite JSON text submission mode"
                     )
+                name = call["function"]["name"]
+                if pilot and name not in {
+                    tool["function"]["name"] for tool in body.get("tools", [])
+                }:
+                    raise ValueError("tool was not offered for this task or call budget")
                 calls.append(
                     {
-                        "name": call["function"]["name"],
+                        "name": name,
                         "args": decode_json(call["function"]["arguments"]),
                         "id": call["id"],
                     }

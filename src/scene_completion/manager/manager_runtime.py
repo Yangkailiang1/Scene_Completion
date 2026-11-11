@@ -165,7 +165,7 @@ def spawn(service, rid):
     old = j.get("process", default={})
     if old.get("pid") and pid_alive(old["pid"]) and old.get("heartbeat", 0) > time.time() - 60:
         return {"status": "running", "pid": old["pid"]}
-    from scene_completion.workflow.scheduler import run_lock
+    from scene_completion.workflow_core import run_lock
 
     with run_lock(p / "manager/dispatch"):
         old = j.get("process", default={})
@@ -253,7 +253,7 @@ def main():
     args = parser.parse_args()
     from scene_completion.api.application import Workbench
     from scene_completion.manager.manager_agent import run_turn
-    from scene_completion.workflow.scheduler import run_lock
+    from scene_completion.workflow_core import run_lock
 
     service = Workbench(args.root, env_file=args.env_file)
     service.local_url = args.url

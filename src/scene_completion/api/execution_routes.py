@@ -3,7 +3,7 @@
 import json
 import time
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Query, Request
 
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
 
@@ -12,6 +12,10 @@ WEB = PROJECT / "web"
 
 
 def register(app, service):
+    @app.get("/api/projects/{rid}/supplied-cases")
+    def supplied_cases(rid: str, case: list[str] | None = Query(default=None)):
+        return service.supplied_case_preview(rid, case or [])
+
     @app.post("/api/projects/{rid}/run")
     def start(rid: str, body: dict | None = None):
         return service.start(rid, body)

@@ -38,7 +38,7 @@ def ssd_context(inputs):
             break
         selected.update(parents)
     if not selected:
-        from scene_completion.workflow.scheduler import TaskBlocked
+        from scene_completion.workflow_core import TaskBlocked
 
         raise TaskBlocked(
             "awaiting_context",

@@ -281,7 +281,7 @@ def register(app, service):
     @app.post("/api/projects/{rid}/node-repair")
     def repair_submit(rid: str, body: dict):
         from scene_completion.workflow.node_repair import submit_repair
-        from scene_completion.workflow.scheduler import run_lock
+        from scene_completion.workflow_core import run_lock
 
         p = service.run_dir(rid)
         if rid in service.active:

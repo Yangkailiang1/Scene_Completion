@@ -10,7 +10,7 @@ from scene_completion.domain.contracts import TASKS, packet
 from scene_completion.infrastructure.storage import read_json, write_json
 from scene_completion.inputs.source_documents import read_documents
 from scene_completion.workflow.engine import Execution, build_pipeline, payload
-from scene_completion.workflow.scheduler import run_lock
+from scene_completion.workflow_core import run_lock
 
 
 def client_for(config, root, env_file=None):

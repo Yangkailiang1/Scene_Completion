@@ -4,13 +4,16 @@ from pathlib import Path
 
 from scene_completion.domain.contracts import PROTOCOL
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
-from scene_completion.workflow import publication, semantic_executor, task_registration
+from scene_completion.models.request_admission import CallGate
+from scene_completion.workflow import (
+    partition_registration,
+    publication,
+    semantic_executor,
+    task_registration,
+)
 from scene_completion.workflow.case_pipeline import _build_cases as _build_cases
 from scene_completion.workflow.planning import build_pipeline as build_pipeline
-from scene_completion.workflow.scheduler import (
-    CallGate,
-    Scheduler,
-)
+from scene_completion.workflow.scheduler import Scheduler
 from scene_completion.workflow.semantics import code_version as code_version
 from scene_completion.workflow.support import analysis_settings as analysis_settings
 from scene_completion.workflow.support import payload as payload
@@ -29,6 +32,7 @@ class Execution:
         mocks=None,
         config=None,
         case_ids=None,
+        supplied_only=False,
         auto_repair="bounded",
         max_rounds=2,
     ):
@@ -45,6 +49,9 @@ class Execution:
         )
         self.config = config or getattr(client, "config", {}) or {}
         self.case_ids = case_ids or []
+        self.supplied_only = supplied_only
+        if supplied_only:
+            self.config = {**self.config, "supplement_tests": False}
         self.evaluation_scope = "all"
         from scene_completion.inputs.artifact_imports import snapshot
 
@@ -70,7 +77,6 @@ class Execution:
         self.reviews = Reviews(self.root, self.config.get("review_mode", "auto"))
         self.expand_pipeline = None
         self.expand_api = None
-        self.partitions = []
         if self.config.get("structured_output", "json_object") not in {
             "json_object",
             "json_schema",
@@ -251,6 +257,7 @@ class Execution:
             auto_repair=auto_repair,
             max_rounds=max_rounds,
         )
+        self.partitions = self.scheduler.expansions
         import time
 
         self.session_id = fingerprint([time.time_ns(), str(self.root)])[:20]
@@ -338,7 +345,7 @@ class Execution:
         )
 
     def partitioned(self, key, task, deps, build, case):
-        return task_registration.partitioned(self, key, task, deps, build, case)
+        return partition_registration.partitioned(self, key, task, deps, build, case)
 
     def finish(self):
         return publication.finish(

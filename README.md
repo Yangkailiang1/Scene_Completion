@@ -23,12 +23,15 @@ Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/S
 
 逐用例 `business-crud` 从全局实体表选取当前用例有据关联的实体。首轮按证据 ID 引用原文，长引文可分页补取，单次最多 8 条、合计 16 KiB。升级后可定向续跑失败节点，成功缓存经实体范围和依据复核后继续使用。
 
+要在独立项目中试点 CRUD 与接口映射的主动查证，可在项目运行配置中设置 `"agent_evidence_pilot": true`。CLI 可将这个布尔字段放在 JSON 文件中，再用 `configure --config-file` 保存。试点节点可在模型请求期间查询当前用例的实体、交互及接口声明，提交仍使用正式产物校验。
+
 ## 从目录定位代码
 
 | 目录 | 内容 |
 |---|---|
 | `src/scene_completion/domain/` | 当前协议、Schema、关注点和场景类型 |
-| `src/scene_completion/workflow/` | DAG、共享／逐用例／全局节点、执行、恢复和语义缓存 |
+| `src/scene_completion/workflow_core/` | 通用 DAG 调度、并发、分片展开和检查点 |
+| `src/scene_completion/workflow/` | 共享／逐用例／全局编排、业务执行、恢复和报告 |
 | `src/scene_completion/inputs/` | 文件识别、格式转换、时序引用、采用与追溯 |
 | `src/scene_completion/analysis/` | 建模、关注点、场景、比较、推荐和评测 |
 | `src/scene_completion/models/` | OpenAI兼容连接、模型路由、流式、限流和用量 |

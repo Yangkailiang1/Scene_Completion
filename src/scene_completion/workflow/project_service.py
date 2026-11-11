@@ -352,10 +352,16 @@ class Workbench:
         if (self.root / "manager-maintenance.json").exists():
             raise ValueError("程序正在安全重启或回退，暂不接受新执行；请查看管理Agent操作记录")
         rid = self.require_current_project(rid)
-        from scene_completion.workflow.scheduler import run_lock
+        from scene_completion.workflow_core import run_lock
 
         with run_lock(self.run_dir(rid) / "dispatch"):
             return self._start(rid, options)
+
+    def supplied_case_preview(self, rid, case_ids=()):
+        from scene_completion.inputs.artifact_imports import snapshot
+        from scene_completion.inputs.supplied_cases import inspect_cases
+
+        return inspect_cases(snapshot(self.run_dir(rid)), case_ids)[0]
 
     def _start(self, rid, options=None):
         if self.review_only:
@@ -365,8 +371,13 @@ class Workbench:
         from scene_completion.infrastructure.worker_runtime import read_job
 
         job = read_job(p)
-        options = options or {}
-        if set(options) - {"case_ids", "priority_cases"}:
+        options = dict(options or {})
+        previous_scope = job.get("run_options", {})
+        if "supplied_only" not in options and previous_scope.get("supplied_only"):
+            options["supplied_only"] = True
+            if "case_ids" not in options and "case_ids" in previous_scope:
+                options["case_ids"] = previous_scope["case_ids"]
+        if set(options) - {"case_ids", "priority_cases", "supplied_only"}:
             raise ValueError("不支持的运行范围参数")
         for k in ("case_ids", "priority_cases"):
             if k in options and (
@@ -382,6 +393,13 @@ class Workbench:
             and pid_alive(job["pid"])
         ):
             raise ValueError("项目正在由联调工作进程执行")
+        if "supplied_only" in options and type(options["supplied_only"]) is not bool:
+            raise ValueError("仅运行已校验用例选项必须为布尔值")
+        if options.get("supplied_only"):
+            project = read_json(p / "project.json")
+            selected = options.get("case_ids", project.get("case_ids")) or []
+            if not self.supplied_case_preview(rid, selected)["accepted"]:
+                raise ValueError("没有通过正式校验的已有 SSD 用例")
         config = self.model_config(rid)
         if not self.client_factory and (not config["api_key"] or not config["base_url"]):
             raise ValueError("请在.env或项目中配置模型地址和密钥")
@@ -426,7 +444,7 @@ class Workbench:
                 read_project_documents,
             )
             from scene_completion.workflow.engine import Execution, build_pipeline
-            from scene_completion.workflow.scheduler import run_lock
+            from scene_completion.workflow_core import run_lock
 
             project = read_json(p / "project.json")
             config = self.model_config(rid)
@@ -452,6 +470,7 @@ class Workbench:
                     client=client,
                     config=config,
                     case_ids=options.get("case_ids", project.get("case_ids")),
+                    supplied_only=options.get("supplied_only", False),
                 )
                 self.gates[rid] = ex.gate
                 docs = {
@@ -782,7 +801,7 @@ class Workbench:
                     purpose="dialogue",
                     input_bytes=len(json.dumps(body, ensure_ascii=False).encode()),
                 )
-                from scene_completion.workflow.scheduler import CallGate
+                from scene_completion.models.request_admission import CallGate
 
                 gate = self.gates.setdefault(rid, CallGate(config.get("max_concurrency", 1)))
                 try:

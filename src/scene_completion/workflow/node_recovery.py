@@ -78,7 +78,7 @@ def reserve(project, key, epoch, input_hash):
         node = fingerprint([key, input_hash])
         calls = run["nodes"].get(node, 0)
         if calls >= policy["max_node_calls"] or run["calls"] >= policy["max_run_calls"]:
-            from scene_completion.workflow.scheduler import TaskBlocked
+            from scene_completion.workflow_core import TaskBlocked
 
             raise TaskBlocked(
                 "recovery_exhausted", {"reason": "恢复调用预算已耗尽，保留诊断并等待人工处理"}

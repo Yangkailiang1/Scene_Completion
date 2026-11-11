@@ -5,7 +5,7 @@ from functools import wraps
 from pathlib import Path
 from threading import RLock, local
 
-from scene_completion.workflow.scheduler import run_lock
+from scene_completion.workflow_core import run_lock
 
 _lock = RLock()
 _local = local()

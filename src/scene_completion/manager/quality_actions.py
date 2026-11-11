@@ -7,7 +7,7 @@ from pathlib import Path
 import scene_completion.manager.quality_diagnostics as q
 from scene_completion.infrastructure.configuration_lock import configuration_lock
 from scene_completion.infrastructure.storage import read_json, write_json
-from scene_completion.workflow.scheduler import run_lock
+from scene_completion.workflow_core import run_lock
 
 CONCERN_FIELDS = {
     "label",

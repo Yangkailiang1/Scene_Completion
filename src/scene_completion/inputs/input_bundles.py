@@ -27,7 +27,7 @@ TARGETS = {
         "business-attribute-map（提供依据）",
         "<用例>:interaction-enrich（精确字段补充）",
     ],
-    "api_extraction": ["rr-api-map/sr-api-map（按声明层级）", "api-parameters-part-*（请求部分）"],
+    "api_extraction": ["接口映射及参数契约（仅已有文件模式使用 SR）"],
     "test": [
         "test-inventory",
         "test-case-align",
@@ -127,6 +127,7 @@ def discover(*, directory=None, paths=None, files=None):
     selected = {}
     issues = []
     behaviors = []
+    invalid_behavior_rows = []
     for display, source, expected in candidates:
         if isinstance(source, Path):
             if source.stat().st_size > 20 * 1024 * 1024:
@@ -142,19 +143,43 @@ def discover(*, directory=None, paths=None, files=None):
             name = Path(display).name
             if len(raw) > 20 * 1024 * 1024:
                 raise ValueError("文件超过20MB：" + display)
+        named_ssd = name.casefold() == "sysoperation.json" and "行为模型" in Path(display).parts
         try:
             role = identify(raw.decode("utf-8-sig"))
         except (ValueError, UnicodeError, IndexError, RecursionError) as error:
             if expected:
                 raise ValueError(display + "无法识别：" + str(error)) from error
-            ignored.append({"name": display, "reason": "JSON格式无效或不是约定材料"})
+            if named_ssd:
+                invalid_behavior_rows.append(
+                    {
+                        "id": fingerprint([display, raw.hex()])[:24],
+                        "name": name,
+                        "relative_path": display,
+                        "behavior_error": "JSON 读取失败",
+                    }
+                )
+            else:
+                ignored.append({"name": display, "reason": "JSON格式无效或不是约定材料"})
             continue
         if role is None:
             if expected:
                 raise ValueError(display + "不属于约定的五类格式")
-            ignored.append(
-                {"name": display, "reason": "非约定格式（如AR、融合模型或一致性报告），本次不接入"}
-            )
+            if named_ssd:
+                invalid_behavior_rows.append(
+                    {
+                        "id": fingerprint([display, raw.hex()])[:24],
+                        "name": name,
+                        "relative_path": display,
+                        "behavior_error": "缺少用例或系统操作定义",
+                    }
+                )
+            else:
+                ignored.append(
+                    {
+                        "name": display,
+                        "reason": "非约定格式（如AR、融合模型或一致性报告），本次不接入",
+                    }
+                )
             continue
         if expected and expected != role:
             raise ValueError(display + "声明用途" + expected + "与实际结构" + role + "不同")
@@ -209,13 +234,14 @@ def discover(*, directory=None, paths=None, files=None):
     extras = {}
     from scene_completion.inputs.behavior_imports import compile_product, context_for
 
+    supplied_rows = invalid_behavior_rows
     for b in behaviors:
         context = context_for(b["path"], behaviors)
         key = "behavior:" + fingerprint([b["path"], b["hash"]])[:20]
         try:
             product = compile_product(b["value"], key.split(":")[1], b["name"], context)
             error = None
-        except ValueError as e:
+        except (ValueError, TypeError, KeyError) as e:
             product = None
             error = str(e)
         record = {
@@ -232,13 +258,41 @@ def discover(*, directory=None, paths=None, files=None):
             "error": error,
         }
         rows.append(record)
+        supplied_rows.append(
+            {
+                "id": key,
+                "name": b["name"],
+                "relative_path": b["path"],
+                "hash": b["hash"],
+                "behavior_product": product,
+                "behavior_error": error,
+                "behavior_enabled": True,
+            }
+        )
         extras[key] = {
             "name": b["name"],
             "relative_path": b["path"],
             "behavior_context": context,
             "content_base64": base64.b64encode(b["raw"]).decode(),
         }
+    from scene_completion.inputs.structure_models import compile_model
+    from scene_completion.inputs.supplied_cases import inspect_cases
+
+    if supplied_rows:
+        for layer in ("RR", "SR"):
+            if layer in selected:
+                entry, raw = selected[layer]
+                try:
+                    supplied_rows.append(
+                        {"structure_model": compile_model(raw.decode("utf-8-sig"), entry["name"])}
+                    )
+                except ValueError as error:
+                    issues.append({"role": layer, "reason": str(error)})
+    supplied_preview = (
+        inspect_cases(supplied_rows)[0] if supplied_rows else {"cases": [], "accepted": []}
+    )
     preview = {
+        "supplied_cases": supplied_preview,
         "version": "five-input-bundle-v1",
         "files": rows,
         "missing": missing,
@@ -248,7 +302,9 @@ def discover(*, directory=None, paths=None, files=None):
         "complete": not missing and not issues,
         "model_calls": 0,
     }
-    preview["preview_hash"] = fingerprint({"files": rows, "missing": missing, "issues": issues})
+    preview["preview_hash"] = fingerprint(
+        {"files": rows, "missing": missing, "issues": issues, "supplied_cases": supplied_preview}
+    )
     return preview, {
         **{
             r: {"name": record["name"], "content_base64": base64.b64encode(raw).decode()}

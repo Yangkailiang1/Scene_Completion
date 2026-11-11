@@ -111,7 +111,7 @@ def register(app, service, project_root):
                 "format": kind,
                 "source_hash": handoff.source_hash(p),
             }
-        from scene_completion.workflow.scheduler import run_lock
+        from scene_completion.workflow_core import run_lock
 
         with service.lock, run_lock(p / "run"):
             if kind == "project":

@@ -116,7 +116,7 @@ def capabilities():
             "quality": "diagnose|report|impact|apply：冻结指标损失、证据归因、人工确认及定向重跑；--project ID --diagnosis ID --file approvals.json --dry-run/--rerun",
             "manager": "--project ID --action status|chat|configure|model|memory|operate|run；--file JSON及--dry-run，持久对话与托管",
             "recovery": "--project ID [--file policy.json --dry-run]；版本化恢复策略及持久预算记录",
-            "run/status/events/artifacts/guide/answer": "run支持--case（只跑所选）、--all-cases、--priority-case（优先后继续）；answer仅保存",
+            "run/status/events/artifacts/guide/answer": "run支持--case、--all-cases、--priority-case、--supplied-only（仅合格SSD）和--preview-supplied；answer仅保存",
         },
         "input_structures": {
             "pending": {
@@ -274,6 +274,8 @@ def parser():
             scope.add_argument("--case", action="append")
             scope.add_argument("--all-cases", action="store_true")
             a.add_argument("--priority-case", action="append")
+            a.add_argument("--supplied-only", action="store_true", help="仅运行已有合格 SSD 的用例")
+            a.add_argument("--preview-supplied", action="store_true", help="预检已有 SSD，不运行")
         if cmd == "events":
             a.add_argument("--after", type=int, default=0)
             a.add_argument("--node")
@@ -982,6 +984,12 @@ def main(argv=None, client=None):
         )
         return 0
     if args.command == "run":
+        if args.preview_supplied:
+            from urllib.parse import urlencode
+
+            query = urlencode({"case": args.case}, doseq=True) if args.case else ""
+            output(api.call(path + "/supplied-cases" + ("?" + query if query else "")))
+            return 0
         if args.timeout <= 0 or not 0.2 <= args.poll <= 60:
             raise ValueError("timeout需为正数，poll范围0.2至60秒")
         if args.mode:
@@ -989,7 +997,7 @@ def main(argv=None, client=None):
         # Begin at current cursor, not a replay of every historical token.
         current = api.call(path + "/execution-status")
         cursor = current["event_cursor"]
-        scope = {}
+        scope = {"supplied_only": True} if args.supplied_only else {}
         if args.case is not None:
             scope["case_ids"] = args.case
         if args.all_cases:

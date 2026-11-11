@@ -2,6 +2,7 @@ import os
 import re
 
 from scene_completion.models.http_transport import _resolve_env_reference
+from scene_completion.workflow_core.admission import concurrency_limit as concurrency_limit
 
 
 def model_name(value):
@@ -11,16 +12,6 @@ def model_name(value):
     if not resolved.strip() or "${" in resolved or any(c in resolved for c in "\r\n\x00"):
         raise ValueError("model configuration references an unset environment variable")
     return resolved.strip()
-
-
-def concurrency_limit(value=1):
-    if isinstance(value, str):
-        if not value.isdecimal():
-            raise ValueError("max_concurrency must be a positive integer")
-        value = int(value)
-    if type(value) is not int or value < 1:
-        raise ValueError("max_concurrency must be a positive integer")
-    return value
 
 
 def request_effort(config):

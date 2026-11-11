@@ -9,83 +9,9 @@ from scene_completion.workflow.support import safe_case
 
 @scoped_execution
 def finish(self):
-    def update():
-        records = self.scheduler.state["tasks"]
-        resolved = getattr(self.scheduler, "resolved_tasks", set())
+    from scene_completion.workflow.pipeline_execution import run_pipeline
 
-        def ready(dependencies):
-            return all(
-                d in resolved and records.get(d, {}).get("status") == "passed" for d in dependencies
-            )
-
-        for dependencies, expand in list(self.partitions):
-            if ready(dependencies):
-                self.partitions.remove((dependencies, expand))
-                expand()
-        api = records.get("api-index", {})
-        if self.expand_api and ready(("api-index", "api-map")):
-            self.scheduler.tasks.pop("api-parameters", None)
-            expand = self.expand_api
-            self.expand_api = None
-            expand()
-        elif self.expand_api and api.get("status") in {
-            "failed",
-            "rejected",
-            "pending",
-            "rate_limited",
-            "awaiting_configuration",
-            "budget_exhausted",
-            "awaiting_answer",
-            "awaiting_review",
-            "blocked_dependency",
-        }:
-            # A blocked index still declares the final dependency target;
-            # the scheduler will never treat it as a complete API table.
-            active = (
-                api.get("status") in {"failed", "rejected"}
-                and api.get("rounds", 0) < self.scheduler.rounds
-            )
-            if not active:
-                if "api-parameters" not in self.scheduler.tasks:
-                    self.add(
-                        "api-parameters",
-                        "api-parameters",
-                        ("api-index",),
-                        transform=lambda d: {"apis": []},
-                    )
-                    self.scheduler.tasks["api-parameters"].deferred = True
-        if self.expand_pipeline and ready(("use-case-align", "test-case-align")):
-            expand = self.expand_pipeline
-            self.expand_pipeline = None
-            expand()
-        for dependencies, expand in list(self.partitions):
-            if ready(dependencies):
-                self.partitions.remove((dependencies, expand))
-                expand()
-
-    self.scheduler.on_update = update
-    self.scheduler.on_result = self.publish_progress
-    result = self.scheduler.run()
-    if self.expand_api:
-        self.scheduler.tasks.pop("api-parameters", None)
-        expand = self.expand_api
-        self.expand_api = None
-        expand()
-        result = self.scheduler.run()
-    if self.expand_pipeline and all(
-        self.scheduler.state["tasks"].get(k, {}).get("status") == "passed"
-        for k in ("use-case-align", "test-case-align")
-    ):
-        expand = self.expand_pipeline
-        self.expand_pipeline = None
-        expand()
-        result = self.scheduler.run()
-    before = set(self.scheduler.tasks)
-    update()
-    if before != set(self.scheduler.tasks):
-        result = self.scheduler.run()
-    self.scheduler.on_update = None
-    self.scheduler.on_result = None
+    result = run_pipeline(self)
     artifact_root = self.root / "artifacts"
     # Keep independently completed task files; failed siblings cannot erase them.
     (self.root / "missing_report.json").unlink(missing_ok=True)
@@ -260,6 +186,8 @@ def finish(self):
         },
         tasks={k: r["status"] for k, r in records.items() if k in self.scheduler.tasks},
     )
+    if self.supplied_only:
+        self.manifest["global_analysis"]["evaluation_status"] = "本轮未运行全局分析"
     write_json(self.root / "run_manifest.json", self.manifest)
     import time
 

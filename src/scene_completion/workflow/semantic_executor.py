@@ -12,7 +12,7 @@ from scene_completion.analysis.exception_generation import (
 from scene_completion.analysis.validation import validate_result
 from scene_completion.domain.contracts import PROTOCOL, packet
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
-from scene_completion.workflow.scheduler import TaskBlocked, TaskRejected
+from scene_completion.workflow_core import TaskBlocked, TaskRejected
 
 
 def semantic(self, task, inputs, record):
@@ -121,6 +121,9 @@ def semantic(self, task, inputs, record):
                 reason="unchanged positive source/contract/Skill; actual scope and evidence revalidated",
             )
             return value, {"provider": "verified_positive_reuse", **source}
+    from scene_completion.inputs.task_evidence_tools import enabled as evidence_pilot_enabled
+
+    pilot = evidence_pilot_enabled(self.config, task, inputs)
     semantic_identity = fingerprint(
         {
             "task": task,
@@ -130,6 +133,7 @@ def semantic(self, task, inputs, record):
             "endpoint": self.identity["endpoint_hash"],
             "model": self.identity["model"],
             "guidance": self.conversations.revision(p["node_key"]),
+            **({"agent_evidence_pilot": True} if pilot else {}),
         }
     )
     cached_response = self.root / "semantic_responses" / (semantic_identity + ".json")

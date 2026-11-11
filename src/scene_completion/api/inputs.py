@@ -224,7 +224,7 @@ class InputWatcher:
     def convert(self, project, iid):
         try:
             from scene_completion.cli.task_commands import client_for
-            from scene_completion.workflow.scheduler import CallGate
+            from scene_completion.models.request_admission import CallGate
 
             config = self.service.model_config(project.name)
             config["run_root"] = str(project / "run")
