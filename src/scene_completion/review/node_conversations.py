@@ -202,6 +202,20 @@ class Conversations:
             ).fetchone()
         return json.loads(row[1]) if row and row[0] == identity else None
 
+    def unfinished_call_count(self, task, attempt):
+        """Recover only counters from an older scoped prompt, never its messages."""
+        with self.events.connect() as db:
+            row = db.execute("SELECT state FROM checkpoints WHERE task=?", (task,)).fetchone()
+        if not row:
+            return 0
+        state = json.loads(row[0])
+        if (
+            state.get("status") in {"awaiting_answer", "transport_wait", "failed"}
+            and state.get("attempt", 1) == attempt
+        ):
+            return state.get("model_calls", 0)
+        return 0
+
     def invalidate(self, task):
         with self.events.connect() as db:
             db.execute("DELETE FROM checkpoints WHERE task=?", (task,))

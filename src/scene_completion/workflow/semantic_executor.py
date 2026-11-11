@@ -24,7 +24,14 @@ def semantic(self, task, inputs, record):
     from scene_completion.infrastructure.execution_events import emit
     from scene_completion.models.usage_audit import context_summary
 
-    emit("context_prepared", task=task, context=context_summary(inputs))
+    summary = context_summary(inputs)
+    if scope := inputs.get("crud-entity-scope"):
+        summary["entity_scope"] = {
+            "project_entities": scope["project_entities"],
+            "selected_entities": len(inputs["business-entities"]["entities"]),
+            "ambiguous_names": len(scope["ambiguous_names"]),
+        }
+    emit("context_prepared", task=task, context=summary)
     p["skill_text"] = self.skill_text(task)
     if task == "exception-generate":
         # These are derived only from this task's positive inputs. They are

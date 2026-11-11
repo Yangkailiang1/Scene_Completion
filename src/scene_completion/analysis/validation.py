@@ -170,6 +170,10 @@ def validate_result(task, payload, inputs):
                             ]
                         )
                     )
+        if "crud-entity-scope" in inputs:
+            from scene_completion.analysis.crud_scope import validate_operations
+
+            validate_operations(payload, inputs)
     if task == "business-dependencies":
         known = {e["id"] for e in inputs["business-entities"]["entities"]}
         for row in payload["dependencies"]:
@@ -293,10 +297,17 @@ def validate_result(task, payload, inputs):
             "api-parameters": inputs["normal-constraints"],
         }
     docs = documents_in(inputs)
-    allowed = {fingerprint(r) for r in evidence_refs(inputs)}
+    input_refs = evidence_refs(inputs)
+    allowed = {fingerprint(r) for r in input_refs}
     evidence_errors = []
+    scoped_crud = task == "business-crud" and "crud-entity-scope" in inputs
     for ref in evidence_refs(payload):
         if fingerprint(ref) not in allowed:
+            if scoped_crud:
+                from scene_completion.analysis.crud_scope import excerpt_of
+
+                if excerpt_of(ref, input_refs):
+                    continue
             if not docs:
                 candidates = [
                     r for r in evidence_refs(inputs) if r["source_id"] == ref["source_id"]

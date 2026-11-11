@@ -108,7 +108,7 @@ def add(
         ]
     )
 
-    def inputs_for(dependencies):
+    def inputs_for(dependencies, *, legacy_crud=False):
         values = {k: payload(v) for k, v in dependencies.items()}
         result = build(values) if build else deepcopy(static)
         if imported:
@@ -136,6 +136,18 @@ def add(
                     for d in confirmation
                     if d["channel"] == "normal"
                 ]
+        if task == "business-crud" and (crud := result.pop("_crud_scope", None)) is not None:
+            aliases, legacy_aliases, locations = crud
+            if legacy_crud:
+                from scene_completion.inputs.colleague_formats import scoped_entities
+
+                result["business-entities"] = scoped_entities(
+                    result["business-entities"], legacy_aliases
+                )
+            else:
+                from scene_completion.analysis.crud_scope import project
+
+                result = project(result, aliases, locations)
         return result
 
     def execute(dependencies, record):
@@ -450,10 +462,15 @@ def add(
                 from scene_completion.analysis.failure_units import normalize_bindings
 
                 value = normalize_bindings(value, inputs)
-            if task == "business-crud" and self.mocks is None and not transform:
-                from scene_completion.analysis.crud_review import validate_reviews
+            if task == "business-crud" and not transform:
+                if self.mocks is None:
+                    from scene_completion.analysis.crud_review import validate_reviews
 
-                validate_reviews(value, inputs)
+                    validate_reviews(value, inputs)
+                if scope := inputs.get("crud-entity-scope"):
+                    from scene_completion.analysis.crud_scope import record_pending
+
+                    value = record_pending(value, scope, case)
             if task in {"existing-concerns", "test-concerns"}:
                 from scene_completion.analysis.concern_alignment import recognize
 
@@ -591,8 +608,23 @@ def add(
             for dep in deps
         }
         actual = inputs_for(dependencies)
-        if value.get("metadata", {}).get("input_hash") != fingerprint(actual):
-            raise ValueError("cached task input changed")
+        saved_hash = value.get("metadata", {}).get("input_hash")
+        if saved_hash != fingerprint(actual):
+            if "crud-entity-scope" not in actual or saved_hash != fingerprint(
+                inputs_for(dependencies, legacy_crud=True)
+            ):
+                raise ValueError("cached task input changed")
+            if self.mocks is None:
+                from scene_completion.analysis.crud_review import validate_reviews
+
+                validate_reviews(value["payload"], actual)
+            from scene_completion.analysis.crud_scope import record_pending
+
+            if (
+                record_pending(deepcopy(value["payload"]), actual["crud-entity-scope"], case)
+                != value["payload"]
+            ):
+                raise ValueError("cached CRUD result requires unresolved entity scope review")
         # Re-run schema checks on cache reads, not just initial responses.
         if task in SCHEMAS:
             validate_result(task, value["payload"], actual)

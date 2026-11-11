@@ -273,6 +273,8 @@ def packet(task, inputs, case_ids=None):
         optional = optional | {"case-catalogue"}
     if task in {"existing-extract", "test-ground-truth"}:
         optional = optional | {"identified-concerns"}
+    if task == "business-crud":
+        optional |= {"crud-entity-scope"}
     if task in {"business-entities", "business-crud", "business-dependencies", "data-dependencies"}:
         optional |= {"AR"}
     if task == "global-concerns":

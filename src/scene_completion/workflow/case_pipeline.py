@@ -33,7 +33,19 @@ def _build_cases(
 ):
     from scene_completion.analysis.use_cases import select_documents
     from scene_completion.inputs.api_documents import case_parameters
+    from scene_completion.inputs.artifact_imports import selections
     from scene_completion.inputs.source_documents import case_projection
+
+    entity_imports = selections(ex.root.parent, "business-entities", frozen=ex.import_snapshot)
+    active_tree_ids = {a["file_id"] for a in entity_imports}
+    entity_locations = {
+        (a["document"]["source_id"], item["line"]): {
+            "json_pointer": item["json_pointer"],
+            "file": a["file_name"],
+        }
+        for a in entity_imports
+        for item in a.get("json_locations", [])
+    }
 
     cases = [g["id"] for g in groups if g["status"] == "confirmed"]
     extraction_jobs = [("shared", t, t) for t in ("components", "api-map", "api-parameters")]
@@ -92,12 +104,6 @@ def _build_cases(
                 if c["id"] in group["rr_ids"] + group["sr_ids"]
             ]
         )
-        active_tree_ids = {
-            p["file_id"]
-            for p in __import__(
-                "scene_completion.inputs.artifact_imports", fromlist=["selections"]
-            ).selections(ex.root.parent, "business-entities", frozen=ex.import_snapshot)
-        }
         imported_interface_attributes = [
             a
             for row in ex.import_snapshot
@@ -280,11 +286,14 @@ def _build_cases(
             sr_docs=normal_projection(scoped_sr),
             ar_docs=normal_projection(scoped_ar),
             entity_scope=entity_scope,
+            locations=entity_locations,
+            case_id=cid,
         ):
             return {
                 "normal-documents": rr_docs + sr_docs + ar_docs,
-                "business-entities": scoped_entities(d["business-entities"], entity_scope),
+                "business-entities": d["business-entities"],
                 "fused-ssd": d["fused-ssd"],
+                "_crud_scope": ([case_id, *entity_scope], entity_scope, locations),
             }
 
         add("business-crud", ("business-entities", "fused-ssd"), build=crud_input)

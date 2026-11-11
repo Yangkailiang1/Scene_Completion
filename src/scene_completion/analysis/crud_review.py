@@ -41,6 +41,8 @@ def context(inputs):
     # RR/SR and adopted inputs can contribute the same source and line. Keep
     # the exact union so overlapping projections do not repeat the text.
     out["normal-documents"] = documents_in(out.get("normal-documents", []))
+    if "crud-entity-scope" in out:
+        out.pop("review-documents", None)  # Already present in the positive document union.
     fused = out["fused-ssd"]
     fused.pop("source_views", None)
     fused.pop("aliases", None)

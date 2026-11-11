@@ -178,7 +178,12 @@ class DeepAgentsClient(SemanticClient):
         original_packet = packet
         from scene_completion.inputs.indexed_context import EvidenceContext
 
-        indexed = EvidenceContext(packet) if self.config.get("indexed_context", False) else None
+        scoped_crud = packet["task"] == "business-crud" and "crud-entity-scope" in packet["input"]
+        indexed = (
+            EvidenceContext(packet)
+            if scoped_crud or self.config.get("indexed_context", False)
+            else None
+        )
         if indexed:
             packet = indexed.packet
         elif packet["task"] == "business-crud":
@@ -267,6 +272,9 @@ class DeepAgentsClient(SemanticClient):
             checkpoint_parts.append(mode)
         checkpoint_id = fingerprint(checkpoint_parts)
         saved = conversations.checkpoint(task_key, checkpoint_id) or {}
+        model_calls = saved.get("model_calls", 0)
+        if scoped_crud and not saved:
+            model_calls = conversations.unfinished_call_count(task_key, attempt)
         pending = conversations.pending(task_key)
         if pending:
             from scene_completion.review.review_questions import report
@@ -292,8 +300,9 @@ class DeepAgentsClient(SemanticClient):
         session = {
             "task_key": task_key,
             "conversations": conversations,
-            "count": saved.get("model_calls", 0),
-            "initial_count": saved.get("model_calls", 0),
+            "count": model_calls,
+            "initial_count": model_calls,
+            "scoped_crud": scoped_crud,
             "repair": packet.get("repair"),
         }
         if packet["task"] == "business-crud" and "candidate" in packet.get("repair", {}):
@@ -312,7 +321,7 @@ class DeepAgentsClient(SemanticClient):
         def question_refs(refs):
             return [
                 deepcopy(indexed.pool[r])
-                if indexed and isinstance(r, str) and r in indexed.pool
+                if indexed and isinstance(r, str) and indexed.visible_reference(r)
                 else r
                 for r in refs or []
             ]
@@ -356,10 +365,10 @@ class DeepAgentsClient(SemanticClient):
             description="记录非阻断业务疑问，返回后继续提交已知结果。问题类型：rule_completion/scenario_classification/binding_confirmation/general_clarification。包含已有依据、待决定事项和精确引用；不暂停节点，不自行猜测。",
         )
 
-        def lookup_evidence(evidence_ids: list[str]) -> dict:
+        def lookup_evidence(evidence_ids: list[str], offsets: dict[str, int] | None = None) -> dict:
             if indexed is None:
                 raise ValueError("this task has no indexed evidence")
-            return indexed.lookup(evidence_ids)
+            return indexed.lookup(evidence_ids, offsets)
 
         lookup = StructuredTool.from_function(
             func=lookup_evidence,
@@ -743,8 +752,14 @@ class DeepAgentsClient(SemanticClient):
             "messages": [{"role": "user", "content": task_message(packet)}],
             "files": {
                 skill_path: file(packet["skill_text"]),
-                "/input/task.json": file(json.dumps(packet, ensure_ascii=False, indent=2)),
-                **{path: file(text) for path, text in task_files(packet).items()},
+                **(
+                    {}
+                    if scoped_crud
+                    else {
+                        "/input/task.json": file(json.dumps(packet, ensure_ascii=False, indent=2)),
+                        **{path: file(text) for path, text in task_files(packet).items()},
+                    }
+                ),
             },
         }
         if self.config.get("reasoning_replay") and saved.get("messages"):
@@ -754,11 +769,8 @@ class DeepAgentsClient(SemanticClient):
             )
         if (
             not self.config.get("reasoning_replay")
-            and (
-                saved.get("status") == "awaiting_answer"
-                or saved.get("status") == "transport_wait"
-                and packet["task"] != "business-crud"
-            )
+            and packet["task"] != "business-crud"
+            and saved.get("status") in {"awaiting_answer", "transport_wait"}
             and saved.get("messages")
         ):
             from langchain_core.messages import ToolMessage, messages_from_dict, messages_to_dict
@@ -869,8 +881,9 @@ class DeepAgentsClient(SemanticClient):
                     if error == "TaskBlocked"
                     else ("failed" if error else "complete")
                 ),
-                "messages": messages_to_dict(history),
+                "messages": [] if packet["task"] == "business-crud" else messages_to_dict(history),
                 "model_calls": session["count"],
+                "attempt": attempt,
             }
             try:
                 conversations.checkpoint(task_key, checkpoint_id, checkpoint_value)
@@ -1115,15 +1128,20 @@ def _transport_model(client, stage):
                 if (
                     self.request_count < limit
                     and any(t["function"]["name"] == "lookup_evidence" for t in body["tools"])
-                    and self.task_stage
-                    in {
-                        "existing-extract",
-                        "test-ground-truth",
-                        "existing-concerns",
-                        "test-concerns",
-                    }
+                    and (
+                        bool(session and session.get("scoped_crud"))
+                        or self.task_stage
+                        in {
+                            "existing-extract",
+                            "test-ground-truth",
+                            "existing-concerns",
+                            "test-concerns",
+                        }
+                    )
                 ):
                     notice += '若已给材料确有缺口，可输出 {"evidence_request":["当前任务给定的evidence_id"]} 按需查证，最多8条；其后仍须提交完整结果，不得用未知ID或读取其他渠道。'
+                    if session and session.get("scoped_crud"):
+                        notice += '分页时可附 "offsets":{"evidence_id":next_offset}；引用返回的citation_id。'
                 converted[0]["content"] = str(converted[0]["content"]) + "\n" + notice
                 for key in ("tools", "tool_choice", "parallel_tool_calls"):
                     body.pop(key, None)
@@ -1273,10 +1291,16 @@ def _transport_model(client, stage):
                     ):
                         raise ValueError("incomplete task clarification")
                     name, args = "ask_user", detail
-                elif set(decoded) == {"evidence_request"}:
+                elif set(decoded) == {"evidence_request"} or (
+                    session
+                    and session.get("scoped_crud")
+                    and set(decoded) == {"evidence_request", "offsets"}
+                ):
                     if self.request_count >= limit:
                         raise ValueError("evidence lookup budget exhausted")
                     name, args = "lookup_evidence", {"evidence_ids": decoded["evidence_request"]}
+                    if "offsets" in decoded:
+                        args["offsets"] = decoded["offsets"]
                 elif "result" in decoded and set(decoded) <= {"result", "review_questions"}:
                     name, args = (
                         "submit_result",

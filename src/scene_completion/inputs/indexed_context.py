@@ -209,6 +209,36 @@ class EvidenceContext:
             self.register(r)
         self.input = self.encode(inputs)
         self.deferred_ids = set()
+        self.scoped_crud = packet["task"] == "business-crud" and "crud-entity-scope" in inputs
+        self.crud_read = set()
+        if self.scoped_crud:
+            from scene_completion.inputs.crud_evidence import INLINE_BYTES, location, size
+
+            locations = {
+                (r["source_id"], r["line"]): {k: r[k] for k in ("file", "json_pointer")}
+                for r in inputs["crud-entity-scope"]["source_locations"]
+            }
+            entity_ids = {
+                ref_id
+                for e in self.input["business-entities"]["entities"]
+                for ref_id in e["source_refs"]
+            }
+            self.deferred_ids.update(
+                key
+                for key, ref in self.pool.items()
+                if key not in self.doc_refs and size(ref) > INLINE_BYTES
+            )
+            self.input["evidence_locations"] = {
+                key: {
+                    **location(self.pool[key]),
+                    **locations.get(
+                        (self.pool[key]["source_id"], self.pool[key]["line_start"]), {}
+                    ),
+                    "deferred": key in self.deferred_ids,
+                }
+                for key in sorted(entity_ids | self.deferred_ids)
+            }
+            self.input["crud-entity-scope"].pop("source_locations", None)
         initial_evidence = set(self.pool)
         if packet["task"] in {"existing-extract", "test-ground-truth"}:
             present = {r["id"] for r in inputs.get("normal-rules", {}).get("rules", [])}
@@ -542,6 +572,14 @@ class EvidenceContext:
             + VERSION
             + "：source_refs只输出给定evidence_id字符串，不能复写引文、source_id或行号；程序从原始输入恢复引用。文档行标有[evidence_id]；派生产物引用见evidence_catalog。所有事实字段仍须有依据。"
         )
+        if self.scoped_crud:
+            self.packet["instructions"] += (
+                "\n仅在本用例列出的实体ID内归属CRUD。实体身份和字段名称不证明执行了CRUD。"
+                "每条CRUD须引用本用例原文或实际操作；实体归属不明则记录pending。"
+                "较长引用在evidence_locations中标为deferred；用lookup_evidence按ID读取。"
+                "返回citation_id可用于引用，next_offset非空时可继续分页；偏移单位为字符。"
+                "不得把未读的长引用ID直接作为source_refs提交。"
+            )
         if packet["task"] in {"concern-match", "existing-concerns", "test-concerns"}:
             self.packet["instructions"] += (
                 "\n识别本片实际适用的具体关注点并返回依据，不输出status/status_reason/inheritance_paths/service/functional_types/technologies/policy_id，这些由工具确定。字段规则须由本次识别明确提交。人类调用身份权限、外部服务可用性另由用户确认的规则保底；不要编造认证机制。未知规则列pending。幂等性属于全局C/U/D，不在交互识别中输出。"
@@ -561,14 +599,25 @@ class EvidenceContext:
                 "\n按实际先后顺序输出interactions数组，层内sequence由程序编号，不要填写。request不输出reply_to；即使误填，工具也不采用此提示建立关系。request必须识别operation.kinds（read/create/update/delete/display/process/publish/external_call）；return不填写kinds，由工具继承原请求操作类别，return是方向而不是功能类别。数据字段不填写data_type/required/default，这三项由API属性关联工具补齐。"
             )
 
-    def lookup(self, evidence_ids):
+    def lookup(self, evidence_ids, offsets=None):
         if (
             not isinstance(evidence_ids, list)
             or not 1 <= len(evidence_ids) <= 8
             or any(not isinstance(k, str) or k not in self.pool for k in evidence_ids)
         ):
             raise ValueError("select 1..8 evidence IDs from this isolated task")
+        if self.scoped_crud:
+            from scene_completion.inputs.crud_evidence import lookup
+
+            return lookup(self, evidence_ids, offsets)
+        if offsets is not None:
+            raise ValueError("evidence offsets are only supported for scoped CRUD")
         return {k: deepcopy(self.pool[k]) for k in evidence_ids}
+
+    def visible_reference(self, key):
+        return key in self.pool and (
+            not self.scoped_crud or key not in self.deferred_ids or key in self.crud_read
+        )
 
     def register(self, ref):
         layers = self.source_layers.get(ref["source_id"], set())
@@ -766,7 +815,7 @@ class EvidenceContext:
                     raise ReferenceContractError(
                         "reference_format_mismatch", path, "indexed", v, list(self.pool)
                     )
-                unknown = [r for r in v if r not in self.pool]
+                unknown = [r for r in v if not self.visible_reference(r)]
                 if unknown:
                     raise ReferenceContractError(
                         "unknown_evidence_id", path, "indexed", unknown, list(self.pool)

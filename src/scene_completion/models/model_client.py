@@ -235,11 +235,23 @@ class SemanticClient:
 
     def _agent(self, packet: dict) -> dict:
         prompt = dict(packet)
+        indexed = None
         if packet.get("task") == "business-crud":
-            from scene_completion.analysis.crud_review import context as crud_context
+            if "crud-entity-scope" in packet["input"]:
+                from scene_completion.inputs.indexed_context import EvidenceContext
+                from scene_completion.models.deepagents_client import compact_input
 
-            prompt["input"] = crud_context(packet["input"])
-        context_measurement = {"profile": "task-scoped-lossless"}
+                indexed = EvidenceContext(packet)
+                prompt = {**indexed.packet, "input": compact_input(indexed.input)}
+                prompt["instructions"] += (
+                    '如需查证，输出 {"evidence_request":["evidence_id"],"offsets":{}}；'
+                    "后续可用next_offset分页，只引用返回的citation_id。"
+                )
+            else:
+                from scene_completion.analysis.crud_review import context as crud_context
+
+                prompt["input"] = crud_context(packet["input"])
+        context_profile = "crud-indexed" if indexed else "task-scoped-lossless"
         body = {
             "model": self.model("agent"),
             "messages": [
@@ -259,7 +271,11 @@ class SemanticClient:
             "response_format": {"type": "json_object"},
             "max_tokens": self.output_limit(packet["stage"]),
         }
-        if packet.get("output_schema") and self.config.get("structured_output") == "json_schema":
+        if (
+            not indexed
+            and packet.get("output_schema")
+            and self.config.get("structured_output") == "json_schema"
+        ):
             body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -296,39 +312,62 @@ class SemanticClient:
             body["stream"] = True
             if self.config.get("include_usage"):
                 body["stream_options"] = {"include_usage": True}
-        response = self.post("/chat/completions", body)
-        finish_reason = response["choices"][0].get("finish_reason")
-        content = ""
-        try:
-            if finish_reason == "length":
-                raise ValueError(
-                    "provider truncated output at its token limit; batch is incomplete"
-                )
-            content = _content_from_response(response)
-            result = json.loads(content)
-            if not isinstance(result, dict):
-                raise ValueError("Agent response must be a JSON object")
-        except ValueError as exc:
-            # Keep source-derived output for diagnosis, never provider reasoning
-            # or request headers. A partial JSON response is not a completed batch.
-            diagnostic = {
-                "failure_category": "output_truncated"
-                if finish_reason == "length"
-                else "invalid_result_json",
-                "requested_model": body["model"],
-                "provider_model": response.get("model"),
-                "finish_reason": finish_reason,
-                "usage": response.get("usage"),
-                "thinking": bool(self.config.get("thinking")),
-                "reasoning_effort": body.get("reasoning_effort"),
-                "content": content.replace(self.api_key, "[redacted]") if self.api_key else content,
-            }
-            exc.response_diagnostic = diagnostic
-            raise
+        max_calls = self.config.get("agent_max_model_calls", 5) if indexed else 1
+        for turn in range(max_calls):
+            response = self.post("/chat/completions", body)
+            finish_reason = response["choices"][0].get("finish_reason")
+            content = ""
+            try:
+                if finish_reason == "length":
+                    raise ValueError(
+                        "provider truncated output at its token limit; batch is incomplete"
+                    )
+                content = _content_from_response(response)
+                result = json.loads(content)
+                if not isinstance(result, dict):
+                    raise ValueError("Agent response must be a JSON object")
+                if indexed:
+                    if set(result) in ({"evidence_request"}, {"evidence_request", "offsets"}):
+                        if turn + 1 >= max_calls:
+                            raise ValueError("evidence lookup budget exhausted")
+                        pages = indexed.lookup(result["evidence_request"], result.get("offsets"))
+                        body["messages"].extend(
+                            [
+                                {"role": "assistant", "content": content},
+                                {
+                                    "role": "user",
+                                    "content": json.dumps(
+                                        {"evidence_pages": pages}, ensure_ascii=False
+                                    ),
+                                },
+                            ]
+                        )
+                        continue
+                    result = indexed.expand(result)
+            except ValueError as exc:
+                # Keep source-derived output for diagnosis, never provider reasoning
+                # or request headers. A partial JSON response is not a completed batch.
+                diagnostic = {
+                    "failure_category": "output_truncated"
+                    if finish_reason == "length"
+                    else "invalid_result_json",
+                    "requested_model": body["model"],
+                    "provider_model": response.get("model"),
+                    "finish_reason": finish_reason,
+                    "usage": response.get("usage"),
+                    "thinking": bool(self.config.get("thinking")),
+                    "reasoning_effort": body.get("reasoning_effort"),
+                    "content": content.replace(self.api_key, "[redacted]")
+                    if self.api_key
+                    else content,
+                }
+                exc.response_diagnostic = diagnostic
+                raise
+            break
         result["execution_model_evidence"] = {
             "requested_model": body["model"],
             "provider_model": response.get("model"),
-            "context_profile": context_measurement["profile"],
+            "context_profile": context_profile,
             "context_policy_hash": fingerprint(packet.get("context_policy", {})),
             "thinking_budget": body.get("thinking_budget"),
             "max_tokens": body.get("max_tokens", body.get("max_completion_tokens")),
