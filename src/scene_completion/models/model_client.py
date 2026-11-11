@@ -173,6 +173,8 @@ class SemanticClient:
                             (getattr(exc, "response_diagnostic", {}) or {}).get("request_not_sent")
                             is True
                             or status in (400, 401, 403, 404, 422, 429)
+                            or status == 413
+                            and category == "provider_context_limit"
                             or (
                                 category == "quota_exhausted"
                                 and type(status) is int
@@ -233,6 +235,10 @@ class SemanticClient:
 
     def _agent(self, packet: dict) -> dict:
         prompt = dict(packet)
+        if packet.get("task") == "business-crud":
+            from scene_completion.analysis.crud_review import context as crud_context
+
+            prompt["input"] = crud_context(packet["input"])
         context_measurement = {"profile": "task-scoped-lossless"}
         body = {
             "model": self.model("agent"),

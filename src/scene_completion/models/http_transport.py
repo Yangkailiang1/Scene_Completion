@@ -305,6 +305,23 @@ def _post_chat_completions_diagnostic(
                 )
                 if parameter:
                     diagnostic["parameter"] = parameter
+            if (
+                chat
+                and exc.code in (400, 413, 422)
+                and any(
+                    marker in error_body
+                    for marker in (
+                        "context_length_exceeded",
+                        "context_window_exceeded",
+                        "maximum context length",
+                        "exceeds the context window",
+                        "prompt is too long",
+                    )
+                )
+            ):
+                diagnostic.update(
+                    failure_category="provider_context_limit", configuration_required=True
+                )
             retry_delay = _retry_after_seconds(exc.headers)
             if retry_delay is not None:
                 diagnostic["retry_after_seconds"] = retry_delay

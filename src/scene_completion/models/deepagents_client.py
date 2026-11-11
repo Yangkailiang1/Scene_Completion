@@ -181,6 +181,10 @@ class DeepAgentsClient(SemanticClient):
         indexed = EvidenceContext(packet) if self.config.get("indexed_context", False) else None
         if indexed:
             packet = indexed.packet
+        elif packet["task"] == "business-crud":
+            from scene_completion.analysis.crud_review import context as crud_context
+
+            packet = {**packet, "input": crud_context(packet["input"])}
         if packet["task"] == "api-map":
             from scene_completion.inputs.api_identity import (
                 mapping_model_candidate,
@@ -691,14 +695,38 @@ class DeepAgentsClient(SemanticClient):
                 "modified_at": now,
             }
 
+        backend = StateBackend()
+        permissions = [
+            FilesystemPermission(
+                paths=["/skills/**", "/input/**"], operations=["write"], mode="deny"
+            )
+        ]
+        middleware = [stop_after_submission]
+        if packet["task"] == "business-crud":
+            from deepagents.middleware.filesystem import FilesystemMiddleware
+            from deepagents.middleware.summarization import SummarizationMiddleware
+
+            # CRUD consumes an explicitly scoped packet. The final request
+            # preflight owns its budget, including tool schema and output.
+            middleware.extend(
+                [
+                    FilesystemMiddleware(
+                        backend=backend,
+                        permissions=permissions,
+                        human_message_token_limit_before_evict=None,
+                    ),
+                    SummarizationMiddleware(model=model, backend=backend, trigger=None),
+                ]
+            )
+
         # StateBackend has no route to local files; no original E or GT can leak
         # through a modeler tool even when a prompt-injected document requests it.
         agent = create_deep_agent(
             model=model,
-            middleware=[stop_after_submission],
+            middleware=middleware,
             tools=[submit_result, ask] + ([lookup] if indexed else []),
             subagents=[],
-            backend=StateBackend(),
+            backend=backend,
             skills=["/skills/"] if packet["skill_text"].lstrip().startswith("---") else [],
             system_prompt=role_text
             + "\n"
@@ -708,11 +736,7 @@ class DeepAgentsClient(SemanticClient):
             + "\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。"
             + "\n"
             + reference_instructions(indexed is not None),
-            permissions=[
-                FilesystemPermission(
-                    paths=["/skills/**", "/input/**"], operations=["write"], mode="deny"
-                )
-            ],
+            permissions=permissions,
             name="scene-" + role,
         )
         inputs = {

@@ -146,7 +146,7 @@ def test_crud_drops_oversized_candidate_and_persists_unsent_preflight(tmp_path):
     repair = {
         "failure": {"error": "invalid CRUD"},
         "round": 1,
-        "candidate": {"rows": ["Z" * 60000]},
+        "candidate": {"rows": ["OPTIONAL_CANDIDATE create/update product. " * 12000]},
     }
     client = DeepAgentsClient(
         configuration(tmp_path, max_context_tokens=50000, submission_mode="json_text"),
@@ -154,7 +154,9 @@ def test_crud_drops_oversized_candidate_and_persists_unsent_preflight(tmp_path):
     )
     with bind(EventStore(tmp_path), task_key="G-004:business-crud"):
         assert client.agent(crud_packet(repair=repair))["rows"] == []
-    assert len(sent) == 1 and "CURRENT_SOURCE_RULE" in sent[0] and "ZZZZZZ" not in sent[0]
+    assert (
+        len(sent) == 1 and "CURRENT_SOURCE_RULE" in sent[0] and "OPTIONAL_CANDIDATE" not in sent[0]
+    )
     client.config["max_context_tokens"] = 100
     with bind(EventStore(tmp_path), task_key="G-017:business-crud"):
         with pytest.raises(TaskBlocked) as blocked:
@@ -241,3 +243,64 @@ def test_buffered_text_blocks_remain_supported(tmp_path):
     with patch("urllib.request.urlopen", return_value=Response(json.dumps(value).encode())):
         result = client.post("/chat/completions", body())
     assert result["choices"] == value["choices"]
+
+
+@pytest.mark.parametrize("case,size", [("G-004", 804670), ("G-017", 786367)])
+def test_large_crud_source_reaches_transport_intact_under_token_budget(tmp_path, case, size):
+    from scene_completion.models.context_budget import check
+
+    line = (
+        "管理台接收提交的配置。平台服务检查实例是否存在，交由内部服务更新业务实体，并返回处理结果。"
+    )
+    text = line * (size // len(line.encode())) + "LAST_SOURCE_MARKER"
+    calls = []
+
+    def transport(_url, _key, request, _timeout, _retries):
+        body = json.dumps(request, ensure_ascii=False)
+        calls.append(check(request, client.config))
+        assert "LAST_SOURCE_MARKER" in body
+        assert body.count(line) == text.count(line)
+        assert "Message content too large" not in body
+        return {"choices": [{"message": {"content": '{"rows":[],"pending":[]}'}}]}
+
+    client = DeepAgentsClient(
+        configuration(
+            tmp_path,
+            max_context_tokens=200000,
+            max_tokens=12000,
+            submission_mode="json_text",
+            indexed_context=True,
+        ),
+        transport=transport,
+    )
+    p = crud_packet()
+    p["case_ids"] = [case]
+    p["input"]["normal-documents"][0]["lines"][0]["text"] = text
+    with bind(EventStore(tmp_path), task_key=f"{case}:business-crud"):
+        assert client.agent(p)["rows"] == []
+    (measured,) = calls
+    assert abs(measured["request_bytes"] - size) < 30000
+    assert measured["estimated_input_tokens"] < measured["input_budget_tokens"]
+    assert measured["input_budget_tokens"] + 12000 <= 200000
+    assert measured["context_tokenizer"] == "o200k_base" and measured["tokenizer_basis"] == "proxy"
+
+
+def test_provider_context_limit_is_reported_separately_from_local_preflight(tmp_path):
+    from urllib.error import HTTPError
+
+    gateway = HTTPError(
+        "https://test.invalid",
+        400,
+        "Bad Request",
+        {},
+        io.BytesIO(b'{"error":{"code":"context_length_exceeded","message":"private-key-12345"}}'),
+    )
+    client = SemanticClient(configuration(tmp_path))
+    with patch("urllib.request.urlopen", side_effect=gateway) as request:
+        with pytest.raises(TaskBlocked) as blocked:
+            CallGate(1).call(client.post, "/chat/completions", body())
+    assert request.call_count == 1
+    assert blocked.value.status == "awaiting_configuration"
+    assert blocked.value.details["failure_category"] == "provider_context_limit"
+    assert "not_sent" not in blocked.value.details
+    assert "private-key-12345" not in str(blocked.value)

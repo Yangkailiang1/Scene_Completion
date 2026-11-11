@@ -19,6 +19,8 @@ python serve.py --port 8765 --data-dir .workbench --env-file .env
 
 Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/Scene_Completion/releases)，解压到新目录，双击 `start.cmd`。程序包含Python和全部运行依赖。升级时保留 `data/` 与本地配置，勿用空目录覆盖；只对经过当前Schema、来源及任务规则校验的成功产物复用。原生Windows运行以客户验收记录为准。
 
+上下文预检默认使用包内分词资源。未知网关模型用 `o200k_base` 加余量估算，实际窗口以网关为准。节点的“请求上下文”分别展示字节大小、输入 Token 估计、输出预留与上限；模型设置或 CLI `configure --context-tokenizer` 可覆盖分词方式。额度账本继续按自身预留和供应商返回用量结算。
+
 ## 从目录定位代码
 
 | 目录 | 内容 |

@@ -87,14 +87,14 @@ def test_request_context_bound_includes_tools_history_schema_and_output_before_t
         "model": "m",
         "max_tokens": 100,
         "messages": [{"role": "system", "content": "short"}, {"role": "user", "content": "short"}],
-        "tools": [{"schema": "x" * 3000}],
+        "tools": [{"schema": "read, write, review\n" * 1200}],
     }
     with pytest.raises(RuntimeError) as exc:
         client.post("/chat/completions", body)
     assert not calls and exc.value.response_diagnostic["not_sent"]
     body.pop("tools")
     assert check(body, {"max_context_tokens": 2000})["output_reserve"] == 100
-    body["messages"].append({"role": "assistant", "content": "x" * 3000})
+    body["messages"].append({"role": "assistant", "content": "read, write, review\n" * 1200})
     with pytest.raises(RuntimeError):
         check(body, {"max_context_tokens": 2000})
 
@@ -243,3 +243,55 @@ def test_refinement_cannot_claim_unknown_format_as_executable():
         and not value["executable"]
         and value["pending_details"]
     )
+
+
+def test_crud_scope_unions_documents_without_losing_original_lines_or_data_references():
+    from scene_completion.analysis.crud_review import context
+
+    i = exchange()
+    i["data"]["sequence"] = deepcopy(memory_inputs()["api-parameters"]["apis"][0]["parameters"])
+    docs = [
+        {
+            "source_id": "src",
+            "name": "req.md",
+            "channel": "normal",
+            "lines": [{"number": 1, "text": "first"}, {"number": 2, "text": "second"}],
+        }
+    ]
+    docs.append(
+        {**docs[0], "lines": [{"number": 2, "text": "second"}, {"number": 3, "text": "third"}]}
+    )
+    value = {
+        "normal-documents": docs,
+        "fused-ssd": {"interactions": [i]},
+        "business-entities": {"entities": []},
+    }
+    compact = context(value)
+    assert [r["text"] for r in compact["normal-documents"][0]["lines"]] == [
+        "first",
+        "second",
+        "third",
+    ]
+    field = compact["fused-ssd"]["interactions"][0]["data"]["sequence"][0]
+    assert set(field) == {"name", "location", "source_refs"}
+    assert len(value["normal-documents"]) == 2
+    assert "constraints" in i["data"]["sequence"][0]
+
+
+def test_context_tokenizer_auto_uses_local_model_encoding_and_configured_byte_mode():
+    from unittest.mock import patch
+
+    from scene_completion.models.context_tokenizer import load_encoding
+
+    body = {
+        "model": "gpt-4",
+        "messages": [{"role": "user", "content": "example token count"}],
+        "max_tokens": 100,
+    }
+    load_encoding.cache_clear()
+    with patch("requests.get", side_effect=AssertionError("tokenizer must be offline")):
+        known = check(body, {"max_context_tokens": 2000})
+        fallback = check(body, {"max_context_tokens": 2000, "context_tokenizer": "utf8_bytes"})
+    assert known["context_tokenizer"] == "cl100k_base"
+    assert known["tokenizer_basis"] == "model_encoding" and known["tokenizer_margin_percent"] == 5
+    assert fallback["context_tokenizer"] == "utf8_bytes"

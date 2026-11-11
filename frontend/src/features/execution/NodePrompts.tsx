@@ -4,6 +4,12 @@ import { api, projectUrl } from "../../shared/api";
 
 type Budget = {
   estimated_input_tokens_upper_bound?: number;
+  estimated_input_tokens?: number;
+  input_budget_tokens?: number;
+  request_bytes?: number;
+  context_tokenizer?: string;
+  tokenizer_basis?: string;
+  tokenizer_margin_percent?: number;
   output_reserve?: number;
   max_context_tokens?: number;
   estimate_method?: string;
@@ -182,15 +188,24 @@ export function NodePrompts({
         <>
           <div className="rounded-lg border bg-slate-50 p-3 leading-6">
             <p>
-              保守输入上界{" "}
-              {budget?.estimated_input_tokens_upper_bound?.toLocaleString() ??
-                "未知"}{" "}
+              输入预算{" "}
+              {(
+                budget?.input_budget_tokens ??
+                budget?.estimated_input_tokens_upper_bound
+              )?.toLocaleString() ?? "未知"}{" "}
               ＋ 输出预留 {budget?.output_reserve?.toLocaleString() ?? "未知"}{" "}
               ／ 上下文上限{" "}
               {budget?.max_context_tokens?.toLocaleString() ?? "未知"}
             </p>
             <p className="text-xs text-slate-500">
-              按UTF-8字节及消息封装保守估算，并非供应商真实Token数。
+              {budget?.context_tokenizer &&
+              budget.context_tokenizer !== "utf8_bytes"
+                ? `本地 ${budget.context_tokenizer} 分词估计 ${budget.estimated_input_tokens?.toLocaleString() ?? "未知"} Token，预算另含消息封装和 ${budget.tokenizer_margin_percent ?? 0}% 余量。供应商计数可能不同。`
+                : budget?.tokenizer_basis === "asset_unavailable"
+                  ? "分词资源不可用，回退到 UTF-8 字节保守估算。"
+                  : "此记录使用 UTF-8 字节和消息封装估算。"}
+              {budget?.request_bytes != null &&
+                ` 请求大小 ${budget.request_bytes.toLocaleString()} 字节。`}
               {record.status === "context_blocked" &&
                 "此请求在HTTP发送前被阻止，不应原样重试。"}
             </p>

@@ -16,7 +16,12 @@ test("shows actual system, tool schema and blocked request budget", async () => 
                 status: "context_blocked",
                 attempt: 2,
                 budget: {
-                  estimated_input_tokens_upper_bound: 180000,
+                  estimated_input_tokens: 164000,
+                  input_budget_tokens: 180000,
+                  request_bytes: 804670,
+                  context_tokenizer: "o200k_base",
+                  tokenizer_basis: "proxy",
+                  tokenizer_margin_percent: 10,
                   output_reserve: 32000,
                   max_context_tokens: 200000,
                 },
@@ -51,6 +56,7 @@ test("shows actual system, tool schema and blocked request budget", async () => 
   );
   expect(screen.getByText("scoped source evidence")).toBeTruthy();
   expect(screen.getByText(/此请求在HTTP发送前被阻止/)).toBeTruthy();
+  expect(screen.getByText(/本地 o200k_base 分词估计.*请求大小/)).toBeTruthy();
   fireEvent.click(screen.getByText("工具与输出Schema"));
   expect(screen.getByText(/submit_result/)).toBeTruthy();
 });

@@ -323,6 +323,13 @@ def parser():
                     dest=key,
                     type=int,
                 )
+            from scene_completion.models.context_tokenizer import TOKENIZERS
+
+            a.add_argument(
+                "--context-tokenizer",
+                choices=TOKENIZERS,
+                help="本地上下文分词方式；auto按已知模型选择，未知模型使用o200k估算",
+            )
             a.add_argument(
                 "--auto-switch",
                 action=argparse.BooleanOptionalAction,

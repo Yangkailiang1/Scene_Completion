@@ -328,6 +328,18 @@ export function ModelSettings({
                 <option value="on">开启，单独保存扩展测试指标</option>
               </select>
             </label>
+            <label>
+              上下文分词方式
+              <select
+                name="context_tokenizer"
+                defaultValue={config.context_tokenizer || "auto"}
+              >
+                <option value="auto">自动（未知模型用 o200k 估算）</option>
+                <option value="o200k_base">o200k_base</option>
+                <option value="cl100k_base">cl100k_base</option>
+                <option value="utf8_bytes">UTF-8 字节保守估算</option>
+              </select>
+            </label>
             {[
               ["max_concurrency", "并发任务数", 2, 1, 8],
               [

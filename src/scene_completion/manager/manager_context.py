@@ -36,7 +36,11 @@ def execution_summary(state, limit=12):
         failure = r.get("failure") or {}
         text = json.dumps(failure, ensure_ascii=False)
         category = failure.get("failure_category")
-        if category == "context_budget_exceeded" or "task context exceeds" in text:
+        if category == "provider_context_limit":
+            action = (
+                "网关拒绝了上下文长度。请核对实际模型窗口、分词方式和输出预留，再缩小输入范围。"
+            )
+        elif category == "context_budget_exceeded" or "task context exceeds" in text:
             action = "上下文超限：检查完整请求预算及节点取片；重复同一请求不会解决。管理会话压缩不会压缩此节点原文。"
         elif r.get("status") == "budget_exhausted":
             action = "核对账号Token额度与预留；不得重置账本，不等同于语义修复次数。"

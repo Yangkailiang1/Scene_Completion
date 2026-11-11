@@ -5,3 +5,6 @@ The local web application uses React Flow (@xyflow/react, MIT), React (MIT), Rad
 `npm run build --prefix frontend` generates `web/third-party-licenses.txt` from the pinned production dependency packages. That file includes package names, versions, licenses and complete available copyright/license notices. It is included in the Windows offline package and available locally at `/static/third-party-licenses.txt`. No frontend CDN or runtime package download is used. The archived Deep Agents UI was only a design reference; its code is not incorporated.
 
 Python dependencies are pinned in `requirements-windows.lock`. Their installed distribution metadata and bundled license files remain in `python/Lib/site-packages` in the offline distribution. CPython's embedded distribution retains its LICENSE.txt. The offline bundle is built from official CPython and Windows wheels, not from a macOS virtual environment.
+
+
+The offline context estimator includes OpenAI tiktoken's cl100k_base and o200k_base mergeable ranks and patterns. Their upstream resource URLs and SHA-256 hashes are recorded in `src/scene_completion/models/tokenizer_data/manifest.json`. The tiktoken MIT license is included in that directory.

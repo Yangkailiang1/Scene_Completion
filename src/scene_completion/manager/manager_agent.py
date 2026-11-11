@@ -544,10 +544,14 @@ def _compact_history_chunk(journal, config, client):
     )
     limit = config["max_context_tokens"]
     reserve = client.output_limit("manager")
-    body = {"messages": [{"role": "system", "content": system}, *messages], "max_tokens": reserve}
+    body = {
+        "model": client.model("agent"),
+        "messages": [{"role": "system", "content": system}, *messages],
+        "max_tokens": reserve,
+    }
     if (
         overflow
-        or estimate(body)["estimated_input_tokens_upper_bound"] + reserve
+        or estimate(body, config)["input_budget_tokens"] + reserve
         > limit * settings(journal.project)["settings"]["compression_ratio"]
     ) and len(messages) > 1:
         keep = min(6, len(rows) - 1) if not overflow else 1

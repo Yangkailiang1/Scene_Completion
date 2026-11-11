@@ -3,6 +3,8 @@
 import json
 from copy import deepcopy
 
+from scene_completion.models.context_tokenizer import TOKENIZERS
+
 INTS = {
     "max_concurrency": (2, 1, 8),
     "max_tokens": (12000, 256, 2000000),
@@ -24,6 +26,7 @@ BOOLS = {
     "supplement_tests",
 }
 ENUMS = {
+    "context_tokenizer": set(TOKENIZERS),
     "thinking_api": {"legacy", "enable_thinking", "chat_template_kwargs", "omit"},
     "submission_mode": {"tool_calls", "json_text"},
     "component_submission_mode": {"tool_calls", "json_text"},

@@ -2,6 +2,9 @@
 
 from copy import deepcopy
 
+from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.inputs.source_documents import documents_in, evidence_refs
+
 
 def request_index(inputs):
     return [i for i in inputs["fused-ssd"]["interactions"] if i["direction"] == "request"]
@@ -35,14 +38,26 @@ def context(inputs):
     This view never infers or inserts a CRUD result.
     """
     out = deepcopy(inputs)
+    # RR/SR and adopted inputs can contribute the same source and line. Keep
+    # the exact union so overlapping projections do not repeat the text.
+    out["normal-documents"] = documents_in(out.get("normal-documents", []))
     fused = out["fused-ssd"]
     fused.pop("source_views", None)
     fused.pop("aliases", None)
     for interaction in fused["interactions"]:
         for side in ("sender", "receiver"):
-            interaction[side] = {
-                k: v for k, v in interaction[side].items() if k in {"name", "position"}
-            }
+            party = interaction[side]
+            interaction[side] = {k: party[k] for k in ("name", "position") if k in party}
+            if refs := evidence_refs(party):
+                interaction[side]["source_refs"] = list({fingerprint(r): r for r in refs}.values())
+        if data := interaction.get("data"):
+            data["sequence"] = [
+                {
+                    **{k: field[k] for k in ("name", "location") if k in field},
+                    "source_refs": list({fingerprint(r): r for r in evidence_refs(field)}.values()),
+                }
+                for field in data.get("sequence", [])
+            ]
     out["business-entities"] = {
         "entities": [
             {k: v for k, v in entity.items() if k in {"id", "name", "source_refs"}}

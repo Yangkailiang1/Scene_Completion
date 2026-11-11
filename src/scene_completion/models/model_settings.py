@@ -60,6 +60,7 @@ def resolve(overrides, env_path, accounts_root=None):
     config.setdefault("stream", True)
     config.setdefault("indexed_context", True)
     config.setdefault("max_context_tokens", 200000)
+    config.setdefault("context_tokenizer", "auto")
     config.setdefault("supplement_tests", False)
     config.setdefault("max_retries", 0)
     config.setdefault("stream_idle_timeout_seconds", 300)
