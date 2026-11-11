@@ -57,10 +57,8 @@ test("absolute paths preview before apply and keep partial adoption explicit", a
   await screen.findByText("RR用例与已有场景");
   expect(calls).toHaveLength(1);
   expect(calls[0].url).toContain("input-bundles/preview");
-  expect(screen.getByText(/缺少的响应继续抽取/)).toBeTruthy();
-  fireEvent.click(
-    screen.getByLabelText("采用已校验的部分字段和属性，其余仍由对应节点补齐"),
-  );
+  expect(screen.getByText(/只使用已提供的 SR 接口契约/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("采用可校验的字段、属性和行为文件"));
   fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
   await waitFor(() => expect(imported).toHaveBeenCalledOnce());
   expect(calls[1].url).toBe("/api/projects/p/input-bundles");

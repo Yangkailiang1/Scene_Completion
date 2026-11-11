@@ -251,3 +251,56 @@ test("structured RR import shows actual skip scope and can disable its version",
     expected_revision: 0,
   });
 });
+
+test("supplied SSD preflight starts only the validated cases", async () => {
+  const runs: unknown[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => ({
+      ok: true,
+      json: async () => {
+        if (url.endsWith("/supplied-cases")) {
+          return {
+            accepted: ["G-001"],
+            cases: [
+              {
+                file_id: "ok",
+                file: "Product/create/SysOperation.json",
+                name: "创建商品",
+                case_id: "G-001",
+                target: "G-001:fused-ssd",
+                status: "ready",
+                reason: "校验通过",
+              },
+              {
+                file_id: "bad",
+                file: "Product/update/SysOperation.json",
+                name: "更新商品",
+                case_id: "G-002",
+                target: "G-002:fused-ssd",
+                status: "excluded",
+                reason: "返回缺少请求",
+              },
+            ],
+          };
+        }
+        if (url.endsWith("/run")) {
+          runs.push(JSON.parse(String(init?.body)));
+          return { status: "running" };
+        }
+        if (url.endsWith("/imports")) return { items: [] };
+        if (url.endsWith("/input-scan")) return {};
+        if (url.endsWith("/results")) return { cases: [] };
+        return null;
+      },
+    })),
+  );
+  render(<InputManager project="validated" />);
+  fireEvent.click(screen.getByRole("button", { name: "预检已有 SSD" }));
+  expect(await screen.findByText("未纳入 · 返回缺少请求")).toBeTruthy();
+  expect(await screen.findByText("已有 SSD 预检完成。")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "仅运行已校验的用例" }));
+  await waitFor(() =>
+    expect(runs).toEqual([{ supplied_only: true, case_ids: ["G-001"] }]),
+  );
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2,
   FileText,
@@ -23,6 +23,7 @@ export function InputManager({
   onOpenPlan?: () => void;
 }) {
   const [supplied, setSupplied] = useState<SuppliedPreview>();
+  useEffect(() => setSupplied(undefined), [project]);
   const {
     labels,
     statuses,
@@ -104,7 +105,7 @@ export function InputManager({
                     setSupplied(
                       await api(projectUrl(project, "supplied-cases")),
                     );
-                  })
+                  }, "已有 SSD 预检完成。")
                 }
               >
                 预检已有 SSD
@@ -143,6 +144,7 @@ export function InputManager({
           initialFiles={bundleFiles}
           onClose={() => setBundleOpen(false)}
           onImported={() => {
+            setSupplied(undefined);
             load().catch((e) => setMessage(e.message));
             setMessage(
               "已有文件输入已保存；未启动模型，后续按采用范围复用或补齐。",
@@ -162,14 +164,16 @@ export function InputManager({
           <button
             disabled={busy || !supplied.accepted.length}
             onClick={() =>
-              action(() =>
-                api(projectUrl(project, "run"), {
-                  method: "POST",
-                  body: JSON.stringify({
-                    supplied_only: true,
-                    case_ids: supplied.accepted,
+              action(
+                () =>
+                  api(projectUrl(project, "run"), {
+                    method: "POST",
+                    body: JSON.stringify({
+                      supplied_only: true,
+                      case_ids: supplied.accepted,
+                    }),
                   }),
-                }),
+                "已提交本轮合格用例，请在工作区查看进度。",
               )
             }
           >

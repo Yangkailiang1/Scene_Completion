@@ -109,13 +109,16 @@ export function useInputManagerController({
     setReplace(false);
     setEditor(JSON.stringify(row.artifacts?.[0]?.payload || {}, null, 2));
   };
-  const action = async (fn: () => Promise<any>) => {
+  const action = async (
+    fn: () => Promise<any>,
+    success = "已保存；运行中变更保留为候选，下一安全执行轮接入。",
+  ) => {
     setBusy(true);
     setMessage("");
     try {
       await fn();
       await load();
-      setMessage("已保存；运行中变更保留为候选，下一安全执行轮接入。");
+      setMessage(success);
     } catch (e: any) {
       setMessage(e.message);
     } finally {
