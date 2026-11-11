@@ -309,8 +309,8 @@ export function InputBundlePicker({
                 </p>
               ))}
               <p>
-                请求、成功响应和失败响应分别保留。仅运行已校验用例时，只使用已提供的
-                SR 接口契约，缺项留待补充。
+                仅运行已校验用例时，SR
+                接口及字段约束来自功能树。缺少方向、位置或响应定义时会列出待补项。
               </p>
               <label className="input-bundle-checkbox">
                 <input
@@ -352,9 +352,10 @@ export function InputBundlePicker({
               !preview.files.length ||
               (!project &&
                 (!projectName.trim() ||
-                  preview.missing.some(
-                    (k: string) => k === "RR" || k === "SR",
-                  )))
+                  (!(adopt && preview.supplied_cases?.accepted?.length) &&
+                    preview.missing.some(
+                      (k: string) => k === "RR" || k === "SR",
+                    ))))
             }
             onClick={apply}
           >

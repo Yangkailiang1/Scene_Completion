@@ -456,7 +456,7 @@ def add(
                         for t in value["tests"] + mechanical_tests(inputs)["tests"]
                     }.values()
                 )
-            if task == "use-case-align" and self.mocks is None:
+            if task == "use-case-align" and self.mocks is None and not self.supplied_only:
                 from scene_completion.analysis.use_cases import canonical_correspondence
 
                 value = canonical_correspondence(value, inputs)

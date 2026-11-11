@@ -55,7 +55,8 @@ class Workbench:
             raise ValueError("invalid review mode")
         sources = body.get("sources", {})
         saved = {}
-        if not sources.get("RR") or not sources.get("SR"):
+        supplied_default = body.get("supplied_only_default") is True
+        if not supplied_default and (not sources.get("RR") or not sources.get("SR")):
             raise ValueError("请提供RR和SR Markdown或结构模型JSON")
         from scene_completion.inputs.test_sources import ImportValidationError, preview_sources
 
@@ -97,6 +98,8 @@ class Workbench:
             "protocol": PROTOCOL,
             "ruleset_version": RULESET_VERSION,
         }
+        if supplied_default:
+            meta["supplied_only_default"] = True
         write_json(p / "project.json", meta)
         from scene_completion.review.project_review import project_registry
 
@@ -359,9 +362,16 @@ class Workbench:
 
     def supplied_case_preview(self, rid, case_ids=()):
         from scene_completion.inputs.artifact_imports import snapshot
+        from scene_completion.inputs.supplied_api import supplied_interfaces
         from scene_completion.inputs.supplied_cases import inspect_cases
 
-        return inspect_cases(snapshot(self.run_dir(rid)), case_ids)[0]
+        root = self.run_dir(rid)
+        rows = snapshot(root)
+        preview, _, _, accepted = inspect_cases(rows, case_ids)
+        if accepted:
+            _, _, contracts, _, pending = supplied_interfaces(root, rows, accepted)
+            preview.update(sr_interface_count=len(contracts), sr_api_pending=pending)
+        return preview
 
     def _start(self, rid, options=None):
         if self.review_only:
@@ -377,6 +387,9 @@ class Workbench:
             options["supplied_only"] = True
             if "case_ids" not in options and "case_ids" in previous_scope:
                 options["case_ids"] = previous_scope["case_ids"]
+        project = read_json(p / "project.json")
+        if project.get("supplied_only_default"):
+            options["supplied_only"] = True
         if set(options) - {"case_ids", "priority_cases", "supplied_only"}:
             raise ValueError("不支持的运行范围参数")
         for k in ("case_ids", "priority_cases"):
@@ -396,7 +409,6 @@ class Workbench:
         if "supplied_only" in options and type(options["supplied_only"]) is not bool:
             raise ValueError("仅运行已校验用例选项必须为布尔值")
         if options.get("supplied_only"):
-            project = read_json(p / "project.json")
             selected = options.get("case_ids", project.get("case_ids")) or []
             if not self.supplied_case_preview(rid, selected)["accepted"]:
                 raise ValueError("没有通过正式校验的已有 SSD 用例")

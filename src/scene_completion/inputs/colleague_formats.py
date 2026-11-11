@@ -429,6 +429,71 @@ def api_product(value, file_id, name):
     }
 
 
+def function_interfaces(value, file_id, name):
+    """Project the tree's declared SR interfaces and positive field evidence."""
+    from scene_completion.inputs.api_identity import qualified_identity
+
+    facts = Facts(file_id + "-interfaces", name)
+    entries = []
+    for n, case in enumerate(value["functions"]):
+        commands = {}
+        for j, command in enumerate(case["rrLayer"].get("commands", [])):
+            commands.setdefault(command["apiId"], []).append((j, command))
+        for j, details in enumerate(case["srLayer"].get("commands", [])):
+            api_id = details["apiId"]
+            for source_no, source in commands.get(api_id, []):
+                layer = source.get("source_layer")
+                if layer is None:
+                    marker = re.search(r"(?<!\w)(RR|SR)(?!\w)", str(source.get("source", "")))
+                    layer = marker[1] if marker else None
+                if layer != "SR":
+                    continue
+                ident, declared_id = qualified_identity({"id": api_id}, "SR")
+                entry = {
+                    "case_id": case["ucId"],
+                    "case_name": case.get("name") or case["ucId"],
+                    "api_id": declared_id,
+                    "qualified_id": ident,
+                    "name": source.get("name") or api_id,
+                    "method": source.get("method"),
+                    "address": source.get("path"),
+                    "source_layer": layer,
+                }
+                entry["source_refs"] = facts.add(
+                    entry, f"/functions/{n}/rrLayer/commands/{source_no}"
+                )
+                entry["attributes"] = []
+                for k, attr in enumerate(details.get("attributes", [])):
+                    field = {
+                        key: attr[key]
+                        for key in (
+                            "name",
+                            "type",
+                            "tags",
+                            "location",
+                            "direction",
+                            "required",
+                            "default",
+                        )
+                        if key in attr
+                    }
+                    field["rules"] = [
+                        rule["rule"]
+                        for rule in attr.get("constraints", [])
+                        if isinstance(rule, dict) and isinstance(rule.get("rule"), str)
+                    ]
+                    field["source_refs"] = facts.add(
+                        field, f"/functions/{n}/srLayer/commands/{j}/attributes/{k}"
+                    )
+                    entry["attributes"].append(field)
+                entries.append(entry)
+    return {
+        "interface_declarations": entries,
+        "interface_document": facts.document,
+        "interface_locations": facts.locations,
+    }
+
+
 def function_product(value, file_id, name):
     facts = Facts(file_id, name)
     entities = {}
@@ -559,6 +624,7 @@ def function_product(value, file_id, name):
     payload = {"entities": list(entities.values()), "pending": pending}
     return {
         "format": "function_tree",
+        **function_interfaces(value, file_id, name),
         "artifacts": [
             facts.artifact(
                 "business-entities",

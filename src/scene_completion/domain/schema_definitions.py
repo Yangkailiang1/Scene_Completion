@@ -73,6 +73,7 @@ INTERFACE_CONSTRAINT = obj(
 API_PARAMETERS["properties"].update(
     interface_scope=enum("system", "external"),
     interface_constraints=arr(INTERFACE_CONSTRAINT),
+    bound_interaction_ids=arr(S),
 )
 API_PARAMETERS["properties"]["responses"] = arr(
     obj(
@@ -350,6 +351,7 @@ BRANCH = obj(
     id=S, case_hint=STR, description=S, operation_hint=STR, party_hint=STR, source_refs=REFS
 )
 BRANCH["properties"]["scenario_type"] = enum("exception", "normal", "optional", "pending")
+BRANCH["properties"].update(behavior_operation_id=S, behavior_step_id=S, behavior_interaction_id=S)
 BINDING = obj(
     branch_id=S,
     interaction_id=NULL_S,

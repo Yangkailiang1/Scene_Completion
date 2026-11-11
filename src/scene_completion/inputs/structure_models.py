@@ -119,12 +119,11 @@ def compile_model(text, name):
         seen.add(cid)
         pointer = "/entities/" + str(positions[e["entity_id"]])
         start = emit("## " + cid + "：" + label, pointer)
-        actor_ids = e.get("actors", [])
-        if any(a not in entities for a in actor_ids):
-            raise ValueError("用例actors引用未知实体：" + cid)
+        actor_ids = e.get("actors") or []
         actors = [
             entities[a].get("canonical_name") or entities[a].get("source_name") or a
             for a in actor_ids
+            if isinstance(a, str) and a in entities
         ]
         meta = {"id": cid, "name": label, "goal": label, "actors": actors, "layer": layer}
         mains = [

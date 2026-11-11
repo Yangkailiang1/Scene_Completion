@@ -24,6 +24,11 @@ def resolved_api_id(i, inputs):
     from scene_completion.inputs.http_interfaces import declarations
 
     apis = inputs.get("api-parameters", inputs.get("normal-constraints", {})).get("apis", [])
+    apis = [
+        a
+        for a in apis
+        if "bound_interaction_ids" not in a or i.get("id") in a["bound_interaction_ids"]
+    ]
     if i.get("layer") == "RR" and not any(a.get("source_layer") in (None, "RR") for a in apis):
         return None
     if i["direction"] == "return" and i.get("parent_id"):

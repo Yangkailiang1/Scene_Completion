@@ -244,14 +244,22 @@ def discover(*, directory=None, paths=None, files=None):
         except (ValueError, TypeError, KeyError) as e:
             product = None
             error = str(e)
+        label = product["label"] if product else "行为建模结果（待修正）"
+        targets = product["target_nodes"] if product else []
+        if product and product["kind"] == "ordered_scenario":
+            if product["layer"] == "SR" and product.get("scenario_document"):
+                label = "SR原文分支（按ID对应SysOperation）"
+            else:
+                label = "行为参考文件"
+                targets = []
         record = {
             "role": "behavior",
-            "label": product["label"] if product else "行为建模结果（待修正）",
+            "label": label,
             "name": b["name"],
             "path": b["path"],
             "hash": b["hash"],
             "bytes": len(b["raw"]),
-            "target_nodes": product["target_nodes"] if product else [],
+            "target_nodes": targets,
             "case_name": product["case_name"] if product else context.get("case_name"),
             "counts": product["counts"] if product else {},
             "coverage": "partial",
@@ -288,9 +296,51 @@ def discover(*, directory=None, paths=None, files=None):
                     )
                 except ValueError as error:
                     issues.append({"role": layer, "reason": str(error)})
-    supplied_preview = (
-        inspect_cases(supplied_rows)[0] if supplied_rows else {"cases": [], "accepted": []}
-    )
+    supplied_preview, accepted = {"cases": [], "accepted": []}, {}
+    if supplied_rows:
+        supplied_preview, _, _, accepted = inspect_cases(supplied_rows)
+    if supplied_preview["accepted"]:
+        from scene_completion.inputs.colleague_formats import function_interfaces
+        from scene_completion.inputs.supplied_api import contracts_for_cases
+
+        if api := selected.pop("api_extraction", None):
+            ignored.append(
+                {
+                    "name": api[0]["path"],
+                    "reason": "已有SSD模式从功能树读取SR接口和字段约束",
+                }
+            )
+        rows = [row for row in rows if row["role"] != "api_extraction"]
+        issues = [issue for issue in issues if issue["role"] != "api_extraction"]
+        missing = [role for role in missing if role != "api_extraction"]
+        for row in rows:
+            if row["role"] == "function_tree":
+                row["target_nodes"] = [
+                    "business-entities",
+                    "api-map（SR）",
+                    "api-index（SR）",
+                    "api-parameters（SR）",
+                    "<用例>:interaction-enrich",
+                ]
+        definitions = []
+        if tree := selected.get("function_tree"):
+            record, raw = tree
+            try:
+                parsed_tree = function_interfaces(
+                    json.loads(raw.decode("utf-8-sig")), record["hash"][:24], record["name"]
+                )
+                definitions = [
+                    (declaration, parsed_tree["interface_document"])
+                    for declaration in parsed_tree["interface_declarations"]
+                ]
+            except (ValueError, TypeError, KeyError) as error:
+                issues.append({"role": "function_tree", "reason": str(error)})
+        try:
+            _, _, contracts, _, api_pending = contracts_for_cases(definitions, accepted)
+        except (ValueError, TypeError, KeyError) as error:
+            issues.append({"role": "function_tree", "reason": str(error)})
+        else:
+            supplied_preview.update(sr_interface_count=len(contracts), sr_api_pending=api_pending)
     preview = {
         "supplied_cases": supplied_preview,
         "version": "five-input-bundle-v1",

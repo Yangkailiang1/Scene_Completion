@@ -63,6 +63,18 @@
               "pending"
             ]
           },
+          "behavior_operation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "behavior_step_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "behavior_interaction_id": {
+            "type": "string",
+            "minLength": 1
+          },
           "original_id": {
             "type": "string",
             "minLength": 1

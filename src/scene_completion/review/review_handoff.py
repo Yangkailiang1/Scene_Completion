@@ -87,6 +87,21 @@ def source_documents(project):
                         "json_locations": artifact.get("json_locations", []),
                     }
                 )
+        tree = item.get("colleague_product") or {}
+        if (
+            (doc := tree.get("interface_document"))
+            and doc["lines"]
+            and not any(d["source_id"] == doc["source_id"] for d in out)
+        ):
+            out.append(
+                {
+                    **doc,
+                    "role": "colleague_artifact",
+                    "derived_from": "import-raw-" + item["id"],
+                    "original_path": item["original"],
+                    "json_locations": tree["interface_locations"],
+                }
+            )
         if item.get("behavior_product"):
             p = item["behavior_product"]
             for doc, locations in (

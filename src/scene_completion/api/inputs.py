@@ -280,8 +280,12 @@ def register(app, service):
         preview, files = discover(
             directory=body.get("directory"), paths=body.get("paths"), files=body.get("files")
         )
-        if not preview["valid"] or any(k not in files for k in ("RR", "SR")):
-            raise ValueError("请提供唯一的RR、SR结构模型，先核对导入预览")
+        supplied = bool(preview["supplied_cases"]["accepted"])
+        adopt = bool(body.get("adopt_partial", False))
+        if not preview["valid"] or (
+            not (supplied and adopt) and any(k not in files for k in ("RR", "SR"))
+        ):
+            raise ValueError("请提供已校验的SysOperation或唯一的RR、SR结构模型")
         if body.get("expected_hash") and body["expected_hash"] != preview["preview_hash"]:
             raise ValueError("文件已变化，请重新预览")
         if body.get("dry_run"):
@@ -297,6 +301,7 @@ def register(app, service):
                 }
             ]
             for role in ("RR", "SR")
+            if role in files
         }
         if "test" in files:
             sources["test"] = [
@@ -314,6 +319,7 @@ def register(app, service):
                 "review_mode": body.get("review_mode", "manual"),
                 "evaluation_scope": body.get("evaluation_scope", "SR"),
                 "case_ids": body.get("case_ids", []),
+                "supplied_only_default": supplied and adopt,
             }
         )
         imported = apply(
@@ -321,7 +327,7 @@ def register(app, service):
             service.run_dir(meta["id"]),
             preview,
             files,
-            adopt_partial=bool(body.get("adopt_partial", False)),
+            adopt_partial=adopt,
         )
         return {**meta, "input_bundle": imported}
 

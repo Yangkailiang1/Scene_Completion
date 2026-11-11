@@ -42,7 +42,9 @@ def group_path(path):
 def context_for(path, files):
     group = group_path(path)
     siblings = [f for f in files if group_path(f["path"]) == group]
-    names = {f["value"]["use_case"] for f in siblings if f["value"].get("use_case")}
+    primary = [f for f in siblings if format_of(f["value"]) == "system_operations"]
+    identity = primary or siblings
+    names = {f["value"]["use_case"] for f in identity if f["value"].get("use_case")}
     source = next((f["value"] for f in siblings if format_of(f["value"]) == "ordered_ssd"), None)
     parts = PurePosixPath(str(path).replace("\\", "/")).parts
     return {
@@ -50,28 +52,63 @@ def context_for(path, files):
         "case_name": next(iter(names)) if len(names) == 1 else None,
         "case_ids": list(
             dict.fromkeys(
-                f["value"]["use_case_id"] for f in siblings if f["value"].get("use_case_id")
+                f["value"]["use_case_id"] for f in identity if f["value"].get("use_case_id")
             )
         ),
-        "layer": "RR" if "IR" in parts else "SR" if "SR" in parts else None,
+        "layer": "RR"
+        if parts[-3:-1] == ("behaviour", "IR")
+        else "SR"
+        if parts[-3:-1] == ("behaviour", "SR")
+        else None,
         "outer_ssd": deepcopy(source),
     }
 
 
 def scenario_kind(record):
     kind = record.get("scenario_kind")
-    if kind in {"main", "exception", "alternative", "pending"}:
+    if kind == "optional":
+        return "alternative"
+    if kind in {"main", "exception", "alternative", "normal", "pending"}:
         return kind
     if (
-        record.get("source_key", "").endswith("::main_success")
-        or record.get("ID", "").endswith("_main_success")
-        or record.get("sourceSD", "").endswith("_main_success")
+        (record.get("source_key") or "").endswith("::main_success")
+        or (record.get("ID") or "").endswith("_main_success")
+        or (record.get("sourceSD") or "").endswith("_main_success")
     ):
         return "main"
     text = json.dumps(record.get("source_refs", []), ensure_ascii=False)
     if "可选场景" in text or "正常备选" in text:
         return "alternative"
     return "pending"
+
+
+def existing_document(value, file_id, name, layer, case_name):
+    kind = scenario_kind(value)
+    if kind == "main":
+        return None
+    branch = {
+        "id": layer + "::ordered-" + file_id + "::" + value["ID"],
+        "case_hint": case_name or "",
+        "description": json.dumps(
+            {
+                "trigger": value.get("guard"),
+                "extends": value.get("extend_at_main"),
+                "resume": value.get("resume_at_main"),
+                "interaction": value["interaction"],
+                "action": value["action"],
+            },
+            ensure_ascii=False,
+        ),
+        "operation_hint": case_name or "",
+        "party_hint": "",
+        "scenario_type": {"alternative": "optional"}.get(kind, kind),
+    }
+    return {
+        "source_id": "import-ordered-existing-" + file_id,
+        "name": name,
+        "channel": "existing",
+        "lines": [{"number": 1, "text": BRANCH_MARKER + json.dumps(branch, ensure_ascii=False)}],
+    }
 
 
 def ordered_nodes(record, *, include_event=False):
@@ -273,33 +310,8 @@ def compile_product(value, file_id, name, context, version):
                     {"kind": node_kind, "node": row, "participant": value["participant"]},
                     "/" + pointer_for(value, node_kind, row),
                 )
-        elif sk == "exception":
-            # Branch data has its own source document, never positive G inputs.
-            branch = {
-                "id": layer + "::ordered-" + file_id + "::" + value["ID"],
-                "case_hint": case_name or "",
-                "description": json.dumps(
-                    {
-                        "trigger": value.get("guard"),
-                        "extends": value.get("extend_at_main"),
-                        "resume": value.get("resume_at_main"),
-                        "interaction": value["interaction"],
-                        "action": value["action"],
-                    },
-                    ensure_ascii=False,
-                ),
-                "operation_hint": case_name or "",
-                "party_hint": "",
-            }
-            line = BRANCH_MARKER + json.dumps(branch, ensure_ascii=False)
-            sid = "import-ordered-existing-" + file_id
-            scenario_doc = {
-                "source_id": sid,
-                "name": name,
-                "channel": "existing",
-                "lines": [{"number": 1, "text": line}],
-            }
         else:
+            scenario_doc = existing_document(value, file_id, name, layer, case_name)
             retained.append({"id": value["ID"], "kind": sk})
             if sk == "pending":
                 warn(value["ID"], "分支未明确异常/正常/可选类型，保留待确认，不自动计为E或GT")

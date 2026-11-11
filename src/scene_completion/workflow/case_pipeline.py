@@ -112,7 +112,7 @@ def _build_cases(
         imported_interface_attributes = [
             a
             for row in ex.import_snapshot
-            if row["id"] in active_tree_ids
+            if supplied is None and row["id"] in active_tree_ids
             for a in row.get("colleague_product", {}).get("interface_attributes", [])
             if a["case_id"] in entity_scope or a["case_name"] in entity_scope
         ]
@@ -123,11 +123,21 @@ def _build_cases(
             sr, [c for c in catalogue["SR"] if c["id"] in group["sr_ids"]], catalogue["SR"]
         )
         base_existing = scoped_rr + scoped_sr
-        from scene_completion.inputs.behavior_imports import materials as behavior_materials
+        if supplied is None:
+            from scene_completion.inputs.behavior_imports import materials as behavior_materials
 
-        behavior = behavior_materials(ex.import_snapshot, entity_scope)
-        scoped_rr += behavior["RR"]
-        scoped_sr += behavior["SR"]
+            behavior = behavior_materials(ex.import_snapshot, entity_scope)
+            scoped_rr += behavior["RR"]
+            scoped_sr += behavior["SR"]
+            existing_docs = list(
+                {doc["source_id"]: doc for doc in base_existing + behavior["existing"]}.values()
+            )
+        else:
+            frozen = supplied[cid]
+            actual_document = frozen["row"]["behavior_product"]["normal_document"]
+            scoped_rr.append(actual_document)
+            scoped_sr.append(actual_document)
+            existing_docs = frozen["existing"]["documents"]
         scoped_ar = []
         if ar:
             from scene_completion.inputs.source_documents import case_projection
@@ -182,55 +192,21 @@ def _build_cases(
                 "version": "exception-test-sources-v1",
             },
         )
-        existing_docs = list(
-            {doc["source_id"]: doc for doc in base_existing + behavior["existing"]}.values()
-        )
         if supplied is not None:
-            from scene_completion.inputs.structure_models import existing_branches
             from scene_completion.workflow_core import TaskBlocked
 
-            # Structured requirement files explicitly enumerate their existing
-            # branches. If neither channel supplied an inventory, absence is unknown.
+            existing = supplied[cid]["existing"]
+
             def imported_branches(d):
-                import json
-
-                from scene_completion.inputs.structure_models import BRANCH_MARKER, model_layer
-
-                branches = []
-                has_inventory = False
-                for document in d["existing-documents"]:
-                    if model_layer(document):
-                        known = existing_branches([document])
-                        branches.extend(known["branches"])
-                        has_inventory = has_inventory or bool(known["branches"])
-                    elif document["channel"] == "existing":
-                        for line in document["lines"]:
-                            if not line["text"].startswith(BRANCH_MARKER):
-                                continue
-                            branch = json.loads(line["text"][len(BRANCH_MARKER) :])
-                            branches.append(
-                                {
-                                    **branch,
-                                    "source_refs": [
-                                        {
-                                            "source_id": document["source_id"],
-                                            "line_start": line["number"],
-                                            "line_end": line["number"],
-                                            "quote": line["text"],
-                                        }
-                                    ],
-                                }
-                            )
-                            has_inventory = True
-                if not has_inventory:
+                if not d["supplied"]["inventory"]:
                     raise TaskBlocked(
-                        "awaiting_context", {"reason": "尚未提供本用例的已有异常目录"}
+                        "awaiting_context", {"reason": "本用例缺少可对应的 behaviour/SR 已有场景"}
                     )
-                return {"branches": list({b["id"]: b for b in branches}.values())}
+                return {"branches": deepcopy(d["supplied"]["branches"])}
 
             add(
                 "existing-branches-source",
-                static={"existing-documents": existing_docs},
+                static={"existing-documents": existing_docs, "supplied": existing},
                 transform=imported_branches,
                 stage="existing-branches",
             )
@@ -259,7 +235,6 @@ def _build_cases(
             transform=ssd_context,
         )
         if supplied is not None:
-            frozen = supplied[cid]
             source = frozen["row"]["behavior_product"]["normal_document"]
             ex.add(
                 key("fused-ssd"),
@@ -534,17 +509,32 @@ def _build_cases(
                 partition=True,
             )
 
+        from scene_completion.inputs.supplied_branches import bindings as supplied_bindings
+
+        def existing_view(value):
+            if supplied is None:
+                return value
+            return {
+                **value,
+                "interactions": [i for i in value["interactions"] if i["layer"] == "SR"],
+                "rr_sr_links": [],
+            }
+
         add(
             "existing-bind",
-            ("existing-branches", "fused-ssd", "normal-rules"),
+            ("existing-branches", "fused-ssd")
+            + (() if supplied is not None else ("normal-rules",)),
             build=lambda d, g=group: {
                 "branches": d["existing-branches"],
-                "fused-ssd": d["fused-ssd"],
+                "fused-ssd": existing_view(d["fused-ssd"]),
                 "case-group": g,
                 "registry": registry(),
-                "normal-rules": d["normal-rules"],
+                **({"normal-rules": d["normal-rules"]} if supplied is None else {}),
             },
-            partition=True,
+            transform=(lambda d: supplied_bindings(d["branches"]))
+            if supplied is not None
+            else None,
+            partition=supplied is None,
         )
         add(
             "existing-concerns",
@@ -556,12 +546,12 @@ def _build_cases(
                 "api-map",
                 "normal-rules",
             ),
-            build=lambda d, docs=scoped_rr + scoped_sr: {
+            build=lambda d, docs=existing_docs if supplied is not None else scoped_rr + scoped_sr: {
                 "existing-documents": docs,
                 "registry": registry(),
                 "branches": d["existing-branches"],
                 "bindings": d["existing-bind"],
-                "fused-ssd": d["fused-ssd"],
+                "fused-ssd": existing_view(d["fused-ssd"]),
                 "normal-constraints": case_parameters(d, d["fused-ssd"]),
                 "normal-rules": d["normal-rules"],
             },
@@ -584,7 +574,7 @@ def _build_cases(
             build=lambda d: {
                 "bindings": d["existing-bind"],
                 "identified-concerns": d["existing-concerns"],
-                "fused-ssd": d["fused-ssd"],
+                "fused-ssd": existing_view(d["fused-ssd"]),
             },
             transform=bindings_at_recognitions,
         )
@@ -599,12 +589,12 @@ def _build_cases(
                 "normal-rules",
                 "existing-concerns",
             ),
-            build=lambda d, docs=scoped_rr + scoped_sr: {
+            build=lambda d, docs=existing_docs if supplied is not None else scoped_rr + scoped_sr: {
                 "existing-documents": docs,
                 "registry": registry(),
                 "branches": d["existing-branches"],
                 "bindings": d["existing-locations"],
-                "fused-ssd": d["fused-ssd"],
+                "fused-ssd": existing_view(d["fused-ssd"]),
                 "normal-constraints": case_parameters(d, d["fused-ssd"]),
                 "normal-rules": d["normal-rules"],
                 "identified-concerns": d["existing-concerns"],

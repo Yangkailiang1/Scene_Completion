@@ -42,4 +42,4 @@ scene.cmd run --project PROJECT_ID --preview-supplied
 scene.cmd run --project PROJECT_ID --supplied-only --case G-001 --wait
 ```
 
-省略 `--case` 时运行所有已通过预检的用例。SR 接口表使用已提供且绑定到当前用例的契约，保留成功和失败响应的缺项。RR 交互继续用于分析。项目级全局分析本轮不调度，缺失测试的用例显示未评测。
+省略 `--case` 时运行所有已通过预检的用例。实际交互和参与者来自 `SysOperation.json`，已有异常取自同用例的 `behaviour/SR/`。SR 接口表采用 `功能树.json` 中能绑定实际 SR 请求的定义，并列出字段及响应缺项。RR 交互继续用于分析。项目级全局分析本轮不调度，缺失测试的用例显示未评测。

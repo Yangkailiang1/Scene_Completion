@@ -15,7 +15,7 @@ from scene_completion.infrastructure.storage import fingerprint, read_json, writ
 from scene_completion.inputs.artifact_imports import purpose, selections, snapshot
 from scene_completion.models.deepagents_client import role_for
 
-VERSION = "input-dependency-preview-v4-external-api-contracts"
+VERSION = "input-dependency-preview-v6-function-tree-sr"
 MODES = {
     "reuse": "可复用，跳过对应LLM抽取",
     "partial": "部分已提供，仍补缺项",
@@ -98,7 +98,7 @@ class Plan:
             key=key,
             stage=stage,
             deps=deps,
-            case=kwargs.get("case", "shared"),
+            case=kwargs.get("case") or "shared",
             display_label=None,
             **kwargs_to_task(kwargs),
         )
@@ -110,6 +110,80 @@ def kwargs_to_task(kwargs):
         "build": kwargs.get("build"),
         "static": kwargs.get("static", {}),
     }
+
+
+def supplied_binding(task, row, accepted, active):
+    product = row.get("behavior_product") or {}
+    entry = accepted.get(task.case, {})
+    source_id = (product.get("scenario_document") or {}).get("source_id")
+    if source_id and task.stage in {
+        "existing-branches",
+        "existing-bind",
+        "existing-concerns",
+        "existing-extract",
+    }:
+        documents = entry.get("existing", {}).get("documents", [])
+        if any(doc["source_id"] == source_id for doc in documents):
+            branches = entry["existing"]["branches"]
+            if not any(
+                ref["source_id"] == source_id
+                for branch in branches
+                for ref in branch["source_refs"]
+            ):
+                return "pending", "SR分支尚未唯一对应SysOperation或异常类型待确认"
+            return (
+                "basis" if task.stage in {"existing-concerns", "existing-extract"} else "reuse",
+                "本用例的SR行为文件提供原文异常及分支ID",
+            )
+    if entry.get("row", {}).get("id") == row["id"] and task.stage in {
+        "components",
+        "fused-ssd",
+        "rr-ssd",
+        "sr-ssd",
+        "normal-rules",
+        "business-crud",
+    }:
+        return (
+            "reuse" if task.stage in {"components", "fused-ssd", "rr-ssd", "sr-ssd"} else "basis",
+            "SysOperation提供本用例的实际交互及参与者",
+        )
+    if task.key == "components" and any(
+        candidate["row"]["id"] == row["id"] for candidate in accepted.values()
+    ):
+        return "reuse", "从已纳入用例的实际步骤汇总参与者"
+    model = row.get("structure_model")
+    if (
+        model
+        and row.get("structure_enabled", True)
+        and task.key == model["layer"].lower() + "-use-cases"
+    ):
+        return "basis", "结构目录提供可对应的用例编号"
+    if row.get("role") == "test" and task.stage in {
+        "test-inventory",
+        "test-case-align",
+        "test-concerns",
+        "test-ground-truth",
+    }:
+        return (
+            "reuse" if task.transform else "basis",
+            "独立测试来源，用于目录、定位和评测",
+        )
+    for artifact in row["artifacts"]:
+        if (row["id"], artifact["id"]) not in active:
+            continue
+        if artifact["task"] == "business-entities" and task.stage == "business-entities":
+            return "reuse", "转换功能树中的业务实体和属性"
+        tree_doc = (row.get("colleague_product") or {}).get("interface_document")
+        if tree_doc and task.stage in {
+            "api-map",
+            "api-index",
+            "api-parameters",
+        }:
+            if tree_doc["source_id"] in {
+                d["source_id"] for d in task.static.get("import-documents", [])
+            }:
+                return "reuse", "采用功能树中可对应实际SR调用的接口及字段约束"
+    return None, ""
 
 
 def build(project):
@@ -129,6 +203,14 @@ def build(project):
         read_json(project / "model.local.json") if (project / "model.local.json").exists() else {}
     )
     flags = {k: bool(config.get(k, False)) for k in ("scenario_patterns", "supplement_tests")}
+    from scene_completion.infrastructure.worker_runtime import read_job
+    from scene_completion.inputs.supplied_cases import inspect_cases
+
+    supplied_mode = bool(
+        meta.get("supplied_only_default")
+        or read_job(project).get("run_options", {}).get("supplied_only")
+    )
+    supplied_entries = inspect_cases(imports, meta.get("case_ids", []))[3] if supplied_mode else {}
     identity = fingerprint(
         [
             VERSION,
@@ -136,6 +218,7 @@ def build(project):
             meta["sources"],
             meta.get("case_ids", []),
             flags,
+            supplied_mode,
             (PROGRAM_ROOT / "src/scene_completion/workflow/planning.py").read_text(),
         ]
     )
@@ -177,62 +260,73 @@ def build(project):
     with TemporaryDirectory(prefix="scene-import-plan-") as temporary:
         ex = Plan(Path(temporary) / "run", imports, flags)
         ex.root.mkdir()
-        build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
-        # Expand only interfaces literally supplied and accepted, with real IDs.
-        maps = {
-            layer: {
-                "services": [
-                    s
-                    for a in selections(project, "api-map", frozen=imports)
-                    if a.get("source_layer") == layer
-                    for s in a["payload"]["services"]
-                ]
+        if supplied_mode:
+            ex.supplied_only = True
+            ex.case_ids = meta.get("case_ids", [])
+            if supplied_entries:
+                build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
+            groups = [entry["group"] for entry in supplied_entries.values()]
+            case_labels = {
+                cid: entry["row"]["behavior_product"]["case_name"]
+                for cid, entry in supplied_entries.items()
             }
-            for layer in ("RR", "SR")
-        }
+        else:
+            build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
+            # Expand only interfaces literally supplied and accepted, with real IDs.
+            maps = {
+                layer: {
+                    "services": [
+                        s
+                        for a in selections(project, "api-map", frozen=imports)
+                        if a.get("source_layer") == layer
+                        for s in a["payload"]["services"]
+                    ]
+                }
+                for layer in ("RR", "SR")
+            }
 
-        def put(key, value):
-            from scene_completion.domain.contracts import PROTOCOL
+            def put(key, value):
+                from scene_completion.domain.contracts import PROTOCOL
 
-            name = key + ".json"
-            write_json(ex.root / name, {"protocol": PROTOCOL, "payload": value})
-            ex.scheduler.state["tasks"][key] = {"status": "passed", "output_file": name}
+                name = key + ".json"
+                write_json(ex.root / name, {"protocol": PROTOCOL, "payload": value})
+                ex.scheduler.state["tasks"][key] = {"status": "passed", "output_file": name}
 
-        for layer in ("RR", "SR"):
-            put(layer.lower() + "-api-map", maps[layer])
-        put("api-map", merge_mappings([(layer, maps[layer]) for layer in ("RR", "SR")]))
-        indexes = {}
-        # The literal directory index must use the same API documents as execution.
-        for layer in ("RR", "SR"):
-            imported_docs = [
-                a["document"]
-                for task in ("api-map", "api-parameters")
-                for a in selections(project, task, frozen=imports)
-                if a.get("source_layer") == layer
-            ]
-            indexes[layer] = index_interfaces(
-                {layer: docs[layer] + imported_docs, "api-map": maps[layer]}
+            for layer in ("RR", "SR"):
+                put(layer.lower() + "-api-map", maps[layer])
+            put("api-map", merge_mappings([(layer, maps[layer]) for layer in ("RR", "SR")]))
+            indexes = {}
+            # The literal directory index must use the same API documents as execution.
+            for layer in ("RR", "SR"):
+                imported_docs = [
+                    a["document"]
+                    for task in ("api-map", "api-parameters")
+                    for a in selections(project, task, frozen=imports)
+                    if a.get("source_layer") == layer
+                ]
+                indexes[layer] = index_interfaces(
+                    {layer: docs[layer] + imported_docs, "api-map": maps[layer]}
+                )
+            put(
+                "api-index",
+                {
+                    "apis": qualify_index(indexes["RR"], "RR")["apis"]
+                    + qualify_index(indexes["SR"], "SR")["apis"]
+                },
             )
-        put(
-            "api-index",
-            {
-                "apis": qualify_index(indexes["RR"], "RR")["apis"]
-                + qualify_index(indexes["SR"], "SR")["apis"]
-            },
-        )
-        ex.expand_api()
-        if groups:
-            _build_cases(
-                ex,
-                docs["RR"],
-                docs["SR"],
-                docs["test"],
-                {layer: catalogues[layer]["cases"] for layer in ("RR", "SR")},
-                groups,
-                {},
-                {},
-                ar=docs["AR"],
-            )
+            ex.expand_api()
+            if groups:
+                _build_cases(
+                    ex,
+                    docs["RR"],
+                    docs["SR"],
+                    docs["test"],
+                    {layer: catalogues[layer]["cases"] for layer in ("RR", "SR")},
+                    groups,
+                    {},
+                    {},
+                    ar=docs["AR"],
+                )
         tasks = list(ex.scheduler.tasks.values())
     file_rows = [
         {
@@ -255,6 +349,17 @@ def build(project):
         bindings = []
         mode = "tool" if task.transform else "execute"
         for row in imports:
+            if supplied_mode:
+                hit, why = supplied_binding(task, row, supplied_entries, active)
+                if hit:
+                    bindings.append(
+                        {
+                            **next(f for f in file_rows if f["file_id"] == row["id"]),
+                            "mode": hit,
+                            "explanation": why,
+                        }
+                    )
+                continue
             hit = None
             why = ""
             model = row.get("structure_model")
@@ -402,11 +507,15 @@ def build(project):
     ids = {n["id"] for n in nodes}
     edges = [e for e in edges if e["source"] in ids]
     # Real global fan-out is dependency-specific and is not known before analysis.
-    for role, stage, label, parents in [
-        ("modeler", "global-concerns", "全局关注点与场景分析", ["business-dependencies"]),
-        ("checker", "global-compare", "全局关注点／场景匹配", ["global-concerns"]),
-        ("recommender", "global-recommend", "全局风险推荐与指标", ["global-compare"]),
-    ]:
+    for role, stage, label, parents in (
+        []
+        if supplied_mode
+        else [
+            ("modeler", "global-concerns", "全局关注点与场景分析", ["business-dependencies"]),
+            ("checker", "global-compare", "全局关注点／场景匹配", ["global-concerns"]),
+            ("recommender", "global-recommend", "全局风险推荐与指标", ["global-compare"]),
+        ]
+    ):
         key = "planned:" + stage
         if key in ids:
             continue

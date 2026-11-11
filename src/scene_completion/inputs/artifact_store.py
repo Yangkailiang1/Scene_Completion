@@ -27,7 +27,35 @@ def save(project, index):
 
 
 def snapshot(project):
-    return [read_json(Path(project) / r["record"]) for r in load(project)["items"].values()]
+    from scene_completion.inputs.ordered_behaviors import existing_document
+
+    project = Path(project)
+    rows = [read_json(project / r["record"]) for r in load(project)["items"].values()]
+    for row in rows:
+        tree = row.get("colleague_product") or {}
+        if tree.get("format") == "function_tree" and "interface_declarations" not in tree:
+            import json
+
+            from scene_completion.inputs.colleague_formats import function_interfaces
+
+            original = project / row["original"]
+            if original.is_file():
+                tree.update(
+                    function_interfaces(
+                        json.loads(original.read_text(encoding="utf-8-sig")), row["id"], row["name"]
+                    )
+                )
+        product = row.get("behavior_product") or {}
+        if product.get("kind") != "ordered_scenario" or product.get("scenario_document"):
+            continue
+        doc = existing_document(
+            product["raw"], row["id"], row["name"], product["layer"], product["case_name"]
+        )
+        if doc:
+            product.update(
+                scenario_document=doc, scenario_locations=[{"line": 1, "json_pointer": ""}]
+            )
+    return rows
 
 
 def archive(project, row):

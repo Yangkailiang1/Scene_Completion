@@ -547,7 +547,11 @@ def main(argv=None, client=None):
                 else {"directory": str(Path(args.input_dir).resolve())}
             )
             preview, found = discover(**selection)
-            if args.input_manifest or any(k in found for k in ("RR", "SR")):
+            if (
+                args.input_manifest
+                or any(k in found for k in ("RR", "SR"))
+                or preview["supplied_cases"]["cases"]
+            ):
                 if args.rr or args.sr or args.test:
                     raise ValueError("五文件导入模式不再混用--rr/--sr/--test，请在清单中指定")
                 output(

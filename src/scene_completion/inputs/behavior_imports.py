@@ -436,7 +436,9 @@ def materials(rows, scope, *, diagnostics=None):
             if p.get("normal_document", {}).get("lines"):
                 for layer in ("RR", "SR") if p["kind"] == "system_operations" else (p["layer"],):
                     out[layer].append(deepcopy(p["normal_document"]))
-            if p.get("scenario_document"):
+            from scene_completion.inputs.ordered_behaviors import scenario_kind
+
+            if p.get("scenario_document") and scenario_kind(p["raw"]) == "exception":
                 out["existing"].append(deepcopy(p["scenario_document"]))
             for entry in p["pending"]:
                 issue(row, entry["reason"])
