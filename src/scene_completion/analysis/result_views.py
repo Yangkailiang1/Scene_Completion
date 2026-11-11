@@ -50,6 +50,14 @@ class ResultView:
         self.evaluation_scope = validate_scope(evaluation_scope or default_scope)
         self._scope_inputs_cache = {}
 
+    def definitions(self):
+        from scene_completion.domain.concern_registry import default_registry
+
+        path = self.root / "registry_used" / (str(self.manifest.get("registry_hash")) + ".json")
+        return (
+            read_json(path)["definitions"] if path.is_file() else default_registry()["definitions"]
+        )
+
     def payload(self, key):
         r = self.state.get(key, {})
         if r.get("status") != "passed" or not r.get("output_file"):
@@ -67,7 +75,10 @@ class ResultView:
                     "api-parameters": self.payload("api-parameters"),
                 }
             self._scope_inputs_cache[cid] = {
-                **self._scope_contracts,
+                **{
+                    name: self.payload(cid + ":" + name) or value
+                    for name, value in self._scope_contracts.items()
+                },
                 "fused-ssd": self.payload(cid + ":fused-ssd"),
                 "enriched-interactions": self.payload(cid + ":enriched-view"),
                 "gap-recommend": self.payload(cid + ":gap-recommend"),
@@ -699,16 +710,13 @@ class ResultView:
 
             enriched = canonical_fused(
                 fused,
-                {
-                    "api-parameters": self.payload("api-parameters"),
-                    "api-map": self.payload("api-map"),
-                },
+                {name: self.scope_inputs(cid)[name] for name in ("api-parameters", "api-map")},
             )
         from scene_completion.analysis.interaction_enrichment import display_parameters
 
         enriched = display_parameters(
             enriched,
-            {"api-parameters": self.payload("api-parameters"), "api-map": self.payload("api-map")},
+            {name: self.scope_inputs(cid)[name] for name in ("api-parameters", "api-map")},
         )
         evaluation = (
             evaluation_override
@@ -761,16 +769,8 @@ class ResultView:
             for r in recommendation.get("ranked", [])
         }
         from scene_completion.domain.concern_presentation import paths
-        from scene_completion.domain.concern_registry import default_registry
 
-        registry_file = (
-            self.root / "registry_used" / (str(self.manifest.get("registry_hash")) + ".json")
-        )
-        definitions = (
-            read_json(registry_file)["definitions"]
-            if registry_file.exists()
-            else default_registry()["definitions"]
-        )
+        definitions = self.definitions()
         rows = []
         seen = set()
         recognition = self.payload(cid + ":concern-match")
@@ -791,6 +791,9 @@ class ResultView:
             rows.append(
                 {
                     "interaction": interaction,
+                    "interaction_pending": [
+                        p for p in enriched.get("pending", []) if p["interaction_id"] == iid
+                    ],
                     "recognition_summary": {
                         "applicable": sum(
                             m.get("status") == "applicable"
@@ -842,8 +845,6 @@ class ResultView:
         for row in rows:
             row["business_check_refs"] = linked_checks.get(row["interaction"]["id"], [])
         reg_hash = self.manifest.get("registry_hash")
-        p = self.root / "registry_used" / (str(reg_hash) + ".json")
-        definitions = read_json(p).get("definitions", {}) if p.is_file() else {}
 
         # The initial table carries triggers and IDs; long evidence is fetched
         # only when a cell is expanded, from the same frozen output version.

@@ -385,6 +385,7 @@ export function MetricsPanel({
   liveVersion,
   testSet = "expanded",
   scope = "all",
+  importId = "",
   onCase,
 }: {
   project: string;
@@ -392,26 +393,25 @@ export function MetricsPanel({
   liveVersion?: string;
   testSet?: string;
   scope?: string;
+  importId?: string;
   onCase: (id: string) => void;
 }) {
   const [data, setData] = useState<any>(null),
     [error, setError] = useState("");
+  const metricsPath =
+    `results/${caseId ? encodeURIComponent(caseId) + "/" : ""}metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}` +
+    (importId ? "&import_id=" + encodeURIComponent(importId) : "");
   useEffect(() => {
     let live = true;
     setData(null);
     setError("");
-    api(
-      projectUrl(
-        project,
-        `results/${caseId ? encodeURIComponent(caseId) + "/" : ""}metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
-      ),
-    )
+    api(projectUrl(project, metricsPath))
       .then((v) => live && setData(v))
       .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [project, caseId, testSet, scope, liveVersion]);
+  }, [project, metricsPath, liveVersion]);
   if (error) return <p role="alert">{error}</p>;
   if (!data)
     return <p className="management-loading">正在读取已保存的评测计数…</p>;
@@ -428,10 +428,7 @@ export function MetricsPanel({
         </p>
       )}
       <a
-        href={projectUrl(
-          project,
-          `results/${caseId ? encodeURIComponent(caseId) + "/" : ""}metrics?test_set=${encodeURIComponent(testSet)}&scope=${scope}`,
-        )}
+        href={projectUrl(project, metricsPath)}
         download={`metrics-${caseId || "all-cases"}-${scope}-${testSet}.json`}
       >
         下载当前范围指标 JSON

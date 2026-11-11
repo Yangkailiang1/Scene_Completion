@@ -57,6 +57,11 @@ def identify(text):
 
 
 def discover(*, directory=None, paths=None, files=None):
+    preview, contents, _ = discover_material(directory=directory, paths=paths, files=files)
+    return preview, contents
+
+
+def discover_material(*, directory=None, paths=None, files=None):
     """Return private bytes separately from the serializable preview.
 
     Explicit paths belong to the server host; browser File objects use bytes.
@@ -355,13 +360,17 @@ def discover(*, directory=None, paths=None, files=None):
     preview["preview_hash"] = fingerprint(
         {"files": rows, "missing": missing, "issues": issues, "supplied_cases": supplied_preview}
     )
-    return preview, {
-        **{
-            r: {"name": record["name"], "content_base64": base64.b64encode(raw).decode()}
-            for r, (record, raw) in selected.items()
+    return (
+        preview,
+        {
+            **{
+                r: {"name": record["name"], "content_base64": base64.b64encode(raw).decode()}
+                for r, (record, raw) in selected.items()
+            },
+            **extras,
         },
-        **extras,
-    }
+        accepted,
+    )
 
 
 def validate_files(files):

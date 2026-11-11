@@ -131,6 +131,19 @@ G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试�
 
 见 [五类文件接入](docs/five-input-bundle.md)、[行为目录格式](docs/resource-behavior-input.md)、[接口层级与测试范围](docs/recovered-json-and-sr-metrics.md)。
 
+## Code Agent 单用例独立分析
+
+把输入目录、用例名称或 ID、输出目录交给 Code Agent，并指定仓库中的 [单用例分析 Skill](.cac/skills/scene-case-analysis/SKILL.md)。建模器复用 SSD 与功能树，检查器独立整理已有异常和原始测试，推荐器生成缺失项及推荐。输出为 `case-analysis.json` 和 `case-analysis.md`，分析阶段可离线运行。
+
+需要在工作台查看时，启动工作台并将结果登记到已有项目。项目可以尚未运行工作流。
+
+```sh
+python scene.py import-case-result --project PROJECT_ID --file case-analysis.json --dry-run
+python scene.py import-case-result --project PROJECT_ID --file case-analysis.json
+```
+
+打开项目结果页，在「结果来源」选择 Code Agent 导入版本。该版本提供交互对照、本用例指标和风险推荐。
+
 ## CLI与管理Agent
 
 ```sh

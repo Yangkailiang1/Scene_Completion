@@ -25,53 +25,83 @@ def register(app, service):
 
         return save(service.run_dir(rid), body)
 
-    @app.get("/api/projects/{rid}/results")
-    def results_index(rid: str, include_artifacts: bool = True):
+    def result_view(rid, scope=None, import_id=None):
+        from scene_completion.analysis.imported_case_results import ImportedCaseView
         from scene_completion.analysis.result_views import ResultView
 
-        return ResultView(service.run_dir(rid)).index(include_artifacts=include_artifacts)
+        project = service.run_dir(rid)
+        if import_id:
+            return ImportedCaseView(project, import_id, evaluation_scope=scope)
+        return ResultView(project, evaluation_scope=scope)
+
+    @app.post("/api/projects/{rid}/case-result-imports")
+    def import_case_result(rid: str, body: dict):
+        from scene_completion.analysis.imported_case_results import register
+
+        project = service.run_dir(service.require_current_project(rid))
+        dry_run = body.get("dry_run", False)
+        if type(dry_run) is not bool:
+            raise ValueError("dry_run 必须为布尔值")
+        return register(project, body.get("bundle"), dry_run)
+
+    @app.get("/api/projects/{rid}/results")
+    def results_index(rid: str, include_artifacts: bool = True, import_id: str | None = None):
+        from scene_completion.analysis.imported_case_results import versions
+
+        result = result_view(rid, import_id=import_id).index(include_artifacts=include_artifacts)
+        imports = versions(service.run_dir(rid))
+        if imports:
+            result["case_result_imports"] = [
+                {key: row[key] for key in ("id", "case", "scope", "imported_at")} for row in imports
+            ]
+        return result
 
     @app.get("/api/projects/{rid}/results/metrics")
     def results_metrics(rid: str, test_set: str = "expanded", scope: str | None = None):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid), evaluation_scope=scope).metrics(test_set)
+        return result_view(rid, scope).metrics(test_set)
 
     @app.get("/api/projects/{rid}/results/global")
     def results_global(rid: str, test_set: str = "original"):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid)).global_detail(test_set)
+        return result_view(rid).global_detail(test_set)
 
     @app.get("/api/projects/{rid}/results/project-metrics")
     def results_project_metrics(rid: str, test_set: str = "original", scope: str | None = None):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid), evaluation_scope=scope).project_metrics(test_set)
+        return result_view(rid, scope).project_metrics(test_set)
 
     @app.get("/api/projects/{rid}/results/{case_id}/metrics")
     def results_case_metrics(
-        rid: str, case_id: str, test_set: str = "original", scope: str | None = None
+        rid: str,
+        case_id: str,
+        test_set: str | None = None,
+        scope: str | None = None,
+        import_id: str | None = None,
     ):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid), evaluation_scope=scope).case_metrics(
-            case_id, test_set
-        )
+        return result_view(rid, scope, import_id).case_metrics(case_id, test_set or "original")
 
     @app.get("/api/projects/{rid}/results/{case_id}")
-    def results_case(rid: str, case_id: str, test_set: str = "expanded", scope: str | None = None):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid), evaluation_scope=scope).detail(case_id, test_set)
+    def results_case(
+        rid: str,
+        case_id: str,
+        test_set: str | None = None,
+        scope: str | None = None,
+        import_id: str | None = None,
+    ):
+        return result_view(rid, scope, import_id).detail(
+            case_id, test_set or ("original" if import_id else "expanded")
+        )
 
     @app.get("/api/projects/{rid}/results/{case_id}/scenarios/{channel}/{scenario_id}")
     def result_scenario(
-        rid: str, case_id: str, channel: str, scenario_id: str, test_set: str = "expanded"
+        rid: str,
+        case_id: str,
+        channel: str,
+        scenario_id: str,
+        test_set: str | None = None,
+        import_id: str | None = None,
     ):
-        from scene_completion.analysis.result_views import ResultView
-
-        return ResultView(service.run_dir(rid)).scenario(case_id, channel, scenario_id, test_set)
+        return result_view(rid, import_id=import_id).scenario(
+            case_id, channel, scenario_id, test_set or ("original" if import_id else "expanded")
+        )
 
     @app.get("/api/projects/{rid}/usage")
     def usage(

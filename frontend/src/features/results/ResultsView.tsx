@@ -26,6 +26,10 @@ export function ResultsView({
   liveVersion?: string;
 }) {
   const {
+    importId,
+    setImportId,
+    imports,
+    importQuery,
     labels,
     show,
     Evidence,
@@ -76,13 +80,17 @@ export function ResultsView({
     ["tests", "测试场景"],
     ["recommendations", "风险推荐"],
     ["quality", "用例诊断"],
-  ];
+  ].filter(
+    ([key]) =>
+      !importId || ["steps", "metrics", "recommendations"].includes(key),
+  );
   const projectViews = [
     ["project", "项目总指标"],
     ["metrics", "交互级汇总"],
   ];
   function changeArea(area: "case" | "global" | "project") {
     setResultArea(area);
+    if (area !== "case") setImportId("");
     setMode(area === "case" ? caseMode : area);
   }
   function chooseMode(next: string) {
@@ -115,6 +123,34 @@ export function ResultsView({
         ))}
       </div>
       <div className="results-compact-controls" aria-label="结果快捷控制">
+        {resultArea === "case" && imports.length > 0 && (
+          <select
+            aria-label="结果来源"
+            value={importId}
+            onChange={(e) => {
+              const next = e.target.value;
+              setImportId(next);
+              setCase("");
+              setStep("");
+              setSelectedConcern("");
+              setCaseMode("steps");
+              setMode("steps");
+              setTestSet("original");
+              setEvaluationScope(
+                imports.find((item) => item.id === next)?.scope || "SR",
+              );
+            }}
+          >
+            <option value="">工作流结果</option>
+            <optgroup label="Code Agent 导入结果">
+              {imports.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.case.name} · {item.id.slice(0, 8)}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        )}
         {resultArea === "case" && (
           <select
             aria-label="结果用例"
@@ -147,11 +183,13 @@ export function ResultsView({
           </select>
         )}
         <span className="results-compact-description">
-          {index?.historical
-            ? "历史保存报告"
-            : index?.complete
-              ? "本轮已完成"
-              : "本轮部分结果"}
+          {importId
+            ? "Code Agent 导入结果 · " + importId.slice(0, 8)
+            : index?.historical
+              ? "历史保存报告"
+              : index?.complete
+                ? "本轮已完成"
+                : "本轮部分结果"}
           {" · "}
           {testSet === "business"
             ? "业务审核后GT"
@@ -215,7 +253,8 @@ export function ResultsView({
           <span>评测依据</span>
           <select
             aria-label="结果测试集"
-            value={testSet}
+            value={importId ? "original" : testSet}
+            disabled={!!importId}
             onChange={(e) => setTestSet(e.target.value)}
           >
             <option value="original">原始异常测试场景</option>
@@ -236,6 +275,18 @@ export function ResultsView({
         <div role="alert" className="management-notice">
           {error}
         </div>
+      )}
+      {index?.imported_result?.pending?.length > 0 && (
+        <details className="management-notice">
+          <summary>
+            待补材料与未绑定项（{index.imported_result.pending.length}）
+          </summary>
+          <ul>
+            {index.imported_result.pending.map((note: string, n: number) => (
+              <li key={n}>{note}</li>
+            ))}
+          </ul>
+        </details>
       )}
       {mode === "global" ? (
         <GlobalResults
@@ -259,7 +310,46 @@ export function ResultsView({
           caseLocked
         />
       ) : mode === "recommendations" ? (
-        <RecommendationsView project={project} caseId={cid} testSet={testSet} />
+        importId ? (
+          <section className="result-metrics" aria-label="导入结果的风险推荐">
+            <h2>风险推荐</h2>
+            {!detail ? (
+              <p>正在读取推荐…</p>
+            ) : detail.recommendations?.Q?.length ? (
+              <ol>
+                {detail.recommendations.Q.map((s: any) => (
+                  <li key={s.id}>
+                    <Scenario
+                      s={s}
+                      defs={detail.definitions || {}}
+                      missing
+                      detailUrl=""
+                    />
+                    <p>
+                      {
+                        detail.recommendations.ranked.find(
+                          (r: any) => r.scenario_id === s.id,
+                        )?.reason
+                      }
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p>
+                {detail.recommendations?.enabled
+                  ? "没有符合条件的推荐。"
+                  : "待补材料，暂未推荐。"}
+              </p>
+            )}
+          </section>
+        ) : (
+          <RecommendationsView
+            project={project}
+            caseId={cid}
+            testSet={testSet}
+          />
+        )
       ) : mode === "tests" ? (
         <TestSources project={project} />
       ) : !index ? (
@@ -274,7 +364,8 @@ export function ResultsView({
           liveVersion={String(liveVersion || "") + ":" + reload}
           scope={evaluationScope}
           project={project}
-          testSet={testSet}
+          testSet={importId ? "original" : testSet}
+          importId={importId}
           onCase={(id) => {
             setResultArea("case");
             setCaseMode("steps");
@@ -496,12 +587,18 @@ export function ResultsView({
                   )}
                   <p className="muted">
                     {i.associated_api
-                      ? `已关联接口 ${i.associated_api} · ${i.direction === "return" ? "成功响应字段" : "请求字段"}`
+                      ? `已关联接口 ${i.associated_api} · ${i.direction === "return" ? "返回字段" : "请求字段"}`
                       : "接口尚未唯一关联：仅展示SSD明确属性，未知项保持待确认"}
-                    {
-                      "。失败响应分支请在图表总览的接口参数表中查看；历史指标未因属性展示更新而重算。"
-                    }
                   </p>
+                  {!!row.interaction_pending?.length && (
+                    <ul>
+                      {row.interaction_pending.map(
+                        (p: { reason: string }, n: number) => (
+                          <li key={n}>{p.reason}</li>
+                        ),
+                      )}
+                    </ul>
+                  )}
                   <div className="result-data-scroll">
                     <table>
                       <thead>
@@ -707,7 +804,8 @@ export function ResultsView({
                             "/" +
                             encodeURIComponent(s.id) +
                             "?test_set=" +
-                            testSet,
+                            (importId ? "original" : testSet) +
+                            importQuery,
                         )}
                       />
                     )}

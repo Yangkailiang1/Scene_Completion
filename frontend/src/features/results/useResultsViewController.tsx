@@ -153,6 +153,18 @@ export function useResultsViewController({
   const [onlyUnmatched, setOnlyUnmatched] = useState(false);
   const [comparisonLayer, setComparisonLayer] = useState("concerns");
   const [selectedConcern, setSelectedConcern] = useState("");
+  const [importId, setImportId] = useState("");
+  const [imports, setImports] = useState<
+    {
+      id: string;
+      case: { id: string; name: string };
+      scope: string;
+      imported_at: string;
+    }[]
+  >([]);
+  const importQuery = importId
+    ? "&import_id=" + encodeURIComponent(importId)
+    : "";
   const [testSet, setTestSet] = useState("expanded");
   const [evaluationScope, setEvaluationScope] = useState("SR");
   const [index, setIndex] = useState<any>(null),
@@ -166,17 +178,22 @@ export function useResultsViewController({
     [artifactValue, setArtifactValue] = useState<any>(null),
     [zoom, setZoom] = useState(1);
   useEffect(() => {
+    setImportId("");
+    setImports([]);
+  }, [project]);
+  useEffect(() => {
     let live = true;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
     setIndex(null);
     setError("");
-    api(projectUrl(project, "results?include_artifacts=false"), {
+    api(projectUrl(project, "results?include_artifacts=false" + importQuery), {
       signal: controller.signal,
     })
       .then((r) => {
         if (live) {
           setIndex(r);
+          setImports(r.case_result_imports || []);
           if (r.supplement_tests === false) setTestSet("original");
           if (r.supplement_tests === false && !index) setTestSet("original");
           setCase((c) =>
@@ -199,9 +216,10 @@ export function useResultsViewController({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [project, reload, liveVersion]);
+  }, [project, reload, liveVersion, importQuery]);
   useEffect(() => {
-    if (!cid || mode !== "steps") return;
+    if (!cid || (mode !== "steps" && !(importId && mode === "recommendations")))
+      return;
     let live = true;
     setDetail(null);
     api(
@@ -209,7 +227,8 @@ export function useResultsViewController({
         project,
         "results/" +
           encodeURIComponent(cid) +
-          `?test_set=${encodeURIComponent(testSet)}&scope=${evaluationScope}`,
+          `?test_set=${encodeURIComponent(importId ? "original" : testSet)}&scope=${evaluationScope}` +
+          importQuery,
       ),
     )
       .then((r) => {
@@ -233,9 +252,19 @@ export function useResultsViewController({
     return () => {
       live = false;
     };
-  }, [project, cid, reload, testSet, evaluationScope, liveVersion, mode]);
+  }, [
+    project,
+    cid,
+    reload,
+    testSet,
+    evaluationScope,
+    liveVersion,
+    mode,
+    importId,
+    importQuery,
+  ]);
   useEffect(() => {
-    if (!["diagrams", "global"].includes(mode)) return;
+    if (importId || !["diagrams", "global"].includes(mode)) return;
     const controller = new AbortController();
     api(projectUrl(project, "results?include_artifacts=true"), {
       signal: controller.signal,
@@ -247,7 +276,7 @@ export function useResultsViewController({
         if (e.name !== "AbortError") setError(e.message);
       });
     return () => controller.abort();
-  }, [project, mode, reload, liveVersion]);
+  }, [project, mode, reload, liveVersion, importId]);
   const catalog =
     index?.artifacts.filter(
       (a: any) => a.case === "shared" || a.case === cid,
@@ -275,6 +304,10 @@ export function useResultsViewController({
   const unresolved =
     detail && Object.values(detail.unbound).some((a: any) => a.length);
   return {
+    importId,
+    setImportId,
+    imports,
+    importQuery,
     labels,
     sourceLabels,
     show,

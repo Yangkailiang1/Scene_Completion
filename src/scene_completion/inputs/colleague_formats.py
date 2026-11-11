@@ -719,13 +719,18 @@ def interface_requirements(interaction, parameters, inputs):
     This never guesses whether an unlocated items[] is input or output and never
     transfers an internal constraint to a public request with the same API ID.
     """
-    from scene_completion.analysis.interaction_enrichment import resolved_api_id
+    from scene_completion.analysis.interaction_enrichment import contract_fields, resolved_api_id
 
     api_id = resolved_api_id(interaction, inputs)
     apis = inputs.get("api-parameters", {}).get("apis", [])
     api = next((a for a in apis if a["id"] == api_id), None)
     if not api:
         return parameters
+    # Supplied contracts already carry these exact declarations and their
+    # provenance. Success variants are selected by contract_fields.
+    if "bound_interaction_ids" in api:
+        return parameters
+    declared, _ = contract_fields(interaction, inputs)
     for item in inputs.get("colleague-interface-attributes", []):
         if (
             item.get("source_layer") != api.get("source_layer")
@@ -738,9 +743,7 @@ def interface_requirements(interaction, parameters, inputs):
         own = [p for p in parameters if p["name"] == item["attribute"]["name"]]
         if len(own) != 1:
             continue
-        locations = {
-            p["location"] for p in api["parameters"] if p["name"] == item["attribute"]["name"]
-        }
+        locations = {p["location"] for p in declared if p["name"] == item["attribute"]["name"]}
         if len(locations) != 1 or own[0]["location"] not in locations:
             continue
         p = own[0]

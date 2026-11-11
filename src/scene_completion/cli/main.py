@@ -93,6 +93,7 @@ def capabilities():
         "command_parameters": parameters,
         "commands": {
             "projects/create": "新建项目；RR/SR支持Markdown/结构模型JSON，测试支持Markdown/JSON/XLSX；--input-dir递归识别五类JSON，或--input-manifest指定五份绝对路径；--evaluation-scope SR|RR|all（默认SR）",
+            "import-case-result": "--project ID --file case-analysis.json [--dry-run]；登记独立用例结果，重算指标，不执行工作流",
             "metrics": "--project ID [--case ID] [--test-set original|expanded|business] [--scope SR|RR|all]；复用冻结匹配按实际接口归属计数，不调用模型",
             "prompts": "--project ID --node ID [--request ID]；查询节点实际组装请求、系统/Skill/工具Schema/修复历史及预算，凭证已移除；不调用模型",
             "accounts/save-account": "每Key模型允许列表；expected_revision校验、环境变量引用、隐藏输入及--dry-run",
@@ -217,6 +218,10 @@ def parser():
         default="SR",
         help="指标按实际接口定义归属筛选，不能由路径前缀猜测",
     )
+    result_import = sub.add_parser("import-case-result", help="导入 Code Agent 的独立用例结果")
+    result_import.add_argument("--project", required=True)
+    result_import.add_argument("--file", required=True)
+    result_import.add_argument("--dry-run", action="store_true")
     metrics = sub.add_parser("metrics")
     metrics.add_argument("--project", required=True)
     metrics.add_argument("--case")
@@ -455,6 +460,11 @@ def main(argv=None, client=None):
     api = client or API(args.server)
     if args.command == "capabilities":
         output(capabilities())
+        return 0
+    if args.command == "import-case-result":
+        path = "projects/" + urllib.parse.quote(args.project, safe="") + "/case-result-imports"
+        bundle = json.loads(Path(args.file).read_text(encoding="utf-8-sig"))
+        output(api.call(path, {"bundle": bundle, "dry_run": args.dry_run}, "POST"))
         return 0
     if args.command == "scope-review":
         path = "projects/" + urllib.parse.quote(args.project, safe="") + "/analysis-scopes"

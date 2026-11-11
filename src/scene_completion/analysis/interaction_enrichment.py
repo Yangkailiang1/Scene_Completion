@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 
 from scene_completion.infrastructure.storage import fingerprint
@@ -18,16 +19,20 @@ def interactions(inputs):
 
 
 def resolved_api_id(i, inputs):
-    import re
-
     from scene_completion.inputs.api_layers import candidates_for_layer
     from scene_completion.inputs.http_interfaces import declarations
 
     apis = inputs.get("api-parameters", inputs.get("normal-constraints", {})).get("apis", [])
+    if i.get("step_kind") == "action":
+        return None
+    bound = [a for a in apis if "bound_interaction_ids" in a]
+    if i["direction"] == "return" and bound and not i.get("parent_id"):
+        apis = [a for a in apis if "bound_interaction_ids" not in a]
     apis = [
         a
         for a in apis
-        if "bound_interaction_ids" not in a or i.get("id") in a["bound_interaction_ids"]
+        if "bound_interaction_ids" not in a
+        or (i.get("id") in a["bound_interaction_ids"] and i.get("layer") == a.get("source_layer"))
     ]
     if i.get("layer") == "RR" and not any(a.get("source_layer") in (None, "RR") for a in apis):
         return None
@@ -42,10 +47,11 @@ def resolved_api_id(i, inputs):
             ),
             None,
         )
-        if request and not i.get("api_id"):
-            linked = resolved_api_id(request, inputs)
-            if linked:
-                return linked
+        linked = resolved_api_id(request, inputs) if request else None
+        if linked and any(a["id"] == linked for a in apis):
+            return linked
+        if bound:
+            apis = [a for a in apis if "bound_interaction_ids" not in a]
     api_id = i.get("associated_api") or i.get("api_id")
 
     def normalize(x):
@@ -114,92 +120,140 @@ def resolved_api_id(i, inputs):
     return mentioned[0] if len(set(mentioned)) == 1 else None
 
 
+def response_status_codes(interaction):
+    return set(
+        re.findall(
+            r"\bHTTP(?:/\d(?:\.\d)?)?\s*([1-5]\d\d)\b",
+            interaction["operation"]["name"],
+            re.I,
+        )
+    )
+
+
+def contract_fields(interaction, inputs):
+    """Return the positive API fields and any unresolved response selection."""
+    from scene_completion.inputs.api_parameters import canonical_contract
+
+    api_id = resolved_api_id(interaction, inputs)
+    if not api_id:
+        return [], None
+    apis = inputs.get("api-parameters", {}).get("apis", [])
+    apis = [api for api in apis if api["id"] == api_id]
+    if len(apis) > 1:
+        raise ValueError("duplicate API identity")
+    if not apis:
+        return [], None
+    api = canonical_contract({"apis": apis})["apis"][0]
+    if interaction["direction"] == "request":
+        return [
+            p for p in api["parameters"] if p["location"] in {"header", "path", "query", "body"}
+        ], None
+
+    codes = response_status_codes(interaction)
+    if len(codes) > 1:
+        return [], "返回声明了多个状态码，接口字段待确认"
+    code = next(iter(codes), None)
+    if code and not code.startswith("2"):
+        return [], None
+    success = [v for v in api.get("responses", []) if v["kind"] == "success"]
+    if not success:
+        return [p for p in api["parameters"] if p["location"] == "response"], None
+    candidates = success
+    if code:
+        candidates = [v for v in success if v.get("status_code") == code] or [
+            v for v in success if not v.get("status_code")
+        ]
+    if len(candidates) != 1:
+        return [], "无法唯一确定成功响应分支，接口字段待确认"
+    return candidates[0]["parameters"], None
+
+
+def _wire_key(parameter):
+    location = parameter["location"]
+    name = parameter["name"]
+    return location, name.casefold() if location == "header" else name
+
+
+def _localize_fields(fields, declarations):
+    from scene_completion.inputs.api_parameters import canonical_parameter
+
+    candidates = {}
+    for declaration in declarations:
+        key = _wire_key(declaration)
+        candidates.setdefault(key[1], set()).add(key[0])
+    for original in fields:
+        parameter = canonical_parameter(original)
+        if parameter["location"] == "business":
+            name = parameter["name"]
+            locations = candidates.get(name, set()) | (
+                {"header"} if "header" in candidates.get(name.casefold(), ()) else set()
+            )
+            if len(locations) == 1:
+                parameter["location"] = next(iter(locations))
+        yield parameter
+
+
 def parameters_for(i, inputs):
     is_return = i["direction"] == "return"
-
-    def valid(p):
-        return p["location"] == "response" if is_return else p["location"] != "response"
 
     def actual_valid(p):
         return (
             p["location"] in {"response", "business"} if is_return else p["location"] != "response"
         )
 
-    params = [deepcopy(p) for p in i["data"]["sequence"] if actual_valid(p)]
-    api_id = resolved_api_id(i, inputs)
-    if api_id:
-        apis = [a for a in inputs.get("api-parameters", {}).get("apis", []) if a["id"] == api_id]
-        if len(apis) > 1:
-            raise ValueError("duplicate API identity")
-        if apis:
-            from scene_completion.inputs.api_parameters import canonical_contract
-
-            apis = canonical_contract({"apis": apis})["apis"]
-            # Use the evidenced union, not a requirements-consistency check.
-            # API-only and SSD-only fields/constraints both remain available.
-            # 'business' is a compact SSD placeholder, not a competing wire
-            # location. Resolve it only when this exact API declares one field
-            # of that name in the current direction.
-            candidates = {}
-            for declared in apis[0]["parameters"]:
-                if valid(declared):
-                    candidates.setdefault(declared["name"], set()).add(declared["location"])
-            for actual in params:
-                locations = candidates.get(actual["name"], set())
-                if actual["location"] == "business" and len(locations) == 1:
-                    actual["location"] = next(iter(locations))
-            by_name = {(p["location"], p["name"]): p for p in params}
-            for p in apis[0]["parameters"]:
-                if not valid(p):
-                    continue
-                p = deepcopy(p)
-                actual = by_name.get((p["location"], p["name"]))
-                if actual:
-                    if p["data_type"] is None:
-                        p["data_type"] = actual["data_type"]
-                    elif actual["data_type"] is not None and p["data_type"] != actual["data_type"]:
-                        p["constraints"].append(
-                            {
-                                "id": stable(
-                                    "source-type", [p["location"], p["name"], actual["data_type"]]
-                                ),
-                                "kind": "type",
-                                "value": actual["data_type"],
-                                "status": "explicit",
-                                "source_refs": deepcopy(actual["source_refs"]),
-                            }
-                        )
-                    p["required"] = (
-                        True
-                        if p["required"] is True or actual["required"] is True
-                        else p["required"]
-                        if p["required"] is not None
-                        else actual["required"]
-                    )
-                    if p["default"] is None:
-                        p["default"] = deepcopy(actual["default"])
-                    merged = {}
-                    for r in p["constraints"] + actual["constraints"]:
-                        key = fingerprint([r["kind"], r["value"]])
-                        if key not in merged:
-                            merged[key] = deepcopy(r)
-                        else:
-                            row = merged[key]
-                            row["source_refs"] = list(
-                                {
-                                    fingerprint(x): x for x in row["source_refs"] + r["source_refs"]
-                                }.values()
-                            )
-                            if r["status"] == "explicit":
-                                row["status"] = "explicit"
-                    p["constraints"] = list(merged.values())
-                    p["source_refs"] = list(
+    declarations, _ = contract_fields(i, inputs)
+    params = list(
+        _localize_fields((p for p in i["data"]["sequence"] if actual_valid(p)), declarations)
+    )
+    if declarations:
+        by_name = {_wire_key(p): p for p in params}
+        for p in declarations:
+            p = deepcopy(p)
+            actual = by_name.get(_wire_key(p))
+            if actual:
+                if p["data_type"] is None:
+                    p["data_type"] = actual["data_type"]
+                elif actual["data_type"] is not None and p["data_type"] != actual["data_type"]:
+                    p["constraints"].append(
                         {
-                            fingerprint(r): r for r in p["source_refs"] + actual["source_refs"]
-                        }.values()
+                            "id": stable(
+                                "source-type", [p["location"], p["name"], actual["data_type"]]
+                            ),
+                            "kind": "type",
+                            "value": actual["data_type"],
+                            "status": "explicit",
+                            "source_refs": deepcopy(actual["source_refs"]),
+                        }
                     )
-                by_name[(p["location"], p["name"])] = p
-            params = list(by_name.values())
+                p["required"] = (
+                    True
+                    if p["required"] is True or actual["required"] is True
+                    else p["required"]
+                    if p["required"] is not None
+                    else actual["required"]
+                )
+                if p["default"] is None:
+                    p["default"] = deepcopy(actual["default"])
+                merged = {}
+                for r in p["constraints"] + actual["constraints"]:
+                    key = fingerprint([r["kind"], r["value"]])
+                    if key not in merged:
+                        merged[key] = deepcopy(r)
+                    else:
+                        row = merged[key]
+                        row["source_refs"] = list(
+                            {
+                                fingerprint(x): x for x in row["source_refs"] + r["source_refs"]
+                            }.values()
+                        )
+                        if r["status"] == "explicit":
+                            row["status"] = "explicit"
+                p["constraints"] = list(merged.values())
+                p["source_refs"] = list(
+                    {fingerprint(r): r for r in p["source_refs"] + actual["source_refs"]}.values()
+                )
+            by_name[_wire_key(p)] = p
+        params = list(by_name.values())
     from scene_completion.inputs.colleague_formats import (
         business_requirements,
         interface_requirements,
@@ -218,7 +272,7 @@ def requirement_sources(i, inputs):
                 return
         elif p["location"] == "response":
             return
-        groups.setdefault((p["location"], p["name"]), []).append(
+        groups.setdefault(_wire_key(p), []).append(
             {
                 "origin": origin,
                 **{
@@ -228,24 +282,11 @@ def requirement_sources(i, inputs):
             }
         )
 
-    api_id = resolved_api_id(i, inputs)
-    declarations = [
-        p
-        for a in inputs.get("api-parameters", {}).get("apis", [])
-        if a["id"] == api_id
-        for p in a["parameters"]
-        if (p["location"] == "response") == (i["direction"] == "return")
-    ]
-    for p in i["data"]["sequence"]:
-        p = deepcopy(p)
-        locations = {d["location"] for d in declarations if d["name"] == p["name"]}
-        if p["location"] == "business" and len(locations) == 1:
-            p["location"] = next(iter(locations))
+    declarations, _ = contract_fields(i, inputs)
+    for p in _localize_fields(i["data"]["sequence"], declarations):
         add(p, "SSD")
-    for a in inputs.get("api-parameters", {}).get("apis", []):
-        if a["id"] == api_id:
-            for p in a["parameters"]:
-                add(p, "API")
+    for p in declarations:
+        add(p, "API")
     return [
         {"name": name, "location": location, "sources": rows}
         for (location, name), rows in groups.items()
@@ -402,6 +443,15 @@ def enrich(inputs, alignment):
 
         i["data"]["sequence"] = positive_parameters(i, value)
         i["associated_api"] = resolved_api_id(i, value)
+        _, response_pending = contract_fields(i, value)
+        if response_pending:
+            pending.append(
+                {
+                    "interaction_id": i["id"],
+                    "reason": response_pending,
+                    "source_refs": i["source_refs"],
+                }
+            )
         if i["api_id"] and not i["associated_api"]:
             pending.append(
                 {
@@ -508,8 +558,14 @@ def display_parameters(enriched, inputs):
             <= i.keys()
         ):
             continue
-        i["parameter_requirement_sources"] = requirement_sources(i, context)
-        i["data"]["sequence"] = parameters_for(i, context)
+        if "parameter_requirement_sources" not in i:
+            i["parameter_requirement_sources"] = requirement_sources(i, context)
+            i["data"]["sequence"] = parameters_for(i, context)
+            _, pending = contract_fields(i, context)
+            if pending:
+                out.setdefault("pending", []).append(
+                    {"interaction_id": i["id"], "reason": pending, "source_refs": i["source_refs"]}
+                )
         i["associated_api"] = resolved_api_id(i, context)
         i["parameter_display_status"] = "linked" if i["associated_api"] else "unresolved"
     out["parameter_display_note"] = (

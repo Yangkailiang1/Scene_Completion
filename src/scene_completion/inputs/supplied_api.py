@@ -3,6 +3,7 @@
 import json
 import re
 
+from scene_completion.analysis.interaction_enrichment import response_status_codes
 from scene_completion.analysis.validation import validate_result
 from scene_completion.infrastructure.storage import fingerprint
 from scene_completion.inputs.api_layers import qualify_mapping
@@ -127,7 +128,7 @@ def _contract(api, requests, rows, doc, pending):
         for i in rows
         if i["direction"] == "return"
         and i.get("parent_id") in request_ids
-        and not re.search(r"\bHTTP\s+[45]\d\d\b", i["operation"]["name"], re.I)
+        and all(code.startswith("2") for code in response_status_codes(i))
     ]
     returned_fields = {
         p["name"]
@@ -173,7 +174,12 @@ def _contract(api, requests, rows, doc, pending):
                     "method": api["method"],
                     "address": api["address"],
                     "source_layer": "SR",
-                    "bound_interaction_ids": [i["id"] for i in requests + returns],
+                    "bound_interaction_ids": [
+                        i["id"]
+                        for i in rows
+                        if i["id"] in request_ids
+                        or (i["direction"] == "return" and i.get("parent_id") in request_ids)
+                    ],
                     "parameters": fields,
                     "responses": responses,
                     "source_refs": api["source_refs"],

@@ -348,3 +348,67 @@ test("frozen results distinguish pending recognition from current successful che
   expect(screen.getByText(/旧识别未定位字段/)).toBeTruthy();
   expect(screen.getByText("本地处理未声明独立数据字段")).toBeTruthy();
 });
+
+test("an imported version uses its own case detail and metrics in an unrun project", async () => {
+  const requests: string[] = [];
+  const imported = {
+    id: "a".repeat(64),
+    case: { id: "G-001", name: "创建商品" },
+    scope: "SR",
+    imported_at: "2026-11-11T00:00:00Z",
+    pending: ["超时阈值待确认"],
+  };
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    const path = String(url);
+    requests.push(path);
+    const selected = path.includes("import_id=" + imported.id);
+    const index = path.split("?")[0].endsWith("/results");
+    const data = index
+      ? {
+          cases: selected ? [imported.case] : [],
+          artifacts: [],
+          case_result_imports: [imported],
+          imported_result: selected ? imported : undefined,
+          supplement_tests: false,
+        }
+      : {
+          interactions: [],
+          definitions: {},
+          unbound: {},
+          case: imported.case,
+          metrics: {},
+          cases: [],
+          history: [],
+          recommendations: { enabled: false, Q: [] },
+        };
+    return { ok: true, json: async () => data } as Response;
+  });
+  render(<ResultsView project="imported-project" />);
+  const source = await screen.findByRole("combobox", { name: "结果来源" });
+  fireEvent.change(source, { target: { value: imported.id } });
+  await screen.findByRole("option", { name: "G-001 · 创建商品" });
+  await waitFor(() => {
+    expect(
+      requests.some(
+        (p) => p.includes("/results/G-001?") && p.includes(imported.id),
+      ),
+    ).toBe(true);
+  });
+  fireEvent.change(screen.getByLabelText("当前范围视图"), {
+    target: { value: "metrics" },
+  });
+  await screen.findByRole("heading", { name: /创建商品 · 本用例指标/ });
+  expect(
+    requests.some(
+      (p) => p.includes("/results/G-001/metrics?") && p.includes(imported.id),
+    ),
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText("结果来源"), {
+    target: { value: "" },
+  });
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("option", { name: "G-001 · 创建商品" }),
+    ).toBeNull();
+  });
+});
