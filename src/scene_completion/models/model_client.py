@@ -11,6 +11,7 @@ from scene_completion.models.http_transport import (
     _post_chat_completions_diagnostic as _post_chat_completions,
 )
 from scene_completion.models.model_configuration import concurrency_limit, configured_model
+from scene_completion.models.provider_response import InvalidProviderResponse, invalid_chat_response
 
 
 class SemanticClient:
@@ -178,10 +179,15 @@ class SemanticClient:
                                 and 400 <= status < 500
                             )
                         )
-                        budget.settle(reservation, refused=refused)
+                        budget.settle(
+                            reservation, usage=getattr(exc, "usage", None), refused=refused
+                        )
                     raise
+                usage = response.get("usage") if isinstance(response, dict) else None
                 if budget:
-                    budget.settle(reservation, usage=response.get("usage"))
+                    budget.settle(reservation, usage=usage)
+                if endpoint == "/chat/completions" and (reason := invalid_chat_response(response)):
+                    raise InvalidProviderResponse(reason)
                 timing.update(
                     response_bytes=size(response),
                     usage=response.get("usage"),
@@ -285,13 +291,14 @@ class SemanticClient:
             if self.config.get("include_usage"):
                 body["stream_options"] = {"include_usage": True}
         response = self.post("/chat/completions", body)
-        content = _content_from_response(response)
-        finish_reason = response.get("choices", [{}])[0].get("finish_reason")
+        finish_reason = response["choices"][0].get("finish_reason")
+        content = ""
         try:
             if finish_reason == "length":
                 raise ValueError(
                     "provider truncated output at its token limit; batch is incomplete"
                 )
+            content = _content_from_response(response)
             result = json.loads(content)
             if not isinstance(result, dict):
                 raise ValueError("Agent response must be a JSON object")
@@ -299,6 +306,9 @@ class SemanticClient:
             # Keep source-derived output for diagnosis, never provider reasoning
             # or request headers. A partial JSON response is not a completed batch.
             diagnostic = {
+                "failure_category": "output_truncated"
+                if finish_reason == "length"
+                else "invalid_result_json",
                 "requested_model": body["model"],
                 "provider_model": response.get("model"),
                 "finish_reason": finish_reason,

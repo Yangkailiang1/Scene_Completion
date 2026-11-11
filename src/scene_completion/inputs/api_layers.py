@@ -166,7 +166,14 @@ def scoped_imports(parts, scope):
         source = p.get("source_layer")
         # Existing unscoped inputs cannot claim to complete the newly added
         # external-service extraction task.
-        if scope.get("boundary") == "external" and p.get("interface_scope") != "external":
+        boundary = scope.get("boundary") or scope.get("interface_scope")
+        imported_boundary = p.get("interface_scope")
+        if (
+            boundary == "external"
+            and imported_boundary != "external"
+            or boundary == "system"
+            and imported_boundary == "external"
+        ):
             continue
         if "apis" in payload and declared:
             apis = []

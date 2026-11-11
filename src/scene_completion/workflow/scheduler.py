@@ -254,6 +254,7 @@ class Scheduler:
                 raise ValueError("unknown dependency")
         remaining = set(self.tasks)
         active = {}
+        repair_dispatches = set()
         done = set()
         outputs = {}
         dispatches = {}
@@ -419,6 +420,7 @@ class Scheduler:
                                 continue
                         else:
                             rec["rounds"] += 1
+                            repair_dispatches.add(key)
                     elif (
                         rec["status"] == "awaiting_configuration"
                         and self.can_recover
@@ -433,7 +435,15 @@ class Scheduler:
                     rec.pop("finished_at", None)
                     self._event(key, "repairing" if rec["rounds"] else "started")
                     attempt_record = dict(rec)
-                    if (rec["rounds"] or rec.get("recovery_dispatch")) and previous_failure:
+                    if previous_failure and (
+                        rec["rounds"]
+                        or rec.get("recovery_dispatch")
+                        or t.stage == "business-crud"
+                        and (
+                            previous_failure.get("transport_failure")
+                            or previous_failure.get("failure_category")
+                        )
+                    ):
                         attempt_record["failure"] = previous_failure
                     future = pool.submit(copy_context().run, job, t, deps, attempt_record)
                     active[future] = key
@@ -448,6 +458,8 @@ class Scheduler:
                 finished, _ = wait(active, return_when=FIRST_COMPLETED)
                 for f in finished:
                     key = active.pop(f)
+                    is_repair = key in repair_dispatches
+                    repair_dispatches.discard(key)
                     rec = self.state["tasks"][key]
                     try:
                         v = f.result()
@@ -516,6 +528,8 @@ class Scheduler:
                         done.add(key)
                         self._event(key, "passed")
                     except TaskBlocked as e:
+                        if is_repair and e.details.get("semantic_round_not_started"):
+                            rec["rounds"] -= 1
                         rec.update(status=e.status, failure=e.details, finished_at=time.time())
                         self._event(key, e.status)
                         if (

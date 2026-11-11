@@ -50,13 +50,22 @@ def semantic(self, task, inputs, record):
             p["tool_rule_instruction"] = (
                 "本片仅识别实际接口数据字段的关注点；不输出双方、操作或业务关注点。这些由独立片处理。已声明字段检查须逐项识别并引用证据，工具不会补入G。"
             )
-    if record.get("rounds"):
+    failure = record.get("failure") or {}
+    diagnostic = failure.get("transport_failure") or failure
+    technical_failure = task == "business-crud" and diagnostic.get("failure_category")
+    if record.get("rounds") or technical_failure:
         p["repair"] = {
-            "failure": record.get("failure"),
-            "round": record["rounds"],
+            "failure": (
+                {"failure_category": technical_failure, "instruction": "从当前用例材料重新提交。"}
+                if technical_failure
+                else {"error": str(failure.get("error", ""))[:1500]}
+                if task == "business-crud"
+                else failure
+            ),
+            "round": record.get("rounds", 0),
             "rule": "仅修复本任务；不读取其他通道。",
         }
-        candidate = (record.get("failure") or {}).get("rejected_output")
+        candidate = None if technical_failure else failure.get("rejected_output")
         if candidate:
             path = (self.root / candidate).resolve()
             if path.is_relative_to(self.root.resolve()) and path.is_file():

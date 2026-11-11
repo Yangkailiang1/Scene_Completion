@@ -40,7 +40,9 @@ def buffered_response(value, *, capture=False, display=False):
     for choice in value.get("choices", []) or []:
         if choice.get("index", 0) != 0:
             continue
-        message = choice.get("message") or {}
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            continue
         part, names = fragments(message)
         pieces.extend(part)
         fields.update(names)

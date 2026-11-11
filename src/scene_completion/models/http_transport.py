@@ -122,6 +122,12 @@ def _post_chat_completions_diagnostic(
     display_reasoning=False,
     throughput_policy=None,
 ) -> dict[str, Any]:
+    from scene_completion.models.provider_response import (
+        InvalidProviderResponse,
+        invalid_chat_response,
+    )
+
+    chat = url.rstrip("/").endswith("/chat/completions")
     request_body = json.dumps(body, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         url,
@@ -144,6 +150,7 @@ def _post_chat_completions_diagnostic(
             observer.emit("transport_attempt_start", "running", attempt=attempt + 1)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
+                attempt_code = getattr(response, "status", None)
                 if body.get("stream") and "application/json" not in response.headers.get(
                     "Content-Type", ""
                 ):
@@ -169,20 +176,52 @@ def _post_chat_completions_diagnostic(
                         requested_model=body.get("model"),
                     )
                 else:
-                    value = json.loads(response.read().decode("utf-8"))
+                    transport_phase = "response_decode"
+                    raw = response.read()
+                    if chat and not raw.strip():
+                        raise InvalidProviderResponse("empty_body")
+                    value = json.loads(raw.decode("utf-8"))
+                    if chat and (reason := invalid_chat_response(value)):
+                        raise InvalidProviderResponse(
+                            reason, usage=value.get("usage") if isinstance(value, dict) else None
+                        )
+                    if isinstance(value, dict):
+                        value.pop("_scene_completion_metrics", None)
                     if isinstance(value, dict) and "choices" in value:
                         from scene_completion.models.provider_reasoning import buffered_response
 
                         value = buffered_response(
                             value, capture=capture_reasoning, display=display_reasoning
                         )
-                attempt_status = "complete"
-                attempt_code = getattr(response, "status", None)
-                if isinstance(value, dict):
-                    value.setdefault("_scene_completion_metrics", {}).update(
-                        transport_attempts=attempt + 1
+                if chat and body.get("stream") and (reason := invalid_chat_response(value)):
+                    raise InvalidProviderResponse(
+                        reason, usage=value.get("usage") if isinstance(value, dict) else None
                     )
+                attempt_status = "complete"
+                if isinstance(value, dict):
+                    metrics = value.get("_scene_completion_metrics")
+                    value["_scene_completion_metrics"] = {
+                        **(metrics if isinstance(metrics, dict) else {}),
+                        "transport_attempts": attempt + 1,
+                    }
                 return value
+        except InvalidProviderResponse as exc:
+            exc.response_diagnostic.update(phase=transport_phase, transport_attempts=attempt + 1)
+            if type(attempt_code) is int:
+                exc.response_diagnostic["http_status"] = attempt_code
+            raise
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            if chat:
+                raise InvalidProviderResponse(
+                    "invalid_json",
+                    phase=transport_phase,
+                    http_status=attempt_code,
+                    attempts=attempt + 1,
+                ) from None
+            if not isinstance(exc, json.JSONDecodeError):
+                raise
+            last_error = type(exc).__name__
+            diagnostic = {"failure_category": "connection_failed", "phase": transport_phase}
         except urllib.error.HTTPError as exc:
             attempt_code = exc.code
             last_error = f"HTTP {exc.code}"
@@ -278,7 +317,6 @@ def _post_chat_completions_diagnostic(
             TimeoutError,
             ConnectionError,
             http.client.HTTPException,
-            json.JSONDecodeError,
         ) as exc:
             last_error = type(exc).__name__
             diagnostic = {
@@ -312,8 +350,7 @@ def _post_chat_completions_diagnostic(
                 diagnostic["request_not_sent"] = True
             # A disconnected/timeout POST may already have incurred inference.
             # Preserve pending work instead of blindly posting the same prompt.
-            if not isinstance(exc, json.JSONDecodeError):
-                break
+            break
         finally:
             if observer:
                 observer.emit(

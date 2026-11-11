@@ -90,7 +90,7 @@ def source_ref(document, row):
     }
 
 
-def call_contract_lines(document, method, path):
+def call_contract_lines(document, method, path, *, anchor=None):
     """Include the literal return and peer notes of an evidenced HTTP call.
 
     Index work only: the model still interprets fields and constraints. A new
@@ -101,7 +101,12 @@ def call_contract_lines(document, method, path):
     selected = set()
     for n, row in enumerate(rows):
         call = CALL.match(row["text"])
-        if not call or (method, path) not in declarations(call[3]):
+        if (
+            not call
+            or anchor is not None
+            and row["number"] != anchor
+            or (method, path) not in declarations(call[3])
+        ):
             continue
         sender, receiver = call[1], call[2]
         for other in rows[n + 1 :]:

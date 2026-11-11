@@ -261,9 +261,14 @@ def output_limit(body):
 
 
 def request_diagnostic(body, response=None):
-    response = response or {}
-    choice = (response.get("choices") or [{}])[0]
-    message = choice.get("message") or {}
+    response = response if isinstance(response, dict) else {}
+    choices = response.get("choices")
+    choice = (
+        choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
+    )
+    message = choice.get("message")
+    if not isinstance(message, dict):
+        message = {}
     from scene_completion.models.provider_reasoning import fragments
 
     pieces, fields = fragments(message)
@@ -293,7 +298,9 @@ def request_diagnostic(body, response=None):
         "body_bytes": len((message.get("content") or "").encode())
         if isinstance(message.get("content"), str)
         else 0,
-        "tool_call_count": len(message.get("tool_calls") or []),
+        "tool_call_count": len(message["tool_calls"])
+        if isinstance(message.get("tool_calls"), list)
+        else 0,
         "reasoning_received": reasoning_received,
         "thinking": body.get(
             "thinking",

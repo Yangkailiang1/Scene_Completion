@@ -533,3 +533,242 @@ def test_abstract_external_call_is_not_mistaken_for_no_interface_declarations():
     # The tool cannot turn an abstract operation into an invented method/path.
     result, notes = complete_explicit_calls({"services": []}, view)
     assert result == {"services": []} and notes == []
+
+
+def external_scope(texts, layer="RR"):
+    from scene_completion.inputs.api_boundaries import scope_inputs
+
+    doc = {
+        "source_id": layer.lower(),
+        "name": layer + ".md",
+        "channel": "normal",
+        "lines": [{"number": n, "text": text} for n, text in enumerate(texts, 1)],
+    }
+    components = {
+        "components": [
+            {"name": n, "composition_type": "外部Actor（系统）", "source_refs": []}
+            for n in ("CloudMapService", "GaussDB")
+        ]
+    }
+    return scope_inputs([doc], components, layer, "external")
+
+
+def test_external_call_without_a_contract_cannot_enter_mapping_or_index():
+    from scene_completion.inputs.api_documents import index_interfaces
+    from scene_completion.inputs.external_interfaces import inventory
+
+    inputs = external_scope(
+        [
+            "# GaussDB",
+            "平台写入外部 GaussDB。",
+            "```mermaid",
+            "sequenceDiagram",
+            "participant D as GaussDB",
+            "P->>D: insertInstance(record)",
+            "```",
+        ]
+    )
+    assert not inventory(inputs)
+    assert index_interfaces({**inputs, "api-map": {"services": []}}) == {"apis": []}
+    fake = complete_explicit_calls({"services": []}, [document()])[0]
+    api = fake["services"][0]["interfaces"][0]
+    ref = {"source_id": "rr", "line_start": 2, "line_end": 2, "quote": "平台写入外部 GaussDB。"}
+    api.update(address="/gaussdb/write", source_refs=[ref])
+    bad = {"services": [{"name": "GaussDB", "interfaces": [api], "source_refs": [ref]}]}
+    with pytest.raises(ValueError, match="no cited declaration"):
+        validate_result("api-map", bad, inputs)
+    with pytest.raises(ValueError, match="no cited declaration"):
+        index_interfaces({**inputs, "api-map": bad})
+
+
+def test_mixed_external_contracts_use_the_owned_declaration_and_exact_ranges():
+    from scene_completion.inputs.api_documents import index_interfaces
+    from scene_completion.inputs.external_interfaces import inventory, mapping_view
+
+    inputs = external_scope(
+        [
+            "# GaussDB",
+            "平台写入外部 GaussDB。",
+            "# CloudMapService接口",
+            "## API-C1 POST /resources",
+            "### 请求",
+            "必须使用SA+RS256_PSS签名认证",
+            "### 成功响应",
+            "200 OK",
+            "## API-C2 订阅事件",
+            "事件内容见订阅协议。",
+        ],
+        "SR",
+    )
+    seen = inventory(mapping_view(inputs))
+    assert [(i["id"], i["method"], i["path"]) for i in seen] == [
+        ("API-C1", "POST", "/resources"),
+        ("API-C2", None, None),
+    ]
+    mapping = {
+        "services": [
+            {
+                "name": "CloudMapService",
+                "source_refs": seen[0]["source_refs"],
+                "interfaces": [
+                    {
+                        "id": i["id"],
+                        "name": i["name"],
+                        "method": i["method"],
+                        "address": i["path"],
+                        "source_refs": i["source_refs"],
+                    }
+                    for i in seen
+                ],
+            }
+        ]
+    }
+    validate_result("api-map", mapping, inputs)
+    spans = index_interfaces({**inputs, "api-map": mapping})["apis"][0]["source_ranges"]
+    assert spans == [{"source_id": "sr", "start": 4, "end": 8}]
+    counterfeit = deepcopy(mapping)
+    counterfeit["services"][0]["name"] = "GaussDB"
+    with pytest.raises(ValueError, match="no cited declaration"):
+        validate_result("api-map", counterfeit, inputs)
+
+
+def test_adopted_external_mapping_is_indexed_from_its_structured_provenance():
+    from scene_completion.inputs.api_boundaries import scope_inputs
+    from scene_completion.inputs.api_documents import index_interfaces
+    from scene_completion.inputs.artifact_conversion import cited_payload
+    from scene_completion.inputs.external_interfaces import mapping_view
+
+    mapping, doc = cited_payload(
+        {
+            "services": [
+                {
+                    "name": "CloudMapService",
+                    "interfaces": [
+                        {
+                            "id": "API-TEST",
+                            "name": "Create",
+                            "method": "POST",
+                            "address": "/remote/create",
+                        }
+                    ],
+                }
+            ]
+        },
+        "api-map",
+        "file",
+        "external.json",
+    )
+    inputs = scope_inputs(
+        [doc],
+        {
+            "components": [
+                {
+                    "name": "CloudMapService",
+                    "composition_type": "外部Actor（系统）",
+                    "source_refs": [],
+                }
+            ]
+        },
+        "SR",
+        "external",
+    )
+    validate_result("api-map", mapping, mapping_view(inputs))
+    assert index_interfaces({**inputs, "api-map": mapping})["apis"][0]["source_ranges"]
+
+
+def test_external_contract_table_preserves_explicit_owner_and_method_path_columns():
+    from scene_completion.inputs.external_interfaces import inventory, mapping_view
+
+    inputs = external_scope(
+        [
+            "# 接口目录",
+            "| API名称 | 所属服务 | 方法 | 路径 |",
+            "| --- | --- | --- | --- |",
+            "| API-CL | CloudMapService | POST | /cloud/resources |",
+            "| API-IN | InternalService | POST | /internal/resources |",
+        ]
+    )
+    assert [(d["receiver"], d["method"], d["path"]) for d in inventory(mapping_view(inputs))] == [
+        ("CloudMapService", "POST", "/cloud/resources")
+    ]
+
+
+def test_pipeline_revalidates_stale_external_cache_without_model_or_parameter_task(tmp_path):
+    from scene_completion.workflow.engine import Execution
+    from scene_completion.workflow.planning import build_pipeline
+    from tests.test_workflow import fake_pipeline
+
+    rr, sr, tests, mocks = fake_pipeline(tmp_path)
+    texts = [
+        "# 系统组成",
+        "```mermaid",
+        "sequenceDiagram",
+        "participant D as GaussDB",
+        "P->>D: writeData(record)",
+        "```",
+    ]
+    start = len(rr[0]["lines"]) + 1
+    rr[0]["lines"].extend({"number": start + n, "text": text} for n, text in enumerate(texts))
+    ref = {
+        "source_id": rr[0]["source_id"],
+        "line_start": start + 4,
+        "line_end": start + 4,
+        "quote": texts[4],
+    }
+    mocks["components"]["components"].append(
+        {
+            "id": "gauss",
+            "name": "GaussDB",
+            "composition_type": "外部Actor（系统）",
+            "parent_id": None,
+            "source_status": "explicit",
+            "source_refs": [ref],
+        }
+    )
+    seen = []
+
+    def mapping(p):
+        scope = p["input"]["interface-scope"]
+        seen.append(scope["boundary"])
+        return {"services": []}
+
+    mocks["api-map"] = mapping
+    root = tmp_path / "run"
+    first = Execution(root, mocks=mocks)
+    build_pipeline(first, rr, sr, tests)
+    assert first.finish()["complete"]
+    assert seen == ["system"]
+    key = "rr-external-api-map"
+    state = read_json(root / "workflow_tasks.json")
+    record = state["tasks"][key]
+    path = root / record["output_file"]
+    stale = read_json(path)
+    stale["payload"]["services"] = [
+        {
+            "name": "GaussDB",
+            "source_refs": [ref],
+            "interfaces": [
+                {
+                    "id": "DB-WRITE",
+                    "name": "writeData",
+                    "method": "POST",
+                    "address": "/gaussdb/write",
+                    "source_refs": [ref],
+                }
+            ],
+        }
+    ]
+    write_json(path, stale)
+    record["output_hash"] = fingerprint(stale)
+    write_json(root / "workflow_tasks.json", state)
+
+    second = Execution(root, mocks=mocks)
+    build_pipeline(second, rr, sr, tests)
+    assert second.finish()["complete"]
+    assert seen == ["system"]
+    saved = second.scheduler.state["tasks"]
+    assert read_json(root / saved[key]["output_file"])["payload"] == {"services": []}
+    assert read_json(root / saved["rr-external-api-index"]["output_file"])["payload"] == {
+        "apis": []
+    }
+    assert not any(k.startswith("api-parameters-part-") for k in saved)

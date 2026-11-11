@@ -4,6 +4,8 @@ import http.client
 import json
 import time
 
+from scene_completion.models.provider_response import InvalidProviderResponse
+
 
 def read_chat_stream(
     response,
@@ -64,16 +66,24 @@ def read_chat_stream(
             return
         if not data:
             return
-        row = json.loads(data)
+        try:
+            row = json.loads(data)
+        except (ValueError, TypeError):
+            raise InvalidProviderResponse("invalid_json", usage=usage) from None
+        if not isinstance(row, dict):
+            raise InvalidProviderResponse("invalid_stream_event", usage=usage)
+        usage = row.get("usage") or usage
         events += 1
         last = time.perf_counter()
         if first is None:
             first = time.perf_counter() - started
             if observer:
                 observer.emit("stream_first_event", duration_seconds=first)
-        if row.get("error"):
+        if row.get("error") is not None:
             details = row["error"] if isinstance(row["error"], dict) else {}
             code = details.get("code")
+            if type(code) is not int:
+                raise InvalidProviderResponse("provider_error_envelope", usage=usage)
             error = RuntimeError("model provider rejected streamed request")
             category = {
                 400: "request_invalid",
@@ -92,15 +102,22 @@ def read_chat_stream(
             retry = details.get("retry_after_seconds")
             if type(retry) in (int, float):
                 error.response_diagnostic["retry_after_seconds"] = max(0.0, min(300.0, retry))
+            error.usage = usage
             raise error
         model = row.get("model") or model
-        usage = row.get("usage") or usage
         from scene_completion.infrastructure.execution_events import emit
 
-        for choice in row.get("choices", []) or []:
+        choices = row.get("choices", [])
+        if not isinstance(choices, list) or not all(isinstance(c, dict) for c in choices):
+            raise InvalidProviderResponse("invalid_stream_choices", usage=usage)
+        for choice in choices:
             if choice.get("index", 0) != 0:
                 continue
-            delta = choice.get("delta") or {}
+            delta = choice.get("delta")
+            if delta is None:
+                delta = {}
+            if not isinstance(delta, dict):
+                raise InvalidProviderResponse("invalid_stream_delta", usage=usage)
             delta_fields.update(
                 k
                 for k in delta
@@ -140,21 +157,39 @@ def read_chat_stream(
                 )
                 preparing = True
             text = delta.get("content")
+            if text is not None and not isinstance(text, str):
+                raise InvalidProviderResponse("invalid_content", usage=usage)
             if text:
-                if not isinstance(text, str):
-                    raise ValueError("stream content must be text")
                 size += len(text.encode("utf8"))
                 content_bytes += len(text.encode("utf8"))
                 if size > 16 * 1024 * 1024:
                     raise ValueError("stream output exceeds bounded response size")
                 content.append(text)
                 emit("stream_delta", channel="text", text=text)
-            for part in delta.get("tool_calls", []) or []:
+            parts = delta.get("tool_calls")
+            if parts is None:
+                parts = []
+            if not isinstance(parts, list):
+                raise InvalidProviderResponse("invalid_tool_calls", usage=usage)
+            for part in parts:
+                if not isinstance(part, dict):
+                    raise InvalidProviderResponse("invalid_tool_calls", usage=usage)
                 index = part.get("index", 0)
+                fun = part.get("function")
+                if fun is None:
+                    fun = {}
+                if (
+                    type(index) is not int
+                    or not isinstance(fun, dict)
+                    or any(
+                        v is not None and not isinstance(v, str)
+                        for v in (part.get("id"), fun.get("name"), fun.get("arguments"))
+                    )
+                ):
+                    raise InvalidProviderResponse("invalid_tool_calls", usage=usage)
                 call = tool_calls.setdefault(
                     index, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
                 )
-                fun = part.get("function") or {}
                 call["id"] += part.get("id") or ""
                 call["function"]["name"] += fun.get("name") or ""
                 call["function"]["arguments"] += fun.get("arguments") or ""
@@ -216,7 +251,10 @@ def read_chat_stream(
                 raw = next(iterator)
             except StopIteration:
                 break
-            line = raw.decode("utf8").rstrip("\r\n")
+            try:
+                line = raw.decode("utf8").rstrip("\r\n")
+            except UnicodeDecodeError:
+                raise InvalidProviderResponse("invalid_json", usage=usage) from None
             if not line:
                 consume(event)
                 event = []
@@ -247,7 +285,11 @@ def read_chat_stream(
         raise
     if event and not done:
         consume(event)
-    if not done or finish is None:
+    if done and finish is None:
+        raise InvalidProviderResponse("missing_stream_choice", usage=usage)
+    if not done and not events:
+        raise InvalidProviderResponse("empty_stream", usage=usage)
+    if not done:
         error = http.client.IncompleteRead(b"", None)
         error.response_diagnostic = {
             "failure_category": "stream_incomplete",
@@ -265,6 +307,7 @@ def read_chat_stream(
             "delta_fields": sorted(delta_fields),
             "incomplete_tools": [c["function"]["name"] for c in tool_calls.values()],
         }
+        error.usage = usage
         raise error
     calls = [tool_calls[i] for i in sorted(tool_calls)]
     for call in calls:
@@ -273,7 +316,7 @@ def read_chat_stream(
         if finish == "length":
             continue
         if not call["id"] or not call["function"]["name"]:
-            raise ValueError("incomplete streamed tool identity")
+            raise InvalidProviderResponse("invalid_tool_calls", usage=usage)
         # Parse arguments in the metered semantic adapter, after usage settlement.
         # A complete HTTP stream can still contain invalid semantic JSON.
     monitor.observe(

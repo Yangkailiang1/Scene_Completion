@@ -61,6 +61,8 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     from scene_completion.analysis.domain_model import merge_entities, source_chunks
     from scene_completion.inputs.artifact_imports import selections
     from scene_completion.inputs.colleague_formats import uncovered_entity_documents
+    from scene_completion.inputs.external_interfaces import index as external_index
+    from scene_completion.inputs.external_interfaces import mapping_view
 
     imported_entities = selections(ex.root.parent, "business-entities", frozen=ex.import_snapshot)
     entity_parts = []
@@ -155,7 +157,9 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             build=lambda d, docs=docs, layer=layer, boundary=boundary: scope_inputs(
                 docs, d["components"], layer, boundary
             ),
-            transform=lambda d: {
+            transform=mapping_view
+            if boundary == "external"
+            else lambda d: {
                 key: task_document_view(values, "api-map") if key in {"RR", "SR"} else values
                 for key, values in d.items()
             },
@@ -181,7 +185,15 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             "api-index",
             (map_key, "components"),
             build=lambda d, k=map_key, layer=layer, docs=docs, boundary=boundary: {
-                layer: partition_documents(docs, external_services(d["components"]), boundary),
+                **(
+                    scope_inputs(docs, d["components"], layer, boundary)
+                    if boundary == "external"
+                    else {
+                        layer: partition_documents(
+                            docs, external_services(d["components"]), boundary
+                        )
+                    }
+                ),
                 "api-map": d[k],
             },
             transform=index_interfaces,
@@ -301,11 +313,29 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
             full_indexes[(layer, boundary)] = (
                 {
                     a["id"]: a
-                    for a in index_interfaces(
-                        {
-                            layer: partition_documents(raw_documents[layer], services, boundary),
-                            "api-map": raw_mapping,
-                        }
+                    for a in (
+                        external_index(
+                            raw_mapping,
+                            {
+                                layer: partition_documents(
+                                    raw_documents[layer], services, boundary
+                                ),
+                                "interface-scope": {
+                                    "boundary": boundary,
+                                    "external_services": services,
+                                },
+                            },
+                            require_complete=False,
+                        )
+                        if boundary == "external"
+                        else index_interfaces(
+                            {
+                                layer: partition_documents(
+                                    raw_documents[layer], services, boundary
+                                ),
+                                "api-map": raw_mapping,
+                            }
+                        )
                     )["apis"]
                 }
                 if response_docs[(layer, boundary)]

@@ -53,6 +53,13 @@ def add(
     if verify_derivation and (transform is None or task in REVIEW_TASKS and not skip_review):
         raise ValueError("derived validation requires an unreviewed deterministic task")
     from scene_completion.inputs.artifact_imports import fragments_for
+    from scene_completion.inputs.external_interfaces import REVISION, inventory
+
+    external_contract = key in {
+        f"{layer}-external-api-{stage}"
+        for layer in ("rr", "sr")
+        for stage in ("context", "map", "index")
+    }
 
     imported = fragments_for(self.root.parent, task, case, self.import_snapshot)
     if transform and task == "fused-ssd":
@@ -93,6 +100,7 @@ def add(
         [
             self.reviews.execution_identity,
             code_version(task),
+            *([REVISION] if external_contract else []),
             schema(task) if task in SCHEMAS else None,
             self.conversations.revision(key),
             import_identity,
@@ -172,9 +180,7 @@ def add(
         elif (
             task == "api-map"
             and inputs.get("interface-scope", {}).get("boundary") == "external"
-            and not __import__(
-                "scene_completion.inputs.api_boundaries", fromlist=["has_declarations"]
-            ).has_declarations(inputs.get("RR", []) + inputs.get("SR", []), include_abstract=True)
+            and not inventory(inputs)
         ):
             value = {"services": []}
             proof = {
@@ -662,6 +668,8 @@ def add(
             history_hash=fingerprint(self.recommendation_history),
             recommendation_run=self.session_id,
         )
+    if external_contract:
+        version["external_declarations"] = REVISION
     if imported:
         version["import_logic"] = component_version("artifact-imports")
     self.scheduler.add(

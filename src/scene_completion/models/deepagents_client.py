@@ -153,6 +153,19 @@ class DeepAgentsClient(SemanticClient):
                 "没有明示文档API编号时使用稳定本地ID，不补造地址或约束。"
             )
             if scope := packet["input"].get("interface-scope"):
+                if scope["boundary"] == "external":
+                    from scene_completion.inputs.external_interfaces import inventory
+
+                    packet["interface_declarations"] = [
+                        {k: v for k, v in item.items() if k != "lines"}
+                        for item in inventory(packet["input"])
+                    ]
+                    packet["instructions"] += (
+                        "\n外部接口仅允许使用 interface_declarations 中已验证的归属与声明。"
+                        "一般数据库访问、自检、业务依赖和抽象时序操作不构成接口契约。"
+                        "明确命名但缺方法或路径的契约只能填写原文明示字段。"
+                        "每个接口必须引用对应声明行，不能用组件介绍代替。"
+                    )
                 packet["instructions"] += (
                     "\n本节点只抽取"
                     + (
@@ -276,8 +289,20 @@ class DeepAgentsClient(SemanticClient):
             "task_key": task_key,
             "conversations": conversations,
             "count": saved.get("model_calls", 0),
+            "initial_count": saved.get("model_calls", 0),
             "repair": packet.get("repair"),
         }
+        if packet["task"] == "business-crud" and "candidate" in packet.get("repair", {}):
+            repair = {
+                k: v
+                for k, v in packet["repair"].items()
+                if k not in {"candidate", "candidate_format", "review_questions"}
+            }
+            repair["rule"] = "基于当前用例材料及简短校验反馈重新提交完整结果。"
+            session["optional_candidate_message"] = (
+                task_message(packet),
+                task_message({**packet, "repair": repair}),
+            )
         session_token = _AGENT_SESSION.set(session)
 
         def question_refs(refs):
@@ -705,7 +730,11 @@ class DeepAgentsClient(SemanticClient):
             )
         if (
             not self.config.get("reasoning_replay")
-            and saved.get("status") in {"awaiting_answer", "transport_wait"}
+            and (
+                saved.get("status") == "awaiting_answer"
+                or saved.get("status") == "transport_wait"
+                and packet["task"] != "business-crud"
+            )
             and saved.get("messages")
         ):
             from langchain_core.messages import ToolMessage, messages_from_dict, messages_to_dict
@@ -1092,7 +1121,29 @@ def _transport_model(client, stage):
             from scene_completion.models.request_context import prepare
 
             with fields(model_call_id=uuid4().hex):
-                context_bound = prepare(self.scene_client, body, self.task_stage)
+                from scene_completion.models.context_budget import check
+
+                optional = session.get("optional_candidate_message") if session else None
+                if optional:
+                    try:
+                        check(body, self.scene_client.config)
+                    except RuntimeError:
+                        for row in body["messages"]:
+                            if row["role"] == "user" and row["content"] == optional[0]:
+                                row["content"] = optional[1]
+                                break
+                try:
+                    context_bound = prepare(self.scene_client, body, self.task_stage)
+                except RuntimeError as exc:
+                    from scene_completion.workflow.scheduler import TaskBlocked
+
+                    details = dict(exc.response_diagnostic)
+                    if session:
+                        session["count"] -= 1
+                        if session["count"] == session["initial_count"]:
+                            details["semantic_round_not_started"] = True
+                    emit("request_failed", requested_model=body["model"], diagnostic=details)
+                    raise TaskBlocked("awaiting_configuration", details) from exc
                 phase("model_wait")
                 emit(
                     "request_started",

@@ -35,6 +35,10 @@ def index_interfaces(inputs):
     literal identifiers only locate its evidence; no project URL prefix is
     required, and a declaration alone does not create an index-only API.
     """
+    if inputs.get("interface-scope", {}).get("boundary") == "external":
+        from scene_completion.inputs.external_interfaces import index
+
+        return index(inputs["api-map"], inputs)
     docs = {d["source_id"]: d for d in inputs.get("RR", []) + inputs.get("SR", [])}
     found = {}
     for service in inputs["api-map"]["services"]:

@@ -46,6 +46,30 @@ def refs_required(value):
     visit(value)
 
 
+def _validate_literal_http_coverage(payload, inputs):
+    from scene_completion.inputs.api_documents import explicit_http_interfaces
+
+    declared = explicit_http_interfaces(inputs.get("RR", []) + inputs.get("SR", []))
+    actual = {
+        (a["method"].upper(), a["address"])
+        for s in payload["services"]
+        for a in s["interfaces"]
+        if a.get("method") and a.get("address")
+    }
+    missing = set(declared) - actual
+    if missing:
+        raise ValueError(
+            "API mapping omitted explicit method/path declarations or downstream calls; include each evidenced service/interface (generate a stable local ID if no document API ID exists): "
+            + json.dumps(
+                [
+                    {"method": m, "path": p, "source_ref": declared[(m, p)]}
+                    for m, p in sorted(missing)[:8]
+                ],
+                ensure_ascii=False,
+            )
+        )
+
+
 def validate_result(task, payload, inputs):
     validate(task, payload)
     if task == "exception-scope":
@@ -373,27 +397,12 @@ def validate_result(task, payload, inputs):
                         "接口地址必须为纯path，不能包含<br/>、说明、查询串或残缺占位符；未知地址使用null并保留原始证据："
                         + str(api["id"])
                     )
-        from scene_completion.inputs.api_documents import explicit_http_interfaces
+        if inputs.get("interface-scope", {}).get("boundary") == "external":
+            from scene_completion.inputs.external_interfaces import verified_anchors
 
-        declared = explicit_http_interfaces(inputs.get("RR", []) + inputs.get("SR", []))
-        actual = {
-            (a["method"].upper(), a["address"])
-            for s in payload["services"]
-            for a in s["interfaces"]
-            if a.get("method") and a.get("address")
-        }
-        missing = set(declared) - actual
-        if missing:
-            raise ValueError(
-                "API mapping omitted explicit method/path declarations or downstream calls; include each evidenced service/interface (generate a stable local ID if no document API ID exists): "
-                + json.dumps(
-                    [
-                        {"method": m, "path": p, "source_ref": declared[(m, p)]}
-                        for m, p in sorted(missing)[:8]
-                    ],
-                    ensure_ascii=False,
-                )
-            )
+            verified_anchors(payload, inputs)
+        else:
+            _validate_literal_http_coverage(payload, inputs)
     # Numerical rule values must be traceable, even when the model cites a
     # real sentence. Citation presence alone is not a threshold source.
     import re
