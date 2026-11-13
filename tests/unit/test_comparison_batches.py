@@ -1,0 +1,204 @@
+from copy import deepcopy
+
+from scene_completion.analysis.matching.comparison_batches import compare_in_batches
+from scene_completion.domain.contracts import packet
+from tests.support.comparison_batches import Client
+from tests.support.workflow import scenario
+
+
+def test_partitioned_comparison_keeps_exhaustive_decisions_and_reuses_valid_parts(tmp_path):
+    a, b = scenario("a"), scenario("b")
+    b["interaction_id"] = "second"
+    x, y = deepcopy(a), deepcopy(b)
+    x["id"] = "x"
+    y["id"] = "y"
+    p = packet("gap-compare", {"left": [a, b], "right": [x, y], "purpose": "G_E"})
+    p["node_key"] = "case:gap-compare"
+    client = Client()
+    v = compare_in_batches(p, client, tmp_path)
+    assert len(client.calls) == 2 and all(
+        len(r["left"]) == len(r["right"]) == 1 for r in client.calls
+    )
+    assert len(v["decisions"]) == 4 and not v["missing"]
+    assert sum(d["status"] == "unmatched" for d in v["decisions"]) == 2
+    again = compare_in_batches(p, client, tmp_path)
+    assert len(client.calls) == 2 and again["decisions"] == v["decisions"]
+
+
+def test_large_interaction_matrix_is_bounded_per_model_request(tmp_path):
+    left = [scenario("l" + str(n)) for n in range(17)]
+    right = [scenario("r" + str(n)) for n in range(10)]
+    p = packet("semantic-compare", {"left": left, "right": right, "purpose": "GT_G"})
+    p["node_key"] = "case:GT_G"
+    c = Client()
+    v = compare_in_batches(p, c, tmp_path)
+    assert len(v["decisions"]) == 170 and len(c.calls) == 11
+    assert all(len(x["candidate_pairs"]) <= 16 for x in c.calls)
+
+
+def test_sparse_field_comparison_excludes_only_known_identifiers_and_preserves_all_pairs(tmp_path):
+    left = []
+    right = []
+    for field in ("page", "pageSize", "中文字段"):
+        a = scenario("l-" + field)
+        a.update(field=field, scope="interface", data_location="query")
+        left.append(a)
+        b = deepcopy(a)
+        b["id"] = "r-" + field
+        right.append(b)
+    p = packet("semantic-compare", {"left": left, "right": right, "purpose": "GT_G"})
+    p["node_key"] = "test:GT_G"
+    c = Client()
+    v = compare_in_batches(p, c, tmp_path)
+    assert len(v["decisions"]) == 9 and len(c.calls) == 1
+    candidates = {(r["left_id"], r["right_id"]) for r in c.calls[0]["candidate_pairs"]}
+    assert ("l-page", "r-pageSize") not in candidates and ("l-pageSize", "r-page") not in candidates
+    assert ("l-中文字段", "r-page") in candidates
+    # A later superset reuses individually verified decisions, rather than
+    # rerunning old pairs just because their rectangular batch changed.
+    compare_in_batches(p, c, tmp_path)
+    assert len(c.calls) == 1
+    extra = scenario("extra")
+    p["input"]["right"].append(extra)
+    compare_in_batches(p, c, tmp_path)
+    assert len(c.calls) == 2 and all(
+        r["right_id"] == "extra" for r in c.calls[-1]["candidate_pairs"]
+    )
+
+
+def test_header_case_is_insensitive_and_sparse_decisions_reject_unrequested_pairs(tmp_path):
+    import pytest
+
+    from scene_completion.analysis.matching.comparison_batches import distinct_unit
+    from scene_completion.analysis.validation import validate_result
+
+    a = scenario("a")
+    a.update(field="Authorization", scope="interface", data_location="header")
+    b = deepcopy(a)
+    b.update(id="b", field="authorization")
+    assert distinct_unit(a, b) is None
+    b["data_location"] = "query"
+    assert distinct_unit(a, b)
+    inputs = {
+        "left": [a],
+        "right": [b],
+        "purpose": "GT_G",
+        "candidate_pairs": [{"left_id": "a", "right_id": "b"}],
+    }
+    with pytest.raises(ValueError):
+        validate_result("semantic-compare", {"decisions": []}, inputs)
+    inputs["candidate_pairs"].append({"left_id": "a", "right_id": "unknown"})
+    with pytest.raises(ValueError, match="known IDs"):
+        validate_result("semantic-compare", {"decisions": []}, inputs)
+
+
+def test_model_overgeneration_cannot_overwrite_known_pairs_or_supply_missing_answers():
+    import pytest
+
+    from scene_completion.analysis.matching.comparison_batches import restrict_candidate_decisions
+    from scene_completion.analysis.validation import validate_result
+
+    a, b, c = scenario("a"), scenario("b"), scenario("c")
+    inputs = {
+        "left": [a],
+        "right": [b, c],
+        "purpose": "GT_G",
+        "candidate_pairs": [{"left_id": "a", "right_id": "b"}],
+    }
+    row = {"left_id": "a", "right_id": "b", "status": "full", "reason": "complete semantic match"}
+    raw = {"decisions": [row, deepcopy(row), {**row, "right_id": "c"}]}
+    log = []
+    value = restrict_candidate_decisions(raw, inputs, log)
+    validate_result("semantic-compare", value, inputs)
+    assert value["decisions"] == [row] and len(log) == 2 and len(raw["decisions"]) == 3
+    conflict = {"decisions": [row, {**row, "status": "partial"}]}
+    with pytest.raises(ValueError, match="duplicates"):
+        validate_result(
+            "semantic-compare", restrict_candidate_decisions(conflict, inputs, []), inputs
+        )
+    with pytest.raises(ValueError, match="missing"):
+        validate_result(
+            "semantic-compare", restrict_candidate_decisions({"decisions": []}, inputs, []), inputs
+        )
+
+
+def test_general_service_scope_keeps_semantic_comparison_with_a_specific_interface(tmp_path):
+    from scene_completion.analysis.matching.comparison_batches import distinct_unit
+
+    a = scenario("a")
+    a["scope"] = "service"
+    b = deepcopy(a)
+    b.update(id="b", scope="interface")
+    assert distinct_unit(a, b) is None
+    p = packet("semantic-compare", {"left": [a], "right": [b], "purpose": "GT_G"})
+    p["node_key"] = "test:scope"
+    c = Client()
+    v = compare_in_batches(p, c, tmp_path)
+    assert len(c.calls) == 1 and v["decisions"][0]["status"] == "full"
+    a["scope"] = "storage"
+    assert distinct_unit(a, b)
+
+
+def test_exact_normal_rules_and_approved_broad_coverage_need_no_model(tmp_path):
+    a = scenario("g")
+    a.update(
+        rule_id="normal-required-id",
+        field="id",
+        scope="interface",
+        data_location="query",
+        concern_key="api.data.completeness",
+    )
+    exact = deepcopy(a)
+    exact["id"] = "e-exact"
+    broad = deepcopy(a)
+    broad.update(
+        id="e-broad",
+        rule_id=None,
+        field=None,
+        coverage_kind="input_parameters",
+        original_branch_id="branch",
+    )
+    p = packet("gap-compare", {"left": [a], "right": [exact, broad], "purpose": "G_E"})
+    p["node_key"] = "test:gap"
+    client = Client()
+    v = compare_in_batches(p, client, tmp_path)
+    assert not client.calls and len(v["decisions"]) == 2 and not v["missing"]
+    # A different necessary condition remains a semantic decision, despite ID.
+    exact["conditions"] = ["another failure condition"]
+    p = packet("semantic-compare", {"left": [a], "right": [exact], "purpose": "GT_G"})
+    p["node_key"] = "test:GT_G"
+    compare_in_batches(p, client, tmp_path)
+    assert len(client.calls) == 1
+
+
+def test_partition_consumes_only_input_bound_external_repair(tmp_path):
+    import pytest
+
+    from scene_completion.infrastructure.storage import write_json
+    from scene_completion.workflow.recovery.node_repair import binding, path
+
+    a, b = scenario("a"), scenario("b")
+    p = packet("semantic-compare", {"left": [a], "right": [b], "purpose": "GT_G"})
+    p["node_key"] = "case:GT_G"
+    client = Client()
+
+    def handoff(child):
+        value = client.agent(child)
+        write_json(
+            path(tmp_path, child["node_key"]),
+            {
+                "binding": binding(child, 0),
+                "payload": value,
+                "revision": 1,
+            },
+        )
+        raise RuntimeError("simulated model failure before task completion")
+
+    with pytest.raises(RuntimeError):
+        compare_in_batches(p, client, tmp_path, call=handoff)
+    result = compare_in_batches(p, client, tmp_path)
+    assert len(client.calls) == 1
+    assert result["decisions"][0]["status"] == "full"
+    # Changed guidance must not accept an obsolete partition repair.
+    compare_in_batches(p, client, tmp_path, guidance_revision=1)
+    assert len(client.calls) == 2

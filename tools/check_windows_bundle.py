@@ -104,12 +104,35 @@ def verify_worker_entrypoints(bundle, executable=None):
     return {"worker_entrypoints": results, "worker_startup": "passed"}
 
 
+def verify_portable_layout(bundle):
+    """The shipped suite must not depend on development datasets or test helpers."""
+    app = Path(bundle) / "app"
+    tests = app / "tests"
+    collected = sorted(tests.rglob("test_*.py"))
+    if not collected or any(not path.is_relative_to(tests / "portable") for path in collected):
+        raise ValueError("The portable bundle must contain only tests/portable test modules")
+    for name in (
+        "tests/support/paths.py",
+        "tests/fixtures/memory_repository/acceptance.json",
+        "tests/fixtures/compat/standalone/submitted-bundle.json",
+        "tests/fixtures/compat/standalone/prepared-snapshot.json",
+        "tests/fixtures/compat/standalone/refined-existing-snapshot.json",
+        "deployment/windows/launcher.py",
+    ):
+        if not (app / name).is_file():
+            raise ValueError("Portable resource missing: " + name)
+    if (app / "datasets").exists() or (app / "deployment/experiments").exists():
+        raise ValueError("Development datasets or experiments must not enter the portable bundle")
+    return {"portable_test_modules": len(collected), "portable_resources": "passed"}
+
+
 def smoke(bundle):
     if os.name != "nt":
         raise RuntimeError(
             "Native acceptance requires Windows; cross-built files do not prove runtime success"
         )
     bundle = Path(bundle).resolve()
+    portable_checks = verify_portable_layout(bundle)
     manifest = verify_files(bundle)
     verify_windows_dependencies(bundle, manifest["python"])
     # Customer paths often contain spaces and non-ASCII characters.
@@ -230,6 +253,7 @@ def smoke(bundle):
                         "xlsx_preview_and_project": "passed",
                         "model_calls": 0,
                         **worker_checks,
+                        **portable_checks,
                     },
                     ensure_ascii=False,
                 ),

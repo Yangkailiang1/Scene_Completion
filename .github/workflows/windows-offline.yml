@@ -22,8 +22,8 @@ jobs:
       - run: npm test --prefix frontend
       - run: npm run build --prefix frontend
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m ruff check src tests tools deployment scene.py serve.py
-      - run: python -m ruff format --check src tests tools deployment scene.py serve.py
+      - run: python -m ruff check src tests tools deployment/windows scene.py serve.py
+      - run: python -m ruff format --check src tests tools deployment/windows scene.py serve.py
       - run: npm run lint --prefix frontend
       - run: npm run typecheck --prefix frontend
       - run: npm run format:check --prefix frontend
@@ -34,7 +34,7 @@ jobs:
         run: |
           & dist/scene-completion-windows-x64/python/python.exe -X utf8 -c "import deepagents,fastapi,uvicorn; print('embedded runtime OK')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & dist/scene-completion-windows-x64/python/python.exe -X utf8 -m pytest dist/scene-completion-windows-x64/app/tests -q
+          & dist/scene-completion-windows-x64/python/python.exe -X utf8 -m pytest dist/scene-completion-windows-x64/app/tests/portable -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Native portable launcher and web acceptance
         run: python tools/check_windows_bundle.py dist/scene-completion-windows-x64

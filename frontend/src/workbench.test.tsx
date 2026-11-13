@@ -129,6 +129,62 @@ describe("real output grouping", () => {
   });
 });
 describe("workspace interactions", () => {
+  it("keeps SSD results accessible when execution passed but records still need confirmation", async () => {
+    const previousFetch = globalThis.fetch;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === `/api/projects/${project.id}`) {
+          return {
+            ok: true,
+            json: async () => ({
+              project,
+              job: { status: "complete_with_questions" },
+              reviews: [],
+              artifacts: [],
+              config: {},
+              tasks: { tasks: {}, events: [] },
+              review_summary: { unresolved: 0, counts: {} },
+              manifest: {
+                workflow: "ssd-case-v1",
+                execution_complete: true,
+                analysis_complete: true,
+                complete: false,
+                pending_count: 7,
+                live_cases: {
+                  "UC-1": { analysis_ready: true, evaluation_ready: true },
+                },
+              },
+            }),
+          };
+        }
+        if (url.endsWith("/graph")) {
+          return {
+            ok: true,
+            json: async () => ({
+              nodes: [{ ...node, status: "passed", phase: "complete" }],
+              edges: [],
+              roles: [],
+              definition_available: true,
+              case_expansion_pending: false,
+            }),
+          };
+        }
+        return previousFetch(url, init);
+      }),
+    );
+    render(<App />);
+    fireEvent.click(await screen.findByText("商城测试"));
+    expect(await screen.findByText("执行完成 · 7 项待确认")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "查看三方结果并确认" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("待确认结果").previousElementSibling?.textContent,
+    ).toBe("7");
+    expect(screen.getByText(/执行阶段已全部完成；请在三方结果页/)).toBeTruthy();
+    expect(screen.queryByText(/点击“开始运行”建立任务计划/)).toBeNull();
+  });
   it("collapses project list, saves preference and restores it", async () => {
     const v = render(<App />);
     await screen.findByText("商城测试");

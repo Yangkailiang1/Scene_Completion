@@ -1,0 +1,299 @@
+import json
+
+import pytest
+
+from scene_completion.compat.saved.result_views import ResultView
+from scene_completion.infrastructure.storage import fingerprint, write_json
+from scene_completion.review.decisions.project_review import pending_view
+from tests.support.project_review import pending_fixture
+from tests.support.result_views import fixture
+
+
+def test_results_are_lazy_snapshot_based_and_do_not_reclassify_or_hide_unbound(tmp_path):
+    fixture(tmp_path)
+    view = ResultView(tmp_path)
+    index = view.index()
+    assert index["complete"] and index["cases"][0]["name"] == "查询记忆库"
+    assert "interactions" not in index and "definitions" not in index
+    assert {a["key"] for a in index["artifacts"]} == {"components", "C:fused-ssd"}
+    v = view.detail("C")
+    row = v["interactions"][0]
+    assert {k: [s["id"] for s in a] for k, a in row["channels"].items()} == {
+        "G": ["g"],
+        "E": ["e"],
+        "GT": ["gt"],
+    }
+    assert row["missing_ids"] == ["g"] and v["unbound"]["GT"][0]["id"] == "unbound"
+    assert v["definitions"]["key"]["label"] == "执行时定义"
+    assert row["channels"]["G"][0]["lazy_detail"] and "source_refs" not in row["channels"]["G"][0]
+
+
+def test_case_metrics_load_only_selected_case_and_do_not_return_project_numbers(
+    tmp_path, monkeypatch
+):
+    fixture(tmp_path)
+    view = ResultView(tmp_path)
+    original_cases = view.cases()
+    monkeypatch.setattr(view, "cases", lambda: original_cases + [{"id": "D", "name": "其他用例"}])
+    read = view.payload
+    calls = []
+
+    def payload(key):
+        calls.append(key)
+        assert not key.startswith("D:"), "case endpoint must not read another case's evaluation"
+        return read(key)
+
+    monkeypatch.setattr(view, "payload", payload)
+    data = view.case_metrics("C", "original")
+    assert data["scope_kind"] == "case" and data["case_id"] == "C"
+    assert [row["id"] for row in data["cases"]] == ["C"]
+    assert data["historical"] and data["history"] == []
+    assert "C:exception-evaluation" in calls
+    with pytest.raises(ValueError, match="未知结果用例"):
+        view.case_metrics("missing")
+    assert view.scenario("C", "G", "g")["id"] == "g"
+    with pytest.raises(ValueError, match="未知用例"):
+        view.detail("../invalid")
+
+
+def test_business_default_queue_keeps_diagnostics_without_counting_as_anomalies(tmp_path):
+    state = pending_fixture(tmp_path)
+    root = tmp_path / "run"
+    for stage in ("concern-match", "enriched-view"):
+        key = "C:" + stage
+        file = "task_outputs/" + fingerprint(key) + ".json"
+        value = {
+            "pending": [{"interaction_id": "i", "reason": "内部规则未声明", "source_refs": []}]
+        }
+        write_json(root / file, {"payload": value})
+        state[key] = {
+            "case": "C",
+            "stage": stage,
+            "status": "passed",
+            "output_file": file,
+            "output_hash": fingerprint(value),
+        }
+    write_json(root / "workflow_tasks.json", {"tasks": state})
+    write_json(root / "workflow_graph.json", {"nodes": [{"id": k} for k in state]})
+    v = pending_view(tmp_path)
+    assert (
+        v["count"] == 2
+        and v["queue_counts"]["rules"]["unresolved"] == 1
+        and v["queue_counts"]["structure"]["unresolved"] == 1
+    )
+    assert pending_view(tmp_path, queue="all")["count"] == 4
+    assert pending_view(tmp_path, queue="rules")["items"][0]["origins"] == ["C:concern-match"]
+
+
+def test_results_http_returns_only_selected_case_and_real_downloads(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from scene_completion.api.application import create_app
+
+    app = create_app(tmp_path / "data")
+    client = TestClient(app)
+    rid = client.post(
+        "/api/projects",
+        json={
+            "name": "A",
+            "sources": {
+                "RR": [{"name": "r.md", "content": "RR"}],
+                "SR": [{"name": "s.md", "content": "SR"}],
+            },
+        },
+    ).json()["id"]
+    fixture(app.state.workbench.run_dir(rid))
+    base = "/api/projects/" + rid
+    index = client.get(base + "/results")
+    assert index.status_code == 200
+    assert len(index.json()["cases"]) == 1
+    d = client.get(base + "/results/C")
+    assert d.status_code == 200 and d.json()["interactions"][0]["channels"]["G"][0]["id"] == "g"
+    image = next(a for a in index.json()["artifacts"] if a["stage"] == "fused-ssd")["files"][0]
+    assert client.get(base + "/file", params={"path": image["path"]}).status_code == 200
+    assert client.get(base + "/results/unknown").status_code == 400
+
+
+def test_normal_exclusions_are_not_presented_as_unresolved_concerns(tmp_path):
+    fixture(tmp_path)
+    root = tmp_path / "run"
+    state = json.loads((root / "workflow_tasks.json").read_text())
+    key = "C:concern-evaluation"
+    file = "task_outputs/concerns.json"
+    value = {
+        "version": "two-level-concern-scenario-v1",
+        "metrics": {},
+        "excluded": {"GT": [{"scenario_type": "normal"}, {"status": "not_applicable"}]},
+    }
+    write_json(root / file, {"payload": value})
+    state["tasks"][key] = {
+        "stage": "concern-evaluation",
+        "case": "C",
+        "status": "passed",
+        "output_file": file,
+    }
+    write_json(root / "workflow_tasks.json", state)
+    write_json(root / "workflow_graph.json", {"nodes": [{"id": k} for k in state["tasks"]]})
+    c = ResultView(tmp_path).metrics()["cases"][0]
+    assert (
+        c["concern_excluded_count"] == 2 and c["concern_pending"] == 0 and c["status"] == "已评测"
+    )
+    value["excluded"]["GT"].append({"reason": "字段位置待确认"})
+    write_json(root / file, {"payload": value})
+    assert ResultView(tmp_path).metrics()["cases"][0]["concern_pending"] == 1
+    value["excluded"]["GT"].append({"status": "pending", "status_reason": "字段位置待确认"})
+    write_json(root / file, {"payload": value})
+    assert ResultView(tmp_path).metrics()["cases"][0]["concern_pending"] == 1
+
+
+def test_project_totals_do_not_mix_original_global_truth_with_expanded_or_business_truth(
+    tmp_path, monkeypatch
+):
+    view = ResultView(tmp_path)
+
+    def case_metrics(test_set):
+        assert test_set in {"original", "expanded", "business"}
+        return {
+            "complete": True,
+            "cases": [{"id": "C"}],
+            "metrics": {
+                "missing_exception_miss_rate": {"status": "适用", "numerator": 2, "denominator": 5},
+                "generation_validity": {"status": "适用", "numerator": 3, "denominator": 7},
+            },
+            "recommendation_comparison": {
+                "baseline": {
+                    "metrics": {
+                        "recommendation_adoption": {
+                            "status": "适用",
+                            "numerator": 2,
+                            "denominator": 4,
+                        },
+                        "recommendation_false_positive": {
+                            "status": "适用",
+                            "numerator": 2,
+                            "denominator": 6,
+                        },
+                    }
+                }
+            },
+        }
+
+    def global_metrics(test_set):
+        return {
+            "complete": True,
+            "status": "已评测",
+            "metrics": {
+                "missing_omission": {"status": "适用", "numerator": 1, "denominator": 3},
+                "generation_effectiveness": {"status": "适用", "numerator": 2, "denominator": 5},
+                "baseline_adoption": {"status": "适用", "numerator": 1, "denominator": 2},
+            },
+        }
+
+    monkeypatch.setattr(view, "metrics", case_metrics)
+    monkeypatch.setattr(view, "global_detail", global_metrics)
+    original = view.project_metrics("original")
+    assert original["metrics"]["missing_omission"]["numerator"] == 3
+    assert original["metrics"]["missing_omission"]["denominator"] == 8
+    assert original["metrics"]["baseline_adoption"]["numerator"] == 3
+    for source in ("expanded", "business"):
+        other = view.project_metrics(source)
+        assert other["metrics"]["missing_omission"]["numerator"] == 2
+        assert other["metrics"]["missing_omission"]["denominator"] == 5
+        assert other["metrics"]["missing_omission"]["included_granularities"] == ["interaction"]
+        assert other["metrics"]["missing_omission"]["partial"] and not other["complete"]
+
+
+def test_result_directory_can_load_without_scanning_or_generating_artifacts(tmp_path, monkeypatch):
+    fixture(tmp_path)
+
+    def forbidden(self):
+        raise AssertionError("initial directory must not scan artifacts")
+
+    monkeypatch.setattr(ResultView, "catalog", forbidden)
+    result = ResultView(tmp_path).index(include_artifacts=False)
+    assert result["cases"][0]["id"] == "C" and result["artifacts"] == []
+
+
+def test_compact_snapshot_does_not_scan_review_payloads(tmp_path, monkeypatch):
+    import scene_completion.review.decisions.project_review as project_review
+    from scene_completion.application.project_service import Workbench
+
+    service = Workbench(tmp_path / "projects")
+    rid = service.create(
+        {
+            "name": "large",
+            "sources": {
+                "RR": [{"name": "r.md", "content": "RR"}],
+                "SR": [{"name": "s.md", "content": "SR"}],
+            },
+        }
+    )["id"]
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("compact refresh must not inspect review payloads")
+
+    monkeypatch.setattr(project_review, "pending_view", forbidden)
+    try:
+        result = service.snapshot(rid, compact=True)
+        assert result["compact"] and result["artifacts"] == [] and result["tasks"]["tasks"] == {}
+    finally:
+        service.pool.shutdown(wait=False)
+
+
+def test_bulk_conversation_graph_view_preserves_questions_and_revisions(tmp_path):
+    from scene_completion.review.decisions.node_conversations import Conversations
+
+    c = Conversations(tmp_path)
+    c.append("a", "guidance", "first")
+    q = c.question("a", "which rule?", "source", "decide")
+    c.question("b", "which field?", "source", "decide")
+    c.answer("a", q["detail"]["question_id"], "confirmed")
+    c.question("a", "next rule?", "source", "decide")
+    overview = c.overview()
+    for key in ("a", "b", "unknown"):
+        assert overview.get(key, {}).get("question") == c.pending(key)
+        assert overview.get(key, {}).get("revision", 0) == c.revision(key)
+
+
+def test_final_detail_refreshes_api_attributes_without_changing_saved_metrics_or_ssd(tmp_path):
+    from tests.support.workflow import R, exchange, parameter
+
+    fixture(tmp_path)
+    root = tmp_path / "run"
+    state = json.loads((root / "workflow_tasks.json").read_text())["tasks"]
+
+    def put(key, stage, value):
+        file = "task_outputs/" + fingerprint(key) + ".json"
+        write_json(root / file, {"payload": value})
+        state[key] = {
+            "stage": stage,
+            "case": "C" if ":" in key else "shared",
+            "status": "passed",
+            "output_file": file,
+        }
+
+    i = exchange(api="API-M-IF2")
+    i["id"] = "i1"
+    i["data"]["sequence"] = [parameter("name", "body", None, None)]
+    put("C:enriched-view", "enriched-view", {"interactions": [i]})
+    p = parameter("name", "body", True, "string")
+    p["default"] = "demo"
+    p["constraints"] = [
+        {"id": "length", "kind": "length", "value": "1-30", "status": "explicit", "source_refs": R}
+    ]
+    put("api-parameters", "api-parameters", {"apis": [{"id": "API-M-IF2", "parameters": [p]}]})
+    write_json(root / "workflow_tasks.json", {"tasks": state})
+    write_json(root / "workflow_graph.json", {"nodes": [{"id": k} for k in state]})
+    saved = (root / state["C:enriched-view"]["output_file"]).read_bytes()
+    result = ResultView(tmp_path).detail("C")
+    row = result["interactions"][0]["interaction"]
+    p = row["data"]["sequence"][0]
+    assert (p["data_type"], p["required"], p["default"]) == ("string", True, "demo") and p[
+        "constraints"
+    ][0]["kind"] == "length"
+    assert (
+        row["associated_api"] == "API-M-IF2"
+        and len(row["parameter_requirement_sources"][0]["sources"]) == 2
+    )
+    assert result["metrics"] == {"generation_validity": {"value": 100}}
+    assert (root / state["C:enriched-view"]["output_file"]).read_bytes() == saved

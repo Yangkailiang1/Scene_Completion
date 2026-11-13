@@ -53,7 +53,7 @@ from scene_completion.domain.schema_definitions import S as S
 from scene_completion.domain.schema_definitions import arr as arr
 from scene_completion.domain.schema_definitions import enum as enum
 from scene_completion.domain.schema_definitions import obj as obj
-from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.infrastructure.identity import fingerprint
 
 PROTOCOL = "scene-workflow-v5"
 TASKS = {
@@ -91,6 +91,10 @@ TASKS = {
 
 
 def schema(task):
+    if task in {"ssd-resolve", "ssd-semantic-compare"}:
+        from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
+
+        return deepcopy(SSD_SCHEMAS[task])
     return {"$schema": "https://json-schema.org/draft/2020-12/schema", **deepcopy(SCHEMAS[task])}
 
 
@@ -230,6 +234,10 @@ INPUT_KEYS = {
 
 
 def packet(task, inputs, case_ids=None):
+    if task in {"ssd-resolve", "ssd-semantic-compare"}:
+        from scene_completion.domain.ssd_contracts import packet as ssd_packet
+
+        return ssd_packet(task, inputs, case_ids)
     if not isinstance(inputs, dict):
         raise ValueError("task input must be a named JSON object")
     optional = (
@@ -467,19 +475,10 @@ def packet(task, inputs, case_ids=None):
     }
 
 
-# These task extensions reference the shared contracts. Register only after
-# common schemas are initialized to avoid circular module initialization.
-import scene_completion.analysis.test_alignment as test_alignment  # noqa: E402
-import scene_completion.analysis.use_cases as use_cases  # noqa: E402
+# Domain task extensions register only after common schemas are initialized.
+from scene_completion.domain import task_extensions  # noqa: E402
 
-use_cases.register()
-
-test_alignment.register()
-
-from scene_completion.analysis import atomic_steps as atomic_steps  # noqa: E402
-
-atomic_steps.register()
-
-from scene_completion.analysis import exception_scopes as exception_scopes  # noqa: E402
-
-exception_scopes.register()
+task_extensions.register_use_cases()
+task_extensions.register_test_alignment()
+task_extensions.register_atomic_steps()
+task_extensions.register_exception_scopes()

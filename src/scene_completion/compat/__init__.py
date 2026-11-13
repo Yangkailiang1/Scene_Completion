@@ -1,0 +1,1 @@
+"""Compat responsibilities."""

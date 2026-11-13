@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from scene_completion.manager.quality_audit import audit_run
-from scene_completion.models.usage_index import indexed_usage, usage_csv
+from scene_completion.models.usage.usage_index import indexed_usage, usage_csv
 
 
 def main(argv=None):

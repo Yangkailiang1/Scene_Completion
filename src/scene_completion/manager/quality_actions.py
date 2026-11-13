@@ -113,7 +113,7 @@ def impact(project, did, body):
         )
         kinds.add(kind)
     from scene_completion.domain.concern_registry import registry_scope
-    from scene_completion.review.project_review import save_registry
+    from scene_completion.review.decisions.project_review import save_registry
 
     checked_registry = (
         save_registry(
@@ -124,7 +124,7 @@ def impact(project, did, body):
         else registry
     )
     if kinds & {"pattern", "recommendation"}:
-        from scene_completion.analysis.scenario_patterns import normalize_settings
+        from scene_completion.analysis.recommendation.scenario_patterns import normalize_settings
 
         with registry_scope(checked_registry):
             settings = normalize_settings(settings)
@@ -214,8 +214,11 @@ def apply(service, rid, did, body):
             },
         )
         try:
-            from scene_completion.analysis.pattern_settings import save_settings, settings
-            from scene_completion.review.project_review import save_registry
+            from scene_completion.analysis.recommendation.pattern_settings import (
+                save_settings,
+                settings,
+            )
+            from scene_completion.review.decisions.project_review import save_registry
 
             kinds = {c["kind"] for c in plan["changes"]}
             if "concern" in kinds:

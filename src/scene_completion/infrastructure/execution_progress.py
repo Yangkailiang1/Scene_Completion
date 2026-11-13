@@ -14,7 +14,7 @@ from pathlib import Path
 
 from scene_completion.infrastructure.execution_graph import LABELS
 from scene_completion.infrastructure.storage import read_json
-from scene_completion.models.model_resilience import validate
+from scene_completion.models.transport.model_resilience import validate
 
 
 def _number(v):

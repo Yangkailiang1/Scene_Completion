@@ -1,6 +1,6 @@
 """Publication."""
 
-from scene_completion.analysis.artifact_exports import export_task
+from scene_completion.analysis.diagrams.artifact_exports import export_task
 from scene_completion.domain.concern_registry import scoped_execution
 from scene_completion.domain.contracts import PROTOCOL
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
@@ -9,9 +9,13 @@ from scene_completion.workflow.support import safe_case
 
 @scoped_execution
 def finish(self):
-    from scene_completion.workflow.pipeline_execution import run_pipeline
+    from scene_completion.workflow.runtime.pipeline_execution import run_pipeline
 
     result = run_pipeline(self)
+    if self.manifest.get("workflow") == "ssd-case-v1":
+        from scene_completion.workflow.ssd_pipeline import finish as finish_ssd
+
+        return finish_ssd(self, result)
     artifact_root = self.root / "artifacts"
     # Keep independently completed task files; failed siblings cannot erase them.
     (self.root / "missing_report.json").unlink(missing_ok=True)
@@ -70,7 +74,7 @@ def finish(self):
     if "global-scenario-evaluation" in global_results:
         global_results["global-scenario-compare"] = global_results["global-scenario-evaluation"]
     if reports or "global-scenario-compare" in global_results:
-        from scene_completion.analysis.artifact_exports import export_missing_report
+        from scene_completion.analysis.diagrams.artifact_exports import export_missing_report
 
         combined = {
             "protocol": PROTOCOL,
@@ -217,6 +221,10 @@ def finish(self):
 
 
 def publish_progress(self):
+    if self.manifest.get("workflow") == "ssd-case-v1":
+        from scene_completion.workflow.ssd_pipeline import progress
+
+        return progress(self)
     ready = getattr(self.scheduler, "resolved_tasks", set())
     cases = {}
     for key, t in self.scheduler.tasks.items():

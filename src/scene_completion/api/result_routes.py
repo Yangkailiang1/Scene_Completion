@@ -13,21 +13,66 @@ WEB = PROJECT / "web"
 
 
 def register(app, service):
+    from scene_completion.application import ssd_revision_service as ssd_results
+
+    @app.get("/api/projects/{rid}/ssd-results")
+    def ssd_result_index(rid: str):
+        return ssd_results.index(service.run_dir(rid))
+
+    @app.get("/api/projects/{rid}/results/{case_id}/editor")
+    def ssd_editor(rid: str, case_id: str, revision: str | None = None):
+        return ssd_results.editor(service.run_dir(rid), case_id, revision)
+
+    @app.get("/api/projects/{rid}/results/{case_id}/revisions")
+    def ssd_revisions(rid: str, case_id: str):
+        return {"history": ssd_results.editor(service.run_dir(rid), case_id)["history"]}
+
+    @app.post("/api/projects/{rid}/results/{case_id}/revisions")
+    def ssd_save_revision(rid: str, case_id: str, body: dict):
+        try:
+            return ssd_results.save_revision(service.run_dir(rid), case_id, body)
+        except ssd_results.RevisionConflict as error:
+            raise HTTPException(
+                409, {"message": str(error), "current_revision": error.current_revision}
+            ) from error
+
+    @app.post("/api/projects/{rid}/ssd-review/export")
+    def ssd_review_export(rid: str, body: dict):
+        from scene_completion.review.offline.ssd_review import export_html
+
+        return Response(
+            export_html(service.run_dir(rid), body),
+            media_type="text/html",
+            headers={"Content-Disposition": 'attachment; filename="ssd-review.html"'},
+        )
+
+    @app.post("/api/projects/{rid}/ssd-review/preview")
+    def ssd_review_preview(rid: str, body: dict):
+        from scene_completion.review.offline.ssd_review import preview_feedback
+
+        return preview_feedback(service.run_dir(rid), body.get("content"))
+
+    @app.post("/api/projects/{rid}/ssd-review/apply")
+    def ssd_review_apply(rid: str, body: dict):
+        from scene_completion.review.offline.ssd_review import apply_feedback
+
+        return apply_feedback(service.run_dir(rid), body.get("content"), body.get("case_ids"))
+
     @app.get("/api/projects/{rid}/analysis-scopes")
     def analysis_scopes(rid: str):
-        from scene_completion.review.scope_reviews import view
+        from scene_completion.review.decisions.scope_reviews import view
 
         return view(service.run_dir(rid))
 
     @app.put("/api/projects/{rid}/analysis-scopes")
     def update_analysis_scopes(rid: str, body: dict):
-        from scene_completion.review.scope_reviews import save
+        from scene_completion.review.decisions.scope_reviews import save
 
         return save(service.run_dir(rid), body)
 
     def result_view(rid, scope=None, import_id=None):
-        from scene_completion.analysis.imported_case_results import ImportedCaseView
-        from scene_completion.analysis.result_views import ResultView
+        from scene_completion.compat.saved.result_views import ResultView
+        from scene_completion.compat.standalone.results import ImportedCaseView
 
         project = service.run_dir(rid)
         if import_id:
@@ -36,7 +81,7 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/case-result-imports")
     def import_case_result(rid: str, body: dict):
-        from scene_completion.analysis.imported_case_results import register
+        from scene_completion.application.case_import_service import register
 
         project = service.run_dir(service.require_current_project(rid))
         dry_run = body.get("dry_run", False)
@@ -46,7 +91,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/results")
     def results_index(rid: str, include_artifacts: bool = True, import_id: str | None = None):
-        from scene_completion.analysis.imported_case_results import versions
+        from scene_completion.application.case_import_service import versions
 
         result = result_view(rid, import_id=import_id).index(include_artifacts=include_artifacts)
         imports = versions(service.run_dir(rid))
@@ -120,7 +165,7 @@ def register(app, service):
         account: str | None = None,
         sort: str = "tokens",
     ):
-        from scene_completion.models.usage_index import indexed_usage, usage_csv
+        from scene_completion.models.usage.usage_index import indexed_usage, usage_csv
 
         project = service.run_dir(rid)
         prices = (

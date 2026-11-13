@@ -10,7 +10,7 @@ from scene_completion.domain.contracts import registry
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
 from scene_completion.infrastructure.worker_runtime import read_job
-from scene_completion.review.reviews import Reviews
+from scene_completion.review.decisions.reviews import Reviews
 
 PROJECT = PROGRAM_ROOT
 WEB = PROJECT / "web"
@@ -39,7 +39,7 @@ def register(app, service):
 
     @app.post("/api/test-sources/preview")
     def preview_tests(body: dict):
-        from scene_completion.inputs.test_sources import preview_sources
+        from scene_completion.inputs.provenance.test_sources import preview_sources
 
         return preview_sources(body.get("sources", []))
 
@@ -56,7 +56,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/test-sources/supplement")
     def get_test_supplement(rid: str, case: str | None = None):
-        from scene_completion.analysis.result_views import ResultView
+        from scene_completion.compat.saved.result_views import ResultView
 
         v = ResultView(service.run_dir(rid))
         cases = v.cases()
@@ -85,19 +85,19 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/registry")
     def project_definitions(rid: str, version: str | None = None):
-        from scene_completion.review.project_review import registry_view
+        from scene_completion.review.decisions.project_review import registry_view
 
         return registry_view(service.run_dir(rid), version)
 
     @app.get("/api/projects/{rid}/patterns")
     def pattern_settings(rid: str, version: str | None = None):
-        from scene_completion.analysis.pattern_settings import settings
+        from scene_completion.analysis.recommendation.pattern_settings import settings
 
         return settings(service.run_dir(rid), version)
 
     @app.put("/api/projects/{rid}/patterns")
     def edit_pattern_settings(rid: str, body: dict):
-        from scene_completion.analysis.pattern_settings import save_settings
+        from scene_completion.analysis.recommendation.pattern_settings import save_settings
 
         p = service.run_dir(rid)
         job = read_job(p)
@@ -112,21 +112,25 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/recommendation-history")
     def recommendation_history(rid: str):
-        from scene_completion.analysis.pattern_settings import history
+        from scene_completion.analysis.recommendation.pattern_settings import history
 
         return history(service.run_dir(rid))
 
     @app.post("/api/projects/{rid}/recommendation-history")
     def import_recommendation_history(rid: str, body: dict):
-        from scene_completion.analysis.pattern_settings import import_history
+        from scene_completion.analysis.recommendation.pattern_settings import import_history
 
         with service.lock:
             return import_history(service.run_dir(rid), body)
 
     @app.get("/api/projects/{rid}/recommendations")
     def recommendations(rid: str, case: str | None = None, test_set: str = "expanded"):
-        from scene_completion.analysis.pattern_settings import adoption, history, settings
-        from scene_completion.analysis.result_views import ResultView
+        from scene_completion.analysis.recommendation.pattern_settings import (
+            adoption,
+            history,
+            settings,
+        )
+        from scene_completion.compat.saved.result_views import ResultView
 
         p = service.run_dir(rid)
         v = ResultView(p)
@@ -141,14 +145,14 @@ def register(app, service):
             evaluation = evaluation.get("original_evaluation", evaluation)
         business = None
         if case and test_set == "business":
-            from scene_completion.review.business_truth import snapshot
+            from scene_completion.review.truth.business_truth import snapshot
 
             business = snapshot(p, case)
             evaluation = business["evaluation"]
-        from scene_completion.analysis.recommendation import comparison_for_view
+        from scene_completion.analysis.recommendation.ranking import comparison_for_view
 
         comparison = comparison_for_view(evaluation, result)
-        from scene_completion.review.business_truth import candidates
+        from scene_completion.review.truth.business_truth import candidates
 
         return {
             "cases": v.cases(),
@@ -174,8 +178,8 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/recommendations/feedback")
     def recommendation_feedback(rid: str, body: dict):
-        from scene_completion.analysis.pattern_settings import feedback
-        from scene_completion.analysis.result_views import ResultView
+        from scene_completion.analysis.recommendation.pattern_settings import feedback
+        from scene_completion.compat.saved.result_views import ResultView
 
         p = service.run_dir(rid)
         result = ResultView(p).payload(str(body.get("case_id", "")) + ":gap-recommend")
@@ -190,15 +194,15 @@ def register(app, service):
         with service.lock:
             value = feedback(p, body, result, dry_run=body.get("dry_run", False))
             if not body.get("dry_run"):
-                from scene_completion.review.business_truth import snapshot
+                from scene_completion.review.truth.business_truth import snapshot
 
                 value = {**value, "business_truth": snapshot(p, body["case_id"])}
             return value
 
     @app.post("/api/projects/{rid}/patterns/review")
     def pattern_review(rid: str, body: dict):
-        from scene_completion.analysis.pattern_settings import review_candidate
-        from scene_completion.analysis.result_views import ResultView
+        from scene_completion.analysis.recommendation.pattern_settings import review_candidate
+        from scene_completion.compat.saved.result_views import ResultView
 
         p = service.run_dir(rid)
         job = read_job(p)
@@ -216,7 +220,7 @@ def register(app, service):
 
     @app.put("/api/projects/{rid}/registry")
     def edit_project_definitions(rid: str, body: dict):
-        from scene_completion.review.project_review import save_registry
+        from scene_completion.review.decisions.project_review import save_registry
 
         p = service.run_dir(rid)
         job = read_job(p)
@@ -240,7 +244,7 @@ def register(app, service):
         channel: str | None = None,
         queue: str = "business",
     ):
-        from scene_completion.review.project_review import pending_view
+        from scene_completion.review.decisions.project_review import pending_view
 
         with service.lock:
             return pending_view(
@@ -249,12 +253,12 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/pending/{item_id}")
     def review_pending_item(rid: str, item_id: str, body: dict):
-        from scene_completion.review.project_review import decide_pending, pending_items
+        from scene_completion.review.decisions.project_review import decide_pending, pending_items
 
         with service.lock:
             if "reviewer" not in body:
                 return decide_pending(service.run_dir(rid), item_id, body)
-            from scene_completion.review.review_questions import answer
+            from scene_completion.review.decisions.review_questions import answer
 
             item = next(
                 (i for i in pending_items(service.run_dir(rid)) if i["id"] == item_id), None
@@ -274,13 +278,13 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/node-repair")
     def repair_context(rid: str, task_key: str):
-        from scene_completion.workflow.node_repair import export_repair
+        from scene_completion.workflow.recovery.node_repair import export_repair
 
         return export_repair(service.run_dir(rid), task_key)
 
     @app.post("/api/projects/{rid}/node-repair")
     def repair_submit(rid: str, body: dict):
-        from scene_completion.workflow.node_repair import submit_repair
+        from scene_completion.workflow.recovery.node_repair import submit_repair
         from scene_completion.workflow_core import run_lock
 
         p = service.run_dir(rid)
@@ -293,7 +297,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/config")
     def effective_config(rid: str, task: str = "agent", task_key: str | None = None):
-        from scene_completion.models.model_diagnostics import effective
+        from scene_completion.models.configuration.model_diagnostics import effective
 
         if task_key:
             p = service.run_dir(rid) / "run/workflow_tasks.json"
@@ -305,7 +309,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/diagnostics")
     def diagnostics(rid: str, task_key: str | None = None, limit: int = 20):
-        from scene_completion.models.model_diagnostics import node_diagnostics
+        from scene_completion.models.configuration.model_diagnostics import node_diagnostics
 
         if not 1 <= limit <= 100:
             raise ValueError("limit范围1至100")
@@ -329,7 +333,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/prompts")
     def node_prompts(rid: str, task_key: str, request_id: str | None = None):
-        from scene_completion.models.request_context import view
+        from scene_completion.models.transport.request_context import view
 
         return view(service.run_dir(rid) / "run", task_key, request_id)
 
@@ -452,7 +456,11 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/api-catalog")
     def api_catalog(rid: str, format: str = "view"):
-        from scene_completion.inputs.api_catalog import markdown, save_catalog, saved_catalog
+        from scene_completion.inputs.structured.api_catalog import (
+            markdown,
+            save_catalog,
+            saved_catalog,
+        )
 
         if format not in {"view", "json", "md"}:
             raise HTTPException(400, "unsupported format")

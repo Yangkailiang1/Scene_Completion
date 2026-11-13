@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
-import { ConcernAlignmentTable } from "../results/ResultComparison";
+import { ConcernAlignmentTable } from "../results/saved/ResultComparison";
 import { ConcernTree } from "./ConcernTree";
 
 test("shared input/output paths edit the same stable ID and search retains ancestors", () => {

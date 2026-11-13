@@ -147,7 +147,7 @@ def register(app, service):
         format: str = "json",
         since: float | None = None,
     ):
-        from scene_completion.models.throughput_view import csv_export, series
+        from scene_completion.models.usage.throughput_view import csv_export, series
 
         value = series(service.run_dir(rid), after, limit, model, node, since)
         if format == "csv":

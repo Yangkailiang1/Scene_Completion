@@ -168,7 +168,7 @@ def capabilities():
         "question_choices": {
             k: v["choices"]
             for k, v in __import__(
-                "scene_completion.review.review_questions", fromlist=["TYPES"]
+                "scene_completion.review.decisions.review_questions", fromlist=["TYPES"]
             ).TYPES.items()
         },
         "rules": [
@@ -330,7 +330,7 @@ def parser():
                     dest=key,
                     type=int,
                 )
-            from scene_completion.models.context_tokenizer import TOKENIZERS
+            from scene_completion.models.budgets.context_tokenizer import TOKENIZERS
 
             a.add_argument(
                 "--context-tokenizer",
@@ -547,7 +547,7 @@ def main(argv=None, client=None):
         return 0
     if args.command == "create":
         if args.input_manifest or args.input_dir:
-            from scene_completion.inputs.input_bundles import discover
+            from scene_completion.inputs.documents.input_bundles import discover
 
             if args.input_manifest and args.input_dir:
                 raise ValueError("--input-manifest与--input-dir不能同时提供")
@@ -582,7 +582,7 @@ def main(argv=None, client=None):
                 return 0
         other = []
         if args.input_dir:
-            from scene_completion.inputs.artifact_imports import role_hint
+            from scene_completion.inputs.imports.artifact_imports import role_hint
 
             directory = Path(args.input_dir).resolve()
             if not directory.is_dir():
@@ -868,7 +868,7 @@ def main(argv=None, client=None):
             output(value)
         return 0
     if args.command == "configure":
-        from scene_completion.workflow.runtime_settings import KEYS, PRESETS, validate_options
+        from scene_completion.application.runtime_settings import KEYS, PRESETS, validate_options
 
         body = (
             json.loads(Path(args.config_file).read_text(encoding="utf-8-sig"))

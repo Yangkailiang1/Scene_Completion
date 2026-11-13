@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, projectUrl } from "../../shared/api";
-import { RecommendationComparison } from "../results/ResultComparison";
+import { RecommendationComparison } from "../results/shared/RecommendationComparison";
 const risks: Record<string, string> = {
   low: "低",
   normal: "普通",

@@ -12,18 +12,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from scene_completion.analysis.concern_alignment import VERSION, definite, recognize
-from scene_completion.analysis.interaction_enrichment import (
+from scene_completion.analysis.evaluation.scenario_losses import summarize
+from scene_completion.analysis.interactions.interaction_enrichment import (
     actual_context,
     basic_views,
     bind_resource_services,
 )
-from scene_completion.analysis.result_views import ResultView
-from scene_completion.analysis.scenario_losses import summarize
-from scene_completion.analysis.scenario_patterns import applicability, generated
+from scene_completion.analysis.matching.concern_alignment import VERSION, definite, recognize
+from scene_completion.analysis.recommendation.scenario_patterns import applicability, generated
+from scene_completion.compat.saved.result_views import ResultView
 from scene_completion.domain.contracts import validate
 from scene_completion.infrastructure.storage import fingerprint, write_json
-from scene_completion.inputs.api_documents import case_parameters
+from scene_completion.inputs.documents.api_documents import case_parameters
 
 
 def replay(project, cases=None):

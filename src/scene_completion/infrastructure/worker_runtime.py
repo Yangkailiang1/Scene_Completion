@@ -154,7 +154,7 @@ def main():
     parser.add_argument("--project", required=True)
     parser.add_argument("--env-file", required=True)
     args = parser.parse_args()
-    from scene_completion.api.application import Workbench
+    from scene_completion.application.project_service import Workbench
 
     service = Workbench(args.root, env_file=args.env_file, worker=True)
     service.active.add(args.project)

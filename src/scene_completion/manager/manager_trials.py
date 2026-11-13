@@ -65,12 +65,12 @@ def create_trial(service, rid, body):
 
     if (parent / "model.local.json").exists():
         shutil.copy2(parent / "model.local.json", target / "model.local.json")
-    from scene_completion.workflow.positive_reuse import prepare
+    from scene_completion.workflow.recovery.positive_reuse import prepare
 
     prepare(parent, target)
     # Guidance is scoped to the explicit positive node, never appended to RR/SR.
     # The evidence validator remains unchanged: hypotheses are not document facts.
-    from scene_completion.review.node_conversations import Conversations
+    from scene_completion.review.decisions.node_conversations import Conversations
 
     Conversations(target / "run").append(
         node,

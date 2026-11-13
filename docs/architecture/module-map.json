@@ -1,0 +1,2284 @@
+{
+  "version": "architecture-layout-20261113",
+  "baseline": "完整未提交工作副本；不以 HEAD 覆盖本地修改",
+  "invariants": [
+    "HTTP/CLI/Skill命令",
+    "scene-workflow-v5",
+    "ssd-case-v1",
+    "scene-case-analysis-v1",
+    "任务语义版本与Schema",
+    "source IDs和数据目录",
+    "模型实际加载Skill/prompt正文"
+  ],
+  "modules": [
+    {
+      "original_module": "scene_completion.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.__init__",
+          "path": "src/scene_completion/__init__.py",
+          "responsibility": "Scene Completion: the current evidence-based analysis workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.__init__",
+          "path": "src/scene_completion/analysis/__init__.py",
+          "responsibility": "Analysis components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.artifact_exports",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.diagrams.artifact_exports",
+          "path": "src/scene_completion/analysis/diagrams/artifact_exports.py",
+          "responsibility": "diagrams"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.assignment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.assignment",
+          "path": "src/scene_completion/analysis/matching/assignment.py",
+          "responsibility": "Maximum-cardinality semantic matching: only confirmed complete pairs score."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.atomic_steps",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.atomic_steps",
+          "path": "src/scene_completion/analysis/interactions/atomic_steps.py",
+          "responsibility": "Evidence-bound atomic step plans; raw imported definitions remain unchanged."
+        },
+        {
+          "module": "scene_completion.domain.task_extensions",
+          "path": "src/scene_completion/domain/task_extensions.py",
+          "responsibility": "Task schemas are registered within the domain after base contracts exist."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.bdd_drawing",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.diagrams.bdd_drawing",
+          "path": "src/scene_completion/analysis/diagrams/bdd_drawing.py",
+          "responsibility": "SysML 1.6 BDD view of saved component facts, with editable source exports."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.branch_evidence",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.branch_evidence",
+          "path": "src/scene_completion/analysis/scenarios/branch_evidence.py",
+          "responsibility": "Restore omitted, verbatim error-code citations inside the allowed case slice."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.check_references",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.check_references",
+          "path": "src/scene_completion/analysis/scenarios/check_references.py",
+          "responsibility": "Read-only links from an actual call to local checks within its return span."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.comparison_batches",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.comparison_batches",
+          "path": "src/scene_completion/analysis/matching/comparison_batches.py",
+          "responsibility": "Compare within canonical interactions; retain an exhaustive flat decision matrix."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.composition_drawing",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.diagrams.composition_drawing",
+          "path": "src/scene_completion/analysis/diagrams/composition_drawing.py",
+          "responsibility": "Native SVG composition view adapted from the historical partitioned layout."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.concern_alignment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.concern_alignment",
+          "path": "src/scene_completion/analysis/matching/concern_alignment.py",
+          "responsibility": "Versioned four-element identities and exact concern-set comparison."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.concern_hierarchy",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.concerns.concern_hierarchy",
+          "path": "src/scene_completion/analysis/concerns/concern_hierarchy.py",
+          "responsibility": "Evidence-gated inheritance for a single actual service interaction."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.concern_matching",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.concern_matching",
+          "path": "src/scene_completion/analysis/matching/concern_matching.py",
+          "responsibility": "matching"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.crud_review",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.crud_review",
+          "path": "src/scene_completion/analysis/interactions/crud_review.py",
+          "responsibility": "Review coverage and compact, positive-only context for business CRUD."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.crud_scope",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.crud_scope",
+          "path": "src/scene_completion/analysis/interactions/crud_scope.py",
+          "responsibility": "Resolve the business entities eligible for one CRUD task from positive evidence."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.data_requirements",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.data_requirements",
+          "path": "src/scene_completion/analysis/interactions/data_requirements.py",
+          "responsibility": "Positive field requirements shared by G and independent test construction."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.domain_model",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.domain_model",
+          "path": "src/scene_completion/analysis/interactions/domain_model.py",
+          "responsibility": "V5 business/data identities and evidence-preserving derived views."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.evaluation",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.evaluation.metrics",
+          "path": "src/scene_completion/analysis/evaluation/metrics.py",
+          "responsibility": "evaluation"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.evaluation_scope",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.evaluation.evaluation_scope",
+          "path": "src/scene_completion/analysis/evaluation/evaluation_scope.py",
+          "responsibility": "Read-only RR/SR metric scopes. URL prefixes never establish ownership."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.exception_comparison",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.exception_comparison",
+          "path": "src/scene_completion/analysis/matching/exception_comparison.py",
+          "responsibility": "matching"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.exception_generation",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.exception_generation",
+          "path": "src/scene_completion/analysis/scenarios/exception_generation.py",
+          "responsibility": "scenarios"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.exception_scopes",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.exception_scopes",
+          "path": "src/scene_completion/analysis/scenarios/exception_scopes.py",
+          "responsibility": "Independent source-unit routing. Generated answers never decide E/GT scope."
+        },
+        {
+          "module": "scene_completion.domain.task_extensions",
+          "path": "src/scene_completion/domain/task_extensions.py",
+          "responsibility": "Task schemas are registered within the domain after base contracts exist."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.failure_units",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.failure_units",
+          "path": "src/scene_completion/analysis/scenarios/failure_units.py",
+          "responsibility": "Conservative inverse-unit repairs using only own evidence and positive SSD."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.global_analysis",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.global_analysis.dependencies",
+          "path": "src/scene_completion/analysis/global_analysis/dependencies.py",
+          "responsibility": "Project-wide concern/scenario comparison and recommendation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.global_idempotency",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.global_analysis.global_idempotency",
+          "path": "src/scene_completion/analysis/global_analysis/global_idempotency.py",
+          "responsibility": "User-confirmed C/U/D policy, anchored to business effects rather than calls."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.import_plan",
+      "destinations": [
+        {
+          "module": "scene_completion.application.import_plan",
+          "path": "src/scene_completion/application/import_plan.py",
+          "responsibility": "Import-to-DAG preview built by the real workflow registrars, never executed."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.imported_case_results",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.standalone.results",
+          "path": "src/scene_completion/compat/standalone/results.py",
+          "responsibility": "Validate and present an independent, single-use-case Code Agent result."
+        },
+        {
+          "module": "scene_completion.application.case_import_service",
+          "path": "src/scene_completion/application/case_import_service.py",
+          "responsibility": "Route SSD and independent analysis imports through their supported services."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.interaction_enrichment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.interaction_enrichment",
+          "path": "src/scene_completion/analysis/interactions/interaction_enrichment.py",
+          "responsibility": "interactions"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.interaction_identity",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.interaction_identity",
+          "path": "src/scene_completion/analysis/interactions/interaction_identity.py",
+          "responsibility": "Canonical identities for proven duplicate RR/SR views, never call-chain flattening."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.inverse_alignment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.inverse_alignment",
+          "path": "src/scene_completion/analysis/matching/inverse_alignment.py",
+          "responsibility": "Inverse units are built only from original branches and positive contracts, never G."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.inverse_duplicates",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.inverse_duplicates",
+          "path": "src/scene_completion/analysis/matching/inverse_duplicates.py",
+          "responsibility": "Deduplicate one explicitly injected caller-field failure within its own test."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.normal_rules",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.concerns.normal_rules",
+          "path": "src/scene_completion/analysis/concerns/normal_rules.py",
+          "responsibility": "Positive-only rules and normalization, never cross-channel answers."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.pattern_settings",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.recommendation.pattern_settings",
+          "path": "src/scene_completion/analysis/recommendation/pattern_settings.py",
+          "responsibility": "Project-owned snapshots, imports and business feedback; never an automatic GT feed."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.positive_concern_rules",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.concerns.positive_concern_rules",
+          "path": "src/scene_completion/analysis/concerns/positive_concern_rules.py",
+          "responsibility": "User-mandated call checks and narrowly evidenced positive business rules."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.recognition_coverage",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.evaluation.recognition_coverage",
+          "path": "src/scene_completion/analysis/evaluation/recognition_coverage.py",
+          "responsibility": "Check recognition coverage without adding observations to G."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.recognized_scenarios",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.recognized_scenarios",
+          "path": "src/scene_completion/analysis/scenarios/recognized_scenarios.py",
+          "responsibility": "Expand validated positive observations without consulting E, GT or matches."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.recommendation",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.recommendation.ranking",
+          "path": "src/scene_completion/analysis/recommendation/ranking.py",
+          "responsibility": "Deterministic, project-local ranking. GT is accepted only by evaluate()."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.refinement_context",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.scenarios.refinement_context",
+          "path": "src/scene_completion/analysis/scenarios/refinement_context.py",
+          "responsibility": "Scoped inverse refinement, using only independently recognized anchors."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.result_alignment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.result_alignment",
+          "path": "src/scene_completion/analysis/matching/result_alignment.py",
+          "responsibility": "Display saved pairwise decisions as rows, without making new matches."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.result_views",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.saved.result_views",
+          "path": "src/scene_completion/compat/saved/result_views.py",
+          "responsibility": "Read-only, use-case/interaction views of persisted execution results."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.scenario_losses",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.evaluation.scenario_losses",
+          "path": "src/scene_completion/analysis/evaluation/scenario_losses.py",
+          "responsibility": "Read saved failure decisions; never infer new matches or alter evaluation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.scenario_patterns",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.recommendation.scenario_patterns",
+          "path": "src/scene_completion/analysis/recommendation/scenario_patterns.py",
+          "responsibility": "Versioned concern -> failure mode -> interaction instance. No E/GT/history input."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_drawing",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.diagrams.ssd_drawing",
+          "path": "src/scene_completion/analysis/diagrams/ssd_drawing.py",
+          "responsibility": "Editable layered SSD with explicit, saved RR->SR refinement bands."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_inverse",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.ssd.inverse",
+          "path": "src/scene_completion/analysis/ssd/inverse.py",
+          "responsibility": "Independent IR/SR and recovered-test classification and SSD binding."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_legacy",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.documents.ssd_adapter",
+          "path": "src/scene_completion/inputs/documents/ssd_adapter.py",
+          "responsibility": "Adapt previously normalized input artifacts to the shared SSD case contract."
+        },
+        {
+          "module": "scene_completion.compat.standalone.ssd_adapter",
+          "path": "src/scene_completion/compat/standalone/ssd_adapter.py",
+          "responsibility": "Adapt the supported independent analysis import format to SSD results."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.ssd.pipeline",
+          "path": "src/scene_completion/analysis/ssd/pipeline.py",
+          "responsibility": "Deterministic, per-use-case SSD preparation and concern attachment."
+        },
+        {
+          "module": "scene_completion.domain.ssd.construction",
+          "path": "src/scene_completion/domain/ssd/construction.py",
+          "responsibility": "Stable SSD record identities and concern/scenario construction."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_results",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.ssd.validation",
+          "path": "src/scene_completion/domain/ssd/validation.py",
+          "responsibility": "Validation of the shared SSD case result contract."
+        },
+        {
+          "module": "scene_completion.domain.ssd.matching",
+          "path": "src/scene_completion/domain/ssd/matching.py",
+          "responsibility": "Deterministic SSD bindings, candidate discovery and match assignment."
+        },
+        {
+          "module": "scene_completion.domain.ssd.metrics",
+          "path": "src/scene_completion/domain/ssd/metrics.py",
+          "responsibility": "Pure comparison views, completeness and metrics for SSD case results."
+        },
+        {
+          "module": "scene_completion.application.ssd_revision_service",
+          "path": "src/scene_completion/application/ssd_revision_service.py",
+          "responsibility": "Machine publication and human revision use cases for SSD results."
+        },
+        {
+          "module": "scene_completion.infrastructure.ssd_repository",
+          "path": "src/scene_completion/infrastructure/ssd_repository.py",
+          "responsibility": "Filesystem persistence and locking for SSD result snapshots."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_sources",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.provenance.ssd_sources",
+          "path": "src/scene_completion/inputs/provenance/ssd_sources.py",
+          "responsibility": "Literal source and contract adapters for the SSD-centred workflow."
+        },
+        {
+          "module": "scene_completion.domain.ssd.construction",
+          "path": "src/scene_completion/domain/ssd/construction.py",
+          "responsibility": "Stable SSD record identities and concern/scenario construction."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd_tools",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.ssd_tools",
+          "path": "src/scene_completion/analysis/interactions/ssd_tools.py",
+          "responsibility": "Deterministic SSD structure from extracted messages; no new messages or parties."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.standalone_case",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.standalone.service",
+          "path": "src/scene_completion/compat/standalone/service.py",
+          "responsibility": "Material preparation and reporting for the standalone case-analysis skill."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.test_alignment",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.matching.test_alignment",
+          "path": "src/scene_completion/analysis/matching/test_alignment.py",
+          "responsibility": "Independent test catalogue and source-backed requirement case alignment."
+        },
+        {
+          "module": "scene_completion.domain.task_extensions",
+          "path": "src/scene_completion/domain/task_extensions.py",
+          "responsibility": "Task schemas are registered within the domain after base contracts exist."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.test_supplement",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.recommendation.test_supplement",
+          "path": "src/scene_completion/analysis/recommendation/test_supplement.py",
+          "responsibility": "Independent negative tests from positive contracts, never from G/E/results."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.use_cases",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.interactions.use_cases",
+          "path": "src/scene_completion/analysis/interactions/use_cases.py",
+          "responsibility": "Source-bounded use-case catalogues, correspondence and fused SSD validation."
+        },
+        {
+          "module": "scene_completion.domain.task_extensions",
+          "path": "src/scene_completion/domain/task_extensions.py",
+          "responsibility": "Task schemas are registered within the domain after base contracts exist."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.validation",
+      "destinations": [
+        {
+          "module": "scene_completion.analysis.validation",
+          "path": "src/scene_completion/analysis/validation.py",
+          "responsibility": "analysis"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.api.__init__",
+          "path": "src/scene_completion/api/__init__.py",
+          "responsibility": "Api components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.application",
+      "destinations": [
+        {
+          "module": "scene_completion.api.application",
+          "path": "src/scene_completion/api/application.py",
+          "responsibility": "Local review application: Markdown sources, persisted artifacts and two run modes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.execution_routes",
+      "destinations": [
+        {
+          "module": "scene_completion.api.execution_routes",
+          "path": "src/scene_completion/api/execution_routes.py",
+          "responsibility": "Execution Routes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.inputs",
+      "destinations": [
+        {
+          "module": "scene_completion.api.inputs",
+          "path": "src/scene_completion/api/inputs.py",
+          "responsibility": "HTTP parameter and response adapters for project input services."
+        },
+        {
+          "module": "scene_completion.application.input_service",
+          "path": "src/scene_completion/application/input_service.py",
+          "responsibility": "Input discovery, acceptance and background conversion application services."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.project_routes",
+      "destinations": [
+        {
+          "module": "scene_completion.api.project_routes",
+          "path": "src/scene_completion/api/project_routes.py",
+          "responsibility": "Project Routes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.api.result_routes",
+      "destinations": [
+        {
+          "module": "scene_completion.api.result_routes",
+          "path": "src/scene_completion/api/result_routes.py",
+          "responsibility": "Result Routes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.cli.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.cli.__init__",
+          "path": "src/scene_completion/cli/__init__.py",
+          "responsibility": "Cli components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.cli.main",
+      "destinations": [
+        {
+          "module": "scene_completion.cli.main",
+          "path": "src/scene_completion/cli/main.py",
+          "responsibility": "Code-agent friendly client of the same local workbench API; JSON/JSONL only."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.cli.task_commands",
+      "destinations": [
+        {
+          "module": "scene_completion.cli.task_commands",
+          "path": "src/scene_completion/cli/task_commands.py",
+          "responsibility": "Public commands for the scene-workflow-v5 protocol."
+        },
+        {
+          "module": "scene_completion.application.model_factory",
+          "path": "src/scene_completion/application/model_factory.py",
+          "responsibility": "Configured model clients shared by CLI, HTTP and background workers."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.__init__",
+          "path": "src/scene_completion/domain/__init__.py",
+          "responsibility": "Domain components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.concern_presentation",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.concern_presentation",
+          "path": "src/scene_completion/domain/concern_presentation.py",
+          "responsibility": "Display-only taxonomy: interaction scope/four levels and global dependencies."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.concern_registry",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.concern_registry",
+          "path": "src/scene_completion/domain/concern_registry.py",
+          "responsibility": "Current concern definitions and project-scoped inheritance DAG."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.contracts",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.contracts",
+          "path": "src/scene_completion/domain/contracts.py",
+          "responsibility": "Strict contracts for the scene-workflow-v5 protocol."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.interaction_types",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.interaction_types",
+          "path": "src/scene_completion/domain/interaction_types.py",
+          "responsibility": "Participant type is distinct from deployment location and message direction."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.scenario_types",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.scenario_types",
+          "path": "src/scene_completion/domain/scenario_types.py",
+          "responsibility": "Exception-only evaluation eligibility; exclusions remain auditable."
+        },
+        {
+          "module": "scene_completion.analysis.scenarios.eligibility",
+          "path": "src/scene_completion/analysis/scenarios/eligibility.py",
+          "responsibility": "Apply scenario eligibility to parsed, source-bound test records."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.schema_definitions",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.schema_definitions",
+          "path": "src/scene_completion/domain/schema_definitions.py",
+          "responsibility": "Current protocol business objects and task JSON schemas."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.domain.ssd_contracts",
+      "destinations": [
+        {
+          "module": "scene_completion.domain.ssd_contracts",
+          "path": "src/scene_completion/domain/ssd_contracts.py",
+          "responsibility": "Small task contracts for channel-isolated SSD semantic assistance."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.__init__",
+          "path": "src/scene_completion/infrastructure/__init__.py",
+          "responsibility": "Infrastructure components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.configuration_lock",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.configuration_lock",
+          "path": "src/scene_completion/infrastructure/configuration_lock.py",
+          "responsibility": "Reentrant process/thread serialization for versioned project configuration."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.execution_events",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.execution_events",
+          "path": "src/scene_completion/infrastructure/execution_events.py",
+          "responsibility": "Durable task-scoped events. SSE reads committed events and can resume by ID."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.execution_graph",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.execution_graph",
+          "path": "src/scene_completion/infrastructure/execution_graph.py",
+          "responsibility": "Read-only presentation of the persisted DAG, not a second workflow definition."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.execution_progress",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.execution_progress",
+          "path": "src/scene_completion/infrastructure/execution_progress.py",
+          "responsibility": "Credential-free live pipeline telemetry and evidence-based DAG finish estimates."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.paths",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.paths",
+          "path": "src/scene_completion/infrastructure/paths.py",
+          "responsibility": "Resolve installed program resources independently of the working directory."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.performance",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.performance",
+          "path": "src/scene_completion/infrastructure/performance.py",
+          "responsibility": "Optional sidecar telemetry; never part of semantic inputs or proof identities."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.program_version",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.program_version",
+          "path": "src/scene_completion/infrastructure/program_version.py",
+          "responsibility": "Program build provenance, independent of document source identities."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.project_worker",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.project_worker",
+          "path": "src/scene_completion/infrastructure/project_worker.py",
+          "responsibility": "Direct-script worker entry point, including isolated embedded Python."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.storage",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.storage",
+          "path": "src/scene_completion/infrastructure/storage.py",
+          "responsibility": "Content identities and atomic JSON IO, including portable Windows long paths."
+        },
+        {
+          "module": "scene_completion.infrastructure.identity",
+          "path": "src/scene_completion/infrastructure/identity.py",
+          "responsibility": "Stable content identities independent of file storage."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.infrastructure.worker_runtime",
+      "destinations": [
+        {
+          "module": "scene_completion.infrastructure.worker_runtime",
+          "path": "src/scene_completion/infrastructure/worker_runtime.py",
+          "responsibility": "Project processes and heartbeats; web process never hosts a production DAG."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.__init__",
+          "path": "src/scene_completion/inputs/__init__.py",
+          "responsibility": "Inputs components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_boundaries",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.api_boundaries",
+          "path": "src/scene_completion/inputs/structured/api_boundaries.py",
+          "responsibility": "Partition interface ownership independently of RR/SR document provenance."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_catalog",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.api_catalog",
+          "path": "src/scene_completion/inputs/structured/api_catalog.py",
+          "responsibility": "Derived API review table. No model calls or guessed interface identities."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_documents",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.documents.api_documents",
+          "path": "src/scene_completion/inputs/documents/api_documents.py",
+          "responsibility": "Build interface work items from the complete mapped catalog, without a second LLM catalog."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_identity",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.api_identity",
+          "path": "src/scene_completion/inputs/structured/api_identity.py",
+          "responsibility": "One machine identity for API maps, indexes and parameter work items."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_layers",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.api_layers",
+          "path": "src/scene_completion/inputs/structured/api_layers.py",
+          "responsibility": "Tool-owned namespaces keep RR public and SR internal API contracts separate."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.api_parameters",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.api_parameters",
+          "path": "src/scene_completion/inputs/structured/api_parameters.py",
+          "responsibility": "Canonical wire-field paths shared by API artifacts and interaction analysis."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_adoption",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_adoption",
+          "path": "src/scene_completion/inputs/imports/artifact_adoption.py",
+          "responsibility": "Versioned adoption, selection and partial-result merging."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_conversion",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_conversion",
+          "path": "src/scene_completion/inputs/imports/artifact_conversion.py",
+          "responsibility": "Evidence-preserving conversion and target schema validation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_imports",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_imports",
+          "path": "src/scene_completion/inputs/imports/artifact_imports.py",
+          "responsibility": "Existing-file input entry point: receive, inspect, convert and adopt."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_parsers",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_parsers",
+          "path": "src/scene_completion/inputs/imports/artifact_parsers.py",
+          "responsibility": "Literal Markdown/Mermaid structure; no semantic facts or code execution."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_recognition",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_recognition",
+          "path": "src/scene_completion/inputs/imports/artifact_recognition.py",
+          "responsibility": "Deterministic file recognition and structured format conversion."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_store",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_store",
+          "path": "src/scene_completion/inputs/imports/artifact_store.py",
+          "responsibility": "Input file inventory, immutable versions and case lookup."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.artifact_views",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.imports.artifact_views",
+          "path": "src/scene_completion/inputs/imports/artifact_views.py",
+          "responsibility": "Read-only input inventory and source usage views."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.behavior_imports",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.behavior_imports",
+          "path": "src/scene_completion/inputs/structured/behavior_imports.py",
+          "responsibility": "Literal, case-scoped input for resource/use-case behavior exports."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.colleague_formats",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.colleague_formats",
+          "path": "src/scene_completion/inputs/structured/colleague_formats.py",
+          "responsibility": "Literal adapters for the two colleague positive JSON formats."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.component_facts",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.extraction.component_facts",
+          "path": "src/scene_completion/inputs/extraction/component_facts.py",
+          "responsibility": "Respect an explicitly typed external flag on the cited component itself."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.crud_evidence",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.extraction.crud_evidence",
+          "path": "src/scene_completion/inputs/extraction/crud_evidence.py",
+          "responsibility": "Bounded lookup for the scoped CRUD task's evidence index."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.external_interfaces",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.external_interfaces",
+          "path": "src/scene_completion/inputs/structured/external_interfaces.py",
+          "responsibility": "External interface declarations shared by extraction, validation and indexing."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.http_interfaces",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.http_interfaces",
+          "path": "src/scene_completion/inputs/structured/http_interfaces.py",
+          "responsibility": "Literal HTTP declarations in prose, tables and Mermaid; preserve source text."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.indexed_context",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.provenance.indexed_context",
+          "path": "src/scene_completion/inputs/provenance/indexed_context.py",
+          "responsibility": "Indexed model contexts; expand references from trusted inputs, never model-written quotes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.input_bundles",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.documents.input_bundles",
+          "path": "src/scene_completion/inputs/documents/input_bundles.py",
+          "responsibility": "Content-based discovery of the five agreed inputs; no model calls or code execution."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.ordered_behaviors",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.ordered_behaviors",
+          "path": "src/scene_completion/inputs/structured/ordered_behaviors.py",
+          "responsibility": "Read fused SysOperation exports without promoting exception branches to G."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.recovered_tests",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.recovered_tests",
+          "path": "src/scene_completion/inputs/structured/recovered_tests.py",
+          "responsibility": "Colleague use-case JSON is independent test evidence, never positive input."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.reference_contract",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.provenance.reference_contract",
+          "path": "src/scene_completion/inputs/provenance/reference_contract.py",
+          "responsibility": "Model citation formats are explicit; document and program identities differ."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.source_documents",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.documents.source_documents",
+          "path": "src/scene_completion/inputs/documents/source_documents.py",
+          "responsibility": "Independent source channels. Positive projections retain original line numbers."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.structure_models",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.structure_models",
+          "path": "src/scene_completion/inputs/structured/structure_models.py",
+          "responsibility": "Literal adapters for colleague RR/SR structure_model.json (schema v3)."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.supplied_api",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.supplied_api",
+          "path": "src/scene_completion/inputs/structured/supplied_api.py",
+          "responsibility": "Build SR contracts from the adopted function tree and the actual SSD calls."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.supplied_branches",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.supplied_branches",
+          "path": "src/scene_completion/inputs/structured/supplied_branches.py",
+          "responsibility": "Connect original SR behaviour branches to their supplied SysOperation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.supplied_cases",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.structured.supplied_cases",
+          "path": "src/scene_completion/inputs/structured/supplied_cases.py",
+          "responsibility": "Admission for runs based on supplied, validated behavior files."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.task_evidence_tools",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.provenance.task_evidence_tools",
+          "path": "src/scene_completion/inputs/provenance/task_evidence_tools.py",
+          "responsibility": "Read-only discovery over the evidence and structured records of one task."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.inputs.test_sources",
+      "destinations": [
+        {
+          "module": "scene_completion.inputs.provenance.test_sources",
+          "path": "src/scene_completion/inputs/provenance/test_sources.py",
+          "responsibility": "Typed test records shared by Markdown, XLSX, preview and scoring."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.__init__",
+          "path": "src/scene_completion/manager/__init__.py",
+          "responsibility": "Manager components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_agent",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_agent",
+          "path": "src/scene_completion/manager/manager_agent.py",
+          "responsibility": "A tool-using project coordinator; business repairs run with fresh scoped context."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_api",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_api",
+          "path": "src/scene_completion/manager/manager_api.py",
+          "responsibility": "Browser and CLI share the same manager journal, config and audited tools."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_context",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_context",
+          "path": "src/scene_completion/manager/manager_context.py",
+          "responsibility": "Bounded operational indexes; business evidence remains in scoped node tools."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_patches",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_patches",
+          "path": "src/scene_completion/manager/manager_patches.py",
+          "responsibility": "Isolated code proposals, frozen baseline tests and transactional activation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_restart",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_restart",
+          "path": "src/scene_completion/manager/manager_restart.py",
+          "responsibility": "Detached activation monitor. Stop only the authenticated local service, then rollback on startup failure."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_runtime",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_runtime",
+          "path": "src/scene_completion/manager/manager_runtime.py",
+          "responsibility": "Durable manager process; polling is code, reasoning occurs only for new work."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_store",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_store",
+          "path": "src/scene_completion/manager/manager_store.py",
+          "responsibility": "Project manager journal. Configuration, chat, memory and actions survive restarts."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_trials",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_trials",
+          "path": "src/scene_completion/manager/manager_trials.py",
+          "responsibility": "Explicit hypothetical branch: never modifies a formal project's materials or scores."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.manager_worker",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.manager_worker",
+          "path": "src/scene_completion/manager/manager_worker.py",
+          "responsibility": "Direct-script manager entry point, including isolated embedded Python."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.quality_actions",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.quality_actions",
+          "path": "src/scene_completion/manager/quality_actions.py",
+          "responsibility": "Explicit human approvals, CAS validation and conservative DAG impact."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.quality_api",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.quality_api",
+          "path": "src/scene_completion/manager/quality_api.py",
+          "responsibility": "Quality jobs are distinct from node transport/schema diagnostics."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.quality_audit",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.quality_audit",
+          "path": "src/scene_completion/manager/quality_audit.py",
+          "responsibility": "Read-only row-by-row exception audit; never changes or fabricates scores."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.quality_diagnostics",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.quality_diagnostics",
+          "path": "src/scene_completion/manager/quality_diagnostics.py",
+          "responsibility": "Frozen, read-only metric loss accounting. Never a business-node input."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.manager.quality_runtime",
+      "destinations": [
+        {
+          "module": "scene_completion.manager.quality_runtime",
+          "path": "src/scene_completion/manager/quality_runtime.py",
+          "responsibility": "Durable diagnostic jobs, additive budget and bounded manager-model analysis."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.models.__init__",
+          "path": "src/scene_completion/models/__init__.py",
+          "responsibility": "Models components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.context_budget",
+      "destinations": [
+        {
+          "module": "scene_completion.models.budgets.context_budget",
+          "path": "src/scene_completion/models/budgets/context_budget.py",
+          "responsibility": "Estimate final chat context independently of billing quota reservations."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.context_tokenizer",
+      "destinations": [
+        {
+          "module": "scene_completion.models.budgets.context_tokenizer",
+          "path": "src/scene_completion/models/budgets/context_tokenizer.py",
+          "responsibility": "Local BPE encodings for context admission. Never fetch assets at runtime."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.deepagents_client",
+      "destinations": [
+        {
+          "module": "scene_completion.models.clients.deepagents_client",
+          "path": "src/scene_completion/models/clients/deepagents_client.py",
+          "responsibility": "Task-scoped Deep Agents roles using the existing metered model transport."
+        },
+        {
+          "module": "scene_completion.domain.task_catalog",
+          "path": "src/scene_completion/domain/task_catalog.py",
+          "responsibility": "Semantic task roles shared by runtimes, routing, events and usage views."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.endpoint_admission",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.endpoint_admission",
+          "path": "src/scene_completion/models/transport/endpoint_admission.py",
+          "responsibility": "Credential-scoped, cross-process admission for project runs and node chats."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.http_transport",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.http_transport",
+          "path": "src/scene_completion/models/transport/http_transport.py",
+          "responsibility": "Credential-safe chat transport and environment references."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_access",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_access",
+          "path": "src/scene_completion/models/configuration/model_access.py",
+          "responsibility": "Endpoint, credential and configuration bound access circuit breaker."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_accounts",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_accounts",
+          "path": "src/scene_completion/models/configuration/model_accounts.py",
+          "responsibility": "Local API-key scoped model catalog. Secrets never leave server-side storage."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_client",
+      "destinations": [
+        {
+          "module": "scene_completion.models.clients.model_client",
+          "path": "src/scene_completion/models/clients/model_client.py",
+          "responsibility": "Configured structured model requests, provenance and token accounting."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_configuration",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_configuration",
+          "path": "src/scene_completion/models/configuration/model_configuration.py",
+          "responsibility": "configuration"
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_diagnostics",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_diagnostics",
+          "path": "src/scene_completion/models/configuration/model_diagnostics.py",
+          "responsibility": "Credential-free effective request settings and bounded node diagnostics."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_resilience",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.model_resilience",
+          "path": "src/scene_completion/models/transport/model_resilience.py",
+          "responsibility": "Explicit candidate routing, fresh runtime settings and bounded failover."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_routing",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_routing",
+          "path": "src/scene_completion/models/configuration/model_routing.py",
+          "responsibility": "Explicit task/role model selection, with separate per-model usage ledgers."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_settings",
+      "destinations": [
+        {
+          "module": "scene_completion.models.configuration.model_settings",
+          "path": "src/scene_completion/models/configuration/model_settings.py",
+          "responsibility": "Resolve project overrides and server-side .env without exposing credentials."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.model_submission",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.model_submission",
+          "path": "src/scene_completion/models/transport/model_submission.py",
+          "responsibility": "Check model containers before expanding references or saving questions."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.native_client",
+      "destinations": [
+        {
+          "module": "scene_completion.models.clients.native_client",
+          "path": "src/scene_completion/models/clients/native_client.py",
+          "responsibility": "Run scoped semantic packets through the locally authenticated Codex CLI."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.provider_reasoning",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.provider_reasoning",
+          "path": "src/scene_completion/models/transport/provider_reasoning.py",
+          "responsibility": "Extract only provider-supplied readable reasoning; never infer hidden text."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.provider_response",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.provider_response",
+          "path": "src/scene_completion/models/transport/provider_response.py",
+          "responsibility": "Validate provider envelopes before the workflow interprets business output."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.request_admission",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.request_admission",
+          "path": "src/scene_completion/models/transport/request_admission.py",
+          "responsibility": "Apply provider transport diagnostics to the shared admission gate."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.request_context",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.request_context",
+          "path": "src/scene_completion/models/transport/request_context.py",
+          "responsibility": "Inspect actual model requests without storing connection credentials."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.streaming",
+      "destinations": [
+        {
+          "module": "scene_completion.models.transport.streaming",
+          "path": "src/scene_completion/models/transport/streaming.py",
+          "responsibility": "Assemble complete SSE chat output; never accept partial JSON; provider reasoning is an explicit display opt-in."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.throughput",
+      "destinations": [
+        {
+          "module": "scene_completion.models.usage.throughput",
+          "path": "src/scene_completion/models/usage/throughput.py",
+          "responsibility": "Windowed provider throughput. Byte estimates are labelled, never token billing."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.throughput_view",
+      "destinations": [
+        {
+          "module": "scene_completion.models.usage.throughput_view",
+          "path": "src/scene_completion/models/usage/throughput_view.py",
+          "responsibility": "A whitelist-only telemetry series; never returns prompt, arguments or thinking text."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.token_budget",
+      "destinations": [
+        {
+          "module": "scene_completion.models.budgets.token_budget",
+          "path": "src/scene_completion/models/budgets/token_budget.py",
+          "responsibility": "Durable admission control for a bounded semantic-API token allowance."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.usage_audit",
+      "destinations": [
+        {
+          "module": "scene_completion.models.usage.usage_audit",
+          "path": "src/scene_completion/models/usage/usage_audit.py",
+          "responsibility": "Read-only usage accounting. Provider-reported tokens are never inferred from bytes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.models.usage_index",
+      "destinations": [
+        {
+          "module": "scene_completion.models.usage.usage_index",
+          "path": "src/scene_completion/models/usage/usage_index.py",
+          "responsibility": "Incremental request accounting; never scan packets on the summary path."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.review.__init__",
+          "path": "src/scene_completion/review/__init__.py",
+          "responsibility": "Review components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review._ssd_review_template",
+      "destinations": [
+        {
+          "module": "scene_completion.review.offline._ssd_review_template",
+          "path": "src/scene_completion/review/offline/_ssd_review_template.py",
+          "responsibility": "Self-contained offline review UI; embedded as package code for wheel installs."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.business_truth",
+      "destinations": [
+        {
+          "module": "scene_completion.review.truth.business_truth",
+          "path": "src/scene_completion/review/truth/business_truth.py",
+          "responsibility": "Derived human-review GT. Frozen independent GT and M/Q are never edited."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.node_conversations",
+      "destinations": [
+        {
+          "module": "scene_completion.review.decisions.node_conversations",
+          "path": "src/scene_completion/review/decisions/node_conversations.py",
+          "responsibility": "Task-scoped durable guidance, questions and resumable model checkpoints."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.project_review",
+      "destinations": [
+        {
+          "module": "scene_completion.review.decisions.project_review",
+          "path": "src/scene_completion/review/decisions/project_review.py",
+          "responsibility": "Project-owned concern versions and evidence-bound pending decisions."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.review_api",
+      "destinations": [
+        {
+          "module": "scene_completion.review.handoff.review_api",
+          "path": "src/scene_completion/review/handoff/review_api.py",
+          "responsibility": "Review workflow APIs shared by browser and Code Agent CLI."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.review_handoff",
+      "destinations": [
+        {
+          "module": "scene_completion.review.handoff.review_handoff",
+          "path": "src/scene_completion/review/handoff/review_handoff.py",
+          "responsibility": "Portable source lookup, immutable handoff snapshots and auditable feedback."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.review_questions",
+      "destinations": [
+        {
+          "module": "scene_completion.review.decisions.review_questions",
+          "path": "src/scene_completion/review/decisions/review_questions.py",
+          "responsibility": "Non-blocking, task-bound business questions and versioned answers."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.reviews",
+      "destinations": [
+        {
+          "module": "scene_completion.review.decisions.reviews",
+          "path": "src/scene_completion/review/decisions/reviews.py",
+          "responsibility": "Input-bound review versions; approved edits are revalidated before consumption."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.scope_reviews",
+      "destinations": [
+        {
+          "module": "scene_completion.review.decisions.scope_reviews",
+          "path": "src/scene_completion/review/decisions/scope_reviews.py",
+          "responsibility": "Versioned scope corrections; saving never starts model execution."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.review.ssd_review",
+      "destinations": [
+        {
+          "module": "scene_completion.review.offline.ssd_review",
+          "path": "src/scene_completion/review/offline/ssd_review.py",
+          "responsibility": "Portable SSD discrepancy review, with data-only feedback import."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.__init__",
+          "path": "src/scene_completion/workflow/__init__.py",
+          "responsibility": "Workflow components for the current scene workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.case_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.detailed.case_pipeline",
+          "path": "src/scene_completion/compat/detailed/case_pipeline.py",
+          "responsibility": "Case Pipeline for the current workflow."
+        },
+        {
+          "module": "scene_completion.workflow.case_dispatch",
+          "path": "src/scene_completion/workflow/case_dispatch.py",
+          "responsibility": "Choose the supported case workflow without coupling SSD rules to detailed DAGs."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.engine",
+      "destinations": [
+        {
+          "module": "scene_completion.application.execution",
+          "path": "src/scene_completion/application/execution.py",
+          "responsibility": "Execution session and public workflow assembly entry points."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.execution_control",
+      "destinations": [
+        {
+          "module": "scene_completion.application.execution_control",
+          "path": "src/scene_completion/application/execution_control.py",
+          "responsibility": "Explicit project pause/stop/resume; never discard successful artifacts."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.global_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.detailed.global_pipeline",
+          "path": "src/scene_completion/compat/detailed/global_pipeline.py",
+          "responsibility": "Global G/E reporting precedes independent GT alignment and evaluation."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.node_recovery",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.recovery.node_recovery",
+          "path": "src/scene_completion/workflow/recovery/node_recovery.py",
+          "responsibility": "Bounded model recovery; the original executor remains the only publisher."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.node_repair",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.recovery.node_repair",
+          "path": "src/scene_completion/workflow/recovery/node_repair.py",
+          "responsibility": "Input-bound external repair handoff; never edits official artifacts directly."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.partition_registration",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.partition_registration",
+          "path": "src/scene_completion/workflow/runtime/partition_registration.py",
+          "responsibility": "Register business partitions while the scheduler owns expansion and replacement."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.pipeline_execution",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.pipeline_execution",
+          "path": "src/scene_completion/workflow/runtime/pipeline_execution.py",
+          "responsibility": "Drive business graph expansion while the scheduler resolves tasks."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.planning",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.planning",
+          "path": "src/scene_completion/workflow/planning.py",
+          "responsibility": "Planning for the current workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.positive_reuse",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.recovery.positive_reuse",
+          "path": "src/scene_completion/workflow/recovery/positive_reuse.py",
+          "responsibility": "Input/contract-bound positive reuse across project rule versions; never E/GT."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.project_service",
+      "destinations": [
+        {
+          "module": "scene_completion.application.project_service",
+          "path": "src/scene_completion/application/project_service.py",
+          "responsibility": "Project operations shared by HTTP and CLI."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.publication",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.publication",
+          "path": "src/scene_completion/workflow/publication.py",
+          "responsibility": "Publication."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.run_inspection",
+      "destinations": [
+        {
+          "module": "scene_completion.application.run_inspection",
+          "path": "src/scene_completion/application/run_inspection.py",
+          "responsibility": "Offline integrity inspection; it never submits inference requests."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.runtime_settings",
+      "destinations": [
+        {
+          "module": "scene_completion.application.runtime_settings",
+          "path": "src/scene_completion/application/runtime_settings.py",
+          "responsibility": "Validated OpenAI-compatible runtime options shared by CLI, API and routing."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.scheduler",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.scheduler",
+          "path": "src/scene_completion/workflow/runtime/scheduler.py",
+          "responsibility": "Adapt the generic scheduler to Scene task records and workbench events."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.semantic_executor",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.semantic_executor",
+          "path": "src/scene_completion/workflow/runtime/semantic_executor.py",
+          "responsibility": "Semantic Executor."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.semantic_reuse",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.recovery.semantic_reuse",
+          "path": "src/scene_completion/workflow/recovery/semantic_reuse.py",
+          "responsibility": "Reuse verified model responses across tool-only display/identity changes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.semantics",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.semantics",
+          "path": "src/scene_completion/workflow/semantics.py",
+          "responsibility": "Explicit task semantic versions; update only for a changed business contract."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.ssd_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd_pipeline",
+          "path": "src/scene_completion/workflow/ssd_pipeline.py",
+          "responsibility": "Compact case-parallel workflow using the shared scheduler and model transport."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.supplied_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.compat.detailed.supplied_pipeline",
+          "path": "src/scene_completion/compat/detailed/supplied_pipeline.py",
+          "responsibility": "Assemble the analysis DAG from formally validated supplied facts."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.support",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.support",
+          "path": "src/scene_completion/workflow/support.py",
+          "responsibility": "Support for the current workflow."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.task_context",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.task_context",
+          "path": "src/scene_completion/workflow/runtime/task_context.py",
+          "responsibility": "Task-specific model views; retained artifacts keep the full validated contract."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.task_partitions",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.task_partitions",
+          "path": "src/scene_completion/workflow/runtime/task_partitions.py",
+          "responsibility": "Small, independently schedulable semantic tasks; parent artifacts stay complete."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.task_registration",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.runtime.task_registration",
+          "path": "src/scene_completion/workflow/runtime/task_registration.py",
+          "responsibility": "Task Registration."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow_core.__init__",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow_core.__init__",
+          "path": "src/scene_completion/workflow_core/__init__.py",
+          "responsibility": "Dependency scheduling and checkpoints for ordinary Python tasks."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow_core.admission",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow_core.admission",
+          "path": "src/scene_completion/workflow_core/admission.py",
+          "responsibility": "Shared worker admission and adaptive cooldown."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow_core.scheduler",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow_core.scheduler",
+          "path": "src/scene_completion/workflow_core/scheduler.py",
+          "responsibility": "Run a dynamic task graph with bounded repair and durable task outcomes."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow_core.storage",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow_core.storage",
+          "path": "src/scene_completion/workflow_core/storage.py",
+          "responsibility": "Persist task state and artifacts in the existing run directory format."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow_core.task",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow_core.task",
+          "path": "src/scene_completion/workflow_core/task.py",
+          "responsibility": "Task definitions and outcomes shared by schedulers and callers."
+        }
+      ]
+    }
+  ],
+  "file_moves": {
+    "frontend/src/features/results/SsdResultsView.tsx": "frontend/src/features/results/ssd/SsdResultsView.tsx",
+    "frontend/src/features/results/SsdEditors.tsx": "frontend/src/features/results/ssd/SsdEditors.tsx",
+    "frontend/src/features/results/SsdSourceDialog.tsx": "frontend/src/features/results/ssd/SsdSourceDialog.tsx",
+    "frontend/src/features/results/ssdTypes.ts": "frontend/src/features/results/ssd/types.ts",
+    "frontend/src/features/results/ssd-results.css": "frontend/src/features/results/ssd/ssd-results.css",
+    "frontend/src/features/results/ssd_results.test.tsx": "frontend/src/features/results/ssd/ssd_results.test.tsx",
+    "frontend/src/features/results/GlobalResults.tsx": "frontend/src/features/results/saved/GlobalResults.tsx",
+    "frontend/src/features/results/ScopeReview.tsx": "frontend/src/features/results/saved/ScopeReview.tsx",
+    "frontend/src/features/results/ResultComparison.tsx": "frontend/src/features/results/saved/ResultComparison.tsx",
+    "frontend/src/features/results/useResultsViewController.tsx": "frontend/src/features/results/saved/useSavedResultsController.tsx",
+    "frontend/src/features/results/results.test.tsx": "frontend/src/features/results/saved/results.test.tsx",
+    "frontend/src/features/results/scope_review.test.tsx": "frontend/src/features/results/saved/scope_review.test.tsx",
+    "frontend/src/features/results/two_level.test.tsx": "frontend/src/features/results/saved/two_level.test.tsx",
+    "frontend/src/features/results/ArtifactView.tsx": "frontend/src/features/results/shared/ArtifactView.tsx",
+    "frontend/src/features/results/artifact_preview.test.tsx": "frontend/src/features/results/shared/artifact_preview.test.tsx",
+    "frontend/src/features/results/recommendation_comparison.test.tsx": "frontend/src/features/results/shared/recommendation_comparison.test.tsx",
+    "docs/intake-recovery-validation-20261029.md": "docs/history/acceptance/intake-recovery-validation-20261029.md",
+    "docs/workspace-throughput-and-estimates.md": "docs/current/workspace-throughput-and-estimates.md",
+    "docs/quality-diagnostics.md": "docs/current/quality-diagnostics.md",
+    "docs/intake-recovery-and-model-switching.md": "docs/current/intake-recovery-and-model-switching.md",
+    "docs/test-markdown-alignment.md": "docs/reference/test-markdown-alignment.md",
+    "docs/windows-portable.md": "docs/current/windows-portable.md",
+    "docs/business-review-validation.md": "docs/history/acceptance/business-review-validation.md",
+    "docs/worker-bootstrap-acceptance-20261104.md": "docs/history/acceptance/worker-bootstrap-acceptance-20261104.md",
+    "docs/pattern-editor-layout.md": "docs/history/acceptance/pattern-editor-layout.md",
+    "docs/api-identity-acceptance-20261104.md": "docs/history/acceptance/api-identity-acceptance-20261104.md",
+    "docs/scenario-pattern-recommender.md": "docs/current/scenario-pattern-recommender.md",
+    "docs/manager-acceptance-20261029.md": "docs/history/acceptance/manager-acceptance-20261029.md",
+    "docs/business-offline-review.md": "docs/current/business-offline-review.md",
+    "docs/customer-model-debugging.md": "docs/current/customer-model-debugging.md",
+    "docs/project-manager.md": "docs/current/project-manager.md",
+    "docs/resource-behavior-input.md": "docs/current/resource-behavior-input.md",
+    "docs/workbench-cli-model-accounts.md": "docs/current/workbench-cli-model-accounts.md",
+    "docs/structured-model-import.md": "docs/current/structured-model-import.md",
+    "docs/external-api-contracts-20261104.md": "docs/history/acceptance/external-api-contracts-20261104.md",
+    "docs/recovered-json-and-sr-metrics.md": "docs/reference/recovered-json-and-sr-metrics.md",
+    "docs/scenario-pattern-acceptance.md": "docs/history/acceptance/scenario-pattern-acceptance.md",
+    "docs/five-input-bundle.md": "docs/current/five-input-bundle.md",
+    "docs/quality-diagnostics-acceptance.md": "docs/history/acceptance/quality-diagnostics-acceptance.md",
+    "docs/execution-controls-and-taxonomy.md": "docs/current/execution-controls-and-taxonomy.md",
+    "docs/ssd-alignment-display.md": "docs/history/acceptance/ssd-alignment-display.md",
+    "docs/ssd-case-workflow.md": "docs/current/ssd-case-workflow.md",
+    "docs/bdd-and-usage-rankings.md": "docs/current/bdd-and-usage-rankings.md",
+    "docs/five-input-acceptance.md": "docs/history/acceptance/five-input-acceptance.md",
+    "docs/recovered-json-acceptance-20261102.md": "docs/history/acceptance/recovered-json-acceptance-20261102.md",
+    "docs/scene-workflow-v5/mandatory-rules-and-result-scopes.md": "docs/history/scene-workflow-v5/mandatory-rules-and-result-scopes.md",
+    "docs/scene-workflow-v5/v11-response-business-contract.md": "docs/history/scene-workflow-v5/v11-response-business-contract.md",
+    "docs/scene-workflow-v5/v9-five-case-acceptance.md": "docs/history/scene-workflow-v5/v9-five-case-acceptance.md",
+    "docs/scene-workflow-v5/v10-scenario-chain-repair.md": "docs/history/scene-workflow-v5/v10-scenario-chain-repair.md",
+    "docs/scene-workflow-v5/acceptance-progress-20261102.md": "docs/history/scene-workflow-v5/acceptance-progress-20261102.md",
+    "docs/scene-workflow-v5/atomic-steps-and-scope-routing.md": "docs/history/scene-workflow-v5/atomic-steps-and-scope-routing.md",
+    "docs/fixes/success-responses-and-large-results.md": "docs/history/changes/success-responses-and-large-results.md",
+    "docs/refactor/code-guide.md": "docs/architecture/code-guide.md",
+    "docs/refactor/deletions.md": "docs/history/refactor/deletions.md",
+    "docs/refactor/cache-replay.json": "docs/history/refactor/cache-replay.json",
+    "docs/refactor/browser-check.json": "docs/history/refactor/browser-check.json",
+    "docs/refactor/interface-parity.json": "docs/history/refactor/interface-parity.json",
+    "docs/refactor/development.md": "docs/architecture/development.md",
+    "docs/refactor/acceptance.md": "docs/history/refactor/acceptance.md",
+    "examples/case-analysis-minimal.json": "tests/fixtures/compat/standalone/submitted-bundle.json",
+    "examples/case-analysis-minimal-v2.json": "tests/fixtures/compat/standalone/prepared-snapshot.json",
+    "examples/case-analysis-minimal-v3.json": "tests/fixtures/compat/standalone/refined-existing-snapshot.json",
+    "tests/test_acceptance.py": "tests/acceptance/test_acceptance.py",
+    "tests/test_api_catalog.py": "tests/unit/test_api_catalog.py",
+    "tests/test_api_documents.py": "tests/integration/test_api_documents.py",
+    "tests/test_api_identity_contract.py": "tests/contracts/test_api_identity_contract.py",
+    "tests/test_atomic_scope.py": "tests/unit/test_atomic_scope.py",
+    "tests/test_bdd_drawing.py": "tests/unit/test_bdd_drawing.py",
+    "tests/test_behavior_imports.py": "tests/integration/test_behavior_imports.py",
+    "tests/test_business_review.py": "tests/integration/test_business_review.py",
+    "tests/test_check_references.py": "tests/unit/test_check_references.py",
+    "tests/test_comparison_batches.py": "tests/unit/test_comparison_batches.py",
+    "tests/test_concern_hierarchy.py": "tests/unit/test_concern_hierarchy.py",
+    "tests/test_context_optimization.py": "tests/integration/test_context_optimization.py",
+    "tests/test_crud_entity_scope.py": "tests/integration/test_crud_entity_scope.py",
+    "tests/test_current_registry.py": "tests/unit/test_current_registry.py",
+    "tests/test_data_requirements.py": "tests/unit/test_data_requirements.py",
+    "tests/test_dynamic_partitions.py": "tests/unit/test_dynamic_partitions.py",
+    "tests/test_endpoint_admission.py": "tests/integration/test_endpoint_admission.py",
+    "tests/test_evaluation_scope.py": "tests/unit/test_evaluation_scope.py",
+    "tests/test_evidence_pilot.py": "tests/integration/test_evidence_pilot.py",
+    "tests/test_execution_control.py": "tests/integration/test_execution_control.py",
+    "tests/test_execution_monitor.py": "tests/integration/test_execution_monitor.py",
+    "tests/test_execution_pipeline.py": "tests/integration/test_execution_pipeline.py",
+    "tests/test_execution_progress.py": "tests/unit/test_execution_progress.py",
+    "tests/test_external_api_evidence.py": "tests/integration/test_external_api_evidence.py",
+    "tests/test_global_analysis.py": "tests/unit/test_global_analysis.py",
+    "tests/test_global_idempotency.py": "tests/unit/test_global_idempotency.py",
+    "tests/test_import_layer_evidence_validation.py": "tests/contracts/test_import_layer_evidence_validation.py",
+    "tests/test_imported_case_results.py": "tests/integration/test_imported_case_results.py",
+    "tests/test_indexed_context.py": "tests/integration/test_indexed_context.py",
+    "tests/test_input_bundles.py": "tests/integration/test_input_bundles.py",
+    "tests/test_intake_recovery.py": "tests/integration/test_intake_recovery.py",
+    "tests/test_model_accounts_cli.py": "tests/integration/test_model_accounts_cli.py",
+    "tests/test_model_routing.py": "tests/integration/test_model_routing.py",
+    "tests/test_native_client.py": "tests/integration/test_native_client.py",
+    "tests/test_node_repair_interfaces.py": "tests/integration/test_node_repair_interfaces.py",
+    "tests/test_ordered_behaviors.py": "tests/integration/test_ordered_behaviors.py",
+    "tests/test_ordered_import_regressions.py": "tests/integration/test_ordered_import_regressions.py",
+    "tests/test_positive_concern_rules.py": "tests/unit/test_positive_concern_rules.py",
+    "tests/test_project_manager.py": "tests/integration/test_project_manager.py",
+    "tests/test_project_review.py": "tests/integration/test_project_review.py",
+    "tests/test_provider_response_recovery.py": "tests/integration/test_provider_response_recovery.py",
+    "tests/test_quality_diagnostics.py": "tests/integration/test_quality_diagnostics.py",
+    "tests/test_quality_rules.py": "tests/unit/test_quality_rules.py",
+    "tests/test_recognition_quality.py": "tests/unit/test_recognition_quality.py",
+    "tests/test_recovered_json.py": "tests/integration/test_recovered_json.py",
+    "tests/test_refactor_layout.py": "tests/contracts/test_refactor_layout.py",
+    "tests/test_request_prompt_visibility.py": "tests/integration/test_request_prompt_visibility.py",
+    "tests/test_result_alignment.py": "tests/unit/test_result_alignment.py",
+    "tests/test_result_views.py": "tests/integration/test_result_views.py",
+    "tests/test_rr_sr_api_boundaries.py": "tests/contracts/test_rr_sr_api_boundaries.py",
+    "tests/test_runtime_configuration.py": "tests/integration/test_runtime_configuration.py",
+    "tests/test_runtime_resilience.py": "tests/integration/test_runtime_resilience.py",
+    "tests/test_scenario_chain.py": "tests/unit/test_scenario_chain.py",
+    "tests/test_scenario_losses.py": "tests/unit/test_scenario_losses.py",
+    "tests/test_scenario_patterns.py": "tests/unit/test_scenario_patterns.py",
+    "tests/test_self_action_concerns.py": "tests/unit/test_self_action_concerns.py",
+    "tests/test_ssd_alignment_drawing.py": "tests/unit/test_ssd_alignment_drawing.py",
+    "tests/test_ssd_lifecycle_rules.py": "tests/unit/test_ssd_lifecycle_rules.py",
+    "tests/test_ssd_model_contract.py": "tests/contracts/test_ssd_model_contract.py",
+    "tests/test_ssd_pipeline.py": "tests/unit/test_ssd_pipeline.py",
+    "tests/test_ssd_results.py": "tests/integration/test_ssd_results.py",
+    "tests/test_ssd_review.py": "tests/integration/test_ssd_review.py",
+    "tests/test_ssd_semantic_resume.py": "tests/integration/test_ssd_semantic_resume.py",
+    "tests/test_ssd_workflow.py": "tests/acceptance/test_ssd_workflow.py",
+    "tests/test_streaming.py": "tests/integration/test_streaming.py",
+    "tests/test_structure_models.py": "tests/contracts/test_structure_models.py",
+    "tests/test_submission_envelopes.py": "tests/contracts/test_submission_envelopes.py",
+    "tests/test_supplied_case_run.py": "tests/acceptance/test_supplied_case_run.py",
+    "tests/test_test_alignment.py": "tests/unit/test_test_alignment.py",
+    "tests/test_test_sources.py": "tests/integration/test_test_sources.py",
+    "tests/test_token_budget.py": "tests/unit/test_token_budget.py",
+    "tests/test_transport_timeouts.py": "tests/integration/test_transport_timeouts.py",
+    "tests/test_two_level_matching.py": "tests/integration/test_two_level_matching.py",
+    "tests/test_usage_audit.py": "tests/integration/test_usage_audit.py",
+    "tests/test_usage_index.py": "tests/integration/test_usage_index.py",
+    "tests/test_windows_delivery.py": "tests/portable/test_windows_delivery.py",
+    "tests/test_workbench.py": "tests/integration/test_workbench.py",
+    "tests/test_worker_entrypoints.py": "tests/portable/test_worker_entrypoints.py",
+    "tests/test_workflow.py": "tests/integration/test_workflow.py",
+    "tests/test_workflow_core.py": "tests/unit/test_workflow_core.py",
+    "deployment/check.cmd": "deployment/windows/check.cmd",
+    "deployment/env.example": "deployment/windows/env.example",
+    "deployment/launcher.py": "deployment/windows/launcher.py",
+    "deployment/scene.cmd": "deployment/windows/scene.cmd",
+    "deployment/start.cmd": "deployment/windows/start.cmd",
+    "deployment/status.cmd": "deployment/windows/status.cmd",
+    "deployment/stop.cmd": "deployment/windows/stop.cmd",
+    "deploy/local_start.sh": "deployment/experiments/local_start.sh"
+  },
+  "test_helpers": {
+    "tests.test_workflow": "tests.support.workflow",
+    "tests.test_execution_pipeline": "tests.support.execution_pipeline",
+    "tests.test_model_accounts_cli": "tests.support.model_accounts_cli",
+    "tests.test_comparison_batches": "tests.support.comparison_batches",
+    "tests.test_provider_response_recovery": "tests.support.provider_response_recovery",
+    "tests.test_project_review": "tests.support.project_review",
+    "tests.test_test_sources": "tests.support.test_sources",
+    "tests.test_result_views": "tests.support.result_views",
+    "tests.test_execution_monitor": "tests.support.execution_monitor",
+    "tests.test_input_bundles": "tests.support.input_bundles",
+    "tests.test_project_manager": "tests.support.project_manager",
+    "tests.test_scenario_patterns": "tests.support.scenario_patterns",
+    "tests.test_acceptance": "tests.support.acceptance",
+    "tests.test_structure_models": "tests.support.structure_models",
+    "tests.test_two_level_matching": "tests.support.two_level_matching",
+    "tests.test_crud_entity_scope": "tests.support.crud_entity_scope",
+    "tests.test_external_api_evidence": "tests.support.external_api_evidence"
+  },
+  "new_modules": [
+    "src/scene_completion/compat/__init__.py",
+    "src/scene_completion/application/__init__.py",
+    "src/scene_completion/inputs/imports/__init__.py",
+    "src/scene_completion/inputs/provenance/__init__.py",
+    "src/scene_completion/inputs/structured/__init__.py",
+    "src/scene_completion/inputs/documents/__init__.py",
+    "src/scene_completion/inputs/extraction/__init__.py",
+    "src/scene_completion/domain/ssd/__init__.py",
+    "src/scene_completion/workflow/recovery/__init__.py",
+    "src/scene_completion/workflow/runtime/__init__.py",
+    "src/scene_completion/review/handoff/__init__.py",
+    "src/scene_completion/review/decisions/__init__.py",
+    "src/scene_completion/review/truth/__init__.py",
+    "src/scene_completion/review/offline/__init__.py",
+    "src/scene_completion/models/clients/__init__.py",
+    "src/scene_completion/models/configuration/__init__.py",
+    "src/scene_completion/models/transport/__init__.py",
+    "src/scene_completion/models/usage/__init__.py",
+    "src/scene_completion/models/budgets/__init__.py",
+    "src/scene_completion/analysis/matching/__init__.py",
+    "src/scene_completion/analysis/recommendation/__init__.py",
+    "src/scene_completion/analysis/ssd/__init__.py",
+    "src/scene_completion/analysis/interactions/__init__.py",
+    "src/scene_completion/analysis/global_analysis/__init__.py",
+    "src/scene_completion/analysis/diagrams/__init__.py",
+    "src/scene_completion/analysis/scenarios/__init__.py",
+    "src/scene_completion/analysis/evaluation/__init__.py",
+    "src/scene_completion/analysis/concerns/__init__.py",
+    "src/scene_completion/compat/saved/__init__.py",
+    "src/scene_completion/compat/standalone/__init__.py",
+    "src/scene_completion/compat/detailed/__init__.py"
+  ],
+  "public_paths_preserved": [
+    "docs/ssd-result-contract.md",
+    "docs/scene-workflow-v5/schemas",
+    "examples/tests/mall-exception-tests.xlsx",
+    "web"
+  ],
+  "protected_runtime_paths": [
+    ".workbench",
+    "runs",
+    "dist",
+    ".acceptance",
+    "datasets",
+    ".env",
+    "在线商城购物系统"
+  ]
+}

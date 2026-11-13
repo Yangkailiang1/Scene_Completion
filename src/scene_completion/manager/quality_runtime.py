@@ -17,7 +17,7 @@ def enqueue(project, test_set=None, case_id=None, automatic=False, tool_only=Fal
 
 def notify_completed(project):
     """Called only by completion of a new evaluation round, never by host startup."""
-    from scene_completion.analysis.result_views import ResultView
+    from scene_completion.compat.saved.result_views import ResultView
 
     view = ResultView(project)
     if (
@@ -318,11 +318,11 @@ SYSTEM = """你是独立指标诊断员，不能批准或修改业务结果。�
 
 
 def _run_job(service, rid, did, client=None):
+    from scene_completion.application.runtime_settings import request_options
     from scene_completion.infrastructure.execution_events import EventStore, bind, emit
     from scene_completion.manager.manager_agent import resolved
-    from scene_completion.models.model_client import SemanticClient
-    from scene_completion.models.token_budget import TokenBudget, request_reservation
-    from scene_completion.workflow.runtime_settings import request_options
+    from scene_completion.models.budgets.token_budget import TokenBudget, request_reservation
+    from scene_completion.models.clients.model_client import SemanticClient
 
     project = service.run_dir(rid)
     value = q.report(project, did)

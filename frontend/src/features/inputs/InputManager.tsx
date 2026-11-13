@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import { NodeOutput } from "../execution/NodeOutput";
-import { ArtifactView } from "../results/ArtifactView";
+import { ArtifactView } from "../results/shared/ArtifactView";
 import { SuppliedCases, type SuppliedPreview } from "./SuppliedCases";
 import { InputBundlePicker } from "./InputBundlePicker";
 import { useInputManagerController } from "./useInputManagerController";

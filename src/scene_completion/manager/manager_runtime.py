@@ -251,7 +251,7 @@ def main():
     parser.add_argument("--url", default="http://127.0.0.1:8765")
     parser.add_argument("--token", required=True)
     args = parser.parse_args()
-    from scene_completion.api.application import Workbench
+    from scene_completion.application.project_service import Workbench
     from scene_completion.manager.manager_agent import run_turn
     from scene_completion.workflow_core import run_lock
 

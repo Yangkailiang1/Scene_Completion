@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { api, projectUrl } from "../../shared/api";
-import { RecommendationComparison } from "../results/ResultComparison";
+import { RecommendationComparison } from "../results/shared/RecommendationComparison";
 import { SourceEvidence } from "../sources/SourceEvidence";
 const labels: Record<string, string> = {
   adopt: "采纳并加入业务GT",

@@ -1,10 +1,10 @@
 # Scene Completion 场景完整性工作台
 
-从RR、SR与可选AR需求，以及已有结构化文件建立模型，独立识别文档已有异常和测试异常，比较两层覆盖并推荐缺失场景。
+以 SSD 的发送方、数据和接收方为统一定位，比较原文已有、方法生成和测试逆向三方异常，支持步骤与结果修正、原始 Markdown 追溯，以及离线差异审核。新主流程说明见 [SSD 工作流与审核](docs/current/ssd-case-workflow.md)。
 
-当前仅支持 **scene-workflow-v5** 和最新四层关注点体系。旧协议执行、旧关注点迁移及历史推荐算法已移除；旧数据保留在原目录和实施前备份中，不提供旧协议适配。
+当前项目协议为 **scene-workflow-v5**，默认结果格式为 **ssd-case-v1**。v2/v3/v4仅保留历史文档；既有详细流程、独立旧格式导入和保存报告分别放在`compat/detailed`、`compat/standalone`、`compat/saved`，用途见[版本与兼容边界](docs/reference/versions.md)。
 
-最新修订：[v11返回业务实体属性约束](docs/scene-workflow-v5/v11-response-business-contract.md)。成功响应中的跨属性业务条件保留为业务实体属性约束，绑定实际返回发送服务；与数据库业务执行分别分析和计分。此前的[v10场景链路修复](docs/scene-workflow-v5/v10-scenario-chain-repair.md)继续保留。关注点漏报率0%不表示全部场景已覆盖；历史报告保留，未重验的结果不作为新版成绩。
+[当前规则](docs/current/concern-rules.md)说明字段、实体、返回报文与计分边界；v9/v10/v11保留为历史演进和验收记录，不是并行源码版本。关注点漏报率0%不表示全部场景已覆盖，历史报告不冒充新版成绩。完整入口见[文档导航](docs/README.md)。
 
 ## 启动
 
@@ -21,103 +21,57 @@ Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/S
 
 上下文预检默认使用包内分词资源。未知网关模型用 `o200k_base` 加余量估算，实际窗口以网关为准。节点的“请求上下文”分别展示字节大小、输入 Token 估计、输出预留与上限；模型设置或 CLI `configure --context-tokenizer` 可覆盖分词方式。额度账本继续按自身预留和供应商返回用量结算。
 
-逐用例 `business-crud` 从全局实体表选取当前用例有据关联的实体。首轮按证据 ID 引用原文，长引文可分页补取，单次最多 8 条、合计 16 KiB。升级后可定向续跑失败节点，成功缓存经实体范围和依据复核后继续使用。
+历史执行路径中的 `business-crud` 从全局实体表选取当前用例有据关联的实体；新 SSD 主流程直接使用用例的接口／实体关联。首轮按证据 ID 引用原文，长引文可分页补取，单次最多 8 条、合计 16 KiB。升级后可定向续跑失败节点，成功缓存经实体范围和依据复核后继续使用。
 
-要在独立项目中试点 CRUD 与接口映射的主动查证，可在项目运行配置中设置 `"agent_evidence_pilot": true`。CLI 可将这个布尔字段放在 JSON 文件中，再用 `configure --config-file` 保存。试点节点可在模型请求期间查询当前用例的实体、交互及接口声明，提交仍使用正式产物校验。
+对于仍使用历史执行路径的独立项目，要试点 CRUD 与接口映射的主动查证，可在项目运行配置中设置 `"agent_evidence_pilot": true`。CLI 可将这个布尔字段放在 JSON 文件中，再用 `configure --config-file` 保存。试点节点可在模型请求期间查询当前用例的实体、交互及接口声明，提交仍使用正式产物校验。
 
 ## 从目录定位代码
 
 | 目录 | 内容 |
 |---|---|
-| `src/scene_completion/domain/` | 当前协议、Schema、关注点和场景类型 |
-| `src/scene_completion/workflow_core/` | 通用 DAG 调度、并发、分片展开和检查点 |
-| `src/scene_completion/workflow/` | 共享／逐用例／全局编排、业务执行、恢复和报告 |
-| `src/scene_completion/inputs/` | 文件识别、格式转换、时序引用、采用与追溯 |
-| `src/scene_completion/analysis/` | 建模、关注点、场景、比较、推荐和评测 |
-| `src/scene_completion/models/` | OpenAI兼容连接、模型路由、流式、限流和用量 |
-| `src/scene_completion/review/` | 业务澄清、推荐审核、人工GT和交接 |
-| `src/scene_completion/manager/` | 管理Agent、记忆、托管、补丁和质量诊断 |
-| `src/scene_completion/api/`、`cli/` | HTTP装配／分组路由与CLI |
-| `src/scene_completion/infrastructure/` | 存储、事件、进程与统一资源路径 |
-| `frontend/src/app/` | 页面装配与全局状态 |
-| `frontend/src/features/` | 按功能组织的页面、状态逻辑和测试 |
-| `frontend/src/shared/`、`components/ui/` | 公共请求、类型、工具和基础组件 |
-| `.cac/skills/`、`.cac/agents/` | 独立的任务Skill与角色资源，无Python源码 |
-| `tests/`、`tools/`、`deployment/` | 离线回归、审计／打包和启动器 |
+| `src/scene_completion/application/` | 项目、执行和SSD修订应用服务 |
+| `src/scene_completion/domain/` | 当前协议、Schema、关注点，以及SSD校验/匹配/指标 |
+| `src/scene_completion/workflow/`、`workflow_core/` | SSD编排、调度适配/恢复，以及通用DAG核心 |
+| `src/scene_completion/inputs/` | 结构化材料、文档转换、导入与来源 |
+| `src/scene_completion/analysis/` | 按SSD、交互、关注点、场景、匹配和评测分组的计算 |
+| `src/scene_completion/compat/` | 详细流程、独立旧格式、保存报告的明确兼容边界 |
+| `src/scene_completion/review/` | SSD离线HTML、原业务交接包、人工决定和审核真值 |
+| `src/scene_completion/models/`、`manager/` | 模型传输/用量与管理Agent |
+| `src/scene_completion/api/`、`cli/`、`infrastructure/` | 公开入口、存储、事件、进程和资源定位 |
+| `frontend/src/app/`、`features/` | 页面装配；results分为ssd、saved及共用组件 |
+| `frontend/src/shared/`、`components/ui/` | 跨功能请求、类型、工具和基础组件 |
+| `.cac/skills/`、`.cac/agents/` | 模型实际加载的Skill与角色资源 |
+| `tests/` | unit、integration、contracts、acceptance、portable；共享工具在support |
+| `deployment/windows/`、`deployment/experiments/` | 正式Windows模板与历史本机实验脚本 |
+| `web/`、`dist/` | 生成的网页和打包产物；不作为源码编辑 |
 
-模块迁移明细见 [代码导览](docs/refactor/code-guide.md)，开发命令见 [开发约定](docs/refactor/development.md)。
+[架构与依赖图](docs/architecture/code-guide.md) · [开发约定](docs/architecture/development.md) · [唯一迁移清单](docs/architecture/module-map.json)
 
 ## 实际流程
 
 ```mermaid
-flowchart TB
-    SRC["RR / SR / 可选AR"] --> IDX["来源索引与正向／已有异常分流"]
-    TEST["测试文档：仅明确异常参与GT"] --> TI["测试目录与用例对应"]
-
-    subgraph MODEL["建模器"]
-        IDX --> SHARED["并行抽取：用例目录、系统组成、业务／数据实体"]
-        SHARED --> API["依据组成分流：RR/SR系统接口与外部Service接口分别抽取"]
-        SHARED --> SSD["逐用例融合SSD及RR/SR对应"]
-        SHARED --> ENTITY["实体属性约束、CRUD矩阵、API字段映射"]
-        API --> ENTITY
-        SSD --> ATOMIC["最小步骤规范化：本地自检、请求、返回及统一时序"]
-        ATOMIC --> LOCAL["交互要求与实际操作补全"]
-        ENTITY --> LOCAL
-        API --> LOCAL
-        SHARED --> DEP["数据依赖及全局业务依赖图"]
-        ENTITY --> DEP
-        LOCAL --> GC["交互级关注点识别 G_c"]
-        DEP --> GGC["全局级关注点识别 G_c"]
-        ENTITY --> IDEM["全局C/U/D幂等性：用例＋业务实体＋实际操作去重"]
-        IDEM --> GGC
-        GC --> GS["按已识别关注点展开具体场景 G_s"]
-        GGC --> GS
-    end
-
-    subgraph CHECK["检查器"]
-        IDX --> EB["独立抽取文档已有异常"]
-        EB --> ER["已有异常独立按失败单元分流：交互／全局／待确认"]
-        TI --> TR["异常测试独立按失败单元分流：交互／全局／待确认"]
-        ER --> EBIND["绑定实际请求、响应、自检或业务依赖"]
-        TR --> TBIND["独立绑定实际请求、响应、自检或业务依赖"]
-        LOCAL --> EBIND
-        DEP --> EBIND
-        LOCAL --> TBIND
-        DEP --> TBIND
-        EBIND --> E["独立识别 E_c，再细化 E_s"]
-        TBIND --> GT["独立识别 GT_c，再细化 GT_s"]
-        GC --> CC["关注点层规则比较与缺失 M_c"]
-        GGC --> CC
-        E --> CC
-        GS --> SC["场景层比较与缺失 M_s"]
-        E --> SC
-    end
-
-    subgraph REC["推荐器"]
-        SC --> Q["风险保底＋已审核历史 → 推荐 Q_s"]
-    end
-
-    CC --> MET["分粒度指标与项目总指标"]
-    SC --> MET
-    Q --> MET
-    GT --> MET
+flowchart LR
+    A[结构化输入／原文转换] --> B[按用例建立 SSD、接口、实体索引]
+    B --> E[IR＋SR 去重：SR 优先]
+    B --> G[字段约束与结构规则挂载]
+    B --> T[测试 ID 定位＋语义补充]
+    E --> C[关注点及场景三方比较]
+    G --> C
+    T --> C
+    C --> R[可编辑结果与指标]
+    R --> H[差异 HTML 审核与反馈回收]
+    H --> R
 ```
 
-RR/SR接口分别抽取，区分请求、成功响应及各失败响应。外部Service接口依据系统组成和实际调用接收方单独抽取，分别保存RR/SR来源，不靠URL前缀判断内外部。执行图中的`external-api-map`、`external-api-index`、`external-api-parameters`提供独立映射、目录和契约；已验证契约也进入总表和对应交互分析。接口只声明签名认证而没有参数Schema时，保留`interface_constraints`及原文依据，不补造字段、密钥或响应。
+结构化用例只注册“建立 SSD 与三方结果、处理语义对应、比较与发布”三个节点，按项目并发限制执行。旧文档先抽取共同用例结构，再进入相同流程。脚本负责结构定位、约束挂载、去重和指标；Agent 只处理未解决的语义项。G/E/GT 独立识别，场景只在同一对象关注点下比较。
 
-融合SSD先经`interaction-normalize`审查最小步骤；数据库本地业务执行与返回分开，响应字段自检与向Actor返回分开。原始步骤保留一对多来源映射，统一执行顺序不混用RR/SR层内编号。数据及API由工具从原报文恢复；本地字段校验通过`validates`引用报文，不重复挂载字段关注点。明确由数据库执行的存在性、唯一性、版本等业务检查绑定实际自检，上游仅展示关联。
+数据约束按实际请求、响应及实体字段逐项挂载；非数据关注点保留类型、方向、CRUD、技术类别等适用规则，取消额外的原文证据门槛。IR/SR 同一失败只计一次、优先 SR，保留全部出处。正常、备选和待确认不计分；待确认可以在结果页修正后转为明确异常。
 
-`existing-scope`与`test-scope`分别从各自原始失败单元识别交互、全局或待确认；混合来源按独立触发拆分。全局GT可独立发现G没有识别的依赖，不以G的关系集合裁剪GT。G/E缺失报告与推荐先发布，不等待GT成功。网页“全局异常对照”提供独立表格和粒度复核；CLI `scope-review --project ID`可查看、使用JSON保存和`--dry-run`校验，保存不自动重跑。
+结果页支持修改 SSD 步骤、三方关注点/场景、挂载和匹配。每次保存建立修订并重算，机器基线与人工覆盖分开保存，重跑保留人工修正。点击原文弹窗渲染最初始 RR/SR Markdown，支持章节导航与行高亮。
 
-融合SSD按最小实际调用建模；同一次请求的重复描述统一身份，独立下游调用保留展开关系。交互级与全局业务依赖级独立定位、去重、展示，再按计数合并项目指标。SR/RR筛选仅限制交互接口；同一原始测试来源的全局指标仍进入项目合并，缺少全局结果时注明部分汇总。
+“导出差异 HTML”只展示不一致条目，内嵌原始 Markdown，可离线查看、修改和保存新的审核文件；回导先预览变更与冲突，再由用户应用。无需 Python 或本地服务。
 
-G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试。正常、可选和待确认不进入确定集合。关注点由LLM识别，工具根据稳定定位规则比较；已识别关注点再展开细粒度场景。推荐来自M，不能读取当前GT排序。
-
-幂等性采用已确认的框架例外：工具根据正向CRUD产物，为每个“用例＋业务实体＋实际C/U/D操作”建立一个全局关注点；R不强制，交互层不再检查或计分。Platform、Admin、数据库共同执行同一业务操作时合并计数。E/GT仍须从各自异常来源独立识别，不能由该默认规则补入；具体场景只按有依据的失败条件展开，不虚构幂等键。全局场景先核对业务定位，再使用精确条件或已保存的完整语义对应；不要求同义句逐字相同。
-
-本轮五用例的未命中核查、已修复项和仍需处理的质量问题见[核查记录](datasets/mini-mall/未命中原因核查.md)，逐项依据见[JSON明细](datasets/mini-mall/未命中原因核查.json)。旧指标保持原版本；不能将新的单样本结果作为五用例重新评测结果。
-
-详见[最小步骤、异常分流与人工纠正](docs/scene-workflow-v5/atomic-steps-and-scope-routing.md)。
+关注点漏报率、生成有效率沿用当前公式；场景结果作为独立诊断。空分母为不适用，项目按分子分母汇总。本轮不运行全局关注点、全局幂等性及风险推荐排序。旧报告保留；历史 mock 回放默认使用其原任务契约，显式 `workflow_mode=ssd` 可验证新流程。
 
 ## 已有文件输入
 
@@ -129,20 +83,22 @@ G仅读取正向材料；E来自文档已有异常；GT来自明确异常测试�
 
 仓库提供 [五用例mini数据集](datasets/mini-mall/README.md)，用于格式与流程测试；该目录不进入Windows离线程序包。
 
-见 [五类文件接入](docs/five-input-bundle.md)、[行为目录格式](docs/resource-behavior-input.md)、[接口层级与测试范围](docs/recovered-json-and-sr-metrics.md)。
+见 [五类文件接入](docs/current/five-input-bundle.md)、[行为目录格式](docs/current/resource-behavior-input.md)、[接口层级与测试范围](docs/reference/recovered-json-and-sr-metrics.md)。
 
 ## Code Agent 单用例独立分析
 
-把输入目录、用例名称或 ID、输出目录交给 Code Agent，并指定仓库中的 [单用例分析 Skill](.cac/skills/scene-case-analysis/SKILL.md)。建模器复用 SSD 与功能树，检查器独立整理已有异常和原始测试，推荐器生成缺失项及推荐。输出为 `case-analysis.json` 和 `case-analysis.md`，分析阶段可离线运行。
-
-需要在工作台查看时，启动工作台并将结果登记到已有项目。项目可以尚未运行工作流。
+把输入目录、用例ID和输出目录交给[单用例分析Skill](.cac/skills/scene-case-analysis/SKILL.md)，使用共同SSD流程。脚本处理结构、规则和明确定位，Agent补充未决语义；新流程不经过风险推荐。
 
 ```sh
-python scene.py import-case-result --project PROJECT_ID --file case-analysis.json --dry-run
-python scene.py import-case-result --project PROJECT_ID --file case-analysis.json
+python .cac/skills/scene-case-analysis/scripts/case_analysis.py build \
+  --input INPUT_DIRECTORY --case CASE_ID --output OUTPUT_DIRECTORY
+python scene.py import-case-result --project PROJECT_ID \
+  --file OUTPUT_DIRECTORY/case-analysis.json --dry-run
+python scene.py import-case-result --project PROJECT_ID \
+  --file OUTPUT_DIRECTORY/case-analysis.json
 ```
 
-打开项目结果页，在「结果来源」选择 Code Agent 导入版本。该版本提供交互对照、本用例指标和风险推荐。
+单用例输出`ssd-case-v1`的`case-analysis.json`，导入后在三方结果页查看和修订。仅运行脚本不代表未决语义比较已完成。旧`scene-case-analysis-v1`继续支持校验和导入，保留原三方结果和判定；`schema`、`prepare`、`finalize`用于既有旧格式工件。两种入口和保存结果页面见[独立分析说明](docs/current/standalone-and-saved-results.md)。
 
 ## CLI与管理Agent
 
@@ -157,7 +113,7 @@ python scene.py manager --help
 
 CLI与网页使用相同项目、DAG、校验和审计。模型配置按连接的可用模型列表管理，账号、并发、路由或显示调整不使成功业务产物整体失效。客户网关合计最多3路请求，未知用量和账号保护线继续生效。
 
-[模型配置与CLI](docs/workbench-cli-model-accounts.md) · [管理Agent](docs/project-manager.md) · [业务离线审核](docs/business-offline-review.md) · [指标诊断](docs/quality-diagnostics.md) · [Windows打包](docs/windows-portable.md)
+[模型配置与CLI](docs/current/workbench-cli-model-accounts.md) · [管理Agent](docs/current/project-manager.md) · [SSD离线审核](docs/current/ssd-case-workflow.md) · [原业务包交接](docs/current/business-offline-review.md) · [指标诊断](docs/current/quality-diagnostics.md) · [Windows打包](docs/current/windows-portable.md)
 
 ## 检查与发布
 
@@ -169,4 +125,4 @@ python tools/build_windows_bundle.py --output-dir dist/windows-latest --offline
 
 `make check`运行Ruff、Python回归、ESLint、严格TypeScript、Prettier和前端测试；不调用付费模型。构建离线包前需已缓存Windows wheels与嵌入式Python。原生Windows与客户网关测试单独记录。
 
-历史设计和验收见 `docs/history/`；它们不是当前业务规则。当前字段以 `domain/schema_definitions.py` 与 [v5 Schema](docs/scene-workflow-v5/schemas/) 为准。
+历史设计和验收见 `docs/history/`；它们不是当前业务规则。当前字段以 `domain/schema_definitions.py`、`domain/ssd/` 与 [v5 Schema](docs/scene-workflow-v5/schemas) 为准。

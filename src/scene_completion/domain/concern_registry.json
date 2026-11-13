@@ -212,7 +212,7 @@
       ],
       "technology": null,
       "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
-      "enabled": false
+      "enabled": true
     },
     "service.release_activation.prerequisite": {
       "key": "service.release_activation.prerequisite",
@@ -506,7 +506,7 @@
       ],
       "technology": null,
       "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
-      "enabled": false
+      "enabled": true
     },
     "service.crud.create.resource_existence": {
       "key": "service.crud.create.resource_existence",
@@ -552,7 +552,7 @@
       ],
       "technology": null,
       "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
-      "enabled": false
+      "enabled": true
     },
     "service.crud.update.resource_existence": {
       "key": "service.crud.update.resource_existence",
@@ -598,7 +598,7 @@
       ],
       "technology": null,
       "description": "已迁移至全局C/U/D业务操作幂等性；不在交互级识别或计分。",
-      "enabled": false
+      "enabled": true
     },
     "service.crud.delete.resource_existence": {
       "key": "service.crud.delete.resource_existence",
@@ -733,7 +733,8 @@
         "delete"
       ],
       "technology": null,
-      "description": "按用例、业务实体、实际C/U/D操作计一次。重复执行不得产生超出一次执行的额外业务影响；查询R不强制。具体幂等键、隔离范围、冲突及返回规则须有独立依据。"
+      "description": "按用例、业务实体、实际C/U/D操作计一次。重复执行不得产生超出一次执行的额外业务影响；查询R不强制。具体幂等键、隔离范围、冲突及返回规则须有独立依据。",
+      "enabled": true
     }
   },
   "profiles": {
@@ -808,7 +809,7 @@
       "global.idempotency"
     ]
   },
-  "hash": "9500aea729a9e9a18f3bddbaa8b8c0791b6d8f5cb90cd8dd57869fb7d9cfec3f",
+  "hash": "3b5ce10ed8109748a9321e162ebcb05077d60356c1bb1d44072134d1eea39835",
   "taxonomy_note": "v5: interaction data/CRUD/business/technology and external-service availability; global business dependencies scored separately. Disabled historical keys remain for archived reports.",
   "framework_policies": {
     "sr_internal_rud_idempotency": {

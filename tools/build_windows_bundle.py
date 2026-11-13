@@ -17,6 +17,50 @@ from pathlib import Path
 
 PYTHON_VERSION = "3.12.10"
 ROOT = Path(__file__).resolve().parents[1]
+APPLICATION_DIRECTORIES = (
+    "src",
+    ".cac",
+    "web",
+    "docs",
+    "examples",
+    "tools",
+    "deployment/windows",
+)
+PORTABLE_FIXTURES = (
+    "tests/fixtures/memory_repository/acceptance.json",
+    "tests/fixtures/compat/standalone/submitted-bundle.json",
+    "tests/fixtures/compat/standalone/prepared-snapshot.json",
+    "tests/fixtures/compat/standalone/refined-existing-snapshot.json",
+)
+
+
+def copy_application(destination, source=ROOT):
+    """Ship runtime resources and a self-contained portable acceptance suite."""
+    source, destination = Path(source), Path(destination)
+    ignore = shutil.ignore_patterns(
+        "__pycache__", "*.pyc", "*.local.json", ".env", ".DS_Store", "scene_completion_output"
+    )
+    for name in (*APPLICATION_DIRECTORIES, "tests/portable"):
+        shutil.copytree(source / name, destination / name, ignore=ignore)
+    for name in (
+        "serve.py",
+        "scene.py",
+        "README.md",
+        "pyproject.toml",
+        "requirements-windows.lock",
+        "workflow.config.example.json",
+        "requirements.txt",
+        "requirements-dev.txt",
+        "THIRD_PARTY_NOTICES.md",
+        "tests/__init__.py",
+        "tests/conftest.py",
+        "tests/support/__init__.py",
+        "tests/support/paths.py",
+        *PORTABLE_FIXTURES,
+    ):
+        target = destination / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / name, target)
 
 
 def download(url, path):
@@ -107,7 +151,7 @@ def build(output, offline=False):
         ],
         check=True,
     )
-    from check_windows_bundle import verify_windows_dependencies
+    from check_windows_bundle import verify_portable_layout, verify_windows_dependencies
 
     verify_windows_dependencies(stage, PYTHON_VERSION)
     (stage / "python/python312._pth").write_text(
@@ -117,36 +161,11 @@ def build(output, offline=False):
         raise RuntimeError(
             "Build frontend first: npm ci --prefix frontend && npm run build --prefix frontend"
         )
-    # Deliberately allow-list runtime sources. No local configuration, original
-    # customer documents, caches or Git history enter the distributable.
-    for name in ("src", ".cac", "web", "docs", "tests", "examples", "tools", "deployment"):
-        shutil.copytree(
-            ROOT / name,
-            stage / "app" / name,
-            ignore=shutil.ignore_patterns(
-                "__pycache__",
-                "*.pyc",
-                "*.local.json",
-                ".env",
-                ".DS_Store",
-                "scene_completion_output",
-            ),
-        )
-    for name in (
-        "serve.py",
-        "scene.py",
-        "README.md",
-        "pytest.ini",
-        "pyproject.toml",
-        "requirements-windows.lock",
-        "workflow.config.example.json",
-        "requirements.txt",
-        "requirements-dev.txt",
-        "THIRD_PARTY_NOTICES.md",
-    ):
-        shutil.copy2(ROOT / name, stage / "app" / name)
-    shutil.copy2(ROOT / "deployment/launcher.py", stage / "launcher.py")
-    shutil.copy2(ROOT / "deployment/env.example", stage / ".env.example")
+    # No local configuration, customer documents, datasets or caches are shipped.
+    copy_application(stage / "app")
+    verify_portable_layout(stage)
+    shutil.copy2(ROOT / "deployment/windows/launcher.py", stage / "launcher.py")
+    shutil.copy2(ROOT / "deployment/windows/env.example", stage / ".env.example")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     version = {
         "source_commit": commit,
@@ -159,7 +178,7 @@ def build(output, offline=False):
     }
     (stage / "VERSION.json").write_text(json.dumps(version, indent=2) + "\n", encoding="utf8")
     for name in ("start.cmd", "status.cmd", "stop.cmd", "check.cmd", "scene.cmd"):
-        shutil.copy2(ROOT / "deployment" / name, stage / name)
+        shutil.copy2(ROOT / "deployment/windows" / name, stage / name)
     (stage / "使用说明.txt").write_text(
         "解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。start.cmd后台启动；status.cmd查看状态；stop.cmd停止。关闭浏览器或启动窗口不停止服务。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n",
         encoding="utf8",

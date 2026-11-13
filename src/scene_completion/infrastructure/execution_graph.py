@@ -3,8 +3,8 @@
 import time
 from pathlib import Path
 
+from scene_completion.domain.task_catalog import role_for
 from scene_completion.infrastructure.storage import read_json
-from scene_completion.models.deepagents_client import role_for
 
 LABELS = {
     "interaction-normalize": "交互最小步骤规范化",
@@ -202,7 +202,7 @@ def graph_snapshot(root):
         else {}
     )
     if not definition["nodes"] and not legacy and (root.parent / "imports/index.json").exists():
-        from scene_completion.analysis.import_plan import build
+        from scene_completion.application.import_plan import build
 
         if preview := build(root.parent):
             return preview
@@ -216,7 +216,7 @@ def graph_snapshot(root):
         from scene_completion.infrastructure.execution_events import EventStore
 
         phases = EventStore(root).latest_phases()
-    from scene_completion.review.node_conversations import Conversations
+    from scene_completion.review.decisions.node_conversations import Conversations
 
     conversations = Conversations(root)
     conversation_state = conversations.overview()
@@ -319,7 +319,7 @@ def graph_snapshot(root):
                         }
                     )
         question = conversation_state.get(key, {}).get("question")
-        from scene_completion.inputs.artifact_imports import provenance_label
+        from scene_completion.inputs.imports.artifact_imports import provenance_label
 
         provenance = provenance_label(record.get("provenance", "原流程生成"))
         nodes.append(

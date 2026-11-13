@@ -1,0 +1,211 @@
+"""Independent source-unit routing. Generated answers never decide E/GT scope."""
+
+import re
+from copy import deepcopy
+
+from scene_completion.infrastructure.storage import fingerprint
+
+VERSION = "independent-exception-scope-v2-global-idempotency"
+
+
+def explicit_idempotency(trigger):
+    """Recognize an explicit failure predicate, not every repeated operation.
+
+    For example, '重复名称' is uniqueness, not idempotency. Missing an
+    idempotency header remains a request-field failure unless an actual
+    repeat-execution predicate is also stated.
+    """
+    return bool(
+        re.search(
+            r"同(?:一)?键不同(?:内容|参数|请求)|同(?:一)?(?:幂等键|idempotency.?key).*不同|"
+            r"(?:幂等(?:性)?(?:校验|检查)?(?:失败|冲突|不满足|异常))|"
+            r"重复(?:提交|执行|请求).*(?:额外|重复创建|多次生效|重复扣|重复执行|副作用)",
+            trigger,
+            re.I,
+        )
+    )
+
+
+def records_from_tests(records):
+    return [
+        {
+            "id": r["id"],
+            "case_hint": r.get("case_id") or r.get("case_name"),
+            "description": r.get("触发条件") or r.get("description") or r.get("测试名称", ""),
+            "expected": r.get("预期结果", ""),
+            "source_refs": deepcopy(r.get("source_refs", [])),
+        }
+        for r in records
+        if r.get("scenario_type") == "exception"
+    ]
+
+
+def validate_scope(value, inputs):
+    originals = {r["id"]: r for r in inputs["source-records"]}
+    entities = {r["id"] for r in inputs["entity-index"]["entities"]}
+    cases = {c["id"] for c in inputs["case-catalogue"]}
+    seen = set()
+    for unit in value["units"]:
+        if unit["source_id"] not in originals or not unit["trigger"].strip():
+            raise ValueError(
+                "scope unit requires a real original source and independent failure trigger"
+            )
+        if not set(unit["entity_ids"]) <= entities or not set(unit["related_cases"]) <= cases:
+            raise ValueError(
+                "scope unit uses unknown business entity/use case; entity IDs="
+                + str(sorted(entities))
+                + "; case IDs="
+                + str(sorted(cases))
+                + "; supplied="
+                + str([unit["entity_ids"], unit["related_cases"]])
+            )
+        if unit["scope"] == "global" and (
+            not unit["global_kind"] or not unit["entity_ids"] or not unit["related_cases"]
+        ):
+            raise ValueError(
+                "global unit needs kind, business entities and related cases; uncertain goes pending"
+            )
+        if unit["scope"] != "global" and unit["global_kind"] is not None:
+            raise ValueError("only global units have a global kind")
+        if unit["scope"] == "interaction" and explicit_idempotency(unit["trigger"]):
+            raise ValueError(
+                "idempotency failures belong to global C/U/D business operations, never an interaction; "
+                "bind case/entity/operation independently, or keep pending if its owner is unknown"
+            )
+        seen.add(unit["source_id"])
+    if seen != originals.keys():
+        raise ValueError(
+            "scope routing must account for every exception source record, including pending"
+        )
+
+
+def interaction_branches(branches, scope):
+    originals = {b["id"]: b for b in branches["branches"]}
+    return {
+        "branches": [
+            {
+                **deepcopy(originals[u["source_id"]]),
+                "id": "scope-" + fingerprint([u["source_id"], u["scope"], u["trigger"]])[:24],
+                "original_id": u["source_id"],
+                "scope_unit_id": "scope-"
+                + fingerprint([u["source_id"], u["scope"], u["trigger"]])[:24],
+                "trigger_condition": u["trigger"],
+                "description": u["trigger"],
+            }
+            for u in scope["units"]
+            if u["scope"] == "interaction"
+        ]
+    }
+
+
+def selected_test_ids(scope):
+    return {u["source_id"] for u in scope["units"] if u["scope"] == "interaction"}
+
+
+def global_records(scope, records, kind=None):
+    own = {r["id"]: r for r in records}
+    return [
+        {**deepcopy(own[u["source_id"]]), "scope_unit": deepcopy(u), "description": u["trigger"]}
+        for u in scope["units"]
+        if u["scope"] == "global" and (kind is None or u["global_kind"] == kind)
+    ]
+
+
+def canonical_dependencies(value, groups, cases=()):
+    """Identity normalization only; never infer an edge or its condition."""
+    aliases = {a: g["id"] for g in groups for a in [g["id"], *g["rr_ids"], *g["sr_ids"]]}
+    for c in cases:
+        if c["id"] in aliases:
+            aliases[c["name"]] = aliases[c["id"]]
+    result = deepcopy(value)
+    for d in result["dependencies"]:
+        for k in ("from_case_id", "to_case_id"):
+            d[k] = aliases.get(d[k], d[k])
+        d["id"] = dependency_identity(d)
+    return result
+
+
+def dependency_identity(d):
+    # Several conditions on the same directed business relation are scenarios
+    # under one concern, not additional relations.
+    return (
+        "dependency-"
+        + fingerprint(
+            [
+                d[k]
+                for k in (
+                    "dependency_type",
+                    "from_case_id",
+                    "to_case_id",
+                    "from_entity_id",
+                    "to_entity_id",
+                )
+            ]
+        )[:24]
+    )
+
+
+def inverse_dependencies(records):
+    out = {}
+    kinds = {"sequence": "order", "dependency_consistency": "consistency", "cascade": "cascade"}
+    for r in records:
+        u = r["scope_unit"]
+        if u["global_kind"] not in kinds:
+            continue
+        cases = u["related_cases"]
+        entities = u["entity_ids"]
+        d = {
+            "from_case_id": cases[0],
+            "to_case_id": cases[-1],
+            "from_entity_id": entities[0],
+            "to_entity_id": entities[-1],
+            "dependency_type": kinds[u["global_kind"]],
+            "condition": u["trigger"],
+            "obligation": u["trigger"],
+            "cascade_group": None,
+            "source_refs": r["source_refs"],
+        }
+        d["id"] = dependency_identity(d)
+        if d["id"] in out:
+            out[d["id"]]["source_refs"] += d["source_refs"]
+        else:
+            out[d["id"]] = d
+    return list(out.values())
+
+
+def documents_at_units(documents, records):
+    from scene_completion.workflow.runtime.task_partitions import _documents_at
+
+    return _documents_at(documents, [ref for r in records for ref in r["source_refs"]])
+
+
+def bindings_at_recognitions(inputs):
+    """Publish the independently recognized E location before E scene expansion."""
+    out = deepcopy(inputs["bindings"])
+    actual = {i["id"] for i in inputs["fused-ssd"]["interactions"]}
+    matches = inputs["identified-concerns"]["matches"]
+    for binding in out["bindings"]:
+        selected = {
+            m["interaction_id"]
+            for m in matches
+            if m.get("status") == "applicable"
+            and binding["branch_id"] in m.get("source_branch_ids", [])
+        }
+        if len(selected) == 1 and selected <= actual:
+            target = next(iter(selected))
+            if target != binding.get("interaction_id"):
+                binding["basis"] += (
+                    "；E独立识别后的实际计分位置="
+                    + target
+                    + "；原始分支绑定="
+                    + str(binding.get("interaction_id"))
+                )
+            binding.update(interaction_id=target, status="confirmed")
+        elif len(selected) > 1:
+            binding.update(
+                interaction_id=None,
+                status="pending",
+                basis=binding["basis"]
+                + "；同一原分支识别到多个独立失败位置，需继续拆分，不统一迁到第一个步骤",
+            )
+    return out

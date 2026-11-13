@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 from pathlib import Path
 
-from scene_completion.analysis.result_views import ResultView
+from scene_completion.compat.saved.result_views import ResultView
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
 
 VERSION = "quality-diagnostics-v1"
@@ -126,20 +126,20 @@ def freeze(project, test_set=None, case_id=None):
     summary = view.metrics(test_set)
     summary["cases"] = [r for r in summary["cases"] if r["id"] in {c["id"] for c in cases}]
     if case_id:
-        from scene_completion.analysis.recommendation import aggregate_comparison
-        from scene_completion.analysis.result_alignment import aggregate_metrics
+        from scene_completion.analysis.matching.result_alignment import aggregate_metrics
+        from scene_completion.analysis.recommendation.ranking import aggregate_comparison
 
         summary["metrics"] = aggregate_metrics(summary["cases"])
         summary["recommendation_comparison"] = aggregate_comparison(
             [r.get("recommendation_comparison") for r in summary["cases"]]
         )
     if test_set == "business":
-        from scene_completion.review.business_truth import snapshot
+        from scene_completion.review.truth.business_truth import snapshot
 
         for c in cases:
             outputs[c["id"] + ":exception-evaluation"] = snapshot(project, c["id"])["evaluation"]
     if view.evaluation_scope != "all":
-        from scene_completion.analysis.evaluation_scope import (
+        from scene_completion.analysis.evaluation.evaluation_scope import (
             concern_view,
             interaction_layers,
             selected,
@@ -376,7 +376,7 @@ def build(project, snap, automatic=False, tool_only=False):
         pairs = ev.get("full_matches", {})
         matched_g = {p["generated_scenario_id"] for p in pairs.get("GT_G", [])}
         matched_q = {p["generated_scenario_id"] for p in pairs.get("GT_Q", [])}
-        from scene_completion.analysis.recommendation import comparison_for_view
+        from scene_completion.analysis.recommendation.ranking import comparison_for_view
 
         comp = comparison_for_view(ev, rec) or {}
         for scope, channel in [("baseline", "M"), ("recommended", "Q")]:
@@ -436,11 +436,11 @@ def build(project, snap, automatic=False, tool_only=False):
                 if s.get("risk", {}).get("level") == "critical" and tid not in covered | qtruth:
                     loss(cid, "critical_missing_recall", s, {"GT": [s], "E": [], "G": []})
         # Frozen actual human review counts, never automatic GT approval.
-        from scene_completion.analysis.pattern_settings import adoption
+        from scene_completion.analysis.recommendation.pattern_settings import adoption
 
         human = adoption(project, rec)
         card(cid, "human_adoption", human, unit="人工审核推荐项")
-        from scene_completion.analysis.pattern_settings import history
+        from scene_completion.analysis.recommendation.pattern_settings import history
 
         latest = {}
         for row in history(project)["feedback"]:

@@ -1,12 +1,18 @@
 """Planning for the current workflow."""
 
 from scene_completion.infrastructure.storage import fingerprint, read_json
-from scene_completion.inputs.source_documents import documents_in, normal_projection
-from scene_completion.workflow.case_pipeline import _build_cases
+from scene_completion.inputs.documents.source_documents import documents_in, normal_projection
+from scene_completion.workflow.case_dispatch import _build_cases
 from scene_completion.workflow.support import payload
 
 
 def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None, ar=None):
+    from scene_completion.workflow.ssd_pipeline import build_structured, enabled, input_directory
+
+    if enabled(ex):
+        directory = input_directory(ex)
+        if directory is not None and build_structured(ex, directory):
+            return
     ex.manifest.update(
         test_policy="exception-only-v1",
         test_source_hash=fingerprint(tests),
@@ -17,26 +23,26 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         ex.manifest["test_source_version"] = project.get(
             "test_source_version", fingerprint(project["sources"]["test"])[:20]
         )
-        from scene_completion.analysis.evaluation_scope import validate_scope
+        from scene_completion.analysis.evaluation.evaluation_scope import validate_scope
 
         ex.evaluation_scope = validate_scope(project.get("evaluation_scope", "all"))
         ex.manifest["evaluation_scope"] = ex.evaluation_scope
-    if getattr(ex, "supplied_only", False):
-        from scene_completion.workflow.supplied_pipeline import build_supplied
+    if getattr(ex, "supplied_only", False) and not enabled(ex):
+        from scene_completion.compat.detailed.supplied_pipeline import build_supplied
 
         return build_supplied(ex, tests, extraction_truth or {}, adjudications or {})
-    from scene_completion.inputs.source_documents import (
+    from scene_completion.inputs.documents.source_documents import (
         current_projection,
     )
 
     extraction_truth = extraction_truth or {}
     adjudications = adjudications or {}
-    from scene_completion.inputs.indexed_context import (
+    from scene_completion.inputs.provenance.indexed_context import (
         catalogue_context,
         markdown_index,
         task_document_view,
     )
-    from scene_completion.inputs.structure_models import imported_sources, model_layer
+    from scene_completion.inputs.structured.structure_models import imported_sources, model_layer
 
     imported_structure = imported_sources(ex.import_snapshot)
     if "RR" in imported_structure:
@@ -62,11 +68,11 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     normal_rr = shared_positive(rr, "RR")
     normal_sr = shared_positive(sr, "SR")
     normal_ar = normal_projection(ar)
-    from scene_completion.analysis.domain_model import merge_entities, source_chunks
-    from scene_completion.inputs.artifact_imports import selections
-    from scene_completion.inputs.colleague_formats import uncovered_entity_documents
-    from scene_completion.inputs.external_interfaces import index as external_index
-    from scene_completion.inputs.external_interfaces import mapping_view
+    from scene_completion.analysis.interactions.domain_model import merge_entities, source_chunks
+    from scene_completion.inputs.imports.artifact_imports import selections
+    from scene_completion.inputs.structured.colleague_formats import uncovered_entity_documents
+    from scene_completion.inputs.structured.external_interfaces import index as external_index
+    from scene_completion.inputs.structured.external_interfaces import mapping_view
 
     imported_entities = selections(ex.root.parent, "business-entities", frozen=ex.import_snapshot)
     entity_parts = []
@@ -112,15 +118,18 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     ex.add(
         "components", "components", ("components-context",), build=lambda d: d["components-context"]
     )
-    from scene_completion.inputs.api_documents import index_interfaces, response_contract_documents
-    from scene_completion.inputs.api_layers import (
+    from scene_completion.inputs.documents.api_documents import (
+        index_interfaces,
+        response_contract_documents,
+    )
+    from scene_completion.inputs.imports.artifact_imports import selections
+    from scene_completion.inputs.structured.api_layers import (
         merge_mappings,
         qualify_index,
         qualify_mapping,
         scoped_api_document,
         scoped_parameters,
     )
-    from scene_completion.inputs.artifact_imports import selections
 
     imported_api_docs = {
         layer: documents_in(
@@ -140,7 +149,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     raw_documents = {"RR": rr + imported_api_docs["RR"], "SR": sr + imported_api_docs["SR"]}
     import re
 
-    from scene_completion.inputs.api_boundaries import (
+    from scene_completion.inputs.structured.api_boundaries import (
         external_services,
         has_declarations,
         partition_documents,
@@ -278,7 +287,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         keys = {"RR": [], "SR": []}
         external_keys = []
         mapped = payload(read_json(ex.root / ex.scheduler.state["tasks"]["api-map"]["output_file"]))
-        from scene_completion.inputs.api_identity import mapping_lookup
+        from scene_completion.inputs.structured.api_identity import mapping_lookup
 
         interfaces = mapping_lookup(mapped, {"apis": index})
         services = [
@@ -470,7 +479,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
                 else {**d[k], "layer": layer}
             ),
         )
-    if not ex.config.get("scenario_patterns", False):
+    if not enabled(ex) and not ex.config.get("scenario_patterns", False):
         ex.add(
             "gap-recommend",
             "gap-recommend",
@@ -488,7 +497,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
         "test-case-align",
         ("test-inventory", "rr-use-cases", "sr-use-cases", "use-case-align"),
         build=lambda d: __import__(
-            "scene_completion.analysis.test_alignment", fromlist=["alignment_context"]
+            "scene_completion.analysis.matching.test_alignment", fromlist=["alignment_context"]
         ).alignment_context(
             {
                 "test-inventory": {**d["test-inventory"], "tests": []},

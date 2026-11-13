@@ -43,8 +43,8 @@ ACTIONS = [
 
 
 def model_config(service, rid, body=None):
-    from scene_completion.models.model_settings import public_settings, resolve
-    from scene_completion.workflow.runtime_settings import KEYS, validate_options
+    from scene_completion.application.runtime_settings import KEYS, validate_options
+    from scene_completion.models.configuration.model_settings import public_settings, resolve
 
     p = service.run_dir(rid)
     file = p / "manager/model.local.json"
@@ -58,7 +58,7 @@ def model_config(service, rid, body=None):
             raise ValueError("管理模型只接受运行参数及已保存连接，不修改密钥或账本")
         # Select via the existing account/route admission code, including independent budget checks.
         current = resolved(service, rid)
-        from scene_completion.models.model_resilience import select
+        from scene_completion.models.transport.model_resilience import select
 
         target = config.get("agent_model") or current["agent_model"]
         account = config.get("model_account_id", current.get("model_account_id"))
@@ -106,7 +106,7 @@ def model_config(service, rid, body=None):
 
 
 def resolved(service, rid, raw=None):
-    from scene_completion.models.model_settings import resolve
+    from scene_completion.models.configuration.model_settings import resolve
 
     p = service.run_dir(rid)
     f = p / "manager/model.local.json"
@@ -244,7 +244,7 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
         scope = args.get("scope", "project")
         root = PROGRAM if scope == "program" else p
         patterns = (
-            ["src/scene_completion/**/*.py", "tests/test_*.py"]
+            ["src/scene_completion/**/*.py", "tests/**/test_*.py"]
             if scope == "program"
             else [
                 "sources/*",
@@ -277,16 +277,16 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
             ),
         }
     if action in {"scan", "imports", "convert", "accept_import"}:
-        import scene_completion.inputs.artifact_imports as imp
+        import scene_completion.inputs.imports.artifact_imports as imp
 
         if action == "scan":
-            from scene_completion.api.inputs import scan
+            from scene_completion.application.input_service import scan
 
             return scan(p)
         if action == "imports":
             return imp.view(p, args.get("id"))
         if action == "convert":
-            from scene_completion.cli.task_commands import client_for
+            from scene_completion.application.model_factory import client_for
 
             config = resolved(service, rid)
             client = client_for(config, p / "run")
@@ -301,7 +301,7 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
 
             if read_job(p).get("status") == "running":
                 raise ValueError("原始材料变更等待当前执行结束；候选已保留")
-            from scene_completion.api.inputs import accept_source
+            from scene_completion.application.input_service import accept_source
 
             return accept_source(service, p, row, {"expected_revision": row["revision"]})
         return imp.decide(
@@ -317,7 +317,7 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
     if action == "review_artifact":
         if policy["mode"] != "auto" and not confirmed:
             raise ValueError("协作模式请确认审核决定")
-        from scene_completion.review.reviews import Reviews
+        from scene_completion.review.decisions.reviews import Reviews
 
         store = Reviews(p / "run")
         row = store.read(args["node"])
@@ -344,15 +344,15 @@ def execute_action(service, rid, action, args, *, confirmed=False, daemon=False)
             }
         return service.start(rid, args)
     if action == "diagnose":
-        from scene_completion.workflow.node_repair import export_repair
+        from scene_completion.workflow.recovery.node_repair import export_repair
 
         return export_repair(p, args["node"])
     if action == "repair_node":
         if policy["mode"] != "auto" and not confirmed:
             raise ValueError("协作模式需确认节点修复")
         # A new agent gets only the allowed node packet, never the manager conversation or GT history.
-        from scene_completion.cli.task_commands import client_for
-        from scene_completion.workflow.node_repair import export_repair, submit_repair
+        from scene_completion.application.model_factory import client_for
+        from scene_completion.workflow.recovery.node_repair import export_repair, submit_repair
 
         repair = export_repair(p, args["node"])
         budget_id = fingerprint(
@@ -508,8 +508,8 @@ def compact_history(journal, config, client):
 
 def _compact_history_chunk(journal, config, client):
     """Persist summaries; original chat and tool artifacts remain retrievable."""
-    from scene_completion.models.context_budget import estimate
-    from scene_completion.workflow.runtime_settings import request_options
+    from scene_completion.application.runtime_settings import request_options
+    from scene_completion.models.budgets.context_budget import estimate
 
     summary = journal.get("summary", journal.session()["id"], {}) or {}
     cutoff = summary.get("through", 0)
@@ -614,8 +614,8 @@ def run_turn(service, rid, reason="user", _client=None):
     from langchain_core.tools import tool
 
     from scene_completion.infrastructure.execution_events import EventStore, bind, emit
-    from scene_completion.models.deepagents_client import _transport_model
-    from scene_completion.models.model_client import SemanticClient
+    from scene_completion.models.clients.deepagents_client import _transport_model
+    from scene_completion.models.clients.model_client import SemanticClient
 
     p = service.run_dir(rid)
     journal = Journal(p)
@@ -631,7 +631,7 @@ def run_turn(service, rid, reason="user", _client=None):
     if _client is not None:
         config = client.config
     if not config.get("_manager_loop"):
-        from scene_completion.models.model_resilience import invoke
+        from scene_completion.models.transport.model_resilience import invoke
 
         client.config["_manager_loop"] = True
         return invoke(

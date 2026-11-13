@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import ntpath
 import os
 import tempfile
 from pathlib import Path
 
-
-def fingerprint(value):
-    return hashlib.sha256(
-        json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf8")
-    ).hexdigest()
+from scene_completion.infrastructure.identity import fingerprint as fingerprint
 
 
 def windows_extended_path(path):

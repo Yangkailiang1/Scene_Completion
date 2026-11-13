@@ -92,6 +92,9 @@ def propose(project, program, body):
 
 
 def baseline_copy(program, stage):
+    program, stage = Path(program).resolve(), Path(stage)
+    dependencies = program / "frontend/node_modules"
+
     def ignore(path, names):
         return [
             n
@@ -99,31 +102,56 @@ def baseline_copy(program, stage):
             if n
             in {
                 "__pycache__",
-                "node_modules",
                 ".git",
                 ".workbench",
+                ".runtime",
+                ".acceptance",
                 ".venv",
                 "dist",
                 ".env",
-                "manager",
             }
+            or n == "node_modules"
+            and not Path(path).is_relative_to(dependencies)
+            or n.startswith(".env.")
             or n.endswith((".local.json", ".pyc"))
         ]
 
-    for name in ("src", ".cac", "tests", "web", "docs", "examples", "frontend/src"):
-        source = Path(program) / name
+    # Copy the installed suite with its present dependencies. Development
+    # checkouts have dataset/jsdom tests; Windows ships only tests/portable.
+    # Explicit roots keep project runtime data and experiments outside staging.
+    for name in (
+        "src",
+        ".cac",
+        "tests",
+        "web",
+        "docs",
+        "examples",
+        "tools",
+        "datasets",
+        "deployment/windows",
+        "frontend/src",
+        "frontend/node_modules",
+    ):
+        source = program / name
         if source.is_dir():
             shutil.copytree(source, stage / name, ignore=ignore)
     for name in (
         "serve.py",
         "scene.py",
-        "pytest.ini",
+        "pyproject.toml",
         "README.md",
         "workflow.config.example.json",
         "requirements-windows.lock",
+        "requirements.txt",
+        "requirements-dev.txt",
+        "THIRD_PARTY_NOTICES.md",
+        "frontend/package.json",
+        "frontend/package-lock.json",
     ):
-        if (Path(program) / name).exists():
-            shutil.copy2(Path(program) / name, stage / name)
+        if (program / name).is_file():
+            target = stage / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(program / name, target)
 
 
 def test_patch(project, program, patch_id):

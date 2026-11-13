@@ -7,7 +7,7 @@ from copy import deepcopy
 from functools import lru_cache, wraps
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.infrastructure.identity import fingerprint
 
 
 def validate_registry(value):
@@ -62,9 +62,23 @@ _active_registry = ContextVar("project_concern_registry", default=None)
 
 
 def default_registry():
-    return deepcopy(
+    value = deepcopy(
         _parsed(Path(__file__).with_name("concern_registry.json").read_text(encoding="utf8"))
     )
+    # These archived interaction keys have moved to the global business-operation
+    # policy. Interpret that policy consistently without rewriting the user's JSON
+    # or manufacturing a registry migration/event on the first project read.
+    if value["definitions"].get("global.idempotency", {}).get("enabled", True):
+        for key in (
+            "service.resource_mutation.idempotency",
+            "service.crud.create.idempotency",
+            "service.crud.update.idempotency",
+            "service.crud.delete.idempotency",
+        ):
+            if key in value["definitions"]:
+                value["definitions"][key]["enabled"] = False
+        value["hash"] = fingerprint({k: v for k, v in value.items() if k != "hash"})
+    return value
 
 
 def registry():

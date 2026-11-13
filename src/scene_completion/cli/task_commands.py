@@ -4,37 +4,14 @@ import argparse
 import json
 from pathlib import Path
 
-from scene_completion.analysis.evaluation import UNITS, accuracy
-from scene_completion.analysis.interaction_enrichment import capability_union
+from scene_completion.analysis.evaluation.metrics import UNITS, accuracy
+from scene_completion.analysis.interactions.interaction_enrichment import capability_union
+from scene_completion.application.execution import Execution, build_pipeline, payload
+from scene_completion.application.model_factory import client_for
 from scene_completion.domain.contracts import TASKS, packet
 from scene_completion.infrastructure.storage import read_json, write_json
-from scene_completion.inputs.source_documents import read_documents
-from scene_completion.workflow.engine import Execution, build_pipeline, payload
+from scene_completion.inputs.documents.source_documents import read_documents
 from scene_completion.workflow_core import run_lock
-
-
-def client_for(config, root, env_file=None):
-    from scene_completion.models.http_transport import load_ecnu_env_file
-    from scene_completion.models.model_configuration import referenced_env_keys
-
-    if env_file and Path(env_file).exists():
-        load_ecnu_env_file(env_file, referenced_env_keys(config))
-    config = dict(config)
-    config.setdefault("cache_dir", str(root / "model_cache"))
-    if config.get("agent_runtime") == "deepagents":
-        from scene_completion.models.deepagents_client import DeepAgentsClient
-
-        config["run_root"] = str(root)
-        config.setdefault("indexed_context", True)
-        return DeepAgentsClient(config)
-    if config.get("agent_runtime") == "luna-subprocess":
-        from scene_completion.models.native_client import NativeClient
-
-        config.update(native_run_root=str(root), native_run_dir=str(root / "native"))
-        return NativeClient(config)
-    from scene_completion.models.model_client import SemanticClient
-
-    return SemanticClient(config)
 
 
 def parser():
@@ -93,7 +70,7 @@ def unwrap(v):
 def main(argv=None):
     args = parser().parse_args(argv)
     if args.command == "render-composition":
-        from scene_completion.analysis.composition_drawing import render_composition
+        from scene_completion.analysis.diagrams.composition_drawing import render_composition
         from scene_completion.domain.contracts import validate
 
         value = unwrap(read_json(args.input_json))
@@ -110,7 +87,7 @@ def main(argv=None):
         write_json(args.output, value)
         return 0
     if args.command == "check-run":
-        from scene_completion.workflow.run_inspection import inspect_run
+        from scene_completion.application.run_inspection import inspect_run
 
         result = inspect_run(Path(args.run_dir))
         print(json.dumps(result, ensure_ascii=False, indent=2))

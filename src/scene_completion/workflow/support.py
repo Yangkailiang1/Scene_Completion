@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from scene_completion.analysis.interaction_enrichment import (
+from scene_completion.analysis.interactions.interaction_enrichment import (
     enrich,
 )
 from scene_completion.domain.contracts import (
@@ -14,7 +14,7 @@ from scene_completion.infrastructure.storage import fingerprint
 
 
 def canonical_enrich(d):
-    from scene_completion.analysis.interaction_identity import canonical_fused
+    from scene_completion.analysis.interactions.interaction_identity import canonical_fused
 
     raw = {
         "interactions": d["rr-ssd"]["interactions"] + d["sr-ssd"]["interactions"],
@@ -52,7 +52,7 @@ def analysis_settings(value):
     """Ranking-only edits must not invalidate identification or GT model work."""
     from copy import deepcopy
 
-    from scene_completion.analysis.scenario_patterns import normalize_settings
+    from scene_completion.analysis.recommendation.scenario_patterns import normalize_settings
 
     v = deepcopy(value)
     for k, default in [("top_k", 10), ("risk_weight", 0.7), ("history_weight", 0.3)]:

@@ -34,7 +34,7 @@ import { InputBundlePicker } from "../features/inputs/InputBundlePicker";
 import { InputManager } from "../features/inputs/InputManager";
 import { ManagerPanel } from "../features/manager/ManagerPanel";
 import { PatternManager } from "../features/patterns/PatternManager";
-import { ArtifactView } from "../features/results/ArtifactView";
+import { ArtifactView } from "../features/results/shared/ArtifactView";
 import { ResultsView } from "../features/results/ResultsView";
 import { BusinessRecommendations } from "../features/review/BusinessRecommendations";
 import { PendingView } from "../features/review/PendingView";
@@ -127,6 +127,14 @@ export default function App() {
     failedNodes,
     pendingReviews,
   } = useAppController();
+  const ssdWorkflow = snapshot?.manifest?.workflow === "ssd-case-v1";
+  const executionComplete = ssdWorkflow
+    ? Boolean(snapshot?.manifest?.execution_complete)
+    : Boolean(snapshot?.manifest?.complete);
+  const unresolvedCount = ssdWorkflow
+    ? Number(snapshot?.manifest?.pending_count || 0)
+    : snapshot?.review_summary?.unresolved || 0;
+  const pendingItems = ssdWorkflow ? unresolvedCount : pendingReviews;
   return (
     <div className="app-shell">
       <ProjectSidebar
@@ -223,8 +231,8 @@ export default function App() {
                         : ["complete", "complete_with_questions"].includes(
                               snapshot?.job.status || "",
                             )
-                          ? snapshot?.review_summary?.unresolved
-                            ? `执行完成 · ${snapshot.review_summary.unresolved} 项待确认`
+                          ? unresolvedCount
+                            ? `执行完成 · ${unresolvedCount} 项待确认`
                             : "执行完成"
                           : failedNodes.length
                             ? "存在失败节点"
@@ -245,7 +253,7 @@ export default function App() {
                 个已发现节点
               </span>
               <span>
-                待审核 <b>{pendingReviews}</b>
+                {ssdWorkflow ? "待确认" : "待审核"} <b>{pendingItems}</b>
               </span>
               <nav className="workspace-views" aria-label="工作区视图">
                 <button
@@ -405,18 +413,22 @@ export default function App() {
                         <span className="eyebrow">PROJECT OVERVIEW</span>
                         <h2>执行概览</h2>
                         <p>
-                          {snapshot?.manifest?.complete
-                            ? "本轮执行已完成，可按用例、交互查看三方异常对照及全部已保存图表。"
+                          {executionComplete
+                            ? ssdWorkflow && unresolvedCount
+                              ? `本轮任务执行完成，仍有 ${unresolvedCount} 项结果待确认；可继续核对三方结果。`
+                              : "本轮执行已完成，可按用例、交互查看三方异常对照及全部已保存图表。"
                             : "从右侧任务导航选择结果；完整依赖图按需展开。"}
                         </p>
-                        {snapshot?.manifest?.complete && (
+                        {executionComplete && (
                           <Button
                             onClick={() => {
                               setManagement("results");
                               setUsageOpen(false);
                             }}
                           >
-                            查看最终结果与图表
+                            {ssdWorkflow
+                              ? "查看三方结果并确认"
+                              : "查看最终结果与图表"}
                           </Button>
                         )}
                       </div>
@@ -434,8 +446,10 @@ export default function App() {
                         </div>
                         <div>
                           <ClipboardCheck size={17} />
-                          <strong>{pendingReviews}</strong>
-                          <span>待确认产物</span>
+                          <strong>{pendingItems}</strong>
+                          <span>
+                            {ssdWorkflow ? "待确认结果" : "待确认产物"}
+                          </span>
                         </div>
                         <div>
                           <Files size={17} />
@@ -460,11 +474,13 @@ export default function App() {
                       )}
                       {[...activeNodes, ...failedNodes].length === 0 ? (
                         <div className="info-card">
-                          {pendingReviews
-                            ? "有产物等待审核。点击右侧黄色节点，查看结果并确认。"
-                            : snapshot?.manifest?.complete
-                              ? "本轮没有正在执行或失败的节点。"
-                              : "点击“开始运行”建立任务计划。用例对应确认后展开各用例流程。"}
+                          {ssdWorkflow && executionComplete && unresolvedCount
+                            ? "执行阶段已全部完成；请在三方结果页处理待确认记录和未完成的语义比较。"
+                            : pendingReviews
+                              ? "有产物等待审核。点击右侧黄色节点，查看结果并确认。"
+                              : executionComplete
+                                ? "本轮没有正在执行或失败的节点。"
+                                : "点击“开始运行”建立任务计划。用例对应确认后展开各用例流程。"}
                         </div>
                       ) : (
                         [...activeNodes, ...failedNodes]

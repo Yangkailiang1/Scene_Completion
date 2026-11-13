@@ -1,17 +1,25 @@
 import json
 
-from scene_completion.analysis.concern_hierarchy import applicability, context, match_is_applicable
-from scene_completion.analysis.exception_generation import (
+from scene_completion.analysis.concerns.concern_hierarchy import (
+    applicability,
+    context,
+    match_is_applicable,
+)
+from scene_completion.analysis.interactions.interaction_enrichment import parameters_for
+from scene_completion.analysis.scenarios.exception_generation import (
     data_exceptions,
     deduplicate,
     scenario_key,
     storage_exceptions,
 )
-from scene_completion.analysis.interaction_enrichment import parameters_for
 from scene_completion.domain.concern_registry import inheritance_paths
 from scene_completion.domain.contracts import registry, validate
 from scene_completion.infrastructure.storage import fingerprint
-from scene_completion.inputs.source_documents import documents_in, evidence_refs, validate_evidence
+from scene_completion.inputs.documents.source_documents import (
+    documents_in,
+    evidence_refs,
+    validate_evidence,
+)
 
 
 def refs_required(value):
@@ -47,7 +55,7 @@ def refs_required(value):
 
 
 def _validate_literal_http_coverage(payload, inputs):
-    from scene_completion.inputs.api_documents import explicit_http_interfaces
+    from scene_completion.inputs.documents.api_documents import explicit_http_interfaces
 
     declared = explicit_http_interfaces(inputs.get("RR", []) + inputs.get("SR", []))
     actual = {
@@ -71,17 +79,80 @@ def _validate_literal_http_coverage(payload, inputs):
 
 
 def validate_result(task, payload, inputs):
+    if task in {"ssd-resolve", "ssd-semantic-compare"}:
+        validate(task, payload)
+        if task == "ssd-semantic-compare":
+            expected = {(p["left"]["id"], p["right"]["id"]) for p in inputs["pairs"]}
+            actual = {(d["left_id"], d["right_id"]) for d in payload["decisions"]}
+            if actual != expected or len(actual) != len(payload["decisions"]):
+                raise ValueError("语义比较必须逐对返回全部候选，不能新增或遗漏")
+        if task == "ssd-resolve":
+            steps = {s["id"]: s for s in inputs["steps"]}
+            keys = {
+                k
+                for k, d in inputs["registry"]["definitions"].items()
+                if d.get("enabled", True)
+                and d.get("kind") == "check"
+                and not k.startswith("global.")
+            }
+            sources = {r["id"] for r in inputs["records"]}
+            resolved = set(payload["resolved_ids"])
+            if not resolved <= sources or len(resolved) != len(payload["resolved_ids"]):
+                raise ValueError("已解决来源必须是本通道输入记录且不能重复")
+            concerns = {c["id"]: c for c in payload["concerns"]}
+            if len(concerns) != len(payload["concerns"]) or len(
+                {s["id"] for s in payload["scenarios"]}
+            ) != len(payload["scenarios"]):
+                raise ValueError("语义结果的关注点与场景ID不能重复")
+            if any(
+                not any(c["source_record_id"] == ident for c in payload["concerns"])
+                or not any(s["source_record_id"] == ident for s in payload["scenarios"])
+                for ident in resolved
+            ):
+                raise ValueError("已解决的来源必须同时保留关注点和具体场景，不能提交空结果丢弃来源")
+            for row in payload["concerns"] + payload["scenarios"]:
+                if (
+                    row["step_id"] not in steps
+                    or row["key"] not in keys
+                    or row["source_record_id"] not in resolved
+                ):
+                    raise ValueError("语义结果引用未知步骤、关注点或来源")
+                step = steps[row["step_id"]]
+                if row.get("field_id") and row["field_id"] not in {
+                    f["id"] for f in step.get("data", [])
+                }:
+                    raise ValueError("语义结果引用了其他步骤或不存在的字段")
+                if row.get("entity_id") and row["entity_id"] not in step.get("entity_ids", []):
+                    raise ValueError("语义结果引用了未关联的实体")
+            for scenario in payload["scenarios"]:
+                if not scenario["concern_ids"] or any(
+                    cid not in concerns
+                    or any(
+                        concerns[cid].get(k) != scenario.get(k)
+                        for k in (
+                            "source_record_id",
+                            "step_id",
+                            "target",
+                            "key",
+                            "field_id",
+                            "entity_id",
+                        )
+                    )
+                    for cid in scenario["concern_ids"]
+                ):
+                    raise ValueError("语义场景必须引用本次返回且来源和绑定一致的关注点")
+        return payload
     validate(task, payload)
     if task == "exception-scope":
-        from scene_completion.analysis.exception_scopes import validate_scope
+        from scene_completion.analysis.scenarios.exception_scopes import validate_scope
 
         validate_scope(payload, inputs)
     if task == "interaction-normalize":
-        from scene_completion.analysis.atomic_steps import validate_plan
+        from scene_completion.analysis.interactions.atomic_steps import validate_plan
 
         validate_plan(payload, inputs)
     if task == "global-scenario-match":
-        from scene_completion.analysis.global_analysis import validate_decisions
+        from scene_completion.analysis.global_analysis.dependencies import validate_decisions
 
         validate_decisions(inputs["left"], inputs["right"], payload["decisions"])
         return payload
@@ -171,7 +242,7 @@ def validate_result(task, payload, inputs):
                         )
                     )
         if "crud-entity-scope" in inputs:
-            from scene_completion.analysis.crud_scope import validate_operations
+            from scene_completion.analysis.interactions.crud_scope import validate_operations
 
             validate_operations(payload, inputs)
     if task == "business-dependencies":
@@ -210,7 +281,7 @@ def validate_result(task, payload, inputs):
             if not row["concern_key"].startswith("global."):
                 raise ValueError("interaction concern cannot masquerade as global concern")
     if task in {"global-scenarios", "global-existing-scenarios", "global-test-scenarios"}:
-        from scene_completion.analysis.global_analysis import anchor_key
+        from scene_completion.analysis.global_analysis.dependencies import anchor_key
 
         recognized = {
             (anchor_key(m), m["object"], m["concern_key"])
@@ -220,17 +291,19 @@ def validate_result(task, payload, inputs):
             if (anchor_key(row), row["object"], row["concern_key"]) not in recognized:
                 raise ValueError("global scenario must follow its independently recognized concern")
         if task == "global-scenarios":
-            from scene_completion.analysis.global_idempotency import validate_explicit_modes
+            from scene_completion.analysis.global_analysis.global_idempotency import (
+                validate_explicit_modes,
+            )
 
             validate_explicit_modes(payload, inputs)
     if task == "artifact-convert" and payload["source_role"] != "artifact" and payload["artifacts"]:
         raise ValueError("非正向产物文件不能提交节点替代结果")
     if task in {"test-inventory", "test-case-align"}:
-        from scene_completion.analysis.test_alignment import validate_test_task
+        from scene_completion.analysis.matching.test_alignment import validate_test_task
 
         validate_test_task(task, payload, inputs)
     if task == "pattern-applicability":
-        from scene_completion.analysis.scenario_patterns import (
+        from scene_completion.analysis.recommendation.scenario_patterns import (
             applicability as pattern_applicability,
         )
 
@@ -238,14 +311,14 @@ def validate_result(task, payload, inputs):
             raise ValueError("模式适用性必须由冻结正向依赖与项目设置构造")
         return payload
     if task == "exception-generate" and "pattern-applicability" in inputs:
-        from scene_completion.analysis.scenario_patterns import generated
+        from scene_completion.analysis.recommendation.scenario_patterns import generated
 
         if payload != generated(inputs["pattern-applicability"]):
             raise ValueError("G只允许使用已校验且达到证据阈值的模式实例")
         return payload
     if task == "gap-recommend":
         if payload.get("enabled"):
-            from scene_completion.analysis.recommendation import rank
+            from scene_completion.analysis.recommendation.ranking import rank
 
             required = {
                 "missing-report",
@@ -269,7 +342,7 @@ def validate_result(task, payload, inputs):
                 raise ValueError("推荐必须与冻结M、风险及人工历史的工具排序一致")
         return payload
     if task in {"use-case-extract", "use-case-align", "fused-ssd"}:
-        from scene_completion.analysis.use_cases import validate_catalogue
+        from scene_completion.analysis.interactions.use_cases import validate_catalogue
 
         validate_catalogue(task, payload, inputs)
     if task in {"existing-concerns", "test-concerns"}:
@@ -287,7 +360,7 @@ def validate_result(task, payload, inputs):
         for m in payload["matches"]:
             if not any(r["source_id"] in own_sources for r in m["source_refs"]):
                 raise ValueError("逆向关注点必须引用本来源的异常分支/测试，不能仅引用正向规则")
-        from scene_completion.analysis.inverse_alignment import canonical_fused
+        from scene_completion.analysis.matching.inverse_alignment import canonical_fused
 
         actual = canonical_fused(inputs["fused-ssd"])["interactions"]
         inputs = {
@@ -304,7 +377,7 @@ def validate_result(task, payload, inputs):
     for ref in evidence_refs(payload):
         if fingerprint(ref) not in allowed:
             if scoped_crud:
-                from scene_completion.analysis.crud_scope import excerpt_of
+                from scene_completion.analysis.interactions.crud_scope import excerpt_of
 
                 if excerpt_of(ref, input_refs):
                     continue
@@ -327,13 +400,13 @@ def validate_result(task, payload, inputs):
         raise ValueError("; ".join(dict.fromkeys(evidence_errors[:8])))
     refs_required(payload)
     if task == "normal-rules":
-        from scene_completion.analysis.normal_rules import validate_rules
+        from scene_completion.analysis.concerns.normal_rules import validate_rules
 
         validate_rules(payload, inputs)
     if task == "test-supplement":
         import re
 
-        from scene_completion.analysis.test_supplement import mechanical_tests
+        from scene_completion.analysis.recommendation.test_supplement import mechanical_tests
 
         mechanical = {fingerprint(t) for t in mechanical_tests(inputs)["tests"]}
         rules = {r["id"]: r for r in inputs["normal-rules"]["rules"]}
@@ -390,13 +463,13 @@ def validate_result(task, payload, inputs):
                 if code not in quote:
                     raise ValueError("不得补造正常规则未声明的错误响应码")
     if task == "api-map":
-        from scene_completion.inputs.api_identity import validate_mapping_identifiers
-        from scene_completion.inputs.http_interfaces import clean_path
+        from scene_completion.inputs.structured.api_identity import validate_mapping_identifiers
+        from scene_completion.inputs.structured.http_interfaces import clean_path
 
         validate_mapping_identifiers(payload)
 
         if "interface-scope" in inputs:
-            from scene_completion.inputs.api_boundaries import filter_mapping
+            from scene_completion.inputs.structured.api_boundaries import filter_mapping
 
             if filter_mapping(payload, inputs["interface-scope"]) != payload:
                 raise ValueError("接口归属超出本节点的系统/外部Service范围，外部接口须独立抽取")
@@ -409,7 +482,7 @@ def validate_result(task, payload, inputs):
                         + str(api["id"])
                     )
         if inputs.get("interface-scope", {}).get("boundary") == "external":
-            from scene_completion.inputs.external_interfaces import verified_anchors
+            from scene_completion.inputs.structured.external_interfaces import verified_anchors
 
             verified_anchors(payload, inputs)
         else:
@@ -608,7 +681,7 @@ def validate_result(task, payload, inputs):
                         )
     if task == "api-index":
         if "api-map" in inputs:
-            from scene_completion.inputs.api_identity import mapping_lookup
+            from scene_completion.inputs.structured.api_identity import mapping_lookup
 
             mapping_lookup(inputs["api-map"], payload)
         ids = set()
@@ -743,7 +816,7 @@ def validate_result(task, payload, inputs):
                         raise ValueError("conflicting expansion")
                     used.add(sid)
     if task in {"concern-match", "existing-concerns", "test-concerns", "exception-generate"}:
-        from scene_completion.analysis.concern_alignment import interaction_rows
+        from scene_completion.analysis.matching.concern_alignment import interaction_rows
 
         by_id = {i["id"]: i for i in interaction_rows(inputs)}
         for x in (
@@ -764,7 +837,9 @@ def validate_result(task, payload, inputs):
                     )
                 party_object = m["object"]
                 if m["target"] in {"sender", "receiver"}:
-                    from scene_completion.analysis.interaction_enrichment import resource_metadata
+                    from scene_completion.analysis.interactions.interaction_enrichment import (
+                        resource_metadata,
+                    )
 
                     components = inputs.get("components", {"components": []})
                     names = {c["id"]: c["name"] for c in components["components"]}
@@ -787,7 +862,9 @@ def validate_result(task, payload, inputs):
                         + i["receiver"]["name"]
                         + ". Keep the evidenced object and select its actual side; do not replace it with another service."
                     )
-                from scene_completion.analysis.concern_hierarchy import effective_operation_kinds
+                from scene_completion.analysis.concerns.concern_hierarchy import (
+                    effective_operation_kinds,
+                )
 
                 kinds = effective_operation_kinds(m, i, inputs)
                 if (
@@ -845,7 +922,7 @@ def validate_result(task, payload, inputs):
                 if s["source_status"] != "framework_inferred" or not s["derivation"]:
                     raise ValueError("G requires recorded positive-rule derivation")
                 if s["field"] is not None:
-                    from scene_completion.analysis.normal_rules import rule_exceptions
+                    from scene_completion.analysis.concerns.normal_rules import rule_exceptions
 
                     expected = {
                         scenario_key(x)
@@ -889,7 +966,7 @@ def validate_result(task, payload, inputs):
             ):
                 raise ValueError("each GT unit must cite its independent test description")
             if task == "test-ground-truth":
-                from scene_completion.inputs.test_sources import (
+                from scene_completion.inputs.provenance.test_sources import (
                     records_for_inputs,
                     referenced_record_ids,
                 )
@@ -909,7 +986,7 @@ def validate_result(task, payload, inputs):
                 raise ValueError("GT inference needs derivation")
     if task == "existing-bind":
         branches = {b["id"] for b in inputs["branches"]["branches"]}
-        from scene_completion.analysis.inverse_alignment import canonical_fused
+        from scene_completion.analysis.matching.inverse_alignment import canonical_fused
 
         ids = {i["id"] for i in canonical_fused(inputs["fused-ssd"])["interactions"]}
         for b in payload["bindings"]:
@@ -919,7 +996,7 @@ def validate_result(task, payload, inputs):
                 raise ValueError("binding needs a concrete canonical interaction")
     if task == "test-ground-truth" and not payload.get("scenarios") and not payload.get("pending"):
         from scene_completion.domain.scenario_types import normal_replay
-        from scene_completion.inputs.test_sources import records_for_inputs
+        from scene_completion.inputs.provenance.test_sources import records_for_inputs
 
         actual = records_for_inputs(inputs)
         explicit = [r for r in actual if r["scenario_type"] == "exception"]
@@ -933,7 +1010,7 @@ def validate_result(task, payload, inputs):
                 "明示异常测试分支不能静默返回空结果：依据测试触发条件和实际SSD生成GT；无法确定具体交互时必须输出有原文依据的pending，不得丢弃测试"
             )
     if task == "existing-extract" and "fused-ssd" in inputs:
-        from scene_completion.analysis.inverse_alignment import normalized_scenarios
+        from scene_completion.analysis.matching.inverse_alignment import normalized_scenarios
 
         normalized_scenarios(payload, inputs["fused-ssd"])
     if task in {"gap-compare", "semantic-compare"}:
@@ -1015,7 +1092,7 @@ def validate_result(task, payload, inputs):
             ):
                 raise ValueError("no match cannot cover missing instance")
     if task == "gap-compare":
-        from scene_completion.analysis.exception_comparison import missing_report
+        from scene_completion.analysis.matching.exception_comparison import missing_report
 
         expected = missing_report(inputs["left"], inputs["right"], payload["decisions"])["M"]
         if deduplicate(payload["missing"]) != expected:

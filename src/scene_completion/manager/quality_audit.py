@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from scene_completion.analysis.normal_rules import normalize_location
+from scene_completion.analysis.concerns.normal_rules import normalize_location
 from scene_completion.infrastructure.storage import read_json, write_json
 
 

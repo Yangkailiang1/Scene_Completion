@@ -1,0 +1,155 @@
+{
+  "version": "ssd-case-v1",
+  "case": {
+    "id": "DEMO-001",
+    "name": "查询商品（格式演示）",
+    "aliases": [
+      "查询商品"
+    ]
+  },
+  "steps": [
+    {
+      "id": "step-query",
+      "order": 1,
+      "aliases": [
+        "S1"
+      ],
+      "kind": "interaction",
+      "direction": "request",
+      "sender": {
+        "id": "customer",
+        "name": "顾客",
+        "type": "actor"
+      },
+      "receiver": {
+        "id": "catalog",
+        "name": "商品服务",
+        "type": "service"
+      },
+      "operation": "查询商品",
+      "api_id": "GET /products",
+      "entity_ids": [
+        "Product"
+      ],
+      "crud": [
+        "read"
+      ],
+      "data": [
+        {
+          "id": "query.page",
+          "name": "page",
+          "location": "query",
+          "type": "integer",
+          "constraints": [
+            {
+              "kind": "range",
+              "min": 1,
+              "max": 100,
+              "source_refs": [
+                {
+                  "document_id": "sample-rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "查询页码 page 必须为 1 至 100 的整数。",
+                  "kind": "context"
+                }
+              ]
+            }
+          ],
+          "source_refs": [
+            {
+              "document_id": "sample-rr",
+              "start_line": 2,
+              "end_line": 2,
+              "quote": "查询页码 page 必须为 1 至 100 的整数。",
+              "kind": "context"
+            }
+          ]
+        }
+      ],
+      "source_refs": [
+        {
+          "document_id": "sample-rr",
+          "start_line": 2,
+          "end_line": 2,
+          "quote": "查询页码 page 必须为 1 至 100 的整数。",
+          "kind": "context"
+        }
+      ]
+    }
+  ],
+  "channels": {
+    "E": {
+      "concerns": [],
+      "scenarios": [],
+      "pending": []
+    },
+    "G": {
+      "concerns": [
+        {
+          "id": "g-page-range",
+          "step_id": "step-query",
+          "target": "data",
+          "key": "api.data.range",
+          "field_id": "query.page",
+          "entity_id": null,
+          "status": "active",
+          "condition": "page 超出 1 至 100",
+          "source_refs": [
+            {
+              "document_id": "sample-rr",
+              "start_line": 2,
+              "end_line": 2,
+              "quote": "查询页码 page 必须为 1 至 100 的整数。",
+              "kind": "context"
+            }
+          ],
+          "label": "数据范围"
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "g-page-below",
+          "step_id": "step-query",
+          "target": "data",
+          "key": "api.data.range",
+          "field_id": "query.page",
+          "entity_id": null,
+          "status": "active",
+          "condition": "page 小于 1",
+          "source_refs": [
+            {
+              "document_id": "sample-rr",
+              "start_line": 2,
+              "end_line": 2,
+              "quote": "查询页码 page 必须为 1 至 100 的整数。",
+              "kind": "context"
+            }
+          ],
+          "label": "数据范围",
+          "concern_ids": [
+            "g-page-range"
+          ],
+          "expected": "拒绝请求并提示页码范围"
+        }
+      ],
+      "pending": []
+    },
+    "GT": {
+      "concerns": [],
+      "scenarios": [],
+      "pending": []
+    }
+  },
+  "decisions": [],
+  "pending": [],
+  "sources": [
+    {
+      "id": "sample-rr",
+      "name": "示例-RR.md",
+      "role": "RR",
+      "content": "# 查询商品（格式演示）\n查询页码 page 必须为 1 至 100 的整数。"
+    }
+  ],
+  "semantic_pending": []
+}

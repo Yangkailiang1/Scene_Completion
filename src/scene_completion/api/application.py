@@ -3,8 +3,8 @@
 import json
 
 from scene_completion.api import execution_routes, project_routes, result_routes
+from scene_completion.application.project_service import Workbench as Workbench
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
-from scene_completion.workflow.project_service import Workbench as Workbench
 
 PROJECT = PROGRAM_ROOT
 WEB = PROJECT / "web"
@@ -50,7 +50,7 @@ def create_app(root=None, client_factory=None, env_file=None):
             from contextlib import nullcontext
 
             from scene_completion.domain.concern_registry import registry_scope
-            from scene_completion.review.project_review import project_registry
+            from scene_completion.review.decisions.project_review import project_registry
 
             match = re.match(r"/api/projects/([a-f0-9]{32})(?:/|$)", request.url.path)
             scope = (
@@ -86,11 +86,11 @@ def create_app(root=None, client_factory=None, env_file=None):
     from scene_completion.manager.quality_api import register as register_quality
 
     register_quality(app, service)
-    from scene_completion.review.review_api import register
+    from scene_completion.review.handoff.review_api import register
 
     register(app, service, PROJECT)
-    from scene_completion.api.inputs import InputWatcher
     from scene_completion.api.inputs import register as register_inputs
+    from scene_completion.application.input_service import InputWatcher
 
     register_inputs(app, service)
 

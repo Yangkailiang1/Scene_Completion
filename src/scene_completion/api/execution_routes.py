@@ -22,7 +22,7 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/execution-control")
     def execution_control(rid: str, body: dict):
-        from scene_completion.workflow.execution_control import control
+        from scene_completion.application.execution_control import control
 
         return control(service, rid, body)
 
