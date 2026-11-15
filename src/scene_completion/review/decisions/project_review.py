@@ -7,7 +7,12 @@ from copy import deepcopy
 from functools import wraps
 from pathlib import Path
 
-from scene_completion.domain.concern_registry import default_registry, validate_registry
+from scene_completion.domain.concern_registry import (
+    SCOPES,
+    default_registry,
+    upgrade_registry,
+    validate_registry,
+)
 from scene_completion.infrastructure.configuration_lock import serialized
 from scene_completion.infrastructure.execution_events import EventStore
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
@@ -101,7 +106,11 @@ def save_registry(project, body):
     current = view["registry"]
     if body.get("expected_hash") != current["hash"]:
         raise ValueError("关注点版本已变化，请刷新后再保存")
-    value = deepcopy(body.get("registry"))
+    value = (
+        upgrade_registry(current)
+        if body.get("apply_current_defaults") is True
+        else deepcopy(body.get("registry"))
+    )
     if not isinstance(value, dict) or not isinstance(value.get("definitions"), dict):
         raise ValueError("无效关注点定义")
     # Technical IDs are stable. Deleting a key retires it, retaining history and
@@ -123,6 +132,8 @@ def save_registry(project, body):
             raise ValueError("请填写名称和定义")
         if d.get("layer") not in LAYERS or d.get("group") not in GROUPS[d["layer"]]:
             raise ValueError("关注点层级与分类不一致")
+        if "scope" in d and d["scope"] not in SCOPES:
+            raise ValueError("关注点范围无效")
         if key in current["definitions"] and d["layer"] != current["definitions"][key]["layer"]:
             raise ValueError("稳定ID的对象层级不能改写；跨层变更请新建关注点并停用旧项")
         prefix = {"human": "human.", "relation": "service_relation.", "shared": "api.data."}.get(
@@ -163,7 +174,10 @@ def save_registry(project, body):
         if not d.get("enabled", True):
             continue
         layer = d["layer"]
-        if layer in {"base", "human", "relation", "global"}:
+        scope = d.get("scope", "interaction")
+        if scope in {"business_chain", "architecture"}:
+            profiles[scope].append(key)
+        elif layer in {"base", "human", "relation", "global"}:
             profiles[layer].append(key)
         elif layer == "functional":
             profiles["functional"][d["group"]].append(key)
@@ -564,82 +578,12 @@ def decide_pending(project, item_id, body):
 
 
 @serialized
-def _global_idempotency_policy(project, value):
-    """Version the confirmed framework change without modifying saved reports."""
-    if (project.parent / ".review-mode.json").exists():
-        return value
-    current = deepcopy(value)
-    changed = False
-    for definition in current["definitions"].values():
-        if (
-            definition.get("guard") == "idempotency"
-            and definition["layer"] != "global"
-            and definition.get("enabled", True)
-        ):
-            definition["enabled"] = False
-            changed = True
-    if "global.idempotency" not in current["definitions"]:
-        current["definitions"]["global.idempotency"] = default_registry()["definitions"][
-            "global.idempotency"
-        ]
-        changed = True
-    if not changed:
-        return value
-
-    def filter_profiles(node):
-        for key, rows in node.items():
-            if isinstance(rows, dict):
-                filter_profiles(rows)
-            else:
-                node[key] = [k for k in rows if current["definitions"][k].get("enabled", True)]
-
-    filter_profiles(current["profiles"])
-    if current["definitions"]["global.idempotency"].get("enabled", True):
-        current["profiles"]["global"] = list(
-            dict.fromkeys(current["profiles"].get("global", []) + ["global.idempotency"])
-        )
-    current["hash"] = fingerprint({k: v for k, v in current.items() if k != "hash"})
-    validate_registry(current)
-    history = project / "concern_versions"
-    history.mkdir(parents=True, exist_ok=True)
-    revisions = [read_json(p).get("revision", 0) for p in history.glob("*.json")]
-    revision = max(revisions or [0]) + 1
-    if not (history / (value["hash"] + ".json")).exists():
-        write_json(
-            history / (value["hash"] + ".json"),
-            {
-                "revision": 0,
-                "hash": value["hash"],
-                "at": time.time(),
-                "note": "全局C/U/D幂等规则升级前定义",
-                "registry": value,
-            },
-        )
-    note = "用户确认规则升级：全局C/U/D按用例、业务实体、操作检查幂等性；交互级和R强制策略停用"
-    write_json(
-        history / (str(revision) + "-" + current["hash"] + ".json"),
-        {
-            "revision": revision,
-            "hash": current["hash"],
-            "at": time.time(),
-            "note": note,
-            "registry": current,
-        },
-    )
-    write_json(project / "run/registry_override.json", current)
-    EventStore(project / "run").append(
-        "registry_updated", revision=revision, registry_hash=current["hash"], note=note
-    )
-    return current
-
-
-@serialized
 def project_registry(project):
     """Pin the latest project definition; never migrate older taxonomies."""
     project = Path(project)
     path = project / "run/registry_override.json"
     if path.exists():
-        return _global_idempotency_policy(project, validate_registry(read_json(path)))
+        return validate_registry(read_json(path))
     value = default_registry()
     manifest = project / "run/run_manifest.json"
     if manifest.exists():
@@ -649,6 +593,5 @@ def project_registry(project):
         used = project / "run/registry_used" / (str(saved.get("registry_hash")) + ".json")
         if used.exists():
             value = validate_registry(read_json(used))
-    value = _global_idempotency_policy(project, value)
     write_json(path, value)
     return value

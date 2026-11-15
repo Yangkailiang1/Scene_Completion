@@ -311,10 +311,15 @@ class Execution:
         return semantic_executor.semantic(self, task, inputs, record)
 
     def skill_text(self, task):
-        if task in {"ssd-resolve", "ssd-semantic-compare"}:
-            from scene_completion.domain.ssd_contracts import INSTRUCTIONS
+        if task.startswith("project-"):
+            from scene_completion.domain.project_scope_contracts import INSTRUCTIONS
 
-            return INSTRUCTIONS
+            if task in INSTRUCTIONS:
+                return INSTRUCTIONS[task]
+        if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
+            from scene_completion.domain.ssd_contracts import instructions_for
+
+            return instructions_for(task)
         return skill_path(task).read_text(encoding="utf8")
 
     def add(

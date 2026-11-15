@@ -106,6 +106,8 @@ export function ConcernTree({
         .sort((a, b) => {
           const order = [
             "交互级关注点",
+            "业务链路关注点",
+            "项目架构关注点",
             "全局业务依赖级关注点",
             "人类Actor关注点",
             "Service关注点",

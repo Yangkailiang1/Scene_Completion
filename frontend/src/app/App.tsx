@@ -14,6 +14,7 @@ import {
   Workflow,
   X,
 } from "lucide-react";
+import { useCallback, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Button } from "../components/ui/button";
 import {
@@ -39,6 +40,7 @@ import { ResultsView } from "../features/results/ResultsView";
 import { BusinessRecommendations } from "../features/review/BusinessRecommendations";
 import { PendingView } from "../features/review/PendingView";
 import { ReviewHandoff } from "../features/review/ReviewHandoff";
+import type { SsdReviewSelection } from "../features/review/SsdReviewHandoff";
 import { UsageView } from "../features/usage/UsageView";
 import { api, fileUrl, projectUrl } from "../shared/api";
 import {
@@ -127,6 +129,45 @@ export default function App() {
     failedNodes,
     pendingReviews,
   } = useAppController();
+  const [workspaceFocus, setWorkspaceFocus] = useState(
+    () => localStorage.getItem("scene-results-focus") === "true",
+  );
+  const [resultRevision, setResultRevision] = useState(0);
+  const [resultsDirty, setResultsDirty] = useState(false);
+  const [resultSelection, setResultSelection] = useState<{
+    project: string;
+    selection: SsdReviewSelection;
+  } | null>(null);
+  const [resultTarget, setResultTarget] = useState<{
+    project: string;
+    caseId?: string;
+    stepId?: string;
+    scope?: "interaction" | "business_chain" | "architecture";
+    anchorId?: string;
+  } | null>(null);
+  const rememberSelection = useCallback(
+    (selection: SsdReviewSelection) => {
+      if (current) setResultSelection({ project: current, selection });
+    },
+    [current],
+  );
+  const requestReview = useCallback(
+    (selection?: SsdReviewSelection) => {
+      if (resultsDirty) {
+        setNotice("当前结果修改尚未保存，请先保存或放弃修改，再进入审核交接。");
+        return;
+      }
+      if (selection && current)
+        setResultSelection({ project: current, selection });
+      setManagement("handoff");
+      setUsageOpen(false);
+    },
+    [current, resultsDirty, setManagement, setNotice, setUsageOpen],
+  );
+  const resultLiveVersion = JSON.stringify([
+    snapshot?.manifest?.live_cases || {},
+    resultRevision,
+  ]);
   const ssdWorkflow = snapshot?.manifest?.workflow === "ssd-case-v1";
   const executionComplete = ssdWorkflow
     ? Boolean(snapshot?.manifest?.execution_complete)
@@ -136,7 +177,13 @@ export default function App() {
     : snapshot?.review_summary?.unresolved || 0;
   const pendingItems = ssdWorkflow ? unresolvedCount : pendingReviews;
   return (
-    <div className="app-shell">
+    <div
+      className={cn(
+        "app-shell",
+        management === "results" && "results-active",
+        management === "results" && workspaceFocus && "results-focused",
+      )}
+    >
       <ProjectSidebar
         {...{
           collapsed,
@@ -216,6 +263,23 @@ export default function App() {
                 </div>
               )}
             <div className="project-statusbar">
+              {management === "results" && (
+                <button
+                  className="workspace-focus-toggle"
+                  aria-pressed={workspaceFocus}
+                  onClick={() =>
+                    setWorkspaceFocus((value) => {
+                      localStorage.setItem(
+                        "scene-results-focus",
+                        String(!value),
+                      );
+                      return !value;
+                    })
+                  }
+                >
+                  {workspaceFocus ? "退出专注" : "专注工作区"}
+                </button>
+              )}
               <span
                 className={`status-dot ${running ? "blue" : ["complete", "complete_with_questions"].includes(snapshot?.job.status || "") ? "green" : failedNodes.length ? "red" : "gray"}`}
               />
@@ -312,10 +376,7 @@ export default function App() {
                 </button>
                 <button
                   className={management === "handoff" ? "active" : ""}
-                  onClick={() => {
-                    setManagement("handoff");
-                    setUsageOpen(false);
-                  }}
+                  onClick={() => requestReview()}
                 >
                   审核交接
                 </button>
@@ -368,8 +429,35 @@ export default function App() {
                     />
                   ) : management === "handoff" && current ? (
                     <ReviewHandoff
+                      key={current}
                       project={current}
                       reviewOnly={snapshot?.review_only}
+                      selection={
+                        resultSelection?.project === current
+                          ? resultSelection.selection
+                          : undefined
+                      }
+                      liveVersion={resultLiveVersion}
+                      onApplied={(result) => {
+                        setResultRevision((value) => value + 1);
+                        setResultTarget({
+                          project: current,
+                          caseId: result.caseId,
+                          stepId: result.stepId,
+                          scope: result.scope || "interaction",
+                          anchorId: result.anchorId,
+                        });
+                        setNotice(
+                          result.scopes && result.scopes.length > 1
+                            ? `已应用 ${result.scopes.length} 个分析范围的审核修改，结果与汇总指标已更新。`
+                            : result.scope && result.scope !== "interaction"
+                              ? "已应用项目范围审核修改，结果与指标已更新。"
+                              : `已应用 ${result.caseIds.length} 个用例的审核修改，结果与指标已更新。`,
+                        );
+                        setManagement("results");
+                        setUsageOpen(false);
+                        void refresh(current).catch(error);
+                      }}
                     />
                   ) : management === "recommendations" && current ? (
                     <BusinessRecommendations
@@ -379,9 +467,30 @@ export default function App() {
                   ) : management === "results" && current ? (
                     <ResultsView
                       project={current}
-                      liveVersion={JSON.stringify(
-                        snapshot?.manifest?.live_cases || {},
-                      )}
+                      liveVersion={resultLiveVersion}
+                      onReviewRequest={requestReview}
+                      onSelectionChange={rememberSelection}
+                      onDirtyChange={setResultsDirty}
+                      requestedScope={
+                        resultTarget?.project === current
+                          ? resultTarget.scope
+                          : undefined
+                      }
+                      requestedAnchorId={
+                        resultTarget?.project === current
+                          ? resultTarget.anchorId
+                          : undefined
+                      }
+                      requestedCaseId={
+                        resultTarget?.project === current
+                          ? resultTarget.caseId
+                          : undefined
+                      }
+                      requestedStepId={
+                        resultTarget?.project === current
+                          ? resultTarget.stepId
+                          : undefined
+                      }
                     />
                   ) : management === "patterns" && current ? (
                     <PatternManager project={current} />

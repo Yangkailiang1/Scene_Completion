@@ -138,8 +138,8 @@ def test_interaction_recognition_never_auto_adds_idempotency_even_for_CUD_or_R()
         assert not recognize(x, {"matches": []})["matches"]
     for key, d in registry()["definitions"].items():
         if d.get("guard") == "idempotency":
-            assert d["enabled"] is False
-    assert registry()["definitions"][KEY]["layer"] == "global"
+            assert d.get("enabled", True) is key.startswith("service.crud.")
+    assert registry()["definitions"][KEY]["enabled"] is False
 
 
 def test_scope_keeps_exact_case_test_source_and_no_automatic_GT_from_policy():
@@ -203,9 +203,9 @@ def test_json_test_slice_keeps_entire_extension_not_only_opening_brace(tmp_path)
     assert "UNRELATED" not in text
 
 
-def test_rule_upgrade_preserves_frozen_registry_and_is_idempotent(tmp_path):
+def test_frozen_registry_is_not_auto_migrated_and_explicit_upgrade_is_idempotent(tmp_path):
     from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
-    from scene_completion.review.decisions.project_review import project_registry
+    from scene_completion.review.decisions.project_review import project_registry, save_registry
 
     project = tmp_path / "project"
     old = registry()
@@ -214,10 +214,25 @@ def test_rule_upgrade_preserves_frozen_registry_and_is_idempotent(tmp_path):
     old["profiles"]["global"] = [k for k in old["profiles"]["global"] if k != KEY]
     old["hash"] = fingerprint({k: v for k, v in old.items() if k != "hash"})
     write_json(project / "run/registry_override.json", old)
-    upgraded = project_registry(project)
-    assert upgraded["definitions"][KEY]["layer"] == "global"
+    pinned = project_registry(project)
+    assert KEY not in pinned["definitions"]
+    assert pinned["definitions"]["service.resource_mutation.idempotency"]["enabled"] is True
+    assert not list((project / "concern_versions").glob("*.json"))
+    upgraded = save_registry(
+        project,
+        {
+            "expected_hash": pinned["hash"],
+            "apply_current_defaults": True,
+            "note": "显式采用当前规则",
+        },
+    )["registry"]
+    assert upgraded["definitions"][KEY]["enabled"] is False
     assert upgraded["definitions"]["service.resource_mutation.idempotency"]["enabled"] is False
-    assert read_json(project / "concern_versions" / (old["hash"] + ".json"))["registry"] == old
+    assert upgraded["definitions"]["service.crud.create.idempotency"]["enabled"] is True
     before = sorted(p.name for p in (project / "concern_versions").glob("*.json"))
-    assert project_registry(project)["hash"] == upgraded["hash"]
+    again = save_registry(
+        project, {"expected_hash": upgraded["hash"], "apply_current_defaults": True}
+    )["registry"]
+    assert again["hash"] == upgraded["hash"]
     assert sorted(p.name for p in (project / "concern_versions").glob("*.json")) == before
+    assert read_json(project / "concern_versions" / (old["hash"] + ".json"))["registry"] == old

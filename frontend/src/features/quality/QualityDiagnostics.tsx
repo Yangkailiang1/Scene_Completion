@@ -42,12 +42,14 @@ type Props = {
   caseId: string;
   testSet: string;
   caseLocked?: boolean;
+  readOnly?: boolean;
 };
 export function QualityDiagnostics({
   project,
   caseId,
   testSet,
   caseLocked = false,
+  readOnly = false,
 }: Props) {
   const [page, setPage] = useState(0);
   const [items, setItems] = useState<any[]>([]),
@@ -61,13 +63,14 @@ export function QualityDiagnostics({
   const [showAll, setShowAll] = useState(false),
     [comparison, setComparison] = useState<any>(null);
   const [evidence, setEvidence] = useState<any>(null),
-    [readonly, setReadonly] = useState(true),
+    [serverReadOnly, setServerReadOnly] = useState(true),
     [caseOnly, setCaseOnly] = useState(caseLocked);
   const base = projectUrl(project, "quality-diagnostics");
+  const readonly = readOnly || serverReadOnly;
   async function refresh(id?: string) {
     const r = await api(base);
     setItems(r.items);
-    setReadonly(r.review_only);
+    setServerReadOnly(r.review_only);
     const chosen =
       (id === "" ? undefined : id || report?.id) ||
       r.items.find(

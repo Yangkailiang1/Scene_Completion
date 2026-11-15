@@ -79,9 +79,32 @@ def _validate_literal_http_coverage(payload, inputs):
 
 
 def validate_result(task, payload, inputs):
+    from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
+    from scene_completion.domain.project_scope_contracts import (
+        validate_result as validate_project_result,
+    )
+
+    if task in PROJECT_SCHEMAS:
+        validate(task, payload)
+        return validate_project_result(task, payload, inputs)
+    if task == "ssd-bind":
+        from scene_completion.analysis.ssd.contract_binding import (
+            validate_result as validate_binding,
+        )
+
+        validate(task, payload)
+        return validate_binding(payload, inputs)
+    if task == "ssd-generate":
+        from scene_completion.analysis.ssd.generation import validate_result as validate_generation
+
+        validate(task, payload)
+        return validate_generation(payload, inputs)
     if task in {"ssd-resolve", "ssd-semantic-compare"}:
         validate(task, payload)
         if task == "ssd-semantic-compare":
+            from scene_completion.domain.scenario_conditions import validate_decisions
+
+            validate_decisions(payload, inputs)
             expected = {(p["left"]["id"], p["right"]["id"]) for p in inputs["pairs"]}
             actual = {(d["left_id"], d["right_id"]) for d in payload["decisions"]}
             if actual != expected or len(actual) != len(payload["decisions"]):

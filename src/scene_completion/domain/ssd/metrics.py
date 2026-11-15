@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+from scene_completion.domain.coverage import POLICY, counts
+from scene_completion.domain.result_rows import display_rows
 from scene_completion.domain.ssd.matching import (
     PAIRS,
     _assignment,
@@ -30,8 +32,10 @@ def completeness(bundle):
             row.get("status") != "active" or kind == "pending" for _, kind, row in _records(bundle)
         ),
         "pending_case_items": len(bundle.get("pending", [])),
+        "contract_binding_pending": len(bundle.get("contract_binding_pending", [])),
         "revision_issues": len(bundle.get("revision_issues", [])),
         "semantic_pairs": len(semantic_candidates(bundle)),
+        "generation_pending": len(bundle.get("scenario_generation", {}).get("pending_ids", [])),
     }
     return {**counts, "complete": not any(counts.values())}
 
@@ -54,6 +58,10 @@ def analyze(bundle):
         truth = sets["GT"] - {a for a, _ in te}
         hits = _assignment(edges["GT_G"], truth, missing)
         valid = _assignment(edges["GT_G"], sets["GT"], sets["G"])
+        if bundle.get("coverage_policy") == POLICY:
+            truth, hit_ids, valid_ids = counts(edges, sets)
+            hits = [(i, None) for i in hit_ids]
+            valid = [(None, i) for i in valid_ids]
         rates = {
             "missing_exception_miss_rate": _rate(len(truth) - len(hits), len(truth)),
             "generation_validity": _rate(len(valid), len(sets["G"])),
@@ -113,6 +121,22 @@ def analyze(bundle):
                         del groups[second]
         for row in groups.values():
             cells = row["cells"]
+            confirmed = {
+                right
+                for (_, right), status in edges["GT_G"].items()
+                if status in {"full", "partial"}
+            }
+            undecided = {
+                aliases["G"].get(p["right_id"]) for p in pending_pairs if p["pair"] == "GT_G"
+            }
+            row["coverage_by_record"] = {
+                r["id"]: {
+                    "covered": aliases["G"].get(r["id"]) in confirmed,
+                    "complete": aliases["G"].get(r["id"]) in confirmed
+                    or aliases["G"].get(r["id"]) not in undecided,
+                }
+                for r in cells["G"]
+            }
             count = sum(bool(c) for c in cells.values())
             pending = any(r["status"] != "active" for c in cells.values() for r in c)
             all_full = count == 3 and all(
@@ -173,8 +197,13 @@ def analyze(bundle):
                 }
             )
     return {
-        "comparison": comparison,
+        "coverage_policy": bundle.get("coverage_policy", "coverage-one-to-one-v1"),
+        "comparison": display_rows(bundle, comparison),
         "metrics": metrics,
         "scenario_diagnostic": diagnostics,
+        "metrics_by_level": {
+            "concern": metrics,
+            "scenario": {key: diagnostics[key] for key in metrics},
+        },
         "completeness": completeness(bundle),
     }

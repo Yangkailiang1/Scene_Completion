@@ -7,9 +7,18 @@ from scene_completion.domain.ssd.matching import PAIRS, binding
 from scene_completion.domain.ssd.metrics import _rate, analyze, completeness
 from scene_completion.domain.ssd.validation import VERSION, validate
 from scene_completion.infrastructure import ssd_repository as repository
+from scene_completion.infrastructure.result_cache import cached_index
 from scene_completion.infrastructure.storage import fingerprint
 
-EDITABLE = {"steps", "channels", "decisions", "review_notes", "review_feedback"}
+EDITABLE = {
+    "steps",
+    "channels",
+    "decisions",
+    "review_notes",
+    "review_feedback",
+    "display_rows",
+    "coverage_policy",
+}
 
 
 class RevisionConflict(ValueError):
@@ -84,11 +93,13 @@ def _store(project, bundle, baseline, revision, history, overrides, reason, prev
         "metrics": report["metrics"],
     }
     history = [*history, item]
+    original_report = analyze(baseline)
     saved = {
         "bundle": bundle,
         "revision": revision,
         **report,
-        "original_metrics": analyze(baseline)["metrics"],
+        "original_metrics": original_report["metrics"],
+        "original_metrics_by_level": original_report["metrics_by_level"],
         "history": history,
     }
     repository.store(
@@ -119,6 +130,19 @@ def publish(project, bundle):
             return editor(project, cid)
         issues = []
         effective = {**baseline, **_patch(_editable(baseline), state["overrides"], issues)}
+        if "machine_g" in baseline:
+            from scene_completion.analysis.ssd.generation import refresh_status, regenerate_machine
+
+            machine_g = (
+                deepcopy(baseline["machine_g"])
+                if effective["steps"] == baseline["steps"]
+                else regenerate_machine(effective, baseline)
+            )
+            effective["machine_g"] = machine_g
+            effective["channels"]["G"] = _patch(
+                machine_g, state["overrides"].get("channels", {}).get("G", {}), issues
+            )
+            refresh_status(effective)
         effective["revision_issues"] = issues
         previous = editor(project, cid)["bundle"]
         _invalidate(previous, effective)
@@ -145,10 +169,17 @@ def editor(project, case_id, revision=None):
             "revision": "original",
             **analyze(baseline),
             "original_metrics": analyze(baseline)["metrics"],
+            "original_metrics_by_level": analyze(baseline)["metrics_by_level"],
             "history": state["history"],
         }
     number = state["revision"] if revision is None else int(revision)
-    return repository.revision(project, case_id, number)
+    view = repository.revision(project, case_id, number)
+    if revision is None:
+        from scene_completion.application.result_projection import current_view
+        from scene_completion.domain.ssd import matching
+
+        return current_view(project, view, matching)
+    return view
 
 
 def _invalidate(previous, bundle):
@@ -217,6 +248,7 @@ def save_revision(project, case_id, body):
             if submitted.get(key) != current.get(key):
                 raise ValueError("不可改写用例身份、版本或原始文档")
         updated = {**current, **_editable(submitted)}
+        updated["coverage_policy"] = "coverage-any-confirmed-v2"
         _promote_pending(updated)
         if current["steps"] != updated["steps"]:
             from scene_completion.analysis.ssd.pipeline import generate_g, rebind_steps
@@ -236,8 +268,14 @@ def save_revision(project, case_id, body):
                     step.pop("orphaned_parent_id", None)
                     step.pop("binding_issue", None)
             # Regenerate only the changed-step policy output, then retain G human differences.
-            before_g = generate_g(current)
-            after_g = generate_g(updated)
+            before_g = current.get("machine_g", generate_g(current))
+            if "machine_g" in current:
+                from scene_completion.analysis.ssd.generation import regenerate_machine
+
+                after_g = regenerate_machine(updated, current)
+                updated["machine_g"] = deepcopy(after_g)
+            else:
+                after_g = generate_g(updated)
             delta_g = _diff(before_g, updated["channels"]["G"])
             updated["channels"]["G"] = _patch(after_g, delta_g)
             fields = {s["id"]: {f["id"] for f in s.get("data", [])} for s in updated["steps"]}
@@ -255,12 +293,27 @@ def save_revision(project, case_id, body):
                                 "binding_issue": "步骤或字段已删除",
                             }
                         )
+        if "machine_g" in updated:
+            from scene_completion.analysis.ssd.generation import refresh_status
+
+            # A reviewer-authored analysis is not a stale model result.
+            old_g = {r["id"]: r for r in current["channels"]["G"]["scenarios"]}
+            for row in updated["channels"]["G"]["scenarios"]:
+                if row.get("analysis") and row.get("analysis") != old_g.get(row["id"], {}).get(
+                    "analysis"
+                ):
+                    row["analysis_origin"] = "manual"
+            refresh_status(updated)
         _invalidate(current, updated)
         updated = validate(updated)
         _invalidate(current, updated)
         if _editable(current) == _editable(updated):
             return editor(project, case_id)
         overrides = _diff(_editable(state["baseline"]), _editable(updated))
+        if "machine_g" in updated:
+            overrides.setdefault("channels", {})["G"] = _diff(
+                updated["machine_g"], updated["channels"]["G"]
+            )
         return _store(
             project,
             updated,
@@ -272,10 +325,11 @@ def save_revision(project, case_id, body):
         )
 
 
+@cached_index("ssd_results")
 def index(project):
     cases = []
     for state in repository.states(project):
-        result = editor(project, state["case"]["id"])
+        result = repository.revision(project, state["case"]["id"], state["revision"])
         progress = completeness(result["bundle"])
         pending = sum(v for k, v in progress.items() if k != "complete")
         cases.append(
@@ -283,6 +337,12 @@ def index(project):
                 **state["case"],
                 "revision": result["revision"],
                 "metrics": result["metrics"],
+                "metrics_by_level": result["metrics_by_level"]
+                if "metrics_by_level" in result
+                else analyze(result["bundle"])["metrics_by_level"],
+                "original_metrics_by_level": result["original_metrics_by_level"]
+                if "original_metrics_by_level" in result
+                else analyze(state["baseline"])["metrics_by_level"],
                 "pending_count": pending,
                 "completeness": progress,
             }
@@ -294,4 +354,46 @@ def index(project):
         )
         for key in ("missing_exception_miss_rate", "generation_validity")
     }
-    return {"version": VERSION, "cases": cases, "metrics": metrics}
+    levels = {
+        name: {
+            level: {
+                key: _rate(
+                    sum(c[name][level][key]["numerator"] for c in cases),
+                    sum(c[name][level][key]["denominator"] for c in cases),
+                )
+                for key in metrics
+            }
+            for level in ("concern", "scenario")
+        }
+        for name in ("metrics_by_level", "original_metrics_by_level")
+    }
+    return {"version": VERSION, "cases": cases, "metrics": metrics, **levels}
+
+
+def enrich_effective(project, case_id, base_revision, generated):
+    """Save analyses of manually edited SSD context without treating them as human overrides."""
+    from scene_completion.analysis.ssd.generation import refresh_status
+
+    with repository.locked(project):
+        state = repository.state(project, case_id)
+        if base_revision != state["revision"]:
+            raise RevisionConflict(state["revision"])
+        current = editor(project, case_id)["bundle"]
+        updated = deepcopy(current)
+        delta = _diff(current["machine_g"], current["channels"]["G"])
+        updated["machine_g"] = deepcopy(generated["channels"]["G"])
+        updated["channels"]["G"] = _patch(updated["machine_g"], delta)
+        refresh_status(updated)
+        _invalidate(current, updated)
+        updated = validate(updated)
+        overrides = _diff(_editable(state["baseline"]), _editable(updated))
+        overrides.setdefault("channels", {})["G"] = delta
+        return _store(
+            project,
+            updated,
+            state["baseline"],
+            state["revision"] + 1,
+            state["history"],
+            overrides,
+            "重新分析已修订步骤的场景；保留人工修正",
+        )

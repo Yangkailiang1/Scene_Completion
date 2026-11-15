@@ -54,7 +54,7 @@ def identified(x, i, key, condition, kind, **guard):
     return x["concern-match"]
 
 
-def test_external_generated_failure_keeps_actual_call_not_party_mentioned_in_quote():
+def test_external_availability_is_not_generated_as_interaction_scene():
     x, i = internal()
     up = deepcopy(i)
     up.update(id="upstream", sequence=0)
@@ -65,10 +65,9 @@ def test_external_generated_failure_keeps_actual_call_not_party_mentioned_in_quo
     x["enriched-interactions"]["interactions"].insert(0, up)
     x["concern-match"] = resolve_matches(x, [])
     out = generated(applicability(x))
-    available = [s for s in out["scenarios"] if s["concern_key"] == "service.base.availability"]
-    assert len(available) == 1
-    assert available[0]["interaction_id"] == i["id"]
-    assert available[0]["element_anchors"][0]["object"] == "Database资源服务"
+    # Availability belongs to the project-architecture scope and must not be
+    # mounted as a per-interaction scene.
+    assert not [s for s in out["scenarios"] if s["concern_key"] == "service.base.availability"]
 
 
 def test_declared_service_caller_identity_without_token_mechanism_generates_scene():

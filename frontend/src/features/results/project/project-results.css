@@ -1,0 +1,15 @@
+.project-dependency-graph {
+  height: 460px;
+  min-height: 300px;
+  border: 1px solid #dce5f3;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.project-dependency-graph .react-flow__edge-text {
+  font-size: 11px;
+}
+.project-dependency-graph .react-flow__node {
+  color: #365274;
+  border-color: #c2d3ec;
+  border-radius: 8px;
+}

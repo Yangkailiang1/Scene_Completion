@@ -9,7 +9,13 @@ export async function sourceFile(file: File) {
     binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return { name: file.name, content_base64: btoa(binary) };
 }
-export function TestSources({ project }: { project: string }) {
+export function TestSources({
+  project,
+  readOnly = false,
+}: {
+  project: string;
+  readOnly?: boolean;
+}) {
   const [supplement, setSupplement] = useState<any>(null);
   async function loadSupplement(cid?: string) {
     try {
@@ -39,6 +45,7 @@ export function TestSources({ project }: { project: string }) {
     load();
   }, [project]);
   async function save(version?: string) {
+    if (readOnly) return;
     setBusy(true);
     setError("");
     try {
@@ -61,7 +68,7 @@ export function TestSources({ project }: { project: string }) {
   }
   return (
     <section className="test-sources-panel">
-      <h3>测试场景导入</h3>
+      <h3>{readOnly ? "测试场景查看（历史只读）" : "测试场景导入"}</h3>
       <p>
         只有类型为“异常”的记录进入指标。正常、可选及待确认保留查看。扩展测试集自动计分，机器补充与原始测试分别追溯。
       </p>
@@ -155,10 +162,12 @@ export function TestSources({ project }: { project: string }) {
         导入新版本（Markdown / JSON / XLSX）
         <input
           aria-label="上传测试文件"
+          disabled={readOnly}
           type="file"
           multiple
           accept=".md,.markdown,.json,.xlsx"
           onChange={async (e) => {
+            if (readOnly) return;
             setError("");
             try {
               const values = await Promise.all(
@@ -190,7 +199,10 @@ export function TestSources({ project }: { project: string }) {
               {x.source} 第{x.row}行 {x.id}：{x.reason}
             </p>
           ))}
-          <button disabled={!preview.valid || busy} onClick={() => save()}>
+          <button
+            disabled={readOnly || !preview.valid || busy}
+            onClick={() => save()}
+          >
             保存为当前测试版本
           </button>
         </>
@@ -252,13 +264,18 @@ export function TestSources({ project }: { project: string }) {
               </p>
             </details>
           )}
-          <p>当前版本：{data.version}。切换后需继续运行评测，历史报告保留。</p>
+          <p>
+            当前版本：{data.version}。
+            {readOnly
+              ? "历史结果仅供查看，不在此更换测试源。"
+              : "切换后需继续运行评测，历史报告保留。"}
+          </p>
           <label>
             历史测试版本
             <select
               aria-label="测试集版本"
               value={data.version}
-              disabled={busy}
+              disabled={readOnly || busy}
               onChange={(e) => save(e.target.value)}
             >
               {data.versions.map((v: any) => (

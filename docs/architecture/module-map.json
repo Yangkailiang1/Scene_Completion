@@ -8,7 +8,9 @@
     "scene-case-analysis-v1",
     "任务语义版本与Schema",
     "source IDs和数据目录",
-    "模型实际加载Skill/prompt正文"
+    "模型实际加载Skill/prompt正文",
+    "project-scope-v1",
+    "project-review-v1"
   ],
   "modules": [
     {
@@ -2060,6 +2062,27 @@
           "responsibility": "Task definitions and outcomes shared by schedulers and callers."
         }
       ]
+    },
+    {
+      "original_module": "scene_completion.application.result_projection",
+      "destinations": [
+        "src/scene_completion/application/result_projection.py"
+      ],
+      "responsibility": "当前结果只读解释；冻结版本不变；核验识别完成证据，投影逐条审核资格与跨行覆盖。"
+    },
+    {
+      "original_module": "scene_completion.infrastructure.result_cache",
+      "destinations": [
+        "src/scene_completion/infrastructure/result_cache.py"
+      ],
+      "responsibility": "按持久化文件身份缓存快照与派生索引，跨worker写入后失效。"
+    },
+    {
+      "original_module": "frontend.results.shared.resultRequests",
+      "destinations": [
+        "frontend/src/features/results/shared/resultRequests.ts"
+      ],
+      "responsibility": "结果读取合并、项目代次失效及写后刷新。"
     }
   ],
   "file_moves": {
@@ -2234,37 +2257,65 @@
     "tests.test_external_api_evidence": "tests.support.external_api_evidence"
   },
   "new_modules": [
-    "src/scene_completion/compat/__init__.py",
+    "frontend/src/features/results/shared/EditableCell.tsx",
+    "frontend/src/features/results/shared/provenance.ts",
+    "frontend/src/features/results/shared/tableEditing.ts",
+    "src/scene_completion/analysis/concerns/__init__.py",
+    "src/scene_completion/analysis/diagrams/__init__.py",
+    "src/scene_completion/analysis/evaluation/__init__.py",
+    "src/scene_completion/analysis/global_analysis/__init__.py",
+    "src/scene_completion/analysis/interactions/__init__.py",
+    "src/scene_completion/analysis/matching/__init__.py",
+    "src/scene_completion/analysis/project_scopes/__init__.py",
+    "src/scene_completion/analysis/project_scopes/pipeline.py",
+    "src/scene_completion/analysis/recommendation/__init__.py",
+    "src/scene_completion/analysis/scenarios/__init__.py",
+    "src/scene_completion/analysis/ssd/__init__.py",
+    "src/scene_completion/analysis/ssd/contract_binding.py",
+    "src/scene_completion/analysis/ssd/generation.py",
+    "src/scene_completion/api/project_scope_routes.py",
     "src/scene_completion/application/__init__.py",
+    "src/scene_completion/application/local_workbench.py",
+    "src/scene_completion/application/node_recovery_service.py",
+    "src/scene_completion/application/project_scope_review.py",
+    "src/scene_completion/application/project_scope_service.py",
+    "src/scene_completion/application/recovery_handoff.py",
+    "src/scene_completion/compat/__init__.py",
+    "src/scene_completion/compat/detailed/__init__.py",
+    "src/scene_completion/compat/saved/__init__.py",
+    "src/scene_completion/compat/standalone/__init__.py",
+    "src/scene_completion/domain/concern_templates.py",
+    "src/scene_completion/domain/coverage.py",
+    "src/scene_completion/domain/project_scope_contracts.py",
+    "src/scene_completion/domain/project_scopes/__init__.py",
+    "src/scene_completion/domain/project_scopes/matching.py",
+    "src/scene_completion/domain/project_scopes/metrics.py",
+    "src/scene_completion/domain/project_scopes/validation.py",
+    "src/scene_completion/domain/result_rows.py",
+    "src/scene_completion/domain/scenario_conditions.py",
+    "src/scene_completion/domain/ssd/__init__.py",
+    "src/scene_completion/infrastructure/code_retry.py",
+    "src/scene_completion/infrastructure/project_scope_repository.py",
+    "src/scene_completion/inputs/documents/__init__.py",
+    "src/scene_completion/inputs/extraction/__init__.py",
     "src/scene_completion/inputs/imports/__init__.py",
     "src/scene_completion/inputs/provenance/__init__.py",
     "src/scene_completion/inputs/structured/__init__.py",
-    "src/scene_completion/inputs/documents/__init__.py",
-    "src/scene_completion/inputs/extraction/__init__.py",
-    "src/scene_completion/domain/ssd/__init__.py",
-    "src/scene_completion/workflow/recovery/__init__.py",
-    "src/scene_completion/workflow/runtime/__init__.py",
-    "src/scene_completion/review/handoff/__init__.py",
-    "src/scene_completion/review/decisions/__init__.py",
-    "src/scene_completion/review/truth/__init__.py",
-    "src/scene_completion/review/offline/__init__.py",
+    "src/scene_completion/models/budgets/__init__.py",
     "src/scene_completion/models/clients/__init__.py",
     "src/scene_completion/models/configuration/__init__.py",
     "src/scene_completion/models/transport/__init__.py",
     "src/scene_completion/models/usage/__init__.py",
-    "src/scene_completion/models/budgets/__init__.py",
-    "src/scene_completion/analysis/matching/__init__.py",
-    "src/scene_completion/analysis/recommendation/__init__.py",
-    "src/scene_completion/analysis/ssd/__init__.py",
-    "src/scene_completion/analysis/interactions/__init__.py",
-    "src/scene_completion/analysis/global_analysis/__init__.py",
-    "src/scene_completion/analysis/diagrams/__init__.py",
-    "src/scene_completion/analysis/scenarios/__init__.py",
-    "src/scene_completion/analysis/evaluation/__init__.py",
-    "src/scene_completion/analysis/concerns/__init__.py",
-    "src/scene_completion/compat/saved/__init__.py",
-    "src/scene_completion/compat/standalone/__init__.py",
-    "src/scene_completion/compat/detailed/__init__.py"
+    "src/scene_completion/review/decisions/__init__.py",
+    "src/scene_completion/review/handoff/__init__.py",
+    "src/scene_completion/review/offline/__init__.py",
+    "src/scene_completion/review/offline/_adoption_template.py",
+    "src/scene_completion/review/offline/adoption.py",
+    "src/scene_completion/review/truth/__init__.py",
+    "src/scene_completion/workflow/project_scopes.py",
+    "src/scene_completion/workflow/recovery/__init__.py",
+    "src/scene_completion/workflow/recovery/semantic_checkpoint.py",
+    "src/scene_completion/workflow/runtime/__init__.py"
   ],
   "public_paths_preserved": [
     "docs/ssd-result-contract.md",

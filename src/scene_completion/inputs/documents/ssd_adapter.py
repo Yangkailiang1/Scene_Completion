@@ -205,6 +205,7 @@ def normalize_extracted_case(
     entities = normalize_entity(entities)
     bundle = {
         "version": VERSION,
+        "coverage_policy": "coverage-any-confirmed-v2",
         "case": case,
         "steps": steps,
         "channels": {k: channel() for k in ("G", "E", "GT")},

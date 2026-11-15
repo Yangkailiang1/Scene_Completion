@@ -88,7 +88,27 @@ def capabilities():
         for name, command in command_actions.choices.items()
     }
     return {
-        "version": "business-review-v1",
+        "version": "workbench-agent-v2",
+        "local": {
+            "enabled": True,
+            "flags": ["--local", "--data-dir", "--env-file"],
+            "http_required": False,
+            "supported_commands": [
+                "projects",
+                "create",
+                "status",
+                "diagnose",
+                "prompts",
+                "repair-export",
+                "repair-submit",
+                "rerun --node",
+                "run --wait",
+                "execution-control",
+                "configure",
+                "results",
+            ],
+            "skill": ".cac/skills/scene-terminal-recovery/SKILL.md",
+        },
         "format": "JSON/JSONL",
         "command_parameters": parameters,
         "commands": {
@@ -109,7 +129,7 @@ def capabilities():
             "feedback": "--project ID --out FILE.json 导出；--file FILE.json [--dry-run] 导入预览/应用；不自动重跑",
             "impact": "--project ID；输出plan_id、来源节点及真实DAG下游",
             "rerun": "--project ID --affected --plan-id ID [--dry-run]；或--node ID定向重跑",
-            "repair-export/repair-submit": "外部Code Agent修复必须通过原校验器",
+            "repair-export/repair-submit": "支持--batch精确子任务；--local --data-dir DATA不依赖HTTP；外部修复必须通过原校验器",
             "input-scan": "--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续",
             "execution-control": "--project ID --action pause|stop|resume [--dry-run]；暂停等待在途请求，停止保留检查点；明确继续后才派发请求",
             "imports": "--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果",
@@ -188,6 +208,9 @@ def parser():
         description="让Code Agent操作同一网页工作台；输出JSON或JSONL，不另建隐藏运行目录。"
     )
     p.add_argument("--server", default="http://127.0.0.1:8765")
+    p.add_argument("--local", action="store_true", help="直接调用本地应用服务，不需要HTTP服务")
+    p.add_argument("--data-dir", default=".workbench")
+    p.add_argument("--env-file", default=None)
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("capabilities")
     sub.add_parser("projects")
@@ -222,6 +245,14 @@ def parser():
     result_import.add_argument("--project", required=True)
     result_import.add_argument("--file", required=True)
     result_import.add_argument("--dry-run", action="store_true")
+    results = sub.add_parser("results", help="查看当前三层结果、双粒度指标及修订，不调用模型")
+    results.add_argument("--project", required=True)
+    results.add_argument(
+        "--analysis-scope",
+        choices=("all", "interaction", "business_chain", "architecture"),
+        default="all",
+    )
+    results.add_argument("--case")
     metrics = sub.add_parser("metrics")
     metrics.add_argument("--project", required=True)
     metrics.add_argument("--case")
@@ -294,6 +325,7 @@ def parser():
             a.add_argument("--request")
         if cmd in ("repair-export", "repair-submit"):
             a.add_argument("--node", required=True)
+            a.add_argument("--batch", help="修复的具体语义批次编号")
             if cmd == "repair-export":
                 a.add_argument("--out", required=True)
             else:
@@ -305,7 +337,7 @@ def parser():
             g.add_argument("--affected", action="store_true")
             a.add_argument("--plan-id")
             a.add_argument("--dry-run", action="store_true")
-            a.add_argument("--text", default="按已更新的模型配置重新执行当前节点")
+            a.add_argument("--text", default=None)
         if cmd == "configure":
             a.add_argument("--account")
             a.add_argument("--model")
@@ -457,7 +489,12 @@ def parser():
 
 def main(argv=None, client=None):
     args = parser().parse_args(argv)
-    api = client or API(args.server)
+    if args.local and client is None:
+        from scene_completion.application.local_workbench import LocalWorkbench
+
+        api = LocalWorkbench(args.data_dir, args.env_file)
+    else:
+        api = client or API(args.server)
     if args.command == "capabilities":
         output(capabilities())
         return 0
@@ -640,6 +677,20 @@ def main(argv=None, client=None):
             api.call(path + "/execution-control", {"action": args.action, "dry_run": args.dry_run})
         )
         return 0
+    if args.command == "results":
+        if args.case and args.analysis_scope not in {"all", "interaction"}:
+            raise ValueError("--case仅用于交互级结果")
+        endpoint = (
+            "results/" + urllib.parse.quote(args.case, safe="") + "/editor"
+            if args.case
+            else "ssd-results"
+            if args.analysis_scope == "interaction"
+            else "project-results"
+            if args.analysis_scope == "all"
+            else "project-results/" + args.analysis_scope + "/editor"
+        )
+        output(api.call(path + "/" + endpoint))
+        return 0
     if args.command == "metrics":
         query = urllib.parse.urlencode({"scope": args.scope, "test_set": args.test_set})
         endpoint = (
@@ -648,7 +699,13 @@ def main(argv=None, client=None):
         output(api.call(path + "/" + endpoint + "?" + query))
         return 0
     if args.command == "repair-export":
-        value = api.call(path + "/node-repair?" + urllib.parse.urlencode({"task_key": args.node}))
+        value = api.call(
+            path
+            + "/node-repair?"
+            + urllib.parse.urlencode(
+                {"task_key": args.node, **({"batch": args.batch} if args.batch else {})}
+            )
+        )
         target = Path(args.out)
         target.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
         output(
@@ -661,6 +718,8 @@ def main(argv=None, client=None):
         return 0
     if args.command == "repair-submit":
         value = json.loads(Path(args.file).read_text(encoding="utf-8-sig"))
+        if args.batch and value.get("batch") != args.batch:
+            raise ValueError("--batch与修复文件批次不一致")
         output(
             api.call(
                 path + "/node-repair",
@@ -1018,7 +1077,13 @@ def main(argv=None, client=None):
             scope["case_ids"] = []
         if args.priority_case is not None:
             scope["priority_cases"] = args.priority_case
-        value = api.call(path + "/run", scope)
+        if current["job"]["status"] == "running":
+            existing = current["job"].get("run_options", {})
+            if any(existing.get(k) != v for k, v in scope.items()):
+                raise ValueError("worker正在执行其他范围，请等待结束再调整运行范围")
+            value = {"status": "running", "project_id": rid, "attached": True}
+        else:
+            value = api.call(path + "/run", scope)
         output({"kind": "started", **value})
         prior = rid
         rid = value["project_id"]
@@ -1075,4 +1140,14 @@ def entry():
         return main()
     except (ValueError, OSError) as e:
         output({"error": str(e)})
+        return 2
+    except Exception as e:
+        output(
+            {
+                "state": "needs_agent",
+                "error_type": type(e).__name__,
+                "error": str(e),
+                "instruction": "修复CLI或应用导入/执行故障后重试；未覆盖任何正式结果",
+            }
+        )
         return 2

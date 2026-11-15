@@ -188,7 +188,10 @@ def _inspect(project, case):
     already_applied = any(x.get("id") == feedback_id for x in live.get("review_feedback", []))
     proposed_editable = {k: proposed.get(k) for k in EDITABLE - {"review_feedback"}}
     live_editable = {k: live.get(k) for k in EDITABLE - {"review_feedback"}}
-    if conflicts:
+    if already_applied:
+        status = "unchanged"
+        conflicts = []
+    elif conflicts:
         status = "conflict"
     elif already_applied or not changes or proposed_editable == live_editable:
         status = "unchanged"
@@ -217,6 +220,10 @@ def _summary(cases):
 
 
 def preview_feedback(project, content):
+    from scene_completion.review.offline import adoption
+
+    if adoption.accepts(content):
+        return adoption.feedback(project, content)
     payload = _parse(content)
     cases = []
     for case in payload["cases"]:
@@ -235,6 +242,10 @@ def preview_feedback(project, content):
 
 
 def apply_feedback(project, content, case_ids=None):
+    from scene_completion.review.offline import adoption
+
+    if adoption.accepts(content):
+        return adoption.feedback(project, content, apply=True, selected=case_ids)
     payload = _parse(content)
     selected = set(case_ids) if case_ids is not None else None
     cases = []

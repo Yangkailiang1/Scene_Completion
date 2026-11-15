@@ -1,4 +1,4 @@
-"""Local workbench CLI for humans and code agents. Start serve.py first."""
+"""Local workbench CLI for humans and code agents. Use --local without HTTP, or connect to serve.py."""
 
 import sys
 from pathlib import Path

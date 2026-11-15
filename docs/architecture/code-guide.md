@@ -18,6 +18,10 @@ flowchart TD
     App --> Revision[application/ssd_revision_service 修订与发布]
     Revision --> Domain
     Revision --> Repository[infrastructure/ssd_repository 持久化]
+    Project[workflow/project_scopes 项目范围编排] --> ProjectAnalysis[analysis/project_scopes 依赖与外部服务]
+    Project --> ProjectDomain[domain/project_scopes 校验、匹配、指标]
+    Project --> ProjectRepo[infrastructure/project_scope_repository 持久化]
+    Project --> Revision
     Offline[review/offline 离线HTML回收] --> Revision
 ```
 
@@ -27,7 +31,7 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 
 `serve.py → api/application.create_app → application/project_service.Workbench`装配本地服务。`scene.py → cli/main`使用相同公开能力。`application/execution.Execution`组织执行会话，`workflow/planning.build_pipeline`选择结构化输入或文档抽取路径。
 
-结构化输入由`workflow/ssd_pipeline.build_structured`按用例进入三个阶段。原始RR/SR文档通过`build_from_documents`获得抽取产物，再由`inputs/documents/ssd_adapter.normalize_extracted_case`转为共同用例结构；这是当前文档输入适配，不是旧协议执行。
+结构化输入由`workflow/ssd_pipeline.build_structured`按用例进入四个交互阶段，并在用例准备后由`workflow/project_scopes`注册业务链路和项目架构两个项目范围阶段。原始RR/SR文档通过`build_from_documents`获得抽取产物，再由`inputs/documents/ssd_adapter.normalize_extracted_case`转为共同用例结构；这是当前文档输入适配，不是旧协议执行。
 
 ## 目录职责
 
@@ -44,7 +48,9 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 | `compat/` | 显式保留的详细流程、独立旧格式与保存报告，见下节 |
 | `manager/` | 管理Agent、质量诊断与隔离补丁，仍遵守应用和领域边界 |
 | `api/`、`cli/` | HTTP与命令装配；公开URL和参数不因目录迁移改变 |
-| `infrastructure/` | 项目存储、事件、进程、资源定位及SSD仓储 |
+| `infrastructure/` | 项目存储、事件、进程、资源定位、SSD仓储及项目范围仓储 |
+
+`domain/concern_templates.py`维护三范围固定参考异常；`analysis/ssd/generation.py`负责 `ssd-generate` 的模型分析与补充校验；`analysis/project_scopes/`从正向材料构建紧凑用例投影、依赖边和外部服务，`domain/project_scopes/`负责项目范围校验、匹配和指标，`application/project_scope_service.py`与`project_scope_review.py`负责发布、修订和离线审核。
 
 ## 三种兼容职责
 
@@ -58,7 +64,7 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 
 ## 前端
 
-`frontend/src/app`装配项目、工作区及全局状态；`features`按功能拥有页面、API、类型和测试，`shared`只保留跨功能请求、类型与工具，`components/ui`保留基础组件。
+`frontend/src/app`装配项目、工作区及全局状态；`features`按功能拥有页面、API、类型和测试，`shared`只保留跨功能请求、类型与工具，`components/ui`保留基础组件。`features/results/project/`承载业务链路与项目架构的三方对照、依赖表、依赖图和分层指标。
 
 `features/results/ResultsView.tsx`只负责结果入口。`ssd/`包含三方编辑、步骤、修订、来源弹窗、离线回导和局部API/types；`saved/`保留历史及独立导入结果、范围和指标；`shared/`保存被结果页、输入页、节点页或审核页共同使用的产物/对照组件。Markdown阅读器继续由`features/sources`共享。
 

@@ -2,7 +2,12 @@
 
 import json
 
-from scene_completion.api import execution_routes, project_routes, result_routes
+from scene_completion.api import (
+    execution_routes,
+    project_routes,
+    project_scope_routes,
+    result_routes,
+)
 from scene_completion.application.project_service import Workbench as Workbench
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
 
@@ -14,13 +19,16 @@ def create_app(root=None, client_factory=None, env_file=None):
     from fastapi import FastAPI, Request
     from fastapi.responses import Response
     from fastapi.staticfiles import StaticFiles
+    from starlette.middleware.gzip import GZipMiddleware
 
     service = Workbench(root or PROJECT / ".workbench", client_factory, env_file)
     app = FastAPI(title="场景完整性审核")
+    app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=4)
     app.state.workbench = service
     project_routes.register(app, service)
     execution_routes.register(app, service)
     result_routes.register(app, service)
+    project_scope_routes.register(app, service)
 
     @app.middleware("http")
     async def local_write(request: Request, call_next):

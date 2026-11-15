@@ -1,8 +1,9 @@
+import { resultGet, invalidateResults } from "../shared/resultRequests";
 import { api, projectUrl } from "../../../shared/api";
 import type { Bundle } from "./types";
 
 export function getSsdResultIndex(project: string) {
-  return api(projectUrl(project, "ssd-results"));
+  return resultGet(project, "ssd-results");
 }
 
 export function getSsdEditor(
@@ -10,31 +11,36 @@ export function getSsdEditor(
   caseId: string,
   revision = "current",
 ) {
-  return api(
-    projectUrl(
-      project,
-      `results/${encodeURIComponent(caseId)}/editor${revision === "current" ? "" : `?revision=${encodeURIComponent(revision)}`}`,
-    ),
+  return resultGet(
+    project,
+    `results/${encodeURIComponent(caseId)}/editor${revision === "current" ? "" : `?revision=${encodeURIComponent(revision)}`}`,
   );
 }
 
-export function saveSsdRevision(
+export async function saveSsdRevision(
   project: string,
   caseId: string,
   body: { base_revision: number; bundle: Bundle; reason: string },
 ) {
-  return api(
+  const result = await api(
     projectUrl(project, `results/${encodeURIComponent(caseId)}/revisions`),
     {
       method: "POST",
       body: JSON.stringify(body),
     },
   );
+  invalidateResults(project);
+  return result;
 }
 
 export async function exportSsdReview(
   project: string,
-  selection: { case_ids?: string[]; record_ids?: string[] },
+  selection: {
+    case_ids?: string[];
+    record_ids?: string[];
+    scopes?: string[];
+    anchor_ids?: string[];
+  },
 ) {
   const response = await fetch(projectUrl(project, "ssd-review/export"), {
     method: "POST",
@@ -53,13 +59,22 @@ export function previewSsdReview(project: string, content: string) {
   });
 }
 
-export function applySsdReview(
+export async function applySsdReview(
   project: string,
   content: string,
-  caseIds: string[],
+  itemIds: string[],
 ) {
-  return api(projectUrl(project, "ssd-review/apply"), {
+  const result = await api(projectUrl(project, "ssd-review/apply"), {
     method: "POST",
-    body: JSON.stringify({ content, case_ids: caseIds }),
+    body: JSON.stringify({ content, item_ids: itemIds }),
+  });
+  invalidateResults(project);
+  return result;
+}
+
+export function getReviewSummary(project: string, body: object = {}) {
+  return api(projectUrl(project, "ssd-review/summary"), {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

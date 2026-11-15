@@ -14,7 +14,12 @@ TEMPLATE = r"""<!doctype html>
 'use strict';
 const state=JSON.parse(document.getElementById('ssd-review-data').textContent);
 const channelNames={G:'方法生成',E:'原文已有',GT:'测试逆向'};
-const targetNames={sender:'发送方',data:'数据',receiver:'接收方'};
+const targetNames={sender:'发送方',data:'数据',receiver:'接收方',dependency:'业务依赖',service:'外部服务'};
+const anchorId=r=>r.anchor_id||r.step_id;
+const anchorKey=entry=>entry.bundle.scope?'anchor_id':'step_id';
+const anchors=entry=>entry.bundle.anchors||entry.bundle.steps||[];
+const anchorLabel=a=>a.kind==='dependency'?(a.from_case_id+' → '+a.to_case_id+' · '+(a.relation_type==='cascade'?'级联依赖':'直接依赖')):(a.name||a.id);
+const sameBinding=(a,b)=>anchorId(a)===anchorId(b)&&a.target===b.target&&a.key===b.key&&(a.field_id||null)===(b.field_id||null)&&(a.entity_id||null)===(b.entity_id||null);
 const app=document.getElementById('app');
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function changed(){document.getElementById('save-status').textContent='有未导出的修改，请保存 HTML 或导出 JSON。';}
@@ -55,30 +60,30 @@ function field(parent,title,record,key,multiline=true){const label=el('label',ti
 function records(entry,row,channel){const name=row.level==='concern'?'concerns':'scenarios';const ids=new Set((row.cells[channel]||[]).map(r=>r.id));const data=entry.bundle.channels[channel];return[...(data[name]||[]),...(row.level==='scenario'?(data.pending||[]):[])].filter(r=>ids.has(r.id));}
 function pick(parent,title,values,current,change){const l=el('label',title),s=el('select');for(const[v,t]of[['','请选择'],...values]){const o=el('option',t);o.value=v;s.append(o);}s.value=current||'';s.onchange=()=>{change(s.value);changed();};l.append(s);parent.append(l);return s;}
 function pendingEditor(entry,row,channel,record,parent){
- const data=entry.bundle.channels[channel],steps=entry.bundle.steps||[],definitions=entry.bundle.registry?.definitions||{};
+ const data=entry.bundle.channels[channel],steps=anchors(entry),definitions=entry.bundle.registry?.definitions||{};
  const bindings=el('div');parent.append(bindings);
- pick(bindings,'归属交互',steps.map(s=>[s.id,s.id+' '+(s.sender?.name||'')+' → '+(s.receiver?.name||'')]),record.step_id,v=>{record.step_id=v;record.field_id=null;render();});
+ pick(bindings,'归属对象',steps.map(s=>[s.id,s.kind==='dependency'||s.kind==='service'?anchorLabel(s):s.id+' '+(s.sender?.name||'')+' → '+(s.receiver?.name||'')]),anchorId(record),v=>{record[anchorKey(entry)]=v;record.field_id=null;render();});
  pick(bindings,'交互对象',Object.entries(targetNames),record.target,v=>{record.target=v;render();});
- const step=steps.find(s=>s.id===record.step_id);
+ const step=steps.find(s=>s.id===anchorId(record));
  if(record.target==='data')pick(bindings,'字段（整体数据可留空）',(step?.data||[]).map(f=>[f.id,f.name]),record.field_id,v=>{record.field_id=v||null;});
  const options=Object.entries(definitions).map(([key,value])=>[key,value.label+' · '+key]);
  if(!options.length&&row.key)options.push([row.key,row.key]);
  pick(bindings,'关注点分类',options,record.key,v=>{record.key=v;});
  const b=el('button','确认为异常');b.onclick=()=>{
-  if(!steps.some(s=>s.id===record.step_id)||!targetNames[record.target]||!record.key||!record.condition?.trim()||!record.expected?.trim()){window.alert('请先补齐交互、对象、关注点分类、触发条件和预期结果。');return;}
-  let concern=data.concerns.find(c=>c.step_id===record.step_id&&c.target===record.target&&c.key===record.key&&(c.field_id||null)===(record.field_id||null));
-  if(!concern){concern={id:'manual-concern-'+record.id,step_id:record.step_id,target:record.target,key:record.key,label:definitions[record.key]?.label||record.key,condition:record.condition,field_id:record.field_id||null,status:'active',source_refs:record.source_refs||[]};data.concerns.push(concern);}
+  if(!steps.some(s=>s.id===anchorId(record))||!targetNames[record.target]||!record.key||!record.condition?.trim()||!record.expected?.trim()){window.alert('请先补齐交互、对象、关注点分类、触发条件和预期结果。');return;}
+  let concern=data.concerns.find(c=>sameBinding(c,record));
+  if(!concern){concern={id:'manual-concern-'+record.id,[anchorKey(entry)]:anchorId(record),target:record.target,key:record.key,label:definitions[record.key]?.label||record.key,condition:record.condition,field_id:record.field_id||null,status:'active',source_refs:record.source_refs||[]};data.concerns.push(concern);}
   else concern.status='active';
   record.concern_ids=[concern.id];record.status='active';delete record.binding_issue;
   data.pending=data.pending.filter(p=>p.id!==record.id);data.scenarios.push(record);
-  row.step_id=record.step_id;row.target=record.target;row.key=record.key;row.field_id=record.field_id;
+  row[anchorKey(entry)]=anchorId(record);row.target=record.target;row.key=record.key;row.field_id=record.field_id;
   changed();render();
  };bindings.append(b);
 }
 function newRecord(entry,row,channel){
  const id='manual-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
- const record={id,step_id:row.step_id,target:row.target,key:row.key,field_id:row.field_id||null,condition:'',status:'active',source_refs:[]};
- if(row.level==='concern')record.label=row.key;else{const data=entry.bundle.channels[channel];let concern=data.concerns.find(c=>c.step_id===row.step_id&&c.target===row.target&&c.key===row.key&&(c.field_id||null)===(row.field_id||null));if(!concern){concern={...record,id:'concern-'+id,label:entry.bundle.registry?.definitions?.[row.key]?.label||row.key};data.concerns.push(concern);}record.concern_ids=[concern.id];record.expected='';}
+ const record={id,[anchorKey(entry)]:anchorId(row),target:row.target,key:row.key,field_id:row.field_id||null,condition:'',status:'active',source_refs:[]};
+ if(row.level==='concern')record.label=row.key;else{const data=entry.bundle.channels[channel];let concern=data.concerns.find(c=>sameBinding(c,row));if(!concern){concern={...record,id:'concern-'+id,label:entry.bundle.registry?.definitions?.[row.key]?.label||row.key};data.concerns.push(concern);}record.concern_ids=[concern.id];record.expected='';}
  const collection=row.level==='concern'?'concerns':'scenarios';entry.bundle.channels[channel][collection].push(record);row.cells[channel].push(record);changed();render();
 }
 function judgments(entry,row,parent){
@@ -95,9 +100,9 @@ function judgments(entry,row,parent){
   }
  }
  if(row.level==='scenario'&&row.key){
-  const details=el('details');details.append(el('summary','关联同一交互关注点下的其他场景'));
+  const details=el('details');details.append(el('summary','关联同一对象关注点下的其他场景'));
   for(const[pair,left,right]of[['G_E','G','E'],['GT_G','GT','G'],['GT_E','GT','E']]){
-   const compatible=r=>r.status==='active'&&r.step_id===row.step_id&&r.target===row.target&&r.key===row.key&&(r.field_id||null)===(row.field_id||null);
+   const compatible=r=>r.status==='active'&&sameBinding(r,row);
    const a=(entry.bundle.channels[left].scenarios||[]).filter(compatible),b=(entry.bundle.channels[right].scenarios||[]).filter(compatible);
    if(!a.length||!b.length)continue;
    const box=el('div',undefined,'record'),draft={left:records(entry,row,left)[0]?.id,right:records(entry,row,right)[0]?.id,status:'',reason:''};
@@ -116,15 +121,15 @@ function judgments(entry,row,parent){
 function render(){
  app.replaceChildren();
  if(!state.cases.length){app.append(el('div','所选范围没有需要校对的差异记录。','empty'));return;}
- for(const entry of state.cases){const section=el('section',undefined,'case');section.append(el('h2',entry.name+' · '+entry.case_id),el('p','导出版本：'+entry.base_revision+' · '+entry.rows.length+' 行差异','muted'));
-  for(const row of entry.rows){const card=el('section',undefined,'row'),head=el('div',undefined,'row-head'),step=(entry.bundle.steps||[]).find(s=>s.id===row.step_id);
+ for(const entry of state.cases){const section=el('section',undefined,'case');section.append(el('h2',entry.name+' · '+(entry.case_id||entry.scope)),el('p','导出版本：'+entry.base_revision+' · '+entry.rows.length+' 行差异','muted'));
+  for(const row of entry.rows){const card=el('section',undefined,'row'),head=el('div',undefined,'row-head'),step=anchors(entry).find(s=>s.id===anchorId(row));
    head.append(el('h3',(row.level==='concern'?'关注点':'场景')+' · '+row.key+' · '+(targetNames[row.target]||row.target)+(row.field_id?' · '+row.field_id:'')));
-   head.append(el('div',step?step.id+'  '+(step.sender?.name||'')+' → '+(step.receiver?.name||'')+'  '+(step.operation?.name||''):row.step_id,'muted'));
+   head.append(el('div',step?(entry.bundle.scope?anchorLabel(step)+' · '+(step.condition||'')+' · '+(step.obligation||''):step.id+'  '+(step.sender?.name||'')+' → '+(step.receiver?.name||'')+'  '+(step.operation?.name||'')):anchorId(row),'muted'));
    head.append(el('div',row.reason||'三方记录存在差异','reason'));if(step)head.append(sources(entry,step));card.append(head);
    const grid=el('div',undefined,'channels');
    for(const channel of ['E','G','GT']){const col=el('div',undefined,'channel');col.append(el('h4',channelNames[channel]));const items=records(entry,row,channel);
     if(!items.length)col.append(el('p','此方暂无对应记录','muted'));
-    for(const record of items){const block=el('div',undefined,'record');block.append(el('div',record.id,'record-id'));if(row.level==='concern')field(block,'关注点名称',record,'label',false);field(block,'触发条件／内容',record,'condition');if(row.level==='scenario')field(block,'预期结果',record,'expected');
+    for(const record of items){const block=el('div',undefined,'record');block.append(el('div',record.id,'record-id'));if(row.level==='concern')field(block,'关注点名称',record,'label',false);field(block,'触发条件／内容',record,'condition');if(row.level==='scenario'){field(block,'预期结果',record,'expected');field(block,'具体业务分析',record,'analysis');}
      if((entry.bundle.channels[channel].pending||[]).some(r=>r.id===record.id)){block.append(el('p',record.reason||'待确认：补齐定位与分类后可确认为异常。','muted'));pendingEditor(entry,row,channel,record,block);}
      else{const l=el('label','记录状态'),select=el('select');[['active','参与匹配'],['pending','待修正'],['unbound','未绑定']].forEach(([v,t])=>{const o=el('option',t);o.value=v;select.append(o);});select.value=record.status||'active';select.onchange=()=>{record.status=select.value;changed();};l.append(select);block.append(l);}
      block.append(sources(entry,record));col.append(block);

@@ -6,7 +6,7 @@ import pytest
 from scene_completion.analysis.validation import validate_result
 from scene_completion.application.execution import Execution
 from scene_completion.domain.concern_registry import default_registry
-from scene_completion.domain.ssd_contracts import INSTRUCTIONS, packet
+from scene_completion.domain.ssd_contracts import instructions_for, packet
 from scene_completion.domain.task_catalog import role_for
 from scene_completion.models.clients.deepagents_client import DeepAgentsClient
 from scene_completion.workflow_core import TaskRejected
@@ -112,7 +112,7 @@ def test_ssd_deepagents_uses_own_role_and_source_contract(tmp_path, task, skill_
         transport=transport,
     )
     p = packet(task, resolve_input() if task == "ssd-resolve" else comparison_input(), ["UC-1"])
-    p["skill_text"] = INSTRUCTIONS + skill_suffix
+    p["skill_text"] = instructions_for(task) + skill_suffix
     original = deepcopy(p)
     assert client.agent(p)[next(iter(output))] == output[next(iter(output))]
     assert p == original
@@ -125,7 +125,7 @@ def test_ssd_deepagents_uses_own_role_and_source_contract(tmp_path, task, skill_
         for m in sent[0]["messages"]
         if m["role"] == "system"
     )
-    assert system.count(INSTRUCTIONS) == (2 if skill_suffix else 1)
+    assert system.count(instructions_for(task)) == (2 if skill_suffix else 1)
     if skill_suffix:
         assert skill_suffix in system
     else:

@@ -9,6 +9,12 @@ from pathlib import Path
 
 from scene_completion.infrastructure.identity import fingerprint
 
+SCOPES = {
+    "interaction": "交互级关注点",
+    "business_chain": "业务链路关注点",
+    "architecture": "项目架构关注点",
+}
+
 
 def validate_registry(value):
     if value.get("version") != "interaction-global-concerns-v5":
@@ -32,6 +38,8 @@ def validate_registry(value):
         d = definitions[key]
         if d["key"] != key:
             raise ValueError("concern ID/key mismatch")
+        if "scope" in d and d["scope"] not in SCOPES:
+            raise ValueError("unknown concern scope: " + str(d["scope"]))
         visiting.add(key)
         for parent in d["parents"]:
             visit(parent)
@@ -65,24 +73,34 @@ def default_registry():
     value = deepcopy(
         _parsed(Path(__file__).with_name("concern_registry.json").read_text(encoding="utf8"))
     )
-    # These archived interaction keys have moved to the global business-operation
-    # policy. Interpret that policy consistently without rewriting the user's JSON
-    # or manufacturing a registry migration/event on the first project read.
-    if value["definitions"].get("global.idempotency", {}).get("enabled", True):
-        for key in (
-            "service.resource_mutation.idempotency",
-            "service.crud.create.idempotency",
-            "service.crud.update.idempotency",
-            "service.crud.delete.idempotency",
-        ):
-            if key in value["definitions"]:
-                value["definitions"][key]["enabled"] = False
-        value["hash"] = fingerprint({k: v for k, v in value.items() if k != "hash"})
+    from scene_completion.domain.concern_templates import reference_catalog
+
+    value["reference_templates"] = reference_catalog()
+    value["scopes"] = deepcopy(SCOPES)
+    value["hash"] = fingerprint({k: v for k, v in value.items() if k != "hash"})
     return value
 
 
 def registry():
     return deepcopy(_active_registry.get() or default_registry())
+
+
+def upgrade_registry(value):
+    """Explicit adoption of current built-ins, retaining project-owned keys.
+
+    Callers must save this as a reviewed revision; reading a pinned snapshot
+    never calls this function or changes archived definitions.
+    """
+    result = default_registry()
+    for key, definition in value.get("definitions", {}).items():
+        if key not in result["definitions"]:
+            custom = deepcopy(definition)
+            custom.setdefault(
+                "scope", "business_chain" if custom.get("layer") == "global" else "interaction"
+            )
+            result["definitions"][key] = custom
+    result["hash"] = fingerprint({k: v for k, v in result.items() if k != "hash"})
+    return result
 
 
 @contextmanager
@@ -160,5 +178,6 @@ def active_registry_identity(value: dict) -> str:
             "definitions": definitions,
             "profiles": profiles(value["profiles"]),
             "framework_policies": value.get("framework_policies", {}),
+            "reference_templates": value.get("reference_templates", {}),
         }
     )

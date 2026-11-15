@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import { ConcernTree } from "./ConcernTree";
+import { scopeNames, type AnalysisScope } from "../results/project/types";
 const layers: Record<string, string> = {
   human: "人类Actor",
   base: "第一层：基础与业务实体属性",
@@ -80,6 +81,7 @@ export function ConcernManager({
     [form, setForm] = useState<any>(null),
     [query, setQuery] = useState(""),
     [layer, setLayer] = useState(""),
+    [scope, setScope] = useState<AnalysisScope>("interaction"),
     [showDeleted, setShowDeleted] = useState(false),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
@@ -101,6 +103,8 @@ export function ConcernManager({
     setSelected(key);
     setForm({
       ...d,
+      scope:
+        d.scope || (d.layer === "global" ? "business_chain" : "interaction"),
       parents: [...d.parents],
       operation_kinds: [...d.operation_kinds],
     });
@@ -112,11 +116,22 @@ export function ConcernManager({
       key: "custom." + Date.now().toString(36),
       label: "",
       description: "",
-      layer: "functional",
-      group: "query_retrieval",
+      scope,
+      layer:
+        scope === "business_chain"
+          ? "global"
+          : scope === "architecture"
+            ? "base"
+            : "functional",
+      group:
+        scope === "business_chain"
+          ? "business_dependency"
+          : scope === "architecture"
+            ? "service_base"
+            : "query_retrieval",
       parents: [],
       kind: "check",
-      guard: "business",
+      guard: scope === "architecture" ? null : "business",
       failure_family: null,
       operation_kinds: ["read"],
       technology: null,
@@ -164,6 +179,28 @@ export function ConcernManager({
     readOnly = view?.read_only;
   return (
     <div className="management-view concern-manager">
+      <div
+        className="results-area-nav view-segments"
+        role="tablist"
+        aria-label="关注点分析范围"
+      >
+        {(Object.keys(scopeNames) as AnalysisScope[]).map((value) => (
+          <button
+            role="tab"
+            key={value}
+            aria-selected={scope === value}
+            className={scope === value ? "active" : ""}
+            onClick={() => {
+              setScope(value);
+              setLayer("");
+              setSelected("");
+              setForm(null);
+            }}
+          >
+            {view?.presentation?.scopes?.[value] || scopeNames[value]}
+          </button>
+        ))}
+      </div>
       {notice && (
         <div role="status" className="management-notice">
           {notice}
@@ -240,6 +277,10 @@ export function ConcernManager({
               definitions={Object.entries(defs).filter(
                 ([, d]: any) =>
                   (showDeleted || d.enabled !== false) &&
+                  (d.scope ||
+                    (d.layer === "global"
+                      ? "business_chain"
+                      : "interaction")) === scope &&
                   (!layer || d.layer === layer),
               )}
             />
@@ -257,6 +298,44 @@ export function ConcernManager({
                   }}
                 >
                   <fieldset disabled={readOnly || busy}>
+                    <label>
+                      分析范围
+                      <select
+                        aria-label="关注点分析范围"
+                        disabled={!!selected}
+                        value={form.scope || scope}
+                        onChange={(event) => {
+                          const value = event.target.value as AnalysisScope;
+                          setScope(value);
+                          setForm({
+                            ...form,
+                            scope: value,
+                            layer:
+                              value === "business_chain"
+                                ? "global"
+                                : value === "architecture"
+                                  ? "base"
+                                  : "functional",
+                            group:
+                              value === "business_chain"
+                                ? "business_dependency"
+                                : value === "architecture"
+                                  ? "service_base"
+                                  : "query_retrieval",
+                            guard: value === "architecture" ? null : "business",
+                          });
+                        }}
+                      >
+                        {(Object.keys(scopeNames) as AnalysisScope[]).map(
+                          (value) => (
+                            <option key={value} value={value}>
+                              {view?.presentation?.scopes?.[value] ||
+                                scopeNames[value]}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
                     <label>
                       稳定ID
                       <input
@@ -292,6 +371,37 @@ export function ConcernManager({
                         placeholder="说明检查什么、不包含什么，以及适用条件"
                       />
                     </label>
+                    {view.registry.reference_templates?.by_key?.[form.key]
+                      ?.length > 0 && (
+                      <details>
+                        <summary>
+                          固定异常参考模板（
+                          {
+                            view.registry.reference_templates.by_key[form.key]
+                              .length
+                          }{" "}
+                          项）
+                        </summary>
+                        <p>
+                          各模板项独立保留；生成时可补充具体场景说明，不会替换固定失败条件。
+                        </p>
+                        {view.registry.reference_templates.by_key[form.key].map(
+                          (template: any) => (
+                            <article
+                              key={`${template.template_id}:${template.variant_id}`}
+                            >
+                              <strong>{template.label}</strong>
+                              <p>{template.condition}</p>
+                              <p>预期：{template.expected}</p>
+                              <small>
+                                {template.template_id} / {template.variant_id} ·{" "}
+                                {template.template_version}
+                              </small>
+                            </article>
+                          ),
+                        )}
+                      </details>
+                    )}
                     <div className="form-columns">
                       <label>
                         层级
@@ -384,9 +494,7 @@ export function ConcernManager({
                             setForm({ ...form, guard: e.target.value || null })
                           }
                         >
-                          <option value="">
-                            不限定类别（仍须正常规则依据）
-                          </option>
+                          <option value="">按所属范围的挂载规则</option>
                           {Object.entries(guards).map(([k, v]) => (
                             <option key={k} value={k}>
                               {v}

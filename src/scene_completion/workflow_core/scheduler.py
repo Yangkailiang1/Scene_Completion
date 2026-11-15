@@ -1,6 +1,7 @@
 """Run a dynamic task graph with bounded repair and durable task outcomes."""
 
 import time
+import traceback
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import nullcontext
 from contextvars import copy_context
@@ -318,6 +319,8 @@ class Scheduler:
                             ),
                         )
                         failure = rec["failure"]
+                        if not hasattr(e, "details"):
+                            failure["traceback"] = traceback.format_exc()
                         sig = fingerprint(
                             {
                                 k: v
@@ -329,6 +332,7 @@ class Scheduler:
                                     "path",
                                     "request_id",
                                     "at",
+                                    "traceback",
                                 }
                             }
                         )

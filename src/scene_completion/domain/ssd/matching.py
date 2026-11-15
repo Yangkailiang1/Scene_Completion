@@ -3,6 +3,8 @@
 import re
 import unicodedata
 
+from scene_completion.domain.scenario_conditions import disjoint
+
 PAIRS = {"G_E": ("G", "E"), "GT_G": ("GT", "G"), "GT_E": ("GT", "E")}
 
 
@@ -37,6 +39,7 @@ def semantic_candidates(bundle):
                 if (
                     left.get("status") == right.get("status") == "active"
                     and binding(left) == binding(right)
+                    and not disjoint(left.get("condition"), right.get("condition"))
                     and (left["id"], right["id"]) not in decided
                     and (_text(left.get("condition")), _text(left.get("expected")))
                     != (_text(right.get("condition")), _text(right.get("expected")))
@@ -88,6 +91,8 @@ def _edges(bundle, kind, units, aliases):
                 )
                 if exact:
                     matches[(x["id"], y["id"])] = "full"
+                elif disjoint(x.get("condition"), y.get("condition")):
+                    matches[(x["id"], y["id"])] = "none"
         for d in sorted(bundle.get("decisions", []), key=lambda d: d.get("origin") == "manual"):
             if d["level"] != level or d["pair"] != pair:
                 continue

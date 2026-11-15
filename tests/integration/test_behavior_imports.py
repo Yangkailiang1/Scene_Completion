@@ -362,7 +362,8 @@ def test_registered_tasks_receive_main_materials_but_not_exception_answers(tmp_p
         assert "E_ONLY" in str(branches.static)
         assert plan.scheduler.tasks["G-1:fused-ssd"].transform is None
         assert plan.scheduler.tasks["G-1:ssd-prepare"].transform is not None
-        assert plan.scheduler.tasks["G-1:ssd-compare"].deps == ["G-1:ssd-resolve"]
+        assert plan.scheduler.tasks["G-1:ssd-generate"].deps == ["G-1:ssd-resolve"]
+        assert plan.scheduler.tasks["G-1:ssd-compare"].deps == ["G-1:ssd-generate"]
     finally:
         service.pool.shutdown()
 

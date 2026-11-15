@@ -1,7 +1,9 @@
+import { invalidateResults } from "./features/results/shared/resultRequests";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
+  invalidateResults();
   localStorage.clear();
   sessionStorage.clear();
 });

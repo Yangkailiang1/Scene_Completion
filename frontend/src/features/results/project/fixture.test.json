@@ -1,0 +1,2359 @@
+{
+  "bundle": {
+    "version": "project-scope-v1",
+    "scope": { "id": "business_chain", "name": "业务链路" },
+    "anchors": [
+      {
+        "from_case_id": "C1",
+        "to_case_id": "C2",
+        "relation_type": "direct",
+        "condition": "商品创建完成",
+        "obligation": "创建后发布",
+        "entity_ids": ["Product"],
+        "kind": "dependency",
+        "source_refs": [
+          {
+            "document_id": "rr",
+            "start_line": 2,
+            "end_line": 2,
+            "quote": "创建商品完成后才能发布商品。",
+            "kind": "origin"
+          }
+        ],
+        "id": "dependency-ec975fd75a3eb2b153f1f424"
+      }
+    ],
+    "cases": [
+      { "id": "C1", "name": "创建商品" },
+      { "id": "C2", "name": "发布商品" }
+    ],
+    "channels": {
+      "G": {
+        "concerns": [
+          {
+            "id": "G-project-concern-c1de9acc4da7d2a4293fb6dc",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.call_order",
+            "entity_id": null,
+            "field_id": null,
+            "label": "调用顺序",
+            "condition": "调用顺序",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.call_order"
+          },
+          {
+            "id": "G-project-concern-f91ecaf842c14a811547e113",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.dependency_consistency",
+            "entity_id": null,
+            "field_id": null,
+            "label": "依赖一致性",
+            "condition": "依赖一致性",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.dependency_consistency"
+          },
+          {
+            "id": "G-project-concern-ec567e965f710c4613f3bfb2",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "service_relation.data_isolation",
+            "entity_id": null,
+            "field_id": null,
+            "label": "跨服务数据隔离",
+            "condition": "跨服务数据隔离",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:service_relation.data_isolation"
+          }
+        ],
+        "scenarios": [
+          {
+            "id": "G-project-scenario-6c687ba1986f6e1299c0fa13",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.call_order",
+            "entity_id": null,
+            "field_id": null,
+            "label": "前置未完成",
+            "condition": "前置操作未完成就执行后续操作",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.call_order",
+            "template_id": "global.call_order:unfinished_prerequisite",
+            "variant_id": "unfinished_prerequisite",
+            "template_version": "three-scope-reference-v1",
+            "generation_origin": "reference_template",
+            "expected": "先满足声明的前置操作条件",
+            "concern_ids": ["G-project-concern-c1de9acc4da7d2a4293fb6dc"]
+          },
+          {
+            "id": "G-project-scenario-771b3a07dab73eb810b1fc4c",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.call_order",
+            "entity_id": null,
+            "field_id": null,
+            "label": "调用顺序颠倒",
+            "condition": "实际调用颠倒了声明的业务依赖顺序",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.call_order",
+            "template_id": "global.call_order:reversed_order",
+            "variant_id": "reversed_order",
+            "template_version": "three-scope-reference-v1",
+            "generation_origin": "reference_template",
+            "expected": "遵循声明的依赖顺序",
+            "concern_ids": ["G-project-concern-c1de9acc4da7d2a4293fb6dc"]
+          },
+          {
+            "id": "G-project-scenario-281a17fa9feb6a175ee925f7",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.dependency_consistency",
+            "entity_id": null,
+            "field_id": null,
+            "label": "链路部分成功",
+            "condition": "业务链路一侧成功而关联侧失败",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.dependency_consistency",
+            "template_id": "global.dependency_consistency:one_sided_success",
+            "variant_id": "one_sided_success",
+            "template_version": "three-scope-reference-v1",
+            "generation_origin": "reference_template",
+            "expected": "保持关联操作结果一致",
+            "concern_ids": ["G-project-concern-f91ecaf842c14a811547e113"]
+          },
+          {
+            "id": "G-project-scenario-69a1160d403c288deca62085",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "global.dependency_consistency",
+            "entity_id": null,
+            "field_id": null,
+            "label": "链路版本不一致",
+            "condition": "上游修改成功而下游仍保留旧版本",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:global.dependency_consistency",
+            "template_id": "global.dependency_consistency:stale_dependency",
+            "variant_id": "stale_dependency",
+            "template_version": "three-scope-reference-v1",
+            "generation_origin": "reference_template",
+            "expected": "保持关联数据版本一致",
+            "concern_ids": ["G-project-concern-f91ecaf842c14a811547e113"]
+          },
+          {
+            "id": "G-project-scenario-7874634000450ffb68fe402c",
+            "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+            "target": "dependency",
+            "key": "service_relation.data_isolation",
+            "entity_id": null,
+            "field_id": null,
+            "label": "跨服务数据隔离",
+            "condition": "不同 service-id 或隔离域的业务链路访问了彼此的数据",
+            "status": "active",
+            "source_refs": [
+              {
+                "document_id": "rr",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "创建商品完成后才能发布商品。",
+                "kind": "origin"
+              }
+            ],
+            "rule_id": "project-mount-v1:service_relation.data_isolation",
+            "template_id": "service_relation.data_isolation:cross_service_data",
+            "variant_id": "cross_service_data",
+            "template_version": "three-scope-reference-v1",
+            "generation_origin": "reference_template",
+            "expected": "保持链路各环节的数据隔离",
+            "concern_ids": ["G-project-concern-ec567e965f710c4613f3bfb2"]
+          }
+        ],
+        "pending": []
+      },
+      "E": { "concerns": [], "scenarios": [], "pending": [] },
+      "GT": { "concerns": [], "scenarios": [], "pending": [] }
+    },
+    "documents": [
+      {
+        "id": "rr",
+        "name": "需求",
+        "role": "RR",
+        "content": "# 正常流程\n创建商品完成后才能发布商品。\n发布商品后通过外部通知服务通知商家。\n# 异常流程\nE_SECRET不得进入正向分析"
+      }
+    ],
+    "registry": {
+      "version": "interaction-global-concerns-v5",
+      "definitions": {
+        "service.base.availability": {
+          "key": "service.base.availability",
+          "label": "服务可用性",
+          "layer": "base",
+          "group": "service_base",
+          "parents": [],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "service.base.availability",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "项目架构范围内按实际依赖的外部服务去重检查可用性；交互仅提供调用与来源定位，不逐用例重复计分。",
+          "scope": "architecture"
+        },
+        "service.base.request_data": {
+          "key": "service.base.request_data",
+          "label": "输入数据关注点",
+          "layer": "base",
+          "group": "service_base",
+          "parents": [],
+          "guard": null,
+          "kind": "family",
+          "failure_family": "service.base.request_data",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "请求数据正确性",
+          "scope": "interaction"
+        },
+        "service.base.response_contract": {
+          "key": "service.base.response_contract",
+          "label": "输出数据关注点",
+          "layer": "base",
+          "group": "service_base",
+          "parents": [],
+          "guard": null,
+          "kind": "family",
+          "failure_family": "service.base.response_contract",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "返回契约与数据正确性",
+          "scope": "interaction"
+        },
+        "api.data.completeness": {
+          "key": "api.data.completeness",
+          "label": "数据完整性",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.completeness",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "必填数据缺失或请求体为空",
+          "scope": "interaction"
+        },
+        "api.data.format": {
+          "key": "api.data.format",
+          "label": "数据格式",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.format",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "数据不满足格式规范",
+          "scope": "interaction"
+        },
+        "api.data.length": {
+          "key": "api.data.length",
+          "label": "数据长度",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.length",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "字符串长度超过限制",
+          "scope": "interaction"
+        },
+        "api.data.range": {
+          "key": "api.data.range",
+          "label": "数据范围",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.range",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "数值不满足明确上下界，或取值不属于明示的允许枚举集合（离散取值范围）。不包含笼统的合法性判断。",
+          "scope": "interaction"
+        },
+        "api.data.size": {
+          "key": "api.data.size",
+          "label": "数据大小",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.size",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "文件或请求体超过限制",
+          "scope": "interaction"
+        },
+        "api.data.type": {
+          "key": "api.data.type",
+          "label": "数据类型",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": [
+            "service.base.request_data",
+            "service.base.response_contract"
+          ],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "api.data.type",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "数据类型与接口定义不符",
+          "scope": "interaction"
+        },
+        "service.display_interaction.display_correctness": {
+          "key": "service.display_interaction.display_correctness",
+          "label": "显示正确性",
+          "layer": "functional",
+          "group": "display_interaction",
+          "parents": [],
+          "guard": "result",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["display"],
+          "technology": null,
+          "description": "显示正确性",
+          "scope": "interaction"
+        },
+        "service.display_interaction.device_adaptation": {
+          "key": "service.display_interaction.device_adaptation",
+          "label": "设备适配性",
+          "layer": "functional",
+          "group": "display_interaction",
+          "parents": [],
+          "guard": "device",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["display"],
+          "technology": null,
+          "description": "设备适配性",
+          "scope": "interaction"
+        },
+        "service.query_retrieval.resource_existence": {
+          "key": "service.query_retrieval.resource_existence",
+          "label": "资源存在性",
+          "layer": "functional",
+          "group": "query_retrieval",
+          "parents": [],
+          "guard": "resource_lookup",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["read"],
+          "technology": null,
+          "description": "资源存在性",
+          "scope": "interaction"
+        },
+        "service.query_retrieval.data_visibility": {
+          "key": "service.query_retrieval.data_visibility",
+          "label": "数据可见性",
+          "layer": "functional",
+          "group": "query_retrieval",
+          "parents": [],
+          "guard": "authorization",
+          "kind": "check",
+          "failure_family": "service.base.authorization",
+          "operation_kinds": ["read"],
+          "technology": null,
+          "description": "数据可见性",
+          "scope": "interaction"
+        },
+        "service.resource_mutation.idempotency": {
+          "key": "service.resource_mutation.idempotency",
+          "label": "幂等性",
+          "layer": "functional",
+          "group": "resource_mutation",
+          "parents": [],
+          "guard": "idempotency",
+          "kind": "check",
+          "failure_family": "service.idempotency",
+          "operation_kinds": ["read", "update", "delete"],
+          "technology": null,
+          "description": "已由明确C/U/D定义替代；查询不强制挂载变更幂等性。",
+          "enabled": false,
+          "scope": "interaction"
+        },
+        "service.release_activation.prerequisite": {
+          "key": "service.release_activation.prerequisite",
+          "label": "发布前置条件",
+          "layer": "functional",
+          "group": "release_activation",
+          "parents": [],
+          "guard": "release",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["publish"],
+          "technology": null,
+          "description": "发布前置条件",
+          "scope": "interaction"
+        },
+        "service.release_activation.result_consistency": {
+          "key": "service.release_activation.result_consistency",
+          "label": "发布结果一致性",
+          "layer": "functional",
+          "group": "release_activation",
+          "parents": [],
+          "guard": "result",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["publish"],
+          "technology": null,
+          "description": "发布结果一致性",
+          "scope": "interaction"
+        },
+        "service.release_activation.failure_recovery": {
+          "key": "service.release_activation.failure_recovery",
+          "label": "失败恢复",
+          "layer": "functional",
+          "group": "release_activation",
+          "parents": [],
+          "guard": "recovery",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["publish"],
+          "technology": null,
+          "description": "失败恢复",
+          "scope": "interaction"
+        },
+        "database.uniqueness": {
+          "key": "database.uniqueness",
+          "label": "唯一性约束",
+          "layer": "technology",
+          "group": "database",
+          "parents": ["service.business_attribute_constraint"],
+          "guard": "unique",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["create", "update"],
+          "technology": "database",
+          "description": "唯一性约束",
+          "scope": "interaction"
+        },
+        "database.referential_integrity": {
+          "key": "database.referential_integrity",
+          "label": "关联一致性",
+          "layer": "technology",
+          "group": "database",
+          "parents": ["service.business_attribute_constraint"],
+          "guard": "reference",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": ["read", "create", "update", "delete"],
+          "technology": "database",
+          "description": "关联完整性",
+          "scope": "interaction"
+        },
+        "llm.grounding": {
+          "key": "llm.grounding",
+          "label": "语义正确性",
+          "layer": "technology",
+          "group": "llm",
+          "parents": [],
+          "guard": "grounding",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": [],
+          "technology": "llm",
+          "description": "输出语义、事实与本次任务要求及给定依据一致；具体正常要求需有来源。",
+          "scope": "interaction"
+        },
+        "llm.instruction_following": {
+          "key": "llm.instruction_following",
+          "label": "指令遵循",
+          "layer": "technology",
+          "group": "llm",
+          "parents": [],
+          "guard": "instruction",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": [],
+          "technology": "llm",
+          "description": "指令遵循",
+          "scope": "interaction"
+        },
+        "llm.context_sufficiency": {
+          "key": "llm.context_sufficiency",
+          "label": "上下文完整性",
+          "layer": "technology",
+          "group": "llm",
+          "parents": ["service.base.request_data"],
+          "guard": "context",
+          "kind": "check",
+          "failure_family": "service.base.request_data",
+          "operation_kinds": [],
+          "technology": "llm",
+          "description": "上下文充分性",
+          "scope": "interaction"
+        },
+        "llm.prompt_security": {
+          "key": "llm.prompt_security",
+          "label": "提示词安全",
+          "layer": "technology",
+          "group": "llm",
+          "parents": [],
+          "guard": "prompt_security",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": [],
+          "technology": "llm",
+          "description": "提示词安全",
+          "scope": "interaction"
+        },
+        "llm.output_stability": {
+          "key": "llm.output_stability",
+          "label": "输出稳定性",
+          "layer": "technology",
+          "group": "llm",
+          "parents": [],
+          "guard": "stability",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": [],
+          "technology": "llm",
+          "description": "输出稳定性",
+          "scope": "interaction"
+        },
+        "service_relation.cross_service_consistency": {
+          "key": "service_relation.cross_service_consistency",
+          "label": "跨服务数据一致性",
+          "layer": "relation",
+          "group": "service_relation",
+          "parents": [],
+          "guard": "relation",
+          "kind": "check",
+          "failure_family": "service.base.result_correctness",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "已统一到业务链路global.dependency_consistency；保留旧结果识别，避免同一链路重复计分。",
+          "scope": "business_chain",
+          "enabled": false
+        },
+        "human.authentication": {
+          "key": "human.authentication",
+          "label": "身份认证",
+          "layer": "human",
+          "group": "human",
+          "parents": [],
+          "guard": "authentication",
+          "kind": "check",
+          "failure_family": "service.base.authentication",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "调用方身份认证",
+          "scope": "interaction"
+        },
+        "service_relation.authentication": {
+          "key": "service_relation.authentication",
+          "label": "调用方身份认证",
+          "layer": "relation",
+          "group": "service_relation",
+          "parents": [],
+          "guard": "authentication",
+          "kind": "check",
+          "failure_family": "service.base.authentication",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "调用方身份认证",
+          "scope": "interaction"
+        },
+        "human.authorization": {
+          "key": "human.authorization",
+          "label": "权限控制",
+          "layer": "human",
+          "group": "human",
+          "parents": [],
+          "guard": "authorization",
+          "kind": "check",
+          "failure_family": "service.base.authorization",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "访问授权",
+          "scope": "interaction"
+        },
+        "service_relation.authorization": {
+          "key": "service_relation.authorization",
+          "label": "调用授权",
+          "layer": "relation",
+          "group": "service_relation",
+          "parents": [],
+          "guard": "authorization",
+          "kind": "check",
+          "failure_family": "service.base.authorization",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "访问授权",
+          "scope": "interaction"
+        },
+        "service.analysis_generation.execution_deadline": {
+          "key": "service.analysis_generation.execution_deadline",
+          "label": "执行时限",
+          "layer": "functional",
+          "group": "analysis_generation",
+          "parents": [],
+          "guard": "timing",
+          "kind": "check",
+          "failure_family": "execution_deadline",
+          "operation_kinds": ["process"],
+          "technology": null,
+          "description": "检查分析或生成操作的执行时限，不补造具体超时数值。",
+          "scope": "interaction"
+        },
+        "database.query_performance": {
+          "key": "database.query_performance",
+          "label": "查询性能",
+          "layer": "technology",
+          "group": "database",
+          "parents": [],
+          "guard": "timing",
+          "kind": "check",
+          "failure_family": "execution_deadline",
+          "operation_kinds": ["read"],
+          "technology": "database",
+          "description": "依据明确的查询时限或性能要求检查数据库查询是否按约定完成；不自行设定秒数，不与已停用的资源消耗混同。",
+          "scope": "interaction"
+        },
+        "service.business_attribute_constraint": {
+          "key": "service.business_attribute_constraint",
+          "label": "业务实体属性约束",
+          "layer": "base",
+          "group": "business_attribute",
+          "parents": [],
+          "guard": "business",
+          "kind": "check",
+          "failure_family": "service.business_attribute_constraint",
+          "operation_kinds": ["create", "read", "update", "delete"],
+          "technology": null,
+          "description": "实体属性的重名、状态不可修改、跨属性类型兼容等明示业务规则",
+          "scope": "interaction"
+        },
+        "service.crud.create.concurrency_consistency": {
+          "key": "service.crud.create.concurrency_consistency",
+          "label": "创建并发一致性",
+          "layer": "functional",
+          "group": "create",
+          "parents": [],
+          "guard": "concurrency",
+          "kind": "check",
+          "failure_family": "service.crud.create.concurrency_consistency",
+          "operation_kinds": ["create"],
+          "technology": null,
+          "description": "创建业务实体时的并发一致性",
+          "scope": "interaction"
+        },
+        "service.crud.create.idempotency": {
+          "key": "service.crud.create.idempotency",
+          "label": "创建幂等性",
+          "layer": "functional",
+          "group": "create",
+          "parents": [],
+          "guard": "idempotency",
+          "kind": "check",
+          "failure_family": "service.crud.create.idempotency",
+          "operation_kinds": ["create"],
+          "technology": null,
+          "description": "在当前实际业务操作的交互对象上检查重复请求是否产生额外业务影响；具体幂等键、隔离范围及重放返回按接口约定。",
+          "enabled": true,
+          "scope": "interaction"
+        },
+        "service.crud.create.resource_existence": {
+          "key": "service.crud.create.resource_existence",
+          "label": "创建对象资源存在性",
+          "layer": "functional",
+          "group": "create",
+          "parents": [],
+          "guard": "resource_lookup",
+          "kind": "check",
+          "failure_family": "service.crud.create.resource_existence",
+          "operation_kinds": ["create"],
+          "technology": null,
+          "description": "创建业务实体时的对象资源存在性",
+          "scope": "interaction"
+        },
+        "service.crud.update.concurrency_consistency": {
+          "key": "service.crud.update.concurrency_consistency",
+          "label": "更新并发一致性",
+          "layer": "functional",
+          "group": "update",
+          "parents": [],
+          "guard": "concurrency",
+          "kind": "check",
+          "failure_family": "service.crud.update.concurrency_consistency",
+          "operation_kinds": ["update"],
+          "technology": null,
+          "description": "更新业务实体时的并发一致性",
+          "scope": "interaction"
+        },
+        "service.crud.update.idempotency": {
+          "key": "service.crud.update.idempotency",
+          "label": "更新幂等性",
+          "layer": "functional",
+          "group": "update",
+          "parents": [],
+          "guard": "idempotency",
+          "kind": "check",
+          "failure_family": "service.crud.update.idempotency",
+          "operation_kinds": ["update"],
+          "technology": null,
+          "description": "在当前实际业务操作的交互对象上检查重复请求是否产生额外业务影响；具体幂等键、隔离范围及重放返回按接口约定。",
+          "enabled": true,
+          "scope": "interaction"
+        },
+        "service.crud.update.resource_existence": {
+          "key": "service.crud.update.resource_existence",
+          "label": "更新对象资源存在性",
+          "layer": "functional",
+          "group": "update",
+          "parents": [],
+          "guard": "resource_lookup",
+          "kind": "check",
+          "failure_family": "service.crud.update.resource_existence",
+          "operation_kinds": ["update"],
+          "technology": null,
+          "description": "更新业务实体时的对象资源存在性",
+          "scope": "interaction"
+        },
+        "service.crud.delete.concurrency_consistency": {
+          "key": "service.crud.delete.concurrency_consistency",
+          "label": "删除并发一致性",
+          "layer": "functional",
+          "group": "delete",
+          "parents": [],
+          "guard": "concurrency",
+          "kind": "check",
+          "failure_family": "service.crud.delete.concurrency_consistency",
+          "operation_kinds": ["delete"],
+          "technology": null,
+          "description": "删除业务实体时的并发一致性",
+          "scope": "interaction"
+        },
+        "service.crud.delete.idempotency": {
+          "key": "service.crud.delete.idempotency",
+          "label": "删除幂等性",
+          "layer": "functional",
+          "group": "delete",
+          "parents": [],
+          "guard": "idempotency",
+          "kind": "check",
+          "failure_family": "service.crud.delete.idempotency",
+          "operation_kinds": ["delete"],
+          "technology": null,
+          "description": "在当前实际业务操作的交互对象上检查重复请求是否产生额外业务影响；具体幂等键、隔离范围及重放返回按接口约定。",
+          "enabled": true,
+          "scope": "interaction"
+        },
+        "service.crud.delete.resource_existence": {
+          "key": "service.crud.delete.resource_existence",
+          "label": "删除对象资源存在性",
+          "layer": "functional",
+          "group": "delete",
+          "parents": [],
+          "guard": "resource_lookup",
+          "kind": "check",
+          "failure_family": "service.crud.delete.resource_existence",
+          "operation_kinds": ["delete"],
+          "technology": null,
+          "description": "删除业务实体时的对象资源存在性",
+          "scope": "interaction"
+        },
+        "service_relation.data_isolation": {
+          "key": "service_relation.data_isolation",
+          "label": "跨服务数据隔离",
+          "layer": "relation",
+          "group": "service_relation",
+          "parents": [],
+          "guard": "authorization",
+          "kind": "check",
+          "failure_family": "service_relation.data_isolation",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "service-id、租户或数据范围不得越界读取",
+          "scope": "business_chain"
+        },
+        "global.call_order": {
+          "key": "global.call_order",
+          "label": "调用顺序",
+          "layer": "global",
+          "group": "business_dependency",
+          "parents": [],
+          "guard": "business",
+          "kind": "check",
+          "failure_family": "global.call_order",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "跨用例前置或先后条件",
+          "scope": "business_chain"
+        },
+        "global.dependency_consistency": {
+          "key": "global.dependency_consistency",
+          "label": "依赖一致性",
+          "layer": "global",
+          "group": "business_dependency",
+          "parents": [],
+          "guard": "business",
+          "kind": "check",
+          "failure_family": "global.dependency_consistency",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "依赖实体存在、状态、版本或生效条件",
+          "scope": "business_chain"
+        },
+        "global.cascade_operation": {
+          "key": "global.cascade_operation",
+          "label": "级联操作",
+          "layer": "global",
+          "group": "business_dependency",
+          "parents": [],
+          "guard": "business",
+          "kind": "check",
+          "failure_family": "global.cascade_operation",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "明示级联组内独立清理义务",
+          "scope": "business_chain"
+        },
+        "api.data.validity": {
+          "key": "api.data.validity",
+          "label": "输入数据有效性",
+          "layer": "shared",
+          "group": "api_data",
+          "parents": ["service.base.request_data"],
+          "guard": "resource_lookup",
+          "kind": "check",
+          "failure_family": "api.data.validity",
+          "operation_kinds": [],
+          "technology": null,
+          "description": "输入字段引用的业务资源须在本次操作及归属范围中存在且有效。需要明确引用关系与有效性规则；不按Id字段名称推断，不与格式、枚举或笼统合法性混同；只检查请求方向。",
+          "scope": "interaction"
+        },
+        "database.special_characters": {
+          "key": "database.special_characters",
+          "label": "数据库特殊字符处理",
+          "layer": "technology",
+          "group": "database",
+          "parents": [],
+          "guard": "business",
+          "kind": "check",
+          "failure_family": "database.special_characters",
+          "operation_kinds": ["read", "create", "update", "delete"],
+          "technology": "database",
+          "description": "依据明确数据库/存储处理要求检查特殊字符、SQL或HTML注入及Unicode/emoji兼容。特殊字符本身不一定非法，不补造禁用字符集合；与接口格式约束独立定位，同一失败不重复计分。",
+          "scope": "interaction"
+        },
+        "database.storage_validity": {
+          "key": "database.storage_validity",
+          "label": "存储数据有效性",
+          "layer": "technology",
+          "group": "database",
+          "parents": [],
+          "guard": "storage_field",
+          "kind": "check",
+          "failure_family": "database.storage_validity",
+          "operation_kinds": ["read", "create", "update", "delete"],
+          "technology": "database",
+          "description": "依据明示存储Schema或存储内容规则检查实际存储记录缺少字段、类型或内容不满足要求。与输入/输出接口参数分开，不能将只读请求误判为写入失败；同一失败保留来源并去重。",
+          "scope": "interaction"
+        },
+        "global.idempotency": {
+          "key": "global.idempotency",
+          "label": "业务操作幂等性",
+          "layer": "global",
+          "group": "business_operation",
+          "parents": [],
+          "guard": null,
+          "kind": "check",
+          "failure_family": "global.idempotency",
+          "operation_kinds": ["create", "update", "delete"],
+          "technology": null,
+          "description": "已恢复到交互级各C/U/D操作；保留旧结果识别，不再作为新的全局计分项。",
+          "enabled": false,
+          "scope": "business_chain"
+        }
+      },
+      "profiles": {
+        "human": ["human.authentication", "human.authorization"],
+        "base": [
+          "service.base.request_data",
+          "service.base.response_contract",
+          "service.business_attribute_constraint"
+        ],
+        "functional": {
+          "display_interaction": [
+            "service.display_interaction.display_correctness",
+            "service.display_interaction.device_adaptation"
+          ],
+          "query_retrieval": [
+            "service.query_retrieval.resource_existence",
+            "service.query_retrieval.data_visibility"
+          ],
+          "resource_mutation": [],
+          "analysis_generation": [
+            "service.analysis_generation.execution_deadline"
+          ],
+          "release_activation": [
+            "service.release_activation.prerequisite",
+            "service.release_activation.result_consistency",
+            "service.release_activation.failure_recovery"
+          ],
+          "create": [
+            "service.crud.create.concurrency_consistency",
+            "service.crud.create.idempotency",
+            "service.crud.create.resource_existence"
+          ],
+          "update": [
+            "service.crud.update.concurrency_consistency",
+            "service.crud.update.idempotency",
+            "service.crud.update.resource_existence"
+          ],
+          "delete": [
+            "service.crud.delete.concurrency_consistency",
+            "service.crud.delete.idempotency",
+            "service.crud.delete.resource_existence"
+          ]
+        },
+        "technology": {
+          "database": [
+            "database.uniqueness",
+            "database.referential_integrity",
+            "database.query_performance",
+            "database.special_characters",
+            "database.storage_validity"
+          ],
+          "llm": [
+            "llm.grounding",
+            "llm.instruction_following",
+            "llm.context_sufficiency",
+            "llm.prompt_security",
+            "llm.output_stability"
+          ]
+        },
+        "conditional": [],
+        "relation": [
+          "service_relation.authentication",
+          "service_relation.authorization"
+        ],
+        "global": [],
+        "business_chain": [
+          "service_relation.data_isolation",
+          "global.call_order",
+          "global.dependency_consistency",
+          "global.cascade_operation"
+        ],
+        "architecture": ["service.base.availability"]
+      },
+      "hash": "31e91e8b4159217cc40c11c2785d79d6c24b83951307c2e2586e2205c2f32e11",
+      "taxonomy_note": "三范围：交互（数据、CRUD、业务与技术扩展）、业务链路（隔离、一致性、顺序、级联）、项目架构（外部服务可用性）。历史定义保留但不重复启用。",
+      "framework_policies": {
+        "sr_internal_rud_idempotency": {
+          "version": 1,
+          "policy_id": "sr-internal-rud-idempotency-v1",
+          "enabled": false,
+          "concern_key": "service.resource_mutation.idempotency",
+          "source": "user_confirmed"
+        },
+        "four_level_taxonomy_20261103": {
+          "version": 1,
+          "added_keys": [
+            "api.data.validity",
+            "database.special_characters",
+            "database.storage_validity"
+          ],
+          "retired_keys": ["service.analysis_generation.resource_consumption"],
+          "reason": "用户确认四层关注点与独立全局业务依赖；枚举仍归数据范围，数据合法性不恢复"
+        },
+        "three_scope_reference_20261113": {
+          "version": 1,
+          "template_version": "three-scope-reference-v1",
+          "scopes": ["interaction", "business_chain", "architecture"],
+          "source": "user_confirmed",
+          "idempotency": "interaction_crud",
+          "availability": "project_external_service"
+        }
+      },
+      "reference_templates": {
+        "version": "three-scope-reference-v1",
+        "by_key": {
+          "human.authentication": [
+            {
+              "template_id": "human.authentication:missing_credential",
+              "variant_id": "missing_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "无凭证访问",
+              "condition": "调用时未提供身份凭证",
+              "expected": "拒绝未认证调用"
+            },
+            {
+              "template_id": "human.authentication:malformed_credential",
+              "variant_id": "malformed_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "无效格式凭证",
+              "condition": "身份凭证格式不符合认证协议",
+              "expected": "拒绝格式无效的凭证"
+            },
+            {
+              "template_id": "human.authentication:empty_credential",
+              "variant_id": "empty_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "空凭证访问",
+              "condition": "已提供凭证字段但其内容为空",
+              "expected": "拒绝空凭证"
+            },
+            {
+              "template_id": "human.authentication:invalid_token",
+              "variant_id": "invalid_token",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "Token 无效",
+              "condition": "Token 格式有效但身份认证校验不通过",
+              "expected": "拒绝无效 Token"
+            },
+            {
+              "template_id": "human.authentication:expired_token",
+              "variant_id": "expired_token",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "Token 过期",
+              "condition": "Token 已过期",
+              "expected": "拒绝过期 Token"
+            }
+          ],
+          "service_relation.authentication": [
+            {
+              "template_id": "service_relation.authentication:missing_credential",
+              "variant_id": "missing_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "无凭证访问",
+              "condition": "调用时未提供身份凭证",
+              "expected": "拒绝未认证调用"
+            },
+            {
+              "template_id": "service_relation.authentication:malformed_credential",
+              "variant_id": "malformed_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "无效格式凭证",
+              "condition": "身份凭证格式不符合认证协议",
+              "expected": "拒绝格式无效的凭证"
+            },
+            {
+              "template_id": "service_relation.authentication:empty_credential",
+              "variant_id": "empty_credential",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "空凭证访问",
+              "condition": "已提供凭证字段但其内容为空",
+              "expected": "拒绝空凭证"
+            },
+            {
+              "template_id": "service_relation.authentication:invalid_token",
+              "variant_id": "invalid_token",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "Token 无效",
+              "condition": "Token 格式有效但身份认证校验不通过",
+              "expected": "拒绝无效 Token"
+            },
+            {
+              "template_id": "service_relation.authentication:expired_token",
+              "variant_id": "expired_token",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "Token 过期",
+              "condition": "Token 已过期",
+              "expected": "拒绝过期 Token"
+            }
+          ],
+          "human.authorization": [
+            {
+              "template_id": "human.authorization:horizontal_escalation",
+              "variant_id": "horizontal_escalation",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "水平越权",
+              "condition": "调用方访问属于其他用户或隔离域的资源",
+              "expected": "拒绝越权访问"
+            },
+            {
+              "template_id": "human.authorization:vertical_escalation",
+              "variant_id": "vertical_escalation",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "垂直越权",
+              "condition": "调用方执行超出其角色权限的操作",
+              "expected": "拒绝越权操作"
+            }
+          ],
+          "service_relation.authorization": [
+            {
+              "template_id": "service_relation.authorization:horizontal_escalation",
+              "variant_id": "horizontal_escalation",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "水平越权",
+              "condition": "调用方访问属于其他用户或隔离域的资源",
+              "expected": "拒绝越权访问"
+            },
+            {
+              "template_id": "service_relation.authorization:vertical_escalation",
+              "variant_id": "vertical_escalation",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "垂直越权",
+              "condition": "调用方执行超出其角色权限的操作",
+              "expected": "拒绝越权操作"
+            }
+          ],
+          "api.data.completeness": [
+            {
+              "template_id": "api.data.completeness:missing_required",
+              "variant_id": "missing_required",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "必填数据缺失",
+              "condition": "必填数据未提供",
+              "expected": "拒绝不完整的输入或识别不完整的返回"
+            },
+            {
+              "template_id": "api.data.completeness:empty_body",
+              "variant_id": "empty_body",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "请求体为空",
+              "condition": "要求请求体的调用未提供请求体内容",
+              "expected": "拒绝空请求体"
+            }
+          ],
+          "api.data.type": [
+            {
+              "template_id": "api.data.type:wrong_type",
+              "variant_id": "wrong_type",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据类型不符",
+              "condition": "字段类型与接口定义不符",
+              "expected": "识别类型不匹配"
+            }
+          ],
+          "api.data.format": [
+            {
+              "template_id": "api.data.format:invalid_format",
+              "variant_id": "invalid_format",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据格式不符",
+              "condition": "字段不满足声明的格式规范",
+              "expected": "识别格式不匹配"
+            }
+          ],
+          "api.data.length": [
+            {
+              "template_id": "api.data.length:invalid_length",
+              "variant_id": "invalid_length",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据长度越界",
+              "condition": "字段长度超出声明的范围",
+              "expected": "识别长度越界"
+            }
+          ],
+          "api.data.size": [
+            {
+              "template_id": "api.data.size:oversized_payload",
+              "variant_id": "oversized_payload",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据大小超限",
+              "condition": "文件或请求体超过声明的大小限制",
+              "expected": "识别大小超限"
+            }
+          ],
+          "api.data.range": [
+            {
+              "template_id": "api.data.range:outside_range",
+              "variant_id": "outside_range",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据范围越界",
+              "condition": "字段超出声明的范围或允许枚举",
+              "expected": "识别范围越界"
+            }
+          ],
+          "api.data.validity": [
+            {
+              "template_id": "api.data.validity:missing_reference",
+              "variant_id": "missing_reference",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "引用资源不存在",
+              "condition": "输入字段引用的业务资源不存在",
+              "expected": "拒绝无效资源引用"
+            },
+            {
+              "template_id": "api.data.validity:deleted_reference",
+              "variant_id": "deleted_reference",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "引用资源已删除",
+              "condition": "输入字段仍引用已删除的业务资源",
+              "expected": "拒绝失效资源引用"
+            }
+          ],
+          "service.business_attribute_constraint": [
+            {
+              "template_id": "service.business_attribute_constraint:duplicate_value",
+              "variant_id": "duplicate_value",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "字段唯一约束",
+              "condition": "字段值违反所属业务范围内的唯一约束",
+              "expected": "拒绝冲突的业务变更"
+            },
+            {
+              "template_id": "service.business_attribute_constraint:immutable_attribute",
+              "variant_id": "immutable_attribute",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "字段不可修改",
+              "condition": "操作改变了不允许修改的实体属性",
+              "expected": "拒绝不允许的属性变更"
+            },
+            {
+              "template_id": "service.business_attribute_constraint:attribute_combination",
+              "variant_id": "attribute_combination",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "字段组合约束",
+              "condition": "实体属性组合违反业务规则",
+              "expected": "拒绝不满足规则的业务变更"
+            }
+          ],
+          "service.query_retrieval.resource_existence": [
+            {
+              "template_id": "service.query_retrieval.resource_existence:missing_resource",
+              "variant_id": "missing_resource",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "资源不存在",
+              "condition": "查询指定的业务资源不存在",
+              "expected": "按接口约定处理不存在的资源"
+            }
+          ],
+          "service.query_retrieval.data_visibility": [
+            {
+              "template_id": "service.query_retrieval.data_visibility:invisible_resource",
+              "variant_id": "invisible_resource",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "数据不可见",
+              "condition": "查询返回了当前调用方不可见的数据",
+              "expected": "返回结果遵守当前调用方的数据可见范围"
+            }
+          ],
+          "service.display_interaction.display_correctness": [
+            {
+              "template_id": "service.display_interaction.display_correctness:truncated_content",
+              "variant_id": "truncated_content",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "内容截断",
+              "condition": "界面内容被错误截断",
+              "expected": "按显示要求完整呈现内容"
+            },
+            {
+              "template_id": "service.display_interaction.display_correctness:incorrect_effect",
+              "variant_id": "incorrect_effect",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "显示效果错误",
+              "condition": "界面效果或呈现结果与显示要求不符",
+              "expected": "按显示要求正确呈现"
+            }
+          ],
+          "service.display_interaction.device_adaptation": [
+            {
+              "template_id": "service.display_interaction.device_adaptation:orientation_layout",
+              "variant_id": "orientation_layout",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "设备布局异常",
+              "condition": "设备或横竖屏变化导致布局错乱",
+              "expected": "保持适用设备下的正确布局"
+            }
+          ],
+          "service.analysis_generation.execution_deadline": [
+            {
+              "template_id": "service.analysis_generation.execution_deadline:execution_timeout",
+              "variant_id": "execution_timeout",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "执行超时",
+              "condition": "分析或生成操作未在适用的执行时限内完成",
+              "expected": "按执行时限要求处理超时"
+            }
+          ],
+          "service.release_activation.prerequisite": [
+            {
+              "template_id": "service.release_activation.prerequisite:incomplete_configuration",
+              "variant_id": "incomplete_configuration",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "发布前置条件不满足",
+              "condition": "发布所需配置或业务前置条件不完整",
+              "expected": "阻止不满足前置条件的发布"
+            }
+          ],
+          "service.release_activation.result_consistency": [
+            {
+              "template_id": "service.release_activation.result_consistency:stale_release",
+              "variant_id": "stale_release",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "发布结果未更新",
+              "condition": "配置变更后生效内容仍为旧版本",
+              "expected": "生效内容与应发布的配置保持一致"
+            }
+          ],
+          "service.release_activation.failure_recovery": [
+            {
+              "template_id": "service.release_activation.failure_recovery:partial_release_remains",
+              "variant_id": "partial_release_remains",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "发布失败残留",
+              "condition": "发布失败后遗留部分生效配置",
+              "expected": "失败后恢复到约定的一致状态"
+            }
+          ],
+          "database.uniqueness": [
+            {
+              "template_id": "database.uniqueness:unique_conflict",
+              "variant_id": "unique_conflict",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "名称或唯一键冲突",
+              "condition": "同一唯一约束范围内写入重复名称或唯一键",
+              "expected": "保持数据库唯一约束"
+            }
+          ],
+          "database.referential_integrity": [
+            {
+              "template_id": "database.referential_integrity:orphaned_child",
+              "variant_id": "orphaned_child",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "关联对象残留",
+              "condition": "父对象删除后子对象关联残留或失效",
+              "expected": "保持声明的关联完整性"
+            }
+          ],
+          "database.query_performance": [
+            {
+              "template_id": "database.query_performance:query_timeout",
+              "variant_id": "query_timeout",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "查询超时",
+              "condition": "数据库查询未满足适用的查询时限",
+              "expected": "按性能要求处理超时"
+            }
+          ],
+          "database.special_characters": [
+            {
+              "template_id": "database.special_characters:sql_injection",
+              "variant_id": "sql_injection",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "SQL 注入",
+              "condition": "数据中的 SQL 片段被错误当作可执行语句",
+              "expected": "数据内容不得改变数据库执行语义"
+            },
+            {
+              "template_id": "database.special_characters:html_injection",
+              "variant_id": "html_injection",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "HTML 注入",
+              "condition": "存储的 HTML 内容在后续处理中被错误解释执行",
+              "expected": "按约定安全处理 HTML 内容"
+            },
+            {
+              "template_id": "database.special_characters:wide_characters",
+              "variant_id": "wide_characters",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "宽字符处理异常",
+              "condition": "宽字符在存储或查询中被错误处理",
+              "expected": "按字段约定保留并处理宽字符"
+            },
+            {
+              "template_id": "database.special_characters:emoji_characters",
+              "variant_id": "emoji_characters",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "emoji 处理异常",
+              "condition": "emoji 在存储或查询中被错误处理",
+              "expected": "按字段约定保留并处理 emoji"
+            }
+          ],
+          "database.storage_validity": [
+            {
+              "template_id": "database.storage_validity:stored_missing_field",
+              "variant_id": "stored_missing_field",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "存量记录缺字段",
+              "condition": "存量记录缺少存储模型要求的字段",
+              "expected": "识别并按约定处理不完整记录"
+            },
+            {
+              "template_id": "database.storage_validity:stored_invalid_content",
+              "variant_id": "stored_invalid_content",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "存量内容不符",
+              "condition": "存量记录内容不满足存储模型要求",
+              "expected": "识别并按约定处理无效记录"
+            }
+          ],
+          "llm.grounding": [
+            {
+              "template_id": "llm.grounding:fabricated_fact",
+              "variant_id": "fabricated_fact",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "幻觉或事实错误",
+              "condition": "生成了与给定事实依据不符的内容",
+              "expected": "输出遵循给定事实依据"
+            },
+            {
+              "template_id": "llm.grounding:task_semantic_mismatch",
+              "variant_id": "task_semantic_mismatch",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "任务语义不符",
+              "condition": "生成结果不符合本次任务要求",
+              "expected": "生成符合任务语义的结果"
+            }
+          ],
+          "llm.instruction_following": [
+            {
+              "template_id": "llm.instruction_following:ignored_constraint",
+              "variant_id": "ignored_constraint",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "忽略任务约束",
+              "condition": "生成过程忽略了任务中明确的约束",
+              "expected": "遵守任务约束"
+            },
+            {
+              "template_id": "llm.instruction_following:omitted_step",
+              "variant_id": "omitted_step",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "遗漏必要步骤",
+              "condition": "生成过程遗漏任务要求的必要步骤",
+              "expected": "完成必要步骤"
+            },
+            {
+              "template_id": "llm.instruction_following:wrong_task",
+              "variant_id": "wrong_task",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "执行不符任务",
+              "condition": "执行了与明确指令不符的任务",
+              "expected": "遵循任务指令"
+            }
+          ],
+          "llm.prompt_security": [
+            {
+              "template_id": "llm.prompt_security:prompt_injection",
+              "variant_id": "prompt_injection",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "提示词注入",
+              "condition": "输入中的指令企图改变可信任务指令",
+              "expected": "不将不可信输入提升为控制指令"
+            },
+            {
+              "template_id": "llm.prompt_security:instruction_escalation",
+              "variant_id": "instruction_escalation",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "指令越权",
+              "condition": "输入诱导模型执行超出授权范围的操作",
+              "expected": "保持任务授权边界"
+            },
+            {
+              "template_id": "llm.prompt_security:system_prompt_leak",
+              "variant_id": "system_prompt_leak",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "系统提示词泄露",
+              "condition": "输入诱导模型泄露系统提示词或内部信息",
+              "expected": "不泄露受保护的内部信息"
+            }
+          ],
+          "llm.context_sufficiency": [
+            {
+              "template_id": "llm.context_sufficiency:context_limit",
+              "variant_id": "context_limit",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "上下文超限",
+              "condition": "任务上下文超过可用容量",
+              "expected": "按约定处理上下文容量限制"
+            },
+            {
+              "template_id": "llm.context_sufficiency:truncated_context",
+              "variant_id": "truncated_context",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "上下文截断",
+              "condition": "任务所需内容在传递时被截断",
+              "expected": "保持任务所需上下文完整"
+            },
+            {
+              "template_id": "llm.context_sufficiency:lost_history",
+              "variant_id": "lost_history",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "历史信息丢失",
+              "condition": "关键历史要求在后续处理时丢失",
+              "expected": "保留任务所需历史信息"
+            }
+          ],
+          "llm.output_stability": [
+            {
+              "template_id": "llm.output_stability:inconsistent_repetition",
+              "variant_id": "inconsistent_repetition",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "相同条件结果不一致",
+              "condition": "相同输入及条件产生互相不一致的结果",
+              "expected": "满足约定的重复执行稳定性"
+            },
+            {
+              "template_id": "llm.output_stability:changed_judgment",
+              "variant_id": "changed_judgment",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "关键判断变化",
+              "condition": "相同依据下关键判断发生矛盾变化",
+              "expected": "关键判断保持约定的一致性"
+            }
+          ],
+          "service_relation.data_isolation": [
+            {
+              "template_id": "service_relation.data_isolation:cross_service_data",
+              "variant_id": "cross_service_data",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "跨服务数据隔离",
+              "condition": "不同 service-id 或隔离域的业务链路访问了彼此的数据",
+              "expected": "保持链路各环节的数据隔离"
+            }
+          ],
+          "global.dependency_consistency": [
+            {
+              "template_id": "global.dependency_consistency:one_sided_success",
+              "variant_id": "one_sided_success",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "链路部分成功",
+              "condition": "业务链路一侧成功而关联侧失败",
+              "expected": "保持关联操作结果一致"
+            },
+            {
+              "template_id": "global.dependency_consistency:stale_dependency",
+              "variant_id": "stale_dependency",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "链路版本不一致",
+              "condition": "上游修改成功而下游仍保留旧版本",
+              "expected": "保持关联数据版本一致"
+            }
+          ],
+          "global.call_order": [
+            {
+              "template_id": "global.call_order:unfinished_prerequisite",
+              "variant_id": "unfinished_prerequisite",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "前置未完成",
+              "condition": "前置操作未完成就执行后续操作",
+              "expected": "先满足声明的前置操作条件"
+            },
+            {
+              "template_id": "global.call_order:reversed_order",
+              "variant_id": "reversed_order",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "调用顺序颠倒",
+              "condition": "实际调用颠倒了声明的业务依赖顺序",
+              "expected": "遵循声明的依赖顺序"
+            }
+          ],
+          "global.cascade_operation": [
+            {
+              "template_id": "global.cascade_operation:missed_cascade",
+              "variant_id": "missed_cascade",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "级联漏操作",
+              "condition": "主操作完成后遗漏应级联的对象操作",
+              "expected": "完成声明的级联义务"
+            },
+            {
+              "template_id": "global.cascade_operation:wrong_cascade",
+              "variant_id": "wrong_cascade",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "级联误操作",
+              "condition": "级联操作影响了不应处理的对象",
+              "expected": "只处理声明范围内的关联对象"
+            },
+            {
+              "template_id": "global.cascade_operation:failed_cascade",
+              "variant_id": "failed_cascade",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "级联失败",
+              "condition": "应执行的级联操作未成功完成",
+              "expected": "按约定处理级联失败"
+            }
+          ],
+          "service.base.availability": [
+            {
+              "template_id": "service.base.availability:service_unavailable",
+              "variant_id": "service_unavailable",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "外部服务不可用",
+              "condition": "依赖的外部服务不可达或无法提供服务",
+              "expected": "识别并按约定处理外部服务不可用"
+            }
+          ],
+          "service.crud.create.concurrency_consistency": [
+            {
+              "template_id": "service.crud.create.concurrency_consistency:concurrent_conflict",
+              "variant_id": "concurrent_conflict",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发操作冲突",
+              "condition": "并发创建导致业务对象结果冲突",
+              "expected": "保持并发执行的一致性"
+            },
+            {
+              "template_id": "service.crud.create.concurrency_consistency:concurrent_deletion",
+              "variant_id": "concurrent_deletion",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发删除冲突",
+              "condition": "创建过程中关联业务资源被并发删除",
+              "expected": "按约定处理并发删除冲突"
+            }
+          ],
+          "service.crud.create.idempotency": [
+            {
+              "template_id": "service.crud.create.idempotency:repeated_effect",
+              "variant_id": "repeated_effect",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "重复请求异常",
+              "condition": "相同业务创建请求重复执行产生额外业务影响",
+              "expected": "重复执行不产生额外业务影响"
+            }
+          ],
+          "service.crud.create.resource_existence": [
+            {
+              "template_id": "service.crud.create.resource_existence:missing_resource",
+              "variant_id": "missing_resource",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "对象资源不存在",
+              "condition": "创建所依赖或操作的业务资源不存在",
+              "expected": "按约定处理不存在的业务资源"
+            }
+          ],
+          "service.crud.update.concurrency_consistency": [
+            {
+              "template_id": "service.crud.update.concurrency_consistency:concurrent_conflict",
+              "variant_id": "concurrent_conflict",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发操作冲突",
+              "condition": "并发更新导致业务对象结果冲突",
+              "expected": "保持并发执行的一致性"
+            },
+            {
+              "template_id": "service.crud.update.concurrency_consistency:concurrent_deletion",
+              "variant_id": "concurrent_deletion",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发删除冲突",
+              "condition": "更新过程中关联业务资源被并发删除",
+              "expected": "按约定处理并发删除冲突"
+            }
+          ],
+          "service.crud.update.idempotency": [
+            {
+              "template_id": "service.crud.update.idempotency:repeated_effect",
+              "variant_id": "repeated_effect",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "重复请求异常",
+              "condition": "相同业务更新请求重复执行产生额外业务影响",
+              "expected": "重复执行不产生额外业务影响"
+            }
+          ],
+          "service.crud.update.resource_existence": [
+            {
+              "template_id": "service.crud.update.resource_existence:missing_resource",
+              "variant_id": "missing_resource",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "对象资源不存在",
+              "condition": "更新所依赖或操作的业务资源不存在",
+              "expected": "按约定处理不存在的业务资源"
+            }
+          ],
+          "service.crud.delete.concurrency_consistency": [
+            {
+              "template_id": "service.crud.delete.concurrency_consistency:concurrent_conflict",
+              "variant_id": "concurrent_conflict",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发操作冲突",
+              "condition": "并发删除导致业务对象结果冲突",
+              "expected": "保持并发执行的一致性"
+            },
+            {
+              "template_id": "service.crud.delete.concurrency_consistency:concurrent_deletion",
+              "variant_id": "concurrent_deletion",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "并发删除冲突",
+              "condition": "删除过程中关联业务资源被并发删除",
+              "expected": "按约定处理并发删除冲突"
+            }
+          ],
+          "service.crud.delete.idempotency": [
+            {
+              "template_id": "service.crud.delete.idempotency:repeated_effect",
+              "variant_id": "repeated_effect",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "重复请求异常",
+              "condition": "相同业务删除请求重复执行产生额外业务影响",
+              "expected": "重复执行不产生额外业务影响"
+            }
+          ],
+          "service.crud.delete.resource_existence": [
+            {
+              "template_id": "service.crud.delete.resource_existence:missing_resource",
+              "variant_id": "missing_resource",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "label": "对象资源不存在",
+              "condition": "删除所依赖或操作的业务资源不存在",
+              "expected": "按约定处理不存在的业务资源"
+            }
+          ]
+        }
+      },
+      "scopes": {
+        "interaction": "交互级关注点",
+        "business_chain": "业务链路关注点",
+        "architecture": "项目架构关注点"
+      }
+    },
+    "decisions": [],
+    "pending": [],
+    "positive_cases": [
+      {
+        "case": { "id": "C1", "name": "创建商品" },
+        "steps": [],
+        "apis": [],
+        "entities": [{ "id": "Product", "name": "商品", "attributes": [] }]
+      },
+      {
+        "case": { "id": "C2", "name": "发布商品" },
+        "steps": [],
+        "apis": [],
+        "entities": [{ "id": "Product", "name": "商品", "attributes": [] }]
+      }
+    ],
+    "source_records": {
+      "E": [
+        {
+          "id": "C1:EC1",
+          "original_id": "EC1",
+          "case_id": "C1",
+          "declared_scope": "business_chain",
+          "declared_key": "global.call_order",
+          "condition": "E_SECRET:尚未创建商品就发布",
+          "expected": "拒绝发布",
+          "source_refs": [
+            {
+              "document_id": "E",
+              "quote": "E_SECRET",
+              "start_line": 1,
+              "end_line": 1,
+              "kind": "origin"
+            }
+          ]
+        },
+        {
+          "id": "C2:EC2",
+          "original_id": "EC2",
+          "case_id": "C2",
+          "declared_scope": "business_chain",
+          "declared_key": "global.call_order",
+          "condition": "E_SECRET:尚未创建商品就发布",
+          "expected": "拒绝发布",
+          "source_refs": [
+            {
+              "document_id": "E",
+              "quote": "E_SECRET",
+              "start_line": 1,
+              "end_line": 1,
+              "kind": "origin"
+            }
+          ]
+        }
+      ],
+      "GT": [
+        {
+          "id": "C1:GTC1",
+          "original_id": "GTC1",
+          "case_id": "C1",
+          "declared_scope": "business_chain",
+          "declared_key": "global.call_order",
+          "condition": "GT_SECRET:尚未创建商品就发布",
+          "expected": "拒绝发布",
+          "source_refs": [
+            {
+              "document_id": "GT",
+              "quote": "GT_SECRET",
+              "start_line": 1,
+              "end_line": 1,
+              "kind": "test"
+            }
+          ]
+        },
+        {
+          "id": "C2:GTC2",
+          "original_id": "GTC2",
+          "case_id": "C2",
+          "declared_scope": "business_chain",
+          "declared_key": "global.call_order",
+          "condition": "GT_SECRET:尚未创建商品就发布",
+          "expected": "拒绝发布",
+          "source_refs": [
+            {
+              "document_id": "GT",
+              "quote": "GT_SECRET",
+              "start_line": 1,
+              "end_line": 1,
+              "kind": "test"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "revision": 1,
+  "comparison": {
+    "concerns": [
+      {
+        "id": "concerns-eb2ac45e47cf82b75691",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.call_order",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-concern-c1de9acc4da7d2a4293fb6dc",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.call_order",
+              "entity_id": null,
+              "field_id": null,
+              "label": "调用顺序",
+              "condition": "调用顺序",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.call_order"
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "concerns-6182d563eedb0404cb4e",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.dependency_consistency",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-concern-f91ecaf842c14a811547e113",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.dependency_consistency",
+              "entity_id": null,
+              "field_id": null,
+              "label": "依赖一致性",
+              "condition": "依赖一致性",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.dependency_consistency"
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "concerns-b4cfcea93882fe3d6996",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "service_relation.data_isolation",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-concern-ec567e965f710c4613f3bfb2",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "service_relation.data_isolation",
+              "entity_id": null,
+              "field_id": null,
+              "label": "跨服务数据隔离",
+              "condition": "跨服务数据隔离",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:service_relation.data_isolation"
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "scenarios-0746403a67e46d2125ec",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.call_order",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-scenario-6c687ba1986f6e1299c0fa13",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.call_order",
+              "entity_id": null,
+              "field_id": null,
+              "label": "前置未完成",
+              "condition": "前置操作未完成就执行后续操作",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.call_order",
+              "template_id": "global.call_order:unfinished_prerequisite",
+              "variant_id": "unfinished_prerequisite",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "expected": "先满足声明的前置操作条件",
+              "concern_ids": ["G-project-concern-c1de9acc4da7d2a4293fb6dc"]
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "scenarios-3002ba1c8b532ac8d66f",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.call_order",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-scenario-771b3a07dab73eb810b1fc4c",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.call_order",
+              "entity_id": null,
+              "field_id": null,
+              "label": "调用顺序颠倒",
+              "condition": "实际调用颠倒了声明的业务依赖顺序",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.call_order",
+              "template_id": "global.call_order:reversed_order",
+              "variant_id": "reversed_order",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "expected": "遵循声明的依赖顺序",
+              "concern_ids": ["G-project-concern-c1de9acc4da7d2a4293fb6dc"]
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "scenarios-2c7cba8af91e5efa516e",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.dependency_consistency",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-scenario-281a17fa9feb6a175ee925f7",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.dependency_consistency",
+              "entity_id": null,
+              "field_id": null,
+              "label": "链路部分成功",
+              "condition": "业务链路一侧成功而关联侧失败",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.dependency_consistency",
+              "template_id": "global.dependency_consistency:one_sided_success",
+              "variant_id": "one_sided_success",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "expected": "保持关联操作结果一致",
+              "concern_ids": ["G-project-concern-f91ecaf842c14a811547e113"]
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "scenarios-1890a52343a65f24e700",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "global.dependency_consistency",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-scenario-69a1160d403c288deca62085",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "global.dependency_consistency",
+              "entity_id": null,
+              "field_id": null,
+              "label": "链路版本不一致",
+              "condition": "上游修改成功而下游仍保留旧版本",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:global.dependency_consistency",
+              "template_id": "global.dependency_consistency:stale_dependency",
+              "variant_id": "stale_dependency",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "expected": "保持关联数据版本一致",
+              "concern_ids": ["G-project-concern-f91ecaf842c14a811547e113"]
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      },
+      {
+        "id": "scenarios-90c39f1fe0dd8f3e71f3",
+        "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+        "target": "dependency",
+        "key": "service_relation.data_isolation",
+        "field_id": null,
+        "entity_id": null,
+        "cells": {
+          "G": [
+            {
+              "id": "G-project-scenario-7874634000450ffb68fe402c",
+              "anchor_id": "dependency-ec975fd75a3eb2b153f1f424",
+              "target": "dependency",
+              "key": "service_relation.data_isolation",
+              "entity_id": null,
+              "field_id": null,
+              "label": "跨服务数据隔离",
+              "condition": "不同 service-id 或隔离域的业务链路访问了彼此的数据",
+              "status": "active",
+              "source_refs": [
+                {
+                  "document_id": "rr",
+                  "start_line": 2,
+                  "end_line": 2,
+                  "quote": "创建商品完成后才能发布商品。",
+                  "kind": "origin"
+                }
+              ],
+              "rule_id": "project-mount-v1:service_relation.data_isolation",
+              "template_id": "service_relation.data_isolation:cross_service_data",
+              "variant_id": "cross_service_data",
+              "template_version": "three-scope-reference-v1",
+              "generation_origin": "reference_template",
+              "expected": "保持链路各环节的数据隔离",
+              "concern_ids": ["G-project-concern-ec567e965f710c4613f3bfb2"]
+            }
+          ],
+          "E": [],
+          "GT": []
+        },
+        "status": "single",
+        "reason": "其余两方缺少对应结果"
+      }
+    ]
+  },
+  "metrics": {
+    "missing_exception_miss_rate": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "status": "不适用"
+    },
+    "generation_validity": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 3,
+      "status": "适用"
+    }
+  },
+  "scenario_diagnostic": {
+    "missing_exception_miss_rate": {
+      "value": null,
+      "numerator": 0,
+      "denominator": 0,
+      "status": "不适用"
+    },
+    "generation_validity": {
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 5,
+      "status": "适用"
+    },
+    "missing_truth_ids": [],
+    "counts": { "G": 5, "E": 0, "GT": 0 }
+  },
+  "completeness": {
+    "pending_records": 0,
+    "pending_case_items": 0,
+    "revision_issues": 0,
+    "semantic_pairs": 0,
+    "generation_pending": 0,
+    "complete": true
+  },
+  "metrics_by_level": {
+    "concern": {
+      "missing_exception_miss_rate": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "status": "不适用"
+      },
+      "generation_validity": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 3,
+        "status": "适用"
+      }
+    },
+    "scenario": {
+      "missing_exception_miss_rate": {
+        "value": null,
+        "numerator": 0,
+        "denominator": 0,
+        "status": "不适用"
+      },
+      "generation_validity": {
+        "value": 0.0,
+        "numerator": 0,
+        "denominator": 5,
+        "status": "适用"
+      }
+    }
+  },
+  "history": []
+}

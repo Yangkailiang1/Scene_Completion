@@ -541,6 +541,13 @@ class Workbench:
 
             (p / "error.log").write_text(traceback.format_exc(), encoding="utf8")
         finally:
+            try:
+                from scene_completion.application.recovery_handoff import prepare_handoff
+
+                prepare_handoff(p)
+            except Exception:
+                # Diagnostic preparation must never mask the original failure.
+                pass
             with self.lock:
                 self.active.discard(rid)
 
@@ -560,30 +567,43 @@ class Workbench:
             else {}
         )
         active = {k: v for k, v in records.items() if k in nodes}
-        from scene_completion.infrastructure.worker_runtime import read_job
+        from scene_completion.infrastructure.worker_runtime import pid_alive, read_job
 
         job = read_job(p)
         if (
             job["status"] == "running"
             and rid not in self.active
             and job.get("worker_heartbeat", 0) < time.time() - 30
+            and not (job.get("pid") and pid_alive(job["pid"]))
         ):
-            job = {"status": "interrupted", "message": "执行进程已退出，可继续运行"}
+            job.update(status="interrupted", message="worker已退出，已准备Code Agent交接")
+            write_json(p / "job.json", job)
+            from scene_completion.application.recovery_handoff import prepare_handoff
+
+            prepare_handoff(p)
         manifest = read_json(r / "run_manifest.json") if (r / "run_manifest.json").exists() else {}
         from scene_completion.infrastructure.execution_events import EventStore
         from scene_completion.review.decisions.project_review import pending_view
 
         review = pending_view(p, queue="all", limit=1)
         unresolved = review["counts"].get("unresolved", 0) + review["counts"].get("needs_info", 0)
+        result_pending_count = int(manifest.get("pending_count", 0))
+        execution_complete = (
+            bool(manifest.get("execution_complete", manifest.get("complete")))
+            and all(v["status"] == "passed" for v in active.values())
+            and job["status"] not in {"running", "error", "interrupted"}
+        )
         return {
             "project": rid,
             "name": project["name"],
             "job": job,
-            "complete": bool(manifest.get("complete")),
-            "execution_complete": bool(
-                manifest.get("execution_complete", manifest.get("complete"))
-            ),
-            "review_complete": not unresolved,
+            "recovery_handoff": read_json(r / "code_agent_handoff/current.json")
+            if job.get("status") != "running" and (r / "code_agent_handoff/current.json").exists()
+            else None,
+            "complete": bool(manifest.get("complete")) and execution_complete,
+            "execution_complete": execution_complete,
+            "review_complete": not unresolved and not result_pending_count,
+            "result_pending_count": result_pending_count,
             "unresolved_questions": unresolved,
             "review_only": self.review_only,
             "completed": sum(v["status"] == "passed" for v in active.values()),
@@ -592,7 +612,7 @@ class Workbench:
             "pending_nodes": [
                 {
                     "id": k,
-                    "stage": v["stage"],
+                    "stage": v.get("stage", nodes[k].get("stage")),
                     "status": v["status"],
                     "failure": v.get("failure"),
                     "expected_files": nodes[k].get("expected_files", []),

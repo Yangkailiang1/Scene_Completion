@@ -183,7 +183,7 @@ test("result view loads one case on demand and shows all three evidence channels
     return { ok: true, json: async () => data } as Response;
   });
   render(<ResultsView project="p" />);
-  fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
+  fireEvent.click(await screen.findByRole("button", { name: "展开工具栏" }));
   expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "测试集" })).toBeNull();
   await screen.findAllByText("pageSize大于100");
@@ -236,7 +236,7 @@ test("results controls collapse to a compact bar and persist the choice", async 
     json: async () => ({ complete: true, cases: [], artifacts: [] }),
   } as Response);
   render(<ResultsView project="compact" />);
-  expect(screen.getByLabelText("当前范围视图")).toBeTruthy();
+  expect(await screen.findByLabelText("当前范围视图")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "测试场景" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
   expect(screen.getByRole("button", { name: "测试场景" })).toBeTruthy();

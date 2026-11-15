@@ -91,7 +91,11 @@ TASKS = {
 
 
 def schema(task):
-    if task in {"ssd-resolve", "ssd-semantic-compare"}:
+    from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
+
+    if task in PROJECT_SCHEMAS:
+        return deepcopy(PROJECT_SCHEMAS[task])
+    if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
         from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
 
         return deepcopy(SSD_SCHEMAS[task])
@@ -234,7 +238,12 @@ INPUT_KEYS = {
 
 
 def packet(task, inputs, case_ids=None):
-    if task in {"ssd-resolve", "ssd-semantic-compare"}:
+    from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
+    from scene_completion.domain.project_scope_contracts import packet as project_packet
+
+    if task in PROJECT_SCHEMAS:
+        return project_packet(task, inputs, case_ids)
+    if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
         from scene_completion.domain.ssd_contracts import packet as ssd_packet
 
         return ssd_packet(task, inputs, case_ids)

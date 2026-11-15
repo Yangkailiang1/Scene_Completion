@@ -116,11 +116,13 @@ export function GlobalResults({
   testSet,
   liveVersion,
   artifacts,
+  readOnly = false,
 }: {
   project: string;
   testSet: string;
   liveVersion?: string;
   artifacts: any[];
+  readOnly?: boolean;
 }) {
   const { value, error } = useData(project, "global", testSet, liveVersion);
   const diagram = artifacts
@@ -150,7 +152,7 @@ export function GlobalResults({
       {value.pending?.length > 0 && (
         <p>待确认：{value.pending.length} 项；未纳入确定集合。</p>
       )}
-      <ScopeReview project={project} />
+      <ScopeReview project={project} readOnly={readOnly} />
       <h3>关注点层 E / G / GT</h3>
       <div className="alignment-scroll">
         <table className="alignment-table">

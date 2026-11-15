@@ -10,6 +10,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.domain.concern_registry import default_registry
+from scene_completion.domain.concern_templates import scenario_metadata, templates_for
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -25,7 +26,7 @@ from scene_completion.inputs.provenance.ssd_sources import (
 )
 
 VERSION = "ssd-case-v1"
-RULE_VERSION = "ssd-object-rules-v1"
+RULE_VERSION = "ssd-three-scope-rules-v2"
 DATA_KINDS = {
     "required": "completeness",
     "type": "type",
@@ -64,12 +65,16 @@ def _person(key, participants):
 def _kinds(text, method=None):
     # HTTP reads/deletes stay reads/deletes even when payloads mention a state
     # such as PUBLISHED. Publishing itself may use POST or PUT.
-    method = method.upper() if method else None
+    declared = re.search(
+        r"\b(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(?:/|https?://)", text, re.I
+    )
+    method = method.upper() if method else declared[1].upper() if declared else None
     if method in {"GET", "DELETE"}:
         return ["read" if method == "GET" else "delete"]
     if re.search(r"\bpublish\b|发布|激活", text, re.I) or re.search(r"[pP]ublish(?=[A-Z])", text):
         return ["update", "publish"]
-    if method:
+    # POST is transport, not necessarily create (search/actions commonly use it).
+    if method and method != "POST":
         return {
             "GET": ["read"],
             "POST": ["create"],
@@ -190,7 +195,9 @@ def _steps(raw, sources, file_name, contracts):
         )
         aid = node.get("api_id")
         contract = contracts.get(aid, {})
-        kinds = _kinds(text, contract.get("method"))
+        kinds = _kinds(text, contract.get("method")) or _kinds(
+            raw.get("use_case", ""), contract.get("method")
+        )
         if action and receiver["technology"] != "database" and not node.get("operation_kinds"):
             kinds = []
         if action and receiver["technology"] == "database":
@@ -210,7 +217,11 @@ def _steps(raw, sources, file_name, contracts):
             "direction": direction,
             "sender": sender,
             "receiver": receiver,
-            "operation": {"name": text, "kinds": node.get("operation_kinds") or kinds},
+            "operation": {
+                "name": text,
+                "kinds": node.get("operation_kinds") or kinds,
+                "kinds_source": "declared" if node.get("operation_kinds") else "inferred",
+            },
             "data": list({p["id"]: p for p in data}.values()),
             "api_id": aid,
             "entity_ids": list(dict.fromkeys(entities)),
@@ -403,7 +414,19 @@ def generate_g(bundle):
         call = step["kind"] != "action" and step["sender"]["id"] != step["receiver"]["id"]
         receiver = step["receiver"]
 
-        def attach(key, target="receiver", field=None, entity=None, condition="", source_refs=None):
+        def attach(
+            key,
+            target="receiver",
+            field=None,
+            entity=None,
+            condition="",
+            source_refs=None,
+            variant_id=None,
+            generation_origin="deterministic_constraint",
+        ):
+            definition = definitions.get(key, {})
+            if definition.get("scope", "interaction") != "interaction":
+                return None
             concern = add_concern(
                 output,
                 bundle,
@@ -418,21 +441,56 @@ def generate_g(bundle):
                 rule_id=RULE_VERSION + ":" + key,
             )
             if concern:
-                add_scenario(
-                    output,
-                    concern,
-                    condition or f"{definitions[key]['label']}不满足",
-                    "",
-                    source_refs if source_refs is not None else refs,
-                )
+                concern["scope"] = "interaction"
+                scenario_refs = source_refs if source_refs is not None else refs
+                templates = templates_for(key)
+                if condition:
+                    if not variant_id:
+                        variant_id = (
+                            "immutable_attribute"
+                            if key == "service.business_attribute_constraint"
+                            and re.search(r"不可修改|不可变|不得改变", condition)
+                            else "duplicate_value"
+                            if key == "service.business_attribute_constraint"
+                            and re.search(r"重名|唯一|重复", condition)
+                            else templates[
+                                -1 if key == "service.business_attribute_constraint" else 0
+                            ]["variant_id"]
+                            if templates
+                            else "derived_constraint"
+                        )
+                    scene = add_scenario(output, concern, condition, "", scenario_refs)
+                    scene.update(
+                        scenario_metadata(key, variant_id, generation_origin), scope="interaction"
+                    )
+                else:
+                    for template in templates:
+                        scene = add_scenario(
+                            output,
+                            concern,
+                            template["condition"],
+                            template["expected"],
+                            scenario_refs,
+                            ident("scenario-template", concern["id"], template["template_id"]),
+                        )
+                        scene.update(
+                            {
+                                k: template[k]
+                                for k in (
+                                    "template_id",
+                                    "variant_id",
+                                    "template_version",
+                                    "generation_origin",
+                                )
+                            },
+                            scope="interaction",
+                        )
             return concern
 
         if request and call and step["sender"]["type"] == "human":
             for key in profiles["human"]:
                 attach(key, "sender")
         if request and call and receiver["type"] == "service":
-            if receiver.get("external"):
-                attach("service.base.availability")
             if step["sender"]["type"] == "service":
                 for key in profiles["relation"]:
                     attach(key)
@@ -440,9 +498,7 @@ def generate_g(bundle):
             for group, keys in profiles["functional"].items():
                 for key in keys:
                     definition = definitions[key]
-                    if "idempotency" not in key and kinds.intersection(
-                        definition["operation_kinds"]
-                    ):
+                    if kinds.intersection(definition["operation_kinds"]):
                         attach(key)
             for key in profiles["technology"].get(receiver.get("technology"), []):
                 definition = definitions[key]
@@ -461,7 +517,15 @@ def generate_g(bundle):
                             source_refs=source_refs,
                         )
                 else:
-                    attach("service.business_attribute_constraint", entity=entity)
+                    # Keep the applicable concern without inventing uniqueness,
+                    # immutability or a concrete field rule absent from this entity.
+                    attach(
+                        "service.business_attribute_constraint",
+                        entity=entity,
+                        condition="当前实体属性组合违反适用的业务约束",
+                        variant_id="attribute_combination",
+                        generation_origin="reference_template",
+                    )
         # Technology-only operations (e.g. LLM calls) need no invented CRUD kind.
         if request and receiver.get("technology") == "llm":
             for key in profiles["technology"].get("llm", []):
@@ -479,6 +543,22 @@ def generate_g(bundle):
                     for condition in _constraint_failures(field, constraint):
                         checks.append(
                             (kind, condition, constraint.get("source_refs") or field_refs)
+                        )
+                if request and (
+                    constraint["kind"] in {"reference", "resource_reference", "validity"}
+                    or constraint["kind"] == "other"
+                    and re.search(r"引用|指向|父资源|关联资源", str(constraint.get("value", "")))
+                    and re.search(r"存在|有效|已删除", str(constraint.get("value", "")))
+                ):
+                    for template in templates_for("api.data.validity"):
+                        attach(
+                            "api.data.validity",
+                            "data",
+                            field=field,
+                            condition=field["name"] + "：" + template["condition"],
+                            source_refs=constraint.get("source_refs") or field_refs,
+                            variant_id=template["variant_id"],
+                            generation_origin="reference_template",
                         )
             for kind, condition, source_refs in checks:
                 attach(
@@ -577,6 +657,7 @@ def build_cases(directory, case_ids=None, *, case_files=None):
         steps, missing = _steps(raw, sources, name, contracts)
         bundle = {
             "version": VERSION,
+            "coverage_policy": "coverage-any-confirmed-v2",
             "case": case,
             "steps": steps,
             "channels": {key: channel() for key in ("G", "E", "GT")},
@@ -662,7 +743,27 @@ def rebind_steps(previous, updated):
         return value
 
     for step in result.get("steps", []):
+        aliases = {"c": "create", "r": "read", "u": "update", "d": "delete"}
+        op = step.setdefault("operation", {})
+        submitted_kinds = list(op.get("kinds", []))
+        op["kinds"] = list(
+            dict.fromkeys(aliases.get(k.lower(), k.lower()) for k in op.get("kinds", []))
+        )
         old = old_steps.get(step["id"])
+        if old:
+            operation = step.setdefault("operation", {})
+            before = old.get("operation", {})
+            if submitted_kinds != before.get("kinds"):
+                operation["kinds_source"] = "manual"
+            context_changed = any(
+                step.get(k) != old.get(k) for k in ("api_id", "receiver")
+            ) or operation.get("name") != before.get("name")
+            if context_changed and operation.get("kinds_source") not in {"manual", "declared"}:
+                method = new_contracts.get(step.get("api_id"), {}).get("method")
+                operation["kinds"] = _kinds(operation.get("name", ""), method) or _kinds(
+                    result.get("case", {}).get("name", ""), method
+                )
+                operation["kinds_source"] = "inferred"
         if old is None or old.get("api_id") == step.get("api_id"):
             continue
         base = defaults(old, old_contracts, old.get("data", []))

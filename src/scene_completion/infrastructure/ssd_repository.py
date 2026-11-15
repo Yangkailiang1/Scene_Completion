@@ -4,7 +4,8 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.result_cache import read_snapshot
+from scene_completion.infrastructure.storage import fingerprint, write_json
 from scene_completion.workflow_core.storage import run_lock
 
 LOCK = threading.RLock()
@@ -25,7 +26,7 @@ def state(project, cid):
     path = root(project, cid) / "state.json"
     if not path.exists():
         raise ValueError("该用例尚无 SSD 比较结果")
-    return read_json(path)
+    return read_snapshot(path)
 
 
 def exists(project, cid):
@@ -36,7 +37,7 @@ def revision(project, case_id, number):
     path = root(project, case_id) / "revisions" / (str(number) + ".json")
     if not path.is_file():
         raise ValueError("该修订版本不存在")
-    return read_json(path)
+    return read_snapshot(path)
 
 
 def store(project, case_id, revision, snapshot, current_state):
@@ -46,4 +47,4 @@ def store(project, case_id, revision, snapshot, current_state):
 
 
 def states(project):
-    return [read_json(path) for path in sorted(root(project).glob("*/state.json"))]
+    return [read_snapshot(path) for path in sorted(root(project).glob("*/state.json"))]

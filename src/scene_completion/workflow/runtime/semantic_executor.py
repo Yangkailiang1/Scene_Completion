@@ -21,6 +21,20 @@ def semantic(self, task, inputs, record):
 
     _, event_context = context()
     p["node_key"] = event_context.get("task_key", task)
+    p["registry_hash"] = self.registry_snapshot["hash"]
+    p["short_id_mapping"] = record.pop("_short_id_mapping", {})
+
+    def provenance(provider, **details):
+        key = fingerprint([task, inputs])[:24]
+        record.setdefault("semantic_sources", {})[key] = {
+            "task": task,
+            "provider": provider,
+            **details,
+        }
+
+    from scene_completion.workflow.semantics import code_version
+
+    p["semantic_version"] = code_version(task)
     from scene_completion.infrastructure.execution_events import emit
     from scene_completion.models.usage.usage_audit import context_summary
 
@@ -93,6 +107,7 @@ def semantic(self, task, inputs, record):
     p["batch_id"] = fingerprint({k: v for k, v in p.items() if k != "batch_id"})
     batch = p["batch_id"]
     write_json(self.root / "packets" / (batch + ".json"), p)
+    from scene_completion.workflow.recovery import semantic_checkpoint
     from scene_completion.workflow.recovery.node_repair import read_repair
 
     repaired = read_repair(self.root, p, self.conversations.revision(p["node_key"]))
@@ -104,11 +119,23 @@ def semantic(self, task, inputs, record):
             revision=repaired["revision"],
             reason="外部修复通过输入、Schema及来源校验",
         )
+        provenance("external_code_agent_repair", revision=repaired["revision"])
         return deepcopy(repaired["payload"]), {
             "provider": "external_code_agent_repair",
             "revision": repaired["revision"],
             "note": repaired["note"],
         }
+    checkpoint = semantic_checkpoint.load(self, p)
+    if checkpoint is not None:
+        emit(
+            "result_reused",
+            provider="verified_batch_checkpoint",
+            reason="当前批次已成功，复用完整校验的检查点",
+        )
+        provenance(
+            "verified_batch_checkpoint", original_execution=checkpoint[1].get("original_execution")
+        )
+        return checkpoint
     if self.mode == "external" and self.mocks is None:
         from scene_completion.workflow.recovery.positive_reuse import find
 
@@ -292,7 +319,17 @@ def semantic(self, task, inputs, record):
 
         value = complete_success_responses(value, inputs)
     attempt = self.root / "attempts" / batch / (str(record.get("rounds", 0)) + ".json")
-    write_json(attempt, {"task": task, "protocol": PROTOCOL, "payload": value, "execution": proof})
+    write_json(
+        attempt,
+        {
+            "task": task,
+            "protocol": PROTOCOL,
+            "node_key": p["node_key"],
+            "input_hash": fingerprint(inputs),
+            "payload": value,
+            "execution": proof,
+        },
+    )
     try:
         validate_result(task, value, inputs)
         if task in {"rr-ssd", "sr-ssd"} and any(inputs.values()) and not value["interactions"]:
@@ -322,4 +359,6 @@ def semantic(self, task, inputs, record):
         write_json(
             cached_response, {"identity": semantic_identity, "payload": value, "proof": proof}
         )
+    semantic_checkpoint.save(self, p, value, proof)
+    provenance("configured_model" if self.mocks is None else "test_mock", execution=proof)
     return value, proof

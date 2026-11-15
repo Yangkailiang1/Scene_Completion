@@ -10,6 +10,7 @@ def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None,
     from scene_completion.workflow.ssd_pipeline import build_structured, enabled, input_directory
 
     if enabled(ex):
+        ex.project_scope_documents = rr + sr + (ar or [])
         directory = input_directory(ex)
         if directory is not None and build_structured(ex, directory):
             return

@@ -61,6 +61,9 @@ def spawn(service, rid):
     kwargs = {}
     if os.name == "nt":
         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    else:
+        # Local CLI exits after dispatch; the project worker must survive its terminal parent.
+        kwargs["start_new_session"] = True
     job = read_json(p / "job.json")
     job.update(worker_token=secrets.token_hex(16), worker_heartbeat=time.time())
     write_json(p / "job.json", job)
@@ -128,6 +131,9 @@ def monitor(service, rid, process):
             message="执行进程退出，现场已保存；检查不确定请求后再恢复",
         )
         write_json(p / "job.json", job)
+        from scene_completion.application.recovery_handoff import prepare_handoff
+
+        prepare_handoff(p)
     with service.lock:
         service.active.discard(rid)
     if (

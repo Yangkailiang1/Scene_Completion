@@ -129,6 +129,7 @@ export function useAppController() {
   }, []);
   function openProject(id: string) {
     jobStatusRef.current = "ready";
+    managementRef.current = null;
     setManagement(null);
     setUsageOpen(false);
     setUsageTask(null);
@@ -146,7 +147,10 @@ export function useAppController() {
     localStorage.setItem("scene-selected-project", id);
     refresh(id).catch(error);
     api(projectUrl(id, "registry"))
-      .then((r) => setDefinitions(r.registry?.definitions || {}))
+      .then((r) => {
+        if (currentRef.current === id)
+          setDefinitions(r.registry?.definitions || {});
+      })
       .catch(error);
   }
   function selectNode(id: string) {

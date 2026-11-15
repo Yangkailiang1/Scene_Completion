@@ -18,10 +18,12 @@ export function RecommendationsView({
   project,
   caseId,
   testSet = "expanded",
+  readOnly = false,
 }: {
   project: string;
   caseId?: string;
   testSet?: string;
+  readOnly?: boolean;
 }) {
   const [data, setData] = useState<any>(null),
     [localCase, setLocalCase] = useState(""),
@@ -77,6 +79,7 @@ export function RecommendationsView({
     };
   }, [project, cid, testSet]);
   const act = async (path: string, body: any) => {
+    if (readOnly) return;
     try {
       await api(projectUrl(project, path), {
         method: "POST",
@@ -194,6 +197,7 @@ export function RecommendationsView({
                     <td>
                       <input
                         placeholder="审核说明"
+                        disabled={readOnly}
                         value={notes[r.scenario_id] || ""}
                         onChange={(e) =>
                           setNotes({
@@ -204,6 +208,7 @@ export function RecommendationsView({
                       />
                       <select
                         aria-label={"反馈 " + r.scenario_id}
+                        disabled={readOnly}
                         value=""
                         onChange={(e) =>
                           e.target.value &&
@@ -326,6 +331,7 @@ export function RecommendationsView({
                 <>
                   <input
                     placeholder="明确正常业务规则（确认适用必填）"
+                    disabled={readOnly}
                     value={premises[r.candidate_id] || ""}
                     onChange={(e) =>
                       setPremises({
@@ -336,6 +342,7 @@ export function RecommendationsView({
                   />
                   <input
                     placeholder="审核说明"
+                    disabled={readOnly}
                     value={notes[r.candidate_id] || ""}
                     onChange={(e) =>
                       setNotes({ ...notes, [r.candidate_id]: e.target.value })
@@ -348,6 +355,7 @@ export function RecommendationsView({
                   ].map(([v, n]) => (
                     <button
                       key={v}
+                      disabled={readOnly}
                       onClick={() =>
                         act("patterns/review", {
                           case_id: cid,

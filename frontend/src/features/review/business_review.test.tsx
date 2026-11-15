@@ -177,7 +177,7 @@ test("feedback preview and import never start execution until the separate affec
   render(<ReviewHandoff project="p" />);
   const file = new File(["{}"], "feedback.json", { type: "application/json" });
   Object.defineProperty(file, "text", { value: async () => "{}" });
-  fireEvent.change(screen.getByLabelText("选择业务反馈包"), {
+  fireEvent.change(await screen.findByLabelText("选择业务反馈包"), {
     target: { files: [file] },
   });
   await screen.findByText(/仅预览/);
@@ -193,7 +193,9 @@ test("review-only handoff has feedback download but no execution, config or pack
   vi.spyOn(globalThis, "fetch").mockResolvedValue(response({ snapshots: [] }));
   render(<ReviewHandoff project="p" reviewOnly />);
   expect(
-    screen.getByRole("link", { name: "导出业务反馈包" }).getAttribute("href"),
+    (await screen.findByRole("link", { name: "导出业务反馈包" })).getAttribute(
+      "href",
+    ),
   ).toContain("/feedback/export");
   expect(screen.queryByText("导出Windows业务审核包")).toBeNull();
   expect(screen.queryByText("按此范围重跑")).toBeNull();

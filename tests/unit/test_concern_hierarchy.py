@@ -89,16 +89,10 @@ def test_current_registry_is_a_valid_DAG_without_migration_aliases():
 
 
 @pytest.mark.parametrize(
-    "position,available",
-    [
-        ("内部服务", False),
-        ("外部Actor（系统）", True),
-        ("内部数据库", False),
-        ("外部数据库", True),
-        ("AI模型", False),
-    ],
+    "position",
+    ["内部服务", "外部Actor（系统）", "内部数据库", "外部数据库", "AI模型"],
 )
-def test_every_service_position_inherits_the_same_base(position, available):
+def test_every_service_position_inherits_the_same_base(position):
     x = memory_inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["receiver"]["position"] = position
@@ -107,13 +101,13 @@ def test_every_service_position_inherits_the_same_base(position, available):
     rows = resolved(x)
     base = set(registry()["profiles"]["base"])
     assert base <= {m["concern_key"] for m in rows}
-    assert find(rows, "service.base.availability")["status"] == (
-        "applicable" if available else "not_applicable"
-    )
+    # Availability is a project-architecture concern; interaction recognition
+    # must not mount it per use case.
+    assert "service.base.availability" not in {m["concern_key"] for m in rows}
+    assert not service_exceptions(x)
     assert find(rows, "human.authentication")["status"] == "pending"
     assert find(rows, "human.authentication")["object"] == "开发者"
     assert find(rows, "human.authentication")["service"] == i["receiver"]["name"]
-    assert len(service_exceptions(x)) == int(available)
     assert len(data_exceptions(x)) == 8
 
 
@@ -203,10 +197,19 @@ def test_security_is_conditional_not_an_automatic_login_requirement():
 
 def test_authentication_failure_cannot_be_generated_as_unavailability():
     x = memory_inputs()
-    x["sr-ssd"]["interactions"][0]["receiver"]["position"] = "外部Actor（系统）"
-    resolved(x)
-    s = service_exceptions(x)[0]
-    s["cause"] = "authentication_failed"
+    i = x["sr-ssd"]["interactions"][0]
+    i["receiver"]["position"] = "外部Actor（系统）"
+    availability = match(
+        "service.base.availability", rules=[guard("availability", True, "外部服务可用")]
+    )
+    availability["concrete_rule"] = "本次被调用服务能够执行当前操作"
+    x["concern-match"] = {"matches": [availability], "pending": []}
+    s = scenario(cause="authentication_failed")
+    s.update(
+        concern_key="service.base.availability",
+        object=i["receiver"]["name"],
+        operation=i["operation"]["name"],
+    )
     with pytest.raises(ValueError, match="not service availability"):
         validate_result("exception-generate", {"scenarios": [s], "pending": []}, x)
 
@@ -280,10 +283,8 @@ def test_database_uses_shared_query_base_and_only_relevant_extensions(physical):
     x["sr-ssd"]["interactions"][0]["receiver"].update(name="Database", position=physical)
     x = bind_resource_services(x)
     rows = resolved(x)
-    # A facade retains the evidenced physical external boundary.
-    assert find(rows, "service.base.availability")["status"] == (
-        "applicable" if physical == "外部数据库" else "not_applicable"
-    )
+    # Availability is checked at project-architecture scope, not per interaction.
+    assert "service.base.availability" not in {m["concern_key"] for m in rows}
     assert find(rows, "database.uniqueness")["status"] == "not_applicable"
     assert find(rows, "database.query_performance")["status"] == "not_applicable"
     assert "database.transaction_atomicity" not in registry()["definitions"]

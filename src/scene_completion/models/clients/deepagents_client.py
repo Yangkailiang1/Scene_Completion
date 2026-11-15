@@ -155,10 +155,13 @@ class DeepAgentsClient(SemanticClient):
         from scene_completion.inputs.provenance.indexed_context import EvidenceContext
 
         scoped_crud = packet["task"] == "business-crud" and "crud-entity-scope" in packet["input"]
+        from scene_completion.domain.project_scope_contracts import ROLE_TEXT as PROJECT_ROLE_TEXT
         from scene_completion.domain.ssd_contracts import ROLE_TEXT as SSD_ROLE_TEXT
 
+        SSD_ROLE_TEXT = {**SSD_ROLE_TEXT, **PROJECT_ROLE_TEXT}
+
         ssd_task = packet["task"] in SSD_ROLE_TEXT
-        if packet["task"] == "ssd-semantic-compare":
+        if packet["task"] in {"ssd-semantic-compare", "project-scope-compare"}:
             # This is a model-facing view only. The full original packet stays
             # bound to validation, semantic-response caches and audit sources.
             fields = {
@@ -172,6 +175,8 @@ class DeepAgentsClient(SemanticClient):
                 "expected",
                 "label",
             }
+            if packet["task"] == "project-scope-compare":
+                fields |= {"anchor_id", "analysis"}
             packet = deepcopy(packet)
             packet["input"] = {
                 "pair": packet["input"]["pair"],
@@ -761,7 +766,11 @@ class DeepAgentsClient(SemanticClient):
         if ssd_task:
             from scene_completion.domain.ssd_contracts import REFERENCE_INSTRUCTIONS
 
-            reference_text = REFERENCE_INSTRUCTIONS
+            reference_text = (
+                "来源由工具保留。结构抽取仅输出给定source_ref_ids；识别仅输出source_record_id；生成与比较仅引用给定ID，不输出或伪造source_refs。"
+                if packet["task"] in PROJECT_ROLE_TEXT
+                else REFERENCE_INSTRUCTIONS
+            )
         else:
             reference_text = reference_instructions(indexed is not None)
         skill_name = packet["skill"]

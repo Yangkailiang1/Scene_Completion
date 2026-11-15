@@ -1,6 +1,8 @@
 """Semantic task roles shared by runtimes, routing, events and usage views."""
 
 CHECKER_TASKS = {
+    "project-scope-identify",
+    "project-scope-compare",
     "ssd-resolve",
     "ssd-semantic-compare",
     "test-additional-concerns",

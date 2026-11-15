@@ -28,7 +28,12 @@ def rows(inputs):
     result = []
 
     def add(i, key, target, condition, refs, policy, guard=None):
-        if key not in definitions or not definitions[key].get("enabled", True) or not refs:
+        if (
+            key not in definitions
+            or not definitions[key].get("enabled", True)
+            or definitions[key].get("scope", "interaction") != "interaction"
+            or not refs
+        ):
             return
         result.append(
             {

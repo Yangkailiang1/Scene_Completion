@@ -1,0 +1,50 @@
+import fs from 'node:fs';
+import {pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+const [htmlPath, jsdomPath] = process.argv.slice(2);
+const {JSDOM} = await import(pathToFileURL(jsdomPath).href);
+const captured=[];
+function open(html){return new JSDOM(html,{runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){
+ w.Blob=class{constructor(parts){this.parts=parts;}};
+ w.URL.createObjectURL=b=>{captured.push(b.parts.join(''));return 'blob:local';};w.URL.revokeObjectURL=()=>{};
+ w.HTMLAnchorElement.prototype.click=()=>{};w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};w.HTMLElement.prototype.scrollIntoView=()=>{};
+}});}
+const html=fs.readFileSync(htmlPath,'utf8'),first=open(html),d=first.window.document;
+const frozen=JSON.parse(d.querySelector('#ssd-review-data').textContent),item=frozen.items[0];
+assert.equal(d.querySelectorAll('.step-section').length,1);
+assert.equal(d.querySelectorAll('.concern-group').length,1);
+assert.equal(d.querySelectorAll('tbody > tr[data-g-id]').length,5);
+assert.equal(d.querySelector('[data-common-e]').rowSpan,5);
+assert.equal(d.querySelectorAll('[data-record-id="E-auth"]').length,1);
+assert.equal(new Set([...d.querySelectorAll('[data-channel="G"] .condition')].map(e=>e.textContent)).size,5);
+assert.ok(d.querySelector('.step-context').textContent.includes('未关联接口'));
+const buttons=[...d.querySelectorAll('button[data-g-id]')];assert.equal(buttons.length,5);
+buttons[0].click();assert.equal(buttons[1].getAttribute('aria-pressed'),'false');
+const comment=d.querySelector('textarea[data-g-id="G-0"]');comment.value='仅采纳第一项 <凭证> & </script>';comment.dispatchEvent(new first.window.Event('input'));
+assert.equal(d.querySelector('.adoption-preview').open,false);
+assert.equal(d.querySelectorAll('[data-channel="G"]').length,5);
+d.querySelector('.sources button').click();assert.ok(d.querySelector('#source-dialog[open]'));assert.ok(d.querySelector('.source-highlight'));
+d.querySelector('#source-close').click();d.querySelector('#save-html').click();
+const reopened=open(captured.at(-1)),d2=reopened.window.document,payload=JSON.parse(d2.querySelector('#ssd-review-data').textContent);
+assert.deepEqual(payload.items,frozen.items);assert.equal(payload.export_id,frozen.export_id);assert.deepEqual(payload.excluded,frozen.excluded);
+assert.equal(payload.decisions.length,1);assert.equal(payload.decisions[0].g_id,'G-0');assert.equal(payload.decisions[0].comment,comment.value);assert.equal(payload.decisions[0].adopted,true);
+assert.equal(d2.querySelector('textarea[data-g-id="G-0"]').value,comment.value);
+assert.equal(d2.querySelector('button[data-g-id="G-0"]').textContent,'撤销采纳');
+const variant=JSON.parse(JSON.stringify(frozen));
+for(const [i,patch]of[{target:'receiver'},{field_id:'field-a'},{field_id:'field-b'},{entity_id:'entity-a'},{entity_id:'entity-b'},{step_id:'other-step'}].entries()){
+ const row=structuredClone(item.rows[0]);row.id='row-variant-'+i;const g={...structuredClone(row.cells.G[0]),...patch,id:'G-variant-'+i};row.cells.G=[g];row.anchor_id=g.step_id;
+ variant.items[0].rows.push(row);variant.items[0].bundle.channels.G.scenarios.push(g);
+}
+variant.items[0].bundle.steps.push({...structuredClone(item.bundle.steps[0]),id:'other-step',order:2,layer:'SR',api_id:'API-SR-01'});
+const other=open(html.replace(d.querySelector('#ssd-review-data').textContent,JSON.stringify(variant).replace(/</g,'\\u003c'))),dv=other.window.document;
+assert.equal(dv.querySelectorAll('.step-section').length,2);assert.equal(dv.querySelectorAll('.concern-group').length,7);assert.equal(dv.querySelectorAll('tbody > tr[data-g-id]').length,11);
+assert.ok(dv.querySelector('[data-anchor-id="other-step"] .context-body').textContent.includes('API-SR-01'));
+const mode=dv.querySelector('#review-mode');mode.value='reference';mode.dispatchEvent(new other.window.Event('change'));
+assert.equal(dv.querySelectorAll('button[data-g-id]').length,0);assert.equal(dv.querySelectorAll('textarea').length,0);
+assert.equal(dv.querySelectorAll('[data-channel="G"][data-record-id]').length,variant.items[0].bundle.channels.G.scenarios.length);
+const distinct=structuredClone(frozen);const differentE={...structuredClone(distinct.items[0].rows[1].cells.E[0]),id:'E-different',condition:'不同的原文失败'};distinct.items[0].rows[1].cells.E=[differentE];
+const distinctView=open(html.replace(d.querySelector('#ssd-review-data').textContent,JSON.stringify(distinct).replace(/</g,'\\u003c'))),dd=distinctView.window.document;
+assert.equal(dd.querySelectorAll('[data-record-id="E-auth"]').length,1);assert.equal(dd.querySelector('[data-common-e]').rowSpan,4);
+assert.equal(dd.querySelectorAll('[data-record-id="E-different"]').length,1);assert.equal(dd.querySelectorAll('button[data-g-id]').length,5);
+for(const view of[first,reopened,other,distinctView])view.window.close();
+console.log(JSON.stringify({five_distinct:true,shared_e_once:true,binding_isolation:true,save_preserves_frozen:true,readonly_reference:true,source_highlight:true}));

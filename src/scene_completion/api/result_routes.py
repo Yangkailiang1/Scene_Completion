@@ -3,7 +3,7 @@
 import json
 
 from fastapi import HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
 from scene_completion.infrastructure.storage import read_json, write_json
@@ -21,7 +21,7 @@ def register(app, service):
 
     @app.get("/api/projects/{rid}/results/{case_id}/editor")
     def ssd_editor(rid: str, case_id: str, revision: str | None = None):
-        return ssd_results.editor(service.run_dir(rid), case_id, revision)
+        return JSONResponse(ssd_results.editor(service.run_dir(rid), case_id, revision))
 
     @app.get("/api/projects/{rid}/results/{case_id}/revisions")
     def ssd_revisions(rid: str, case_id: str):
@@ -30,15 +30,22 @@ def register(app, service):
     @app.post("/api/projects/{rid}/results/{case_id}/revisions")
     def ssd_save_revision(rid: str, case_id: str, body: dict):
         try:
-            return ssd_results.save_revision(service.run_dir(rid), case_id, body)
+            ssd_results.save_revision(service.run_dir(rid), case_id, body)
+            return JSONResponse(ssd_results.editor(service.run_dir(rid), case_id))
         except ssd_results.RevisionConflict as error:
             raise HTTPException(
                 409, {"message": str(error), "current_revision": error.current_revision}
             ) from error
 
+    @app.post("/api/projects/{rid}/ssd-review/summary")
+    def ssd_review_summary(rid: str, body: dict):
+        from scene_completion.review.offline.adoption import summary
+
+        return summary(service.run_dir(rid), body)
+
     @app.post("/api/projects/{rid}/ssd-review/export")
     def ssd_review_export(rid: str, body: dict):
-        from scene_completion.review.offline.ssd_review import export_html
+        from scene_completion.review.offline.adoption import export_html
 
         return Response(
             export_html(service.run_dir(rid), body),
@@ -48,15 +55,21 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/ssd-review/preview")
     def ssd_review_preview(rid: str, body: dict):
-        from scene_completion.review.offline.ssd_review import preview_feedback
+        from scene_completion.review.offline.adoption import feedback
 
-        return preview_feedback(service.run_dir(rid), body.get("content"))
+        return feedback(service.run_dir(rid), body.get("content"))
 
     @app.post("/api/projects/{rid}/ssd-review/apply")
     def ssd_review_apply(rid: str, body: dict):
-        from scene_completion.review.offline.ssd_review import apply_feedback
+        from scene_completion.review.offline.adoption import feedback
 
-        return apply_feedback(service.run_dir(rid), body.get("content"), body.get("case_ids"))
+        return feedback(
+            service.run_dir(rid),
+            body.get("content"),
+            apply=True,
+            selected=body.get("case_ids"),
+            item_ids=body.get("item_ids"),
+        )
 
     @app.get("/api/projects/{rid}/analysis-scopes")
     def analysis_scopes(rid: str):

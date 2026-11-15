@@ -33,14 +33,12 @@ def test_human_mandatory_checks_even_with_no_model_observations_but_not_in_E_GT(
     validate("concern-match", again)
 
 
-def test_external_service_availability_not_local_action_return_or_internal():
+def test_external_service_availability_is_reserved_for_project_architecture():
     x = inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["sender"].update(name="Admin", position="内部服务")
     i["receiver"].update(name="Catalog", position="外部服务")
-    assert {m["concern_key"] for m in definite(resolve_matches(x, [])).values()} == {
-        "service.base.availability"
-    }
+    assert not definite(resolve_matches(x, []))
     for change in ("internal", "self", "return"):
         y = deepcopy(x)
         row = y["sr-ssd"]["interactions"][0]
@@ -205,9 +203,7 @@ def test_explicit_isolation_is_not_replaced_by_a_plain_enum_or_response_requirem
             "source_refs": R,
         }
     )
-    assert {m["concern_key"] for m in definite(resolve_matches(x, [])).values()} == {
-        "service_relation.data_isolation"
-    }
+    assert not definite(resolve_matches(x, []))  # This belongs to project business-chain scope.
     p["location"] = "response"
     assert not definite(resolve_matches(x, []))
 

@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { getScopeCatalogue, saveScopeRecord } from "./api";
 import type { ScopeCatalogue, ScopeUnit } from "./types";
-export function ScopeReview({ project }: { project: string }) {
+export function ScopeReview({
+  project,
+  readOnly = false,
+}: {
+  project: string;
+  readOnly?: boolean;
+}) {
   const [data, setData] = useState<ScopeCatalogue | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -16,7 +22,7 @@ export function ScopeReview({ project }: { project: string }) {
   }
   const record = data?.records.find((r) => r.task_key === selected);
   function edit(index: number, patch: Partial<ScopeUnit>) {
-    if (!record || !data) return;
+    if (readOnly || !record || !data) return;
     setData({
       ...data,
       records: data.records.map((r) =>
@@ -34,7 +40,7 @@ export function ScopeReview({ project }: { project: string }) {
     });
   }
   async function save() {
-    if (!record) return;
+    if (readOnly || !record) return;
     try {
       const result = await saveScopeRecord(project, record);
       setMessage(
@@ -52,7 +58,11 @@ export function ScopeReview({ project }: { project: string }) {
         if (e.currentTarget.open && !data) void load();
       }}
     >
-      <summary>审核异常的交互／全局归属（保存后手动重跑）</summary>
+      <summary>
+        {readOnly
+          ? "查看异常的交互／全局归属（历史只读）"
+          : "审核异常的交互／全局归属（保存后手动重跑）"}
+      </summary>
       {error && <p role="alert">{error}</p>}
       {message && <p role="status">{message}</p>}
       <select
@@ -69,7 +79,7 @@ export function ScopeReview({ project }: { project: string }) {
         ))}
       </select>
       {record?.value.units.map((u, i) => (
-        <fieldset key={`${u.source_id}-${i}`}>
+        <fieldset key={`${u.source_id}-${i}`} disabled={readOnly}>
           <legend>{u.source_id}</legend>
           <p>{u.trigger}</p>
           <label>
@@ -164,7 +174,9 @@ export function ScopeReview({ project }: { project: string }) {
           </option>
         ))}
       </datalist>
-      {record && <button onClick={() => void save()}>保存归属判定</button>}
+      {record && !readOnly && (
+        <button onClick={() => void save()}>保存归属判定</button>
+      )}
     </details>
   );
 }

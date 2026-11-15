@@ -152,82 +152,134 @@ function mockApi(handler?: (path: string, init?: RequestInit) => any) {
     return { ok: true, json: async () => body } as Response;
   });
 }
-test("exports the current step across all three record kinds or all cases explicitly", async () => {
+test("keeps every case and SSD step in the original comparison navigation", async () => {
   const bundle = fixture();
-  bundle.steps.push({ ...bundle.steps[0], id: "step2", order: 2 });
-  bundle.channels.E.concerns.push({
-    ...bundle.channels.E.concerns[0],
-    id: "e2",
-    step_id: "step2",
+  bundle.steps.push({
+    ...structuredClone(bundle.steps[0]),
+    id: "empty-local-step",
+    order: 2,
+    kind: "action",
+    layer: "SR",
+    api_id: null,
+    operation: { name: "本地校验，没有异常记录", kinds: [] },
+    data: [],
   });
-  bundle.channels.G.scenarios.push({
-    ...bundle.channels.G.concerns[0],
-    id: "gs1",
-    concern_ids: ["g1"],
-    expected: "拒绝请求",
+  const second = fixture();
+  second.case = { id: "C2", name: "创建商品" };
+  second.steps[0].operation.name = "创建商品交互";
+  second.channels.E.concerns[0].condition = "创建商品的原文异常";
+  const multiple = {
+    ...index,
+    cases: [{ id: "C2", name: "创建商品" }, ...index.cases],
+  };
+  mockApi((path) =>
+    path.endsWith("ssd-results")
+      ? multiple
+      : path.includes("/results/C2/")
+        ? response(second)
+        : response(bundle),
+  );
+  render(<SsdResultsView project="P1" initialIndex={multiple} />);
+  await screen.findByLabelText("编辑 E e1");
+  expect((screen.getByLabelText("结果用例") as HTMLSelectElement).value).toBe(
+    "C1",
+  );
+  expect(
+    within(screen.getByLabelText("结果用例")).getAllByRole("option"),
+  ).toHaveLength(2);
+  const navigation = screen.getByLabelText("结果交互步骤");
+  expect(
+    within(navigation).getByRole("button", { name: /查询商品列表/ }),
+  ).toBeTruthy();
+  fireEvent.click(
+    within(navigation).getByRole("button", { name: /本地校验，没有异常记录/ }),
+  );
+  expect(screen.getByText("当前步骤及筛选下没有关注点记录。")).toBeTruthy();
+  expect(screen.queryByLabelText("编辑 E e1")).toBeNull();
+  expect(screen.getAllByText("本地校验，没有异常记录")).toHaveLength(2);
+  fireEvent.click(
+    within(navigation).getByRole("button", { name: /查询商品列表/ }),
+  );
+  const row = screen.getByLabelText("编辑 E e1").closest("tr")!;
+  expect(within(row).getAllByRole("cell")).toHaveLength(5);
+  expect(within(row).getByLabelText("编辑 G g1")).toBeTruthy();
+  fireEvent.click(
+    within(row).getAllByRole("button", { name: /查看原始出处/ })[0],
+  );
+  expect(await screen.findByRole("heading", { name: "原始需求" })).toBeTruthy();
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "关闭原文",
+    }),
+  );
+  fireEvent.change(screen.getByLabelText("结果用例"), {
+    target: { value: "C2" },
   });
-  bundle.channels.GT.pending[0].step_id = "step1";
-  const exported: any[] = [];
+  await screen.findByText("创建商品的原文异常");
+  expect(
+    screen.queryByRole("button", { name: /本地校验，没有异常记录/ }),
+  ).toBeNull();
+});
+
+test("deleting a step retains its observations in the unbound comparison", async () => {
+  const bundle = fixture();
+  bundle.channels.GT.pending = [];
+  let submitted: any;
   mockApi((path, init) => {
-    if (path.endsWith("ssd-review/export")) {
-      exported.push(JSON.parse(String(init?.body)));
-      return {};
+    if (path.endsWith("/revisions")) {
+      submitted = JSON.parse(String(init?.body));
+      return response(submitted.bundle, 2);
     }
     return path.endsWith("ssd-results") ? index : response(bundle);
   });
-  // The export endpoint returns a file rather than the JSON used by mockApi.
-  const fetchMock = vi.mocked(globalThis.fetch);
-  const baseFetch = fetchMock.getMockImplementation()!;
-  fetchMock.mockImplementation(async (url, init) => {
-    const result = await baseFetch(url, init);
-    if (String(url).endsWith("ssd-review/export"))
-      return { ...result, blob: async () => new Blob(["review"]) } as Response;
-    return result;
-  });
-  vi.stubGlobal("URL", {
-    createObjectURL: vi.fn(() => "blob:review"),
-    revokeObjectURL: vi.fn(),
-  });
-  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   render(<SsdResultsView project="P1" initialIndex={index} />);
-  await screen.findAllByText("数据范围");
-  fireEvent.change(screen.getByLabelText("交互步骤"), {
-    target: { value: "step1" },
-  });
+  await screen.findByLabelText("编辑 E e1");
   fireEvent.click(
-    screen.getByRole("button", { name: "导出当前步骤差异 HTML" }),
+    screen.getByText("数据属性、接口实体映射、步骤编辑及原文依据"),
   );
-  await screen.findByText(/已导出可离线编辑/);
-  expect(exported[0]).toEqual({
-    case_ids: ["C1"],
-    record_ids: ["e1", "g1", "gs1", "t1"],
+  fireEvent.click(screen.getByRole("button", { name: "删除步骤 1" }));
+  expect(screen.getByLabelText("编辑 E e1")).toBeTruthy();
+  expect(screen.getByLabelText("编辑 G g1")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+  await waitFor(() => expect(submitted).toBeTruthy());
+  expect(submitted.bundle.steps).toEqual([]);
+  expect(submitted.bundle.channels.E.concerns[0]).toEqual(
+    bundle.channels.E.concerns[0],
+  );
+  expect(submitted.bundle.documents).toEqual(bundle.documents);
+});
+
+test("opens existing business review with the selected case and step and protects a draft", async () => {
+  mockApi();
+  const onReviewRequest = vi.fn();
+  render(
+    <SsdResultsView
+      project="P1"
+      initialIndex={index}
+      onReviewRequest={onReviewRequest}
+    />,
+  );
+  await screen.findByLabelText("编辑 E e1");
+  fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
+  fireEvent.click(screen.getByRole("button", { name: "交给业务审核" }));
+  expect(onReviewRequest).toHaveBeenCalledWith({
+    scope: "interaction",
+    caseId: "C1",
+    stepId: "step1",
+    differencesOnly: true,
   });
-  fireEvent.change(screen.getByLabelText("交互步骤"), {
-    target: { value: "" },
+  expect(screen.queryByText("导出差异审核 HTML")).toBeNull();
+  fireEvent.click(screen.getByLabelText("编辑 E e1"));
+  fireEvent.change(screen.getByLabelText("条件或描述"), {
+    target: { value: "尚未保存的审核修改" },
   });
-  fireEvent.click(
-    screen.getByRole("button", { name: "导出当前用例差异 HTML" }),
+  fireEvent.click(screen.getByRole("button", { name: "应用到草稿" }));
+  fireEvent.click(screen.getByRole("button", { name: "交给业务审核" }));
+  expect(onReviewRequest).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("alert").textContent).toContain(
+    "请先保存或放弃当前草稿",
   );
-  await waitFor(() => expect(exported).toHaveLength(2));
-  expect(exported[1]).toEqual({ case_ids: ["C1"] });
-  fireEvent.change(screen.getByLabelText("交互步骤"), {
-    target: { value: "step1" },
-  });
-  fireEvent.click(screen.getByLabelText("导出全部用例（忽略步骤筛选）"));
-  await waitFor(() =>
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "导出全部用例差异 HTML",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false),
-  );
-  fireEvent.click(
-    screen.getByRole("button", { name: "导出全部用例差异 HTML" }),
-  );
-  await waitFor(() => expect(exported).toHaveLength(3));
-  expect(exported[2]).toEqual({});
+  expect(screen.getByText("尚未保存的审核修改")).toBeTruthy();
 });
 test("refuses to merge records attached to different entities", async () => {
   const bundle = fixture();
@@ -241,7 +293,8 @@ test("refuses to merge records attached to different entities", async () => {
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findAllByText("数据范围");
   screen.getAllByLabelText(/^选择 E /).forEach((el) => fireEvent.click(el));
-  fireEvent.click(screen.getAllByRole("button", { name: "合并所选" })[0]);
+  fireEvent.click(screen.getByText("原文抽取操作"));
+  fireEvent.click(screen.getAllByRole("button", { name: /^合并所选/ })[0]);
   expect(screen.getByRole("alert").textContent).toContain(
     "同一步骤、对象、实体和关注点",
   );
@@ -257,7 +310,9 @@ test("edits an SSD step and observation, preserves stable IDs and saves one vers
   });
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findAllByText("数据范围");
-  fireEvent.click(screen.getByText("SSD 步骤与接口实体映射（1）"));
+  fireEvent.click(
+    screen.getByText("数据属性、接口实体映射、步骤编辑及原文依据"),
+  );
   fireEvent.click(screen.getByRole("button", { name: "编辑步骤 1" }));
   const stepDialog = screen.getByRole("dialog", { name: "编辑 SSD 步骤" });
   fireEvent.change(within(stepDialog).getByLabelText("交互操作"), {
@@ -313,6 +368,7 @@ test("original and historical versions are read only and use the version API", a
   const fetch = mockApi();
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findAllByText("数据范围");
+  fireEvent.click(screen.getByRole("button", { name: "展开工具栏" }));
   fireEvent.change(screen.getByLabelText("结果版本"), {
     target: { value: "original" },
   });
@@ -323,15 +379,9 @@ test("original and historical versions are read only and use the version API", a
       ),
     ).toBe(true),
   );
-  await screen.findByText(/正在查看历史快照/);
+  await screen.findByText(/历史快照 · 只读/);
   expect(screen.queryByLabelText("编辑 E e1")).toBeNull();
-  expect(
-    (
-      screen.getByRole("button", {
-        name: "保存修改并重算",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+  expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
 });
 test("split and merge preserve origins and pending test records can be corrected", async () => {
   let saved: any;
@@ -343,6 +393,11 @@ test("split and merge preserve origins and pending test records can be corrected
   });
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findAllByText("数据范围");
+  fireEvent.click(
+    within(screen.getByLabelText("编辑 E e1").closest("article")!).getByText(
+      "记录详情与更多操作",
+    ),
+  );
   fireEvent.click(screen.getByLabelText("拆分 E e1"));
   fireEvent.change(screen.getByLabelText("条件或描述"), {
     target: { value: "第二个独立条件" },
@@ -351,9 +406,10 @@ test("split and merge preserve origins and pending test records can be corrected
   const eChecks = screen.getAllByLabelText(/^选择 E /);
   expect(eChecks).toHaveLength(2);
   eChecks.forEach((c) => fireEvent.click(c));
-  fireEvent.click(screen.getAllByRole("button", { name: "合并所选" })[0]);
+  fireEvent.click(screen.getByText("原文抽取操作"));
+  fireEvent.click(screen.getAllByRole("button", { name: /^合并所选/ })[0]);
   expect(screen.getAllByLabelText(/^选择 E /)).toHaveLength(1);
-  fireEvent.click(screen.getByRole("tab", { name: "待确认" }));
+  fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
   fireEvent.click(screen.getByLabelText("编辑 GT t1"));
   fireEvent.change(screen.getByLabelText("异常判定"), {
     target: { value: "active" },
@@ -416,59 +472,6 @@ test("409 keeps the draft instead of discarding a business correction", async ()
   );
   expect(screen.getByText("保留我的修订")).toBeTruthy();
 });
-test("feedback is previewed before applying selected nonconflicting cases", async () => {
-  let applied: any;
-  mockApi((path, init) => {
-    if (path.endsWith("/preview"))
-      return {
-        cases: [
-          {
-            case_id: "C1",
-            name: "查询商品",
-            status: "ready",
-            changes: [
-              { path: "steps/step1/operation", before: "旧", after: "新" },
-            ],
-            conflicts: [],
-          },
-          {
-            case_id: "C2",
-            name: "创建商品",
-            status: "conflict",
-            changes: [],
-            conflicts: ["版本已变化"],
-          },
-        ],
-      };
-    if (path.endsWith("/apply")) {
-      applied = JSON.parse(String(init?.body));
-      return {
-        cases: [
-          { case_id: "C1", name: "查询商品", status: "applied", changes: [] },
-        ],
-      };
-    }
-  });
-  render(<SsdResultsView project="P1" initialIndex={index} />);
-  await screen.findAllByText("数据范围");
-  fireEvent.click(screen.getByText("回收业务审核修改"));
-  const file = new File(["feedback"], "review.html", { type: "text/html" });
-  Object.defineProperty(file, "text", { value: async () => "feedback" });
-  fireEvent.change(screen.getByLabelText("导入业务审核文件"), {
-    target: { files: [file] },
-  });
-  await screen.findByLabelText("应用 查询商品");
-  expect(applied).toBeUndefined();
-  expect(
-    (screen.getByLabelText("应用 创建商品") as HTMLInputElement).disabled,
-  ).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "应用选定用例修改并重算" }),
-  );
-  await waitFor(() => expect(applied.case_ids).toEqual(["C1"]));
-  expect(applied.content).toBe("feedback");
-});
-
 test("live progress updates keep unsaved edits in the modern result page", async () => {
   const fetch = mockApi((path) => {
     if (path.includes("/results?")) return { cases: [], artifacts: [] };
@@ -488,7 +491,7 @@ test("live progress updates keep unsaved edits in the modern result page", async
     expect(
       fetch.mock.calls.filter(([url]) => String(url).endsWith("ssd-results"))
         .length,
-    ).toBeGreaterThan(before),
+    ).toBe(before),
   );
   expect(screen.getByText("未保存但必须保留的修改")).toBeTruthy();
   expect(screen.getByText(/有尚未保存的修改/)).toBeTruthy();
@@ -504,7 +507,9 @@ test("adds and reorders steps and submits a manual matching decision", async () 
   });
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findByLabelText("编辑 E e1");
-  fireEvent.click(screen.getByText("SSD 步骤与接口实体映射（1）"));
+  fireEvent.click(
+    screen.getByText("数据属性、接口实体映射、步骤编辑及原文依据"),
+  );
   fireEvent.click(screen.getByRole("button", { name: "新增 SSD 步骤" }));
   fireEvent.change(screen.getByLabelText("交互操作"), {
     target: { value: "补充查询步骤" },
@@ -516,8 +521,15 @@ test("adds and reorders steps and submits a manual matching decision", async () 
     target: { value: "s" },
   });
   fireEvent.click(screen.getByRole("button", { name: "应用到草稿" }));
+  fireEvent.click(
+    screen.getByText("数据属性、接口实体映射、步骤编辑及原文依据"),
+  );
   fireEvent.click(screen.getByLabelText("上移步骤 2"));
-  fireEvent.click(screen.getByText("匹配判定（0）"));
+  fireEvent.click(
+    within(screen.getByLabelText("结果交互步骤")).getByRole("button", {
+      name: /查询商品列表/,
+    }),
+  );
   fireEvent.click(screen.getByRole("button", { name: "添加匹配判定" }));
   fireEvent.change(screen.getByLabelText("匹配粒度"), {
     target: { value: "concern" },
@@ -582,8 +594,9 @@ test("incomplete semantic comparisons are visible and can be manually adjudicate
   }));
   render(<SsdResultsView project="P1" initialIndex={index} />);
   expect(
-    await screen.findByText("当前为部分结果，尚有内容待确认。"),
+    await screen.findByText(/当前为部分结果 · 待修正记录 1 项/),
   ).toBeTruthy();
+  fireEvent.click(screen.getByText(/当前为部分结果 · 待修正记录 1 项/));
   expect(screen.getByText(/未完成的语义比较不视为已判定不匹配/)).toBeTruthy();
   fireEvent.click(screen.getByText("尚未完成的语义比较（1 对）"));
   expect(screen.getByText("方法生成：生成条件")).toBeTruthy();

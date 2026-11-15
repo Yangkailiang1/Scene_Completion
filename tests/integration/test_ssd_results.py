@@ -38,7 +38,11 @@ def test_five_cases_publish_editor_and_aggregate_metrics(tmp_path, mini_cases):
         saved = results.publish(tmp_path, original)
         assert saved["revision"] == 1
         assert saved["bundle"] == ssd_validation.validate(original)
-        assert saved == results.editor(tmp_path, original["case"]["id"])
+        current = results.editor(tmp_path, original["case"]["id"])
+        assert saved["bundle"] == current["bundle"]
+        assert saved["metrics"] == current["metrics"]
+        assert saved["history"] == current["history"]
+        assert saved == results.editor(tmp_path, original["case"]["id"], 1)
         assert saved["metrics"] == saved["original_metrics"]
         assert results.publish(tmp_path, original)["revision"] == 1
     aggregate = results.index(tmp_path)

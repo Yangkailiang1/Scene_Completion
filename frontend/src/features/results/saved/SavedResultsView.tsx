@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -21,9 +21,11 @@ import { useSavedResultsController } from "./useSavedResultsController";
 export function SavedResultsView({
   project,
   liveVersion,
+  resultSourceControl,
 }: {
   project: string;
   liveVersion?: string;
+  resultSourceControl?: ReactNode;
 }) {
   const {
     importId,
@@ -123,6 +125,7 @@ export function SavedResultsView({
         ))}
       </div>
       <div className="results-compact-controls" aria-label="结果快捷控制">
+        {resultSourceControl}
         {resultArea === "case" && imports.length > 0 && (
           <select
             aria-label="结果来源"
@@ -290,6 +293,7 @@ export function SavedResultsView({
       )}
       {mode === "global" ? (
         <GlobalResults
+          readOnly
           project={project}
           testSet={testSet}
           liveVersion={String(liveVersion || "") + ":" + reload}
@@ -304,6 +308,7 @@ export function SavedResultsView({
         />
       ) : mode === "quality" ? (
         <QualityDiagnostics
+          readOnly
           project={project}
           caseId={cid}
           testSet={testSet}
@@ -345,13 +350,14 @@ export function SavedResultsView({
           </section>
         ) : (
           <RecommendationsView
+            readOnly
             project={project}
             caseId={cid}
             testSet={testSet}
           />
         )
       ) : mode === "tests" ? (
-        <TestSources project={project} />
+        <TestSources project={project} readOnly />
       ) : !index ? (
         <p className="management-loading">
           {error ? "目录未能载入，请点击上方刷新重试。" : "正在读取结果目录…"}

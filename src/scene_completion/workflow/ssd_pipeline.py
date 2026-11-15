@@ -68,11 +68,11 @@ def _semantic_cache_identity(ex, stage):
     Model/account selection remains operational and does not invalidate valid
     analyses; capability, execution provenance and task contracts do.
     """
-    if stage not in {"ssd-resolve", "ssd-compare"}:
+    if stage not in {"ssd-generate", "ssd-resolve", "ssd-compare"}:
         return None
     from scene_completion.workflow.semantics import code_version
 
-    task = "ssd-resolve" if stage == "ssd-resolve" else "ssd-semantic-compare"
+    task = "ssd-semantic-compare" if stage == "ssd-compare" else stage
     return {
         "available": _semantic_available(ex),
         "mode": getattr(ex, "mode", "packets"),
@@ -80,6 +80,11 @@ def _semantic_cache_identity(ex, stage):
         "artifact_identity": getattr(ex, "artifact_identity", {}),
         "semantic_task": task,
         "semantic_version": code_version(task),
+        **(
+            {"supporting_semantics": {"ssd-bind": code_version("ssd-bind")}}
+            if stage == "ssd-resolve"
+            else {}
+        ),
     }
 
 
@@ -102,6 +107,8 @@ def _review_identity(ex, cid):
 
 
 def _task(ex, cid, stage, deps, fn, identity=None):
+    from scene_completion.infrastructure.code_retry import revision as code_retry_revision
+    from scene_completion.workflow.recovery.node_repair import repair_revision
     from scene_completion.workflow.semantics import code_version
 
     if getattr(ex, "is_preview", False):
@@ -116,7 +123,11 @@ def _task(ex, cid, stage, deps, fn, identity=None):
             "task": stage,
             "payload": result,
             "metadata": {
-                "execution": {"provider": "ssd_case_workflow", "version": ssd_validation.VERSION}
+                "execution": {
+                    "provider": "ssd_case_workflow",
+                    "version": ssd_validation.VERSION,
+                    "semantic_batches": record.get("semantic_sources", {}),
+                }
             },
         }
 
@@ -132,14 +143,27 @@ def _task(ex, cid, stage, deps, fn, identity=None):
                 stage,
                 identity,
                 ex.registry_snapshot,
+                repair_revision(ex.root, cid + ":" + stage),
                 _semantic_cache_identity(ex, stage),
                 _review_identity(ex, cid) if stage == "ssd-compare" else None,
             ]
+            + (
+                ["code_retry", code_retry_revision(ex.root, cid + ":" + stage)]
+                if code_retry_revision(ex.root, cid + ":" + stage)
+                else []
+            )
+            + (
+                [ex.conversations.revision(cid + ":" + stage)]
+                if getattr(ex, "conversations", None)
+                and ex.conversations.revision(cid + ":" + stage)
+                else []
+            )
         ),
         execute=execute,
         verify=lambda v: ssd_validation.validate(v["payload"]),
         display_label={
             "ssd-prepare": "建立 SSD 与三方结果",
+            "ssd-generate": "展开参考异常与业务场景",
             "ssd-compare": "比较与发布",
             "ssd-resolve": "处理语义对应",
         }.get(stage, stage),
@@ -242,12 +266,26 @@ def _compare(ex, bundle, record):
     semantic_identity = {
         "logic": code_version("ssd-compare"),
         **_semantic_cache_identity(ex, "ssd-compare"),
+        **(
+            {"guidance_revision": ex.conversations.revision(bundle["case"]["id"] + ":ssd-compare")}
+            if getattr(ex, "conversations", None)
+            and ex.conversations.revision(bundle["case"]["id"] + ":ssd-compare")
+            else {}
+        ),
     }
     machine = _reuse_machine_decisions(ex, bundle, semantic_identity)
     machine = _compare_pairs(ex, machine, record)
     machine["semantic_comparison_identity"] = semantic_identity
     snapshot = ssd_results.publish(ex.root.parent, machine)
     effective = snapshot["bundle"]
+    if _semantic_available(ex) and effective.get("scenario_generation", {}).get("pending_ids"):
+        pending_machine = deepcopy(effective)
+        pending_machine["channels"]["G"] = deepcopy(effective["machine_g"])
+        enriched = _generate(ex, pending_machine, record)
+        snapshot = ssd_results.enrich_effective(
+            ex.root.parent, machine["case"]["id"], snapshot["revision"], enriched
+        )
+        effective = snapshot["bundle"]
     if _semantic_available(ex) and _review_material(effective) != _review_material(machine):
         reviewed = _compare_pairs(ex, effective, record)
         if reviewed.get("decisions", []) != effective.get("decisions", []):
@@ -278,6 +316,18 @@ def _compare(ex, bundle, record):
 
 def _resolve(ex, bundle, record):
     bundle = deepcopy(bundle)
+    from scene_completion.analysis.ssd.contract_binding import apply_result, prepare
+
+    context, maps = prepare(bundle)
+    if context and _semantic_available(ex):
+        record["_short_id_mapping"] = maps
+        value, _ = ex.semantic("ssd-bind", context, record)
+        bundle = apply_result(bundle, context, maps, value)
+    elif context:
+        bundle["contract_binding_pending"] = [
+            {"step_id": maps["steps"][s["id"]], "reason": "正向字段约束或操作关联待语义定位"}
+            for s in context["steps"]
+        ]
     for channel in ("G", "E", "GT"):
         pending = [p for p in bundle["channels"][channel]["pending"] if p.get("needs_semantic")]
         if not pending or not _semantic_available(ex):
@@ -313,12 +363,63 @@ def _resolve(ex, bundle, record):
         bundle["channels"][channel]["pending"] = [
             p for p in bundle["channels"][channel]["pending"] if p["id"] not in resolved
         ]
+    bundle["gt_identification_run_complete"] = _semantic_available(ex) or not any(
+        p.get("needs_semantic") for p in bundle["channels"]["GT"]["pending"]
+    )
+    return ssd_validation.validate(bundle)
+
+
+def _generate(ex, bundle, record):
+    from scene_completion.analysis.ssd.generation import (
+        apply_result,
+        batches,
+        capture_machine,
+        model_packet,
+        restore_handles,
+    )
+
+    bundle = deepcopy(bundle)
+    # A transport-handle repair does not invalidate already verified business analyses.
+    # Reuse machine baselines only, never effective human edits or another channel.
+    try:
+        previous = ssd_results.editor(ex.root.parent, bundle["case"]["id"], "original")["bundle"]
+    except ValueError:
+        previous = None
+    if previous:
+        from scene_completion.analysis.ssd.generation import regenerate_machine
+
+        reusable = regenerate_machine(bundle, previous)
+        known = {r["id"]: r for r in reusable["scenarios"]}
+        for row in bundle["channels"]["G"]["scenarios"]:
+            source = known.get(row["id"], {})
+            if source.get("analysis") and all(
+                source.get(k) == row.get(k)
+                for k in ("condition", "expected", "template_version", "concern_ids")
+            ):
+                for key in (
+                    "analysis",
+                    "analysis_origin",
+                    "analysis_version",
+                    "generation_context",
+                ):
+                    if key in source:
+                        row[key] = deepcopy(source[key])
+    if _semantic_available(ex):
+        for inputs in batches(bundle):
+            projected, handles = model_packet(inputs)
+            record["_short_id_mapping"] = {"scenarios": handles}
+            result, _ = ex.semantic("ssd-generate", projected, record)
+            apply_result(bundle, inputs, restore_handles(result, handles))
+    capture_machine(bundle)
     return ssd_validation.validate(bundle)
 
 
 def _tail(ex, cid, prepare):
     resolved = _task(ex, cid, "ssd-resolve", [prepare], lambda d, r: _resolve(ex, d[prepare], r))
-    _task(ex, cid, "ssd-compare", [resolved], lambda d, r: _compare(ex, d[resolved], r))
+    generated = _task(
+        ex, cid, "ssd-generate", [resolved], lambda d, r: _generate(ex, d[resolved], r)
+    )
+    _task(ex, cid, "ssd-compare", [generated], lambda d, r: _compare(ex, d[generated], r))
 
 
 def build_structured(ex, directory):
@@ -377,6 +478,7 @@ def build_structured(ex, directory):
         raise ValueError("指定用例不在当前结构化输入中")
     ex.manifest["ssd_cases"] = selected
     ex.scheduler.priority_cases = selected
+    _project_scopes(ex, selected)
     return True
 
 
@@ -502,6 +604,17 @@ def build_from_documents(
         )
         _tail(ex, cid, key)
     ex.manifest["ssd_cases"] = selected
+    _project_scopes(ex, selected)
+
+
+def _project_scopes(ex, selected):
+    from scene_completion.workflow.project_scopes import build_project_scopes
+
+    ex.manifest["project_scope_tasks"] = build_project_scopes(
+        ex,
+        [cid + ":ssd-prepare" for cid in selected],
+        documents=getattr(ex, "project_scope_documents", None),
+    )
 
 
 def progress(ex):
@@ -533,7 +646,7 @@ def finish(ex, result):
             # _compare already published the verified machine baseline before
             # the concurrent review conflict. Do not roll it back to prepare.
             continue
-        for stage in ("ssd-compare", "ssd-resolve", "ssd-prepare"):
+        for stage in ("ssd-compare", "ssd-generate", "ssd-resolve", "ssd-prepare"):
             record = ex.scheduler.state["tasks"].get(cid + ":" + stage, {})
             if (
                 record.get("status") == "passed"
@@ -545,7 +658,11 @@ def finish(ex, result):
                 break
     progress(ex)
     summary = ssd_results.index(ex.root.parent)
+    from scene_completion.application import project_scope_service
+
+    project_summary = project_scope_service.index(ex.root.parent)
     pending = sum(c["pending_count"] for c in summary["cases"])
+    pending += sum(s.get("pending_count", 0) for s in project_summary["scopes"])
     pending += ex.manifest.get("test_import_pending_count", 0)
     pending += sum(
         g.get("status") != "confirmed" for g in ex.manifest.get("case_correspondence", [])
@@ -558,9 +675,13 @@ def finish(ex, result):
         complete=result["complete"] and not pending,
         analysis_complete=result["complete"],
         pending_count=pending,
-        global_analysis={"complete": False, "evaluation_status": "本轮未运行全局分析"},
+        global_analysis={
+            "complete": all(s.get("complete") for s in project_summary["scopes"]),
+            "scopes": project_summary["scopes"],
+        },
         recommendation={"enabled": False},
         metrics=summary["metrics"],
+        metrics_by_scope=project_summary["metrics"],
     )
     write_json(ex.root / "run_manifest.json", ex.manifest)
     path = ex.root / "execution_sessions.json"

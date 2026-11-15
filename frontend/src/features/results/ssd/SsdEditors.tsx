@@ -17,7 +17,7 @@ const list = (s: string) =>
     .split(/[,，]/)
     .map((s) => s.trim())
     .filter(Boolean);
-function Text({
+export function Text({
   label,
   value,
   onChange,
@@ -47,7 +47,7 @@ function Text({
     </label>
   );
 }
-function Select({
+export function Select({
   label,
   value,
   values,
@@ -75,7 +75,7 @@ function Select({
     </label>
   );
 }
-function Modal({
+export function Modal({
   title,
   children,
   onClose,
@@ -498,6 +498,17 @@ export function ObservationEditor({
   const destination = kind;
   const step = bundle.steps.find((s) => s.id === value.step_id);
   const concerns = bundle.channels[channel].concerns;
+  const definitions =
+    bundle.registry?.definitions ||
+    Object.fromEntries(
+      Object.values(bundle.channels)
+        .flatMap((data) => [...data.concerns, ...data.scenarios])
+        .filter((row) => row.key)
+        .map((row) => [
+          row.key!,
+          { label: row.label || row.key, kind: "check", scope: "interaction" },
+        ]),
+    );
   return (
     <Modal
       title={`编辑${channelLabels[channel]}${kind === "concerns" ? "关注点" : kind === "pending" ? "待确认项" : "场景"}`}
@@ -540,10 +551,30 @@ export function ObservationEditor({
           onChange={(field_id) => set({ ...value, field_id: field_id || null })}
         />
       )}
-      <Text
+      <Select
         label="关注点标识"
         value={value.key}
-        onChange={(key) => set({ ...value, key })}
+        values={[
+          ["", "选择框架关注点"],
+          ...Object.entries(definitions)
+            .filter(
+              ([, d]: any) =>
+                (d.kind || "check") === "check" &&
+                d.enabled !== false &&
+                (d.scope || "interaction") === "interaction",
+            )
+            .map(
+              ([key, d]: any) =>
+                [key, `${d.label} · ${key}`] as [string, string],
+            ),
+        ]}
+        onChange={(key) =>
+          set({
+            ...value,
+            key,
+            label: bundle.registry?.definitions?.[key]?.label || key,
+          })
+        }
       />
       <Text
         label="关注点名称"
@@ -563,6 +594,14 @@ export function ObservationEditor({
         onChange={(condition) => set({ ...value, condition })}
         multiline
       />
+      {kind === "scenarios" && (
+        <Text
+          label="具体场景说明"
+          value={value.analysis}
+          onChange={(analysis) => set({ ...value, analysis })}
+          multiline
+        />
+      )}
       {(destination === "scenarios" || kind === "pending") && (
         <>
           <Text
@@ -625,7 +664,7 @@ export function MatchEditor({
   onClose,
   onSave,
 }: {
-  bundle: Bundle;
+  bundle: Pick<Bundle, "channels">;
   decision?: Decision;
   onClose: () => void;
   onSave: (value: Decision) => void;

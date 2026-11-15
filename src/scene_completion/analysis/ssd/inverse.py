@@ -31,15 +31,25 @@ def _classification(condition, expected):
     if re.search(
         r"相同.*(?:幂等|Idempotency-Key)|重复.*提交|幂等冲突|同键", condition, re.I
     ) and not re.search(r"缺失|未提供|长度|格式", condition):
-        return "global.idempotency"
+        return "crud.idempotency"
     if re.search(r"service[-_]id.*(?:other|其他|越权)|跨服务.*隔离", condition, re.I):
         return "service_relation.data_isolation"
+    if re.search(r"级联|删除.*(?:子对象|云端配置).*(?:残留|未删除|未同步)", condition):
+        return "global.cascade_operation"
+    if re.search(r"前置.*未完成.*后续|顺序颠倒|颠倒.*顺序", condition):
+        return "global.call_order"
+    if re.search(
+        r"跨服务.*(?:不一致|一致性)|一侧成功.*一侧失败|上游.*下游.*(?:旧版本|不一致)", condition
+    ):
+        return "global.dependency_consistency"
     if re.search(r"Authorization|token|身份|认证", condition, re.I):
         return "human.authentication"
     if re.search(r"无.*权限|没有.*权限|越权|无权", condition):
         return "human.authorization"
     if re.search(r"version.*(?:不一致|冲突)|并发|版本冲突", condition, re.I):
         return "crud.concurrency"
+    if re.search(r"(?:引用|指向|父资源|关联资源).*(?:不存在|已删除|无效)", condition):
+        return "api.data.validity"
     if re.search(r"不存在|未找到|NOT_FOUND", condition):
         return "crud.existence"
     if re.search(r"发布前置|待发布.*price", condition):
@@ -83,6 +93,22 @@ def _locate(bundle, record, family):
     failure = re.search(r"失败于步骤\s*([RS]\d+)", note)
     label = failure[1] if failure else after
     local = [s for s in steps if label and label in s.get("aliases", []) and s["kind"] == "action"]
+    if family == "crud.idempotency":
+        actions = [s for s in candidates if s["kind"] == "action"] or local
+        if len(actions) == 1 and not actions[0]["operation"].get("kinds"):
+            validator = actions[0]
+            inbound = [
+                s
+                for s in steps
+                if s["kind"] != "action"
+                and s["direction"] == "request"
+                and s["receiver"]["id"] == validator["receiver"]["id"]
+                and s.get("layer") == validator.get("layer")
+                and s.get("order", 0) < validator.get("order", 0)
+                and set(s["operation"].get("kinds", [])) & {"create", "update", "delete"}
+            ]
+            if len(inbound) == 1:
+                return inbound[0]
     field_family = family and family.startswith("api.data.")
     business = family in {
         "service.business_attribute_constraint",
@@ -155,6 +181,8 @@ def recognize_records(bundle, records, channel_name):
     from scene_completion.domain.ssd.construction import add_concern, add_scenario, channel, pending
 
     output = channel()
+    output["project_records"] = []
+    definitions = bundle.get("registry", {}).get("definitions", {})
     for record in records:
         condition, expected, refs = (
             record["condition"],
@@ -179,16 +207,18 @@ def recognize_records(bundle, records, channel_name):
             )
             continue
         family = _classification(condition, expected)
-        if family and family.startswith("global."):
-            output["pending"].append(
-                pending(
-                    rid,
-                    condition,
-                    refs,
-                    reason="全局关注点留待后续，本轮不计分",
-                    needs_semantic=False,
-                    original=record,
-                )
+        scope = definitions.get(family, {}).get("scope")
+        if scope in {"business_chain", "architecture"}:
+            located = _locate(bundle, record, family)
+            output["project_records"].append(
+                {
+                    **deepcopy(record),
+                    "case_id": bundle["case"]["id"],
+                    "key": family,
+                    "scope": scope,
+                    "channel": channel_name,
+                    "step_id": located["id"] if located else None,
+                }
             )
             continue
         step = _locate(bundle, record, family)
@@ -220,6 +250,17 @@ def recognize_records(bundle, records, channel_name):
                 if kind in {"create", "update", "delete"}
                 else None
             )
+        elif family == "crud.idempotency":
+            family = (
+                f"service.crud.{kind}.idempotency"
+                if kind in {"create", "update", "delete"}
+                else None
+            )
+        if (
+            family in {"human.authentication", "human.authorization"}
+            and step["sender"]["type"] == "service"
+        ):
+            family = family.replace("human.", "service_relation.")
         if not family:
             output["pending"].append(
                 pending(
@@ -271,7 +312,10 @@ def recognize_records(bundle, records, channel_name):
                 refs=refs,
             )
             if concern:
-                add_scenario(output, concern, condition, expected, refs, rid)
+                concern["scope"] = "interaction"
+                add_scenario(output, concern, condition, expected, refs, rid)["scope"] = (
+                    "interaction"
+                )
             else:
                 output["pending"].append(
                     pending(

@@ -6,6 +6,19 @@ def containers(value, schema, path="payload"):
     kinds = kind if isinstance(kind, list) else [kind]
     if value is None and "null" in kinds:
         return
+    if len(kinds) > 1:
+        predicates = {
+            "object": lambda x: isinstance(x, dict),
+            "array": lambda x: isinstance(x, list),
+            "string": lambda x: isinstance(x, str),
+            "boolean": lambda x: isinstance(x, bool),
+            "number": lambda x: isinstance(x, (int, float)) and not isinstance(x, bool),
+            "integer": lambda x: isinstance(x, int) and not isinstance(x, bool),
+        }
+        actual = next((k for k in kinds if k in predicates and predicates[k](value)), None)
+        if actual is None:
+            raise ValueError(f"{path} must satisfy one of {kinds}")
+        return containers(value, {**schema, "type": actual}, path)
     if "object" in kinds:
         if not isinstance(value, dict):
             raise ValueError(

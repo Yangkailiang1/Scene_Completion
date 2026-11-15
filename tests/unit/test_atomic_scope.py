@@ -382,9 +382,9 @@ def test_global_dependency_task_does_not_offer_business_operation_idempotency():
         ("cascade", "global.cascade_operation"),
     ):
         assert set(registry_for_anchor(current, {"dependency_type": kind})["definitions"]) == {key}
-    assert set(registry_for_anchor(current, {"operation": "update"})["definitions"]) == {
-        "global.idempotency"
-    }
+    # Business-operation idempotency now lives on the concrete C/U/D interaction
+    # object; the retired global key must not be offered as an anchor candidate.
+    assert set(registry_for_anchor(current, {"operation": "update"})["definitions"]) == set()
     # Candidate definitions constrain analysis; they do not create G members.
     assert "matches" not in registry_for_anchor(current, {"dependency_type": "order"})
 

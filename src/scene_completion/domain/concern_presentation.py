@@ -1,7 +1,9 @@
-"""Display-only taxonomy: interaction scope/four levels and global dependencies.
+"""Display paths for the three scopes, preserving stable keys and old layers.
 
 Stable definition IDs, applicability and scoring are unchanged by these paths.
 """
+
+from scene_completion.domain.concern_registry import SCOPES
 
 FUNCTIONS = {
     "display_interaction": "展示交互型",
@@ -20,8 +22,18 @@ CRUD = {
 def paths(key, definitions, direction=None):
     d = definitions.get(key, {})
     layer, group = d.get("layer"), d.get("group")
+    if d.get("scope") == "business_chain":
+        return [[SCOPES["business_chain"], "用例与业务实体依赖"]]
+    if d.get("scope") == "architecture":
+        return [[SCOPES["architecture"], "外部Service关注点"]]
     if layer == "human":
-        return [["交互级关注点", "人类Actor关注点"]]
+        return [
+            [
+                "交互级关注点",
+                "人类Actor关注点",
+                "身份关注点" if key.endswith("authentication") else "权限关注点",
+            ]
+        ]
     if layer == "global":
         return [
             [
@@ -78,7 +90,8 @@ def paths(key, definitions, direction=None):
 
 def presentation(definitions):
     return {
-        "version": "four-level-interaction-and-global-v1",
+        "version": "three-scope-reference-v1",
+        "scopes": dict(SCOPES),
         "paths": {key: paths(key, definitions) for key in definitions},
         "unit": "稳定定义ID；输入/输出及CRUD可引用同一ID，路径不重复计分",
     }

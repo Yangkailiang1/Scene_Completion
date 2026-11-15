@@ -277,10 +277,10 @@ def register(app, service):
             return service.model_accounts(body)
 
     @app.get("/api/projects/{rid}/node-repair")
-    def repair_context(rid: str, task_key: str):
+    def repair_context(rid: str, task_key: str, batch: str | None = None):
         from scene_completion.workflow.recovery.node_repair import export_repair
 
-        return export_repair(service.run_dir(rid), task_key)
+        return export_repair(service.run_dir(rid), task_key, batch=batch)
 
     @app.post("/api/projects/{rid}/node-repair")
     def repair_submit(rid: str, body: dict):
@@ -410,18 +410,9 @@ def register(app, service):
 
     @app.post("/api/projects/{rid}/rerun-node")
     def rerun(rid: str, body: dict):
-        if rid in service.active:
-            raise ValueError("请等待当前执行轮结束；运行中指导会在下一次模型调用生效")
-        store = service.conversation(rid, body["task_key"])
-        if store.pending(body["task_key"]):
-            raise ValueError("请先回答当前问题")
-        store.append(
-            body["task_key"],
-            "guidance",
-            body.get("text") or "根据本节点最新指导重新执行并生成审核稿。",
-        )
-        store.invalidate(body["task_key"])
-        return service.start(rid)
+        from scene_completion.application.node_recovery_service import rerun as rerun_node
+
+        return rerun_node(service, rid, body)
 
     @app.get("/api/projects/{rid}/review-history")
     def review_history(rid: str, task_key: str):

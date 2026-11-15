@@ -14,7 +14,7 @@ from scene_completion.infrastructure.storage import read_json
 from scene_completion.inputs.documents.input_bundles import apply, discover
 from scene_completion.inputs.documents.source_documents import read_project_documents
 from scene_completion.inputs.provenance.ssd_sources import Sources, api_contracts
-from scene_completion.review.offline.ssd_review import _parse
+from scene_completion.review.offline.adoption import parse as _parse
 from tests.support.paths import ROOT
 from tests.support.workflow import fake_pipeline
 
@@ -67,7 +67,14 @@ def test_structured_default_pipeline_five_cases_cache_and_manual_revision(tmp_pa
     expected = {
         f"UC-{n:03d}:{stage}"
         for n in range(1, 6)
-        for stage in ("ssd-prepare", "ssd-resolve", "ssd-compare")
+        for stage in ("ssd-prepare", "ssd-resolve", "ssd-generate", "ssd-compare")
+    } | {
+        "project:project-prepare",
+        *(
+            f"project:{scope}:{stage}"
+            for scope in ("business_chain", "architecture")
+            for stage in ("project-identify", "project-generate", "project-compare")
+        ),
     }
     assert set(first.scheduler.tasks) == expected
     assert all(tasks[key]["status"] == "passed" for key in expected)
@@ -125,7 +132,15 @@ def test_supplied_g_alias_runs_exact_case_from_preview(tmp_path):
     assert set(execution.scheduler.tasks) == {
         "UC-002:ssd-prepare",
         "UC-002:ssd-resolve",
+        "UC-002:ssd-generate",
         "UC-002:ssd-compare",
+        "project:project-prepare",
+        "project:business_chain:project-identify",
+        "project:business_chain:project-generate",
+        "project:business_chain:project-compare",
+        "project:architecture:project-identify",
+        "project:architecture:project-generate",
+        "project:architecture:project-compare",
     }
     assert ssd_results.index(root)["cases"][0]["name"] == selected["name"]
 
@@ -187,16 +202,15 @@ def test_editor_revision_conflict_and_offline_http_contract(tmp_path):
         assert exported.status_code == 200 and "text/html" in exported.headers["content-type"]
         assert "attachment" in exported.headers["content-disposition"]
         feedback = _parse(exported.text)
-        feedback["cases"][0]["bundle"]["channels"]["E"]["concerns"][0]["condition"] = "离线修改"
-        content = json.dumps(feedback, ensure_ascii=False)
-        preview = client.post(base + "/ssd-review/preview", json={"content": content})
-        assert preview.status_code == 200 and preview.json()["cases"][0]["status"] == "ready"
-        applied = client.post(
-            base + "/ssd-review/apply", json={"content": content, "case_ids": ["UC-002"]}
-        )
-        assert applied.status_code == 200 and applied.json()["cases"][0]["status"] == "applied"
-        repeated = client.post(base + "/ssd-review/apply", json={"content": content})
-        assert repeated.status_code == 200 and repeated.json()["cases"][0]["status"] == "unchanged"
+        assert feedback["format"] == "business-adoption-v2"
+        # Deterministic ready rows may be exported; unresolved model templates may not.
+        for item in feedback["items"]:
+            pending = set(item["bundle"].get("scenario_generation", {}).get("pending_ids", []))
+            assert all(row["cells"]["G"][0]["id"] not in pending for row in item["rows"])
+        assert feedback["excluded"]["unfinished"] > 0
+        preview = client.post(base + "/ssd-review/preview", json={"content": exported.text})
+        assert preview.status_code == 200
+        assert all(r["status"] == "unchanged" for r in preview.json()["cases"])
 
 
 def test_raw_inputs_use_legacy_adapter_then_new_workflow_with_semantic_mock(tmp_path):
@@ -245,6 +259,61 @@ def test_raw_inputs_use_legacy_adapter_then_new_workflow_with_semantic_mock(tmp_
     # This source cannot be reliably located/classified from the fixture; an
     # available semantic runner must preserve it rather than manufacture GT.
     mocks["ssd-resolve"] = {"concerns": [], "scenarios": [], "resolved_ids": []}
+    mocks["ssd-generate"] = lambda packet: {
+        "analyses": [
+            {"scenario_id": template["id"], "analysis": "离线固定模板分析"}
+            for template in packet["input"]["templates"]
+        ],
+        "supplements": [],
+    }
+    mocks["project-structure"] = {"dependencies": [], "services": [], "pending": []}
+
+    def project_identify(packet):
+        anchors = packet["input"]["anchors"]
+        if not anchors:
+            return {
+                "observations": [],
+                "pending": [
+                    {"source_record_id": row["id"], "reason": "离线fixture无项目锚点"}
+                    for row in packet["input"]["records"]
+                ],
+                "excluded": [],
+            }
+        key = packet["input"]["allowed_keys"][0]
+        return {
+            "observations": [
+                {
+                    "source_record_id": row["id"],
+                    "anchor_id": anchors[0]["id"],
+                    "key": key,
+                    "condition": row["condition"],
+                    "expected": row.get("expected", ""),
+                }
+                for row in packet["input"]["records"]
+            ],
+            "pending": [],
+            "excluded": [],
+        }
+
+    mocks["project-scope-identify"] = project_identify
+    mocks["project-scope-generate"] = lambda packet: {
+        "analyses": [
+            {"scenario_id": template["id"], "analysis": "离线项目场景分析"}
+            for template in packet["input"]["templates"]
+        ],
+        "supplements": [],
+    }
+    mocks["project-scope-compare"] = lambda packet: {
+        "decisions": [
+            {
+                "left_id": pair["left"]["id"],
+                "right_id": pair["right"]["id"],
+                "status": "partial",
+                "reason": "离线fixture部分对应",
+            }
+            for pair in packet["input"]["pairs"]
+        ]
+    }
     execution = Execution(
         tmp_path / "run", mocks=mocks, config={"workflow_mode": "ssd", "max_concurrency": 3}
     )

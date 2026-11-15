@@ -7632,3 +7632,96 @@ td {
     min-width: 400px;
   }
 }
+
+/* Results retain the existing navigation while reserving height for the comparison. */
+.results-active .topbar {
+  height: 48px;
+  min-height: 48px;
+  padding: 5px 18px;
+}
+.results-active .topbar h1 {
+  font-size: 18px;
+  line-height: 22px;
+}
+.results-active .breadcrumb {
+  font-size: 10px;
+  line-height: 12px;
+}
+.results-active .project-statusbar {
+  height: 36px;
+  min-height: 36px;
+  padding: 3px 14px;
+  gap: 10px;
+  font-size: 11px;
+}
+.results-active .workspace-views {
+  gap: 3px;
+}
+.results-active .workspace-views button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.results-active .results-area-nav {
+  padding: 3px 14px;
+}
+.results-active .results-area-nav button {
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.results-active .results-compact-controls {
+  min-height: 34px;
+  padding: 3px 14px;
+  gap: 7px;
+}
+.results-active .results-compact-controls select {
+  height: 27px;
+  font-size: 12px;
+}
+.workspace-focus-toggle {
+  flex-shrink: 0;
+  border: 1px solid #dce5f3;
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+}
+.results-focused .breadcrumb {
+  display: none;
+}
+.results-focused .topbar {
+  height: 32px;
+  min-height: 32px;
+}
+.results-focused .topbar h1 {
+  font-size: 14px;
+}
+.results-focused .topbar .connection,
+.results-focused .topbar .workspace-menu {
+  display: none;
+}
+.results-focused .topbar button {
+  min-height: 24px;
+  height: 24px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+.results-focused
+  .project-statusbar
+  > :not(.workspace-views):not(.workspace-focus-toggle) {
+  display: none;
+}
+.results-focused .project-statusbar {
+  height: 31px;
+  min-height: 31px;
+}
+.review-scope-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 12px;
+}
+.review-scope-summary details {
+  margin-top: 4px;
+  color: #627b9a;
+}

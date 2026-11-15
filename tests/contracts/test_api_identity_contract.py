@@ -504,5 +504,7 @@ def test_resume_rejects_old_placeholder_artifact_and_review_without_manual_edits
         execution.scheduler.state["tasks"]["components"]["output_hash"]
         == before_components["output_hash"]
     )
-    assert calls[before_calls:] == [("rr-api-map", "api-map")]
+    assert (
+        calls[before_calls:] == []
+    )  # verified batch checkpoint restores the valid pre-corruption result
     assert "pending]" not in json.dumps(output("rr-api-map"))

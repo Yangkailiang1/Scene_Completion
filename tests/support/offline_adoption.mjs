@@ -1,0 +1,47 @@
+import fs from 'node:fs';
+import {pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+const [htmlPath, jsdomPath] = process.argv.slice(2);
+const {JSDOM} = await import(pathToFileURL(jsdomPath).href);
+const captured = [];
+function open(html) {
+  return new JSDOM(html, {runScripts:'dangerously', pretendToBeVisual:true, beforeParse(w) {
+    w.Blob = class {constructor(parts) {this.parts=parts;}};
+    w.URL.createObjectURL = blob => {captured.push(blob.parts.join('')); return 'blob:offline';};
+    w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = () => {};
+    w.HTMLDialogElement.prototype.showModal = function() {this.setAttribute('open','');};
+    w.HTMLDialogElement.prototype.close = function() {this.removeAttribute('open');};
+    w.HTMLElement.prototype.scrollIntoView = () => {};
+  }});
+}
+const first = open(fs.readFileSync(htmlPath,'utf8')), d=first.window.document;
+assert.equal(d.querySelectorAll('#tabs button').length,3);
+assert.equal(d.querySelectorAll('textarea').length,1);
+assert.equal(d.querySelectorAll('input,[contenteditable]').length,0);
+const adopt=[...d.querySelectorAll('button')].find(b=>b.textContent==='采纳');
+assert.ok(adopt); adopt.click();
+const comment=d.querySelector('textarea'); comment.value='采纳 <业务> & </script> 修改';comment.dispatchEvent(new first.window.Event('input'));
+d.querySelector('.sources button').click();
+assert.ok(d.querySelector('#source-dialog[open]'));
+assert.ok(d.querySelector('.source-highlight'));
+assert.ok(d.querySelector('#source-content h1'));
+d.querySelector('#save-html').click();
+const saved=captured.at(-1), second=open(saved), d2=second.window.document;
+const parsed=JSON.parse(d2.querySelector('#ssd-review-data').textContent);
+assert.equal(parsed.decisions[0].comment,comment.value);
+assert.equal(parsed.decisions[0].adopted,true);
+assert.equal(d2.querySelector('textarea').value,comment.value);
+assert.ok([...d2.querySelectorAll('button')].some(b=>b.textContent==='撤销采纳'));
+const mode=d2.querySelector('#review-mode');mode.value='reference';mode.dispatchEvent(new second.window.Event('change'));
+assert.equal(d2.querySelectorAll('textarea').length,0);
+assert.equal([...d2.querySelectorAll('button')].filter(b=>b.textContent==='采纳').length,0);
+assert.ok(d2.querySelector('.review-grid'));
+const kind=d2.querySelector('#reference-kind');kind.value='concerns';kind.dispatchEvent(new second.window.Event('change'));
+assert.equal(d2.querySelectorAll('textarea').length,0);
+mode.value='review';mode.dispatchEvent(new second.window.Event('change'));
+assert.equal(d2.querySelector('textarea').value,comment.value);
+d2.querySelector('#save-json').click();
+assert.equal(JSON.parse(captured.at(-1)).decisions[0].comment,comment.value);
+second.window.close(); first.window.close();
+console.log(JSON.stringify({saved_reopened:true, readonly_context:true, source_highlight:true, three_scopes:true}));
