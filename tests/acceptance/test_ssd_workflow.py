@@ -68,20 +68,15 @@ def test_structured_default_pipeline_five_cases_cache_and_manual_revision(tmp_pa
         f"UC-{n:03d}:{stage}"
         for n in range(1, 6)
         for stage in ("ssd-prepare", "ssd-resolve", "ssd-generate", "ssd-compare")
-    } | {
-        "project:project-prepare",
-        *(
-            f"project:{scope}:{stage}"
-            for scope in ("business_chain", "architecture")
-            for stage in ("project-identify", "project-generate", "project-compare")
-        ),
-    }
+    } | {f"UC-{n:03d}:shared-services-merge" for n in range(1, 6)}
     assert set(first.scheduler.tasks) == expected
     assert all(tasks[key]["status"] == "passed" for key in expected)
     assert not list((root / "run/packets").glob("*.json"))
     index = ssd_results.index(root)
     assert len(index["cases"]) == 5
-    assert manifest["metrics"] == index["metrics"]
+    from scene_completion.application.shared_service_service import index as project_index
+
+    assert manifest["metrics"] == project_index(root)["metrics"]["overall"]["concern"]
     current = ssd_results.editor(root, "UC-002")
     documents = {doc["name"]: doc for doc in current["bundle"]["documents"]}
     for name, role in (
@@ -134,13 +129,7 @@ def test_supplied_g_alias_runs_exact_case_from_preview(tmp_path):
         "UC-002:ssd-resolve",
         "UC-002:ssd-generate",
         "UC-002:ssd-compare",
-        "project:project-prepare",
-        "project:business_chain:project-identify",
-        "project:business_chain:project-generate",
-        "project:business_chain:project-compare",
-        "project:architecture:project-identify",
-        "project:architecture:project-generate",
-        "project:architecture:project-compare",
+        "UC-002:shared-services-merge",
     }
     assert ssd_results.index(root)["cases"][0]["name"] == selected["name"]
 
@@ -202,7 +191,7 @@ def test_editor_revision_conflict_and_offline_http_contract(tmp_path):
         assert exported.status_code == 200 and "text/html" in exported.headers["content-type"]
         assert "attachment" in exported.headers["content-disposition"]
         feedback = _parse(exported.text)
-        assert feedback["format"] == "business-adoption-v2"
+        assert feedback["format"] == "business-adoption-v3"
         # Deterministic ready rows may be exported; unresolved model templates may not.
         for item in feedback["items"]:
             pending = set(item["bundle"].get("scenario_generation", {}).get("pending_ids", []))

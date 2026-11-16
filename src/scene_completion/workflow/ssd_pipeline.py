@@ -208,6 +208,22 @@ def _compare_pairs(ex, bundle, record):
     return ssd_validation.validate(bundle)
 
 
+def _machine_baselines(ex, cid):
+    """Preparations may be published repeatedly before a failed stage resumes."""
+    try:
+        state = ssd_repository.state(ex.root.parent, cid)
+    except ValueError:
+        return
+    yield state["baseline"]
+    if state.get("previous_baseline"):
+        yield state["previous_baseline"]
+    for history in reversed(state.get("history", [])):
+        snapshot = ssd_repository.revision(ex.root.parent, cid, history["revision"])["bundle"]
+        # machine_g is captured before human overlays. Never reuse human G as model output.
+        if snapshot.get("machine_g") or snapshot.get("semantic_comparison_identity"):
+            yield snapshot
+
+
 def _reuse_machine_decisions(ex, bundle, semantic_identity):
     """Reuse unchanged pairs across human edits or a newly published preparation."""
 
@@ -219,17 +235,10 @@ def _reuse_machine_decisions(ex, bundle, semantic_identity):
         return {key: value for key, value in record.items() if key != "source_refs"}
 
     bundle = deepcopy(bundle)
-    try:
-        # One state snapshot keeps the current and previous machine baselines
-        # together. prepare publishes its fresh bundle before compare, so the
-        # most recent analyzed machine result can now be previous_baseline.
-        state = ssd_repository.state(ex.root.parent, bundle["case"]["id"])
-    except ValueError:
-        return bundle
     existing = {
         (d["level"], d["pair"], d["left_id"], d["right_id"]) for d in bundle.get("decisions", [])
     }
-    for baseline in (state["baseline"], state.get("previous_baseline")):
+    for baseline in _machine_baselines(ex, bundle["case"]["id"]):
         if not baseline or baseline.get("semantic_comparison_identity") != semantic_identity:
             continue
         for decision in baseline.get("decisions", []):
@@ -381,16 +390,15 @@ def _generate(ex, bundle, record):
     bundle = deepcopy(bundle)
     # A transport-handle repair does not invalidate already verified business analyses.
     # Reuse machine baselines only, never effective human edits or another channel.
-    try:
-        previous = ssd_results.editor(ex.root.parent, bundle["case"]["id"], "original")["bundle"]
-    except ValueError:
-        previous = None
-    if previous:
-        from scene_completion.analysis.ssd.generation import regenerate_machine
+    from scene_completion.analysis.ssd.generation import regenerate_machine
 
-        reusable = regenerate_machine(bundle, previous)
-        known = {r["id"]: r for r in reusable["scenarios"]}
+    for previous in _machine_baselines(ex, bundle["case"]["id"]):
+        # Preparation publishes first. Its previous baseline still owns the last
+        # verified analyses; reading only "original" would discard that reuse.
+        known = {r["id"]: r for r in regenerate_machine(bundle, previous)["scenarios"]}
         for row in bundle["channels"]["G"]["scenarios"]:
+            if row.get("analysis"):
+                continue
             source = known.get(row["id"], {})
             if source.get("analysis") and all(
                 source.get(k) == row.get(k)
@@ -423,6 +431,12 @@ def _tail(ex, cid, prepare):
 
 
 def build_structured(ex, directory):
+    from scene_completion.domain.concern_registry import default_registry
+    from scene_completion.domain.current_scope import current_registry
+
+    ex.registry_snapshot = current_registry(
+        getattr(ex, "registry_snapshot", None) or default_registry()
+    )
     from scene_completion.analysis.ssd.pipeline import build_cases, case_identity, generate_g
 
     directory = Path(directory)
@@ -462,6 +476,7 @@ def build_structured(ex, directory):
                 raise ValueError("当前用例没有唯一可用的 SysOperation")
             bundle = ssd_validation.validate(bundles[0])
             bundle["registry"] = deepcopy(ex.registry_snapshot)
+            bundle["analysis_policy"] = ex.registry_snapshot["analysis_policy"]
             bundle["channels"]["G"] = generate_g(bundle)
             ssd_results.publish(ex.root.parent, bundle)
             return bundle
@@ -488,10 +503,15 @@ def build_from_documents(
     """Build SSD cases from shared document extraction and source branches."""
     from scene_completion.analysis.interactions.use_cases import select_documents
     from scene_completion.analysis.ssd.pipeline import generate_g
+    from scene_completion.domain.concern_registry import default_registry
+    from scene_completion.domain.current_scope import current_registry
     from scene_completion.inputs.documents.source_documents import normal_projection
     from scene_completion.inputs.documents.ssd_adapter import normalize_extracted_case
     from scene_completion.workflow.runtime.task_context import ssd_context
 
+    ex.registry_snapshot = current_registry(
+        getattr(ex, "registry_snapshot", None) or default_registry()
+    )
     ex.manifest.update(workflow="ssd-case-v1", recommendation={"enabled": False})
     selected = []
     for group in groups:
@@ -608,13 +628,39 @@ def build_from_documents(
 
 
 def _project_scopes(ex, selected):
-    from scene_completion.workflow.project_scopes import build_project_scopes
+    from scene_completion.application.shared_service_service import publish
+    from scene_completion.domain.project_scopes.validation import validate
 
-    ex.manifest["project_scope_tasks"] = build_project_scopes(
-        ex,
-        [cid + ":ssd-prepare" for cid in selected],
-        documents=getattr(ex, "project_scope_documents", None),
-    )
+    ex.manifest["project_scopes"] = []
+    ex.manifest["analysis_policy"] = "interaction-shared-services-v1"
+    ex.manifest["project_scope_tasks"] = []
+    for cid in selected:
+        key = cid + ":shared-services-merge"
+        if getattr(ex, "is_preview", False):
+            ex.add(
+                key,
+                "shared-services-merge",
+                [cid + ":ssd-compare"],
+                case=cid,
+                transform=lambda d: d,
+            )
+        else:
+            ex.scheduler.add(
+                Task(
+                    key=key,
+                    case=cid,
+                    stage="shared-services-merge",
+                    deps=(cid + ":ssd-compare",),
+                    version="interaction-shared-services-v1",
+                    execute=lambda values, record: {
+                        "task": "shared-services-merge",
+                        "payload": publish(ex.root.parent)["bundle"],
+                    },
+                    verify=lambda value: validate(value["payload"]),
+                    display_label="合并共用外部服务（脚本）",
+                )
+            )
+        ex.manifest["project_scope_tasks"].append(key)
 
 
 def progress(ex):
@@ -658,9 +704,10 @@ def finish(ex, result):
                 break
     progress(ex)
     summary = ssd_results.index(ex.root.parent)
-    from scene_completion.application import project_scope_service
+    from scene_completion.application import shared_service_service
 
-    project_summary = project_scope_service.index(ex.root.parent)
+    shared_service_service.publish(ex.root.parent)
+    project_summary = shared_service_service.index(ex.root.parent)
     pending = sum(c["pending_count"] for c in summary["cases"])
     pending += sum(s.get("pending_count", 0) for s in project_summary["scopes"])
     pending += ex.manifest.get("test_import_pending_count", 0)
@@ -676,11 +723,13 @@ def finish(ex, result):
         analysis_complete=result["complete"],
         pending_count=pending,
         global_analysis={
-            "complete": all(s.get("complete") for s in project_summary["scopes"]),
-            "scopes": project_summary["scopes"],
+            "complete": False,
+            "enabled": False,
+            "scopes": [],
         },
+        shared_services=project_summary["scopes"],
         recommendation={"enabled": False},
-        metrics=summary["metrics"],
+        metrics=project_summary["metrics"]["overall"]["concern"],
         metrics_by_scope=project_summary["metrics"],
     )
     write_json(ex.root / "run_manifest.json", ex.manifest)

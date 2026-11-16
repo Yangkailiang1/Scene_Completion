@@ -26,7 +26,7 @@ from scene_completion.inputs.provenance.ssd_sources import (
 )
 
 VERSION = "ssd-case-v1"
-RULE_VERSION = "ssd-three-scope-rules-v2"
+RULE_VERSION = "ssd-three-scope-rules-v2"  # Existing rule/record identities stay stable.
 DATA_KINDS = {
     "required": "completeness",
     "type": "type",
@@ -405,7 +405,9 @@ def _business_rules(bundle, step, entity_id):
 def generate_g(bundle):
     """Attach registry rules to positive facts only, without source-evidence gates."""
     output = channel()
-    registry = bundle.get("registry") or default_registry()
+    from scene_completion.domain.current_scope import current_registry
+
+    registry = current_registry(bundle.get("registry") or default_registry())
     definitions, profiles = registry["definitions"], registry["profiles"]
     for step in bundle["steps"]:
         refs = step.get("source_refs", [])
@@ -425,7 +427,10 @@ def generate_g(bundle):
             generation_origin="deterministic_constraint",
         ):
             definition = definitions.get(key, {})
-            if definition.get("scope", "interaction") != "interaction":
+            if (
+                not definition.get("enabled", True)
+                or definition.get("scope", "interaction") != "interaction"
+            ):
                 return None
             concern = add_concern(
                 output,
@@ -491,6 +496,8 @@ def generate_g(bundle):
             for key in profiles["human"]:
                 attach(key, "sender")
         if request and call and receiver["type"] == "service":
+            if receiver.get("external"):
+                attach("service.base.availability")
             if step["sender"]["type"] == "service":
                 for key in profiles["relation"]:
                     attach(key)

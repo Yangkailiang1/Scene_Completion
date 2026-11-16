@@ -33,8 +33,7 @@ function setup(post: (url: string, body: any) => Response = () => json({})) {
           excluded: {
             by_scope: {
               interaction: counts,
-              business_chain: counts,
-              architecture: { ...counts, exported: 0 },
+              shared_services: { ...counts, exported: 0 },
             },
           },
         });
@@ -84,7 +83,7 @@ test("format detection never flashes legacy controls; legacy is still explicitly
   setup();
   render(<ReviewHandoff project="p" />);
   expect(screen.queryByText("导出Windows业务审核包")).toBeNull();
-  await screen.findByRole("heading", { name: "导出三层审核 HTML" });
+  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
   expect(screen.queryByText("④ 研发定向重跑")).toBeNull();
   fireEvent.change(screen.getByLabelText("审核交接格式"), {
     target: { value: "windows" },
@@ -98,7 +97,7 @@ test("format detection never flashes legacy controls; legacy is still explicitly
   expect(screen.getByLabelText("导入 SSD 审核文件")).toBeTruthy();
 });
 
-test("default exports all three scopes regardless of current selection; object loading is lazy", async () => {
+test("default exports interactions and shared services regardless of current selection; object loading is lazy", async () => {
   const requests: any[] = [];
   const fetcher = setup((url, body) => {
     requests.push({ url, body });
@@ -117,7 +116,7 @@ test("default exports all three scopes regardless of current selection; object l
     />,
   );
   const button = await screen.findByRole("button", {
-    name: "导出三层审核 HTML",
+    name: "导出需求异常场景识别报告",
   });
   await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
   expect(
@@ -150,7 +149,7 @@ test("default exports all three scopes regardless of current selection; object l
 test("case options retain natural order and source names", async () => {
   setup();
   render(<ReviewHandoff project="p" />);
-  await screen.findByRole("heading", { name: "导出三层审核 HTML" });
+  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
   fireEvent.click(screen.getByText("高级筛选（可选）"));
   fireEvent.change(screen.getByLabelText("SSD 审核范围"), {
     target: { value: "case" },
@@ -210,7 +209,7 @@ test("one HTML previews and applies precise cross-scope items with ready items s
     (screen.getByLabelText("应用 外部服务") as HTMLInputElement).disabled,
   ).toBe(true);
   fireEvent.click(
-    screen.getByRole("button", { name: "应用选定三层修改并返回结果" }),
+    screen.getByRole("button", { name: "应用选定审核修改并返回结果" }),
   );
   await waitFor(() => expect(onApplied).toHaveBeenCalled());
   expect(writes[1].body).toEqual({
@@ -243,7 +242,7 @@ test("apply-time conflict stays on the preview and does not claim successful app
   });
   await screen.findByLabelText("应用 查询");
   fireEvent.click(
-    screen.getByRole("button", { name: "应用选定三层修改并返回结果" }),
+    screen.getByRole("button", { name: "应用选定审核修改并返回结果" }),
   );
   await screen.findByText("保存前版本已变化");
   expect(onApplied).not.toHaveBeenCalled();
@@ -264,7 +263,7 @@ test("network failure never falls back to legacy and retry recovers", async () =
         : json({ scopes: [] }),
   );
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
-  await screen.findByRole("heading", { name: "导出三层审核 HTML" });
+  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
 });
 
 test("late responses for another project cannot replace the selected project", async () => {
@@ -282,7 +281,7 @@ test("late responses for another project cannot replace the selected project", a
   );
   const view = render(<ReviewHandoff project="old" />);
   view.rerender(<ReviewHandoff project="new" />);
-  await screen.findByRole("heading", { name: "导出三层审核 HTML" });
+  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
   await act(async () =>
     resolve(json({ version: "ssd-case-v1", cases: [{ id: "old-case" }] })),
   );

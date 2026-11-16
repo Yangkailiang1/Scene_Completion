@@ -441,7 +441,10 @@ export function SsdResultsView({
       });
     });
   }
-  const records = (channel: Channel) => draft?.channels[channel][layer] || [];
+  const records = (channel: Channel) =>
+    (draft?.channels[channel][layer] || []).filter(
+      (r) => readonly || !(snapshot?.scope_excluded_ids || []).includes(r.id),
+    );
   const comparison =
     layer === "pending" ? [] : snapshot?.comparison?.[layer] || [];
   const activeStep = draft?.steps.find((step) => step.id === stepId);
@@ -510,8 +513,10 @@ export function SsdResultsView({
     String(a.id).localeCompare(String(b.id), "zh-CN", { numeric: true }),
   );
   const allRecords = channels.flatMap((channel) =>
-    ["concerns", "scenarios", "pending"].flatMap(
-      (kind) => draft?.channels[channel][kind as Kind] || [],
+    ["concerns", "scenarios", "pending"].flatMap((kind) =>
+      (draft?.channels[channel][kind as Kind] || []).filter(
+        (r) => readonly || !(snapshot?.scope_excluded_ids || []).includes(r.id),
+      ),
     ),
   );
   const unboundCount = allRecords.filter(
@@ -703,7 +708,7 @@ export function SsdResultsView({
             : dirty
               ? "当前修订 · 有未保存修改"
               : "当前修订结果"}{" "}
-          · {index.cases.length} 个用例
+          · {index.cases.length} 个用例 · 外部服务在调用处查看，项目合并计数
           {completeness && !completeness.complete ? " · 部分内容待确认" : ""}
         </span>
         <button

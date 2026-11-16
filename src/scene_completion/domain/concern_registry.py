@@ -74,9 +74,11 @@ def default_registry():
         _parsed(Path(__file__).with_name("concern_registry.json").read_text(encoding="utf8"))
     )
     from scene_completion.domain.concern_templates import reference_catalog
+    from scene_completion.domain.current_scope import current_registry
 
+    value = current_registry(value)
     value["reference_templates"] = reference_catalog()
-    value["scopes"] = deepcopy(SCOPES)
+    value["scopes"] = {"interaction": SCOPES["interaction"]}
     value["hash"] = fingerprint({k: v for k, v in value.items() if k != "hash"})
     return value
 

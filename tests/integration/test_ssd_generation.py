@@ -39,6 +39,26 @@ def describe(case):
     return capture_machine(case)
 
 
+def test_repeated_preparation_preserves_verified_machine_analysis_reuse(tmp_path, case):
+    from types import SimpleNamespace
+
+    from scene_completion.workflow.ssd_pipeline import _generate
+
+    original = deepcopy(case)
+    service.publish(tmp_path, describe(case))
+    service.publish(tmp_path, original)
+    next_preparation = deepcopy(original)
+    next_preparation["pending"].append({"id": "pending", "reason": "准备阶段新诊断"})
+    service.publish(tmp_path, next_preparation)
+
+    def unexpected(*args):
+        raise AssertionError("unchanged G must reuse verified machine analyses")
+
+    ex = SimpleNamespace(root=tmp_path / "run", client=object(), mode="client", semantic=unexpected)
+    result = _generate(ex, next_preparation, {})
+    assert not list(batches(result))
+
+
 def test_generation_projection_keeps_all_fixed_variants_and_no_inverse_material(case):
     original = list(batches(case))
     assert original

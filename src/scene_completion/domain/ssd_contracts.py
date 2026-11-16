@@ -147,6 +147,12 @@ partial仅供诊断。不能根据G补E或GT，不能根据E/GT补G。"""
 
 
 def instructions_for(task):
+    if task == "ssd-bind":
+        return (
+            INSTRUCTIONS
+            + "\n"
+            + "ssd-bind：所有输出仅使用输入的S步骤/F字段/A接口/L原文短编号。operations只补充未确定的实际CRUD，POST不能直接视为创建，结合业务操作语义；不改人工或声明操作。field_links只关联已有字段与已有接口属性，api_id、location、name三者必须与输入apis.fields某一项逐字一致，不新增报文字段，不混请求/返回/存储。RR中的Authorization不能关联到未声明Authorization的SR接口；RR字段有正向原文约束时可使用field_definitions直接补齐，不必填写field_links，也不代表RR实际调用SR接口，工具不会伪造RR API。field_definitions只从positive_lines中明示的规则提取类型、必填、格式、长度、范围等，必须引用准确L编号；不输出无依据的空占位行，不虚构阈值，不把其他用例规则复制过来。已有字段声明优先，无法确定或没有约束不编造，pending写具体步骤与缺口。"
+        )
     if task == "ssd-semantic-compare":
         return INSTRUCTIONS.replace(
             "partial仅供诊断。",

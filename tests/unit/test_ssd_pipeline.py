@@ -118,7 +118,7 @@ def test_generation_is_independent_of_inverse_answers(cases):
 def test_sr_priority_merges_ir_and_sr_provenance(cases):
     b = cases["UC-002"]
     e = b["channels"]["E"]
-    unavailable = [s for s in e["project_records"] if s["key"] == "service.base.availability"]
+    unavailable = [s for s in e["scenarios"] if s["key"] == "service.base.availability"]
     assert len(unavailable) == 1
     assert unavailable[0]["step_id"] == "SR-002-DB-REQ"
     docs = {d["id"]: d for d in b["documents"]}
@@ -139,9 +139,9 @@ def test_recovered_notes_locate_data_business_and_transport(cases):
     returned = next(s for s in gt["scenarios"] if "成功响应version未提供" in s["condition"])
     assert returned["step_id"] == "SR-003-RES"
     assert returned["target"] == "data"
-    unavailable = next(s for s in gt["project_records"] if "连接不可达" in s["condition"])
+    unavailable = next(s for s in gt["scenarios"] if "连接不可达" in s["condition"])
     assert unavailable["step_id"] == "SR-003-DB-REQ"
-    assert unavailable["scope"] == "architecture"
+    assert unavailable["target"] == "receiver"
 
 
 def test_test_pending_and_success_do_not_score(cases):

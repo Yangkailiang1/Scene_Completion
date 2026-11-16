@@ -80,7 +80,7 @@ def paths(key, definitions, direction=None):
             ["待归类"]
         ]
     if layer == "functional" and group in CRUD:
-        return [BASE + ["第二层：业务实体CRUD关注点", CRUD[group]]]
+        return [BASE + ["第二层：功能类型关注点", CRUD[group]]]
     if layer == "functional" and group in FUNCTIONS:
         return [BASE + ["第三层：业务关注点", FUNCTIONS[group]]]
     if layer == "technology" and group in {"database", "llm"}:

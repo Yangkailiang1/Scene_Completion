@@ -72,7 +72,14 @@ def validate_result(value, inputs):
                 f["name"] == row["name"] and f.get("location") == row["location"]
                 for f in apis[row["api_id"]].get("fields", [])
             ):
-                raise ValueError("字段约束必须来自已声明接口属性")
+                api = apis.get(row["api_id"], {})
+                declared = [f"{f.get('location')}.{f['name']}" for f in api.get("fields", [])]
+                raise ValueError(
+                    f"字段约束必须来自已声明接口属性：{row['api_id']}中不存在"
+                    f"{row['location']}.{row['name']}。允许属性：{declared}。"
+                    "不要将RR凭证字段冒充SR接口属性；无对应属性时删除此field_links项，"
+                    "有准确正向L原文依据则使用field_definitions，无依据则写pending。"
+                )
             storage = (
                 next(f for f in step["data"] if f["id"] == row["field_id"]).get("location")
                 == "storage"
@@ -82,7 +89,10 @@ def validate_result(value, inputs):
             ):
                 raise ValueError("请求、响应与存储字段不能串挂")
         elif not row["source_ref_ids"] or not set(row["source_ref_ids"]) <= refs:
-            raise ValueError("字段定义必须引用本次正向原文")
+            raise ValueError(
+                f"字段定义必须引用本次正向原文：{row['step_id']}/{row['field_id']}缺少有效L编号。"
+                "未知字段不要在field_definitions中输出空占位行，删除该行并只在pending说明缺口。"
+            )
     return value
 
 

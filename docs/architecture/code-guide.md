@@ -1,6 +1,6 @@
 # 架构与代码导览
 
-默认运行入口是SSD三方比较流程。`compat`保留仍在使用的详细流程、独立分析格式和保存报告能力，不代表恢复v2/v3/v4协议。版本含义见[版本与兼容边界](../reference/versions.md)，唯一文件迁移清单为[module-map.json](module-map.json)。
+默认运行入口是交互三方比较流程，业务链路退出当前分析。外部服务在交互中生成后归并，历史链路与架构只读。`compat`保留仍在使用的详细流程、独立分析格式和保存报告能力，不代表恢复v2/v3/v4协议。版本含义见[版本与兼容边界](../reference/versions.md)，唯一文件迁移清单为[module-map.json](module-map.json)。
 
 ## 主链与依赖方向
 
@@ -18,10 +18,11 @@ flowchart TD
     App --> Revision[application/ssd_revision_service 修订与发布]
     Revision --> Domain
     Revision --> Repository[infrastructure/ssd_repository 持久化]
-    Project[workflow/project_scopes 项目范围编排] --> ProjectAnalysis[analysis/project_scopes 依赖与外部服务]
-    Project --> ProjectDomain[domain/project_scopes 校验、匹配、指标]
-    Project --> ProjectRepo[infrastructure/project_scope_repository 持久化]
-    Project --> Revision
+    Plan --> Merge[application/shared_service_service 共用服务发布与修订]
+    Merge --> Aggregate[domain/shared_services 确定性归并]
+    Merge --> ProjectDomain[domain/project_scopes 匹配与指标复用]
+    Merge --> Store[shared_service_results 独立仓储]
+    Historical[旧 project_results] --> Merge
     Offline[review/offline 离线HTML回收] --> Revision
 ```
 

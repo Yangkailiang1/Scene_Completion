@@ -54,7 +54,7 @@ def identified(x, i, key, condition, kind, **guard):
     return x["concern-match"]
 
 
-def test_external_availability_is_not_generated_as_interaction_scene():
+def test_external_availability_is_generated_at_actual_external_call():
     x, i = internal()
     up = deepcopy(i)
     up.update(id="upstream", sequence=0)
@@ -65,9 +65,9 @@ def test_external_availability_is_not_generated_as_interaction_scene():
     x["enriched-interactions"]["interactions"].insert(0, up)
     x["concern-match"] = resolve_matches(x, [])
     out = generated(applicability(x))
-    # Availability belongs to the project-architecture scope and must not be
-    # mounted as a per-interaction scene.
-    assert not [s for s in out["scenarios"] if s["concern_key"] == "service.base.availability"]
+    assert (
+        len([s for s in out["scenarios"] if s["concern_key"] == "service.base.availability"]) == 1
+    )
 
 
 def test_declared_service_caller_identity_without_token_mechanism_generates_scene():
@@ -107,6 +107,9 @@ def test_recognized_positive_conditions_expand_without_reading_inverse_answers(
     x["GT"] = {"secret": "DO_NOT_COPY"}
     out = generated(applicability(x))
     rows = [s for s in out["scenarios"] if s["concern_key"] == key]
+    if key == "service_relation.data_isolation":
+        assert not rows  # Business-chain rule is outside the current method.
+        return
     assert len(rows) == 1 and condition in rows[0]["cause"]
     assert "DO_NOT_COPY" not in str(out)
     x["concern-match"]["matches"][0]["status"] = "pending"
@@ -507,15 +510,15 @@ def test_single_operation_sequence_alias_does_not_duplicate_bindings():
         "interaction_id": i["id"],
         "target": "operation",
         "object": i["operation"]["name"],
-        "concern_key": "service_relation.data_isolation",
+        "concern_key": "service_relation.authorization",
         "basis": "仅访问本服务数据",
-        "concrete_rule": "不得以其他service-id访问本服务的数据",
+        "concrete_rule": "调用方具有当前操作权限",
         "source_refs": R,
         "activation_evidence": [
             {
                 "kind": "authorization",
                 "status": "explicit",
-                "condition": "不得以其他service-id访问本服务的数据",
+                "condition": "调用方具有当前操作权限",
                 "value": True,
                 "source_refs": R,
             }

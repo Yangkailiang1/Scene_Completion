@@ -81,7 +81,9 @@ export function ConcernTree({
 }) {
   const root: Branch = { name: "root", path: "", children: {}, leaves: [] };
   for (const [key, d] of definitions)
-    for (const path of paths[key] || [["待归类"]]) {
+    for (const path of key === "service.base.availability"
+      ? [["交互级关注点", "外部Service调用", "服务可用性（项目合并计数）"]]
+      : paths[key] || [["待归类"]]) {
       if (
         ![key, d.label, d.description, ...path]
           .join(" ")

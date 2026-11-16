@@ -34,13 +34,8 @@ def test_scopes_keep_layer_ids_and_retire_duplicate_global_idempotency():
     registry = default_registry()
     definitions = registry["definitions"]
     assert definitions["service.base.availability"]["layer"] == "base"
-    assert definitions["service.base.availability"]["scope"] == "architecture"
-    assert set(registry["profiles"]["business_chain"]) == {
-        "service_relation.data_isolation",
-        "global.dependency_consistency",
-        "global.call_order",
-        "global.cascade_operation",
-    }
+    assert definitions["service.base.availability"]["scope"] == "interaction"
+    assert registry["profiles"]["business_chain"] == []
     assert not definitions["global.idempotency"]["enabled"]
     assert not definitions["service.resource_mutation.idempotency"]["enabled"]
     for kind in ("create", "update", "delete"):
@@ -48,7 +43,7 @@ def test_scopes_keep_layer_ids_and_retire_duplicate_global_idempotency():
         assert definitions[key]["scope"] == "interaction" and definitions[key]["enabled"]
         assert key in registry["profiles"]["functional"][kind]
     paths = presentation(definitions)
-    assert paths["paths"]["service.base.availability"][0][0] == "项目架构关注点"
+    assert paths["paths"]["service.base.availability"][0][0] == "交互级关注点"
     assert paths["paths"]["service_relation.data_isolation"][0][0] == "业务链路关注点"
 
 
@@ -68,7 +63,7 @@ def test_real_ssd_templates_keep_lineage_and_project_rules_outside_interaction()
         assert scene["generation_origin"] in {"reference_template", "deterministic_constraint"}
         assert scene["template_id"] in {v["template_id"] for v in catalog[scene["key"]]}
     assert any(s["key"] == "service.crud.update.idempotency" for s in g["scenarios"])
-    assert not any(c["key"] == "service.base.availability" for c in g["concerns"])
+    assert any(c["key"] == "service.base.availability" for c in g["concerns"])
     assert not any(c["key"] == "service_relation.data_isolation" for c in g["concerns"])
     old = deepcopy(bundle)
     old["channels"] = {"E": {"scenarios": [{"condition": "伪造答案"}]}, "GT": {"scenarios": []}}
@@ -98,9 +93,9 @@ def test_inverse_idempotency_is_local_while_project_sources_preserve_independent
     idem = [s for s in gt["scenarios"] if s["key"] == "service.crud.update.idempotency"]
     assert len(idem) == 1 and idem[0]["step_id"] == "SR-003-REQ"
     assert not any("Idempotency-Key" in s["condition"] for s in gt["pending"])
-    availability = next(s for s in gt["project_records"] if s["scope"] == "architecture")
-    assert availability["case_id"] == "UC-003" and availability["source_refs"]
-    assert availability["raw"] and availability["id"]
+    availability = next(s for s in gt["scenarios"] if s["key"] == "service.base.availability")
+    assert availability["step_id"] == "SR-003-DB-REQ" and availability["source_refs"]
+    assert availability["id"]
     record = {
         "id": "independent-chain",
         "condition": "前置操作未完成就执行后续操作",

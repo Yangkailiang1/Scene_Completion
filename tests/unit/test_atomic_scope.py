@@ -373,9 +373,12 @@ def test_local_security_check_keeps_caller_boundary_without_crossing_layers():
 
 def test_global_dependency_task_does_not_offer_business_operation_idempotency():
     from scene_completion.compat.detailed.global_pipeline import registry_for_anchor
-    from scene_completion.domain.contracts import registry
+    from scene_completion.domain.concern_registry import validate_registry
+    from scene_completion.infrastructure.storage import read_json
 
-    current = registry()
+    current = validate_registry(
+        read_json(ROOT / "src/scene_completion/domain/concern_registry.json")
+    )
     for kind, key in (
         ("order", "global.call_order"),
         ("consistency", "global.dependency_consistency"),

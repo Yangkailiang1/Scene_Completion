@@ -40,6 +40,8 @@ function concernPath(
   const definitions = bundle.registry?.definitions || {};
   const definition = definitions[key] || {};
   const { layer, group } = definition;
+  if (key === "service.base.availability")
+    return "交互级关注点 › 外部Service调用 › 服务可用性（项目合并计数）";
   if (definition.scope === "business_chain")
     return "业务链路关注点 › 用例与业务实体依赖";
   if (definition.scope === "architecture")
@@ -98,7 +100,7 @@ function concernPath(
     release_activation: "发布生效型",
   };
   if (layer === "functional" && crud[group])
-    return [...base, "第二层：业务实体CRUD关注点", crud[group]].join(" › ");
+    return [...base, "第二层：功能类型关注点", crud[group]].join(" › ");
   if (layer === "functional" && functions[group])
     return [...base, "第三层：业务关注点", functions[group]].join(" › ");
   if (layer === "technology" && ["database", "llm"].includes(group))
@@ -561,6 +563,37 @@ export function SsdAlignmentTable({
                                     ? ` · ${record.template_version}`
                                     : ""}
                                 </p>
+                              )}
+                              {!!record.members?.length && (
+                                <details className="ssd-member-details">
+                                  <summary>
+                                    合并成员与各调用处理预期（
+                                    {record.members.length}）
+                                  </summary>
+                                  {record.members.map((m: any, i: number) => (
+                                    <div key={i}>
+                                      <strong>
+                                        {m.case_id || "历史架构结果"} ·{" "}
+                                        {m.step_id || "服务级"}
+                                      </strong>
+                                      <p>{m.condition}</p>
+                                      <p>预期：{m.expected}</p>
+                                      <p>{m.analysis}</p>
+                                      <button
+                                        onClick={() =>
+                                          onSources({
+                                            ...record,
+                                            source_refs: m.source_refs || [],
+                                            requirement_refs:
+                                              m.requirement_refs || [],
+                                          })
+                                        }
+                                      >
+                                        查看成员出处
+                                      </button>
+                                    </div>
+                                  ))}
+                                </details>
                               )}
                               {!readonly && (
                                 <div className="ssd-inline-actions">

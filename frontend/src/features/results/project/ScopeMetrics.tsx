@@ -70,12 +70,14 @@ export function ScopeMetricsSummary({
       <div className="results-compact-controls">
         {sourceControl}
         <span className="results-compact-description">
-          三个分析范围 · 关注点与场景分别计分
+          用例交互＋共用外部服务 · 关注点与场景分别计分
         </span>
       </div>
       <section className="result-metrics ssd-metrics-view">
         <h2>项目分层与汇总指标</h2>
-        <p>分子、分母由后端按各层独立对象统计后汇总；未完成范围单独标注。</p>
+        <p>
+          普通交互按用例统计，共用服务按合并单位仅计一次；未完成结果单独标注。
+        </p>
         <table>
           <thead>
             <tr>
@@ -87,33 +89,28 @@ export function ScopeMetricsSummary({
             </tr>
           </thead>
           <tbody>
-            {(
-              [
-                "interaction",
-                "business_chain",
-                "architecture",
-              ] as AnalysisScope[]
-            ).flatMap((scope) =>
-              ["concern", "scenario"].map((level) => {
-                const values = metrics?.by_scope?.[scope];
-                return (
-                  <tr key={`${scope}-${level}`}>
-                    <td>{scopeNames[scope]}</td>
-                    <td>{level === "concern" ? "关注点" : "场景"}</td>
-                    <td>
-                      {rate(values?.[level]?.missing_exception_miss_rate)}
-                    </td>
-                    <td>{rate(values?.[level]?.generation_validity)}</td>
-                    <td>
-                      {values?.available === false || !values
-                        ? "尚无结果"
-                        : values.complete
-                          ? "已完成"
-                          : "部分结果"}
-                    </td>
-                  </tr>
-                );
-              }),
+            {(["interaction", "shared_services"] as AnalysisScope[]).flatMap(
+              (scope) =>
+                ["concern", "scenario"].map((level) => {
+                  const values = metrics?.by_scope?.[scope];
+                  return (
+                    <tr key={`${scope}-${level}`}>
+                      <td>{scopeNames[scope]}</td>
+                      <td>{level === "concern" ? "关注点" : "场景"}</td>
+                      <td>
+                        {rate(values?.[level]?.missing_exception_miss_rate)}
+                      </td>
+                      <td>{rate(values?.[level]?.generation_validity)}</td>
+                      <td>
+                        {values?.available === false || !values
+                          ? "尚无结果"
+                          : values.complete
+                            ? "已完成"
+                            : "部分结果"}
+                      </td>
+                    </tr>
+                  );
+                }),
             )}
             {["concern", "scenario"].map((level) => (
               <tr key={level}>
@@ -125,7 +122,7 @@ export function ScopeMetricsSummary({
                   {rate(metrics?.overall?.[level]?.missing_exception_miss_rate)}
                 </td>
                 <td>{rate(metrics?.overall?.[level]?.generation_validity)}</td>
-                <td>{metrics?.complete ? "三层已完成" : "包含未完成范围"}</td>
+                <td>{metrics?.complete ? "已完成" : "包含未完成范围"}</td>
               </tr>
             ))}
           </tbody>

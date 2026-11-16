@@ -33,12 +33,14 @@ def test_human_mandatory_checks_even_with_no_model_observations_but_not_in_E_GT(
     validate("concern-match", again)
 
 
-def test_external_service_availability_is_reserved_for_project_architecture():
+def test_external_service_availability_is_attached_to_actual_interaction():
     x = inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["sender"].update(name="Admin", position="内部服务")
     i["receiver"].update(name="Catalog", position="外部服务")
-    assert not definite(resolve_matches(x, []))
+    assert {m["concern_key"] for m in definite(resolve_matches(x, [])).values()} == {
+        "service.base.availability"
+    }
     for change in ("internal", "self", "return"):
         y = deepcopy(x)
         row = y["sr-ssd"]["interactions"][0]

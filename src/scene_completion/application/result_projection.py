@@ -36,6 +36,19 @@ def identification_proof(project, bundle):
 
 def current_view(project, view, matching):
     local = view["bundle"]
+    if local.get("version") == "ssd-case-v1":
+        from scene_completion.domain.current_scope import case_report
+
+        view.update(case_report(local))
+        from scene_completion.domain.current_scope import allowed
+
+        view["scope_excluded_ids"] = [
+            r["id"]
+            for data in local["channels"].values()
+            for kind in ("concerns", "scenarios", "pending")
+            for r in data.get(kind, [])
+            if not allowed(r)
+        ]
     complete, proof = identification_proof(project, local)
     if complete is None and local.get("scope") and local.get("source_records", {}).get("GT"):
         complete = False

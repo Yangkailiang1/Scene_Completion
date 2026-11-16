@@ -2315,7 +2315,14 @@
     "src/scene_completion/workflow/project_scopes.py",
     "src/scene_completion/workflow/recovery/__init__.py",
     "src/scene_completion/workflow/recovery/semantic_checkpoint.py",
-    "src/scene_completion/workflow/runtime/__init__.py"
+    "src/scene_completion/workflow/runtime/__init__.py",
+    "src/scene_completion/domain/current_scope.py",
+    "src/scene_completion/domain/business_report.py",
+    "src/scene_completion/domain/shared_services/__init__.py",
+    "src/scene_completion/domain/shared_services/aggregation.py",
+    "src/scene_completion/application/shared_service_service.py",
+    "src/scene_completion/review/offline/_adoption_v2.py",
+    "src/scene_completion/review/offline/_business_report_template.py"
   ],
   "public_paths_preserved": [
     "docs/ssd-result-contract.md",

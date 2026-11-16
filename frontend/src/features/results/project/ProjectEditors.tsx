@@ -187,9 +187,11 @@ export function ProjectObservationEditor({
         values={[
           ["", "选择关注点"],
           ...Object.entries(definitions)
-            .filter(
-              ([, definition]: any) =>
-                !definition.scope || definition.scope === bundle.scope.id,
+            .filter(([key, definition]: any) =>
+              bundle.analysis_policy === "interaction-shared-services-v1"
+                ? key === "service.base.availability" &&
+                  definition.enabled !== false
+                : !definition.scope || definition.scope === bundle.scope.id,
             )
             .map(
               ([key, definition]: any) =>

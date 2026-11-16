@@ -182,7 +182,10 @@ def recognize_records(bundle, records, channel_name):
 
     output = channel()
     output["project_records"] = []
-    definitions = bundle.get("registry", {}).get("definitions", {})
+    from scene_completion.domain.concern_registry import default_registry
+    from scene_completion.domain.current_scope import current_registry
+
+    definitions = current_registry(bundle.get("registry") or default_registry())["definitions"]
     for record in records:
         condition, expected, refs = (
             record["condition"],

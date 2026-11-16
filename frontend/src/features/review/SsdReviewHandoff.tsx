@@ -38,11 +38,7 @@ type ReviewItem = {
 type Preview = { cases: ReviewItem[] };
 const identity = (item: ReviewItem) =>
   item.item_id || `${item.scope || "interaction"}:${item.case_id}`;
-const allScopes: AnalysisScope[] = [
-  "interaction",
-  "business_chain",
-  "architecture",
-];
+const allScopes: AnalysisScope[] = ["interaction", "shared_services"];
 
 export function SsdReviewHandoff({
   project,
@@ -76,7 +72,7 @@ export function SsdReviewHandoff({
   const [feedback, setFeedback] = useState(""),
     [preview, setPreview] = useState<Preview | null>(null),
     [selected, setSelected] = useState<string[]>([]);
-  const scoped = range === "business_chain" || range === "architecture";
+  const scoped = range === "shared_services";
   const body = useMemo(
     () =>
       range === "all"
@@ -111,7 +107,7 @@ export function SsdReviewHandoff({
     let active = true;
     setEditor(null);
     const request = scoped
-      ? getProjectEditor(project, range as "business_chain" | "architecture")
+      ? getProjectEditor(project, range as "shared_services")
       : range === "step" && caseId
         ? getSsdEditor(project, caseId)
         : null;
@@ -137,7 +133,7 @@ export function SsdReviewHandoff({
       link.href = url;
       link.download =
         range === "all"
-          ? "三层场景审核与完整参考.html"
+          ? "需求异常场景识别结果.html"
           : "场景审核与完整参考.html";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -187,7 +183,7 @@ export function SsdReviewHandoff({
       if (applied.length) {
         const target = applied[0];
         setRefresh((v) => v + 1);
-        setNotice("已应用所选三层反馈，结果与指标已更新。");
+        setNotice("已应用所选报告反馈，结果与指标已更新。");
         onApplied?.({
           scope: target.scope || "interaction",
           caseId:
@@ -219,9 +215,9 @@ export function SsdReviewHandoff({
         </p>
       )}
       <article>
-        <h3>导出三层审核 HTML</h3>
+        <h3>导出需求异常场景识别报告</h3>
         <p>
-          默认包含全部用例、业务链路和项目架构。差异审核仅采纳已完成且GT未覆盖的G场景；完整参考可阅读三层全部E／G／GT及原文，不能修改。
+          报告分为G与测试共有、仅G有、仅测试有三项；各用例列数量及依据，共用外部服务单独合并计一次。第二项可采纳并填写意见，其他内容只读。
         </p>
         <p>
           导出以已保存修订为准；结果页有草稿时请先保存。当前选中的步骤不会自动限制导出。
@@ -240,11 +236,10 @@ export function SsdReviewHandoff({
                   setAnchor("");
                 }}
               >
-                <option value="all">三层全部结果</option>
+                <option value="all">全部用例与共用服务</option>
                 <option value="case">交互级 · 当前用例</option>
                 <option value="step">交互级 · 当前步骤</option>
-                <option value="business_chain">业务链路</option>
-                <option value="architecture">项目架构</option>
+                <option value="shared_services">共用外部服务</option>
               </select>
             </label>
             {(range === "case" || range === "step") && (
@@ -334,13 +329,13 @@ export function SsdReviewHandoff({
           }
           onClick={() => void exportFile()}
         >
-          {busy ? "处理中…" : "导出三层审核 HTML"}
+          {busy ? "处理中…" : "导出需求异常场景识别报告"}
         </button>
       </article>
       <article>
-        <h3>回收三层审核修改</h3>
+        <h3>回收报告审核修改</h3>
         <p>
-          上传一个已保存HTML或JSON即可预览全部三层；默认选中无冲突修改，确认应用后才更新。
+          上传一个已保存HTML或JSON即可预览报告审核修改；默认选中无冲突项，确认应用后才更新。
         </p>
         <input
           aria-label="导入 SSD 审核文件"
@@ -380,6 +375,7 @@ export function SsdReviewHandoff({
               {item.name || item.case_id} ·{" "}
               {(
                 {
+                  not_applicable: "不适用于当前范围",
                   ready: "可应用",
                   unchanged: "无变化",
                   conflict: "版本冲突",
@@ -411,7 +407,7 @@ export function SsdReviewHandoff({
             disabled={busy || !selected.length}
             onClick={() => void apply()}
           >
-            应用选定三层修改并返回结果
+            应用选定审核修改并返回结果
           </button>
         )}
       </article>

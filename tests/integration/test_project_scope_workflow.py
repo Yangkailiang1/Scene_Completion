@@ -6,11 +6,18 @@ import pytest
 from scene_completion.analysis.project_scopes.pipeline import structure_bundles, structure_inputs
 from scene_completion.analysis.validation import validate_result
 from scene_completion.application import project_scope_service as service
-from scene_completion.domain.concern_registry import default_registry
+from scene_completion.domain.concern_registry import validate_registry
 from scene_completion.domain.contracts import packet
 from scene_completion.domain.project_scopes.metrics import analyze
 from scene_completion.domain.project_scopes.validation import validate
+from scene_completion.infrastructure.storage import read_json
 from scene_completion.workflow.project_scopes import _compare, _generate, _identify, _prepare
+from tests.support.paths import ROOT
+
+
+def default_registry():
+    """Frozen detailed-workflow rules, intentionally outside the current pipeline."""
+    return validate_registry(read_json(ROOT / "src/scene_completion/domain/concern_registry.json"))
 
 
 def source_cases():

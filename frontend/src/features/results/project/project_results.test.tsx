@@ -64,25 +64,18 @@ beforeEach(() => {
     version: "project-scopes-v1",
     scopes: [
       {
-        id: "business_chain",
-        name: "业务链路",
-        available: true,
-        revision: 1,
-        anchor_count: 4,
-      },
-      {
-        id: "architecture",
-        name: "项目架构",
+        id: "shared_services",
+        name: "共用外部服务",
         available: true,
         revision: 1,
         anchor_count: 1,
       },
     ],
+    legacy_scopes: ["business_chain", "architecture"],
     metrics: {
       by_scope: {
         interaction: scopeMetrics(),
-        business_chain: scopeMetrics(),
-        architecture: scopeMetrics(),
+        shared_services: scopeMetrics(),
       },
       overall: { concern: rate, scenario: rate },
       complete: true,
@@ -90,25 +83,19 @@ beforeEach(() => {
   });
 });
 
-test("separates the three analysis scopes and shows per-scope and overall metrics", async () => {
+test("keeps interaction results and shared services together, with separate project totals", async () => {
   render(<ResultsView project="P1" />);
-  for (const name of ["交互级", "业务链路", "项目架构", "项目指标"])
+  for (const name of ["交互级", "项目指标"])
     expect(await screen.findByRole("tab", { name })).toBeTruthy();
-
-  fireEvent.click(screen.getByRole("tab", { name: "业务链路" }));
-  expect(await screen.findByText("项目范围页：business_chain")).toBeTruthy();
-  fireEvent.click(screen.getByRole("tab", { name: "项目架构" }));
-  expect(await screen.findByText("项目范围页：architecture")).toBeTruthy();
-
+  expect(screen.queryByRole("tab", { name: "业务链路" })).toBeNull();
+  expect(screen.queryByRole("tab", { name: "项目架构" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "共用外部服务" }));
+  expect(await screen.findByText("项目范围页：shared_services")).toBeTruthy();
   fireEvent.click(screen.getByRole("tab", { name: "项目指标" }));
   expect(await screen.findByText("项目分层与汇总指标")).toBeTruthy();
   expect(screen.getAllByText("项目汇总").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("业务链路").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("项目架构").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("关注点").length).toBeGreaterThanOrEqual(4);
-  expect(screen.getAllByText("场景").length).toBeGreaterThanOrEqual(4);
+  expect(screen.getAllByText("共用外部服务").length).toBeGreaterThan(0);
   expect(screen.getAllByText("25.00%（1/4）").length).toBeGreaterThan(0);
-  expect(screen.getAllByText("50.00%（2/4）").length).toBeGreaterThan(0);
 });
 
 test("scope metrics show concern and scenario levels separately", () => {

@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from scene_completion.application import ssd_revision_service as service
-from scene_completion.review.offline import adoption
+from scene_completion.review.offline import _adoption_v2 as adoption
 from tests.support.paths import ROOT
 from tests.support.ssd_results import coverage_bundle
 

@@ -23,29 +23,38 @@ def register(app, service):
             )
         return root
 
-    def body_scope(body: dict):
-        scope = body.get("scope")
-        if scope not in SCOPES:
-            raise HTTPException(400, detail={"message": "请指定有效的项目分析范围"})
-        return scope
-
     @app.get("/api/projects/{rid}/project-results")
     def index(rid: str):
-        return results.index(service.run_dir(rid))
+        from scene_completion.application.shared_service_service import index
+
+        return index(service.run_dir(rid))
 
     @app.get("/api/projects/{rid}/project-results/{scope}/editor")
     def editor(rid: str, scope: str, revision: str | None = None):
+        if scope == "shared_services":
+            from scene_completion.application.shared_service_service import editor
+
+            return JSONResponse(editor(service.run_dir(rid), scope, revision))
         return JSONResponse(results.editor(require_scope(rid, scope), scope, revision))
 
     @app.get("/api/projects/{rid}/project-results/{scope}/revisions")
     def revisions(rid: str, scope: str):
+        if scope == "shared_services":
+            from scene_completion.application.shared_service_service import editor
+
+            return {"history": editor(service.run_dir(rid))["history"]}
         return {"history": results.editor(require_scope(rid, scope), scope)["history"]}
 
     @app.post("/api/projects/{rid}/project-results/{scope}/revisions")
     def save(rid: str, scope: str, body: dict):
         try:
-            results.save_revision(require_scope(rid, scope), scope, body)
-            return JSONResponse(results.editor(service.run_dir(rid), scope))
+            if scope == "shared_services":
+                from scene_completion.application.shared_service_service import save_revision
+
+                return JSONResponse(save_revision(service.run_dir(rid), scope, body))
+            raise HTTPException(
+                400, detail="历史业务链路及架构结果只读，请使用当前交互和共用服务结果"
+            )
         except results.RevisionConflict as error:
             raise HTTPException(
                 409,
@@ -59,7 +68,7 @@ def register(app, service):
     def export_review(rid: str, body: dict):
         from scene_completion.application.project_scope_review import export_review
 
-        root = require_scope(rid, body_scope(body))
+        root = service.run_dir(rid)
         try:
             return Response(
                 export_review(root, body),

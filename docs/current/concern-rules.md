@@ -1,14 +1,10 @@
 # 当前SSD关注点与计分边界
 
-本页记录2026-11-13确认的三范围规则。任务执行以项目冻结的注册表、当前Schema及语义版本为准；[v9/v10/v11历史记录](../history/scene-workflow-v5/)保留当时实现和验收数字。稳定定义ID和原有`layer`不改写，范围由`scope`明确区分。
+本页记录2026-11-16确认的交互与共用服务规则。任务执行以项目冻结的注册表、当前Schema及语义版本为准；[v9/v10/v11历史记录](../history/scene-workflow-v5/)保留当时实现和验收数字。稳定定义ID和原有`layer`不改写，范围由`scope`明确区分。
 
-## 三种分析范围
+## 当前范围
 
-- `interaction`：绑定用例SSD的发送方、数据、接收方；包含身份、权限、数据、业务属性、CRUD、业务类型和技术扩展关注点。
-- `business_chain`：绑定有来源的用例与实体依赖边；数据隔离、跨服务数据一致性、调用顺序、级联操作四类分别复用`service_relation.data_isolation`、`global.dependency_consistency`、`global.call_order`、`global.cascade_operation`。前三类挂每条边，级联操作只挂级联边；`global.dependency_consistency` 的显示名为“跨服务数据一致性”。
-- `architecture`：在项目中按实际依赖的外部Service去重，使用`service.base.availability`检查可用性。各调用保留来源与定位，但不在每个交互中重复计一次。
-
-读取旧项目冻结规则与历史报告不自动迁移。新项目采用当前默认规则；旧项目可显式应用当前规则并保存新版本，自定义关注点保留，内置定义更新。旧版本和历史成绩仍可只读查看。
+当前版本 interaction-shared-services-v1 只分析交互，业务链路由测试侧负责，不进入本方法的生成、匹配或漏报分母。外部服务可用性在实际调用处生成，三方分别按实际服务与故障合并后比较；普通用例指标排除调用副本，项目只累加共用单位一次。第二层展示名为“第二层：功能类型关注点”，CRUD 规则不变。旧链路、架构及指标快照只读。
 
 ## 输入、定位与隔离
 
@@ -28,11 +24,11 @@ G仅从正向SSD、接口、实体及规则生成；E与GT根据各自原始材�
 
 ## 固定参考模板与模型补充
 
-`domain/concern_templates.py`维护`three-scope-reference-v1`参考库。身份认证固定保留无凭证、无效格式凭证、空凭证、Token无效、Token过期五类场景；权限固定保留水平与垂直越权。数据库、LLM、业务操作及项目两范围采用各自完整参考变体。
+`domain/concern_templates.py`维护`three-scope-reference-v1`参考库。身份认证固定保留无凭证、无效格式凭证、空凭证、Token无效、Token过期五类场景；权限固定保留水平与垂直越权。数据库、LLM和业务操作采用各自完整参考变体；业务链路模板退出当前执行。
 
 每个G场景保留`template_id`、`variant_id`、`template_version`、`generation_origin`。固定模板来源为`reference_template`，具体字段范围和实体条件的确定性展开为`deterministic_constraint`。模型可基于允许的正向输入补充具体场景，不能删除固定模板，也不能从E/GT或匹配答案补写G。模板不给未声明的超时秒数、HTTP状态或Token格式；业务属性具体唯一、不可变和组合规则仍绑定实际实体约束。
 
-项目范围的E/GT原始记录放在各通道`project_records`中，保留稳定ID、用例、原始内容和出处，交给对应项目范围独立识别。它们不再作为“本轮不计分”的交互pending，也不混入交互指标。
+项目范围的E/GT原始记录放在各通道`project_records`中，保留稳定ID、用例、原始内容和出处，只保留历史追溯，当前不再调度业务链路识别。它们不再作为“本轮不计分”的交互pending，也不混入交互指标。
 
 ## 比较、指标和修订
 

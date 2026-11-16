@@ -142,7 +142,11 @@ export default function App() {
     project: string;
     caseId?: string;
     stepId?: string;
-    scope?: "interaction" | "business_chain" | "architecture";
+    scope?:
+      | "interaction"
+      | "business_chain"
+      | "architecture"
+      | "shared_services";
     anchorId?: string;
   } | null>(null);
   const rememberSelection = useCallback(

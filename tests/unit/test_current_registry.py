@@ -67,7 +67,8 @@ def test_explicit_default_upgrade_preserves_custom_keys_and_frozen_snapshot(tmp_
     assert not definitions["global.idempotency"]["enabled"]
     assert definitions["custom.chain"]["description"] == custom["description"]
     assert definitions["custom.chain"]["scope"] == "business_chain"
-    assert "custom.chain" in upgraded["registry"]["profiles"]["business_chain"]
+    assert "custom.chain" not in upgraded["registry"]["profiles"]["business_chain"]
+    assert definitions["custom.chain"]["enabled"] is False
     assert registry_view(tmp_path, old["hash"])["registry"] == old
     assert registry_view(tmp_path, old["hash"])["read_only"]
 
@@ -78,9 +79,9 @@ def test_saving_current_scope_profiles_does_not_move_project_rules_back_to_inter
     saved = save_registry(
         tmp_path, {"expected_hash": current["current_hash"], "registry": current["registry"]}
     )["registry"]
-    assert saved["profiles"]["architecture"] == ["service.base.availability"]
-    assert "service.base.availability" not in saved["profiles"]["base"]
-    assert "service_relation.data_isolation" in saved["profiles"]["business_chain"]
+    assert saved["profiles"]["architecture"] == []
+    assert "service.base.availability" in saved["profiles"]["base"]
+    assert "service_relation.data_isolation" not in saved["profiles"]["business_chain"]
     assert "service_relation.data_isolation" not in saved["profiles"]["relation"]
     assert saved["profiles"]["global"] == []
     assert saved["reference_templates"] == default_registry()["reference_templates"]

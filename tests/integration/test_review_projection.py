@@ -123,8 +123,7 @@ def test_combined_reference_contains_zero_review_scope_and_precise_apply_is_idem
     payload = adoption.export_payload(tmp_path)
     assert {i["scope"] for i in payload["items"]} == {
         "interaction",
-        "business_chain",
-        "architecture",
+        "shared_services",
     }
     assert summary["excluded"] == payload["excluded"]
     for item in payload["items"]:
@@ -135,12 +134,12 @@ def test_combined_reference_contains_zero_review_scope_and_precise_apply_is_idem
         )
     ids = [i["id"] for i in payload["items"]]
     result = adoption.feedback(tmp_path, payload, apply=True, item_ids=ids)
-    assert result["summary"]["applied"] == 3
+    assert result["summary"]["applied"] == 2
     assert (
-        adoption.feedback(tmp_path, payload, apply=True, item_ids=ids)["summary"]["unchanged"] == 3
+        adoption.feedback(tmp_path, payload, apply=True, item_ids=ids)["summary"]["unchanged"] == 2
     )
     second = adoption.export_payload(tmp_path)
-    assert len(second["items"]) == 3 and all(not i["rows"] for i in second["items"])
+    assert len(second["items"]) == 2 and all(not i["rows"] for i in second["items"])
     assert all(i["bundle"]["channels"]["G"]["scenarios"] for i in second["items"])
     forged = deepcopy(second)
     forged["items"][0]["review_statuses"]["G-third"]["covered"] = False
@@ -172,12 +171,14 @@ def test_prior_v2_files_without_reference_metadata_still_preview_and_apply(tmp_p
     from scene_completion.infrastructure.identity import fingerprint
 
     ssd_revision_service.publish(tmp_path, coverage_bundle())
-    payload = adoption.export_payload(tmp_path, {"scopes": ["interaction"]})
+    from scene_completion.review.offline import _adoption_v2 as old
+
+    payload = old.export_payload(tmp_path, {"scopes": ["interaction"]})
     for item in payload["items"]:
         item.pop("review_statuses")
         item.pop("identification_proof")
     payload["excluded"].pop("by_scope")
-    payload["export_id"] = fingerprint([adoption.FORMAT, payload["items"], payload["excluded"]])
+    payload["export_id"] = fingerprint([old.FORMAT, payload["items"], payload["excluded"]])
     write_json(
         tmp_path / "review_exports" / (payload["export_id"] + ".json"),
         {"context_hash": fingerprint([payload["items"], payload["excluded"]])},

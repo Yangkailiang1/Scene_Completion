@@ -45,10 +45,14 @@ class LocalWorkbench:
 
             return index(project)
         if endpoint == "project-results":
-            from scene_completion.application.project_scope_service import index
+            from scene_completion.application.shared_service_service import index
 
             return index(project)
         if endpoint.startswith("project-results/") and endpoint.endswith("/editor"):
+            if parts[3] == "shared_services":
+                from scene_completion.application.shared_service_service import editor
+
+                return editor(project, parts[3], query.get("revision"))
             from scene_completion.application.project_scope_service import editor
 
             return editor(project, parts[3], query.get("revision"))

@@ -6,7 +6,7 @@ const layers: Record<string, string> = {
   human: "人类Actor",
   base: "第一层：基础与业务实体属性",
   shared: "第一层：输入／输出数据",
-  functional: "第二层CRUD／第三层业务",
+  functional: "第二层：功能类型关注点／第三层业务",
   technology: "第四层：技术扩展",
   relation: "Service之间",
   global: "全局业务依赖级",
@@ -184,7 +184,14 @@ export function ConcernManager({
         role="tablist"
         aria-label="关注点分析范围"
       >
-        {(Object.keys(scopeNames) as AnalysisScope[]).map((value) => (
+        {(readOnly
+          ? ([
+              "interaction",
+              "business_chain",
+              "architecture",
+            ] as AnalysisScope[])
+          : (["interaction"] as AnalysisScope[])
+        ).map((value) => (
           <button
             role="tab"
             key={value}
@@ -275,12 +282,20 @@ export function ConcernManager({
               pick={pick}
               paths={view.presentation?.paths || {}}
               definitions={Object.entries(defs).filter(
-                ([, d]: any) =>
+                ([key, d]: any) =>
+                  (readOnly ||
+                    (!key.startsWith("global.") &&
+                      ![
+                        "service_relation.data_isolation",
+                        "service_relation.cross_service_consistency",
+                      ].includes(key))) &&
                   (showDeleted || d.enabled !== false) &&
-                  (d.scope ||
-                    (d.layer === "global"
-                      ? "business_chain"
-                      : "interaction")) === scope &&
+                  (!readOnly && key === "service.base.availability"
+                    ? "interaction"
+                    : d.scope ||
+                      (d.layer === "global"
+                        ? "business_chain"
+                        : "interaction")) === scope &&
                   (!layer || d.layer === layer),
               )}
             />
@@ -326,14 +341,19 @@ export function ConcernManager({
                           });
                         }}
                       >
-                        {(Object.keys(scopeNames) as AnalysisScope[]).map(
-                          (value) => (
-                            <option key={value} value={value}>
-                              {view?.presentation?.scopes?.[value] ||
-                                scopeNames[value]}
-                            </option>
-                          ),
-                        )}
+                        {(readOnly
+                          ? ([
+                              "interaction",
+                              "business_chain",
+                              "architecture",
+                            ] as AnalysisScope[])
+                          : (["interaction"] as AnalysisScope[])
+                        ).map((value) => (
+                          <option key={value} value={value}>
+                            {view?.presentation?.scopes?.[value] ||
+                              scopeNames[value]}
+                          </option>
+                        ))}
                       </select>
                     </label>
                     <label>

@@ -98,6 +98,14 @@ class TokenBudget:
         self.unknown_policy = config.get("unknown_usage_policy", "stop")
         if self.unknown_policy not in ("stop", "reserve_and_continue"):
             raise ValueError("unknown_usage_policy must be stop or reserve_and_continue")
+        self.acknowledged_unknown = config.get("acknowledged_unknown_requests", {})
+        if not isinstance(self.acknowledged_unknown, dict) or any(
+            not isinstance(k, str) or type(v) is not int or v <= 0
+            for k, v in self.acknowledged_unknown.items()
+        ):
+            raise ValueError(
+                "acknowledged_unknown_requests must bind request IDs to their retained charges"
+            )
         self.provider_limit = config.get("provider_token_budget_limit")
         self.peers = [Path(p) for p in config.get("provider_token_budget_ledgers", [])]
         self.provider_lock = Path(
@@ -141,7 +149,11 @@ class TokenBudget:
         with _locked(self.provider_lock), _locked(self.path):
             data = self._read()
             rows = list(data["requests"].values())
-            if self.unknown_policy == "stop" and any(r["status"] == "usage_unknown" for r in rows):
+            if self.unknown_policy == "stop" and any(
+                r["status"] == "usage_unknown"
+                and self.acknowledged_unknown.get(key) != r.get("charged_tokens")
+                for key, r in data["requests"].items()
+            ):
                 raise TokenBudgetBlocked("unresolved_previous_request")
             used = sum(
                 r.get("charged_tokens", 0) + (r["reservation"] if r["status"] == "reserved" else 0)

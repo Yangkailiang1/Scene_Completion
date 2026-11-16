@@ -1,10 +1,15 @@
 import type { Bundle, SourceRef } from "../ssd/types";
-export type AnalysisScope = "interaction" | "business_chain" | "architecture";
+export type AnalysisScope =
+  | "interaction"
+  | "business_chain"
+  | "architecture"
+  | "shared_services";
 export type ProjectScope = Exclude<AnalysisScope, "interaction">;
 export const scopeNames: Record<AnalysisScope, string> = {
   interaction: "交互级",
   business_chain: "业务链路",
   architecture: "项目架构",
+  shared_services: "共用外部服务",
 };
 export type Anchor = {
   id: string;

@@ -101,10 +101,11 @@ def test_every_service_position_inherits_the_same_base(position):
     rows = resolved(x)
     base = set(registry()["profiles"]["base"])
     assert base <= {m["concern_key"] for m in rows}
-    # Availability is a project-architecture concern; interaction recognition
-    # must not mount it per use case.
-    assert "service.base.availability" not in {m["concern_key"] for m in rows}
-    assert not service_exceptions(x)
+    availability = find(rows, "service.base.availability")
+    assert (availability["status"] == "applicable") == (
+        position in {"外部Actor（系统）", "外部数据库"}
+    )
+    assert bool(service_exceptions(x)) == (availability["status"] == "applicable")
     assert find(rows, "human.authentication")["status"] == "pending"
     assert find(rows, "human.authentication")["object"] == "开发者"
     assert find(rows, "human.authentication")["service"] == i["receiver"]["name"]
@@ -283,8 +284,9 @@ def test_database_uses_shared_query_base_and_only_relevant_extensions(physical):
     x["sr-ssd"]["interactions"][0]["receiver"].update(name="Database", position=physical)
     x = bind_resource_services(x)
     rows = resolved(x)
-    # Availability is checked at project-architecture scope, not per interaction.
-    assert "service.base.availability" not in {m["concern_key"] for m in rows}
+    assert (find(rows, "service.base.availability")["status"] == "applicable") == (
+        physical == "外部数据库"
+    )
     assert find(rows, "database.uniqueness")["status"] == "not_applicable"
     assert find(rows, "database.query_performance")["status"] == "not_applicable"
     assert "database.transaction_atomicity" not in registry()["definitions"]

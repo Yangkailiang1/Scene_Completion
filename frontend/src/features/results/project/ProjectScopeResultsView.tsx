@@ -55,6 +55,8 @@ export function ProjectScopeResultsView({
   onSelectionChange,
   onReviewRequest,
   onUpdated,
+  forceReadonly = false,
+  onNavigateCase,
 }: {
   project: string;
   scope: ProjectScope;
@@ -66,6 +68,8 @@ export function ProjectScopeResultsView({
   onSelectionChange?: (selection: SsdReviewSelection) => void;
   onReviewRequest?: (selection: SsdReviewSelection) => void;
   onUpdated?: () => void;
+  forceReadonly?: boolean;
+  onNavigateCase?: (caseId: string, stepId?: string) => void;
 }) {
   const [snapshot, setSnapshot] = useState<any>(null);
   const {
@@ -104,7 +108,7 @@ export function ProjectScopeResultsView({
       GT: [],
     }),
     [focus, setFocus] = useState<Record<Channel, string[]> | null>(null);
-  const readonly = version !== "current";
+  const readonly = forceReadonly || version !== "current";
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
@@ -492,9 +496,11 @@ export function ProjectScopeResultsView({
           onChange={(event) => setMode(event.target.value)}
         >
           <option value="comparison">三方对照</option>
-          <option value="anchors">
-            {scope === "business_chain" ? "业务依赖表" : "外部服务清单"}
-          </option>
+          {scope !== "shared_services" && (
+            <option value="anchors">
+              {scope === "business_chain" ? "业务依赖表" : "外部服务清单"}
+            </option>
+          )}
           {scope === "business_chain" && (
             <option value="diagram">用例依赖图</option>
           )}
@@ -677,7 +683,7 @@ export function ProjectScopeResultsView({
                 待定位／本轮不计分（{unbound.length}）
               </button>
             )}
-            {!readonly && (
+            {!readonly && scope !== "shared_services" && (
               <button onClick={addAnchor}>
                 新增{scope === "business_chain" ? "业务依赖" : "外部服务"}
               </button>
@@ -876,7 +882,7 @@ export function ProjectScopeResultsView({
                         >
                           原始出处
                         </button>
-                        {!readonly && (
+                        {!readonly && scope !== "shared_services" && (
                           <>
                             <button
                               onClick={() => setAnchorEdit(copy(currentAnchor))}
@@ -966,6 +972,37 @@ export function ProjectScopeResultsView({
                     </button>
                   )}
                 </div>
+                {scope === "shared_services" && currentAnchor && (
+                  <details className="ssd-step-context">
+                    <summary>
+                      涉及的用例交互与原文出处（
+                      {(currentAnchor.calls || []).length}）
+                    </summary>
+                    {(currentAnchor.calls || []).map(
+                      (call: any, index: number) => (
+                        <p key={index}>
+                          <strong>
+                            {call.case_id} · {call.step_id}
+                          </strong>{" "}
+                          {call.operation}
+                          <button
+                            disabled={dirty}
+                            onClick={() =>
+                              onNavigateCase?.(call.case_id, call.step_id)
+                            }
+                          >
+                            查看对应交互
+                          </button>
+                          <button
+                            onClick={() => setSources(call.source_refs || [])}
+                          >
+                            查看原文
+                          </button>
+                        </p>
+                      ),
+                    )}
+                  </details>
+                )}
                 <SsdAlignmentTable
                   savedBundle={snapshot?.bundle}
                   rows={rows}
@@ -987,7 +1024,11 @@ export function ProjectScopeResultsView({
                     )
                   }
                   getTargetLabel={() =>
-                    scope === "business_chain" ? "业务依赖" : "架构外部服务"
+                    scope === "business_chain"
+                      ? "业务依赖"
+                      : scope === "shared_services"
+                        ? "共用外部服务"
+                        : "历史架构外部服务"
                   }
                   getGroupPath={(key) =>
                     (

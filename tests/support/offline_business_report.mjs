@@ -1,0 +1,43 @@
+import fs from 'node:fs';
+import {pathToFileURL} from 'node:url';
+import assert from 'node:assert/strict';
+const [htmlPath, jsdomPath] = process.argv.slice(2);
+const {JSDOM} = await import(pathToFileURL(jsdomPath).href);
+const downloads=[];
+function open(html){return new JSDOM(html,{runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){
+ w.Blob=class{constructor(parts){this.parts=parts;}};
+ w.URL.createObjectURL=b=>{downloads.push(b.parts.join(''));return 'blob:offline';};
+ w.URL.revokeObjectURL=()=>{};w.HTMLAnchorElement.prototype.click=()=>{};
+ w.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
+ w.HTMLDialogElement.prototype.close=function(){this.removeAttribute('open');};
+ w.HTMLElement.prototype.scrollIntoView=()=>{};
+}});}
+const first=open(fs.readFileSync(htmlPath,'utf8')),d=first.window.document;
+const original=JSON.parse(d.querySelector('#ssd-review-data').textContent);
+assert.equal(d.querySelector('h1').textContent,'需求异常场景识别结果');
+assert.ok(d.querySelector('#mode-description').textContent.includes(String(original.report.case_count)));
+assert.equal(d.querySelectorAll('#tabs [role=tab]').length,3);
+assert.equal(d.querySelectorAll('button[data-g-id]').length,0); // First category is read-only.
+d.querySelectorAll('#tabs button')[2].click();
+assert.equal(d.querySelectorAll('button[data-g-id]').length,0);
+d.querySelectorAll('#tabs button')[1].click();
+const buttons=[...d.querySelectorAll('button[data-g-id]')];
+assert.equal(buttons.length,original.report.counts.g_only.total);
+assert.ok(buttons.length);buttons[0].click();
+const note=d.querySelector('textarea[data-g-id="'+buttons[0].dataset.gId+'"]');
+note.value='审核通过 <备注> & </script>';note.dispatchEvent(new first.window.Event('input'));
+d.querySelector('#save-html').click();
+const second=open(downloads.at(-1)),d2=second.window.document;
+const saved=JSON.parse(d2.querySelector('#ssd-review-data').textContent);
+assert.deepEqual(saved.items,original.items);assert.deepEqual(saved.report,original.report);
+assert.equal(saved.export_id,original.export_id);
+assert.equal(saved.decisions[0].comment,note.value);assert.equal(saved.decisions[0].adopted,true);
+d2.querySelectorAll('#tabs button')[1].click();
+assert.ok([...d2.querySelectorAll('button[data-g-id]')].some(b=>b.textContent==='撤销采纳'));
+const mode=d2.querySelector('#review-mode');mode.value='reference';mode.dispatchEvent(new second.window.Event('change'));
+assert.equal(d2.querySelectorAll('textarea').length,0);
+assert.equal(d2.querySelectorAll('button[data-g-id]').length,0);
+const referenceCount=original.items.reduce((sum,i)=>sum+i.bundle.channels.G.scenarios.filter(r=>!(i.reference_excluded_ids||[]).includes(r.id)).length,0);
+assert.equal(d2.querySelectorAll('[data-channel=G][data-record-id]').length,referenceCount);
+second.window.close();first.window.close();
+console.log(JSON.stringify({three_categories:true,readonly_first_third:true,saved_reopened:true}));

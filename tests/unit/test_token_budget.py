@@ -79,6 +79,25 @@ def test_ledger_limit_cannot_be_reset_on_resume(tmp_path):
         TokenBudget(settings(tmp_path, 20000)).reserve(body())
 
 
+def test_exact_acknowledgment_keeps_old_charges_and_new_unknown_still_stops(tmp_path):
+    b = TokenBudget(settings(tmp_path))
+    key = b.reserve(body())
+    b.settle(key, usage=None)
+    frozen = b._read()["requests"][key]
+    config = {
+        **settings(tmp_path),
+        "acknowledged_unknown_requests": {key: frozen["charged_tokens"]},
+    }
+    resumed = TokenBudget(config)
+    new = resumed.reserve(body())
+    resumed.settle(new, usage=None)
+    assert resumed._read()["requests"][key] == frozen
+    with pytest.raises(TokenBudgetBlocked):
+        TokenBudget(config).reserve(body())
+    with pytest.raises(TokenBudgetBlocked):
+        TokenBudget({**config, "acknowledged_unknown_requests": {key: 1}}).reserve(body())
+
+
 def test_same_model_uses_independent_account_allowances_without_resetting_history(tmp_path):
     a = TokenBudget(settings(tmp_path / "account-one", 500))
     key = a.reserve(body())

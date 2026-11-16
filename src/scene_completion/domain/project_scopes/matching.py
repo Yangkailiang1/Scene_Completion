@@ -25,6 +25,17 @@ def binding(row):
     )
 
 
+def different_fault(left, right):
+    """Shared units already have deterministic fault identities; never conflate them."""
+    known = {"service_unavailable", "timeout", "rate_limited"}
+    return bool(
+        left.get("scope") == right.get("scope") == "shared_services"
+        and left.get("fault_type") in known
+        and right.get("fault_type") in known
+        and left["fault_type"] != right["fault_type"]
+    )
+
+
 def semantic_candidates(bundle):
     """Unreviewed wording differences within one concern anchor, without guesswork."""
     candidates = []
@@ -39,6 +50,7 @@ def semantic_candidates(bundle):
                 if (
                     left.get("status") == right.get("status") == "active"
                     and binding(left) == binding(right)
+                    and not different_fault(left, right)
                     and not disjoint(left.get("condition"), right.get("condition"))
                     and (left["id"], right["id"]) not in decided
                     and (_text(left.get("condition")), _text(left.get("expected")))
@@ -91,7 +103,7 @@ def _edges(bundle, kind, units, aliases):
                 )
                 if exact:
                     matches[(x["id"], y["id"])] = "full"
-                elif disjoint(x.get("condition"), y.get("condition")):
+                elif different_fault(x, y) or disjoint(x.get("condition"), y.get("condition")):
                     matches[(x["id"], y["id"])] = "none"
         for d in sorted(bundle.get("decisions", []), key=lambda d: d.get("origin") == "manual"):
             if d["level"] != level or d["pair"] != pair:

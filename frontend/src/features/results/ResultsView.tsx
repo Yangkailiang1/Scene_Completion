@@ -19,16 +19,23 @@ export function ResultsView(props: {
   onSelectionChange?: (selection: SsdReviewSelection) => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
+  const [sharedMode, setSharedMode] = useState(
+    props.requestedScope === "shared_services",
+  );
+  const [legacyScope, setLegacyScope] = useState<
+    "business_chain" | "architecture"
+  >("business_chain");
   const [modern, setModern] = useState<any>(null),
     [projectIndex, setProjectIndex] = useState<any>(null);
   const [probedProject, setProbedProject] = useState<string | null>(null),
     [source, setSource] = useState("ssd");
-  const [scope, setScope] = useState<AnalysisScope | "metrics">(
-    props.requestedScope || "interaction",
-  );
+  const [scope, setScope] = useState<AnalysisScope | "metrics">("interaction");
   const [dirty, setDirty] = useState(false),
     [notice, setNotice] = useState("");
   const [revision, setRevision] = useState(0);
+  const [jump, setJump] = useState<{ caseId: string; stepId?: string } | null>(
+    null,
+  );
   const [loadError, setLoadError] = useState("");
   const onDirtyChange = useCallback(
     (value: boolean) => {
@@ -39,12 +46,15 @@ export function ResultsView(props: {
   );
   useEffect(() => {
     setSource("ssd");
-    setScope(props.requestedScope || "interaction");
+    setScope("interaction");
+    setSharedMode(props.requestedScope === "shared_services");
+    setJump(null);
     setNotice("");
   }, [props.project]);
   useEffect(() => {
     if (props.requestedScope && !dirty) {
-      setScope(props.requestedScope);
+      setScope("interaction");
+      setSharedMode(props.requestedScope === "shared_services");
       setSource("ssd");
     }
   }, [props.requestedScope, props.requestedAnchorId]);
@@ -119,11 +129,9 @@ export function ResultsView(props: {
     (item: any) =>
       item.available !== false && (item.revision != null || item.anchor_count),
   );
-  const hasCurrent = hasSsd || available.length > 0;
-  const activeScope =
-    scope === "interaction" && !hasSsd && available.length
-      ? available[0].id
-      : scope;
+  const hasCurrent =
+    hasSsd || available.length > 0 || !!projectData?.legacy_scopes?.length;
+  const activeScope = scope === "metrics" ? "metrics" : "interaction";
   const resultSourceControl = hasCurrent ? (
     <>
       <label>
@@ -137,11 +145,19 @@ export function ResultsView(props: {
               return;
             }
             setSource(event.target.value);
+            if (event.target.value === "legacy") {
+              setScope("interaction");
+              if (!projectData?.legacy_scopes?.includes(legacyScope))
+                setLegacyScope(projectData.legacy_scopes[0]);
+            }
             setNotice("");
           }}
         >
           <option value="ssd">当前结果与修订</option>
           <option value="saved">历史工作流 / Code Agent 报告（只读）</option>
+          {!!projectData?.legacy_scopes?.length && (
+            <option value="legacy">历史业务链路／架构结果（只读）</option>
+          )}
         </select>
       </label>
       {notice && <span role="status">{notice}</span>}
@@ -157,9 +173,7 @@ export function ResultsView(props: {
       role="tablist"
       aria-label="结果统计范围"
     >
-      {(
-        ["interaction", "business_chain", "architecture", "metrics"] as const
-      ).map((area) => (
+      {(["interaction", "metrics"] as const).map((area) => (
         <button
           key={area}
           role="tab"
@@ -199,14 +213,86 @@ export function ResultsView(props: {
         navigation={navigation}
       />
     );
-  if (activeScope === "business_chain" || activeScope === "architecture")
+  if (source === "legacy")
     return (
       <ProjectScopeResultsView
-        key={`${props.project}:${activeScope}`}
+        key={props.project + legacyScope}
         {...props}
-        scope={activeScope}
-        navigation={navigation}
+        scope={legacyScope}
+        forceReadonly
+        navigation={
+          <>
+            {navigation}
+            <label>
+              历史范围
+              <select
+                aria-label="历史项目范围"
+                value={legacyScope}
+                onChange={(e) => setLegacyScope(e.target.value as any)}
+              >
+                {(projectData?.legacy_scopes || []).map((s: any) => (
+                  <option key={s} value={s}>
+                    {scopeNames[s as AnalysisScope]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
         sourceControl={resultSourceControl}
+      />
+    );
+  const interactionNav = (
+    <>
+      {navigation}
+      <div
+        className="results-subnav view-segments"
+        role="group"
+        aria-label="交互结果分类"
+      >
+        <button
+          aria-pressed={!sharedMode}
+          onClick={() => {
+            if (dirty) {
+              setNotice("请先保存或放弃草稿。");
+              return;
+            }
+            setSharedMode(false);
+          }}
+        >
+          用例交互
+        </button>
+        <button
+          aria-pressed={sharedMode}
+          onClick={() => {
+            if (dirty) {
+              setNotice("请先保存或放弃草稿。");
+              return;
+            }
+            setSharedMode(true);
+          }}
+        >
+          共用外部服务
+        </button>
+      </div>
+    </>
+  );
+  if (sharedMode || (!hasSsd && available.length))
+    return (
+      <ProjectScopeResultsView
+        key={`${props.project}:shared_services`}
+        {...props}
+        scope="shared_services"
+        navigation={interactionNav}
+        sourceControl={resultSourceControl}
+        onNavigateCase={(caseId, stepId) => {
+          if (dirty) {
+            setNotice("请先保存或放弃草稿。");
+            return;
+          }
+          setSharedMode(false);
+          setJump({ caseId, stepId });
+        }}
         onDirtyChange={onDirtyChange}
         onUpdated={() => setRevision((value) => value + 1)}
       />
@@ -218,7 +304,9 @@ export function ResultsView(props: {
       initialIndex={modern.index}
       onDirtyChange={onDirtyChange}
       resultSourceControl={resultSourceControl}
-      scopeNavigation={navigation}
+      scopeNavigation={interactionNav}
+      requestedCaseId={jump?.caseId || props.requestedCaseId}
+      requestedStepId={jump?.stepId || props.requestedStepId}
     />
   ) : (
     <div className="management-view results-view">

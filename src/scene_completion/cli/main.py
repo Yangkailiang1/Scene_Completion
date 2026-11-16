@@ -245,11 +245,11 @@ def parser():
     result_import.add_argument("--project", required=True)
     result_import.add_argument("--file", required=True)
     result_import.add_argument("--dry-run", action="store_true")
-    results = sub.add_parser("results", help="查看当前三层结果、双粒度指标及修订，不调用模型")
+    results = sub.add_parser("results", help="查看交互和共用服务结果、双粒度指标及修订，不调用模型")
     results.add_argument("--project", required=True)
     results.add_argument(
         "--analysis-scope",
-        choices=("all", "interaction", "business_chain", "architecture"),
+        choices=("all", "interaction", "shared_services", "business_chain", "architecture"),
         default="all",
     )
     results.add_argument("--case")

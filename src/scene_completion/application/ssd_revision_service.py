@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 
 from scene_completion.domain.ssd.matching import PAIRS, binding
-from scene_completion.domain.ssd.metrics import _rate, analyze, completeness
+from scene_completion.domain.ssd.metrics import _rate, analyze
 from scene_completion.domain.ssd.validation import VERSION, validate
 from scene_completion.infrastructure import ssd_repository as repository
 from scene_completion.infrastructure.result_cache import cached_index
@@ -84,8 +84,18 @@ def _editable(bundle):
     return {k: deepcopy(bundle.get(k, [])) for k in EDITABLE}
 
 
+def _baseline_report(bundle):
+    from scene_completion.domain.current_scope import POLICY, case_report
+
+    if bundle.get("analysis_policy", bundle.get("registry", {}).get("analysis_policy")) == POLICY:
+        return case_report(bundle)
+    return analyze(bundle)
+
+
 def _store(project, bundle, baseline, revision, history, overrides, reason, previous=None):
-    report = analyze(bundle)
+    from scene_completion.domain.current_scope import case_report
+
+    report = case_report(bundle)
     item = {
         "revision": revision,
         "created_at": time.time(),
@@ -93,7 +103,7 @@ def _store(project, bundle, baseline, revision, history, overrides, reason, prev
         "metrics": report["metrics"],
     }
     history = [*history, item]
-    original_report = analyze(baseline)
+    original_report = _baseline_report(baseline)
     saved = {
         "bundle": bundle,
         "revision": revision,
@@ -164,12 +174,13 @@ def editor(project, case_id, revision=None):
     state = repository.state(project, case_id)
     if revision == "original":
         baseline = deepcopy(state["baseline"])
+        report = _baseline_report(baseline)
         return {
             "bundle": baseline,
             "revision": "original",
-            **analyze(baseline),
-            "original_metrics": analyze(baseline)["metrics"],
-            "original_metrics_by_level": analyze(baseline)["metrics_by_level"],
+            **report,
+            "original_metrics": report["metrics"],
+            "original_metrics_by_level": report["metrics_by_level"],
             "history": state["history"],
         }
     number = state["revision"] if revision is None else int(revision)
@@ -330,7 +341,11 @@ def index(project):
     cases = []
     for state in repository.states(project):
         result = repository.revision(project, state["case"]["id"], state["revision"])
-        progress = completeness(result["bundle"])
+        from scene_completion.domain.current_scope import case_report
+
+        report = case_report(result["bundle"])
+        result = {**result, **report}
+        progress = report["completeness"]
         pending = sum(v for k, v in progress.items() if k != "complete")
         cases.append(
             {
