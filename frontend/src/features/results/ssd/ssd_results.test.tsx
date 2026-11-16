@@ -598,9 +598,9 @@ test("incomplete semantic comparisons are visible and can be manually adjudicate
   ).toBeTruthy();
   fireEvent.click(screen.getByText(/当前为部分结果 · 待修正记录 1 项/));
   expect(screen.getByText(/未完成的语义比较不视为已判定不匹配/)).toBeTruthy();
-  fireEvent.click(screen.getByText("尚未完成的语义比较（1 对）"));
+  fireEvent.click(screen.getByText(/尚未完成的语义比较（1 对）/));
   expect(screen.getByText("方法生成：生成条件")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "人工判定此对" }));
+  fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
   expect(
     (screen.getByLabelText("方法生成记录") as HTMLSelectElement).value,
   ).toBe("gs1");
@@ -608,3 +608,168 @@ test("incomplete semantic comparisons are visible and can be manually adjudicate
     (screen.getByLabelText("原文抽取记录") as HTMLSelectElement).value,
   ).toBe("es1");
 });
+
+function matchingFixture() {
+  const bundle = fixture();
+  bundle.channels.GT.pending = [];
+  for (const ch of ["G", "E"] as const)
+    bundle.channels[ch].scenarios = [1, 2].map((n) => ({
+      ...bundle.channels[ch].concerns[0],
+      id: ch + "s" + n,
+      condition: ch + "失败条件" + n,
+      expected: "拒绝",
+      concern_ids: [ch === "G" ? "g1" : "e1"],
+    }));
+  bundle.semantic_pending = [1, 2].map((n) => ({
+    pair: "G_E",
+    left_id: "Gs" + n,
+    right_id: "Es" + n,
+    step_id: "step1",
+  }));
+  return bundle;
+}
+function card(n: number) {
+  return screen.getByRole("article", { name: "配对 G_E Gs" + n + " Es" + n });
+}
+test("two individual quick matches update counts, pending cards and table drafts without opening details", async () => {
+  const bundle = matchingFixture();
+  const onDirty = vi.fn();
+  mockApi(() => response(bundle));
+  render(
+    <SsdResultsView
+      project="P1"
+      initialIndex={index}
+      onDirtyChange={onDirty}
+    />,
+  );
+  await screen.findByText(/尚未完成的语义比较（2 对）/);
+  fireEvent.click(screen.getByText(/尚未完成的语义比较（2 对）/));
+  fireEvent.click(within(card(1)).getByRole("button", { name: "确认匹配" }));
+  fireEvent.click(within(card(2)).getByRole("button", { name: "确认匹配" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByText(/匹配判定修改 2 条 · 其他修改 0 项/)).toBeTruthy();
+  expect(within(card(1)).getByText("已匹配 · 未保存")).toBeTruthy();
+  expect(
+    screen.getByText(/尚未完成的语义比较（0 对） · 本次已判定 2 对/),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: /^场景层/ }));
+  expect(screen.getAllByText(/G_E · 已匹配 · 未保存/).length).toBeGreaterThan(
+    0,
+  );
+  fireEvent.click(
+    within(card(1)).getByRole("button", { name: "取消本次匹配" }),
+  );
+  expect(screen.getByText(/匹配判定修改 1 条/)).toBeTruthy();
+  expect(within(card(2)).getByText("已匹配 · 未保存")).toBeTruthy();
+  fireEvent.click(
+    within(card(2)).getByRole("button", { name: "取消本次匹配" }),
+  );
+  expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+  expect(within(card(1)).getByText("待判定")).toBeTruthy();
+  await waitFor(() => expect(onDirty).toHaveBeenLastCalledWith(false));
+});
+test.each(["full", "partial", "none"])(
+  "detail %s applies immediately to the same card and can be undone",
+  async (status) => {
+    const bundle = matchingFixture();
+    mockApi(() => response(bundle));
+    render(<SsdResultsView project="P1" initialIndex={index} />);
+    await screen.findByText(/尚未完成的语义比较（2 对）/);
+    fireEvent.click(screen.getByText(/尚未完成的语义比较（2 对）/));
+    fireEvent.click(within(card(1)).getByRole("button", { name: "查看详情" }));
+    fireEvent.change(screen.getByLabelText("匹配判定"), {
+      target: { value: status },
+    });
+    fireEvent.change(screen.getByLabelText("匹配说明"), {
+      target: { value: "核对后的人工依据" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "应用到草稿" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(within(card(1)).getByText("核对后的人工依据")).toBeTruthy();
+    expect(
+      within(card(1)).getByText(
+        ({ full: "已匹配", partial: "部分匹配", none: "不匹配" }[status] ||
+          "") + " · 未保存",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText(/匹配判定修改 1 条/)).toBeTruthy();
+    fireEvent.click(within(card(1)).getByRole("button", { name: "查看详情" }));
+    fireEvent.click(screen.getByRole("button", { name: "应用到草稿" }));
+    expect(
+      screen.getByText("该条判定与当前内容一致，没有新增修改。"),
+    ).toBeTruthy();
+    fireEvent.click(within(card(1)).getByRole("button", { name: "查看详情" }));
+    fireEvent.click(screen.getByRole("button", { name: "取消编辑" }));
+    expect(screen.getByText(/匹配判定修改 1 条/)).toBeTruthy();
+    fireEvent.click(
+      within(card(1)).getByRole("button", {
+        name: status === "none" ? "取消本次判定" : "取消本次匹配",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+  },
+);
+test.each([409, 500])(
+  "save failure %s retains both match drafts; an in-flight save locks edits and successful save resets counts",
+  async (status) => {
+    const bundle = matchingFixture();
+    let savedBundle = bundle;
+    let revision = 1;
+    let submit: ((value: any) => void) | undefined;
+    const fetch = mockApi((path) =>
+      path.endsWith("ssd-results") ? index : response(savedBundle, revision),
+    );
+    fetch.mockImplementation(async (url, init) => {
+      if (init?.method === "POST" && String(url).endsWith("revisions"))
+        return await new Promise((resolve) => {
+          submit = resolve;
+        });
+      return {
+        ok: true,
+        json: async () =>
+          String(url).endsWith("ssd-results")
+            ? index
+            : response(savedBundle, revision),
+      } as Response;
+    });
+    render(<SsdResultsView project="P1" initialIndex={index} />);
+    await screen.findByText(/尚未完成的语义比较（2 对）/);
+    fireEvent.click(screen.getByText(/尚未完成的语义比较（2 对）/));
+    for (const n of [1, 2])
+      fireEvent.click(
+        within(card(n)).getByRole("button", { name: "确认匹配" }),
+      );
+    fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+    await waitFor(() => expect(submit).toBeTypeOf("function"));
+    expect(
+      within(card(1))
+        .getByRole("button", { name: "取消本次匹配" })
+        .closest("fieldset")?.disabled,
+    ).toBe(true);
+    submit!({
+      ok: false,
+      status,
+      json: async () => ({
+        detail: { message: "修订冲突", current_revision: 2 },
+      }),
+    });
+    await screen.findByText(/草稿仍保留/);
+    expect(screen.getByText(/匹配判定修改 2 条/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.filter(([, init]) => init?.method === "POST"),
+      ).toHaveLength(2),
+    );
+    const request = fetch.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .at(-1)!;
+    savedBundle = JSON.parse(request[1]!.body as string).bundle;
+    revision = 2;
+    savedBundle.semantic_pending = [];
+    expect(savedBundle.decisions).toHaveLength(2);
+    submit!({ ok: true, json: async () => response(savedBundle, revision) });
+    await screen.findByText(/修订已保存/);
+    expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+  },
+);

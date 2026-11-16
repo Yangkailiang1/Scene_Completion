@@ -1,6 +1,12 @@
+import {
+  draftChanges,
+  rowDraftDecisions,
+  decisionKey,
+  decisionLabel,
+} from "../shared/matchDraft";
 import { relatedRequirementRefs } from "../shared/provenance";
 import { EditableCell } from "../shared/EditableCell";
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import {
   channelLabels,
   targetLabels,
@@ -107,6 +113,7 @@ function concernPath(
 export function SsdAlignmentTable({
   rows,
   bundle,
+  savedBundle,
   step,
   layer,
   readonly,
@@ -137,6 +144,7 @@ export function SsdAlignmentTable({
     documents?: any[];
     channels?: Record<string, { scenarios: Observation[] }>;
   };
+  savedBundle?: any;
   step?: Step;
   layer: SsdRecordKind;
   readonly: boolean;
@@ -159,6 +167,10 @@ export function SsdAlignmentTable({
   objectHeading?: string;
   emptyLabel?: string;
 }) {
+  const changedMatches = useMemo(
+    () => draftChanges(savedBundle, bundle).matches,
+    [savedBundle, bundle],
+  );
   const definitions = bundle.registry?.definitions || {};
   const group = (row: any) =>
     getGroupPath?.(row.key || "") || concernPath(row.key || "", bundle, step);
@@ -272,6 +284,15 @@ export function SsdAlignmentTable({
                   ]),
               ).values(),
             ];
+            const rowDrafts = savedBundle
+              ? rowDraftDecisions(
+                  bundle,
+                  savedBundle,
+                  row,
+                  layer,
+                  changedMatches,
+                )
+              : [];
             return (
               <Fragment key={row.id}>
                 {(index === 0 || group(shown[index - 1]) !== group(row)) && (
@@ -310,11 +331,18 @@ export function SsdAlignmentTable({
                             {channel === "G" &&
                               row.coverage_by_record?.[record.id] && (
                                 <small className="ssd-coverage">
-                                  {row.coverage_by_record[record.id].complete
-                                    ? row.coverage_by_record[record.id].covered
-                                      ? "GT覆盖"
-                                      : "GT不覆盖"
-                                    : "匹配未完成"}
+                                  {rowDrafts.some(
+                                    (d) =>
+                                      d.pair === "GT_G" &&
+                                      d.right_id === record.id,
+                                  )
+                                    ? "GT覆盖存在判定草稿，保存后重算"
+                                    : row.coverage_by_record[record.id].complete
+                                      ? row.coverage_by_record[record.id]
+                                          .covered
+                                        ? "GT覆盖"
+                                        : "GT不覆盖"
+                                      : "匹配未完成"}
                                 </small>
                               )}
                             {channel === "G" &&
@@ -583,9 +611,28 @@ export function SsdAlignmentTable({
                   ))}
                   <td>
                     <strong className={`ssd-status ssd-status-${row.status}`}>
+                      {rowDrafts.length > 0 && "已保存："}
                       {ssdStatusNames[row.status] || row.status}
                     </strong>
-                    <p>{row.reason}</p>
+                    <p>
+                      {rowDrafts.length > 0 && "已保存依据："}
+                      {row.reason}
+                    </p>
+                    {rowDrafts.map((d) => (
+                      <p
+                        role="status"
+                        className="ssd-table-draft-status"
+                        key={decisionKey(d)}
+                      >
+                        {d.pair} ·{" "}
+                        {d.status === "removed"
+                          ? "已撤销判定"
+                          : decisionLabel(d.status)}{" "}
+                        · 未保存
+                        <br />
+                        {d.reason}
+                      </p>
+                    ))}
                     {layer === "concerns" && (
                       <button
                         className="concern-drilldown"

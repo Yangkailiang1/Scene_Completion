@@ -1,3 +1,11 @@
+import { useResultDraft } from "../shared/useResultDraft";
+import { MatchPairCard } from "../shared/MatchPairCard";
+import {
+  decisionKey,
+  findDecision,
+  putDecision,
+  restoreDecision,
+} from "../shared/matchDraft";
 import {
   clearTableCell,
   putTableRecord,
@@ -59,15 +67,23 @@ export function ProjectScopeResultsView({
   onReviewRequest?: (selection: SsdReviewSelection) => void;
   onUpdated?: () => void;
 }) {
-  const [snapshot, setSnapshot] = useState<any>(null),
-    [draft, setDraft] = useState<ProjectBundle | null>(null);
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const {
+    draft,
+    reset: setDraft,
+    change: changeDraft,
+    undo: undoDraft,
+    dirty,
+    changes,
+    canUndo,
+  } = useResultDraft<ProjectBundle>();
+  const saving = useRef(false);
   const [version, setVersion] = useState("current"),
     [anchorId, setAnchor] = useState(requestedAnchorId || ""),
     [mode, setMode] = useState("comparison");
   const [layer, setLayer] = useState<SsdRecordKind>("concerns"),
     [differences, setDifferences] = useState(false);
-  const [dirty, setDirty] = useState(false),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [reason, setReason] = useState("");
@@ -104,16 +120,16 @@ export function ProjectScopeResultsView({
     let active = true;
     setSnapshot(null);
     setDraft(null);
-    undoStack.current = [];
+
     setError("");
-    setDirty(false);
+
     setFocus(null);
     getProjectEditor(project, scope, version)
       .then((value) => {
         if (!active) return;
         setSnapshot(value);
         setDraft(copy(value.bundle));
-        undoStack.current = [];
+
         setAnchor(
           value.bundle.anchors.some(
             (anchor: Anchor) => anchor.id === requestedAnchorId,
@@ -143,7 +159,6 @@ export function ProjectScopeResultsView({
         if (active && value.revision !== snapshot.revision) {
           setSnapshot(value);
           setDraft(copy(value.bundle));
-          undoStack.current = [];
         }
       })
       .catch(() => {});
@@ -151,27 +166,42 @@ export function ProjectScopeResultsView({
       active = false;
     };
   }, [project, scope, liveVersion, dirty]);
-  const undoStack = useRef<any[]>([]);
-  function undoDraft() {
-    const previous = undoStack.current.pop();
-    if (previous) {
-      setDraft(previous);
-      setDirty(true);
-    }
-  }
   function change(update: (bundle: ProjectBundle) => void) {
-    if (!draft || readonly) return;
-    undoStack.current.push(copy(draft));
-    if (undoStack.current.length > 50) undoStack.current.shift();
-    const next = copy(draft);
-    update(next);
-    setDraft(next);
-    setDirty(true);
-    setError("");
-    setNotice("");
+    if (readonly || saving.current) return false;
+    const updated = changeDraft(update);
+    if (updated) {
+      setError("");
+      setNotice("");
+    }
+    return updated;
+  }
+  function toggleMatch(pair: Decision) {
+    if (readonly || saving.current || !draft) return;
+    const changed = changes.matches.has(decisionKey(pair));
+    change((bundle) => {
+      if (changed) restoreDecision(bundle, snapshot?.bundle, pair);
+      else
+        putDecision(bundle, {
+          ...pair,
+          id: findDecision(bundle, pair)?.id || uid("match"),
+          status: "full",
+          reason: "人工确认",
+          origin: "manual",
+        });
+    });
+    setNotice(
+      changed
+        ? "已撤回该条匹配草稿，恢复点击前状态。"
+        : "该条已确认匹配并加入草稿，保存后重算指标。",
+    );
+  }
+  function openMatchDetails(pair: Decision) {
+    if (!readonly && !saving.current)
+      setMatchEdit({ ...pair, id: pair.id || uid("match") });
   }
   async function save() {
-    if (!draft) return;
+    if (!draft || !dirty || saving.current) return;
+    saving.current = true;
     setBusy(true);
     setError("");
     try {
@@ -182,8 +212,7 @@ export function ProjectScopeResultsView({
       });
       setSnapshot(value);
       setDraft(copy(value.bundle));
-      undoStack.current = [];
-      setDirty(false);
+
       setReason("");
       setSelected({ E: [], G: [], GT: [] });
       setNotice("修订已保存，当前范围与项目汇总指标已重算。原始版本保留。");
@@ -191,6 +220,7 @@ export function ProjectScopeResultsView({
     } catch (error: any) {
       setError(`${error.message}。草稿仍保留。`);
     } finally {
+      saving.current = false;
       setBusy(false);
     }
   }
@@ -200,8 +230,7 @@ export function ProjectScopeResultsView({
       const value = await getProjectEditor(project, scope, version);
       setSnapshot(value);
       setDraft(copy(value.bundle));
-      undoStack.current = [];
-      setDirty(false);
+
       setReason("");
       setError("");
       onUpdated?.();
@@ -438,9 +467,22 @@ export function ProjectScopeResultsView({
       origin: "manual",
     });
   }
-  const scopeMeta = snapshot?.completeness;
+  const scopeMeta = snapshot?.completeness && {
+    ...snapshot.completeness,
+    semantic_pairs: Math.max(
+      0,
+      (snapshot.completeness.semantic_pairs || 0) -
+        (draft?.semantic_pending || []).filter((p: any) =>
+          findDecision(draft, { ...p, level: "scenario" }),
+        ).length,
+    ),
+  };
   return (
-    <div className="management-view results-view ssd-results">
+    <fieldset
+      disabled={busy}
+      aria-busy={busy}
+      className="management-view results-view ssd-results ssd-result-edit-lock"
+    >
       {navigation}
       <div className="results-compact-controls">
         {sourceControl}
@@ -525,7 +567,7 @@ export function ProjectScopeResultsView({
             交给业务审核
           </button>
         )}
-        <button onClick={undoDraft} disabled={!dirty}>
+        <button onClick={undoDraft} disabled={!canUndo || busy}>
           撤销草稿修改
         </button>
         <button disabled={busy || dirty} onClick={() => void refresh()}>
@@ -555,7 +597,10 @@ export function ProjectScopeResultsView({
       )}
       {dirty && (
         <div className="ssd-save-bar">
-          <span>草稿未保存，指标与匹配状态仍为上次修订。</span>
+          <span>
+            匹配判定修改 {changes.matches.size} 条 · 其他修改 {changes.other}{" "}
+            项；指标为保存版本，保存后重算。
+          </span>
           <details className="ssd-revision-reason">
             <summary>修订说明</summary>{" "}
             <input
@@ -922,6 +967,7 @@ export function ProjectScopeResultsView({
                   )}
                 </div>
                 <SsdAlignmentTable
+                  savedBundle={snapshot?.bundle}
                   rows={rows}
                   bundle={draft}
                   layer={layer}
@@ -1036,39 +1082,83 @@ export function ProjectScopeResultsView({
                     </div>
                   ))}
                 </details>
-                {!!draft.semantic_pending?.length && (
+                {!!(draft.semantic_pending || []).filter(
+                  (pair: any) =>
+                    pair.anchor_id === anchorId ||
+                    recordIds.has(pair.left_id) ||
+                    recordIds.has(pair.right_id),
+                ).length && (
                   <details className="ssd-match-panel">
-                    <summary>尚未完成的语义比较</summary>
-                    {draft.semantic_pending
+                    <summary>
+                      尚未完成的语义比较（
+                      {
+                        (draft.semantic_pending || [])
+                          .filter(
+                            (pair: any) =>
+                              pair.anchor_id === anchorId ||
+                              recordIds.has(pair.left_id) ||
+                              recordIds.has(pair.right_id),
+                          )
+                          .filter(
+                            (p: any) =>
+                              !findDecision(draft, { ...p, level: "scenario" }),
+                          ).length
+                      }{" "}
+                      对） · 本次已判定{" "}
+                      {
+                        (draft.semantic_pending || [])
+                          .filter(
+                            (pair: any) =>
+                              pair.anchor_id === anchorId ||
+                              recordIds.has(pair.left_id) ||
+                              recordIds.has(pair.right_id),
+                          )
+                          .filter(
+                            (p: any) =>
+                              findDecision(draft, {
+                                ...p,
+                                level: "scenario",
+                              }) &&
+                              changes.matches.has(
+                                decisionKey({ ...p, level: "scenario" }),
+                              ),
+                          ).length
+                      }{" "}
+                      对
+                    </summary>
+                    <p>
+                      确认只加入草稿；卡片保留在原位置，可再次点击撤销，保存后重算。
+                    </p>
+                    {(draft.semantic_pending || [])
                       .filter(
                         (pair: any) =>
                           pair.anchor_id === anchorId ||
                           recordIds.has(pair.left_id) ||
                           recordIds.has(pair.right_id),
                       )
-                      .map((pair: any, index: number) => (
-                        <div className="ssd-match" key={index}>
-                          <p>
-                            {pair.pair} · {pair.left_id} ↔ {pair.right_id}
-                          </p>
-                          {!readonly && (
-                            <button
-                              onClick={() =>
-                                setMatchEdit({
-                                  ...pair,
-                                  id: uid("match"),
-                                  level: "scenario",
-                                  status: "full",
-                                  reason: "人工确认",
-                                  origin: "manual",
-                                })
-                              }
-                            >
-                              人工判定此对
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                      .map((pair: any) => {
+                        const candidate: Decision = {
+                          ...pair,
+                          id: "",
+                          level: "scenario",
+                          status: "full",
+                          reason: "人工确认",
+                          origin: "manual",
+                        };
+                        return (
+                          <MatchPairCard
+                            key={decisionKey(candidate)}
+                            pair={candidate}
+                            bundle={draft}
+                            changed={changes.matches.has(
+                              decisionKey(candidate),
+                            )}
+                            readonly={readonly}
+                            onToggle={toggleMatch}
+                            onDetails={openMatchDetails}
+                          />
+                        );
+                      })}
                   </details>
                 )}
               </>
@@ -1118,20 +1208,13 @@ export function ProjectScopeResultsView({
           decision={matchEdit === true ? undefined : matchEdit}
           onClose={() => setMatchEdit(null)}
           onSave={(value) => {
-            change((bundle) => {
-              bundle.decisions = bundle.decisions.filter(
-                (decision) =>
-                  decision.id !== value.id &&
-                  !(
-                    decision.level === value.level &&
-                    decision.pair === value.pair &&
-                    decision.left_id === value.left_id &&
-                    decision.right_id === value.right_id
-                  ),
-              );
-              bundle.decisions.push(value);
-            });
+            const updated = change((bundle) => putDecision(bundle, value));
             setMatchEdit(null);
+            setNotice(
+              updated
+                ? "该条判定已应用到草稿，保存后重算指标。"
+                : "该条判定与当前内容一致，没有新增修改。",
+            );
           }}
         />
       )}
@@ -1142,6 +1225,6 @@ export function ProjectScopeResultsView({
           onClose={() => setSources(null)}
         />
       )}
-    </div>
+    </fieldset>
   );
 }

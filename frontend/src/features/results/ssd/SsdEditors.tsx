@@ -80,11 +80,13 @@ export function Modal({
   children,
   onClose,
   onSave,
+  canSave = true,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
   onSave: () => void;
+  canSave?: boolean;
 }) {
   return (
     <div className="ssd-modal-backdrop">
@@ -101,7 +103,11 @@ export function Modal({
         <div className="ssd-form">{children}</div>
         <footer>
           <button onClick={onClose}>取消</button>
-          <button className="primary-action" onClick={onSave}>
+          <button
+            className="primary-action"
+            disabled={!canSave}
+            onClick={onSave}
+          >
             应用到草稿
           </button>
         </footer>
@@ -694,6 +700,7 @@ export function MatchEditor({
   return (
     <Modal
       title="修正匹配关系"
+      canSave={!!value.left_id && !!value.right_id}
       onClose={onClose}
       onSave={() => onSave({ ...value, origin: "manual" })}
     >
