@@ -12,3 +12,5 @@
 [SSD结果契约](ssd-result-contract.md)与[v5发布Schema](scene-workflow-v5/schemas/)保留固定路径。历史验收数字不等于当前源码已重验；旧材料和报告不因导航整理改写。
 
 最新范围及真实验收见[交互分析与共用外部服务](history/20261116-interaction-shared-services.md)。
+
+[Pi受限文件工具与普通LLM真实对照](history/acceptance/pi-files-real-20261116.md)独立于正式默认运行时。

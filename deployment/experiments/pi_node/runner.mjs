@@ -56,7 +56,14 @@ export async function run(start, broker, cwd = process.cwd()) {
     noContextFiles: true,
     systemPrompt: start.system,
   });
-  await loader.reload();
+  if (start.frozenResources) {
+    // Do not discover even global skill paths. Keep the SDK's empty in-memory
+    // resource container and supply only the frozen system prompt.
+    loader.getSystemPrompt = () => start.system;
+    loader.reload = async () => {};
+  } else {
+    await loader.reload();
+  }
   const customTools = start.tools.map((tool) => ({
     name: tool.name,
     label: tool.name,
@@ -156,7 +163,7 @@ if (
   try {
     write(await run(await read(), rpc));
   } catch (error) {
-    write({ kind: "error", error: String(error) });
+    write({ kind: "error", error: String(error), diagnostic: {stack:error.stack,resource:error.resource,permission:error.permission} });
     process.exitCode = 2;
   } finally {
     input.close();

@@ -82,7 +82,10 @@ def to_pi(message):
 
 
 class PiGraph:
-    def __init__(self, *, model, tools, system_prompt, root, baseline_factory, **kwargs):
+    def __init__(
+        self, *, model, tools, system_prompt, root, baseline_factory, sandboxed=False, **kwargs
+    ):
+        self.sandboxed = sandboxed
         self.model = model
         self.tools = {t.name: t for t in tools}
         if set(self.tools) - {"submit_result", "ask_user", "lookup_evidence"}:
@@ -123,8 +126,18 @@ class PiGraph:
         stderr_path = self.root / "pi-stderr.log"
         self.root.mkdir(parents=True, exist_ok=True)
         with stderr_path.open("a", encoding="utf8") as errors:
+            command = ["node"]
+            if self.sandboxed:
+                command += [
+                    "--permission",
+                    "--allow-fs-read=" + str(HERE.resolve()),
+                    "--allow-fs-read=" + str((HERE / "node_modules").resolve()),
+                    "--allow-fs-read=" + str(self.root.resolve()),
+                    "--allow-fs-write=" + str((self.root / "pi-home").resolve()),
+                ]
+            command.append(str(HERE / "runner.mjs"))
             proc = subprocess.Popen(
-                ["node", str(HERE / "runner.mjs")],
+                command,
                 cwd=self.root,
                 env=env,
                 stdin=subprocess.PIPE,
@@ -151,6 +164,7 @@ class PiGraph:
             send(
                 {
                     "kind": "start",
+                    "frozenResources": self.sandboxed,
                     "system": self.system,
                     "prompt": inputs["messages"][-1]["content"],
                     "tools": schemas,
@@ -188,7 +202,12 @@ class PiGraph:
                             raise ValueError("Pi settled without a validated submission")
                         return {"messages": transcript}
                     elif kind == "error":
-                        raise RuntimeError("Pi SDK: " + event["error"])
+                        raise RuntimeError(
+                            "Pi SDK: "
+                            + event["error"]
+                            + " "
+                            + json.dumps(event.get("diagnostic", {}))
+                        )
                     else:
                         raise ValueError("Unexpected Pi bridge event")
             finally:
