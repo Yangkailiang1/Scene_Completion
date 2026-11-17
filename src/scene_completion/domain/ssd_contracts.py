@@ -1,4 +1,9 @@
-"""Small task contracts for channel-isolated SSD semantic assistance."""
+"""Small task contracts for channel-isolated SSD semantic assistance.
+
+Stage definitions and their order live in ``workflow/ssd_stages.py``. This module
+provides what those stages tell the model (``ROLE_TEXT``) and the shape of its
+reply (``SCHEMAS``).
+"""
 
 from copy import deepcopy
 

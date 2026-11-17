@@ -1,0 +1,152 @@
+"""Structured-input SSD workflow: the single readable source of stage knowledge.
+
+Every stage the structured-input path (``build_structured``) registers is described
+here once, so the page labels, the generated user documentation and the stage list
+cannot drift apart. Changing a label or a stage's behaviour starts in this file.
+
+Where the other halves live:
+
+- execution order and wiring: ``workflow/ssd_pipeline.py``
+- what the model is told for each semantic task, and the output schema:
+  ``domain/ssd_contracts.py`` (``SCHEMAS`` / ``ROLE_TEXT``)
+- semantic version used for cache identity: ``workflow/task_semantics.json``
+
+This module is documentation-grade metadata only. It never changes a stage name,
+a task key, an output path or a semantic version; those stay in their own files.
+"""
+
+from __future__ import annotations
+
+# Kinds are deliberately coarse: readers need to know whether a stage spends
+# money and whether it can be reproduced deterministically.
+SCRIPT = "script"
+MODEL = "model"
+MODEL_SCRIPT = "model+script"
+
+KIND_LABELS = {
+    SCRIPT: "脚本（不调用模型）",
+    MODEL: "模型调用",
+    MODEL_SCRIPT: "模型调用＋脚本合并",
+}
+
+
+class Stage(dict):
+    """A stage description; a plain dict with attribute access for readability."""
+
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError as error:
+            raise AttributeError(name) from error
+
+
+def _stage(
+    label,
+    kind,
+    reads,
+    writes,
+    semantic_tasks,
+    depends_on,
+    doc,
+    *,
+    user_visible=True,
+):
+    return Stage(
+        label=label,
+        kind=kind,
+        kind_label=KIND_LABELS[kind],
+        reads=tuple(reads),
+        writes=tuple(writes),
+        semantic_tasks=tuple(semantic_tasks),
+        depends_on=tuple(depends_on),
+        doc=doc,
+        user_visible=user_visible,
+    )
+
+
+STAGES = {
+    "ssd-prepare": _stage(
+        label="建立 SSD 与三方结果",
+        kind=SCRIPT,
+        reads=("SysOperation.json", "功能树", "行为目录", "结构化输入快照"),
+        writes=("用例 steps（发送方·数据·接收方）", "G 通道关注点与参考场景", "初始发布版本"),
+        semantic_tasks=(),
+        depends_on=(),
+        doc=(
+            "从结构化输入确定性构建步骤与三方结果容器，挂载注册表规则与固定参考"
+            "异常模板，生成 G 通道，并发布本用例的第一个版本。"
+        ),
+    ),
+    "ssd-resolve": _stage(
+        label="契约绑定与三通道独立识别",
+        kind=MODEL,
+        reads=("正向字段约束与操作关联", "G/E/GT 各自的原始记录"),
+        writes=("字段约束绑定到具体步骤", "E/GT 的关注点与具体场景", "待确认记录"),
+        semantic_tasks=("ssd-bind", "ssd-resolve"),
+        depends_on=("ssd-prepare",),
+        doc=(
+            "先由 ssd-bind 把正向契约里的字段与操作绑定到实际步骤；再按 G/E/GT "
+            "三通道分别识别，每次只给该通道自己的来源记录。已解决的来源必须同时"
+            "产出关注点和具体场景，不能提交空结果丢弃来源。"
+        ),
+    ),
+    "ssd-generate": _stage(
+        label="展开参考异常与业务场景",
+        kind=MODEL,
+        reads=("G 通道的固定模板场景", "正向用例、步骤、对象、接口、实体"),
+        writes=("每个场景的业务分析", "模型补充的适用场景"),
+        semantic_tasks=("ssd-generate",),
+        depends_on=("ssd-resolve",),
+        doc=(
+            "只针对 G 通道写业务化分析，可补充同一关注点下明确适用且不重复的场景。"
+            "固定模板全部保留；模型看不到 E 与 GT，不从它们补写答案。"
+        ),
+    ),
+    "ssd-compare": _stage(
+        label="三方比较与发布",
+        kind=MODEL_SCRIPT,
+        reads=("G/E/GT 全通道场景与关注点", "历史机器判定"),
+        writes=("full/partial/none 判定", "发布版本与人工复核结果"),
+        semantic_tasks=("ssd-semantic-compare",),
+        depends_on=("ssd-generate",),
+        doc=(
+            "复用未变化的机器判定，再对候选对分批判定 full/partial/none，"
+            "发布机器基线；若检测到人工修订，再独立复核一次。被任一 GT 确认的 G "
+            "计为已覆盖。"
+        ),
+    ),
+    "shared-services-merge": _stage(
+        label="合并共用外部服务（脚本）",
+        kind=SCRIPT,
+        reads=("全部用例的最新修订", "实际外部调用的接收方"),
+        writes=("shared_service_results/", "共用服务三方结果与项目指标"),
+        semantic_tasks=(),
+        depends_on=("ssd-compare",),
+        doc=(
+            "按实际外部请求的接收方识别服务身份，再按故障类型合并场景，保留每个"
+            "调用成员的原记录与出处。服务身份无法确认时保留待定位，不按同名强合并。"
+        ),
+    ),
+}
+
+# The order a single case advances through; the merge stage follows all cases.
+CASE_SEQUENCE = ("ssd-prepare", "ssd-resolve", "ssd-generate", "ssd-compare")
+MERGE_STAGE = "shared-services-merge"
+
+
+def label(stage):
+    """Display label for a stage, falling back to the raw name when unknown."""
+    description = STAGES.get(stage)
+    return description.label if description else stage
+
+
+def describe(stage):
+    return STAGES[stage]
+
+
+def case_stages():
+    return tuple(name for name in CASE_SEQUENCE if STAGES[name].user_visible)
+
+
+def all_stage_names():
+    return tuple(STAGES)

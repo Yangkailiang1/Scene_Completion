@@ -11,6 +11,8 @@ from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure import ssd_repository
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.workflow.ssd_stages import MERGE_STAGE
+from scene_completion.workflow.ssd_stages import label as stage_label
 from scene_completion.workflow_core import Task
 
 
@@ -161,12 +163,9 @@ def _task(ex, cid, stage, deps, fn, identity=None):
         ),
         execute=execute,
         verify=lambda v: ssd_validation.validate(v["payload"]),
-        display_label={
-            "ssd-prepare": "建立 SSD 与三方结果",
-            "ssd-generate": "展开参考异常与业务场景",
-            "ssd-compare": "比较与发布",
-            "ssd-resolve": "处理语义对应",
-        }.get(stage, stage),
+        # Labels live in workflow/ssd_stages.py so the page, the generated
+        # documentation and this pipeline cannot drift apart.
+        display_label=stage_label(stage),
     )
     ex.scheduler.add(task)
     return task.key
@@ -639,7 +638,7 @@ def _project_scopes(ex, selected):
         if getattr(ex, "is_preview", False):
             ex.add(
                 key,
-                "shared-services-merge",
+                MERGE_STAGE,
                 [cid + ":ssd-compare"],
                 case=cid,
                 transform=lambda d: d,
@@ -649,7 +648,7 @@ def _project_scopes(ex, selected):
                 Task(
                     key=key,
                     case=cid,
-                    stage="shared-services-merge",
+                    stage=MERGE_STAGE,
                     deps=(cid + ":ssd-compare",),
                     version="interaction-shared-services-v1",
                     execute=lambda values, record: {
@@ -657,7 +656,7 @@ def _project_scopes(ex, selected):
                         "payload": publish(ex.root.parent)["bundle"],
                     },
                     verify=lambda value: validate(value["payload"]),
-                    display_label="合并共用外部服务（脚本）",
+                    display_label=stage_label(MERGE_STAGE),
                 )
             )
         ex.manifest["project_scope_tasks"].append(key)

@@ -1,6 +1,7 @@
 # 当前使用说明
 
 - [SSD三方比较、修订和离线HTML](ssd-case-workflow.md)
+- [结构化输入工作流（自动生成）](structured-input-workflow.md)、[结构护栏](../architecture/structure-guardrails.md)
 - [关注点与计分边界](concern-rules.md)
 - [独立分析与保存结果](standalone-and-saved-results.md)
 - [五类文件接入](five-input-bundle.md)、[行为目录](resource-behavior-input.md)、[RR/SR结构模型](structured-model-import.md)
