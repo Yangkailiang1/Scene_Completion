@@ -11,7 +11,7 @@ from scene_completion.analysis.project_scopes.pipeline import (
 from scene_completion.application import project_scope_service as results
 from scene_completion.application.ssd_revision_service import _diff, _patch
 from scene_completion.domain.project_scopes.matching import PAIRS, semantic_candidates
-from scene_completion.domain.project_scopes.validation import KEYS, SCOPES, validate
+from scene_completion.domain.project_scopes.validation import KEYS, validate
 from scene_completion.domain.ssd.construction import ident
 from scene_completion.infrastructure import project_scope_repository as repository
 from scene_completion.infrastructure.code_retry import revision as code_retry_revision
@@ -450,48 +450,16 @@ def _compare(ex, generated, identified, record):
 
 
 def build_project_scopes(ex, prepare_keys, documents=None):
-    """Register project stages after case preparation; no direct model/network calls."""
-    keys = list(prepare_keys)
-    if not keys:
-        return []
-    material = deepcopy(documents or [])
-    prepare = _task(
-        ex,
-        "project:project-prepare",
-        "project-prepare",
-        keys,
-        lambda values, record: _prepare(ex, [values[k] for k in keys], material, record),
-        identity=fingerprint(material),
+    """Removed stage registration. Kept so a stale caller fails with a reason.
+
+    The business-chain and architecture project stages were replaced by the
+    shared-service merge in ``workflow/ssd_pipeline.py``. Their results remain
+    readable as read-only history; nothing registers those stages any more.
+    The semantic helpers above are still exercised by the compatibility suite.
+    """
+    raise RuntimeError(
+        "build_project_scopes() 已停用：结构化输入流程不再注册业务链路与项目架构阶段。"
+        "用例完成后由 workflow/ssd_pipeline.py 的 _project_scopes() 注册 "
+        "shared-services-merge；阶段说明见 workflow/ssd_stages.py，"
+        "历史只读投影见 docs/current/ssd-case-workflow.md。"
     )
-    final = []
-    for scope in SCOPES:
-        prefix = "project:" + scope + ":"
-        identified = _task(
-            ex,
-            prefix + "project-identify",
-            "project-identify",
-            [prepare],
-            lambda values, record, s=scope: _identify(ex, values[prepare][s], record),
-            scope=scope,
-        )
-        generated = _task(
-            ex,
-            prefix + "project-generate",
-            "project-generate",
-            [prepare],
-            lambda values, record, s=scope: _generate(ex, values[prepare][s], record),
-            scope=scope,
-        )
-        compared = _task(
-            ex,
-            prefix + "project-compare",
-            "project-compare",
-            [identified, generated],
-            lambda values, record, a=identified, b=generated: _compare(
-                ex, values[b], values[a], record
-            ),
-            scope=scope,
-        )
-        final.append(compared)
-    ex.manifest["project_scopes"] = list(SCOPES)
-    return final

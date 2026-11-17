@@ -32,7 +32,7 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 
 `serve.py → api/application.create_app → application/project_service.Workbench`装配本地服务。`scene.py → cli/main`使用相同公开能力。`application/execution.Execution`组织执行会话，`workflow/planning.build_pipeline`选择结构化输入或文档抽取路径。
 
-结构化输入由`workflow/ssd_pipeline.build_structured`按用例进入四个交互阶段，并在用例准备后由`workflow/project_scopes`注册业务链路和项目架构两个项目范围阶段。原始RR/SR文档通过`build_from_documents`获得抽取产物，再由`inputs/documents/ssd_adapter.normalize_extracted_case`转为共同用例结构；这是当前文档输入适配，不是旧协议执行。
+结构化输入由`workflow/ssd_pipeline.py`按用例进入四个交互阶段（`ssd-prepare → ssd-resolve → ssd-generate → ssd-compare`），每个用例完成后由同一文件的`_project_scopes()`注册一个`shared-services-merge`脚本节点。阶段定义、顺序、读写与对应语义任务集中在`workflow/ssd_stages.py`，[结构化输入工作流](../current/structured-input-workflow.md)由它生成。`workflow/project_scopes.py`只保留兼容语义函数，其`build_project_scopes()`已停用并显式报错；业务链路与项目架构结果仅作只读历史投影。原始RR/SR文档通过`build_from_documents`获得抽取产物，再由`inputs/documents/ssd_adapter.normalize_extracted_case`转为共同用例结构；这是当前文档输入适配，不是旧协议执行。
 
 ## 目录职责
 
