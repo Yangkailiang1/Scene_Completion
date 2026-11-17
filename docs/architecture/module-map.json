@@ -2235,7 +2235,8 @@
     "deployment/start.cmd": "deployment/windows/start.cmd",
     "deployment/status.cmd": "deployment/windows/status.cmd",
     "deployment/stop.cmd": "deployment/windows/stop.cmd",
-    "deploy/local_start.sh": "deployment/experiments/local_start.sh"
+    "deploy/local_start.sh": "deployment/experiments/local_start.sh",
+    "在线商城购物系统": "datasets/mall-input"
   },
   "test_helpers": {
     "tests.test_workflow": "tests.support.workflow",
@@ -2327,7 +2328,8 @@
     "tools/render_workflow_doc.py",
     "tools/check_architecture.py",
     "docs/current/structured-input-workflow.md",
-    "docs/architecture/structure-guardrails.md"
+    "docs/architecture/structure-guardrails.md",
+    "datasets/mall-input/README.md"
   ],
   "public_paths_preserved": [
     "docs/ssd-result-contract.md",
