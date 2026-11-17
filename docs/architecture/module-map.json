@@ -2322,7 +2322,12 @@
     "src/scene_completion/domain/shared_services/aggregation.py",
     "src/scene_completion/application/shared_service_service.py",
     "src/scene_completion/review/offline/_adoption_v2.py",
-    "src/scene_completion/review/offline/_business_report_template.py"
+    "src/scene_completion/review/offline/_business_report_template.py",
+    "src/scene_completion/workflow/ssd_stages.py",
+    "tools/render_workflow_doc.py",
+    "tools/check_architecture.py",
+    "docs/current/structured-input-workflow.md",
+    "docs/architecture/structure-guardrails.md"
   ],
   "public_paths_preserved": [
     "docs/ssd-result-contract.md",
