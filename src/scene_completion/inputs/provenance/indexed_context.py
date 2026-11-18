@@ -88,6 +88,22 @@ def select_indexed_sections(documents, index, section_ids):
     return out
 
 
+REF_KEYS = set(REF["properties"])
+CITATION_KEYS = REF_KEYS | {"origin"}
+
+
+def _carries_citation(value):
+    """True for a cited record that also has its own declared fields."""
+    if not isinstance(value, dict) or value.get("type") != "object":
+        return False
+    properties = value.get("properties") or {}
+    return (
+        REF_KEYS <= set(properties)
+        and len(set(properties) - CITATION_KEYS) > 0
+        and value.get("additionalProperties") is False
+    )
+
+
 class EvidenceContext:
     def __init__(self, packet, *, evidence_pilot=False):
         self.evidence_pilot = evidence_pilot
@@ -682,7 +698,7 @@ class EvidenceContext:
                         if r in self.pool:
                             keep.append(r)
                         continue
-                    if not isinstance(r, dict) or set(r) != set(REF["properties"]):
+                    if not isinstance(r, dict) or not REF_KEYS <= set(r) <= CITATION_KEYS:
                         continue
                     try:
                         if fingerprint(r) not in allowed:
@@ -703,7 +719,7 @@ class EvidenceContext:
 
     def encode(self, value):
         if isinstance(value, dict):
-            if set(value) == set(REF["properties"]):
+            if REF_KEYS <= set(value) <= CITATION_KEYS:
                 return self.register(value)
             return {k: self.encode(v) for k, v in value.items()}
         if isinstance(value, list):
@@ -711,11 +727,31 @@ class EvidenceContext:
         return value
 
     def schema(self, value):
-        if value == REF:
+        if (
+            isinstance(value, dict)
+            and REF_KEYS <= set(value.get("properties", {})) <= CITATION_KEYS
+        ):
             return {
                 "type": "string",
                 "pattern": r"^(?:(?:RR|SR|META|DUAL)-)?e[0-9a-f]{12}$",
                 "description": "Exact evidence_id from this task input",
+            }
+        if _carries_citation(value):
+            # A task-specific record keeps its own fields and stores the
+            # citation as an object keyed by evidence id.
+            properties = {
+                k: self.schema(v) for k, v in value["properties"].items() if k not in CITATION_KEYS
+            }
+            return {
+                **value,
+                "properties": properties,
+                "required": [k for k in value.get("required", []) if k not in CITATION_KEYS],
+                "patternProperties": {
+                    r"^(?:(?:RR|SR|META|DUAL)-)?e[0-9a-f]{12}$": {
+                        "type": "string",
+                        "description": "Exact evidence_id from this task input",
+                    }
+                },
             }
         if isinstance(value, dict):
             return {k: self.schema(v) for k, v in value.items()}

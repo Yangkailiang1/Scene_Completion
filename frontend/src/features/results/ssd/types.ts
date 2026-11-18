@@ -6,6 +6,7 @@ export type SourceRef = {
   quote: string;
   kind?: string;
   json_pointer?: string;
+  origin?: string;
 };
 export type SourceDocument = {
   id: string;
@@ -54,6 +55,7 @@ export type Observation = {
   label?: string;
   field_id?: string | null;
   entity_id?: string | null;
+  attribute?: string | null;
   condition: string;
   expected?: string;
   concern_ids?: string[];

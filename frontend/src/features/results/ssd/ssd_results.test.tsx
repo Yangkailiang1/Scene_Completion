@@ -7,6 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { SsdResultsView } from "./SsdResultsView";
+import { invalidateResults } from "../shared/resultRequests";
 import { SsdSourceDialog } from "./SsdSourceDialog";
 import { ResultsView } from "../ResultsView";
 import { type Bundle } from "./types";
@@ -14,6 +15,7 @@ import { type Bundle } from "./types";
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  invalidateResults();
 });
 const ref = {
   document_id: "rr",
@@ -362,6 +364,37 @@ test("opens original Markdown and can switch between original RR and SR", async 
   fireEvent.change(screen.getByLabelText("原文文档"), {
     target: { value: "sr" },
   });
+  expect(screen.getByRole("heading", { name: "服务设计" })).toBeTruthy();
+});
+test("the source dialog jumps to a manually added origin among recorded ones", async () => {
+  const manual = {
+    document_id: "sr",
+    start_line: 2,
+    end_line: 2,
+    quote: "服务处理原文。",
+    kind: "origin",
+    origin: "manual",
+  };
+  render(
+    <SsdSourceDialog
+      documents={fixture().documents}
+      refs={[ref, manual]}
+      onClose={() => {}}
+    />,
+  );
+  expect(await screen.findByRole("heading", { name: "原始需求" })).toBeTruthy();
+  const positions = screen.getByLabelText<HTMLSelectElement>("来源位置");
+  // RR/SR stays first; the manual origin is offered as a one-click jump instead.
+  const options = Array.from(positions.options).map((o) => o.textContent);
+  expect(options[0]).toContain("系统需求_spec.md");
+  expect(options[1]).toContain("（人工补录）");
+  fireEvent.click(
+    screen.getByRole("button", { name: "跳到人工补录出处（1）" }),
+  );
+  expect(positions.selectedOptions[0].textContent).toContain(
+    "功能设计_spec.md",
+  );
+  expect(positions.selectedOptions[0].textContent).toContain("第 2–2 行");
   expect(screen.getByRole("heading", { name: "服务设计" })).toBeTruthy();
 });
 test("original and historical versions are read only and use the version API", async () => {
@@ -773,3 +806,103 @@ test.each([409, 500])(
     expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
   },
 );
+
+test("a manually added record keeps the origin picked from snapshot documents", async () => {
+  const bundle = fixture();
+  bundle.documents.unshift({
+    id: "json",
+    name: "api_extraction.json",
+    role: "intermediate",
+    content: '{\n  "apis": [],\n  "note": "页面大小上限100"\n}',
+  });
+  let submitted: any;
+  mockApi((path, init) => {
+    if (path.endsWith("/revisions")) {
+      submitted = JSON.parse(String(init?.body));
+      return response(submitted.bundle, 2);
+    }
+    return path.endsWith("ssd-results") ? index : response(bundle);
+  });
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  await screen.findByLabelText("编辑 E e1");
+  // The pending record is where a reviewer adds an abnormal item.
+  fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
+  fireEvent.click(screen.getByLabelText("编辑 GT t1"));
+  const dialog = await screen.findByRole("dialog", {
+    name: "编辑测试逆向待确认项",
+  });
+  // The editor opens from the currently loaded snapshot; wait until the document
+  // list of this case (which includes the JSON artifact) backs it.
+  await waitFor(() =>
+    expect(
+      within(dialog)
+        .getByLabelText("来源文件")
+        .querySelector('option[value="json"]'),
+    ).toBeTruthy(),
+  );
+  const withinDialog = within(dialog);
+  // A new origin starts empty; the editor says so instead of implying a source.
+  expect(withinDialog.getByText(/尚未补录出处/)).toBeTruthy();
+  fireEvent.change(withinDialog.getByLabelText("来源文件"), {
+    target: { value: "json" },
+  });
+  expect(
+    withinDialog.getByRole<HTMLButtonElement>("button", { name: "添加出处" })
+      .disabled,
+  ).toBe(true);
+  // Out-of-range lines are refused instead of saving an origin that cannot open.
+  fireEvent.change(withinDialog.getByLabelText("起始行"), {
+    target: { value: "9" },
+  });
+  expect(withinDialog.getByText(/起始行需在 1–4 之间/)).toBeTruthy();
+  fireEvent.change(withinDialog.getByLabelText("起始行"), {
+    target: { value: "2" },
+  });
+  fireEvent.change(withinDialog.getByLabelText("结束行"), {
+    target: { value: "3" },
+  });
+  // The preview names exactly the lines that will be cited.
+  expect(
+    withinDialog.getByText(/预览：api_extraction\.json · 第 2–3 行/),
+  ).toBeTruthy();
+  fireEvent.click(withinDialog.getByRole("button", { name: "添加出处" }));
+  expect(withinDialog.getByText(/第 2–3 行/)).toBeTruthy();
+  fireEvent.change(withinDialog.getByLabelText("挂载步骤"), {
+    target: { value: "step1" },
+  });
+  fireEvent.change(withinDialog.getByLabelText("挂载对象"), {
+    target: { value: "receiver" },
+  });
+  fireEvent.change(withinDialog.getByLabelText("关注点标识"), {
+    target: { value: "api.data.range" },
+  });
+  fireEvent.change(withinDialog.getByLabelText("条件或描述"), {
+    target: { value: "分页上限被绕过" },
+  });
+  fireEvent.change(withinDialog.getByLabelText("预期结果"), {
+    target: { value: "拒绝请求" },
+  });
+  const quoted = bundle.documents[0].content
+    .split("\n")
+    .slice(1, 3)
+    .join("\n")
+    .trim();
+  fireEvent.click(withinDialog.getByRole("button", { name: "应用到草稿" }));
+  fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+  await waitFor(() => expect(submitted).toBeTruthy());
+  const added = submitted.bundle.channels.GT.pending.find(
+    (r: any) => r.condition === "分页上限被绕过",
+  );
+  expect(added.source_refs).toEqual([
+    {
+      document_id: "json",
+      start_line: 2,
+      end_line: 3,
+      quote: quoted,
+      kind: "origin",
+      origin: "manual",
+    },
+  ]);
+  // The pinned originals are still untouched by the manual edit.
+  expect(submitted.bundle.documents).toEqual(bundle.documents);
+});

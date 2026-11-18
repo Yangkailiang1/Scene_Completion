@@ -51,3 +51,20 @@ python validate_dataset.py
 当前主成功路径补回平台身份／权限自检，并将数据库本地执行与返回拆开。平台响应自检不重复生成已有的RR返回。原始spec不改写；新增步骤均引用已存在的正常依据。
 
 2026-11-06业务确认补充：`productType=SERVICE时price>=1`由数据库S4原子操作执行。此前实体表已声明条件，但S4只明示名称唯一性，造成职责歧义。本次按用户明确决定同步修订SR正向spec、结构模型及对应行为定义，保留步骤ID与行号；独立测试和历史报告不改写。此确认仅适用于该mini样例的商品创建业务，不推广到其他项目或全部价格字段。
+
+## 用 UC-002 验证核心文件接入
+
+下列命令在源码仓库根目录执行。把 `OUTPUT/core-002` 和 `OUTPUT/workbench` 换成你选择的新路径。
+
+```sh
+python scene.py core-input inspect --input datasets/mini-mall --case UC-002
+python scene.py core-input convert --input datasets/mini-mall --case UC-002 --output OUTPUT/core-002
+python scene.py core-input validate --input OUTPUT/core-002 --case UC-002
+python scene.py --local --data-dir OUTPUT/workbench create --name "Mini-mall UC-002" --input-dir OUTPUT/core-002 --adopt-partial --case UC-002
+python scene.py --local --data-dir OUTPUT/workbench run --project PROJECT_ID --wait
+python scene.py --local --data-dir OUTPUT/workbench results --project PROJECT_ID --case UC-002
+```
+
+前四步盘点、转换、校验并导入文件。用 `create` 返回的 ID 替换 `PROJECT_ID`，并在运行前配置获授权的模型。
+
+结果应包含有序的请求、响应和本地处理，以及 E／G／GT 对照、原文出处和待确认项。打开「审核交接」可导出离线报告。以当前执行记录核对模型和用量，历史报告里的数量仅对应当时版本。

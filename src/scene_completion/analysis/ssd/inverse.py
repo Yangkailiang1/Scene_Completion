@@ -44,7 +44,7 @@ def _classification(condition, expected):
         return "global.dependency_consistency"
     if re.search(r"Authorization|token|身份|认证", condition, re.I):
         return "human.authentication"
-    if re.search(r"无.*权限|没有.*权限|越权|无权", condition):
+    if re.search(r"无.*权限|没有.*权限|越权|无权|不属于当前(?:顾客|用户|商家)", condition):
         return "human.authorization"
     if re.search(r"version.*(?:不一致|冲突)|并发|版本冲突", condition, re.I):
         return "crud.concurrency"
@@ -85,6 +85,11 @@ def _locate(bundle, record, family):
     note = str(raw.get("note") or "")
     direct = raw.get("step_id") or raw.get("interaction_id") or raw.get("behavior_interaction_id")
     candidates = [s for s in steps if s["id"] == direct] if direct else []
+    if direct and not candidates:
+        candidates = [s for s in steps if direct in s.get("aliases", [])]
+    if not candidates and not direct:
+        after = (raw.get("extend_at_main") or {}).get("after")
+        candidates = [step for step in steps if after and step["id"] == after]
     if not candidates:
         # Match complete IDs, never a shorter request prefix inside DB-REQ.
         ids = re.findall(r"交互\s*([A-Za-z0-9_-]+)", note)
@@ -176,9 +181,100 @@ def _locate(bundle, record, family):
     return None
 
 
+TARGETS = {"sender": "sender", "data": "data", "receiver": "receiver", "entity": "data"}
+
+
+def _target_of(record):
+    """Supplied mounts name the data object ``entity``; the SSD calls it ``data``."""
+    return TARGETS.get(str(record.get("target") or "").strip().lower())
+
+
+def _entity_attribute(bundle, step, record, names=()):
+    declared_entity = record.get("entity_id")
+    declared_attribute = record.get("attribute")
+    allowed = {declared_entity} if declared_entity else set(step["entity_ids"])
+    matches = [
+        (entity["id"], attribute["name"])
+        for entity in bundle.get("entities", [])
+        if entity["id"] in allowed
+        for attribute in entity.get("attributes", [])
+        if (
+            attribute["name"] == declared_attribute
+            or not declared_attribute
+            and attribute["name"] in names
+        )
+    ]
+    return matches[0] if len(set(matches)) == 1 else (None, None)
+
+
+def _supplied(output, bundle, channel_name, step, record, condition, expected, refs):
+    """Validate a supplied mount against the positive step, field and entity indexes."""
+    from scene_completion.domain.ssd.construction import add_concern, add_scenario
+
+    target = _target_of(record)
+    parameter = record.get("parameter") or {}
+    entity, attribute, field = None, None, None
+    if record.get("target") == "entity":
+        entity, attribute = _entity_attribute(bundle, step, record)
+        if not entity or declared_entity_mismatch(step, entity):
+            return False
+    elif parameter or target == "data":
+        name = parameter.get("name") or record.get("field_name")
+        location = parameter.get("location")
+        direction = parameter.get("direction")
+        if isinstance(name, str) and not location and "." in name:
+            location, _, name = name.partition(".")
+        if direction and direction not in {
+            step["direction"],
+            "response" if step["direction"] == "return" else "request",
+            "storage" if location == "storage" else None,
+        }:
+            return False
+        fields = [
+            field
+            for field in step["data"]
+            if field["name"] == name and (not location or field["location"] == location)
+        ]
+        if len(fields) != 1:
+            return False
+        field, target = fields[0], "data"
+    if not target:
+        return False
+    concern = add_concern(
+        output,
+        bundle,
+        channel_name,
+        step,
+        record["concern_key"],
+        target,
+        field=field,
+        entity=entity,
+        attribute=attribute,
+        condition=condition,
+        refs=refs,
+    )
+    if not concern:
+        return False
+    scene = add_scenario(output, concern, condition, expected, refs, record["id"])
+    if record.get("extension_id"):
+        scene["extension_id"] = record["extension_id"]
+    if record.get("failure_step_id"):
+        scene["failure_step_id"] = record["failure_step_id"]
+    return True
+
+
+def declared_entity_mismatch(step, entity):
+    return bool(step["entity_ids"] and entity not in step["entity_ids"])
+
+
 def recognize_records(bundle, records, channel_name):
     """Independent conservative fallback; unresolved records remain reviewable."""
-    from scene_completion.domain.ssd.construction import add_concern, add_scenario, channel, pending
+    from scene_completion.domain.ssd.construction import (
+        add_concern,
+        add_scenario,
+        channel,
+        pending,
+    )
 
     output = channel()
     output["project_records"] = []
@@ -194,6 +290,40 @@ def recognize_records(bundle, records, channel_name):
         )
         rid = record["id"]
         if record.get("scenario_type") in {"normal", "main", "alternative", "optional"}:
+            continue
+        if record.get("scenario_type") == "out_of_scope":
+            continue
+        if record.get("status") == "pending" or record.get("scenario_type") == "pending":
+            output["pending"].append(
+                pending(
+                    rid,
+                    condition,
+                    refs,
+                    step_id=record.get("step_ref"),
+                    reason=record.get("reason") or "异常类型或具体条件待确认",
+                    original=record,
+                    needs_semantic=record.get("needs_semantic", False),
+                )
+            )
+            continue
+        if record.get("step_ref") and record.get("concern_key"):
+            # The supplied case already mounted this failure on a step and a
+            # concern; only identities and wording are re-checked here.
+            step = next((s for s in bundle["steps"] if s["id"] == record["step_ref"]), None)
+            if step is None:
+                output["pending"].append(
+                    pending(rid, condition, refs, reason="原步骤已移除，请重新挂载")
+                )
+                continue
+            if not _supplied(output, bundle, channel_name, step, record, condition, expected, refs):
+                output["pending"].append(
+                    pending(
+                        rid,
+                        condition,
+                        refs,
+                        reason="关注点或字段不能唯一挂载，请核对步骤、对象和字段",
+                    )
+                )
             continue
         if record.get("scenario_type") == "pending" or re.search(
             r"待确认|待澄清|不能判定", expected + " " + str(record.get("raw", {}).get("note", ""))
@@ -259,6 +389,18 @@ def recognize_records(bundle, records, channel_name):
                 if kind in {"create", "update", "delete"}
                 else None
             )
+        occurrence = step
+        if family and family.startswith("human.") and step["kind"] == "action":
+            triggers = [
+                candidate
+                for candidate in bundle["steps"]
+                if candidate["kind"] == "interaction"
+                and candidate["direction"] == "request"
+                and candidate["sender"]["type"] == "human"
+                and candidate["order"] < step["order"]
+            ]
+            if len(triggers) == 1:
+                step = triggers[0]
         if (
             family in {"human.authentication", "human.authorization"}
             and step["sender"]["type"] == "service"
@@ -278,9 +420,19 @@ def recognize_records(bundle, records, channel_name):
             continue
         target = "sender" if family.startswith("human.") else "receiver"
         fields = [None]
+        attributes = [
+            a["name"]
+            for e in bundle.get("entities", [])
+            if e["id"] in step["entity_ids"]
+            for a in e.get("attributes", [])
+            if re.search(r"(?<![\w.])" + re.escape(a["name"]) + r"(?!\w)", condition)
+        ]
+        entity, attribute = _entity_attribute(bundle, step, record, attributes)
         if family.startswith("api.data."):
             target = "data"
             fields = _field_candidates(step, condition)
+            if not fields and entity and attribute:
+                fields = [None]
             if len(fields) != 1:
                 output["pending"].append(
                     pending(
@@ -295,12 +447,8 @@ def recognize_records(bundle, records, channel_name):
                 continue
         elif family == "service.business_attribute_constraint" and step["direction"] == "return":
             target = "sender"
-        entity = (
-            step["entity_ids"][0]
-            if family == "service.business_attribute_constraint"
-            and len(step.get("entity_ids", [])) == 1
-            else None
-        )
+        if not family.startswith("api.data.") and family != "service.business_attribute_constraint":
+            entity, attribute = None, None
         for field in fields:
             concern = add_concern(
                 output,
@@ -310,15 +458,17 @@ def recognize_records(bundle, records, channel_name):
                 family,
                 target,
                 field=field,
-                entity=entity,
+                entity=None if field else entity,
+                attribute=None if field else attribute,
                 condition=condition,
                 refs=refs,
             )
             if concern:
                 concern["scope"] = "interaction"
-                add_scenario(output, concern, condition, expected, refs, rid)["scope"] = (
-                    "interaction"
-                )
+                scene = add_scenario(output, concern, condition, expected, refs, rid)
+                scene["scope"] = "interaction"
+                if occurrence["id"] != step["id"]:
+                    scene["failure_step_id"] = occurrence["id"]
             else:
                 output["pending"].append(
                     pending(
@@ -333,115 +483,320 @@ def recognize_records(bundle, records, channel_name):
     return output
 
 
-def existing_channel(bundle, case_dir, sources):
-    records = []
+def _provided(bundle, row, channel_name):
+    supplied_id = row.get("id")
+    sid = (
+        supplied_id
+        if re.fullmatch(r"(?:E|GT)-scenario-[a-f0-9]{24}", str(supplied_id))
+        and supplied_id.startswith(channel_name + "-")
+        else ident(channel_name + "-scenario", bundle["case"]["id"], "supplied", supplied_id)
+    )
+    return {
+        **row,
+        "id": sid,
+        "original_id": row.get("id"),
+        "scenario_type": row.get("scenario_kind") or row.get("status") or "exception",
+        "raw": row,
+    }
+
+
+def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
+    from scene_completion.inputs.structured.ordered_behaviors import scenario_kind
+
+    records = [_provided(bundle, row, "E") for row in supplied]
+    candidates = []
     for layer in ("IR", "SR"):
         for path in sorted((case_dir / "behaviour" / layer).glob("*.json")):
-            raw = json.loads(path.read_text(encoding="utf-8-sig"))
-            if raw.get("scenario_kind") in {"main", "normal", "alternative", "optional"}:
-                continue
-            if not raw.get("guard"):
-                continue
-            name = sources.add(path)
-            expected = "；".join(
-                n.get("message", "")
-                for n in raw.get("interaction", [])
-                if n.get("direction") == "return"
-            )
-            records.append(
-                {
-                    "id": ident(
-                        "E-scenario", bundle["case"]["id"], layer, raw.get("ID") or path.stem
-                    ),
-                    "original_id": raw.get("ID") or path.stem,
-                    "condition": raw["guard"],
-                    "expected": expected,
-                    "source_refs": sources.refs(raw, name),
-                    "layer": "RR" if layer == "IR" else "SR",
-                    "scenario_type": raw.get("scenario_kind", "exception"),
-                    "raw": raw,
-                }
-            )
+            branch = json.loads(path.read_text(encoding="utf-8-sig"))
+            candidates.append((layer, path, "", branch))
+    for key, branch in (raw or {}).get("operations", {}).items():
+        pointer = "/operations/" + key.replace("~", "~0").replace("/", "~1")
+        layer = "IR" if str(branch.get("source_layer") or "").upper() in {"IR", "RR"} else "SR"
+        candidates.append((layer, case_dir / "SysOperation.json", pointer, branch))
+
+    for layer, path, pointer, branch in candidates:
+        kind = scenario_kind(branch)
+        if kind in {"main", "normal", "alternative", "optional"} or not branch.get("guard"):
+            continue
+        responses = [
+            n.get("message")
+            for n in branch.get("system_response", []) + branch.get("interaction", [])
+            if n.get("message")
+            and (n in branch.get("system_response", []) or n.get("direction") == "return")
+        ]
+        outcome = responses or [n["content"] for n in branch.get("action", []) if n.get("content")]
+        expected = "；".join(dict.fromkeys(outcome))
+        if isinstance(branch.get("resume_at_main"), dict) and not any(
+            re.search(r"HTTP\s*[45]\d{2}|返回\s*[A-Z]+_[A-Z_]+|拒绝|失败", value)
+            for value in outcome
+        ):
+            continue
+        original_id = branch.get("ID") or path.stem
+        records.append(
+            {
+                "id": ident("E-scenario", bundle["case"]["id"], layer, original_id),
+                "original_id": original_id,
+                "condition": branch["guard"],
+                "expected": expected,
+                "source_refs": sources.refs(branch, sources.add(path), pointer),
+                "layer": "RR" if layer == "IR" else "SR",
+                "scenario_type": branch.get("scenario_kind", "exception"),
+                "raw": branch,
+            }
+        )
+
+    def normalize(value):
+        return re.sub(r"\s+", "", value or "")
+
     merged = {}
     for record in records:
-        code = re.search(r"_SC_EX_(.+)$", record["original_id"])
-        key = ("id", code[1]) if code else ("condition", re.sub(r"\s+", "", record["condition"]))
+        raw = record["raw"]
+        code = re.search(r"_SC_EX_(.+)$", record["original_id"] or "")
+        anchor = record.get("step_ref") or (raw.get("extend_at_main") or {}).get("after")
+        expected = record.get("expected") or ""
+        responses = [
+            line for line in expected.split("；") if re.match(r"返回\s*HTTP\s*[45]\d{2}", line)
+        ]
+        terminal = "；".join(responses) if code and responses else expected
+        error = re.search(
+            r"\b(?:ORDER_|PRODUCT_|NAME_|DATABASE_|INVALID_|AUTH_|STATE_)[A-Z_]+", terminal
+        )
+        certain = code or (error and anchor)
+        key = (
+            code[1] if code else (error[0] if certain else ""),
+            normalize(record["condition"]),
+            (error[0] if error and anchor and not code else normalize(terminal)),
+            "" if code else str(anchor or ""),
+            record.get("target"),
+            record.get("entity_id"),
+            record.get("attribute"),
+        )
         previous = merged.get(key)
         if previous is None:
             merged[key] = record
-        else:
-            # The SR realization supplies the concrete target. Both source
-            # layers remain attached, even where their prose differs.
-            primary = deepcopy(record if record["layer"] == "SR" else previous)
-            primary["source_refs"] = unique(previous["source_refs"] + record["source_refs"])
-            primary["source_records"] = previous.get("source_records", [previous["raw"]]) + [
-                record["raw"]
-            ]
-            merged[key] = primary
-    return recognize_records(bundle, list(merged.values()), "E")
+            continue
+
+        # Prefer a separately authored SR branch over a fused copy that has lost
+        # its local branch markers or explicit step citations.
+        def score(item):
+            return (
+                item.get("layer") == "SR",
+                any(
+                    not (ref.get("json_pointer") or "").startswith("/operations/")
+                    for ref in item["source_refs"]
+                ),
+                bool(
+                    _locate(
+                        bundle, item, _classification(item["condition"], item.get("expected", ""))
+                    )
+                ),
+            )
+
+        primary = deepcopy(record if score(record) > score(previous) else previous)
+        primary["source_refs"] = unique(previous["source_refs"] + record["source_refs"])
+        merged[key] = primary
+
+    def occurrence(record):
+        after = (record["raw"].get("extend_at_main") or {}).get("after")
+        return (
+            after,
+            normalize(record["condition"]),
+            record.get("target"),
+            record.get("entity_id"),
+            record.get("attribute"),
+        )
+
+    concrete = {}
+    for record in merged.values():
+        anchor = occurrence(record)
+        if anchor[0] and record.get("expected"):
+            concrete.setdefault(anchor, []).append(record)
+    retained = []
+    for record in merged.values():
+        # Attach a partial branch only when its explicit occurrence and condition
+        # uniquely identify an outcome supplied by another layer.
+        complete = concrete.get(occurrence(record), [])
+        if not record.get("expected") and len(complete) == 1:
+            complete[0]["source_refs"] = unique(complete[0]["source_refs"] + record["source_refs"])
+            continue
+        retained.append(record)
+    return recognize_records(bundle, retained, "E")
 
 
-def test_channel(bundle, sources):
+def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=None):
     from scene_completion.domain.ssd.construction import channel, pending
 
-    path = sources.root / "recovered_usecases.json"
-    if not path.exists():
+    supplied_records = [_provided(bundle, row, "GT") for row in supplied]
+    mapped = (mapping or {}).get("items", [])
+    requested_path = (mapping or {}).get("source") or "recovered_usecases.json"
+    path = (sources.root / requested_path).resolve()
+    if not path.is_relative_to(sources.root.resolve()):
+        raise ValueError("测试来源超出输入目录")
+    if not path.exists() and not supplied and not mapped:
         result = channel()
         result["pending"].append(
             pending(
-                ident("GT-missing", bundle["case"]["id"]),
-                "未提供 recovered_usecases.json",
-                needs_semantic=False,
+                ident("GT-missing", bundle["case"]["id"]), "未提供测试来源", needs_semantic=False
             )
         )
+        bundle["gt_source_available"] = False
         return result
-    name = sources.add(path, "test")
-    raw = json.loads(path.read_text(encoding="utf-8-sig"))
-    cases = (
-        raw
-        if isinstance(raw, list)
-        else raw.get("usecases", raw.get("use_cases", raw.get("cases", [])))
-    )
-    found = [
-        (n, c)
-        for n, c in enumerate(cases)
-        if c.get("id") == bundle["case"]["id"] or c.get("name") == bundle["case"]["name"]
-    ]
-    if len(found) != 1:
-        result = channel()
-        result["pending"].append(
-            pending(
-                ident("GT-case", bundle["case"]["id"]),
-                "测试用例无法唯一对应",
-                [sources.ref(name)],
-                needs_semantic=True,
+    name, case, prefix = None, {}, ""
+    if path.exists():
+        name = sources.add(path, "test")
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
+        if isinstance(value, list):
+            cases = value
+        else:
+            key = next((k for k in ("usecases", "use_cases", "cases") if k in value), "usecases")
+            cases, prefix = value.get(key, []), "/" + key
+        source_id = (mapping or {}).get("source_uc_id") or bundle["case"]["id"]
+        found = [(i, row) for i, row in enumerate(cases) if row.get("id") == source_id]
+        if not found and not (mapping or {}).get("source_uc_id"):
+            found = [
+                (i, row) for i, row in enumerate(cases) if row.get("name") == bundle["case"]["name"]
+            ]
+        if len(found) == 1:
+            index, case = found[0]
+            prefix += f"/{index}"
+        elif not supplied and not mapped:
+            result = channel()
+            result["pending"].append(
+                pending(
+                    ident("GT-case", bundle["case"]["id"]),
+                    "测试用例无法唯一对应",
+                    [sources.ref(name)],
+                )
             )
-        )
-        return result
-    n, case = found[0]
-    prefix = (
-        ""
-        if isinstance(raw, list)
-        else "/" + next(k for k in ("usecases", "use_cases", "cases") if k in raw)
-    )
+            bundle["gt_source_available"] = False
+            return result
+
     records = []
-    for en, extension in enumerate(case.get("extensions", [])):
+    mapped_ids = {row["extension_id"] for row in mapped}
+    supplied_by_extension = {}
+    for row in supplied_records:
+        extension = row.get("extension_id")
+        if extension in mapped_ids:
+            supplied_by_extension.setdefault(extension, []).append(row)
+        else:
+            records.append(row)
+    extensions = case.get("extensions", [])
+    indexed = {extension.get("id"): (i, extension) for i, extension in enumerate(extensions)}
+    locations = {e.get("id"): e for e in case.get("evidence_locations", [])}
+
+    def refs_for(extension, index):
+        if name is None or index is None:
+            return []
+        refs = [sources.ref(name, f"{prefix}/extensions/{index}", kind="test")]
+        for evidence in extension.get("evidence", []):
+            label = re.split(r"[:：]", str(evidence), maxsplit=1)[0].strip()
+            if label in locations:
+                refs.extend(sources.test_evidence(locations[label]))
+        return unique(refs)
+
+    for mount_index, mount in enumerate(mapped):
+        eid = mount["extension_id"]
+        index, extension = indexed.get(eid, (None, {}))
+        for binding in mount["bindings"]:
+            row = {**extension, **binding}
+            condition = binding.get("condition") or extension.get("condition") or ""
+            expected = binding.get("expected") or extension.get("expected_result") or ""
+            fields = (
+                "step_ref",
+                "target",
+                "entity_id",
+                "attribute",
+                "field_name",
+                "parameter",
+                "concern_key",
+            )
+            provided = supplied_by_extension.get(eid, [])
+            equivalent = [
+                item
+                for item in provided
+                if all(not item.get(key) or item.get(key) == binding.get(key) for key in fields)
+                and item["condition"] == condition
+                and item["expected"] == expected
+            ]
+            kind = row.get("kind") or "pending"
+            reason = row.get("reason")
+            if provided and not equivalent and kind == "exception":
+                kind, reason = "pending", "测试异常与扩展挂载不一致"
+            if kind == "exception" and not (binding.get("step_ref") and binding.get("concern_key")):
+                kind, reason = "pending", reason or "测试扩展缺少确定挂载"
+            rid = ident(
+                "GT-scenario", bundle["case"]["id"], eid, *[row.get(k) for k in fields], condition
+            )
+            if len(equivalent) == 1:
+                rid = equivalent[0]["id"]
+            mapping_refs = []
+            if mapping_source:
+                mapping_path, mapping_prefix = mapping_source
+                mapping_name = sources.add(
+                    mapping_path, "test" if mapping_prefix == "" else "intermediate"
+                )
+                mapping_refs = [
+                    sources.ref(mapping_name, f"{mapping_prefix}/items/{mount_index}", kind="test")
+                ]
+            records.append(
+                {
+                    **row,
+                    "id": rid,
+                    "original_id": eid,
+                    "extension_id": eid,
+                    "condition": condition,
+                    "expected": expected,
+                    "scenario_type": kind,
+                    "reason": reason,
+                    "source_refs": unique(
+                        refs_for(extension, index)
+                        + mapping_refs
+                        + [r for item in equivalent for r in item["source_refs"]]
+                    ),
+                    "raw": extension,
+                }
+            )
+    for index, extension in enumerate(extensions):
+        eid = extension.get("id")
+        if eid in mapped_ids or any(row.get("extension_id") == eid for row in supplied_records):
+            continue
         note = str(extension.get("note", ""))
         kind = extension.get("scenario_type") or (
             "alternative" if re.search(r"成功备选|正常备选", note) else "exception"
         )
-        pointer = f"{prefix}/{n}/extensions/{en}"
-        refs = [sources.ref(name, pointer, kind="test")]
-        # These are test-source references. Requirement context in a note never
-        # becomes test evidence; it is only used to locate the SSD object.
         records.append(
             {
-                "id": ident("GT-scenario", bundle["case"]["id"], extension.get("id") or pointer),
+                "id": ident("GT-scenario", bundle["case"]["id"], eid or index),
+                "original_id": eid,
+                "extension_id": eid,
                 "condition": extension.get("condition") or "",
                 "expected": extension.get("expected_result") or "",
-                "source_refs": refs,
+                "source_refs": refs_for(extension, index),
                 "scenario_type": kind,
                 "raw": extension,
             }
         )
-    return recognize_records(bundle, records, "GT")
+    bundle["gt_source_available"] = bool(
+        case or ((mapping or {}).get("source_available") is not False and (supplied or mapped))
+    )
+    bundle["test_source_case_id"] = case.get("id") or (mapping or {}).get("source_uc_id")
+    bundle["test_source_path"] = path.relative_to(sources.root).as_posix() if name else None
+    result = recognize_records(bundle, records, "GT")
+    pending_by_id = {item["id"]: item for item in result["pending"]}
+    excluded = {item["id"] for item in result.get("project_records", [])}
+    bundle["test_import_records"] = [
+        {
+            **{
+                k: row.get(k)
+                for k in ("id", "original_id", "scenario_type", "step_ref", "reason", "source_refs")
+            },
+            **({"scenario_type": "out_of_scope"} if row["id"] in excluded else {}),
+            **(
+                {"needs_semantic": True}
+                if pending_by_id.get(row["id"], {}).get("needs_semantic")
+                else {}
+            ),
+        }
+        for row in records
+    ]
+    return result

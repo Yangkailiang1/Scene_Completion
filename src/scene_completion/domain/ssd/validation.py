@@ -98,5 +98,36 @@ def validate(bundle):
             decision.get("right_id") not in {r["id"] for r in value["channels"][b][key]}
         ):
             raise ValueError("匹配判定引用了不存在的记录")
+    _validate_manual_sources(value)
     value["semantic_pending"] = semantic_candidates(value)
     return value
+
+
+def _validate_manual_sources(value):
+    """A reviewer-added origin must point at a pinned document line, or it cannot open."""
+    documents = {
+        d["id"]: len(d["content"].split("\n"))
+        for d in value.get("documents", [])
+        if isinstance(d.get("content"), str)
+    }
+    for channel in ("G", "E", "GT"):
+        for kind in ("concerns", "scenarios", "pending"):
+            for row in value["channels"][channel][kind]:
+                for ref in row.get("source_refs") or []:
+                    if ref.get("origin") != "manual":
+                        continue
+                    start, end = ref.get("start_line"), ref.get("end_line")
+                    limit = documents.get(ref.get("document_id"))
+                    if not limit:
+                        raise ValueError(
+                            "人工补录出处引用了本用例快照外的文档，请从来源文件列表中选择"
+                        )
+                    if (
+                        type(start) is not int
+                        or type(end) is not int
+                        or not 1 <= start <= end <= limit
+                        or end - start > 1000
+                    ):
+                        raise ValueError(
+                            f"人工补录出处的行号超出 {ref['document_id']} 的 1–{limit} 行"
+                        )

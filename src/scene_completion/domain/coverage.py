@@ -79,7 +79,9 @@ def review_statuses(bundle, matching):
     identified = bundle.get("gt_identification_run_complete")
     # Legacy SSD packets represent an unfinished source task with needs_semantic.
     # Project packets recover the explicit completion proof in the application projection.
-    if identified is None:
+    if bundle.get("gt_source_available") is False:
+        identified = False
+    elif identified is None:
         identified = not any(p.get("needs_semantic") for p in pending)
     result = {}
     for row in bundle["channels"]["G"]["scenarios"]:
@@ -90,7 +92,7 @@ def review_statuses(bundle, matching):
             and anchor is not None
             and all(
                 not p.get(k) or p[k] == row.get(k)
-                for k in ("key", "field_id", "entity_id", "target")
+                for k in ("key", "field_id", "entity_id", "attribute", "target")
             )
             for p in pending
         )

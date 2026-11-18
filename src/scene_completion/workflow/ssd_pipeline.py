@@ -1,6 +1,5 @@
 """Compact case-parallel workflow using the shared scheduler and model transport."""
 
-import json
 import shutil
 import time
 from copy import deepcopy
@@ -361,18 +360,43 @@ def _resolve(ex, bundle, record):
             for ident in resolved
         ):
             raise ValueError("已解决的来源必须同时保留关注点和具体场景，不能提交空结果丢弃来源")
+        from scene_completion.domain.ssd.matching import binding
+
+        steps = {s["id"]: s for s in bundle["steps"]}
+        entities = {
+            e["id"]: {a["name"] for a in e.get("attributes", [])}
+            for e in bundle.get("entities", [])
+        }
+        concerns = {c["id"]: c for c in result["concerns"]}
+        for row in result["scenarios"]:
+            if any(
+                cid not in concerns
+                or concerns[cid]["source_record_id"] != row["source_record_id"]
+                or binding(concerns[cid]) != binding(row)
+                for cid in row["concern_ids"]
+            ):
+                raise ValueError("语义场景必须关联同一来源和对象的关注点")
         for row in result["concerns"] + result["scenarios"]:
             if row.get("source_record_id") not in resolved:
                 raise ValueError("语义结果必须绑定本次输入来源")
             source = next(p for p in pending if p["id"] == row["source_record_id"])
+            if row["step_id"] not in steps or (
+                row.get("attribute")
+                and (
+                    row.get("field_id")
+                    or row["attribute"] not in entities.get(row.get("entity_id"), set())
+                )
+            ):
+                raise ValueError("语义识别引用了不存在的步骤、实体或属性")
             row["source_refs"] = deepcopy(source.get("source_refs", []))
         bundle["channels"][channel]["concerns"].extend(result["concerns"])
         bundle["channels"][channel]["scenarios"].extend(result["scenarios"])
         bundle["channels"][channel]["pending"] = [
             p for p in bundle["channels"][channel]["pending"] if p["id"] not in resolved
         ]
-    bundle["gt_identification_run_complete"] = _semantic_available(ex) or not any(
-        p.get("needs_semantic") for p in bundle["channels"]["GT"]["pending"]
+    bundle["gt_identification_run_complete"] = bundle.get("gt_source_available", True) and (
+        _semantic_available(ex)
+        or not any(p.get("needs_semantic") for p in bundle["channels"]["GT"]["pending"])
     )
     return ssd_validation.validate(bundle)
 
@@ -436,11 +460,17 @@ def build_structured(ex, directory):
     ex.registry_snapshot = current_registry(
         getattr(ex, "registry_snapshot", None) or default_registry()
     )
-    from scene_completion.analysis.ssd.pipeline import build_cases, case_identity, generate_g
+    from scene_completion.analysis.ssd.pipeline import (
+        _input_root,
+        build_cases,
+        case_identity,
+        generate_g,
+    )
+    from scene_completion.inputs.structured import authoring_cases
 
-    directory = Path(directory)
-    files = sorted(directory.rglob("SysOperation.json"))
-    if not files:
+    directory = _input_root(directory)
+    entries = list(authoring_cases.discover(directory, case_identity))
+    if not entries:
         return False
     source_files = [p for p in sorted(directory.rglob("*")) if p.is_file()]
     ex.manifest.update(
@@ -453,12 +483,7 @@ def build_structured(ex, directory):
     from scene_completion.inputs.structured.supplied_cases import inspect_cases
 
     alias_groups = inspect_cases(ex.import_snapshot)[2] if ex.import_snapshot else []
-    for file in files:
-        try:
-            raw = json.loads(file.read_text(encoding="utf-8-sig"))
-            case = case_identity(file, directory, raw)
-        except (ValueError, UnicodeError):
-            case = case_identity(file, directory, {})
+    for file, case, problem in entries:
         cid, name = case["id"], case["name"]
         aliases = {cid, name}
         # Legacy G-nnn grouping is a UI alias only, never an SSD object identity.
@@ -469,11 +494,30 @@ def build_structured(ex, directory):
             continue
         selected.append(cid)
 
-        def prepare(_, record, cid=cid, file=file):
-            bundles = build_cases(directory, [cid], case_files=[file])
+        def prepare(_, record, cid=cid, file=file, problem=problem):
+            from tempfile import TemporaryDirectory
+
+            from scene_completion.analysis.ssd.core_export import write_core
+
+            if problem:
+                raise ValueError(problem)
+            bundles = build_cases(directory, [cid], case_files=[file], generate=False)
             if len(bundles) != 1:
                 raise ValueError("当前用例没有唯一可用的 SysOperation")
             bundle = ssd_validation.validate(bundles[0])
+            # Pin the exact model-independent core used for all downstream stages.
+            normalized = ex.root / "structured-cores" / fingerprint(bundle)[:24]
+            if not normalized.is_dir():
+                normalized.parent.mkdir(parents=True, exist_ok=True)
+                with TemporaryDirectory(dir=normalized.parent) as staging:
+                    staged = Path(staging) / "core"
+                    write_core(directory, staged, [bundle])
+                    try:
+                        staged.rename(normalized)
+                    except FileExistsError:
+                        if not normalized.is_dir():
+                            raise
+            bundle["core_snapshot"] = normalized.relative_to(ex.root).as_posix()
             bundle["registry"] = deepcopy(ex.registry_snapshot)
             bundle["analysis_policy"] = ex.registry_snapshot["analysis_policy"]
             bundle["channels"]["G"] = generate_g(bundle)
@@ -484,7 +528,7 @@ def build_structured(ex, directory):
             (str(p.relative_to(directory)), fingerprint(p.read_bytes().hex()))
             for p in source_files
             if p.is_relative_to(file.parent)
-            or not any(p.is_relative_to(other.parent) for other in files)
+            or not any(p.is_relative_to(other.parent) for other, _, _ in entries)
         ]
         key = _task(ex, cid, "ssd-prepare", [], prepare, identity)
         _tail(ex, cid, key)

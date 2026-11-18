@@ -11,7 +11,7 @@ from scene_completion.domain.ssd.matching import (
     _records,
     _text,
     _units,
-    binding,
+    display_binding,
     semantic_candidates,
 )
 from scene_completion.infrastructure.identity import fingerprint
@@ -62,10 +62,32 @@ def analyze(bundle):
             truth, hit_ids, valid_ids = counts(edges, sets)
             hits = [(i, None) for i in hit_ids]
             valid = [(None, i) for i in valid_ids]
+        g_assessed = sets["G"]
+        if bundle.get("gt_source_available") is False:
+            g_assessed = set()
+        elif bundle.get("gt_source_available") is True:
+            covered_g = {right for _, right in valid}
+            undecided_g = {
+                aliases["G"].get(p["right_id"]) for p in pending_pairs if p["pair"] == "GT_G"
+            }
+            if kind == "scenarios":
+                g_assessed = g_assessed - (undecided_g - covered_g)
+                covered_truth = {
+                    left
+                    for (left, _), status in edges["GT_G"].items()
+                    if status in {"full", "partial"}
+                }
+                undecided_truth = {
+                    aliases["GT"].get(p["left_id"]) for p in pending_pairs if p["pair"] == "GT_G"
+                }
+                truth = truth - (undecided_truth - covered_truth)
         rates = {
             "missing_exception_miss_rate": _rate(len(truth) - len(hits), len(truth)),
-            "generation_validity": _rate(len(valid), len(sets["G"])),
+            "generation_validity": _rate(len(valid), len(g_assessed)),
         }
+        if bundle.get("gt_source_available") is False:
+            for rate in rates.values():
+                rate["status"] = "未评估"
         if kind == "concerns":
             metrics = rates
         else:
@@ -77,7 +99,7 @@ def analyze(bundle):
         groups = {}
         for channel in ("G", "E", "GT"):
             for record in bundle["channels"][channel][kind]:
-                anchor = binding(record)
+                anchor = display_binding(record)
                 if kind == "scenarios":
                     anchor += (_text(record.get("condition")), _text(record.get("expected")))
                 row = groups.setdefault(
@@ -115,7 +137,12 @@ def analyze(bundle):
                         ),
                         None,
                     )
-                    if first is not None and second is not None and first != second:
+                    if (
+                        first is not None
+                        and second is not None
+                        and first != second
+                        and groups[first]["step_id"] == groups[second]["step_id"]
+                    ):
                         for c in ("G", "E", "GT"):
                             groups[first]["cells"][c].extend(groups[second]["cells"][c])
                         del groups[second]

@@ -96,6 +96,7 @@ def capabilities():
             "supported_commands": [
                 "projects",
                 "create",
+                "core-input",
                 "status",
                 "diagnose",
                 "prompts",
@@ -133,6 +134,7 @@ def capabilities():
             "input-scan": "--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续",
             "execution-control": "--project ID --action pause|stop|resume [--dry-run]；暂停等待在途请求，停止保留检查点；明确继续后才派发请求",
             "imports": "--project ID [--item ID --file decision.json --dry-run]；导入预览、确认、原文件及转换结果",
+            "core-input": "inspect|convert|validate --input DIR [--case ID]；convert需--output DIR，可加--overrides FILE；本地执行，不调用模型",
             "input-bundle": "[--project ID] --directory ABS_PATH 或 --file 五份绝对路径清单.json；--dry-run预览，--adopt-partial采用已声明事实、缺项继续抽取；不启动模型",
             "quality": "diagnose|report|impact|apply：冻结指标损失、证据归因、人工确认及定向重跑；--project ID --diagnosis ID --file approvals.json --dry-run/--rerun",
             "manager": "--project ID --action status|chat|configure|model|memory|operate|run；--file JSON及--dry-run，持久对话与托管",
@@ -264,6 +266,15 @@ def parser():
     control.add_argument("--project", required=True)
     control.add_argument("--action", choices=("pause", "stop", "resume"), required=True)
     control.add_argument("--dry-run", action="store_true")
+    core = sub.add_parser("core-input", help="无模型盘点、转换和校验 SSD 核心输入")
+    core_commands = core.add_subparsers(dest="core_action", required=True)
+    for action in ("inspect", "convert", "validate"):
+        command = core_commands.add_parser(action)
+        command.add_argument("--input", required=True)
+        command.add_argument("--case", action="append")
+        if action == "convert":
+            command.add_argument("--output", required=True)
+            command.add_argument("--overrides")
     bundle = sub.add_parser("input-bundle")
     bundle.add_argument("--project")
     bundle.add_argument("--directory")
@@ -489,6 +500,20 @@ def parser():
 
 def main(argv=None, client=None):
     args = parser().parse_args(argv)
+    if args.command == "core-input":
+        from scene_completion.analysis.ssd import core_input
+
+        try:
+            if args.core_action == "convert":
+                value = core_input.convert(args.input, args.output, args.case, args.overrides)
+            elif args.core_action == "validate":
+                value = core_input.validate_core(args.input, args.case)
+            else:
+                value = core_input.inspect(args.input, args.case)
+        except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
+            value = {"issues": [{"kind": "blocking", "reason": str(exc)}]}
+        output(value)
+        return 2 if any(i["kind"] == "blocking" for i in value["issues"]) else 0
     if args.local and client is None:
         from scene_completion.application.local_workbench import LocalWorkbench
 
@@ -598,6 +623,7 @@ def main(argv=None, client=None):
                 args.input_manifest
                 or any(k in found for k in ("RR", "SR"))
                 or preview["supplied_cases"]["cases"]
+                or preview.get("authoring_case_count")
             ):
                 if args.rr or args.sr or args.test:
                     raise ValueError("五文件导入模式不再混用--rr/--sr/--test，请在清单中指定")

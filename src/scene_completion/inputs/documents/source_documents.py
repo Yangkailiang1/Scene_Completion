@@ -261,6 +261,27 @@ def evidence_refs(value):
 CASE_ID = re.compile(r"(?<![\w-])(?:UCG-\d+-UC\d+|SC\d+-UC\d+|UC-[A-Za-z0-9][\w-]*)(?![\w-])")
 
 
+def walk_references(value):
+    """Every citation object, including the original-line chain it carries."""
+    out = []
+
+    def visit(v):
+        if isinstance(v, dict):
+            if {"document_id", "start_line", "end_line", "quote"} <= v.keys():
+                out.append(v)
+                if isinstance(v.get("origin"), dict):
+                    visit(v["origin"])
+            else:
+                for x in v.values():
+                    visit(x)
+        elif isinstance(v, list):
+            for x in v:
+                visit(x)
+
+    visit(value)
+    return out
+
+
 def discover_cases(documents):
     return list(
         dict.fromkeys(

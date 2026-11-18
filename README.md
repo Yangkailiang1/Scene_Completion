@@ -87,6 +87,8 @@ flowchart LR
 
 ## Code Agent 单用例独立分析
 
+接入同事的结构化产物时，使用 [结构化输入 Skill](.cac/skills/scene-structured-input/SKILL.md) 和 `scene.py core-input`。先生成并校验核心文件，再导入工作台。完整命令见 [Mini-mall 示例](datasets/mini-mall/README.md)。
+
 把输入目录、用例ID和输出目录交给[单用例分析Skill](.cac/skills/scene-case-analysis/SKILL.md)，使用共同SSD流程。脚本处理结构、规则和明确定位，Agent补充未决语义；新流程不经过风险推荐。
 
 ```sh

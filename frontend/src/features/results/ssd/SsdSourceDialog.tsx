@@ -15,15 +15,20 @@ export function SsdSourceDialog({
   refs: SourceRef[];
   onClose: () => void;
 }) {
-  const ordered = [...refs].sort((a, b) => {
-    const score = (r: SourceRef) =>
-      ["RR", "SR"].includes(
-        documents.find((d) => d.id === r.document_id)?.role || "",
-      )
-        ? 0
-        : 1;
-    return score(a) - score(b);
-  });
+  // Stable: RR/SR first, everything else keeps its recorded order.
+  const ordered = refs
+    .map((r, index) => ({ r, index }))
+    .sort((a, b) => {
+      const score = (x: SourceRef) =>
+        ["RR", "SR"].includes(
+          documents.find((d) => d.id === x.document_id)?.role || "",
+        )
+          ? 0
+          : 1;
+      return score(a.r) - score(b.r) || a.index - b.index;
+    })
+    .map(({ r }) => r);
+  const manual = ordered.filter((r) => r.origin === "manual");
   const [selected, setSelected] = useState(0);
   const [docId, setDocId] = useState(
     ordered[0]?.document_id ||
@@ -86,10 +91,27 @@ export function SsdSourceDialog({
                     r.document_id}{" "}
                   · 第 {r.start_line}–{r.end_line} 行
                   {r.kind === "context" ? "（关联上下文）" : ""}
+                  {r.origin === "manual" ? "（人工补录）" : ""}
                 </option>
               ))}
             </select>
           </label>
+          {manual.length > 0 && (
+            <button
+              className="ssd-manual-source"
+              onClick={() => {
+                const n = ordered.indexOf(manual[0]);
+                setSelected(n);
+                setDocId(ordered[n].document_id);
+                setJump((old) => ({
+                  line: ordered[n].start_line,
+                  revision: old.revision + 1,
+                }));
+              }}
+            >
+              跳到人工补录出处（{manual.length}）
+            </button>
+          )}
           <label>
             文档
             <select

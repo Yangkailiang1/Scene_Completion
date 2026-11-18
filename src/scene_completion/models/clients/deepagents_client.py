@@ -47,6 +47,23 @@ def compact_input(value):
     return value
 
 
+def encode_reference_schema(value):
+    """Where the public schema holds a citation object, the model holds its id."""
+    keys = {"source_id", "line_start", "line_end", "quote"}
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if (
+            isinstance(properties, dict)
+            and keys <= set(properties)
+            and (value.get("additionalProperties") is False or set(properties) == keys)
+        ):
+            return {"type": "string", "description": "Exact evidence_id from this task input"}
+        return {key: encode_reference_schema(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [encode_reference_schema(item) for item in value]
+    return value
+
+
 def task_message(packet):
     view = {
         k: packet[k]
@@ -443,7 +460,13 @@ class DeepAgentsClient(SemanticClient):
                     )
 
                     validate_raw_references(payload)
-                containers(payload, packet["output_schema"])
+                model_schema = packet["output_schema"]
+                if indexed is not None and isinstance(model_schema, dict):
+                    # The model writes evidence IDs (strings) where the public
+                    # contract holds citation objects; ``expand`` maps them back
+                    # after this envelope check, so check the shape it expects.
+                    model_schema = encode_reference_schema(model_schema)
+                containers(payload, model_schema)
                 if packet["task"] in {"api-map", "api-parameters"}:
                     from jsonschema import Draft202012Validator
 
@@ -621,6 +644,7 @@ class DeepAgentsClient(SemanticClient):
                             "node_key": task_key,
                             "input_hash": fingerprint(original_packet["input"]),
                             "payload": payload,
+                            "identity_error": getattr(e, "identity_details", None),
                             "error": str(e),
                         },
                     )

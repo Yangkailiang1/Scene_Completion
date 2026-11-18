@@ -62,11 +62,14 @@ def json_spans(text):
 
 
 class Sources:
-    def __init__(self, root):
+    def __init__(self, root, origins=None):
         self.root = Path(root)
         self.documents = {}
         self.spans = {}
         self.aliases = {}
+        # Original specification documents. Structured inputs cite their own
+        # JSON pointers; their ``source`` fields point at these real lines.
+        self.origins = list(origins or [])
         for path in sorted(self.root.glob("*.md")):
             role = (
                 "RR"
@@ -97,14 +100,14 @@ class Sources:
                 self.spans[name] = json_spans(text)
         return name
 
-    def ref(self, name, pointer="", *, kind="context"):
+    def ref(self, name, pointer="", *, kind="context", origin=None):
         doc = self.documents[name]
         content = doc["content"]
         begin, end = self.spans.get(name, {}).get(pointer, (0, len(content)))
         start_line = content.count("\n", 0, begin) + 1
         end_line = content.count("\n", 0, end) + 1
         lines = content.splitlines()
-        return {
+        row = {
             "document_id": doc["id"],
             "start_line": start_line,
             "end_line": end_line,
@@ -112,35 +115,122 @@ class Sources:
             "kind": kind,
             **({"json_pointer": pointer} if name in self.spans else {}),
         }
+        traced = self.trace(origin) if origin else None
+        if traced:
+            row["origin"] = traced
+        return row
+
+    def trace(self, origin):
+        """Resolve one supplied ``source`` field to a real line of its original."""
+        from scene_completion.inputs.provenance import source_origins
+
+        document, quote, declared = source_origins.source_origin(origin)
+        return source_origins.origin(
+            source_origins.resolve_name(document, self.origins) if document else None,
+            quote,
+            declared,
+        ) or source_origins.untraced("未找到唯一原始文档")
+
+    def traced_ref(self, name, pointer, origin):
+        """Pointer reference that opens the original line when it can be found."""
+        found = self.trace(origin) if origin else None
+        kind = "origin" if (found or {}).get("match") in {"exact", "located"} else "context"
+        return self.ref(name, pointer, kind=kind, origin=origin)
 
     def original(self, refs):
         result = []
         for ref in refs or []:
-            name = ref.get("document") or ref.get("file") or ref.get("name")
-            name = self.aliases.get(name, name)
-            if name not in self.documents:
+            traced = self.trace(ref)
+            if not traced or traced.get("match") not in {"exact", "located"}:
                 continue
-            doc = self.documents[name]
-            start = ref.get("start_line") or ref.get("line_start") or ref.get("line")
-            end = ref.get("end_line") or ref.get("line_end") or start
-            if not isinstance(start, int) or not isinstance(end, int):
-                continue
-            lines = doc["content"].splitlines()
-            if not 1 <= start <= end <= len(lines):
-                continue
-            result.append(
-                {
-                    "document_id": doc["id"],
-                    "start_line": start,
-                    "end_line": end,
-                    "quote": "\n".join(lines[start - 1 : end]),
-                    "kind": "test" if doc["role"] == "test" else "origin",
-                }
+            doc = next(
+                (d for d in self.origins if (d.get("path") or d["name"]) == traced["document"]),
+                None,
             )
+            if doc:
+                result.append(
+                    {
+                        "document_id": doc["id"],
+                        "start_line": traced["start_line"],
+                        "end_line": traced["end_line"],
+                        "quote": traced["quote"],
+                        "kind": "test" if doc["role"] == "test" else "origin",
+                        "origin": traced,
+                    }
+                )
         return unique(result)
 
+    def test_evidence(self, evidence):
+        from scene_completion.inputs.provenance import source_origins
+        from scene_completion.inputs.provenance.test_sources import xlsx_documents
+
+        name = source_origins.stem(evidence.get("source_file") or "")
+        quote, location = evidence.get("quote"), evidence.get("location")
+        if not name or not quote:
+            return []
+        files = list(self.root.rglob(name))
+        if len(files) != 1 or not files[0].is_file():
+            return []
+        path = files[0]
+        if path.suffix.lower() in {".md", ".markdown"}:
+            key = self.add(path, "test")
+            traced = self.trace({"doc": key, "quote": quote, "line": location})
+            if not traced or traced.get("role") != "test" or traced.get("match") == "pending":
+                return []
+            return [
+                {
+                    **self.ref(key, kind="test"),
+                    "start_line": traced["start_line"],
+                    "end_line": traced["end_line"],
+                    "quote": traced["quote"],
+                    "origin": traced,
+                }
+            ]
+        if path.suffix.lower() != ".xlsx":
+            return []
+        try:
+            sheets = xlsx_documents(
+                path.read_bytes(), path.name, path.relative_to(self.root).as_posix()
+            )
+        except ValueError:
+            return []
+        found = source_origins.from_cell(location, quote, sheets)
+        if not found or source_origins._normalized(quote) not in source_origins._normalized(
+            found["quote"]
+        ):
+            return []
+        sheet = next(d for d in sheets if d["name"].split("#")[-1] == found["sheet"])
+        key = path.relative_to(self.root).as_posix() + "#" + found["sheet"]
+        lines = {row["number"]: row["text"] for row in sheet["lines"]}
+        content = "\n".join(lines.get(i, "") for i in range(1, max(lines) + 1))
+        doc = self.documents.setdefault(
+            key,
+            {
+                "id": ident("document", key),
+                "name": key,
+                "role": "test",
+                "content": content,
+                "hash": fingerprint(content),
+            },
+        )
+        return [
+            {
+                "document_id": doc["id"],
+                "start_line": found["start_line"],
+                "end_line": found["end_line"],
+                "quote": found["quote"],
+                "kind": "test",
+                "json_pointer": location,
+            }
+        ]
+
     def refs(self, node, name, pointer=""):
-        return unique(self.original(node.get("source_refs", [])) + [self.ref(name, pointer)])
+        declared = node.get("source_refs") or []
+        originals = self.original(declared)
+        return unique(
+            originals
+            + [self.ref(name, pointer, origin=declared[0] if declared and not originals else None)]
+        )
 
     def entity_origins(self, entity, attribute=None):
         result = []
@@ -211,7 +301,7 @@ class _Facts:
         return [self.sources.ref(self.name, pointer)]
 
 
-def api_contracts(sources, tree):
+def api_contracts(sources, tree, tree_path=None):
     """Read both RR and SR declared fields; do not infer a response from requests."""
     contracts = {}
     path = sources.root / "api_extraction.json"
@@ -242,6 +332,13 @@ def api_contracts(sources, tree):
                 "id": aid,
                 "method": api.get("方法"),
                 "path": api.get("资源路径"),
+                **(
+                    {"source_layer": api["source_layer"]}
+                    if api.get("source_layer") in {"RR", "SR"}
+                    else {"source_layer": "SR"}
+                    if api.get("SR编号") and not api.get("RR编号")
+                    else {}
+                ),
                 "fields": fields,
                 "source_refs": sources.original([api.get("来源", {})])
                 + [sources.ref(name, f"/apis/{n}")],
@@ -250,7 +347,7 @@ def api_contracts(sources, tree):
     # never overwrite a complete API field or pretend to specify a data type.
     if tree is None:
         return contracts
-    name = sources.add(sources.root / "功能树.json")
+    name = sources.add(tree_path or sources.root / "功能树.json")
     for fn, function in enumerate(tree.get("functions", [])):
         for layer in ("rrLayer", "srLayer"):
             for cn, command in enumerate(function.get(layer, {}).get("commands", [])):
@@ -268,13 +365,56 @@ def api_contracts(sources, tree):
                         "source_refs": [],
                     },
                 )
-                contract["source_refs"] = unique(
-                    contract["source_refs"] + [sources.ref(name, pointer)]
-                )
+                sourced = sources.traced_ref(name, pointer, command.get("source"))
+                if (
+                    command.get("path")
+                    and contract.get("path")
+                    and command["path"] != contract["path"]
+                ):
+                    contract["path_conflicts"] = sorted(
+                        {contract["path"], command["path"], *contract.get("path_conflicts", [])}
+                    )
+                    candidates = contract.setdefault("qualified_candidates", [])
+                    original_layer = contract.get("source_layer")
+                    if original_layer:
+                        original_id = original_layer + "::" + aid
+                        if original_id not in contracts:
+                            contracts[original_id] = {
+                                **deepcopy(contract),
+                                "id": original_id,
+                                "declared_id": aid,
+                                "path_conflicts": [],
+                                "qualified_candidates": [],
+                            }
+                        if original_id not in candidates:
+                            candidates.append(original_id)
+                    original = command.get("source") or {}
+                    hint = (original.get("doc") or "").lower() if isinstance(original, dict) else ""
+                    declared_layer = {"rrspec": "RR", "srspec": "SR"}.get(hint)
+                    if declared_layer and declared_layer != original_layer:
+                        qualified = declared_layer + "::" + aid
+                        contracts[qualified] = {
+                            "id": qualified,
+                            "declared_id": aid,
+                            "path": command["path"],
+                            "method": command.get("method"),
+                            "source_layer": declared_layer,
+                            "fields": [],
+                            "source_refs": [sourced],
+                        }
+                        if qualified not in candidates:
+                            candidates.append(qualified)
+                if sourced.get("kind") == "origin":
+                    contract["source_refs"] = [
+                        row for row in contract["source_refs"] if row.get("kind") != "origin"
+                    ]
+                contract["source_refs"] = unique(contract["source_refs"] + [sourced])
                 for an, attr in enumerate(command.get("attributes", [])):
                     if not isinstance(attr, dict):
                         continue
-                    refs = [sources.ref(name, pointer + f"/attributes/{an}")]
+                    refs = [
+                        sources.traced_ref(name, pointer + f"/attributes/{an}", attr.get("source"))
+                    ]
                     qualified = re.fullmatch(
                         r"(header|query|path|body|response)\.(.+)", attr["name"]
                     )
@@ -282,6 +422,23 @@ def api_contracts(sources, tree):
                     location = attr.get("location") or (qualified[1] if qualified else None)
                     if location is None and "成功响应" in attr.get("tags", []):
                         location = "response"
+                    original = attr.get("source")
+                    section = original.get("section", "") if isinstance(original, dict) else ""
+                    if location is None:
+                        location = next(
+                            (
+                                kind
+                                for word, kind in (
+                                    ("路径参数", "path"),
+                                    ("查询参数", "query"),
+                                    ("请求头", "header"),
+                                    ("成功响应", "response"),
+                                    ("请求体", "body"),
+                                )
+                                if word in section
+                            ),
+                            None,
+                        )
                     field = {
                         "name": field_name,
                         "location": location,
@@ -322,42 +479,90 @@ def api_contracts(sources, tree):
     return contracts
 
 
-def entities_for(sources, tree, case_id, case_name):
-    result = {}
+def entities_for(sources, tree, case_id, case_name, tree_path=None):
+    """Entities and constraints of exactly one use case.
+
+    The function tree is already split by use case, so each case carries only
+    the entities it declares. Nothing is unioned across cases: a field another
+    case happens to constrain is not this case's requirement.
+
+    ``rrLayer`` names participating entities but declares no attributes, so the
+    attribute definitions come from ``srLayer`` alone.
+    """
     if tree is None:
         return []
-    name = sources.add(sources.root / "功能树.json")
+    name = sources.add(tree_path or sources.root / "功能树.json")
     for fn, function in enumerate(tree.get("functions", [])):
-        if function.get("ucId") != case_id and function.get("name") != case_name:
+        identity = function.get("functionId") or function.get("ucId")
+        if identity != case_id and function.get("name") != case_name:
             continue
+        declared = {}
         for layer in ("rrLayer", "srLayer"):
-            for en, entity in enumerate(function.get(layer, {}).get("entities", [])):
+            for entity_index, entity in enumerate(function.get(layer, {}).get("entities", [])):
                 eid = entity.get("entity") or entity.get("name")
                 if not eid:
                     continue
-                pointer = f"/functions/{fn}/{layer}/entities/{en}"
-                refs = unique(sources.entity_origins(eid) + [sources.ref(name, pointer)])
-                row = result.setdefault(
-                    eid, {"id": eid, "name": eid, "attributes": [], "source_refs": []}
-                )
-                row["source_refs"] = unique(row["source_refs"] + refs)
-                for an, attr in enumerate(entity.get("attributes", [])):
-                    refs = unique(
-                        sources.entity_origins(eid, attr["name"])
-                        + [sources.ref(name, pointer + f"/attributes/{an}")]
+                pointer = f"/functions/{fn}/{layer}/entities/{entity_index}"
+                refs = [
+                    sources.traced_ref(
+                        name,
+                        f"/functions/{fn}/{layer}/entities/{entity_index}",
+                        entity.get("source"),
                     )
-                    row["attributes"].append(
+                ]
+                declared.setdefault(eid, []).append(
+                    {
+                        "entity": entity,
+                        "attributes": entity.get("attributes") or [],
+                        "refs": refs,
+                        "pointer": pointer,
+                    }
+                )
+        result = {}
+        for eid, rows in declared.items():
+            refs = unique([r for row in rows for r in row["refs"]])
+            entry = result.setdefault(
+                eid, {"id": eid, "name": eid, "attributes": [], "source_refs": refs}
+            )
+            for row in rows:
+                for an, attr in enumerate(row["attributes"]):
+                    attr_refs = unique(
+                        sources.entity_origins(eid, attr["name"])
+                        + [
+                            sources.traced_ref(
+                                name,
+                                row["pointer"] + f"/attributes/{an}",
+                                attr.get("source") or row["entity"].get("source"),
+                            )
+                        ]
+                    )
+                    from scene_completion.analysis.concerns.constraint_atoms import (
+                        normalize_rules,
+                    )
+
+                    normalized = normalize_rules(
+                        attr.get("constraints", []),
+                        attr["name"],
+                        attr_refs,
+                        tags=attr.get("tags") or [],
+                        data_type=attr.get("type"),
+                    )
+                    entry["attributes"].append(
                         {
                             **deepcopy(attr),
-                            "source_refs": refs,
+                            "source_refs": attr_refs,
                             "constraints": constraints(
                                 [
                                     re.sub(r"^枚举\s*", "", r.get("rule", ""))
                                     for r in attr.get("constraints", [])
                                 ],
                                 attr["name"],
-                                refs,
+                                attr_refs,
                             ),
+                            "atoms": normalized["items"],
+                            "payload_fields": normalized["payload"],
+                            "unresolved": normalized["unresolved"],
                         }
                     )
-    return list(result.values())
+        return list(result.values())
+    return []

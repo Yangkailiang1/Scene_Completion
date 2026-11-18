@@ -40,6 +40,7 @@ def add_concern(
     condition="",
     refs=(),
     rule_id=None,
+    attribute=None,
 ):
     definitions = bundle.get("registry", default_registry())["definitions"]
     if (
@@ -48,6 +49,8 @@ def add_concern(
         or key.startswith("global.")
     ):
         return None
+    # Entity attributes are distinct concerns: two constrained attributes of the
+    # same entity under the same concern kind must not collapse into one row.
     cid = ident(
         channel_name + "-concern",
         bundle["case"]["id"],
@@ -56,6 +59,7 @@ def add_concern(
         key,
         field and field["id"],
         entity,
+        attribute,
     )
     previous = next((c for c in output["concerns"] if c["id"] == cid), None)
     if previous:
@@ -73,6 +77,9 @@ def add_concern(
         "status": "active",
         "source_refs": list(refs),
     }
+    if entity and attribute:
+        value["attribute"] = attribute
+        value["unit_id"] = ident("unit", bundle["case"]["id"], entity, attribute, key)
     if rule_id:
         value["rule_id"] = rule_id
     output["concerns"].append(value)
@@ -90,6 +97,7 @@ def add_scenario(output, concern, condition, expected, refs, identity=None):
         "id": sid,
         "concern_ids": [concern["id"]],
         **{k: concern.get(k) for k in ("step_id", "target", "key", "field_id", "entity_id")},
+        **{k: concern[k] for k in ("attribute", "unit_id") if k in concern},
         "condition": condition,
         "expected": expected,
         "source_refs": list(refs),

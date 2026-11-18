@@ -142,7 +142,45 @@ def source_documents(project):
         for doc in materials(project, node):
             if not any(d["source_id"] == doc["source_id"] for d in out):
                 out.append(doc)
+    for doc in origin_documents(project):
+        if not any(d["source_id"] == doc["source_id"] for d in out):
+            out.append(doc)
     return out
+
+
+def origin_documents(project):
+    """Original requirement/design documents pinned inside case bundles.
+
+    Structured inputs cite their own JSON; the original Markdown is shipped
+    beside them. It is stored in the published bundle so a citation opens the
+    real line offline, without re-reading whatever file the customer edits now.
+    """
+    project = Path(project)
+    found = {}
+    for file in sorted(project.glob("ssd_results/*/revisions/*.json")):
+        try:
+            bundle = (read_json(file) or {}).get("bundle") or {}
+        except (OSError, ValueError):
+            continue
+        for doc in bundle.get("origin_documents") or []:
+            name, content = doc.get("name"), doc.get("content")
+            if not isinstance(name, str) or not isinstance(content, str):
+                continue
+            found.setdefault(
+                name,
+                {
+                    "source_id": "origin:" + name,
+                    "name": name,
+                    "role": doc.get("role") or "RR",
+                    "channel": "existing",
+                    "origin": True,
+                    "lines": [
+                        {"number": n, "text": line}
+                        for n, line in enumerate(content.splitlines(), 1)
+                    ],
+                },
+            )
+    return list(found.values())
 
 
 def sources(project):
@@ -154,11 +192,62 @@ def sources(project):
     }
 
 
+def snapshot_document_texts(project):
+    """Text digests of the documents pinned inside each case result snapshot."""
+    texts = {}
+    for file in (Path(project) / "ssd_results").glob("*/revisions/*.json"):
+        try:
+            bundle = (read_json(file) or {}).get("bundle") or {}
+        except (OSError, ValueError):
+            continue
+        for doc in bundle.get("documents") or []:
+            ident, content = doc.get("id"), doc.get("content")
+            if isinstance(ident, str) and isinstance(content, str):
+                texts.setdefault(ident, set()).add(
+                    hashlib.sha256(content.encode("utf-8")).hexdigest()
+                )
+    return texts
+
+
+def snapshot_source(project, sid):
+    """Resolve a case-snapshot document id to the source document with the same bytes.
+
+    Snapshots store a rendered projection with their own ids, so a result-page
+    citation cannot be looked up by id alone. Only an exact, unique content match
+    is accepted; a guessed filename or nearest line would misattribute evidence.
+    """
+    digests = snapshot_document_texts(project).get(sid)
+    if not digests or len(digests) > 1:
+        return None
+    project = Path(project)
+    candidates = {}
+    for doc in source_documents(project):
+        if not doc.get("path"):
+            continue
+        path = (project / doc["path"]).resolve()
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != doc.get("file_hash"):
+            continue
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            continue
+        if hashlib.sha256(text.encode("utf-8")).hexdigest() in digests:
+            candidates[hashlib.sha256(data).hexdigest()] = doc
+    # Identical copies carry the same bytes and line numbers, so any one of them
+    # opens the cited lines; differing documents are never silently chosen.
+    return next(iter(candidates.values())) if len(candidates) == 1 else None
+
+
 def source_view(project, sid, start=1, end=None, context=40, quote="", view="window"):
     if view not in {"window", "document"}:
         raise ValueError("原文视图仅支持window或document")
     docs = source_documents(project)
     doc = next((d for d in docs if d["source_id"] == sid), None)
+    if doc is None:
+        doc = snapshot_source(project, sid)
     if doc is None and quote:
         # Legacy absolute-path IDs can be recovered only by a unique exact
         # quotation at the same original coordinates, not by guessed filenames.

@@ -147,3 +147,67 @@ test("failed full-document retrieval offers raw mode without discarding the view
     expect(document.querySelector(".source-line.highlighted")).toBeTruthy(),
   );
 });
+
+test("a citation with a verified original line opens that document on demand", async () => {
+  const fetch = mockSource();
+  const traced = {
+    ...evidence,
+    origin: {
+      document: "功能设计_spec.md",
+      match: "located",
+      start_line: 4,
+      end_line: 4,
+      quote: "**调用方**：顾客",
+      declared_line: "L2",
+    },
+  };
+  render(<SourceEvidence project="p" evidence={traced} onClose={vi.fn()} />);
+  await screen.findByRole("heading", { name: "浏览商品" });
+  const button = screen.getByRole("button", {
+    name: "功能设计_spec.md 第4行",
+  });
+  fireEvent.click(button);
+  await waitFor(() =>
+    expect(decodeURIComponent(String(fetch.mock.calls.at(-1)?.[0]))).toContain(
+      "/sources/origin:功能设计_spec.md",
+    ),
+  );
+  await waitFor(() =>
+    expect(document.querySelector("header")?.textContent).toContain(
+      "来自中间产物第9–9行",
+    ),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "返回中间产物" }));
+  await waitFor(() =>
+    expect(document.querySelector("header")?.textContent).toContain(
+      "按引文定位",
+    ),
+  );
+  await waitFor(() =>
+    expect(decodeURIComponent(String(fetch.mock.calls.at(-1)?.[0]))).toContain(
+      "/sources/sr?",
+    ),
+  );
+});
+
+test("an untraced citation keeps the intermediate file and states why", async () => {
+  const fetch = mockSource();
+  render(
+    <SourceEvidence
+      project="p"
+      evidence={{
+        ...evidence,
+        origin: {
+          document: "功能设计_spec.md",
+          match: "pending",
+          reason: "原文未包含该引文",
+        },
+      }}
+      onClose={vi.fn()}
+    />,
+  );
+  await screen.findByRole("heading", { name: "浏览商品" });
+  expect(screen.getByRole("note").textContent).toContain("原文未包含该引文");
+  expect(screen.queryByRole("button", { name: /第4行/ })).toBeNull();
+  expect(String(fetch.mock.calls.at(-1)?.[0])).toContain("/sources/sr?");
+});

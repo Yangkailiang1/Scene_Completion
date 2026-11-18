@@ -38,6 +38,19 @@ TARGETS = {
 EXCLUDED = {"node_modules", ".git", "python", "data", ".workbench", "run", "imports", "__pycache__"}
 
 
+def _authoring_case(raw):
+    """Use-case id when the bytes are a per-case authoring file, else ``None``."""
+    from scene_completion.inputs.structured import authoring_cases
+
+    try:
+        value, _ = parsed(raw.decode("utf-8-sig"))
+    except (ValueError, UnicodeError, IndexError, RecursionError):
+        return None
+    if not authoring_cases.is_authoring(value):
+        return None
+    return (value.get("case") or {}).get("id")
+
+
 def identify(text):
     value, _ = parsed(text)
     if recognized(value):
@@ -137,6 +150,7 @@ def discover_material(*, directory=None, paths=None, files=None):
     issues = []
     behaviors = []
     originals = []
+    per_case = []
     invalid_behavior_rows = []
     for display, source, expected in candidates:
         if isinstance(source, Path):
@@ -153,13 +167,27 @@ def discover_material(*, directory=None, paths=None, files=None):
             name = Path(display).name
             if len(raw) > 20 * 1024 * 1024:
                 raise ValueError("文件超过20MB：" + display)
+        from scene_completion.inputs.structured.authoring_cases import SIDECARS
+
+        if name in SIDECARS:
+            per_case.append((display, name, raw))
+            continue
+        if Path(name).suffix.lower() == ".xlsx":
+            originals.append((display, name, raw))
+            continue
         if Path(name).suffix.lower() in {".md", ".markdown"}:
             import re
 
-            if re.search(r"spec|需求|设计|^RR[._-]|^SR[._-]", name, re.I):
+            if re.search(r"spec|需求|设计|测试|^test[._-]|^RR[._-]|^SR[._-]", name, re.I):
                 originals.append((display, name, raw))
             else:
                 ignored.append({"name": display, "reason": "非原始需求或设计文档"})
+            continue
+        authored = _authoring_case(raw)
+        if authored:
+            # Already a structured use case; keep it with its folder so its own
+            # citations stay resolvable when the case is rebuilt.
+            per_case.append((display, name, raw))
             continue
         named_ssd = name.casefold() == "sysoperation.json" and "行为模型" in Path(display).parts
         try:
@@ -247,7 +275,27 @@ def discover_material(*, directory=None, paths=None, files=None):
                 ignored.append({"name": display, "reason": "同内容副本，按内容哈希去重"})
             continue
         selected[role] = (record, raw)
+    # Per-case authoring files are already structured use cases. Keep them with
+    # their folder and the originals they cite so the case can be rebuilt.
+    cases = [
+        {"path": display, "name": name, "content_base64": base64.b64encode(raw).decode()}
+        for display, name, raw in per_case
+    ]
+    for item in cases:
+        item["relative_path"] = item["path"]
     rows = [selected[r][0] for r in ROLES if r in selected]
+    for item in cases:
+        rows.append(
+            {
+                "role": "case",
+                "label": "编写用例（主成功＋E/GT＋扩展映射）",
+                "name": item["name"],
+                "path": item["path"],
+                "hash": fingerprint(item["content_base64"]),
+                "bytes": len(base64.b64decode(item["content_base64"])),
+                "target_nodes": ["<用例>:ssd-prepare"],
+            }
+        )
     missing = [r for r in ROLES if r not in selected]
     extras = {}
     for display, name, raw in originals:
@@ -383,6 +431,9 @@ def discover_material(*, directory=None, paths=None, files=None):
     preview["preview_hash"] = fingerprint(
         {"files": rows, "missing": missing, "issues": issues, "supplied_cases": supplied_preview}
     )
+    preview["authoring_case_count"] = sum(
+        _authoring_case(raw) is not None for _, _, raw in per_case
+    )
     return (
         preview,
         {
@@ -395,6 +446,10 @@ def discover_material(*, directory=None, paths=None, files=None):
                 for r, (record, raw) in selected.items()
             },
             **extras,
+            **{
+                "case:" + fingerprint([item["path"], item["content_base64"]])[:20]: item
+                for item in cases
+            },
         },
         accepted,
     )
@@ -404,11 +459,11 @@ def validate_files(files):
     # Validate every decoded format before writing, not halfway through a batch.
     for role, f in files.items():
         raw = base64.b64decode(f["content_base64"])
-        text = raw.decode("utf-8-sig")
-        if role.startswith(("behavior:", "origin:")):
+        if role.startswith(("behavior:", "origin:", "case:")):
             # Invalid optional behavior remains visible and falls back. It must
             # not prevent adopting the five original authoritative sources.
             continue
+        text = raw.decode("utf-8-sig")
         if role in {"RR", "SR"}:
             from scene_completion.inputs.structured.structure_models import compile_model
 
@@ -449,7 +504,7 @@ def apply(
     rows = {r["id"]: r for r in imports.snapshot(project)}
     for (role, f), received in zip(files.items(), result["received"]):
         row = rows[received["id"]]
-        if role.startswith("origin:"):
+        if role.startswith(("origin:", "case:")):
             continue
         if role.startswith("behavior:"):
             if adopt_partial and row.get("behavior_product"):

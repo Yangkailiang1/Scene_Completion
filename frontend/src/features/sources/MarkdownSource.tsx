@@ -9,6 +9,9 @@ export type SourceHeading = {
   anchor: string;
 };
 export type SourceJump = { line: number; revision: number };
+// Citations keep their recorded line; the original line is resolved by text so
+// a document that shifted still opens the passage it actually contains.
+export type SourceMark = { start: number; end: number; quote?: string };
 // Preserve Markdown hard breaks without enabling arbitrary HTML from uploaded files.
 function lineBreaks() {
   return (tree: any) => {
@@ -34,6 +37,46 @@ function slug(title: string) {
     .replace(/[^\p{L}\p{N}\s_-]/gu, "")
     .replace(/\s+/g, "-");
 }
+function normalize(text: string) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .trim();
+}
+export function resolveSourceLine(
+  lines: { number: number; text: string }[],
+  mark?: SourceMark | null,
+): { start: number; end: number } | null {
+  if (!mark) return null;
+  const wanted = normalize(mark.quote || "");
+  if (wanted && lines.length) {
+    const span = wanted.split("\n");
+    const row = (n: number) => lines.find((x) => x.number === n);
+    const first = row(mark.start);
+    const matches = (first?.text || "").includes(span[0].trim());
+    if (first && !matches) {
+      const hits = lines.filter((list) => {
+        if (!list.text.includes(span[0].trim())) return false;
+        for (let k = 1; k < span.length; k += 1) {
+          if (!(row(list.number + k)?.text || "").includes(span[k].trim()))
+            return false;
+        }
+        return true;
+      });
+      if (hits.length === 1)
+        return {
+          start: hits[0].number,
+          end: Math.min(
+            hits[0].number + span.length - 1,
+            lines.at(-1)?.number || hits[0].number,
+          ),
+        };
+      return null;
+    }
+  }
+  return { start: mark.start, end: mark.end };
+}
 export function MarkdownSource({
   lines,
   highlightStart,
@@ -42,6 +85,7 @@ export function MarkdownSource({
   outlineOpen,
   onOutline,
   onNavigate,
+  mark,
 }: {
   lines: { number: number; text: string }[];
   highlightStart: number;
@@ -50,8 +94,13 @@ export function MarkdownSource({
   outlineOpen: boolean;
   onOutline: (headings: SourceHeading[]) => void;
   onNavigate: (line: number) => void;
+  mark?: SourceMark | null;
 }) {
   const content = useRef<HTMLDivElement>(null);
+  const located = mark ? resolveSourceLine(lines, mark) : null;
+  const active = located
+    ? { start: located.start, end: located.end }
+    : { start: highlightStart, end: highlightEnd };
   const [headings, setHeadings] = useState<SourceHeading[]>([]);
   const base = lines[0]?.number || 1;
   const text = useMemo(() => {
@@ -73,8 +122,8 @@ export function MarkdownSource({
         const position = coordinates(node);
         const selected =
           highlight &&
-          position["data-source-start"] <= highlightEnd &&
-          position["data-source-end"] >= highlightStart;
+          position["data-source-start"] <= active.end &&
+          position["data-source-end"] >= active.start;
         return createElement(
           tag,
           {
@@ -158,7 +207,7 @@ export function MarkdownSource({
         </span>
       ),
     };
-  }, [base, highlightStart, highlightEnd, onNavigate]);
+  }, [base, active.start, active.end, onNavigate]);
   useEffect(() => {
     const result = Array.from(
       content.current?.querySelectorAll("h1,h2,h3,h4,h5,h6") || [],

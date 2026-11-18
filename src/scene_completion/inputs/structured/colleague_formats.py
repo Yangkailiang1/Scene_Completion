@@ -22,7 +22,10 @@ def format_of(value):
         isinstance(value.get("functions"), list)
         and value["functions"]
         and all(
-            isinstance(f, dict) and "ucId" in f and "rrLayer" in f and "srLayer" in f
+            isinstance(f, dict)
+            and ("ucId" in f or "functionId" in f)
+            and "rrLayer" in f
+            and "srLayer" in f
             for f in value["functions"]
         )
     ):
@@ -39,8 +42,14 @@ def format_of(value):
     return None
 
 
+def source_origin(origin):
+    from scene_completion.inputs.provenance.source_origins import source_origin as split
+
+    return split(origin)
+
+
 class Facts:
-    def __init__(self, file_id, name):
+    def __init__(self, file_id, name, origins=None):
         self.document = {
             "source_id": "import-" + file_id + "-facts-v1",
             "name": name + " · 已声明事实.md",
@@ -48,15 +57,33 @@ class Facts:
             "lines": [],
         }
         self.locations = []
+        # Original specification documents, when the supplied bundle includes
+        # them. A citation keeps the JSON pointer and also opens the real line.
+        self.origins = origins or []
 
-    def add(self, value, pointer):
+    def add(self, value, pointer, origin=None):
         text = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         n = len(self.document["lines"]) + 1
         self.document["lines"].append({"number": n, "text": text})
         self.locations.append({"line": n, "json_pointer": pointer})
-        return [
-            {"source_id": self.document["source_id"], "line_start": n, "line_end": n, "quote": text}
-        ]
+        row = {
+            "source_id": self.document["source_id"],
+            "line_start": n,
+            "line_end": n,
+            "quote": text,
+        }
+        if origin:
+            from scene_completion.inputs.provenance import source_origins
+
+            document, quote, declared = source_origin(origin)
+            target = source_origins.resolve_name(document, self.origins)
+            found = source_origins.origin(target, quote, declared)
+            row["origin"] = found or {
+                "document": document,
+                "match": "pending",
+                "reason": "原文未提供，无法定位行号",
+            }
+        return [row]
 
     def artifact(self, task, payload, **extra):
         return {
@@ -77,43 +104,68 @@ class Facts:
         return n
 
 
-def constraints(rules, field, refs):
+def constraints(rules, field, refs, origin=None, origins=None):
     out = []
 
-    def add(kind, value, status="explicit"):
+    def add(kind, value, status="explicit", source=None):
+        citations = deepcopy(refs)
+        traced = source if source is not None else origin
+        if traced:
+            from scene_completion.inputs.provenance import source_origins
+
+            document, quote, declared = source_origin(traced)
+            found = source_origins.origin(
+                source_origins.resolve_name(document, origins or []),
+                quote,
+                declared,
+            )
+            if found:
+                citations = [
+                    {**row, "origin": deepcopy(found)} if "origin" not in row else row
+                    for row in citations
+                ]
         out.append(
             {
                 "id": "constraint-" + fingerprint([field, kind, value, refs])[:20],
                 "kind": kind,
                 "value": value,
                 "status": status,
-                "source_refs": deepcopy(refs),
+                "source_refs": citations,
             }
         )
 
     for record in rules:
         rule = record.get("rule") if isinstance(record, dict) else record
+        source = record.get("source") if isinstance(record, dict) else None
         if not isinstance(rule, str) or not rule.strip():
             continue
         text = rule.strip()
         compact = re.sub(r"\s+", "", text).replace("≤", "<=").replace("≥", ">=")
         enum = re.fullmatch(r"\{([^{}]+)\}", text)
         if enum:
-            add("enum", [v.strip() for v in re.split(r"[|,，]", enum[1])])
+            add("enum", [v.strip() for v in re.split(r"[|,，]", enum[1])], source=source)
             continue
         if "格式" in text:
-            add("format", text)
+            add("format", text, source=source)
             continue
         if re.search(r"长度|字符", text):
-            add("length", text)
+            add("length", text, source=source)
             continue
         if re.search(r"大小|字节|(?:MB|KB|bytes)", text, re.I):
-            add("size", text)
+            add("size", text, source=source)
             continue
         interval = re.fullmatch(r"(-?\d+(?:\.\d+)?)\s*(?:至|到|[-~～])\s*(-?\d+(?:\.\d+)?)", text)
         if interval:
-            add("minimum", float(interval[1]) if "." in interval[1] else int(interval[1]))
-            add("maximum", float(interval[2]) if "." in interval[2] else int(interval[2]))
+            add(
+                "minimum",
+                float(interval[1]) if "." in interval[1] else int(interval[1]),
+                source=source,
+            )
+            add(
+                "maximum",
+                float(interval[2]) if "." in interval[2] else int(interval[2]),
+                source=source,
+            )
             continue
         escaped = re.escape(field)
         both = re.fullmatch(r"(-?\d+(?:\.\d+)?)<=\s*" + escaped + r"<=(-?\d+(?:\.\d+)?)", compact)
@@ -122,19 +174,19 @@ def constraints(rules, field, refs):
             return float(x) if "." in x else int(x)
 
         if both:
-            add("minimum", number(both[1]))
-            add("maximum", number(both[2]))
+            add("minimum", number(both[1]), source=source)
+            add("maximum", number(both[2]), source=source)
             continue
         lower = re.fullmatch(r"(?:" + escaped + r")?>=(-?\d+(?:\.\d+)?)", compact)
         upper = re.fullmatch(r"(?:" + escaped + r")?<=(-?\d+(?:\.\d+)?)", compact)
         reverse = re.fullmatch(r"(-?\d+(?:\.\d+)?)<=" + escaped, compact)
         if lower or reverse:
-            add("minimum", number((lower or reverse)[1]))
+            add("minimum", number((lower or reverse)[1]), source=source)
             continue
         if upper:
-            add("maximum", number(upper[1]))
+            add("maximum", number(upper[1]), source=source)
             continue
-        add("other", text)
+        add("other", text, source=source)
     return list({fingerprint([c["kind"], c["value"]]): c for c in out}.values())
 
 
@@ -450,8 +502,8 @@ def function_interfaces(value, file_id, name):
                     continue
                 ident, declared_id = qualified_identity({"id": api_id}, "SR")
                 entry = {
-                    "case_id": case["ucId"],
-                    "case_name": case.get("name") or case["ucId"],
+                    "case_id": case.get("functionId") or case["ucId"],
+                    "case_name": case.get("name") or case.get("functionId") or case["ucId"],
                     "api_id": declared_id,
                     "qualified_id": ident,
                     "name": source.get("name") or api_id,
@@ -494,15 +546,19 @@ def function_interfaces(value, file_id, name):
     }
 
 
-def function_product(value, file_id, name):
-    facts = Facts(file_id, name)
+def function_product(value, file_id, name, origins=None):
+    from scene_completion.inputs.provenance import source_origins
+
+    facts = Facts(file_id, name, origins or source_origins.documents_from_inputs(value))
     entities = {}
     scopes = []
     interface_attributes = []
     pending = []
     seen = set()
     for n, f in enumerate(value["functions"]):
-        cid = f["ucId"]
+        # The use-case identity is spelled ``functionId`` in newer exports and
+        # ``ucId`` in older ones; both denote the same per-case key.
+        cid = f.get("functionId") or f["ucId"]
         label = f.get("name") or cid
         p = "/functions/" + str(n)
         if cid in seen:
@@ -521,6 +577,15 @@ def function_product(value, file_id, name):
                     "name": entry.get("zh") or ename,
                 },
                 p + "/rrLayer/entities",
+                (entry if "source" in entry else None)
+                or next(
+                    (
+                        e
+                        for e in f["srLayer"].get("entities", [])
+                        if e["entity"] == ename and "source" in e
+                    ),
+                    None,
+                ),
             )
             target = entities.setdefault(
                 ename,
@@ -548,7 +613,9 @@ def function_product(value, file_id, name):
                         ],
                     )
                     ref = facts.add(
-                        safe, p + "/srLayer/entities/" + str(en) + "/attributes/" + str(an)
+                        safe,
+                        p + "/srLayer/entities/" + str(en) + "/attributes/" + str(an),
+                        a.get("source"),
                     )
                     tags = a.get("tags", [])
                     dtype = {
@@ -571,7 +638,9 @@ def function_product(value, file_id, name):
                             "operation": "any",
                             "case_ids": [cid],
                             "case_names": [label],
-                            "constraints": constraints(a.get("constraints", []), a["name"], ref),
+                            "constraints": constraints(
+                                a.get("constraints", []), a["name"], ref, a.get("source")
+                            ),
                             "source_refs": ref,
                         }
                     )
@@ -593,7 +662,9 @@ def function_product(value, file_id, name):
                     ],
                 )
                 refs = facts.add(
-                    safe, p + "/srLayer/commands/" + str(cn) + "/attributes/" + str(an)
+                    safe,
+                    p + "/srLayer/commands/" + str(cn) + "/attributes/" + str(an),
+                    a.get("source"),
                 )
                 # Do not infer direction from a name such as items[] or from
                 # HTTP GET. Later join requires a known field on this exact API.
@@ -613,6 +684,7 @@ def function_product(value, file_id, name):
         refs = facts.add(
             {"missing_constraint": {k: m[k] for k in ("function", "node", "reason") if k in m}},
             "/missingConstraints/" + str(n),
+            m.get("source"),
         )
         pending.append(
             {
@@ -650,12 +722,12 @@ def function_product(value, file_id, name):
     }
 
 
-def convert(value, file_id, name):
+def convert(value, file_id, name, origins=None):
     kind = format_of(value)
     if kind == "api_extraction":
         return api_product(value, file_id, name)
     if kind == "function_tree":
-        return function_product(value, file_id, name)
+        return function_product(value, file_id, name, origins)
     return None
 
 

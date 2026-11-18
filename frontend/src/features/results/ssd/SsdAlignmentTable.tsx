@@ -206,6 +206,8 @@ export function SsdAlignmentTable({
         : "待确认项";
   function objectName(record: Observation) {
     if (getObjectName) return getObjectName(record);
+    if (record.entity_id && record.attribute)
+      return `${record.entity_id}.${record.attribute}`;
     const owner = bundle.steps?.find((item) => item.id === record.step_id);
     const field = owner?.data.find((item) => item.id === record.field_id);
     if (record.target === "data")
@@ -521,6 +523,13 @@ export function SsdAlignmentTable({
                                 : "查看原始出处"}
                               （{record.source_refs?.length || 0}）
                             </button>
+                            {(record.source_refs || []).some(
+                              (r: any) => r.origin === "manual",
+                            ) && (
+                              <small className="ssd-manual-source">
+                                含人工补录出处
+                              </small>
+                            )}
                             <details>
                               <summary>
                                 记录详情{readonly ? "" : "与更多操作"}

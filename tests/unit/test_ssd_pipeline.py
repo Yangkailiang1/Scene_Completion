@@ -510,9 +510,11 @@ def test_scheduler_case_identity_matches_builder_without_declared_id(tmp_path):
     bundle = build_cases(root, [discovered["id"]], case_files=[file])[0]
     assert bundle["case"] == discovered
     copied_root = tmp_path / "relocated"
+    shutil.copytree(root, copied_root)
     copied_file = copied_root / file.relative_to(root)
     assert case_identity(copied_file, copied_root / "输入文件", raw) == discovered
-    assert case_identity(file, root, {})["id"] == discovered["id"]
+    assert discovered["id"] == "UC-002"
+    assert case_identity(file, root, {})["id"] == case_identity(copied_file, copied_root, {})["id"]
 
 
 def test_bundle_keeps_unbound_project_api_candidates_without_generating_them(cases):
@@ -534,3 +536,48 @@ def test_bundle_keeps_unbound_project_api_candidates_without_generating_them(cas
     step = next(s for s in rebound["steps"] if s["id"] == "SR-002-REQ")
     assert any(f["name"] == "price" for f in step["data"])
     assert not any(f["name"] == "pageSize" for f in step["data"])
+
+
+def test_split_core_round_trip_selects_the_authored_case_and_preserves_channels(tmp_path, cases):
+    import shutil
+
+    from scene_completion.analysis.ssd.core_export import export_core
+
+    output = tmp_path / "core"
+    export_core(DATA, output, ["UC-002"])
+    raw = DATA / "输入文件/行为模型/Product/查询商品列表/SysOperation.json"
+    shutil.copyfile(raw, output / "SysOperation.json")
+    bundle = build_cases(output, ["UC-002"])[0]
+    original = cases["UC-002"]
+
+    assert [step["id"] for step in bundle["steps"]] == [step["id"] for step in original["steps"]]
+    assert [step["parent_id"] for step in bundle["steps"]] == [
+        step["parent_id"] for step in original["steps"]
+    ]
+    for channel in ("E", "G", "GT"):
+        expected = {
+            (row["condition"], row["step_id"]) for row in original["channels"][channel]["scenarios"]
+        }
+        assert {
+            (row["condition"], row["step_id"]) for row in bundle["channels"][channel]["scenarios"]
+        } == expected
+    assert len(list(output.rglob("source-map.json"))) == 1
+    assert len(list(output.rglob("extension-mapping.json"))) == 1
+
+
+def test_attribute_binding_keeps_cross_step_matches_and_distinct_attributes():
+    from scene_completion.domain.ssd.matching import binding, display_binding
+
+    first = {
+        "step_id": "S1",
+        "target": "data",
+        "entity_id": "Product",
+        "attribute": "price",
+        "key": "api.data.range",
+    }
+    actual = {**first, "step_id": "S2", "target": "receiver"}
+    other = {**actual, "attribute": "quantity"}
+    assert binding(first) == binding(actual)
+    assert binding(first) != binding(other)
+    assert display_binding(first) != display_binding(actual)
+    assert binding(first) != binding({**first, "field_id": "query-price"})

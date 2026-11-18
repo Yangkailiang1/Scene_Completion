@@ -107,6 +107,50 @@ def test_manual_edit_preserves_original_and_has_immutable_revision(tmp_path, min
     assert results.editor(tmp_path, edited["case"]["id"])["revision"] == 2
 
 
+def test_manual_origin_survives_save_and_rejects_untraceable_lines(tmp_path, mini_cases):
+    first = results.publish(tmp_path, mini_cases[0])
+    bundle = deepcopy(first["bundle"])
+    document = bundle["documents"][0]
+    limit = len(document["content"].split("\n"))
+    record = bundle["channels"]["G"]["concerns"][0]
+    record["source_refs"] = [
+        *record["source_refs"],
+        {
+            "document_id": document["id"],
+            "start_line": 1,
+            "end_line": min(3, limit),
+            "quote": "",
+            "kind": "origin",
+            "origin": "manual",
+        },
+    ]
+    saved = save(tmp_path, first, bundle)
+    kept = get_record(saved["bundle"], "G", record["id"])["source_refs"]
+    assert [r for r in kept if r.get("origin") == "manual"] == [
+        {
+            "document_id": document["id"],
+            "start_line": 1,
+            "end_line": min(3, limit),
+            "quote": "",
+            "kind": "origin",
+            "origin": "manual",
+        }
+    ]
+    for ref, reason in (
+        ({**kept[-1], "document_id": "outside-snapshot"}, "快照外"),
+        ({**kept[-1], "start_line": limit + 1, "end_line": limit + 1}, "行号超出"),
+        ({**kept[-1], "end_line": 0}, "行号超出"),
+    ):
+        broken = deepcopy(saved["bundle"])
+        get_record(broken, "G", record["id"])["source_refs"] = [
+            *get_record(saved["bundle"], "G", record["id"])["source_refs"][:-1],
+            ref,
+        ]
+        with pytest.raises(ValueError) as error:
+            save(tmp_path, saved, broken)
+        assert reason in str(error.value)
+
+
 def test_step_edit_regenerates_rules_and_preserves_manual_g_edit(tmp_path, mini_cases):
     first = results.publish(tmp_path, mini_cases[0])
     bundle = deepcopy(first["bundle"])

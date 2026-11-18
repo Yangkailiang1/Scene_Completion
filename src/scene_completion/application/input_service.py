@@ -345,10 +345,13 @@ def create_bundle(service, body: dict):
     )
     supplied = bool(preview["supplied_cases"]["accepted"])
     adopt = bool(body.get("adopt_partial", False))
+    # A per-case authoring file is already the structured use case; RR/SR
+    # structure models are not needed to import it.
+    authored = bool(preview.get("authoring_case_count"))
     if not preview["valid"] or (
-        not (supplied and adopt) and any(k not in files for k in ("RR", "SR"))
+        not ((supplied or authored) and adopt) and any(k not in files for k in ("RR", "SR"))
     ):
-        raise ValueError("请提供已校验的SysOperation或唯一的RR、SR结构模型")
+        raise ValueError("请提供已校验的SysOperation、编写用例或唯一的RR、SR结构模型")
     if body.get("expected_hash") and body["expected_hash"] != preview["preview_hash"]:
         raise ValueError("文件已变化，请重新预览")
     if body.get("dry_run"):
@@ -380,17 +383,40 @@ def create_bundle(service, body: dict):
             "review_mode": body.get("review_mode", "manual"),
             "evaluation_scope": body.get("evaluation_scope", "SR"),
             "case_ids": body.get("case_ids", []),
-            "supplied_only_default": supplied and adopt,
+            "supplied_only_default": (supplied or authored) and adopt,
         }
     )
-    imported = apply(
-        service,
-        service.run_dir(meta["id"]),
-        preview,
-        files,
-        adopt_partial=adopt,
-    )
+    project = service.run_dir(meta["id"])
+    install_materials(project, files)
+    imported = apply(service, project, preview, files, adopt_partial=adopt)
     return {**meta, "input_bundle": imported}
+
+
+def install_materials(project, files):
+    """Write the original documents and per-case files beside the project.
+
+    The SSD builder reads one folder per use case; the original Markdown stays
+    next to it so a citation can open the line it quotes.
+    """
+    import base64
+
+    project = Path(project)
+    material = project / "inputs"
+    for role, f in files.items():
+        if not (role.startswith(("origin:", "case:"))):
+            continue
+        relative = str(f.get("relative_path") or f.get("name"))
+        parts = Path(relative).parts
+        if (
+            ".." in parts
+            or Path(relative).is_absolute()
+            or not relative
+            or any(part.startswith(".") for part in parts)
+        ):
+            raise ValueError("材料路径无效：" + relative)
+        target = material / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(base64.b64decode(f["content_base64"]))
 
 
 def bundle_import(service, rid: str, body: dict):

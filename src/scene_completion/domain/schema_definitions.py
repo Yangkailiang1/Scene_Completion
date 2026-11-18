@@ -30,12 +30,51 @@ REF = obj(
     line_end={"type": "integer", "minimum": 1},
     quote=S,
 )
+# A structured record keeps its own line AND the original line it came from.
+# ``origin`` is optional: it never appears in a model request, only in results.
+ORIGIN = obj(
+    document=NULL_S,
+    role={"type": ["string", "null"]},
+    start_line={"type": ["integer", "null"]},
+    end_line={"type": ["integer", "null"]},
+    quote=STR,
+    match=enum("exact", "located", "pending"),
+    declared_line={"type": "string"},
+    document_id={"type": "string"},
+    reason={"type": "string"},
+    alternatives=arr({"type": "integer"}),
+    sheet=STR,
+    json_pointer=STR,
+    cell_quote=STR,
+)
+ORIGIN["required"] = ["match"]
+ORIGIN["allOf"] = [
+    {
+        "if": {"properties": {"match": {"enum": ["exact", "located"]}}},
+        "then": {
+            "required": ["document", "start_line", "end_line", "quote"],
+            "properties": {
+                "document": S,
+                "start_line": {"type": "integer", "minimum": 1},
+                "end_line": {"type": "integer", "minimum": 1},
+            },
+        },
+    },
+]
 DOCUMENT = obj(
     source_id=S,
     name=S,
     channel=enum("normal", "existing", "test"),
     lines=arr(obj(number={"type": "integer", "minimum": 1}, text=STR)),
 )
+ORIGINS = arr(ORIGIN)
+# Results carry an optional ``origin`` next to every citation; requests never do.
+CITED = {
+    **REF,
+    "required": list(REF["properties"]),
+    "properties": {**REF["properties"], "origin": ORIGIN},
+}
+CITEDS = arr(CITED)
 REFS = arr(REF)
 VALUE = {
     "anyOf": [

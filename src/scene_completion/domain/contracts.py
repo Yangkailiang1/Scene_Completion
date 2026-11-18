@@ -94,12 +94,51 @@ def schema(task):
     from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
 
     if task in PROJECT_SCHEMAS:
-        return deepcopy(PROJECT_SCHEMAS[task])
+        return _cited(deepcopy(PROJECT_SCHEMAS[task]))
     if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
         from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
 
-        return deepcopy(SSD_SCHEMAS[task])
-    return {"$schema": "https://json-schema.org/draft/2020-12/schema", **deepcopy(SCHEMAS[task])}
+        return _cited(deepcopy(SSD_SCHEMAS[task]))
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        **_cited(deepcopy(SCHEMAS[task])),
+    }
+
+
+CITATION = {"source_id", "line_start", "line_end", "quote"}
+
+
+def _add_origin(properties, required):
+    """The same citation shape plus the optional original-line chain."""
+    from scene_completion.domain.schema_definitions import CITED
+
+    return {
+        **properties,
+        "origin": deepcopy(CITED["properties"]["origin"]),
+    }, [key for key in required or [] if key != "origin"]
+
+
+def _cited(value):
+    """Allow an optional original-line ``origin`` on every citation object.
+
+    A citation is the four-key object, or a task-specific record that carries
+    those keys beside its own (for example a business rule with ``id`` and
+    ``fields``). Both accept the optional key. Answers without it still
+    validate, so a model contract does not change.
+    """
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if (
+            isinstance(properties, dict)
+            and CITATION <= set(properties)
+            and value.get("additionalProperties") is False
+        ):
+            widened, required = _add_origin(properties, value.get("required"))
+            return {**value, "required": required, "properties": widened}
+        return {key: _cited(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_cited(item) for item in value]
+    return value
 
 
 def validate(task, value):

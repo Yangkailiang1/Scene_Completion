@@ -55,10 +55,13 @@ def _person(key, participants):
         "id": str(key),
         "name": str(name),
         "type": "human"
-        if value.get("element_type") in {"human", "actor"} or value.get("kind") == "human"
+        if value.get("element_type") in {"human", "actor"}
+        or value.get("kind") in {"human", "external_actor"}
+        or value.get("kind") == "external"
+        and name in {"顾客", "客户", "消费者", "商家", "用户", "管理员"}
         else "service",
         "technology": technology,
-        "external": value.get("kind") == "external",
+        "external": value.get("kind") in {"external", "external_actor", "external_service"},
     }
 
 
@@ -95,7 +98,79 @@ def _kinds(text, method=None):
     return []
 
 
-def _field(step_id, value, refs):
+def _step_refs(raw, node, sources, file_name, pointer, root):
+    """Citation for one step: its own source file, or the case's documents.
+
+    An authoring case is rendered from the documents listed in the supplied
+    case file, so each step opens those originals at its own description. A
+    description that no original contains is not guessed; the step keeps no
+    invented line.
+    """
+    if file_name:
+        return sources.refs(node, file_name, pointer)
+    from scene_completion.inputs.provenance import source_origins
+
+    wanted = None
+    for group in ("system_event", "interaction", "action", "system_response"):
+        for row in row_iter(raw, group):
+            if row.get("id") == node.get("id"):
+                wanted = row.get("description") or row.get("content")
+    if not wanted:
+        return []
+    refs = []
+    for declared in (raw.get("case") or {}).get("documents", []):
+        document = source_origins.resolve_name(declared.get("name"), sources.origins)
+        if document is None:
+            continue
+        found = source_origins.origin(document, wanted, None)
+        if not found or found.get("match") == "pending":
+            continue
+        refs.append(
+            {
+                "document_id": document["id"],
+                "start_line": found["start_line"],
+                "end_line": found["end_line"],
+                "quote": found["quote"],
+                "kind": "origin",
+                "origin": found,
+            }
+        )
+    return refs
+
+
+def row_iter(raw, group):
+    for value in raw.get("operations", {}).values():
+        yield from value.get(group, [])
+
+
+def _declared_api(node, contracts):
+    """Match a declared interface id by identity or by its method and path."""
+    declared = node.get("api_id")
+    if declared in contracts and not contracts[declared].get("path_conflicts"):
+        return declared
+    content = node.get("content") or node.get("message") or ""
+    named = [
+        key
+        for key in contracts
+        if re.search(r"(?<![A-Za-z0-9_-])" + re.escape(key) + r"(?![A-Za-z0-9_-])", content)
+    ]
+    if len(named) == 1 and not contracts[named[0]].get("path_conflicts"):
+        return named[0]
+    operation = node.get("operation") or {}
+    method, path = (operation.get("http_method") or "").upper(), operation.get("http_path")
+    if not method or not path:
+        return None
+    candidates = [
+        key
+        for key, contract in contracts.items()
+        if (contract.get("method") or "").upper() == method
+        and contract.get("path") == path
+        and not contract.get("path_conflicts")
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _field(step_id, value, refs, field=None):
     location, sep, name = value.partition(".")
     if not sep or location not in {
         "header",
@@ -107,7 +182,7 @@ def _field(step_id, value, refs):
         "storage",
     }:
         location, name = "business", value
-    return {
+    row = {
         "id": ident("field", step_id, location, name),
         "name": name,
         "location": location,
@@ -116,6 +191,20 @@ def _field(step_id, value, refs):
         "constraints": [],
         "source_refs": deepcopy(refs),
     }
+    if isinstance(field, dict):
+        # A supplied per-step field keeps its own declared constraint text; the
+        # interface contract below only fills what it actually declares.
+        from scene_completion.inputs.structured.colleague_formats import constraints
+
+        row["constraints"] = [
+            {**constraint, "source_refs": refs}
+            for constraint in field.get("normalized_constraints", [])
+        ] or constraints(field.get("constraints") or [], name, refs, field.get("source"))
+        if field.get("type"):
+            row["type"] = field["type"]
+        if field.get("required") is not None:
+            row["required"] = field["required"]
+    return row
 
 
 def _enrich_fields(step, contracts):
@@ -148,17 +237,22 @@ def _enrich_fields(step, contracts):
         old["constraints"] = list(merged.values())
 
 
-def _steps(raw, sources, file_name, contracts):
+def _steps(raw, sources, file_name, contracts, root=None):
+    from scene_completion.inputs.structured.ordered_behaviors import scenario_kind
+
+    # Raw behaviour files may omit ``scenario_kind``; the shared resolver reads
+    # the operation identity instead of guessing from file order.
     mains = [
         (key, value)
         for key, value in raw.get("operations", {}).items()
-        if value.get("scenario_kind") in {"main", "normal"}
+        if scenario_kind(value) in {"main", "normal"}
     ]
     if len(mains) != 1:
         raise ValueError("用例需要唯一主成功 SysOperation：" + str(raw.get("use_case")))
     operation_id, operation = mains[0]
     participants = operation.get("participant", raw.get("participant", {}))
     nodes = {}
+    raw_ids = {}
     for group in ("system_event", "interaction", "action", "system_response"):
         for n, node in enumerate(operation.get(group, [])):
             key = node.get("id") or node.get("ID")
@@ -169,10 +263,36 @@ def _steps(raw, sources, file_name, contracts):
                 + operation_id.replace("~", "~0").replace("/", "~1")
                 + f"/{group}/{n}"
             )
-            nodes[key] = (group, node, pointer)
-    ordered = [n.get("id") for n in operation.get("system_event", [])]
-    ordered += [n.get("ref") for n in operation.get("Order", [])]
-    ordered += [n.get("id") for n in operation.get("system_response", [])]
+            raw_ids.setdefault(key, []).append((group, node, node.get("_pointer") or pointer))
+    for key, entries in raw_ids.items():
+        groups = set()
+        for group, node, pointer in entries:
+            if group in groups:
+                raise ValueError(f"主成功节点 ID 在 {group} 中重复：{key}")
+            groups.add(group)
+            identity = key if len(entries) == 1 else ident("step", operation_id, group, key)
+            nodes[identity] = (group, node, pointer)
+
+    def resolve(ref, group=None):
+        group = {"response": "system_response", "event": "system_event"}.get(group, group)
+        hits = [
+            key
+            for key, (kind, node, _) in nodes.items()
+            if (node.get("id") or node.get("ID")) == ref and (not group or kind == group)
+        ]
+        return hits[0] if len(hits) == 1 else None
+
+    ordered = []
+    for entry in operation.get("Order", []):
+        ref = resolve(entry.get("ref"), entry.get("kind"))
+        if not ref:
+            raise ValueError("Order 引用缺失或有歧义：" + str(entry.get("ref")))
+        ordered.append(ref)
+    ordered = [
+        key
+        for key, (group, _, _) in nodes.items()
+        if group == "system_event" and key not in ordered
+    ] + ordered
     # An incomplete Order is surfaced instead of silently changing its sequence.
     missing = [key for key in nodes if key not in ordered]
     ordered += missing
@@ -180,8 +300,9 @@ def _steps(raw, sources, file_name, contracts):
     for order, key in enumerate(dict.fromkeys(k for k in ordered if k in nodes), 1):
         group, node, pointer = nodes[key]
         action = group == "action"
+        op = node.get("operation") or {}
         text = node.get("content") or node.get("message") or node.get("name") or key
-        refs = sources.refs(node, file_name, pointer)
+        refs = _step_refs(raw, node, sources, file_name, pointer, root)
         executor = node.get("executor")
         sender = _person(executor if action else node.get("sender", "?"), participants)
         receiver = _person(executor if action else node.get("receiver", "?"), participants)
@@ -193,20 +314,47 @@ def _steps(raw, sources, file_name, contracts):
             or key.startswith("A_R")
             else "SR"
         )
-        aid = node.get("api_id")
+        aid = _declared_api(node, contracts)
+        declared = op.get("crud") or op.get("kinds")
+        if not declared:
+            declared = list(
+                dict.fromkeys(
+                    row["operation"]
+                    for row in node.get("data_ref") or []
+                    if row.get("operation") in {"create", "read", "update", "delete", "publish"}
+                )
+            )
         contract = contracts.get(aid, {})
-        kinds = _kinds(text, contract.get("method")) or _kinds(
-            raw.get("use_case", ""), contract.get("method")
+        kinds = (
+            list(declared or [])
+            or _kinds(text, contract.get("method") or op.get("http_method"))
+            or _kinds(raw.get("use_case", ""), contract.get("method"))
         )
-        if action and receiver["technology"] != "database" and not node.get("operation_kinds"):
+        if (
+            action
+            and receiver["technology"] != "database"
+            and not (
+                aid
+                or node.get("operation_kinds")
+                or op.get("crud")
+                or re.search(r"调用\s*API[-_][A-Za-z0-9-]+.*(?:查询|检索|读取)", text, re.I)
+            )
+        ):
             kinds = []
-        if action and receiver["technology"] == "database":
+        if action and receiver["technology"] == "database" and not declared:
             kinds = _kinds(raw.get("use_case", "") + " " + text)
         data = []
         entities = []
         for row in node.get("data_ref") or []:
             if row.get("entity"):
                 entities.append(row["entity"])
+            if row.get("declared_fields"):
+                # Supplied per-step fields keep their own declared text.
+                data += [
+                    _field(key, item["field"], refs, field=item.get("facts"))
+                    for item in row["declared_fields"]
+                    if isinstance(item, dict) and item.get("field")
+                ]
             data += [_field(key, f, refs) for f in row.get("fields", []) if isinstance(f, str)]
         alias = re.match(r"^([RS]\d+)(?:[ab])?[.、:：]", text)
         step = {
@@ -218,15 +366,21 @@ def _steps(raw, sources, file_name, contracts):
             "sender": sender,
             "receiver": receiver,
             "operation": {
-                "name": text,
+                "name": op.get("name") or text,
                 "kinds": node.get("operation_kinds") or kinds,
-                "kinds_source": "declared" if node.get("operation_kinds") else "inferred",
+                "kinds_source": "declared"
+                if node.get("operation_kinds") or declared
+                else "inferred",
+                **{part: op[part] for part in ("http_method", "http_path") if op.get(part)},
             },
+            **({"description": node["description"]} if node.get("description") else {}),
             "data": list({p["id"]: p for p in data}.values()),
             "api_id": aid,
             "entity_ids": list(dict.fromkeys(entities)),
             "source_refs": refs,
-            "aliases": [alias[1]] if alias else [],
+            "aliases": list(
+                dict.fromkeys([*(node.get("aliases") or []), *([alias[1]] if alias else [])])
+            ),
             "parent_id": None,
         }
         if direction == "return":
@@ -237,11 +391,18 @@ def _steps(raw, sources, file_name, contracts):
                 and s["kind"] != "action"
                 and s["sender"]["id"] == receiver["id"]
                 and s["receiver"]["id"] == sender["id"]
-                and s["api_id"] == aid
+                and (not aid or s["api_id"] == aid)
             ]
-            if calls:
-                step["parent_id"] = calls[-1]["id"]
-                step["operation"]["kinds"] = calls[-1]["operation"]["kinds"]
+            parent_ref = (
+                node.get("parent_id") or node.get("reply_to") or node.get("declared_parent")
+            )
+            if parent_ref:
+                calls = [call for call in calls if parent_ref in [call["id"], *call["aliases"]]]
+            if len(calls) == 1:
+                step["parent_id"] = calls[0]["id"]
+                step["operation"]["kinds"] = calls[0]["operation"]["kinds"]
+            elif parent_ref or len(calls) > 1:
+                step["parent_candidates"] = [call["id"] for call in calls]
         if action and receiver["technology"] == "database":
             calls = [
                 s
@@ -259,7 +420,7 @@ def _steps(raw, sources, file_name, contracts):
                 # compareAndDeleteProduct into update/publish, for example.
                 if not node.get("operation_kinds") and calls[-1]["operation"]["kinds"]:
                     step["operation"]["kinds"] = deepcopy(calls[-1]["operation"]["kinds"])
-        if not action:
+        if not action or aid:
             _enrich_fields(step, contracts)
         result.append(step)
     return result, missing
@@ -425,6 +586,7 @@ def generate_g(bundle):
             source_refs=None,
             variant_id=None,
             generation_origin="deterministic_constraint",
+            on_step=None,
         ):
             definition = definitions.get(key, {})
             if (
@@ -432,11 +594,13 @@ def generate_g(bundle):
                 or definition.get("scope", "interaction") != "interaction"
             ):
                 return None
+            # An anchored constraint may live on a step other than the one being
+            # iterated; nothing else about the concern changes.
             concern = add_concern(
                 output,
                 bundle,
                 "G",
-                step,
+                on_step if on_step is not None else step,
                 key,
                 target,
                 field=field,
@@ -503,16 +667,18 @@ def generate_g(bundle):
                     attach(key)
         if request and receiver["type"] == "service" and kinds:
             for group, keys in profiles["functional"].items():
+                if group in {"display_interaction", "analysis_generation", "release_activation"}:
+                    continue
                 for key in keys:
                     definition = definitions[key]
                     if kinds.intersection(definition["operation_kinds"]):
                         attach(key)
-            for key in profiles["technology"].get(receiver.get("technology"), []):
-                definition = definitions[key]
-                if not definition["operation_kinds"] or kinds.intersection(
-                    definition["operation_kinds"]
+            if receiver.get("technology") == "database":
+                special = definitions["database.special_characters"]
+                if "database.special_characters" in profiles["technology"].get("database", []) and (
+                    not special["operation_kinds"] or kinds.intersection(special["operation_kinds"])
                 ):
-                    attach(key)
+                    attach("database.special_characters")
             for entity in step.get("entity_ids", []):
                 rules = _business_rules(bundle, step, entity)
                 if rules:
@@ -523,20 +689,6 @@ def generate_g(bundle):
                             condition=condition,
                             source_refs=source_refs,
                         )
-                else:
-                    # Keep the applicable concern without inventing uniqueness,
-                    # immutability or a concrete field rule absent from this entity.
-                    attach(
-                        "service.business_attribute_constraint",
-                        entity=entity,
-                        condition="当前实体属性组合违反适用的业务约束",
-                        variant_id="attribute_combination",
-                        generation_origin="reference_template",
-                    )
-        # Technology-only operations (e.g. LLM calls) need no invented CRUD kind.
-        if request and receiver.get("technology") == "llm":
-            for key in profiles["technology"].get("llm", []):
-                attach(key)
         for field in step["data"]:
             field_refs = field.get("source_refs", [])
             checks = []
@@ -593,7 +745,240 @@ def generate_g(bundle):
                             condition=condition,
                             source_refs=source_refs,
                         )
+    _attach_entity_units(bundle, output, definitions)
     return output
+
+
+def _attach_entity_units(bundle, output, definitions):
+    """Mount each constrained entity attribute at its one anchored step.
+
+    The concern belongs to the entity attribute, not to a message field: a query
+    that merely carries one attribute of the entity does not narrow the entity's
+    other constraints. The anchored step owns every constrained attribute of the
+    entities it declares, and an attribute declared on several messages stays a
+    single concern on the one anchored step.
+    """
+    for unit in (bundle.get("field_anchors") or {}).get("units", []):
+        key = unit["concern_key"]
+        definition = definitions.get(key, {})
+        if (
+            not definition.get("enabled", True)
+            or definition.get("scope", "interaction") != "interaction"
+        ):
+            continue
+        step = next((s for s in bundle["steps"] if s["id"] == unit["step_id"]), None)
+        if step is None:
+            continue
+        if not any(_unit_applies({**unit, **atom}, step) for atom in unit.get("atoms") or [unit]):
+            # A rule that only governs editing must not be re-checked by an
+            # operation that merely touches the same entity.
+            continue
+        concern = add_concern(
+            output,
+            bundle,
+            "G",
+            step,
+            key,
+            "receiver",
+            field=None,
+            entity=unit["entity"],
+            attribute=unit["attribute"],
+            condition=unit["attribute"] + "：" + _atom_condition(unit),
+            refs=unit.get("source_refs") or step.get("source_refs", []),
+            rule_id=RULE_VERSION + ":" + key,
+        )
+        if concern is None:
+            continue
+        concern["scope"] = "interaction"
+        concern["unit_id"] = unit["unit_id"]
+        concern["attribute"] = unit["attribute"]
+        templates = templates_for(key)
+        template = (
+            templates[-1 if key == "service.business_attribute_constraint" else 0]
+            if templates
+            else {}
+        )
+        for atom in unit.get("atoms") or [unit]:
+            projected = {**unit, **atom, "atoms": []}
+            if not _unit_applies(projected, step):
+                continue
+            condition = unit["attribute"] + "：" + _atom_condition(projected)
+            scene = add_scenario(
+                output,
+                concern,
+                condition,
+                template.get("expected", ""),
+                atom.get("source_refs") or unit.get("source_refs") or step.get("source_refs", []),
+            )
+            scene.update(
+                **{
+                    k: template[k]
+                    for k in ("template_id", "variant_id", "template_version", "generation_origin")
+                    if k in template
+                },
+                scope="interaction",
+            )
+
+
+EDIT_ONLY_OPERATIONS = {"conditional_range", "state_equals"}
+EDITING_KINDS = {"create", "update"}
+
+
+def _unit_applies(unit, step):
+    """Whether a declared rule governs this step's actual operation.
+
+    A relationship stated as "when X is A, Y >= 1" describes what an editor must
+    submit. A publish operation is implemented as an update but does not thereby
+    inherit every rule for editing entity fields, so the primary operation
+    decides - the same precedence ``_business_conditions`` already applies.
+    Plain field checks (format, range, uniqueness, completeness) are storage
+    properties and stay applicable everywhere the entity is reached.
+    """
+    if unit.get("operation") not in EDIT_ONLY_OPERATIONS:
+        return True
+    kinds = set((step.get("operation") or {}).get("kinds") or [])
+    primary = (
+        "publish"
+        if "publish" in kinds
+        else next((kind for kind in ("create", "update", "delete", "read") if kind in kinds), None)
+    )
+    return primary in EDITING_KINDS
+
+
+def _atom_condition(unit):
+    """Readable failure condition; a missing standard is named, never invented."""
+    atoms = unit.get("atoms") or []
+    if atoms:
+        return "；".join(
+            dict.fromkeys(_atom_condition({**unit, **atom, "atoms": []}) for atom in atoms)
+        )
+    name = unit["attribute"]
+    operation = unit.get("operation")
+    value = unit.get("value")
+    pending = unit.get("value_pending")
+    label = {
+        "required": "缺失",
+        "format": "不满足格式要求",
+        "unique": "不满足唯一性要求",
+        "validity": "引用的资源无效",
+    }.get(operation)
+    if operation == "minimum":
+        return (
+            name
+            + (" <= " if unit.get("exclusive") else " < ")
+            + json.dumps(value, ensure_ascii=False)
+            if value is not None
+            else (name + "低于下限（" + (pending or "具体标准待确认") + "）")
+        )
+    if operation == "maximum":
+        return (
+            name
+            + (" >= " if unit.get("exclusive") else " > ")
+            + json.dumps(value, ensure_ascii=False)
+            if value is not None
+            else (name + "超过上限（" + (pending or "具体标准待确认") + "）")
+        )
+    if operation == "max_length":
+        return (
+            name + "长度超出上限"
+            if value is None
+            else (name + "长度 > " + json.dumps(value, ensure_ascii=False))
+        )
+    if operation == "min_length":
+        return (
+            name + "长度不足下限"
+            if value is None
+            else (name + "长度 < " + json.dumps(value, ensure_ascii=False))
+        )
+    if operation == "max_size":
+        return name + "大小超出上限"
+    if operation == "enum":
+        return name + "不属于枚举集合" + json.dumps(value, ensure_ascii=False)
+    if operation in {"state_precondition", "state_equals"}:
+        return name + "不满足状态前置条件" + json.dumps(value, ensure_ascii=False)
+    if operation == "state_enum":
+        return name + "不在允许状态集合" + json.dumps(value, ensure_ascii=False)
+    if operation == "conditional_range" and isinstance(value, dict):
+        # A relationship between two attributes stays one condition.
+        then = value.get("then") or {}
+        when = value.get("when") or {}
+        return (
+            name
+            + "关系不满足：当"
+            + str(when.get("field"))
+            + "为"
+            + str(when.get("equals"))
+            + "时，"
+            + str(then.get("field"))
+            + str(then.get("operator"))
+            + str(then.get("value"))
+        )
+    if label:
+        return name + label
+    return name + "不满足声明约束"
+
+
+ORIGIN_SUFFIXES = (".md", ".markdown")
+
+
+def origin_documents(root):
+    """Original requirement/design documents shipped beside structured inputs."""
+    from scene_completion.inputs.provenance import source_origins
+
+    root = Path(root)
+    found = []
+    for path in sorted(root.rglob("*")):
+        if (
+            not path.is_file()
+            or path.suffix.lower() not in ORIGIN_SUFFIXES
+            or any(part.startswith(".") for part in path.relative_to(root).parts)
+        ):
+            continue
+        role = (
+            "RR"
+            if "需求" in path.name or re.match(r"RR[._-]", path.name, re.I)
+            else "SR"
+            if "设计" in path.name or re.match(r"SR[._-]", path.name, re.I)
+            else "test"
+            if "测试" in path.name or re.match(r"test[._-]", path.name, re.I)
+            else None
+        )
+        if role is None:
+            continue
+        try:
+            found += [
+                {
+                    **doc,
+                    "path": path.relative_to(root).as_posix(),
+                    "id": ident("document", path.relative_to(root).as_posix()),
+                }
+                for doc in source_origins.read_origin_document(
+                    path, role, "test" if role == "test" else "existing"
+                )
+            ]
+        except (OSError, UnicodeError, ValueError):
+            continue
+    return source_origins.origin_index(found)
+
+
+def cited_origins(bundle, origins):
+    """Only the original documents a citation actually points at."""
+    names = {
+        (row.get("origin") or {}).get("document")
+        for row in walk_refs(bundle)
+        if (row.get("origin") or {}).get("match") in {"exact", "located"}
+    }
+    return [
+        {"name": doc.get("path") or doc["name"], "role": doc.get("role"), "content": doc["content"]}
+        for doc in origins
+        if (doc.get("path") or doc["name"]) in names
+    ]
+
+
+def walk_refs(value):
+    from scene_completion.inputs.documents.source_documents import walk_references
+
+    return walk_references(value)
 
 
 def _input_root(directory):
@@ -615,66 +1000,106 @@ def case_identity(file, directory, raw=None):
     relative = file.parent.relative_to(root)
     if raw is None:
         raw = json.loads(file.read_text(encoding="utf-8-sig"))
+    inferred = None
+    if raw.get("use_case") and not raw.get("use_case_id") and (root / "功能树.json").is_file():
+        tree = json.loads((root / "功能树.json").read_text(encoding="utf-8-sig"))
+        ids = [
+            row.get("functionId") or row.get("ucId")
+            for row in tree.get("functions", [])
+            if row.get("name") == raw["use_case"]
+        ]
+        if len(ids) == 1:
+            inferred = ids[0]
     return {
-        "id": raw.get("use_case_id") or ident("case", relative.as_posix()),
+        "id": raw.get("use_case_id") or inferred or ident("case", relative.as_posix()),
         "name": raw.get("use_case") or file.parent.name,
     }
 
 
-def build_cases(directory, case_ids=None, *, case_files=None):
+def build_cases(directory, case_ids=None, *, case_files=None, generate=True):
     """Build independent bundles; an explicit file list isolates worker failures.
 
     Shared API/entity documents are read once, but only the selected SysOperation
     files are decoded when ``case_files`` is supplied by a case worker.
     """
+    from scene_completion.inputs.structured import authoring_cases
+
     root = _input_root(directory)
     if case_files is None:
-        files = sorted(root.rglob("SysOperation.json"))
+        entries = list(authoring_cases.discover(root, case_identity))
     else:
         if isinstance(case_files, (str, Path)):
             case_files = [case_files]
-        files = []
+        entries = []
         for value in case_files:
             file = Path(value)
             file = (file if file.is_absolute() else root / file).resolve()
             if (
                 not file.is_relative_to(root)
-                or file.name != "SysOperation.json"
+                or file.name not in authoring_cases.FILES
                 or not file.is_file()
             ):
                 raise ValueError("用例文件必须是输入目录内的 SysOperation.json：" + str(value))
-            if file not in files:
-                files.append(file)
-    if not files:
+            if file not in [entry[0] for entry in entries]:
+                entries.append((file, None, None))
+    if not entries:
         raise ValueError("目录中没有 SysOperation.json；原始输入须先转换为用例 SSD")
-    sources = Sources(root)
+    origins = origin_documents(root)
+    sources = Sources(root, origins)
     tree_path = root / "功能树.json"
     tree = json.loads(tree_path.read_text(encoding="utf-8-sig")) if tree_path.exists() else None
-    contracts = api_contracts(sources, tree)
+    contracts = api_contracts(sources, tree, tree_path)
     selections = {case_ids} if isinstance(case_ids, str) else set(case_ids or [])
     bundles = []
     from scene_completion.analysis.ssd.inverse import existing_channel, test_channel
 
-    for file in files:
-        raw = json.loads(file.read_text(encoding="utf-8-sig"))
-        case = case_identity(file, root, raw)
+    for file, discovered_case, error in entries:
+        if discovered_case and selections and not selections.intersection(discovered_case.values()):
+            continue
+        if error:
+            raise ValueError(error)
+        value = authoring_cases.read(file, root)
+        authored = authoring_cases.is_authoring(value)
+        if authored:
+            # Rendered in memory: literal values stay as supplied and only the
+            # step references are re-pointed. The folder name is presentation.
+            raw = authoring_cases.sys_operation(value)
+            case = authoring_cases.case_identity(value)
+        else:
+            raw = value
+            case = case_identity(file, root, raw)
         if selections and not selections.intersection(case.values()):
             continue
-        name = sources.add(file)
-        steps, missing = _steps(raw, sources, name, contracts)
+        name = sources.add(file) if Path(file).is_relative_to(root) else None
+        tree_link = raw.get("function_tree") or {}
+        local_tree_path, local_tree, local_contracts = tree_path, tree, contracts
+        if tree_link.get("path"):
+            linked_path = (root / tree_link["path"]).resolve()
+            if not linked_path.is_relative_to(root):
+                raise ValueError("功能树路径超出输入目录")
+            if linked_path != tree_path and linked_path.is_file():
+                local_tree_path = linked_path
+                local_tree = json.loads(linked_path.read_text(encoding="utf-8-sig"))
+                local_contracts = api_contracts(sources, local_tree, local_tree_path)
+        steps, missing = _steps(raw, sources, name, local_contracts, root=root)
+        tree_case = tree_link.get("uc_id") or case["id"]
         bundle = {
             "version": VERSION,
             "coverage_policy": "coverage-any-confirmed-v2",
             "case": case,
+            "function_tree_case_id": tree_case,
+            "function_tree_path": local_tree_path.relative_to(root).as_posix()
+            if local_tree
+            else None,
             "steps": steps,
             "channels": {key: channel() for key in ("G", "E", "GT")},
             "documents": [],
             "decisions": [],
             "pending": [],
-            "entities": entities_for(sources, tree, case["id"], case["name"]),
+            "entities": entities_for(sources, local_tree, tree_case, case["name"], local_tree_path),
             # Retain the project catalogue so a reviewer can select another
             # declared API. G still uses only the actual step's bound fields.
-            "apis": deepcopy(list(contracts.values())),
+            "apis": deepcopy(list(local_contracts.values())),
             "registry": default_registry(),
             "rule_version": RULE_VERSION,
         }
@@ -683,13 +1108,57 @@ def build_cases(directory, case_ids=None, *, case_files=None):
                 pending(
                     ident("pending", case["id"], "order"),
                     "Order 未引用的步骤已保留，请确认顺序：" + ", ".join(missing),
-                    [sources.ref(name)],
+                    [sources.ref(name)] if name else [],
                 )
             )
-        bundle["channels"]["G"] = generate_g(bundle)
-        bundle["channels"]["E"] = existing_channel(bundle, file.parent, sources)
-        bundle["channels"]["GT"] = test_channel(bundle, sources)
+        from scene_completion.analysis.interactions.field_anchors import anchors
+
+        bundle["field_anchors"] = anchors(bundle)
+        for step in steps:
+            if "parent_candidates" in step:
+                bundle["pending"].append(
+                    pending(
+                        ident("pending", case["id"], "response", step["id"]),
+                        "响应未能唯一关联到请求",
+                        step["source_refs"],
+                        step_id=step["id"],
+                        candidate_step_ids=step["parent_candidates"],
+                    )
+                )
+        if generate:
+            bundle["channels"]["G"] = generate_g(bundle)
+        bundle["channels"]["E"] = existing_channel(
+            bundle,
+            file.parent,
+            sources,
+            supplied=authoring_cases.supplied_exceptions(raw, sources, file, "E")
+            if authored
+            else (),
+            raw=raw if not authored else None,
+        )
+        if authored:
+            # The supplied extension mapping is the test case's own binding; keep
+            # it visible for review instead of re-deriving it.
+            bundle["extension_mapping"] = deepcopy(
+                (raw.get("extension-mapping") or {}).get("items", [])
+            )
+        bundle["channels"]["GT"] = test_channel(
+            bundle,
+            sources,
+            supplied=authoring_cases.supplied_exceptions(raw, sources, file, "GT")
+            if authored
+            else (),
+            mapping=raw.get("extension-mapping") if authored else None,
+            mapping_source=(
+                (file.with_name("extension-mapping.json"), "")
+                if file.name == authoring_cases.LEGACY_MAIN
+                else (file, "/extension_mapping")
+            )
+            if authored and (raw.get("extension-mapping") or {}).get("items")
+            else None,
+        )
         bundle["documents"] = deepcopy(list(sources.documents.values()))
+        bundle["origin_documents"] = cited_origins(bundle, origins)
         bundles.append(bundle)
     if selections:
         found = {value for bundle in bundles for value in bundle["case"].values()}

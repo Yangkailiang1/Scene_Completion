@@ -14,6 +14,39 @@ const MarkdownSource = lazy(() =>
     default: module.MarkdownSource,
   })),
 );
+export type TracedOrigin = {
+  document: string;
+  start_line: number;
+  end_line: number;
+  quote?: string;
+  match: "exact" | "located";
+};
+
+// Only verified lines are offered: a shipped original is opened by its own
+// document name, not by guessing which file the citation "probably" meant.
+export function resolvedOrigin(evidence: any): TracedOrigin | null {
+  const value = evidence?.origin;
+  if (
+    !value ||
+    !["exact", "located"].includes(value.match) ||
+    !value.document ||
+    !Number.isInteger(value.start_line)
+  )
+    return null;
+  return {
+    document: value.document,
+    start_line: value.start_line,
+    end_line: value.end_line || value.start_line,
+    quote: value.quote,
+    match: value.match,
+  };
+}
+function originSource(traced: TracedOrigin) {
+  return "origin:" + traced.document;
+}
+function matchLabel(match: string) {
+  return match === "exact" ? "声明行逐字核对" : "按引文定位";
+}
 export function SourceEvidence({
   project,
   evidence,
@@ -26,6 +59,14 @@ export function SourceEvidence({
   const [data, setData] = useState<any>(null),
     [error, setError] = useState(""),
     [start, setStart] = useState(evidence.line_start);
+  // ``null`` = the intermediate file this citation was recorded in; otherwise
+  // the original requirement/design document behind it.
+  const [origin, setOrigin] = useState<null | {
+    source_id: string;
+    line_start: number;
+    line_end: number;
+    quote: string;
+  }>(null);
   const [mode, setMode] = useState<"reading" | "source">("reading"),
     [outlineOpen, setOutlineOpen] = useState(false),
     [outline, setOutline] = useState<SourceHeading[]>([]);
@@ -35,6 +76,7 @@ export function SourceEvidence({
   });
   const mark = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    setOrigin(null);
     setStart(evidence.line_start);
     setOutline([]);
     setOutlineOpen(false);
@@ -43,22 +85,30 @@ export function SourceEvidence({
       revision: old.revision + 1,
     }));
   }, [project, evidence]);
+  // A resolved origin opens its own document; an unresolved one keeps the
+  // intermediate file so the reviewer still sees what the citation came from.
+  const current = origin || {
+    source_id: evidence.source_id,
+    line_start: evidence.line_start,
+    line_end: evidence.line_end,
+    quote: evidence.quote,
+  };
   useEffect(() => {
     let live = true;
     setData(null);
     setError("");
-    const line = mode === "reading" ? evidence.line_start : start;
+    const line = mode === "reading" ? current.line_start : start;
     const query = new URLSearchParams({
       start: String(line),
-      end: String(line === evidence.line_start ? evidence.line_end : line),
+      end: String(line === current.line_start ? current.line_end : line),
       context: "60",
-      quote: line === evidence.line_start ? evidence.quote || "" : "",
+      quote: line === current.line_start ? current.quote || "" : "",
       view: mode === "reading" ? "document" : "window",
     });
     api(
       projectUrl(
         project,
-        `sources/${encodeURIComponent(evidence.source_id)}?${query}`,
+        `sources/${encodeURIComponent(current.source_id)}?${query}`,
       ),
     )
       .then((v) => live && setData(v))
@@ -66,7 +116,7 @@ export function SourceEvidence({
     return () => {
       live = false;
     };
-  }, [project, evidence, start, mode]);
+  }, [project, evidence, start, mode, origin]);
   useEffect(() => {
     if (
       mode === "source" ||
@@ -80,6 +130,11 @@ export function SourceEvidence({
     setJump((old) => ({ line, revision: old.revision + 1 }));
     setOutlineOpen(false);
   }, []);
+  const traced = resolvedOrigin(evidence);
+  const originPending =
+    !traced && evidence?.origin?.match === "pending"
+      ? evidence.origin.reason || "原文未提供"
+      : "";
   const markdown =
     data?.document_format === "markdown" ||
     /\.(md|markdown)$/i.test(data?.name || "");
@@ -89,9 +144,16 @@ export function SourceEvidence({
         <div>
           <strong>{data?.name || "原文文档"}</strong>
           <small>
-            引用第{evidence.line_start}–{evidence.line_end}行 · 共
+            引用第{current.line_start}–{current.line_end}行 · 共
             {data?.line_count || "—"}行
+            {traced &&
+              (origin
+                ? ` · 来自中间产物第${evidence.line_start}–${evidence.line_end}行`
+                : ` · 原始出处：${traced.document}第${traced.start_line}–${traced.end_line}行（${matchLabel(traced.match)}）`)}
           </small>
+          {originPending && (
+            <small role="note">原文未定位：{originPending}</small>
+          )}
           {data?.original_path && (
             <small>
               <a
@@ -141,6 +203,35 @@ export function SourceEvidence({
             源码
           </button>
         </div>
+        {traced && (
+          <button
+            aria-pressed={!!origin}
+            title={
+              origin
+                ? "回到中间产物中的记录行"
+                : `打开原文第${traced.start_line}–${traced.end_line}行`
+            }
+            onClick={() => {
+              setMode("reading");
+              setStart(traced.start_line);
+              if (origin) {
+                setOrigin(null);
+                return;
+              }
+              setOrigin({
+                source_id: originSource(traced),
+                line_start: traced.start_line,
+                line_end: traced.end_line,
+                quote: traced.quote || "",
+              });
+            }}
+          >
+            <BookOpen size={14} />
+            {origin
+              ? "返回中间产物"
+              : `${traced.document} 第${traced.start_line}行`}
+          </button>
+        )}
         <button
           onClick={() => {
             setStart(evidence.line_start);
@@ -198,8 +289,13 @@ export function SourceEvidence({
         >
           <MarkdownSource
             lines={data.lines}
-            highlightStart={evidence.line_start}
-            highlightEnd={evidence.line_end}
+            highlightStart={current.line_start}
+            highlightEnd={current.line_end}
+            mark={{
+              start: current.line_start,
+              end: current.line_end,
+              quote: current.quote,
+            }}
             jump={jump}
             outlineOpen={outlineOpen}
             onOutline={setOutline}
@@ -229,10 +325,9 @@ export function SourceEvidence({
             {data.lines.map((r: any) => (
               <div
                 key={r.number}
-                ref={r.number === evidence.line_start ? mark : undefined}
+                ref={r.number === current.line_start ? mark : undefined}
                 className={
-                  r.number >= evidence.line_start &&
-                  r.number <= evidence.line_end
+                  r.number >= current.line_start && r.number <= current.line_end
                     ? "source-line highlighted"
                     : "source-line"
                 }

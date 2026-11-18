@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
+import { documentChoices, documentLines } from "../shared/provenance";
 import {
   channelLabels,
   copy,
@@ -9,8 +10,15 @@ import {
   type Decision,
   type Observation,
   type Party,
+  type SourceDocument,
+  type SourceRef,
   type Step,
 } from "./types";
+const MarkdownSource = lazy(() =>
+  import("../../sources/MarkdownSource").then((module) => ({
+    default: module.MarkdownSource,
+  })),
+);
 
 const list = (s: string) =>
   s
@@ -477,6 +485,198 @@ export function StepEditor({
     </Modal>
   );
 }
+export function SourceRefsEditor({
+  documents,
+  value,
+  onChange,
+}: {
+  documents: SourceDocument[];
+  value: SourceRef[];
+  onChange: (refs: SourceRef[]) => void;
+}) {
+  const choices = documentChoices(documents);
+  const [draft, set] = useState({
+    document_id: "",
+    start_line: "",
+    end_line: "",
+    quote: "",
+  });
+  const patch = (v: Partial<typeof draft>) => set({ ...draft, ...v });
+  const lines = documentLines(documents, draft.document_id);
+  const start = Number(draft.start_line) || 0;
+  const end = Number(draft.end_line) || start;
+  const position = (n: number) =>
+    Number.isInteger(n) && n >= 1 && n <= lines.length
+      ? n
+      : Math.min(Math.max(1, n || 1), Math.max(1, lines.length));
+  const valid =
+    !!draft.document_id &&
+    !!lines.length &&
+    Number.isInteger(start) &&
+    start >= 1 &&
+    start <= lines.length &&
+    Number.isInteger(end) &&
+    end >= start &&
+    end - start <= 1000;
+  const invalidReason = () => {
+    if (!draft.document_id) return "请选择来源文件。";
+    if (!lines.length) return "该文档没有可引用的行。";
+    if (!Number.isInteger(start) || start < 1 || start > lines.length)
+      return `起始行需在 1–${lines.length} 之间。`;
+    if (!Number.isInteger(end) || end < start) return "结束行不能小于起始行。";
+    if (end - start > 1000) return "单条出处最多引用 1001 行，请分段补录。";
+    return "";
+  };
+  const name = (id: string) =>
+    choices.find((c) => c.id === id)?.name || id || "未指定文档";
+  const add = () => {
+    if (!valid) return;
+    const quote =
+      draft.quote.trim() ||
+      lines
+        .filter((r) => r.number >= start && r.number <= end)
+        .map((r) => r.text)
+        .join("\n")
+        .trim();
+    const next: SourceRef = {
+      document_id: draft.document_id,
+      start_line: start,
+      end_line: end,
+      quote,
+      kind: "origin",
+      origin: "manual",
+    };
+    onChange([
+      ...value.filter(
+        (r) => !(r.document_id === next.document_id && r.start_line === start),
+      ),
+      next,
+    ]);
+    patch({ start_line: "", end_line: "", quote: "" });
+  };
+  return (
+    <fieldset className="ssd-source-editor">
+      <legend>来源（原文出处）</legend>
+      {value.length ? (
+        <ul className="ssd-source-current">
+          {value.map((r, n) => (
+            <li key={`${r.document_id}-${r.start_line}-${n}`}>
+              <div>
+                <code>{name(r.document_id)}</code>
+                <span>
+                  第 {r.start_line}–{r.end_line} 行
+                </span>
+                {r.quote && <small>{r.quote}</small>}
+                {r.json_pointer && <small>{r.json_pointer}</small>}
+              </div>
+              <button
+                aria-label={`移除出处 ${n + 1}`}
+                onClick={() => onChange(value.filter((_, k) => k !== n))}
+              >
+                移除
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted ssd-source-empty">
+          尚未补录出处；保存后该记录的「查看原始出处」为
+          0，无法跳转到原文。填写下方文件与行号即可追溯。
+        </p>
+      )}
+      <Select
+        label="来源文件"
+        value={draft.document_id}
+        values={[
+          ["", choices.length ? "选择来源文件" : "本用例没有可引用的文档"],
+          ...choices.map(
+            (d) => [d.id, `${d.roleLabel} · ${d.name}`] as [string, string],
+          ),
+        ]}
+        onChange={(document_id) =>
+          patch({ document_id, start_line: "", end_line: "" })
+        }
+      />
+      {draft.document_id && (
+        <>
+          <div className="ssd-form-columns">
+            <Text
+              label="起始行"
+              value={draft.start_line}
+              onChange={(v) => patch({ start_line: v.replace(/[^0-9]/g, "") })}
+            />
+            <Text
+              label="结束行"
+              value={draft.end_line}
+              onChange={(v) => patch({ end_line: v.replace(/[^0-9]/g, "") })}
+            />
+          </div>
+          <small className="muted ssd-source-hint">
+            文档共 {lines.length} 行；留空结束行表示只引用起始行。
+          </small>
+          {valid && (
+            <>
+              <p className="ssd-source-location" aria-live="polite">
+                预览：{name(draft.document_id)} · 第 {start}–{end} 行
+              </p>
+              <div className="ssd-source-preview" aria-label="来源预览">
+                {/\.(md|markdown)$/i.test(name(draft.document_id)) ? (
+                  <Suspense fallback={<p>正在渲染原文预览…</p>}>
+                    <MarkdownSource
+                      lines={lines}
+                      highlightStart={start}
+                      highlightEnd={end}
+                      jump={{ line: start, revision: 0 }}
+                      outlineOpen={false}
+                      onOutline={() => undefined}
+                      onNavigate={() => undefined}
+                    />
+                  </Suspense>
+                ) : (
+                  <div className="ssd-source-code">
+                    {lines
+                      .slice(
+                        Math.max(0, position(start) - 5),
+                        Math.min(lines.length, position(end) + 4),
+                      )
+                      .map((r) => (
+                        <div
+                          key={r.number}
+                          className={
+                            r.number >= start && r.number <= end
+                              ? "source-line highlighted"
+                              : "source-line"
+                          }
+                        >
+                          <span>{r.number}</span>
+                          <code>{r.text}</code>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          <Text
+            label="引文（留空则取上方所选行原文）"
+            value={draft.quote}
+            onChange={(quote) => patch({ quote })}
+            multiline
+          />
+          <button className="ssd-source-add" disabled={!valid} onClick={add}>
+            添加出处
+          </button>
+          {!valid && <small className="muted">{invalidReason()}</small>}
+        </>
+      )}
+      <p className="muted">
+        只能引用本用例快照内的文档，行号按该文件自身行号（从 1 开始）计算。
+        <code>.md</code>
+        按渲染阅读，<code>.json</code> 等按源码行查看。
+      </p>
+    </fieldset>
+  );
+}
 export function ObservationEditor({
   item,
   channel,
@@ -488,7 +688,7 @@ export function ObservationEditor({
   item: Observation;
   channel: Channel;
   kind: "concerns" | "scenarios" | "pending";
-  bundle: Bundle;
+  bundle: Pick<Bundle, "steps" | "channels" | "documents"> & Partial<Bundle>;
   onClose: () => void;
   onSave: (
     value: Observation,
@@ -659,6 +859,11 @@ export function ObservationEditor({
               ]
         }
         onChange={(status) => set({ ...value, status })}
+      />
+      <SourceRefsEditor
+        documents={bundle.documents || []}
+        value={value.source_refs || []}
+        onChange={(source_refs) => set({ ...value, source_refs })}
       />
       <p className="muted">保留原始出处，修订记录在保存后单独留存。</p>
     </Modal>

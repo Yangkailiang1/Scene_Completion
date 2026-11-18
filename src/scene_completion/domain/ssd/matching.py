@@ -15,14 +15,21 @@ def _records(bundle):
                 yield channel, kind, row
 
 
-def binding(row):
+def display_binding(row):
     return (
         row.get("step_id"),
         row.get("target"),
         row.get("field_id") or "",
         row.get("entity_id") or "",
         row.get("key"),
+        row.get("attribute") or "",
     )
+
+
+def binding(row):
+    if row.get("entity_id") and row.get("attribute") and not row.get("field_id"):
+        return ("entity", row["entity_id"], row["attribute"], row.get("key"))
+    return display_binding(row)
 
 
 def semantic_candidates(bundle):

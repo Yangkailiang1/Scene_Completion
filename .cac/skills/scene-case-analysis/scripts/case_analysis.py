@@ -14,6 +14,10 @@ def main():
     build.add_argument("--input", required=True)
     build.add_argument("--case", action="append")
     build.add_argument("--output", required=True)
+    core = commands.add_parser("export-core", help="导出可重新导入的核心 JSON 和字段溯源清单")
+    core.add_argument("--input", required=True)
+    core.add_argument("--case", action="append")
+    core.add_argument("--output", required=True)
     prepare = commands.add_parser("prepare")
     prepare.add_argument("--input", required=True)
     prepare.add_argument("--case", required=True)
@@ -49,6 +53,10 @@ def main():
                 write_json(target, value)
                 files.append({"case": value["case"], "file": str(target)})
             result = {"version": "ssd-case-v1", "files": files}
+        elif args.command == "export-core":
+            from scene_completion.analysis.ssd.core_export import export_core
+
+            result = export_core(args.input, args.output, args.case)
         elif args.command == "schema":
             result = BUNDLE
         elif args.command == "prepare":

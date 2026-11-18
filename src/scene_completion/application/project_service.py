@@ -377,6 +377,27 @@ class Workbench:
         root = self.run_dir(rid)
         rows = snapshot(root)
         preview, _, _, accepted = inspect_cases(rows, case_ids)
+        point = root / "imports/ssd-input.json"
+        if point.is_file():
+            inputs = (root / read_json(point)["path"]).resolve()
+            if inputs.is_relative_to(root.resolve()) and any(inputs.rglob("main-success.json")):
+                from scene_completion.analysis.ssd.core_input import validate_core
+
+                authored = validate_core(inputs, case_ids)
+                blocked = {i.get("case_id") for i in authored["issues"] if i["kind"] == "blocking"}
+                for case in authored["cases"]:
+                    if case["id"] in blocked or case["id"] in preview["accepted"]:
+                        continue
+                    preview["accepted"].append(case["id"])
+                    preview["cases"].append(
+                        {
+                            "id": case["id"],
+                            "name": case["name"],
+                            "selected": True,
+                            "accepted": True,
+                            "format": "main-success",
+                        }
+                    )
         if accepted:
             _, _, contracts, _, pending = supplied_interfaces(root, rows, accepted)
             preview.update(sr_interface_count=len(contracts), sr_api_pending=pending)

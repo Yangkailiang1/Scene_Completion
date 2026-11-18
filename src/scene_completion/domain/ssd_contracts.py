@@ -52,6 +52,9 @@ SCENARIO = obj(
     concern_ids=array(STRING),
     status=enum("active", "pending", "unbound"),
 )
+for row in (RECORD, SCENARIO):
+    row["properties"]["attribute"] = {"type": ["string", "null"]}
+
 SCHEMAS = {
     "ssd-bind": obj(
         operations=array(
@@ -122,6 +125,8 @@ ROLE_TEXT = {
     "ssd-resolve": (
         "你是当前用例的独立关注点定位检查器。只读取本次channel的原记录和共享正向SSD、"
         "接口及实体上下文，完成定位与分类；不得读取或推测其他通道的结果。"
+        "若失败属于明确的实体属性，在关注点与场景均填写实体ID与属性名；接口字段使用field_id。"
+        "保持实际失败步骤，禁止用同名字段跨请求、响应或存储进行挂载。"
     ),
     "ssd-semantic-compare": (
         "你是当前用例的场景对应检查器。本任务明确允许读取pairs中指定的两侧G/E/GT结果，"

@@ -779,3 +779,18 @@ def test_fused_container_evidence_is_preserved_and_missing_api_is_unknown():
     assert "source_refs" not in result["data"]
     assert result["source_refs"] == R
     assert result["api_id"] is None
+
+
+def test_submission_envelope_accepts_the_evidence_ids_the_model_is_told_to_write():
+    """The envelope check runs before expansion, so it must expect id strings."""
+    from scene_completion.models.clients.deepagents_client import encode_reference_schema
+    from scene_completion.models.transport.model_submission import containers
+
+    p = fused_fixture()
+    model_schema = encode_reference_schema(p["output_schema"])
+    payload = {
+        "interactions": [
+            {"operation": {"source_refs": ["DUAL-e42d3aa70850c"], "name": "查询商品"}},
+        ]
+    }
+    containers(payload, model_schema)

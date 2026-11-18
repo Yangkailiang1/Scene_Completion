@@ -139,7 +139,11 @@ def test_bad_model_declared_id_fails_at_submission_with_precise_diagnostics(tmp_
     doc, raw = fixture()
     p = packet("api-map", {"RR": [doc]})
     p.update(skill_text="test", node_key="rr-api-map")
-    candidate = EvidenceContext(p).encode_output(raw) if indexed else deepcopy(raw)
+    # Keep a private context: ``encode_output`` registers new evidence, and a
+    # second context for the same packet then sees a different pool.
+    candidate = (
+        EvidenceContext(deepcopy(p)).encode_output(deepcopy(raw)) if indexed else deepcopy(raw)
+    )
     candidate["services"][0]["interfaces"][0]["declared_id"] = "pending]"
     sent = []
 

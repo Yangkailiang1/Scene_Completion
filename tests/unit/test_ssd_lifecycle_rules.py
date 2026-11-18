@@ -35,8 +35,12 @@ def test_publish_has_concrete_pre_and_post_states_without_edit_only_rules(cases)
     bundle = cases["UC-005"]
     local = conditions(bundle, "A_S4")
     assert any("status = PUBLISHED" in r["condition"] for r in local)
+    # Edit-only attribute rules must not reach the publish check. A bare
+    # "SERVICE" is the enum member {STANDARD|SERVICE}, not the conditional price
+    # rule, so match the rule's own wording instead of the token alone.
     assert not any(
-        any(word in r["condition"] for word in ("不可重名", "不可修改", "SERVICE")) for r in local
+        any(word in r["condition"] for word in ("不可重名", "不可修改", "为SERVICE时"))
+        for r in local
     )
     for step in ("SR-005-RES", "RR-005-RES"):
         returned = conditions(bundle, step)
