@@ -110,7 +110,8 @@ def scan(project, service=None):
             if n > 10000:
                 raise ValueError("input目录文件过多，请登记专用材料目录")
             relative = path.relative_to(root)
-            if allowed is not None and str(relative) not in allowed:
+            relative_key = relative.as_posix()
+            if allowed is not None and relative_key not in allowed:
                 continue
             if any(p.startswith(".") or p in EXCLUDED for p in relative.parts):
                 continue
@@ -125,10 +126,11 @@ def scan(project, service=None):
             if stat.st_size > 20 * 1024 * 1024:
                 continue
             identity = [stat.st_size, stat.st_mtime_ns]
-            old = setting["observed"].get(str(relative), {})
+            observed = setting["observed"]
+            old = observed.get(relative_key, observed.get(str(relative), {}))
             count = old.get("stable", 0) + 1 if old.get("stat") == identity else 1
             record = {"stat": identity, "stable": count, "hash": old.get("hash")}
-            seen[str(relative)] = record
+            seen[relative_key] = record
             if count < 2:
                 waiting += 1
                 continue
@@ -147,7 +149,7 @@ def scan(project, service=None):
                     (
                         {k: f[k] for k in ("relative_path", "behavior_context") if k in f}
                         for f in bundle_files.values()
-                        if f.get("relative_path") == str(relative)
+                        if f.get("relative_path") == relative_key
                     ),
                     {},
                 )
