@@ -6,7 +6,6 @@ from scene_completion.application.input_service import watch_settings
 
 
 def register(app, service):
-
     @app.post("/api/input-bundles/preview")
     def bundle_preview(body: dict):
         from scene_completion.inputs.documents.input_bundles import discover

@@ -228,7 +228,10 @@ def _build_cases(
                 "SR": normal_projection(scoped_sr),
                 "case-group": group,
             },
-            build=lambda d, rr=normal_projection(scoped_rr), sr=normal_projection(scoped_sr), g=group: {
+            build=lambda d,
+            rr=normal_projection(scoped_rr),
+            sr=normal_projection(scoped_sr),
+            g=group: {
                 "RR": rr,
                 "SR": sr,
                 "components": d["components"],
