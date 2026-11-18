@@ -1,11 +1,13 @@
 """Export the structured SSD handoff and an auditable field-to-source map."""
 
+import re
 import shutil
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.analysis.ssd.pipeline import _input_root, build_cases
+from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
 from scene_completion.infrastructure.storage import fingerprint, write_json
 
 
@@ -49,6 +51,7 @@ def _exception(bundle, row, channel):
     if field:
         target = "sender" if field["location"] == "response" else "receiver"
     sources = _sources(bundle, row)
+    pending_source = row.get("original") or {}
     original = next(
         (
             s
@@ -70,7 +73,22 @@ def _exception(bundle, row, channel):
         "step_id": row.get("step_id"),
         "target": target,
         "condition": row["condition"],
-        "expected": row.get("expected", ""),
+        "expected": row.get("expected") or pending_source.get("expected", ""),
+        **(
+            {"failure_step_id": pending_source["failure_step_id"]}
+            if pending_source.get("failure_step_id")
+            else {}
+        ),
+        **(
+            {"scenario_kind": pending_source["scenario_type"]}
+            if pending_source.get("scenario_type")
+            else {}
+        ),
+        **(
+            {"extension_id": pending_source["extension_id"]}
+            if pending_source.get("extension_id")
+            else {}
+        ),
         "status": row["status"],
         **({"needs_semantic": True} if row.get("needs_semantic") else {}),
         "anchor": anchor,
@@ -87,7 +105,8 @@ def _exception(bundle, row, channel):
                 "parameter": {
                     "name": field["name"],
                     "location": field["location"],
-                    "direction": step["direction"] if field["location"] != "storage" else "storage",
+                    "direction": field.get("direction")
+                    or (step["direction"] if field["location"] != "storage" else "storage"),
                 }
             }
             if field
@@ -97,6 +116,7 @@ def _exception(bundle, row, channel):
 
 
 def _main(bundle):
+    entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     steps = []
     for step in bundle["steps"]:
         operation = step["operation"]
@@ -110,26 +130,58 @@ def _main(bundle):
                 "receiver": step["receiver"]["id"],
                 "entities": step["entity_ids"],
                 "api_ref": step["api_id"],
+                **({"validates": step.get("validates", [])} if entity_only else {}),
                 "operation": {
                     "name": operation["name"],
                     "crud": operation["kinds"],
+                    **({"crud_source": operation["kinds_source"]} if entity_only else {}),
+                    **(
+                        {"command_id": operation["command_id"]}
+                        if operation.get("command_id")
+                        else {}
+                    ),
                     **{k: operation[k] for k in ("http_method", "http_path") if operation.get(k)},
                 },
                 "source_refs": _originals(bundle, step),
                 **({"description": step["description"]} if step.get("description") else {}),
-                "declared_fields": [
-                    {
-                        **{k: field[k] for k in ("name", "location", "type", "required")},
-                        "normalized_constraints": field["constraints"],
+                **(
+                    {"entity_refs": step.get("entity_refs", [])}
+                    if entity_only
+                    else {
+                        "declared_fields": [
+                            {
+                                **{k: field[k] for k in ("name", "location", "type", "required")},
+                                "normalized_constraints": field["constraints"],
+                            }
+                            for field in step["data"]
+                            if not field.get("contract_derived")
+                        ]
                     }
-                    for field in step["data"]
-                    if not field.get("contract_derived")
-                ],
+                ),
             }
         )
     return {
         "version": "main-success-v2",
+        **({"analysis_profile": bundle["analysis_profile"]} if entity_only else {}),
         "case": bundle["case"],
+        **(
+            {
+                "command_bindings": bundle["command_bindings"],
+                "data_obligations": [
+                    {
+                        "step_id": step["id"],
+                        "field_id": field["id"],
+                        "command_id": field["command_id"],
+                        "location": field["location"],
+                        "name": field["name"],
+                    }
+                    for step in bundle["steps"]
+                    for field in step["data"]
+                ],
+            }
+            if bundle.get("analysis_profile") in COMMAND_PROFILES
+            else {}
+        ),
         "function_tree": {
             "path": bundle.get("function_tree_path") or "功能树.json",
             "uc_id": bundle.get("function_tree_case_id", bundle["case"]["id"]),
@@ -199,7 +251,11 @@ def write_core(root, output, bundles):
         for bundle in bundles
         for name in (bundle.get("function_tree_path"), bundle.get("test_source_path"))
         if name
-    } | {"api_extraction.json"}
+    } | (
+        {"api_extraction.json"}
+        if any(b.get("analysis_profile") not in STRUCTURED_PROFILES for b in bundles)
+        else set()
+    )
     for name in support:
         if (root / name).is_file():
             target = output / name
@@ -207,7 +263,12 @@ def write_core(root, output, bundles):
             shutil.copyfile(root / name, target)
     for bundle in bundles:
         case_id = bundle["case"]["id"]
-        folder = output / "cases" / fingerprint(case_id)[:16]
+        entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
+        folder_name = fingerprint(case_id)[:16]
+        if entity_only:
+            readable = re.sub(r'[<>:"/\\|?*\s]+', "-", case_id + "-" + bundle["case"]["name"])
+            folder_name = readable.strip(".-")[:64] + "-" + folder_name[:8]
+        folder = output / "cases" / folder_name
         for doc in bundle["documents"]:
             if doc["role"] not in {"RR", "SR", "test"}:
                 continue
@@ -222,7 +283,12 @@ def write_core(root, output, bundles):
         for channel, filename in (("E", "existing-exceptions"), ("GT", "test-exceptions")):
             rows = bundle["channels"][channel]
             exceptions = [
-                _exception(bundle, row, channel) for row in rows["scenarios"] + rows["pending"]
+                _exception(bundle, row, channel)
+                for row in rows["scenarios"] + rows["pending"]
+                if not entity_only
+                or channel != "GT"
+                or row.get("extension_id")
+                or (row.get("original") or {}).get("extension_id")
             ]
             for item in exceptions:
                 if not item.get("extension_id") and channel == "GT":
@@ -264,6 +330,7 @@ def write_core(root, output, bundles):
                 if kind == "out_of_scope"
                 else "pending",
                 "reason": record.get("reason"),
+                **({k: record[k] for k in ("condition", "expected")} if entity_only else {}),
                 **({"needs_semantic": True} if record.get("needs_semantic") else {}),
                 "bindings": bindings,
             }
@@ -294,4 +361,17 @@ def write_core(root, output, bundles):
             },
         )
     write_json(output / "architecture.json", architecture)
+    if (root / "source-documents.json").is_file():
+        names = {
+            doc["name"].split("#", 1)[0]: doc["role"]
+            for bundle in bundles
+            for doc in bundle["documents"]
+            if doc["role"] in {"RR", "SR", "test"}
+            and Path(doc["name"]).suffix.lower() in {".md", ".markdown"}
+            and (output / doc["name"]).is_file()
+        }
+        write_json(
+            output / "source-documents.json",
+            {"documents": [{"path": name, "role": role} for name, role in sorted(names.items())]},
+        )
     return {"output": str(output), "case_ids": [bundle["case"]["id"] for bundle in bundles]}

@@ -11,6 +11,7 @@ from pathlib import Path
 
 from scene_completion.domain.concern_registry import default_registry
 from scene_completion.domain.concern_templates import scenario_metadata, templates_for
+from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -237,7 +238,7 @@ def _enrich_fields(step, contracts):
         old["constraints"] = list(merged.values())
 
 
-def _steps(raw, sources, file_name, contracts, root=None):
+def _steps(raw, sources, file_name, contracts, root=None, *, entity_only=False):
     from scene_completion.inputs.structured.ordered_behaviors import scenario_kind
 
     # Raw behaviour files may omit ``scenario_kind``; the shared resolver reads
@@ -315,6 +316,8 @@ def _steps(raw, sources, file_name, contracts, root=None):
             else "SR"
         )
         aid = _declared_api(node, contracts)
+        if entity_only and not aid and node.get("api_id") in contracts:
+            aid = node["api_id"]
         declared = op.get("crud") or op.get("kinds")
         if not declared:
             declared = list(
@@ -374,6 +377,23 @@ def _steps(raw, sources, file_name, contracts, root=None):
                 **{part: op[part] for part in ("http_method", "http_path") if op.get(part)},
             },
             **({"description": node["description"]} if node.get("description") else {}),
+            **(
+                {
+                    "entity_refs": [
+                        {"entity": row["entity"], "fields": row.get("fields") or []}
+                        for row in node.get("data_ref") or []
+                        if row.get("entity")
+                    ],
+                    "validates": node.get("validates") or [],
+                    "participant_gaps": [
+                        party["id"]
+                        for party in (sender, receiver)
+                        if party["id"] not in participants
+                    ],
+                }
+                if entity_only
+                else {}
+            ),
             "data": list({p["id"]: p for p in data}.values()),
             "api_id": aid,
             "entity_ids": list(dict.fromkeys(entities)),
@@ -420,7 +440,36 @@ def _steps(raw, sources, file_name, contracts, root=None):
                 # compareAndDeleteProduct into update/publish, for example.
                 if not node.get("operation_kinds") and calls[-1]["operation"]["kinds"]:
                     step["operation"]["kinds"] = deepcopy(calls[-1]["operation"]["kinds"])
-        if not action or aid:
+        if entity_only:
+            if node.get("api_id"):
+                step["declared_command"] = node["api_id"]
+            step["data"] = []
+            step["entity_ids"] = list(dict.fromkeys(entities))
+            step["operation"]["kinds"] = (
+                list(op.get("crud", []))
+                if op.get("crud_source") in {"declared", "manual"}
+                or "crud" in op
+                and not op.get("crud_source")
+                else []
+            )
+            step["operation"]["kinds_source"] = (
+                op.get("crud_source") or "declared"
+                if "crud" in op and op.get("crud_source") != "pending"
+                else "pending"
+            )
+            method = op.get("http_method") or contract.get("method")
+            if not method:
+                methods = {
+                    str(api.get("method")).upper()
+                    for api in contracts.values()
+                    if api.get("method")
+                    and api["id"] in text
+                    and re.search(r"(?<![\w-])" + re.escape(api["id"]) + r"(?![\w-])", text)
+                }
+                method = next(iter(methods)) if len(methods) == 1 else None
+            if method:
+                step["operation"]["http_method"] = method
+        elif not action or aid:
             _enrich_fields(step, contracts)
         result.append(step)
     return result, missing
@@ -570,6 +619,7 @@ def generate_g(bundle):
 
     registry = current_registry(bundle.get("registry") or default_registry())
     definitions, profiles = registry["definitions"], registry["profiles"]
+    entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     for step in bundle["steps"]:
         refs = step.get("source_refs", [])
         kinds = set(step["operation"].get("kinds", []))
@@ -634,6 +684,17 @@ def generate_g(bundle):
                     )
                 else:
                     for template in templates:
+                        if (
+                            bundle.get("analysis_profile") in COMMAND_PROFILES
+                            and key == "human.authentication"
+                            and template["variant_id"] == "missing_credential"
+                            and any(
+                                c["id"] == step["operation"].get("command_id")
+                                and c.get("authentication") == "optional"
+                                for c in bundle["commands"]
+                            )
+                        ):
+                            continue
                         scene = add_scenario(
                             output,
                             concern,
@@ -671,6 +732,8 @@ def generate_g(bundle):
                     continue
                 for key in keys:
                     definition = definitions[key]
+                    if entity_only and key == "service.query_retrieval.data_visibility":
+                        continue
                     if kinds.intersection(definition["operation_kinds"]):
                         attach(key)
             if receiver.get("technology") == "database":
@@ -679,7 +742,7 @@ def generate_g(bundle):
                     not special["operation_kinds"] or kinds.intersection(special["operation_kinds"])
                 ):
                     attach("database.special_characters")
-            for entity in step.get("entity_ids", []):
+            for entity in [] if entity_only else step.get("entity_ids", []):
                 rules = _business_rules(bundle, step, entity)
                 if rules:
                     for condition, source_refs in rules:
@@ -689,7 +752,7 @@ def generate_g(bundle):
                             condition=condition,
                             source_refs=source_refs,
                         )
-        for field in step["data"]:
+        for field in [] if bundle.get("analysis_profile") in COMMAND_PROFILES else step["data"]:
             field_refs = field.get("source_refs", [])
             checks = []
             if field.get("required") is True:
@@ -746,6 +809,10 @@ def generate_g(bundle):
                             source_refs=source_refs,
                         )
     _attach_entity_units(bundle, output, definitions)
+    if bundle.get("analysis_profile") in COMMAND_PROFILES:
+        from scene_completion.analysis.ssd.command_contract import generate_fields
+
+        generate_fields(bundle, output)
     return output
 
 
@@ -769,7 +836,12 @@ def _attach_entity_units(bundle, output, definitions):
         step = next((s for s in bundle["steps"] if s["id"] == unit["step_id"]), None)
         if step is None:
             continue
-        if not any(_unit_applies({**unit, **atom}, step) for atom in unit.get("atoms") or [unit]):
+        context_step = next(
+            (s for s in bundle["steps"] if s["id"] == unit.get("operation_step_id")), step
+        )
+        if not any(
+            _unit_applies({**unit, **atom}, context_step) for atom in unit.get("atoms") or [unit]
+        ):
             # A rule that only governs editing must not be re-checked by an
             # operation that merely touches the same entity.
             continue
@@ -779,10 +851,11 @@ def _attach_entity_units(bundle, output, definitions):
             "G",
             step,
             key,
-            "receiver",
+            "data" if bundle.get("analysis_profile") in STRUCTURED_PROFILES else "receiver",
             field=None,
             entity=unit["entity"],
             attribute=unit["attribute"],
+            obligation_scope=unit.get("obligation_scope"),
             condition=unit["attribute"] + "：" + _atom_condition(unit),
             refs=unit.get("source_refs") or step.get("source_refs", []),
             rule_id=RULE_VERSION + ":" + key,
@@ -800,7 +873,7 @@ def _attach_entity_units(bundle, output, definitions):
         )
         for atom in unit.get("atoms") or [unit]:
             projected = {**unit, **atom, "atoms": []}
-            if not _unit_applies(projected, step):
+            if not _unit_applies(projected, context_step):
                 continue
             condition = unit["attribute"] + "：" + _atom_condition(projected)
             scene = add_scenario(
@@ -913,6 +986,10 @@ def _atom_condition(unit):
             + str(then.get("operator"))
             + str(then.get("value"))
         )
+    if unit.get("failure_condition"):
+        return unit["failure_condition"]
+    if operation == "type":
+        return name + "不是 " + str(value)
     if label:
         return name + label
     return name + "不满足声明约束"
@@ -925,7 +1002,22 @@ def origin_documents(root):
     """Original requirement/design documents shipped beside structured inputs."""
     from scene_completion.inputs.provenance import source_origins
 
-    root = Path(root)
+    root = Path(root).resolve()
+    manifest = root / "source-documents.json"
+    declared = {}
+    if manifest.is_file():
+        for row in json.loads(manifest.read_text(encoding="utf-8-sig"))["documents"]:
+            path = (root / row["path"]).resolve()
+            role = row["role"]
+            if (
+                not path.is_relative_to(root)
+                or not path.is_file()
+                or path.suffix.lower() not in ORIGIN_SUFFIXES
+                or role not in {"RR", "SR", "test"}
+                or path in declared
+            ):
+                raise ValueError("source-documents.json 的原文路径或角色无效：" + row["path"])
+            declared[path] = role
     found = []
     for path in sorted(root.rglob("*")):
         if (
@@ -934,7 +1026,7 @@ def origin_documents(root):
             or any(part.startswith(".") for part in path.relative_to(root).parts)
         ):
             continue
-        role = (
+        role = declared.get(path) or (
             "RR"
             if "需求" in path.name or re.match(r"RR[._-]", path.name, re.I)
             else "SR"
@@ -1016,7 +1108,7 @@ def case_identity(file, directory, raw=None):
     }
 
 
-def build_cases(directory, case_ids=None, *, case_files=None, generate=True):
+def build_cases(directory, case_ids=None, *, case_files=None, generate=True, profile=None):
     """Build independent bundles; an explicit file list isolates worker failures.
 
     Shared API/entity documents are read once, but only the selected SysOperation
@@ -1081,12 +1173,24 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True):
                 local_tree_path = linked_path
                 local_tree = json.loads(linked_path.read_text(encoding="utf-8-sig"))
                 local_contracts = api_contracts(sources, local_tree, local_tree_path)
-        steps, missing = _steps(raw, sources, name, local_contracts, root=root)
+        active_profile = profile or raw.get("analysis_profile")
+        entity_only = active_profile in STRUCTURED_PROFILES
         tree_case = tree_link.get("uc_id") or case["id"]
+        command_mode = active_profile in COMMAND_PROFILES
+        if command_mode:
+            from scene_completion.analysis.ssd.command_contract import catalogue
+
+            local_contracts = catalogue(
+                sources, local_tree, local_tree_path, tree_case, case["name"]
+            )
+        steps, missing = _steps(
+            raw, sources, name, local_contracts, root=root, entity_only=entity_only
+        )
         bundle = {
             "version": VERSION,
             "coverage_policy": "coverage-any-confirmed-v2",
             "case": case,
+            **({"analysis_profile": active_profile} if active_profile else {}),
             "function_tree_case_id": tree_case,
             "function_tree_path": local_tree_path.relative_to(root).as_posix()
             if local_tree
@@ -1096,13 +1200,38 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True):
             "documents": [],
             "decisions": [],
             "pending": [],
-            "entities": entities_for(sources, local_tree, tree_case, case["name"], local_tree_path),
+            "entities": entities_for(
+                sources,
+                local_tree,
+                tree_case,
+                case["name"],
+                local_tree_path,
+                entity_only=entity_only,
+            ),
             # Retain the project catalogue so a reviewer can select another
             # declared API. G still uses only the actual step's bound fields.
-            "apis": deepcopy(list(local_contracts.values())),
+            "apis": [] if entity_only else deepcopy(list(local_contracts.values())),
             "registry": default_registry(),
             "rule_version": RULE_VERSION,
         }
+        if command_mode:
+            from scene_completion.analysis.ssd.command_contract import attach
+
+            attach(bundle, local_contracts)
+        if entity_only and not command_mode:
+            candidates = (local_tree or {}).get("functions", [])
+            matches = [f for f in candidates if (f.get("functionId") or f.get("ucId")) == tree_case]
+            matches = matches or [f for f in candidates if f.get("name") == case["name"]]
+            bundle["operation_hints"] = (
+                [
+                    {k: row[k] for k in ("apiId", "name", "method") if row.get(k)}
+                    for layer in ("rrLayer", "srLayer")
+                    for row in matches[0].get(layer, {}).get("commands", [])
+                    if row.get("method")
+                ]
+                if len(matches) == 1
+                else []
+            )
         if missing:
             bundle["pending"].append(
                 pending(
@@ -1178,6 +1307,31 @@ def rebind_steps(previous, updated):
     """
     result = deepcopy(updated)
     old_steps = {s["id"]: s for s in previous.get("steps", [])}
+
+    if result.get("analysis_profile") in STRUCTURED_PROFILES:
+        from scene_completion.analysis.interactions.field_anchors import anchors
+        from scene_completion.domain.ssd_contracts import CRUD
+
+        declared = {e["id"] for e in result.get("entities", [])}
+        for step in result["steps"]:
+            operation = step["operation"]
+            old = (old_steps.get(step["id"]) or {}).get("operation", {})
+            if set(step["entity_ids"]) - declared:
+                raise ValueError("步骤引用了功能树中不存在的业务实体")
+            if not set(operation.get("kinds", [])) <= set(CRUD):
+                raise ValueError("步骤操作必须为 create/read/update/delete")
+            if operation.get("kinds") != old.get("kinds"):
+                operation["kinds_source"] = "manual"
+                operation["reason"] = "人工修订"
+            step["operation"]["kinds"] = list(dict.fromkeys(operation.get("kinds", [])))
+            if result.get("analysis_profile") not in COMMAND_PROFILES:
+                step["data"] = []
+        if result.get("analysis_profile") in COMMAND_PROFILES:
+            from scene_completion.analysis.ssd.command_contract import attach
+
+            attach(result, {c["id"]: c for c in result["commands"]})
+        result["field_anchors"] = anchors(result)
+        return result
 
     def contracts(bundle):
         out = {}

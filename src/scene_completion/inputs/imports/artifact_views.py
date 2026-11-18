@@ -18,6 +18,8 @@ def provenance_label(value):
 
 
 def purpose(row):
+    if row.get("core_input"):
+        return "SSD 核心输入（直接读取）"
     if row.get("behavior_product"):
         return row["behavior_product"]["label"]
     if row.get("behavior_error"):

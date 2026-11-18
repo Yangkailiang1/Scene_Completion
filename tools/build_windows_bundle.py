@@ -163,6 +163,7 @@ def build(output, offline=False):
         )
     # No local configuration, customer documents, datasets or caches are shipped.
     copy_application(stage / "app")
+    shutil.copy2(ROOT / "deployment/windows/CODING-AGENT.md", stage / "CODING-AGENT.md")
     verify_portable_layout(stage)
     shutil.copy2(ROOT / "deployment/windows/launcher.py", stage / "launcher.py")
     shutil.copy2(ROOT / "deployment/windows/env.example", stage / ".env.example")
@@ -180,7 +181,7 @@ def build(output, offline=False):
     for name in ("start.cmd", "status.cmd", "stop.cmd", "check.cmd", "scene.cmd"):
         shutil.copy2(ROOT / "deployment/windows" / name, stage / name)
     (stage / "使用说明.txt").write_text(
-        "解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。start.cmd后台启动；status.cmd查看状态；stop.cmd停止。关闭浏览器或启动窗口不停止服务。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n",
+        "解压整个目录。双击start.cmd，浏览器访问 http://127.0.0.1:8765 。无需联网安装Python或依赖。start.cmd后台启动；status.cmd查看状态；stop.cmd停止。关闭浏览器或启动窗口不停止服务。\n在界面配置内网API及客户实际模型标识，也可复制根目录.env.example为.env后填写。业务文档、密钥及运行结果只存本地data目录。\n支持Windows 10/11 x64，不需要安装Node、Python或pip。请不要在ZIP预览窗口中直接运行。\nExcel测试示例在app/examples/tests/mall-exception-tests.xlsx。\n首次可运行check.cmd检查依赖与离线测试。项目结果通过界面导出。\n请将CODING-AGENT.md中的提示词发给终端Coding Agent，以便执行用例和接管失败节点。\n",
         encoding="utf8",
     )
     manifest = {**version, "files": {}}

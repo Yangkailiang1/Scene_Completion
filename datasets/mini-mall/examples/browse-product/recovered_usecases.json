@@ -1,0 +1,108 @@
+[
+  {
+    "id": "REC-BROWSE-01",
+    "name": "浏览商品",
+    "description": "验证商品浏览接口与分页条件",
+    "actors": [
+      "顾客"
+    ],
+    "priority": "高",
+    "purpose": "通过筛选浏览商品",
+    "trigger": "访问商品列表",
+    "change_type": "新增",
+    "preconditions": [
+      "商城可访问"
+    ],
+    "postconditions": [
+      "显示筛选结果"
+    ],
+    "main_scene_id": "SC@BROWSE",
+    "main_scene_name": "浏览商品成功",
+    "main_success": [
+      {
+        "id": "B1",
+        "description": "顾客访问商品浏览接口"
+      }
+    ],
+    "extensions": [
+      {
+        "id": "EXT-01",
+        "scene_id": "SC@EXT-01",
+        "name": "成功备选",
+        "condition": "pageSize=1 或 pageSize=100",
+        "expected_result": "查询成功",
+        "evidence": [
+          "EV@TEST-L3：访问 GET /api/v1/products，pageSize=1 与 pageSize=100 均成功。"
+        ],
+        "failure_step_id": "B1",
+        "note": "成功备选"
+      },
+      {
+        "id": "EXT-02",
+        "scene_id": "SC@EXT-02",
+        "name": "下界失败",
+        "condition": "pageSize < 1",
+        "expected_result": "拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE",
+        "evidence": [
+          "EV@TEST-L4：访问 GET /api/v1/products，pageSize=0，拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE。"
+        ],
+        "failure_step_id": "B1",
+        "note": "下界失败"
+      },
+      {
+        "id": "EXT-03",
+        "scene_id": "SC@EXT-03",
+        "name": "上界失败",
+        "condition": "pageSize > 100",
+        "expected_result": "拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE",
+        "evidence": [
+          "EV@TEST-L5：访问 GET /api/v1/products，pageSize=101，拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE。"
+        ],
+        "failure_step_id": "B1",
+        "note": "上界失败"
+      },
+      {
+        "id": "EXT-04",
+        "scene_id": "SC@EXT-04",
+        "name": "测试独立边界",
+        "condition": "keyword 长度 > 32",
+        "expected_result": "拒绝查询并返回 KEYWORD_TOO_LONG",
+        "evidence": [
+          "EV@TEST-L6：访问 GET /api/v1/products，keyword 超过 32 个字符时被校验拒绝并返回 KEYWORD_TOO_LONG。"
+        ],
+        "failure_step_id": "B2",
+        "note": "测试独立边界"
+      }
+    ],
+    "evidence_locations": [
+      {
+        "id": "EV@TEST-L3",
+        "location": "L3",
+        "quote": "访问 GET /api/v1/products，pageSize=1 与 pageSize=100 均成功。",
+        "source_file": "test_browse.md",
+        "source_id": "TEST-BROWSE"
+      },
+      {
+        "id": "EV@TEST-L4",
+        "location": "L4",
+        "quote": "访问 GET /api/v1/products，pageSize=0，拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE。",
+        "source_file": "test_browse.md",
+        "source_id": "TEST-BROWSE"
+      },
+      {
+        "id": "EV@TEST-L5",
+        "location": "L5",
+        "quote": "访问 GET /api/v1/products，pageSize=101，拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE。",
+        "source_file": "test_browse.md",
+        "source_id": "TEST-BROWSE"
+      },
+      {
+        "id": "EV@TEST-L6",
+        "location": "L6",
+        "quote": "访问 GET /api/v1/products，keyword 超过 32 个字符时被校验拒绝并返回 KEYWORD_TOO_LONG。",
+        "source_file": "test_browse.md",
+        "source_id": "TEST-BROWSE"
+      }
+    ]
+  }
+]

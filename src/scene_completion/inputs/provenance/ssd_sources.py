@@ -70,6 +70,10 @@ class Sources:
         # Original specification documents. Structured inputs cite their own
         # JSON pointers; their ``source`` fields point at these real lines.
         self.origins = list(origins or [])
+        for doc in self.origins:
+            path = self.root / (doc.get("path") or doc["name"])
+            if path.is_file():
+                self.add(path, doc["role"])
         for path in sorted(self.root.glob("*.md")):
             role = (
                 "RR"
@@ -479,7 +483,7 @@ def api_contracts(sources, tree, tree_path=None):
     return contracts
 
 
-def entities_for(sources, tree, case_id, case_name, tree_path=None):
+def entities_for(sources, tree, case_id, case_name, tree_path=None, *, entity_only=False):
     """Entities and constraints of exactly one use case.
 
     The function tree is already split by use case, so each case carries only
@@ -492,12 +496,18 @@ def entities_for(sources, tree, case_id, case_name, tree_path=None):
     if tree is None:
         return []
     name = sources.add(tree_path or sources.root / "功能树.json")
-    for fn, function in enumerate(tree.get("functions", [])):
+    functions = tree.get("functions", [])
+    exact = [f for f in functions if (f.get("functionId") or f.get("ucId")) == case_id]
+    if entity_only and len(exact or [f for f in functions if f.get("name") == case_name]) != 1:
+        return []
+    for fn, function in enumerate(functions):
+        if entity_only and exact and function is not exact[0]:
+            continue
         identity = function.get("functionId") or function.get("ucId")
         if identity != case_id and function.get("name") != case_name:
             continue
         declared = {}
-        for layer in ("rrLayer", "srLayer"):
+        for layer in ("srLayer",) if entity_only else ("rrLayer", "srLayer"):
             for entity_index, entity in enumerate(function.get(layer, {}).get("entities", [])):
                 eid = entity.get("entity") or entity.get("name")
                 if not eid:
@@ -546,6 +556,7 @@ def entities_for(sources, tree, case_id, case_name, tree_path=None):
                         attr_refs,
                         tags=attr.get("tags") or [],
                         data_type=attr.get("type"),
+                        entity_only=entity_only,
                     )
                     entry["attributes"].append(
                         {

@@ -87,6 +87,13 @@ def validate_result(task, payload, inputs):
     if task in PROJECT_SCHEMAS:
         validate(task, payload)
         return validate_project_result(task, payload, inputs)
+    if task in {"ssd-entity-inference", "ssd-entity-classify", "ssd-command-classify"}:
+        from scene_completion.analysis.ssd.entity_semantics import (
+            validate_result as validate_entity,
+        )
+
+        validate(task, payload)
+        return validate_entity(task, payload, inputs)
     if task == "ssd-bind":
         from scene_completion.analysis.ssd.contract_binding import (
             validate_result as validate_binding,

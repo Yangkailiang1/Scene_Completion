@@ -64,3 +64,10 @@
 单用例命令支持 `export-core --input INPUT --output NEW_DIRECTORY [--case ID]`。输出可直接重新导入，并包含 `source-map.json`。清单中的 `file` 与 `json_pointer` 指向导出时读取的原输入。四元组仍为发送方、操作、实体和接收方，v2 主成功文件的 `declared_fields` 保存额外的接口字段声明。实体异常用 `entity_id`、`attribute` 标识，接口异常用 `parameter.name`、`parameter.location`、`parameter.direction` 标识。扩展映射一条对应一个测试扩展，`bindings` 记录已确认的独立挂载。
 
 E 和 GT 独立导入，保留实际失败步骤。同用例同实体同属性的约束在不同行可以相互对应。接口字段继续按所属步骤和字段方向区分。当前规则自动生成 CRUD 功能类型关注点，展示、分析生成、发布功能类型暂不生成，技术扩展仅自动挂载数据库特殊字符。未提供 GT 时生成结果可查看，相关覆盖指标标为未评估。
+
+
+## 命令四元组
+
+默认 `core-input convert` 创建 `command-interaction-v2` 核心目录，使用 `SysOperation` 中的主成功步骤作为四元组骨架。在每个用例按实际调用绑定功能树 SR 命令，接口约束在该接口首次调用处展开。实体约束优先跟随第一个明确使用该实体的接口，没有对应接口时落在实体首次出现处。后续调用、实际校验及失败步骤保留原位置和出处。满足相同对象、条件和作用域的接口与实体义务使用双来源去重。模型按接口请求和实体规则独立构建 G，再分别检查 E 和 GT，最后脚本按义务身份对齐三方结果。历史 `command-interaction-v1` 使用其原挂载策略。
+
+[合成浏览商品样例](../../datasets/mini-mall/examples/browse-product/README.md) 覆盖分页边界、跨步骤匹配、命令独立绑定、双来源去重和离线审核。

@@ -95,7 +95,15 @@ def schema(task):
 
     if task in PROJECT_SCHEMAS:
         return _cited(deepcopy(PROJECT_SCHEMAS[task]))
-    if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
+    if task in {
+        "ssd-resolve",
+        "ssd-semantic-compare",
+        "ssd-generate",
+        "ssd-bind",
+        "ssd-entity-inference",
+        "ssd-entity-classify",
+        "ssd-command-classify",
+    }:
         from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
 
         return _cited(deepcopy(SSD_SCHEMAS[task]))
@@ -282,7 +290,15 @@ def packet(task, inputs, case_ids=None):
 
     if task in PROJECT_SCHEMAS:
         return project_packet(task, inputs, case_ids)
-    if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
+    if task in {
+        "ssd-resolve",
+        "ssd-semantic-compare",
+        "ssd-generate",
+        "ssd-bind",
+        "ssd-entity-inference",
+        "ssd-entity-classify",
+        "ssd-command-classify",
+    }:
         from scene_completion.domain.ssd_contracts import packet as ssd_packet
 
         return ssd_packet(task, inputs, case_ids)

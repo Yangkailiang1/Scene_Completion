@@ -272,6 +272,10 @@ def parser():
         command = core_commands.add_parser(action)
         command.add_argument("--input", required=True)
         command.add_argument("--case", action="append")
+        if action != "validate":
+            command.add_argument(
+                "--profile", choices=("command", "entity", "compat"), default="command"
+            )
         if action == "convert":
             command.add_argument("--output", required=True)
             command.add_argument("--overrides")
@@ -502,14 +506,20 @@ def main(argv=None, client=None):
     args = parser().parse_args(argv)
     if args.command == "core-input":
         from scene_completion.analysis.ssd import core_input
+        from scene_completion.domain.current_scope import COMMAND_PROFILE, ENTITY_PROFILE
 
+        profile = {"entity": ENTITY_PROFILE, "command": COMMAND_PROFILE}.get(
+            getattr(args, "profile", None)
+        )
         try:
             if args.core_action == "convert":
-                value = core_input.convert(args.input, args.output, args.case, args.overrides)
+                value = core_input.convert(
+                    args.input, args.output, args.case, args.overrides, profile=profile
+                )
             elif args.core_action == "validate":
                 value = core_input.validate_core(args.input, args.case)
             else:
-                value = core_input.inspect(args.input, args.case)
+                value = core_input.inspect(args.input, args.case, profile=profile)
         except (OSError, ValueError, KeyError, IndexError, TypeError) as exc:
             value = {"issues": [{"kind": "blocking", "reason": str(exc)}]}
         output(value)

@@ -28,6 +28,11 @@ export type Field = {
   location: string;
   type?: string;
   required?: boolean | null;
+  command_id?: string;
+  call_step_id?: string;
+  validation_step_ids?: string[];
+  response_step_ids?: string[];
+  rule_texts?: string[];
   constraints: { kind: string; value: any; source_refs?: SourceRef[] }[];
   source_refs: SourceRef[];
 };
@@ -39,7 +44,15 @@ export type Step = {
   direction: string;
   sender: Party;
   receiver: Party;
-  operation: { name: string; kinds: string[] };
+  operation: {
+    name: string;
+    kinds: string[];
+    kinds_source?: string;
+    command_id?: string;
+    http_method?: string;
+    http_path?: string;
+    reason?: string;
+  };
   data: Field[];
   api_id: string | null;
   entity_ids: string[];
@@ -87,6 +100,41 @@ export type Bundle = {
     }
   >;
   documents: SourceDocument[];
+  analysis_profile?: string;
+  command_bindings?: Record<
+    string,
+    {
+      primary_step_id: string;
+      occurrences: string[];
+      validation_step_ids?: string[];
+      response_step_ids?: string[];
+    }
+  >;
+  field_anchors?: {
+    units: { step_id: string; entity: string; attribute: string }[];
+  };
+  entities?: {
+    id: string;
+    attributes: {
+      name: string;
+      type?: string;
+      tags?: string[];
+      constraints: Field["constraints"];
+      source_refs?: SourceRef[];
+    }[];
+  }[];
+  source_classifications?: Partial<
+    Record<
+      "E" | "GT",
+      {
+        record_id: string;
+        kind: string;
+        condition: string;
+        reason: string;
+        source_refs: SourceRef[];
+      }[]
+    >
+  >;
   decisions: Decision[];
   pending: Observation[];
   [key: string]: any;

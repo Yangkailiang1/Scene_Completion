@@ -282,6 +282,21 @@ def recognize_records(bundle, records, channel_name):
     from scene_completion.domain.current_scope import current_registry
 
     definitions = current_registry(bundle.get("registry") or default_registry())["definitions"]
+    from scene_completion.domain.current_scope import STRUCTURED_PROFILES
+
+    if bundle.get("analysis_profile") in STRUCTURED_PROFILES:
+        for record in records:
+            row = pending(
+                record["id"],
+                record["condition"],
+                record["source_refs"],
+                step_id=record.get("step_ref"),
+                reason=record.get("reason") or "等待独立识别",
+                original=record,
+                needs_semantic=True,
+            )
+            output["pending"].append(row)
+        return output
     for record in records:
         condition, expected, refs = (
             record["condition"],
@@ -505,7 +520,10 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
 
     records = [_provided(bundle, row, "E") for row in supplied]
     candidates = []
-    for layer in ("IR", "SR"):
+    from scene_completion.domain.current_scope import STRUCTURED_PROFILES
+
+    entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
+    for layer in () if entity_only else ("IR", "SR"):
         for path in sorted((case_dir / "behaviour" / layer).glob("*.json")):
             branch = json.loads(path.read_text(encoding="utf-8-sig"))
             candidates.append((layer, path, "", branch))
@@ -516,7 +534,11 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
 
     for layer, path, pointer, branch in candidates:
         kind = scenario_kind(branch)
-        if kind in {"main", "normal", "alternative", "optional"} or not branch.get("guard"):
+        if (
+            kind == "main"
+            or not branch.get("guard")
+            or (not entity_only and kind in {"normal", "alternative", "optional"})
+        ):
             continue
         responses = [
             n.get("message")
@@ -526,9 +548,13 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
         ]
         outcome = responses or [n["content"] for n in branch.get("action", []) if n.get("content")]
         expected = "；".join(dict.fromkeys(outcome))
-        if isinstance(branch.get("resume_at_main"), dict) and not any(
-            re.search(r"HTTP\s*[45]\d{2}|返回\s*[A-Z]+_[A-Z_]+|拒绝|失败", value)
-            for value in outcome
+        if (
+            not entity_only
+            and isinstance(branch.get("resume_at_main"), dict)
+            and not any(
+                re.search(r"HTTP\s*[45]\d{2}|返回\s*[A-Z]+_[A-Z_]+|拒绝|失败", value)
+                for value in outcome
+            )
         ):
             continue
         original_id = branch.get("ID") or path.stem
@@ -540,13 +566,17 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
                 "expected": expected,
                 "source_refs": sources.refs(branch, sources.add(path), pointer),
                 "layer": "RR" if layer == "IR" else "SR",
-                "scenario_type": branch.get("scenario_kind", "exception"),
+                "scenario_type": kind or "exception",
+                "failure_step_id": (branch.get("extend_at_main") or {}).get("after"),
                 "raw": branch,
             }
         )
 
     def normalize(value):
         return re.sub(r"\s+", "", value or "")
+
+    if entity_only:
+        return recognize_records(bundle, records, "E")
 
     merged = {}
     for record in records:
@@ -624,8 +654,10 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
 
 
 def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=None):
+    from scene_completion.domain.current_scope import STRUCTURED_PROFILES
     from scene_completion.domain.ssd.construction import channel, pending
 
+    entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     supplied_records = [_provided(bundle, row, "GT") for row in supplied]
     mapped = (mapping or {}).get("items", [])
     requested_path = (mapping or {}).get("source") or "recovered_usecases.json"
@@ -699,8 +731,20 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
         index, extension = indexed.get(eid, (None, {}))
         for binding in mount["bindings"]:
             row = {**extension, **binding}
-            condition = binding.get("condition") or extension.get("condition") or ""
-            expected = binding.get("expected") or extension.get("expected_result") or ""
+            if entity_only and binding.get("kind") == "pending":
+                row = {**binding, **extension}
+            condition = (
+                binding.get("condition")
+                or extension.get("condition")
+                or mount.get("condition")
+                or ""
+            )
+            expected = (
+                binding.get("expected")
+                or extension.get("expected_result")
+                or mount.get("expected")
+                or ""
+            )
             fields = (
                 "step_ref",
                 "target",
@@ -788,7 +832,16 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
         {
             **{
                 k: row.get(k)
-                for k in ("id", "original_id", "scenario_type", "step_ref", "reason", "source_refs")
+                for k in (
+                    "id",
+                    "original_id",
+                    "scenario_type",
+                    "step_ref",
+                    "reason",
+                    "source_refs",
+                    "condition",
+                    "expected",
+                )
             },
             **({"scenario_type": "out_of_scope"} if row["id"] in excluded else {}),
             **(

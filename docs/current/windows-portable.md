@@ -8,7 +8,8 @@
 
 - start.cmd：启动本地工作台，服务就绪后打开浏览器。
 - check.cmd：使用包内Python检查依赖并运行便携测试集合，不调用付费模型。
-- scene.cmd：使用包内Python调用CLI，例如 `scene.cmd projects`；先启动start.cmd，网页和CLI查看同一运行进度。
+- CODING-AGENT.md：可直接交给终端 Coding Agent 的[执行提示词](../../deployment/windows/CODING-AGENT.md)，覆盖单用例、并发、失败接管和报告交付。
+- scene.cmd：使用包内 Python 调用 CLI。先启动 start.cmd 可用 `scene.cmd projects`，使用 `scene.cmd --local --data-dir data --env-file .env projects` 可直接读取同一项目。
 - .env.example：空白模型配置模板。
 - app/examples/tests/mall-exception-tests.xlsx：可编辑测试集示例。
 - VERSION.json：源码提交、Python版本和依赖锁摘要。

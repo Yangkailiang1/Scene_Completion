@@ -38,6 +38,7 @@ from scene_completion.inputs.imports.artifact_views import view as view
 def receive(project, files):
     project = Path(project)
     out = []
+    from scene_completion.inputs.structured.authoring_cases import core_filename
     from scene_completion.inputs.structured.behavior_imports import context_for
     from scene_completion.inputs.structured.behavior_imports import format_of as behavior_format
 
@@ -155,7 +156,8 @@ def receive(project, files):
             from scene_completion.inputs.structured.structure_models import compile_model
 
             structured = compile_model(text, name) if Path(name).suffix.lower() == ".json" else None
-            if structured or behavior_kind:
+            core_input = Path(name).suffix.lower() == ".json" and core_filename(name)
+            if structured or behavior_kind or core_input:
                 role = "artifact"
             meta = (
                 read_json(project / "project.json")
@@ -199,6 +201,7 @@ def receive(project, files):
                 and role == "artifact"
                 and not structured
                 and not behavior_kind
+                and not core_input
                 else None
             )
             behavior = behavior_error = None
@@ -211,7 +214,7 @@ def receive(project, files):
                 product["artifacts"]
                 if product
                 else deterministic(parse_text, name)
-                if role == "artifact" and not behavior_kind
+                if role == "artifact" and not behavior_kind and not core_input
                 else []
             )
             row = {
@@ -220,7 +223,7 @@ def receive(project, files):
                 "hash": digest,
                 "role": role,
                 "status": "converted"
-                if artifacts
+                if artifacts or core_input
                 else "needs_conversion"
                 if role == "artifact"
                 else "source_pending",
@@ -230,6 +233,8 @@ def receive(project, files):
                 "original": str((folder / "original" / name).relative_to(project)),
                 "history": [],
             }
+            if core_input:
+                row.update(core_input=True, relative_path=f.get("relative_path"))
             if structured:
                 row.update(structure_model=structured, structure_enabled=True, status="converted")
             if product:

@@ -3,6 +3,7 @@
 import re
 from copy import deepcopy
 
+from scene_completion.domain.current_scope import ENTITY_PROFILE
 from scene_completion.domain.ssd.construction import add_scenario, ident
 from scene_completion.infrastructure.identity import fingerprint
 
@@ -48,9 +49,22 @@ def _positive(value):
 
 def step_context(bundle, step):
     entity_ids = set(step.get("entity_ids", []))
+    entity_only = bundle.get("analysis_profile") == ENTITY_PROFILE
+    if entity_only:
+        entity_ids.update(
+            unit["entity"]
+            for unit in bundle.get("field_anchors", {}).get("units", [])
+            if unit["step_id"] == step["id"]
+        )
     return {
         "case": {k: bundle["case"][k] for k in ("id", "name") if k in bundle["case"]},
-        "step": _positive({k: step.get(k) for k in CONTEXT_FIELDS}),
+        "step": _positive(
+            {
+                k: step.get(k)
+                for k in CONTEXT_FIELDS
+                if not entity_only or k not in {"data", "api_id"}
+            }
+        ),
         "apis": _positive([a for a in bundle.get("apis", []) if a.get("id") == step.get("api_id")]),
         "entities": _positive([e for e in bundle.get("entities", []) if e.get("id") in entity_ids]),
     }
@@ -98,6 +112,7 @@ def batches(bundle, limit=32):
                             "target",
                             "field_id",
                             "entity_id",
+                            "attribute",
                             "condition",
                             "expected",
                             "template_id",

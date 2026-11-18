@@ -178,6 +178,13 @@ class DeepAgentsClient(SemanticClient):
         SSD_ROLE_TEXT = {**SSD_ROLE_TEXT, **PROJECT_ROLE_TEXT}
 
         ssd_task = packet["task"] in SSD_ROLE_TEXT
+        # These tasks report uncertainty in a record's structured classification.
+        # Legacy review questions expect line citations outside this compact packet.
+        entity_task = packet["task"] in {
+            "ssd-entity-inference",
+            "ssd-entity-classify",
+            "ssd-command-classify",
+        }
         if packet["task"] in {"ssd-semantic-compare", "project-scope-compare"}:
             # This is a model-facing view only. The full original packet stays
             # bound to validation, semantic-response caches and audit sources.
@@ -484,7 +491,7 @@ class DeepAgentsClient(SemanticClient):
                         raise ValueError(
                             "; ".join(f"{list(e.path)}: {e.message}" for e in errors[:8])
                         )
-                checked_questions = questions(review_questions)
+                checked_questions = [] if entity_task else questions(review_questions)
                 for question in checked_questions:
                     report(
                         self.root.parent,
@@ -769,6 +776,8 @@ class DeepAgentsClient(SemanticClient):
                 "additionalProperties": False,
             },
         )
+        if entity_task:
+            submit_result.args_schema["properties"].pop("review_questions", None)
         from langchain.agents.middleware import wrap_model_call
         from langchain_core.messages import AIMessage
 
@@ -842,7 +851,9 @@ class DeepAgentsClient(SemanticClient):
         agent = create_deep_agent(
             model=model,
             middleware=middleware,
-            tools=[submit_result, ask] + ([lookup] if indexed else []) + discovery,
+            tools=([submit_result] if entity_task else [submit_result, ask])
+            + ([lookup] if indexed else [])
+            + discovery,
             subagents=[],
             backend=backend,
             skills=["/skills/"] if packet["skill_text"].lstrip().startswith("---") else [],
@@ -850,7 +861,11 @@ class DeepAgentsClient(SemanticClient):
             + "\n"
             + packet["instructions"]
             + skill_prompt
-            + "\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。"
+            + (
+                "\n直接使用submit_result提交全部记录。未知情况在任务结果中标记pending并说明依据。"
+                if entity_task
+                else "\n以上Skill已加载，不需要再次读取。直接根据已给完整材料完成本任务，仅证据确有缺口时使用查阅工具。业务疑问用ask_user记录后继续提交有据的结果；未知内容写pending，不等待回答，不自行猜测。节点指导只对本任务生效，不能扩大任务允许的输入通道。使用submit_result提交；不得自行补造证据或把说明当文档事实。当前所需主要材料及精简索引已随用户消息提供，不反复读取大任务包。限定工具阅读轮次；材料充分后立即提交，不为查找不存在的文件反复搜索。"
+            )
             + "\n"
             + reference_text,
             permissions=permissions,

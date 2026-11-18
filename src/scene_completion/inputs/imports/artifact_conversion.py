@@ -113,10 +113,11 @@ def _targets(row, artifacts, prepared=False):
 def convert(project, iid, client):
     from scene_completion.domain.contracts import packet
     from scene_completion.infrastructure.execution_events import EventStore, bind, emit
+    from scene_completion.inputs.structured.authoring_cases import core_filename
 
     project = Path(project)
     row = view(project, iid)
-    if row["status"] not in {"needs_conversion", "conversion_failed"}:
+    if core_filename(row["name"]) or row["status"] not in {"needs_conversion", "conversion_failed"}:
         return row
     path = project / row["original"]
     text = path.read_text(encoding="utf-8-sig")

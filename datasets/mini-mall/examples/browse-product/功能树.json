@@ -1,0 +1,344 @@
+{
+  "functions": [
+    {
+      "functionId": "UC-BROWSE-01",
+      "name": "浏览商品",
+      "rrLayer": {
+        "entities": [],
+        "commands": [
+          {
+            "method": "GET",
+            "path": "/api/v1/products",
+            "apiId": "BROWSE-GET",
+            "name": "商品列表查询"
+          }
+        ]
+      },
+      "srLayer": {
+        "entities": [
+          {
+            "entity": "Product",
+            "attributes": [
+              {
+                "name": "product_id",
+                "type": "string",
+                "tags": [],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "实体属性",
+                  "step": null,
+                  "line": "L6",
+                  "quote": "B4 商品目录服务查询 Product 的 status 和 product_id。"
+                },
+                "match": {
+                  "basis": "实体属性",
+                  "confidence": "高"
+                },
+                "constraints": []
+              },
+              {
+                "name": "status",
+                "type": "enum",
+                "tags": [],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "实体属性",
+                  "step": null,
+                  "line": "L14",
+                  "quote": "目录请求的 status 必须等于 ON_SALE。Product.status 限定为 ON_SALE 或 OFF_SALE。"
+                },
+                "match": {
+                  "basis": "实体属性",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": "{ON_SALE|OFF_SALE}",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "实体属性",
+                      "step": null,
+                      "line": "L14",
+                      "quote": "目录请求的 status 必须等于 ON_SALE。Product.status 限定为 ON_SALE 或 OFF_SALE。"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "entity": "Category",
+            "attributes": [
+              {
+                "name": "category_id",
+                "type": "string",
+                "tags": [],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "实体属性",
+                  "step": null,
+                  "line": "L12",
+                  "quote": "categoryId 对应 Category.category_id，两处声明均指商城 B2 的同一次分类编号格式检查。"
+                },
+                "match": {
+                  "basis": "实体属性",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": "格式合法",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "实体属性",
+                      "step": null,
+                      "line": "L12",
+                      "quote": "categoryId 对应 Category.category_id，两处声明均指商城 B2 的同一次分类编号格式检查。"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "commands": [
+          {
+            "apiId": "BROWSE-GET",
+            "name": "商品列表查询",
+            "method": "GET",
+            "path": "/api/v1/products",
+            "service": "MALL",
+            "authentication": "optional",
+            "source": {
+              "doc": "srSpec",
+              "functionId": "UC-BROWSE-01",
+              "section": "基本流程",
+              "step": null,
+              "line": "L3",
+              "quote": "B1 顾客调用 GET /api/v1/products 浏览商品（BROWSE-GET）。"
+            },
+            "attributes": [
+              {
+                "name": "page",
+                "type": "integer",
+                "tags": [],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "查询参数",
+                  "step": null,
+                  "line": "L10",
+                  "quote": "page 为整数且不小于 1。pageSize 为整数且在 1 至 100 之间。"
+                },
+                "match": {
+                  "basis": "查询参数",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": ">= 1",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "查询参数",
+                      "step": null,
+                      "line": "L10",
+                      "quote": "page 为整数且不小于 1。pageSize 为整数且在 1 至 100 之间。"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "pageSize",
+                "type": "integer",
+                "tags": [],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "查询参数",
+                  "step": null,
+                  "line": "L10",
+                  "quote": "page 为整数且不小于 1。pageSize 为整数且在 1 至 100 之间。"
+                },
+                "match": {
+                  "basis": "查询参数",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": "1 <= pageSize <= 100",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "查询参数",
+                      "step": null,
+                      "line": "L10",
+                      "quote": "page 为整数且不小于 1。pageSize 为整数且在 1 至 100 之间。"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "keyword",
+                "type": "string",
+                "tags": [
+                  "可选"
+                ],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "查询参数",
+                  "step": null,
+                  "line": "L11",
+                  "quote": "keyword 为可选字符串。minPrice 为可选数值且不小于 0。"
+                },
+                "match": {
+                  "basis": "查询参数",
+                  "confidence": "高"
+                },
+                "constraints": []
+              },
+              {
+                "name": "minPrice",
+                "type": "decimal",
+                "tags": [
+                  "可选"
+                ],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "查询参数",
+                  "step": null,
+                  "line": "L11",
+                  "quote": "keyword 为可选字符串。minPrice 为可选数值且不小于 0。"
+                },
+                "match": {
+                  "basis": "查询参数",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": ">= 0",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "查询参数",
+                      "step": null,
+                      "line": "L11",
+                      "quote": "keyword 为可选字符串。minPrice 为可选数值且不小于 0。"
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "categoryId",
+                "type": "string",
+                "tags": [
+                  "可选"
+                ],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "查询参数",
+                  "step": null,
+                  "line": "L12",
+                  "quote": "categoryId 对应 Category.category_id，两处声明均指商城 B2 的同一次分类编号格式检查。"
+                },
+                "match": {
+                  "basis": "查询参数",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": "格式合法",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "查询参数",
+                      "step": null,
+                      "line": "L12",
+                      "quote": "categoryId 对应 Category.category_id，两处声明均指商城 B2 的同一次分类编号格式检查。"
+                    }
+                  }
+                ],
+                "entity_binding": {
+                  "entity_id": "Category",
+                  "attribute": "category_id"
+                }
+              }
+            ]
+          },
+          {
+            "apiId": "CATALOG-SEARCH",
+            "name": "查询在售商品",
+            "method": "POST",
+            "path": "/catalog/v1/products/search",
+            "service": "CATALOG",
+            "source": {
+              "doc": "srSpec",
+              "functionId": "UC-BROWSE-01",
+              "section": "基本流程",
+              "step": null,
+              "line": "L5",
+              "quote": "B3 商城调用 POST /catalog/v1/products/search 查询在售商品（CATALOG-SEARCH）。"
+            },
+            "attributes": [
+              {
+                "name": "status",
+                "type": "enum",
+                "tags": [
+                  "必填"
+                ],
+                "source": {
+                  "doc": "srSpec",
+                  "functionId": "UC-BROWSE-01",
+                  "section": "请求体",
+                  "step": null,
+                  "line": "L14",
+                  "quote": "目录请求的 status 必须等于 ON_SALE。Product.status 限定为 ON_SALE 或 OFF_SALE。"
+                },
+                "match": {
+                  "basis": "请求体",
+                  "confidence": "高"
+                },
+                "constraints": [
+                  {
+                    "rule": "{ON_SALE}",
+                    "error": null,
+                    "source": {
+                      "doc": "srSpec",
+                      "functionId": "UC-BROWSE-01",
+                      "section": "请求体",
+                      "step": null,
+                      "line": "L14",
+                      "quote": "目录请求的 status 必须等于 ON_SALE。Product.status 限定为 ON_SALE 或 OFF_SALE。"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "arLayer": {
+        "entities": [],
+        "commands": []
+      }
+    }
+  ],
+  "entityCatalog": [],
+  "missingConstraints": [],
+  "unassignedFields": [],
+  "consistencyIssues": [],
+  "corrections": []
+}

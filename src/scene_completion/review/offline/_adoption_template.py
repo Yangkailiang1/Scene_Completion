@@ -52,19 +52,32 @@ function sources(entry,record){
 }
 const anchors=entry=>entry.bundle.steps||entry.bundle.anchors||[];
 const anchorId=r=>r.anchor_id||r.step_id||'';
-const binding=r=>JSON.stringify([anchorId(r),r.target||'',r.field_id||'',r.entity_id||'',r.key||'']);
+const binding=r=>JSON.stringify([anchorId(r),r.target||'',r.field_id||'',r.entity_id||'',r.attribute||'',r.key||'',...(r.obligation_scope||[])]);
 const definition=(entry,r)=>entry.bundle.registry?.definitions?.[r.key]?.label||r.label||r.key||'待归类';
 function objectLabel(entry,r){
  const anchor=anchors(entry).find(a=>a.id===anchorId(r));
+ if(r.entity_id&&r.attribute)return '实体属性 · '+r.entity_id+'.'+r.attribute;
  if(r.target==='sender')return '发送方 · '+(anchor?.sender?.name||'待定位')+(r.entity_id?' · '+r.entity_id:'');
  if(r.target==='receiver')return '接收方 · '+(anchor?.receiver?.name||'待定位')+(r.entity_id?' · '+r.entity_id:'');
  if(r.target==='data'){const field=(anchor?.data||[]).find(f=>f.id===r.field_id);return '数据 · '+(field?[field.location,field.name].filter(Boolean).join('.'):r.field_id||'待定位字段')+(r.entity_id?' · '+r.entity_id:'');}
  return (r.target==='dependency'?'业务依赖':r.target==='service'?'外部服务':r.target||'待定位')+(r.entity_id?' · '+r.entity_id:'');
 }
+function stepEvidence(entry,label,ids){
+ const line=el('p',label+' · ','muted');
+ for(const id of ids){const step=(entry.bundle.steps||[]).find(s=>s.id===id), ref=(step?.source_refs||[])[0];
+  if(ref){const button=el('button',id);button.title=step.operation?.name||id;button.onclick=()=>showSource(entry,ref);line.append(button);}
+  else line.append(document.createTextNode(id+' '));}
+ return line;
+}
 function record(entry,r,parent,channel,preview=false){
  const box=el('div',undefined,'record');if(!preview){box.dataset.recordId=r.id;box.dataset.channel=channel;}
  box.append(el('p',r.condition||r.label||definition(entry,r),'condition'));
  if(r.expected){const p=el('p',undefined,'expected');p.append(el('b','预期结果  '),document.createTextNode(r.expected));box.append(p);}
+ if(r.failure_step_id)box.append(stepEvidence(entry,'实际失败步骤',r.failure_step_ids||[r.failure_step_id]));
+ if(r.validation_step_ids?.length)box.append(stepEvidence(entry,'校验步骤',r.validation_step_ids));
+ if(r.response_step_ids?.length)box.append(stepEvidence(entry,'响应步骤',r.response_step_ids));
+ if(r.call_step_id)box.append(el('p','接口调用步骤 · '+r.call_step_id,'muted'));
+ if(r.identification_reason)box.append(el('p','识别依据 · '+r.identification_reason,'muted'));
  if(r.analysis){const d=el('details',undefined,'analysis');d.append(el('summary','业务分析'),el('p',r.analysis));box.append(d);}
  box.append(sources(entry,r));
  if(r.requirement_refs?.length){box.append(el('p','关联需求／设计（非测试出处）','muted'),sources(entry,{source_refs:r.requirement_refs}));}
@@ -77,7 +90,7 @@ function contextSection(entry,id){
  header.append(el('h3',label),el('span',a?.layer|| (a?.kind==='dependency'?'业务依赖':'外部服务'),'badge blue'),el('span',id||'无锚点','badge'));section.append(header);
  if(a){const details=el('details',undefined,'step-context'),summary=el('summary','展开上下文、数据与原文出处'),body=el('div',undefined,'context-body');
   const field=(label,value,wide=false)=>{const p=el('p',undefined,wide?'wide':undefined);p.append(el('b',label),document.createTextNode(value||'未记录'));body.append(p);};
-  if(a.operation){field('操作',a.operation.name,true);field('数据',(a.data||[]).map(f=>[f.location,f.name].filter(Boolean).join('.')).join('、')||'无数据字段');field('CRUD',(a.operation.kinds||[]).join('/')||'未确定');field('接口',a.api_id||'未关联接口');field('实体',(a.entity_ids||[]).join('、'));}
+  if(a.operation){const entityOnly=entry.bundle.analysis_profile==='entity-interaction-v1';field('操作',a.operation.name,true);field('CRUD',(a.operation.kinds||[]).join('/')||(entityOnly&&a.operation.kinds_source!=='pending'?'无 CRUD':'未确定'));field('实体',[...new Set([...(a.entity_ids||[]),...(entry.bundle.analysis_profile==='command-interaction-v2'?(entry.bundle.field_anchors?.units||[]).filter(u=>u.step_id===a.id).map(u=>u.entity):[])])].join('、'));if(['command-interaction-v1','command-interaction-v2'].includes(entry.bundle.analysis_profile)){const fields=(entry.bundle.steps||[]).flatMap(s=>(s.data||[]).filter(f=>f.command_id&&(s.id===a.id||f.call_step_id===a.id)));field('SR 字段',fields.map(f=>f.location+'.'+f.name).join('、'));if(a.operation.command_id)field('SR 命令',[a.operation.command_id,a.operation.http_method,a.operation.http_path].filter(Boolean).join(' '));}else if(!entityOnly){field('数据',(a.data||[]).map(f=>[f.location,f.name].filter(Boolean).join('.')).join('、')||'无数据字段');field('接口',a.api_id||'未关联接口');}}
   else if(a.kind==='dependency'){field('依赖条件',a.condition);field('义务／操作',a.obligation);field('实体',(a.entity_ids||[]).join('、'));field('依赖类型',a.relation_type==='cascade'?'级联依赖':'直接依赖');}
   else{field('服务职责',a.description);field('技术类别',a.technology);field('关联接口',(a.api_ids||[]).join('、'));field('涉及用例',(a.case_ids||[]).join('、'));}
   body.append(sources(entry,a));details.append(summary,body);section.append(details);

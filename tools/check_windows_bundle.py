@@ -106,7 +106,12 @@ def verify_worker_entrypoints(bundle, executable=None):
 
 def verify_portable_layout(bundle):
     """The shipped suite must not depend on development datasets or test helpers."""
-    app = Path(bundle) / "app"
+    bundle = Path(bundle)
+    app = bundle / "app"
+    prompt = bundle / "CODING-AGENT.md"
+    prompt_source = app / "deployment/windows/CODING-AGENT.md"
+    if not prompt.is_file() or prompt.read_bytes() != prompt_source.read_bytes():
+        raise ValueError("Portable Coding Agent prompt missing or inconsistent")
     tests = app / "tests"
     collected = sorted(tests.rglob("test_*.py"))
     if not collected or any(not path.is_relative_to(tests / "portable") for path in collected):

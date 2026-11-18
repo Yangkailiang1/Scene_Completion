@@ -130,6 +130,7 @@ export function SsdAlignmentTable({
   onSplit,
   onRemove,
   onSources,
+  onGoToStep,
   onMatch,
   onScenarios,
   getObjectName,
@@ -161,6 +162,7 @@ export function SsdAlignmentTable({
   onSplit: (channel: Channel, item: Observation) => void;
   onRemove: (channel: Channel, item: Observation) => void;
   onSources: (item: Observation) => void;
+  onGoToStep?: (stepId: string) => void;
   onMatch: (row: any) => void;
   onScenarios: (row: any) => void;
   getObjectName?: (record: Observation) => string;
@@ -310,6 +312,9 @@ export function SsdAlignmentTable({
                       <div className="ssd-binding" key={index}>
                         <small className="concern-path">
                           {getTargetLabel?.(record) ||
+                            (record.entity_id && record.attribute
+                              ? "实体属性"
+                              : null) ||
                             targetLabels[record.target || ""] ||
                             "待定位"}
                         </small>
@@ -538,12 +543,61 @@ export function SsdAlignmentTable({
                               <p>
                                 挂载：
                                 {getTargetLabel?.(record) ||
+                                  (record.entity_id && record.attribute
+                                    ? "实体属性"
+                                    : null) ||
                                   targetLabels[record.target || ""] ||
                                   "待定位"}{" "}
                                 · {objectName(record)}
                               </p>
                               {record.entity_id && (
-                                <p>实体：{record.entity_id}</p>
+                                <p>
+                                  实体：{record.entity_id}
+                                  {record.attribute
+                                    ? "." + record.attribute
+                                    : ""}
+                                </p>
+                              )}
+                              {(
+                                [
+                                  [
+                                    "实际失败步骤",
+                                    record.failure_step_ids ||
+                                      (record.failure_step_id
+                                        ? [record.failure_step_id]
+                                        : []),
+                                  ],
+                                  [
+                                    "校验步骤",
+                                    record.validation_step_ids || [],
+                                  ],
+                                  ["响应步骤", record.response_step_ids || []],
+                                  [
+                                    "关联调用",
+                                    record.related_call_step_ids || [],
+                                  ],
+                                ] as [string, string[]][]
+                              ).map(
+                                ([label, ids]) =>
+                                  ids.length > 0 && (
+                                    <p key={label}>
+                                      {label}：
+                                      {onGoToStep
+                                        ? ids.map((id) => (
+                                            <button
+                                              className="ssd-source-link"
+                                              key={id}
+                                              onClick={() => onGoToStep(id)}
+                                            >
+                                              {id}
+                                            </button>
+                                          ))
+                                        : ids.join("、")}
+                                    </p>
+                                  ),
+                              )}
+                              {record.identification_reason && (
+                                <p>识别依据：{record.identification_reason}</p>
                               )}
                               {record.rule_id && <p>规则：{record.rule_id}</p>}
                               {(record.generation_origin ||

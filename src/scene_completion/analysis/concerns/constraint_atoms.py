@@ -380,7 +380,7 @@ def _clause_items(clause, field, refs, state_tag):
     return []
 
 
-def normalize_rules(rules, field, refs, *, tags=None, data_type=None):
+def normalize_rules(rules, field, refs, *, tags=None, data_type=None, entity_only=False):
     """Normalize declared rules for one attribute into concerns.
 
     Returns ``{"items": [...], "payload": [...], "unresolved": [...]}``.
@@ -392,6 +392,15 @@ def normalize_rules(rules, field, refs, *, tags=None, data_type=None):
     # A generic enum field is a value range, not a state machine. Only an
     # explicitly status-like field turns "{A}" / "{A -> B}" into a precondition.
     state_tag = bool(re.search(r"status|state", field, re.I) or any(t in tags for t in ("状态",)))
+    if entity_only:
+        if "必填" in tags or "PK" in tags:
+            out["items"].append(
+                _item(OPERATION_CONCERNS["required"], "required", True, "explicit", refs, field)
+            )
+        if data_type:
+            out["items"].append(
+                _item(OPERATION_CONCERNS["type"], "type", data_type, "explicit", refs, field)
+            )
     for record in rules or []:
         rule = record.get("rule") if isinstance(record, dict) else record
         if not isinstance(rule, str) or not rule.strip():
@@ -470,6 +479,19 @@ def normalize_rules(rules, field, refs, *, tags=None, data_type=None):
                         "边界引用符号" + symbol + "，具体取值需结合该属性确定",
                     )
                 )
+        if entity_only and any(item["operation"] == "unique" for item in produced):
+            produced = [item for item in produced if item["operation"] != "unique"]
+            out["unresolved"].append(
+                {
+                    "text": rule,
+                    "field": field,
+                    "error": original.get("error"),
+                    "source_refs": deepcopy(refs),
+                    "reason": "唯一性规则需确定业务作用域",
+                }
+            )
+            if not produced:
+                continue
         if not produced:
             out["unresolved"].append(
                 {

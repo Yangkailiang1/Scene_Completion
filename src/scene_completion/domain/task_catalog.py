@@ -4,6 +4,8 @@ CHECKER_TASKS = {
     "project-scope-identify",
     "project-scope-compare",
     "ssd-resolve",
+    "ssd-entity-classify",
+    "ssd-command-classify",
     "ssd-semantic-compare",
     "test-additional-concerns",
     "existing-concerns",

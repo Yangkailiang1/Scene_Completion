@@ -182,11 +182,13 @@ function PartyEditor({
 export function StepEditor({
   step,
   steps,
+  entityOnly = false,
   onClose,
   onSave,
 }: {
   step: Step;
   steps: Step[];
+  entityOnly?: boolean;
   onClose: () => void;
   onSave: (value: Step) => void;
 }) {
@@ -305,7 +307,7 @@ export function StepEditor({
           />
         )}
       </div>
-      {value.kind === "action" && (
+      {!entityOnly && value.kind === "action" && (
         <fieldset>
           <legend>本地检查对应报文</legend>
           {steps
@@ -336,11 +338,13 @@ export function StepEditor({
             ))}
         </fieldset>
       )}
-      <Text
-        label="接口 API"
-        value={value.api_id}
-        onChange={(api_id) => set({ ...value, api_id: api_id || null })}
-      />
+      {!entityOnly && (
+        <Text
+          label="接口 API"
+          value={value.api_id}
+          onChange={(api_id) => set({ ...value, api_id: api_id || null })}
+        />
+      )}
       <Text
         label="业务实体（逗号分隔）"
         value={value.entity_ids.join(",")}
@@ -353,134 +357,144 @@ export function StepEditor({
           set({ ...value, operation: { ...value.operation, kinds: list(v) } })
         }
       />
-      <h4>交互数据</h4>
-      {value.data.map((f, n) => (
-        <fieldset key={f.id}>
-          <legend>字段 {n + 1}</legend>
-          <div className="ssd-form-columns">
-            <Text
-              label={`字段 ${n + 1} 名称`}
-              value={f.name}
-              onChange={(name) => field(f.id, { name })}
-            />
-            <Select
-              label={`字段 ${n + 1} 位置`}
-              value={f.location}
-              values={[
-                "header",
-                "path",
-                "query",
-                "body",
-                "response",
-                "business",
-              ].map((v) => [v, v])}
-              onChange={(location) => field(f.id, { location })}
-            />
-            <Text
-              label={`字段 ${n + 1} 类型`}
-              value={f.type}
-              onChange={(type) => field(f.id, { type })}
-            />
-            <Select
-              label={`字段 ${n + 1} 必填`}
-              value={f.required == null ? "unknown" : String(f.required)}
-              values={[
-                ["unknown", "未定义"],
-                ["true", "必填"],
-                ["false", "可选"],
-              ]}
-              onChange={(v) =>
-                field(f.id, { required: v === "unknown" ? null : v === "true" })
-              }
-            />
-          </div>
-          {(f.constraints || []).map((c, j) => (
-            <div className="ssd-form-columns" key={j}>
-              <Text
-                label={`字段 ${n + 1} 约束 ${j + 1} 类型`}
-                value={c.kind}
-                onChange={(kind) =>
-                  field(f.id, {
-                    constraints: f.constraints.map((x, k) =>
-                      k === j ? { ...x, kind } : x,
-                    ),
-                  })
-                }
-              />
-              <Text
-                label={`字段 ${n + 1} 约束 ${j + 1} 值`}
-                value={
-                  typeof c.value === "string"
-                    ? c.value
-                    : JSON.stringify(c.value)
-                }
-                onChange={(text) => {
-                  let v: any = text;
-                  try {
-                    v = JSON.parse(text);
-                  } catch {
-                    /* A plain-text constraint stays text. */
+      {!entityOnly && (
+        <>
+          <h4>交互数据</h4>
+          {value.data.map((f, n) => (
+            <fieldset key={f.id}>
+              <legend>字段 {n + 1}</legend>
+              <div className="ssd-form-columns">
+                <Text
+                  label={`字段 ${n + 1} 名称`}
+                  value={f.name}
+                  onChange={(name) => field(f.id, { name })}
+                />
+                <Select
+                  label={`字段 ${n + 1} 位置`}
+                  value={f.location}
+                  values={[
+                    "header",
+                    "path",
+                    "query",
+                    "body",
+                    "response",
+                    "business",
+                  ].map((v) => [v, v])}
+                  onChange={(location) => field(f.id, { location })}
+                />
+                <Text
+                  label={`字段 ${n + 1} 类型`}
+                  value={f.type}
+                  onChange={(type) => field(f.id, { type })}
+                />
+                <Select
+                  label={`字段 ${n + 1} 必填`}
+                  value={f.required == null ? "unknown" : String(f.required)}
+                  values={[
+                    ["unknown", "未定义"],
+                    ["true", "必填"],
+                    ["false", "可选"],
+                  ]}
+                  onChange={(v) =>
+                    field(f.id, {
+                      required: v === "unknown" ? null : v === "true",
+                    })
                   }
-                  field(f.id, {
-                    constraints: f.constraints.map((x, k) =>
-                      k === j ? { ...x, value: v } : x,
-                    ),
-                  });
-                }}
-              />
+                />
+              </div>
+              {(f.constraints || []).map((c, j) => (
+                <div className="ssd-form-columns" key={j}>
+                  <Text
+                    label={`字段 ${n + 1} 约束 ${j + 1} 类型`}
+                    value={c.kind}
+                    onChange={(kind) =>
+                      field(f.id, {
+                        constraints: f.constraints.map((x, k) =>
+                          k === j ? { ...x, kind } : x,
+                        ),
+                      })
+                    }
+                  />
+                  <Text
+                    label={`字段 ${n + 1} 约束 ${j + 1} 值`}
+                    value={
+                      typeof c.value === "string"
+                        ? c.value
+                        : JSON.stringify(c.value)
+                    }
+                    onChange={(text) => {
+                      let v: any = text;
+                      try {
+                        v = JSON.parse(text);
+                      } catch {
+                        /* A plain-text constraint stays text. */
+                      }
+                      field(f.id, {
+                        constraints: f.constraints.map((x, k) =>
+                          k === j ? { ...x, value: v } : x,
+                        ),
+                      });
+                    }}
+                  />
+                  <button
+                    onClick={() =>
+                      field(f.id, {
+                        constraints: f.constraints.filter((_, k) => k !== j),
+                      })
+                    }
+                  >
+                    删除约束 {j + 1}
+                  </button>
+                </div>
+              ))}
               <button
                 onClick={() =>
                   field(f.id, {
-                    constraints: f.constraints.filter((_, k) => k !== j),
+                    constraints: [
+                      ...(f.constraints || []),
+                      { kind: "type", value: "" },
+                    ],
                   })
                 }
               >
-                删除约束 {j + 1}
+                添加字段 {n + 1} 约束
               </button>
-            </div>
+              <button
+                onClick={() =>
+                  set({
+                    ...value,
+                    data: value.data.filter((x) => x.id !== f.id),
+                  })
+                }
+              >
+                删除字段 {n + 1}
+              </button>
+            </fieldset>
           ))}
           <button
             onClick={() =>
-              field(f.id, {
-                constraints: [
-                  ...(f.constraints || []),
-                  { kind: "type", value: "" },
+              set({
+                ...value,
+                data: [
+                  ...value.data,
+                  {
+                    id: uid("field"),
+                    name: "",
+                    location:
+                      value.direction === "return" ? "response" : "body",
+                    constraints: [],
+                    source_refs: [],
+                  },
                 ],
               })
             }
           >
-            添加字段 {n + 1} 约束
+            添加数据字段
           </button>
-          <button
-            onClick={() =>
-              set({ ...value, data: value.data.filter((x) => x.id !== f.id) })
-            }
-          >
-            删除字段 {n + 1}
-          </button>
-        </fieldset>
-      ))}
-      <button
-        onClick={() =>
-          set({
-            ...value,
-            data: [
-              ...value.data,
-              {
-                id: uid("field"),
-                name: "",
-                location: value.direction === "return" ? "response" : "body",
-                constraints: [],
-                source_refs: [],
-              },
-            ],
-          })
-        }
-      >
-        添加数据字段
-      </button>
+        </>
+      )}
       <p className="muted">
-        步骤身份保持不变。删除字段或改变对象后，无法保留的关联将在保存时转为待重新挂载。
+        步骤身份保持不变。对象改变后，无法保留的关联将在保存时转为待重新挂载。
       </p>
     </Modal>
   );

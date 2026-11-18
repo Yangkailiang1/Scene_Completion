@@ -21,8 +21,13 @@ SIDECARS = (
     "test-exceptions.json",
     "extension-mapping.json",
     "source-map.json",
+    "source-documents.json",
     "accepted-overrides.json",
 )
+
+
+def core_filename(name):
+    return name in (CASE_FILE, LEGACY_MAIN, *SIDECARS)
 
 
 def case_files(directory):
@@ -88,7 +93,7 @@ def _operation(value):
     value = value or {}
     return {
         key: value[key]
-        for key in ("name", "crud", "http_method", "http_path", "kinds")
+        for key in ("name", "crud", "crud_source", "http_method", "http_path", "kinds")
         if key in value
     }
 
@@ -238,6 +243,7 @@ def sys_operation(document):
             "parent_id": mapping.get(step.get("parent_id")),
             "declared_parent": step.get("parent_id"),
             "direction": step.get("direction"),
+            "validates": [mapping.get(ref, ref) for ref in step.get("validates", [])],
         }
         if step.get("description"):
             node["description"] = step["description"]
@@ -246,7 +252,9 @@ def sys_operation(document):
         if step.get("api_ref"):
             node["api_id"] = step["api_ref"]
         if step.get("entities"):
-            node["data_ref"] = [{"entity": entity} for entity in step["entities"]]
+            node["data_ref"] = deepcopy(step.get("entity_refs")) or [
+                {"entity": entity} for entity in step["entities"]
+            ]
         declared = [
             field
             for field in step.get("declared_fields") or step.get("data") or []
@@ -291,6 +299,7 @@ def sys_operation(document):
         "case": case,
         "function_tree": deepcopy(document.get("function_tree") or {}),
         "documents": deepcopy(document.get("documents") or []),
+        "analysis_profile": document.get("analysis_profile"),
     }
 
 

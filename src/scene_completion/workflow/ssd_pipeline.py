@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.application import ssd_revision_service as ssd_results
+from scene_completion.domain.current_scope import STRUCTURED_PROFILES
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure import ssd_repository
@@ -82,7 +83,17 @@ def _semantic_cache_identity(ex, stage):
         "semantic_task": task,
         "semantic_version": code_version(task),
         **(
-            {"supporting_semantics": {"ssd-bind": code_version("ssd-bind")}}
+            {
+                "supporting_semantics": {
+                    task: code_version(task)
+                    for task in (
+                        "ssd-bind",
+                        "ssd-entity-inference",
+                        "ssd-entity-classify",
+                        "ssd-command-classify",
+                    )
+                }
+            }
             if stage == "ssd-resolve"
             else {}
         ),
@@ -323,6 +334,17 @@ def _compare(ex, bundle, record):
 
 def _resolve(ex, bundle, record):
     bundle = deepcopy(bundle)
+    if bundle.get("analysis_profile") in STRUCTURED_PROFILES:
+        from scene_completion.analysis.ssd import entity_semantics
+
+        def semantic(task, inputs):
+            value, _ = ex.semantic(task, inputs, record)
+            return value
+
+        executor = semantic if _semantic_available(ex) else None
+        entity_semantics.infer(bundle, executor)
+        entity_semantics.classify(bundle, executor)
+        return ssd_validation.validate(bundle)
     from scene_completion.analysis.ssd.contract_binding import apply_result, prepare
 
     context, maps = prepare(bundle)

@@ -448,6 +448,64 @@ export function SsdResultsView({
   const comparison =
     layer === "pending" ? [] : snapshot?.comparison?.[layer] || [];
   const activeStep = draft?.steps.find((step) => step.id === stepId);
+  const firstCall = draft?.analysis_profile === "command-interaction-v2";
+  const commandMode =
+    firstCall || draft?.analysis_profile === "command-interaction-v1";
+  const activeUnits = (draft?.field_anchors?.units || []).filter(
+    (unit) => unit.step_id === activeStep?.id,
+  );
+  const activeEntityIds = Array.from(
+    new Set([
+      ...(activeStep?.entity_ids || []),
+      ...(firstCall ? activeUnits.map((unit) => unit.entity) : []),
+    ]),
+  );
+  const relatedCommands = Object.values(draft?.command_bindings || {}).filter(
+    (row) =>
+      activeStep &&
+      [
+        ...row.occurrences,
+        ...(row.validation_step_ids || []),
+        ...(row.response_step_ids || []),
+      ].includes(activeStep.id),
+  );
+  const entityOnly =
+    commandMode || draft?.analysis_profile === "entity-interaction-v1";
+  const commandFields =
+    commandMode && activeStep
+      ? (draft?.steps || []).flatMap((step) =>
+          step.data.filter(
+            (field) =>
+              field.command_id &&
+              (step.id === activeStep.id ||
+                field.call_step_id === activeStep.id),
+          ),
+        )
+      : [];
+  const excludedSources = Object.entries(
+    draft?.source_classifications || {},
+  ).flatMap(([channel, rows]) =>
+    rows
+      .filter((row) => ["normal", "out_of_scope"].includes(row.kind))
+      .map((row) => ({ channel, ...row })),
+  );
+  const stepEntities = (draft?.entities || [])
+    .filter((entity) => activeEntityIds.includes(entity.id))
+    .map((entity) =>
+      firstCall
+        ? {
+            ...entity,
+            attributes: entity.attributes.filter((attribute) =>
+              activeUnits.some(
+                (unit) =>
+                  unit.entity === entity.id &&
+                  unit.attribute === attribute.name,
+              ),
+            ),
+          }
+        : entity,
+    )
+    .filter((entity) => !firstCall || entity.attributes.length > 0);
   const visible = (record: Observation) =>
     stepId === UNBOUND
       ? !draft?.steps.some((step) => step.id === record.step_id)
@@ -599,7 +657,7 @@ export function SsdResultsView({
       direction: "request",
       sender: { id: uid("party"), name: "", type: "service" },
       receiver: { id: uid("party"), name: "", type: "service" },
-      operation: { name: "", kinds: ["read"] },
+      operation: { name: "", kinds: entityOnly ? [] : ["read"] },
       data: [],
       api_id: null,
       entity_ids: [],
@@ -1084,6 +1142,24 @@ export function SsdResultsView({
                 新增 SSD 步骤
               </button>
             )}
+            {excludedSources.length > 0 && (
+              <details className="ssd-case-issues">
+                <summary>原始记录参考（{excludedSources.length}）</summary>
+                {excludedSources.map((row) => (
+                  <div key={row.record_id}>
+                    <strong>
+                      {row.channel} ·{" "}
+                      {row.kind === "normal" ? "正常备选" : "范围外"}
+                    </strong>
+                    <p>{row.condition}</p>
+                    <p>{row.reason}</p>
+                    <button onClick={() => setSources(row.source_refs)}>
+                      查看来源
+                    </button>
+                  </div>
+                ))}
+              </details>
+            )}
             {(draft.pending?.length > 0 ||
               draft.revision_issues?.length > 0) && (
               <details className="ssd-case-issues" open>
@@ -1135,7 +1211,11 @@ export function SsdResultsView({
                   <summary title={activeStep.operation.name}>
                     交互四元组（展开查看／编辑） · {activeStep.sender.name} →{" "}
                     {activeStep.receiver.name} ·{" "}
-                    {activeStep.operation.kinds.join("/") || "CRUD待确定"}
+                    {activeStep.operation.kinds.join("/") ||
+                      (entityOnly &&
+                      activeStep.operation.kinds_source !== "pending"
+                        ? "无 CRUD"
+                        : "CRUD待确定")}
                   </summary>
                   <div className="interaction-four">
                     <div>
@@ -1164,7 +1244,37 @@ export function SsdResultsView({
                       </p>
                     </div>
                     <div>
+                      <small>接收方</small>
+                      <strong>
+                        <EditableCell
+                          label="四元组receiver名称"
+                          readonly={readonly}
+                          value={activeStep.receiver.name}
+                          onChange={(name) =>
+                            change((b) => {
+                              b.steps.find(
+                                (s) => s.id === activeStep.id,
+                              )!.receiver.name = name;
+                            })
+                          }
+                        />
+                      </strong>
+                      <p>
+                        {activeStep.receiver.type}
+                        {activeStep.receiver.technology
+                          ? ` · ${activeStep.receiver.technology}`
+                          : ""}
+                      </p>
+                    </div>
+                    <div>
                       <small>操作</small>
+                      {commandMode && activeStep.operation.command_id && (
+                        <p>
+                          {activeStep.operation.command_id} ·{" "}
+                          {activeStep.operation.http_method}{" "}
+                          {activeStep.operation.http_path}
+                        </p>
+                      )}
                       <strong>
                         <EditableCell
                           label="四元组操作"
@@ -1197,9 +1307,27 @@ export function SsdResultsView({
                       </p>
                     </div>
                     <div>
-                      <small>数据</small>
+                      <small>
+                        {entityOnly && !commandMode ? "实体" : "数据"}
+                      </small>
                       <strong>
-                        {readonly ? (
+                        {entityOnly ? (
+                          <EditableCell
+                            label="四元组实体"
+                            readonly={readonly}
+                            value={activeStep.entity_ids.join("、")}
+                            onChange={(value) =>
+                              change((bundle) => {
+                                bundle.steps.find(
+                                  (step) => step.id === activeStep.id,
+                                )!.entity_ids = value
+                                  .split(/[,，、]+/)
+                                  .map((name) => name.trim())
+                                  .filter(Boolean);
+                              })
+                            }
+                          />
+                        ) : readonly ? (
                           activeStep.data
                             .map((field) => field.name)
                             .join("、") || "未记录数据字段"
@@ -1215,34 +1343,19 @@ export function SsdResultsView({
                           </button>
                         )}
                       </strong>
-                      <p>
-                        {activeStep.api_id
-                          ? "接口 " + activeStep.api_id
-                          : "未关联具体接口"}
-                      </p>
-                    </div>
-                    <div>
-                      <small>接收方</small>
-                      <strong>
-                        <EditableCell
-                          label="四元组receiver名称"
-                          readonly={readonly}
-                          value={activeStep.receiver.name}
-                          onChange={(name) =>
-                            change((b) => {
-                              b.steps.find(
-                                (s) => s.id === activeStep.id,
-                              )!.receiver.name = name;
-                            })
-                          }
-                        />
-                      </strong>
-                      <p>
-                        {activeStep.receiver.type}
-                        {activeStep.receiver.technology
-                          ? ` · ${activeStep.receiver.technology}`
-                          : ""}
-                      </p>
+                      {commandMode && commandFields.length > 0 && (
+                        <p>
+                          SR 字段：
+                          {commandFields.map((field) => field.name).join("、")}
+                        </p>
+                      )}
+                      {!entityOnly && (
+                        <p>
+                          {activeStep.api_id
+                            ? "接口 " + activeStep.api_id
+                            : "未关联具体接口"}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </details>
@@ -1252,11 +1365,68 @@ export function SsdResultsView({
                   </p>
                 )}
                 <details className="result-data">
-                  <summary>数据属性、接口实体映射、步骤编辑及原文依据</summary>
+                  <summary>
+                    {commandMode
+                      ? "实体属性、SR 字段约束、步骤编辑及原文依据"
+                      : entityOnly
+                        ? "实体属性、步骤编辑及原文依据"
+                        : "数据属性、接口实体映射、步骤编辑及原文依据"}
+                  </summary>
                   <p>
-                    接口：{activeStep.api_id || "未关联"} · 业务实体：
-                    {activeStep.entity_ids.join("、") || "未关联"}
+                    {!entityOnly && (
+                      <>接口：{activeStep.api_id || "未关联"} · </>
+                    )}
+                    业务实体：
+                    {activeEntityIds.join("、") || "未关联"}
                   </p>
+                  {firstCall &&
+                    relatedCommands.map((row) => {
+                      const primary = row.primary_step_id;
+                      const sourceSteps =
+                        activeStep.id === primary
+                          ? [
+                              ...(row.validation_step_ids || []),
+                              ...(row.response_step_ids || []),
+                            ]
+                          : [primary];
+                      if (!sourceSteps.length) return null;
+                      return (
+                        <p key={primary}>
+                          {activeStep.id === primary
+                            ? "校验及返回："
+                            : "约束展开于："}
+                          {sourceSteps.map((id) => (
+                            <button key={id} onClick={() => selectStep(id)}>
+                              {id}
+                            </button>
+                          ))}
+                        </p>
+                      );
+                    })}
+                  {firstCall &&
+                    Array.from(
+                      new Set(
+                        (draft.field_anchors?.units || [])
+                          .filter(
+                            (unit) =>
+                              unit.step_id !== activeStep.id &&
+                              activeStep.entity_ids.includes(unit.entity),
+                          )
+                          .map((unit) => unit.step_id),
+                      ),
+                    )
+                      .filter(
+                        (id) =>
+                          !relatedCommands.some(
+                            (row) => row.primary_step_id === id,
+                          ),
+                      )
+                      .map((id) => (
+                        <p key={id}>
+                          实体约束展开于：
+                          <button onClick={() => selectStep(id)}>{id}</button>
+                        </p>
+                      ))}
                   <div className="ssd-inline-actions">
                     <button
                       onClick={() => setSources(activeStep.source_refs || [])}
@@ -1303,87 +1473,170 @@ export function SsdResultsView({
                       </>
                     )}
                   </div>
-                  <div className="result-data-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          {[
-                            "数据",
-                            "位置",
-                            "类型",
-                            "必填／可选",
-                            "约束",
-                            "原文依据",
-                          ].map((label) => (
-                            <th key={label}>{label}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeStep.data.map((field) => (
-                          <tr key={field.id}>
-                            <td>
-                              <EditableCell
-                                label={`字段 ${field.id} 名称`}
-                                readonly={readonly}
-                                value={field.name}
-                                onChange={(name) =>
-                                  change((b) => {
-                                    b.steps
-                                      .find((s) => s.id === activeStep.id)!
-                                      .data.find(
-                                        (f) => f.id === field.id,
-                                      )!.name = name;
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>{field.location}</td>
-                            <td>
-                              <EditableCell
-                                label={`字段 ${field.id} 类型`}
-                                readonly={readonly}
-                                value={field.type || ""}
-                                onChange={(type) =>
-                                  change((b) => {
-                                    b.steps
-                                      .find((s) => s.id === activeStep.id)!
-                                      .data.find(
-                                        (f) => f.id === field.id,
-                                      )!.type = type;
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              {field.required == null
-                                ? "未记录"
-                                : field.required
-                                  ? "必填"
-                                  : "可选"}
-                            </td>
-                            <td>
-                              {field.constraints
-                                .map(
-                                  (constraint) =>
-                                    `${constraint.kind}: ${typeof constraint.value === "string" ? constraint.value : JSON.stringify(constraint.value)}`,
-                                )
-                                .join("；") || "未记录"}
-                            </td>
-                            <td>
-                              <button
-                                onClick={() =>
-                                  setSources(field.source_refs || [])
-                                }
-                              >
-                                查看出处
-                              </button>
-                            </td>
+                  {entityOnly ? (
+                    <div className="result-data-scroll">
+                      {commandFields.length > 0 && (
+                        <table>
+                          <caption>SR 接口字段</caption>
+                          <thead>
+                            <tr>
+                              <th>字段</th>
+                              <th>位置</th>
+                              <th>约束</th>
+                              <th>依据</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {commandFields.map((field) => (
+                              <tr key={field.id}>
+                                <td>{field.name}</td>
+                                <td>{field.location}</td>
+                                <td>
+                                  {[field.type, ...(field.rule_texts || [])]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      setSources(field.source_refs)
+                                    }
+                                  >
+                                    查看原文
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                      {stepEntities.map((entity) => (
+                        <table key={entity.id}>
+                          <caption>{entity.id}</caption>
+                          <thead>
+                            <tr>
+                              <th>属性</th>
+                              <th>类型与标签</th>
+                              <th>业务约束</th>
+                              <th>原文依据</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {entity.attributes.map((attribute) => (
+                              <tr key={attribute.name}>
+                                <td>{attribute.name}</td>
+                                <td>
+                                  {[attribute.type, ...(attribute.tags || [])]
+                                    .filter(Boolean)
+                                    .join("、")}
+                                </td>
+                                <td>
+                                  {attribute.constraints
+                                    .map((constraint) =>
+                                      typeof constraint.value === "string"
+                                        ? constraint.value
+                                        : JSON.stringify(constraint.value),
+                                    )
+                                    .join("；")}
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      setSources(attribute.source_refs || [])
+                                    }
+                                  >
+                                    查看出处
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="result-data-scroll">
+                      <table>
+                        <thead>
+                          <tr>
+                            {[
+                              "数据",
+                              "位置",
+                              "类型",
+                              "必填／可选",
+                              "约束",
+                              "原文依据",
+                            ].map((label) => (
+                              <th key={label}>{label}</th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody>
+                          {activeStep.data.map((field) => (
+                            <tr key={field.id}>
+                              <td>
+                                <EditableCell
+                                  label={`字段 ${field.id} 名称`}
+                                  readonly={readonly}
+                                  value={field.name}
+                                  onChange={(name) =>
+                                    change((b) => {
+                                      b.steps
+                                        .find((s) => s.id === activeStep.id)!
+                                        .data.find(
+                                          (f) => f.id === field.id,
+                                        )!.name = name;
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td>{field.location}</td>
+                              <td>
+                                <EditableCell
+                                  label={`字段 ${field.id} 类型`}
+                                  readonly={readonly}
+                                  value={field.type || ""}
+                                  onChange={(type) =>
+                                    change((b) => {
+                                      b.steps
+                                        .find((s) => s.id === activeStep.id)!
+                                        .data.find(
+                                          (f) => f.id === field.id,
+                                        )!.type = type;
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                {field.required == null
+                                  ? "未记录"
+                                  : field.required
+                                    ? "必填"
+                                    : "可选"}
+                              </td>
+                              <td>
+                                {field.constraints
+                                  .map(
+                                    (constraint) =>
+                                      `${constraint.kind}: ${typeof constraint.value === "string" ? constraint.value : JSON.stringify(constraint.value)}`,
+                                  )
+                                  .join("；") || "未记录"}
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() =>
+                                    setSources(field.source_refs || [])
+                                  }
+                                >
+                                  查看出处
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </details>
               </>
             ) : (
@@ -1466,6 +1719,7 @@ export function SsdResultsView({
             </div>
             <SsdAlignmentTable
               savedBundle={snapshot?.bundle}
+              onGoToStep={firstCall ? selectStep : undefined}
               rows={rows}
               bundle={draft}
               step={activeStep}
@@ -1619,6 +1873,7 @@ export function SsdResultsView({
         <StepEditor
           step={stepEdit}
           steps={draft.steps}
+          entityOnly={entityOnly}
           onClose={() => setStepEdit(null)}
           onSave={(value) => {
             change((b) => {

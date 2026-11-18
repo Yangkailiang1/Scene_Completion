@@ -5,6 +5,10 @@ from copy import deepcopy
 from scene_completion.infrastructure.identity import fingerprint
 
 POLICY = "interaction-shared-services-v1"
+ENTITY_PROFILE = "entity-interaction-v1"
+COMMAND_PROFILE = "command-interaction-v2"
+COMMAND_PROFILES = {"command-interaction-v1", COMMAND_PROFILE}
+STRUCTURED_PROFILES = {ENTITY_PROFILE, *COMMAND_PROFILES}
 AVAILABILITY = "service.base.availability"
 RETIRED = {
     "service_relation.data_isolation",

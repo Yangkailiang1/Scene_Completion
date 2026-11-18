@@ -146,6 +146,22 @@ def discover_material(*, directory=None, paths=None, files=None):
                 )
                 continue
             candidates.append((name, f, None))
+    declared_documents = {}
+    for display, source, _ in candidates:
+        if display != "source-documents.json":
+            continue
+        raw = (
+            source.read_bytes()
+            if isinstance(source, Path)
+            else base64.b64decode(source["content_base64"], validate=True)
+            if source.get("content_base64")
+            else str(source.get("content", "")).encode("utf8")
+        )
+        declared_documents = {
+            Path(row["path"]).as_posix(): row["role"]
+            for row in json.loads(raw.decode("utf-8-sig"))["documents"]
+            if row.get("role") in {"RR", "SR", "test"}
+        }
     selected = {}
     issues = []
     behaviors = []
@@ -178,7 +194,9 @@ def discover_material(*, directory=None, paths=None, files=None):
         if Path(name).suffix.lower() in {".md", ".markdown"}:
             import re
 
-            if re.search(r"spec|需求|设计|测试|^test[._-]|^RR[._-]|^SR[._-]", name, re.I):
+            if display in declared_documents or re.search(
+                r"spec|需求|设计|测试|^test[._-]|^RR[._-]|^SR[._-]", name, re.I
+            ):
                 originals.append((display, name, raw))
             else:
                 ignored.append({"name": display, "reason": "非原始需求或设计文档"})
@@ -304,6 +322,7 @@ def discover_material(*, directory=None, paths=None, files=None):
             "name": name,
             "relative_path": display,
             "content_base64": base64.b64encode(raw).decode(),
+            **({"role": declared_documents[display]} if display in declared_documents else {}),
         }
         rows.append(
             {

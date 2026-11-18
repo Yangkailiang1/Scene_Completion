@@ -41,6 +41,7 @@ def add_concern(
     refs=(),
     rule_id=None,
     attribute=None,
+    obligation_scope=None,
 ):
     definitions = bundle.get("registry", default_registry())["definitions"]
     if (
@@ -60,6 +61,7 @@ def add_concern(
         field and field["id"],
         entity,
         attribute,
+        *([sorted(obligation_scope)] if obligation_scope else []),
     )
     previous = next((c for c in output["concerns"] if c["id"] == cid), None)
     if previous:
@@ -80,6 +82,8 @@ def add_concern(
     if entity and attribute:
         value["attribute"] = attribute
         value["unit_id"] = ident("unit", bundle["case"]["id"], entity, attribute, key)
+    if obligation_scope:
+        value["obligation_scope"] = sorted(obligation_scope)
     if rule_id:
         value["rule_id"] = rule_id
     output["concerns"].append(value)
@@ -97,7 +101,7 @@ def add_scenario(output, concern, condition, expected, refs, identity=None):
         "id": sid,
         "concern_ids": [concern["id"]],
         **{k: concern.get(k) for k in ("step_id", "target", "key", "field_id", "entity_id")},
-        **{k: concern[k] for k in ("attribute", "unit_id") if k in concern},
+        **{k: concern[k] for k in ("attribute", "unit_id", "obligation_scope") if k in concern},
         "condition": condition,
         "expected": expected,
         "source_refs": list(refs),

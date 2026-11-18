@@ -23,12 +23,19 @@ def display_binding(row):
         row.get("entity_id") or "",
         row.get("key"),
         row.get("attribute") or "",
+        *row.get("obligation_scope", []),
     )
 
 
 def binding(row):
     if row.get("entity_id") and row.get("attribute") and not row.get("field_id"):
-        return ("entity", row["entity_id"], row["attribute"], row.get("key"))
+        return (
+            "entity",
+            row["entity_id"],
+            row["attribute"],
+            row.get("key"),
+            *row.get("obligation_scope", []),
+        )
     return display_binding(row)
 
 

@@ -1,0 +1,272 @@
+{
+  "use_case": "浏览商品",
+  "use_case_id": "UC-BROWSE-01",
+  "resource": "Product",
+  "operations": {
+    "browse_main_success": {
+      "ID": "browse_main_success",
+      "scenario_kind": "main",
+      "participant": {
+        "U": {
+          "name": "顾客",
+          "kind": "external_actor"
+        },
+        "MALL": {
+          "name": "商城",
+          "kind": "internal_service"
+        },
+        "CATALOG": {
+          "name": "商品目录服务",
+          "kind": "external_service"
+        }
+      },
+      "system_event": [
+        {
+          "id": "B1",
+          "source_layer": "SR",
+          "content": "调用 GET /api/v1/products 浏览商品（BROWSE-GET）",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 3,
+              "end_line": 3,
+              "quote": "B1 顾客调用 GET /api/v1/products 浏览商品（BROWSE-GET）。"
+            }
+          ],
+          "sender": "U",
+          "receiver": "MALL",
+          "api_id": "BROWSE-GET"
+        }
+      ],
+      "action": [
+        {
+          "id": "B2",
+          "source_layer": "SR",
+          "content": "校验请求参数和 Category.category_id 的格式",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 4,
+              "end_line": 4,
+              "quote": "B2 商城校验 B1 的查询参数 page、pageSize、keyword、minPrice 及 Category.category_id 格式。"
+            }
+          ],
+          "executor": "MALL",
+          "validates": [
+            "B1"
+          ],
+          "data_ref": [
+            {
+              "entity": "Category",
+              "fields": [
+                "category_id"
+              ],
+              "operation": "carry"
+            }
+          ]
+        },
+        {
+          "id": "B4",
+          "source_layer": "SR",
+          "content": "查询 Product 的 status 和 product_id",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 6,
+              "end_line": 6,
+              "quote": "B4 商品目录服务查询 Product 的 status 和 product_id。"
+            }
+          ],
+          "executor": "CATALOG",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "status",
+                "product_id"
+              ],
+              "operation": "read"
+            }
+          ]
+        }
+      ],
+      "interaction": [
+        {
+          "id": "B3",
+          "source_layer": "SR",
+          "content": "调用 POST /catalog/v1/products/search 查询在售商品（CATALOG-SEARCH）",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 5,
+              "end_line": 5,
+              "quote": "B3 商城调用 POST /catalog/v1/products/search 查询在售商品（CATALOG-SEARCH）。"
+            }
+          ],
+          "sender": "MALL",
+          "receiver": "CATALOG",
+          "api_id": "CATALOG-SEARCH",
+          "data_ref": [
+            {
+              "entity": "Product",
+              "fields": [
+                "status"
+              ],
+              "operation": "read"
+            }
+          ]
+        }
+      ],
+      "system_response": [
+        {
+          "id": "B5",
+          "source_layer": "SR",
+          "content": "返回目录商品列表",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 7,
+              "end_line": 7,
+              "quote": "B5 商品目录服务向商城返回商品列表。"
+            }
+          ],
+          "sender": "CATALOG",
+          "receiver": "MALL",
+          "reply_to": "B3"
+        },
+        {
+          "id": "B6",
+          "source_layer": "SR",
+          "content": "返回浏览结果",
+          "source_refs": [
+            {
+              "document": "sr",
+              "start_line": 8,
+              "end_line": 8,
+              "quote": "B6 商城向顾客返回浏览结果。"
+            }
+          ],
+          "sender": "MALL",
+          "receiver": "U",
+          "reply_to": "B1"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "action",
+          "ref": "B2"
+        },
+        {
+          "kind": "interaction",
+          "ref": "B3"
+        },
+        {
+          "kind": "action",
+          "ref": "B4"
+        },
+        {
+          "kind": "response",
+          "ref": "B5"
+        },
+        {
+          "kind": "response",
+          "ref": "B6"
+        }
+      ]
+    },
+    "SC_EX_PAGE_SIZE_HIGH": {
+      "ID": "SC_EX_PAGE_SIZE_HIGH",
+      "scenario_kind": "exception",
+      "participant": {
+        "U": {
+          "name": "顾客",
+          "kind": "external_actor"
+        },
+        "MALL": {
+          "name": "商城",
+          "kind": "internal_service"
+        },
+        "CATALOG": {
+          "name": "商品目录服务",
+          "kind": "external_service"
+        }
+      },
+      "system_event": [],
+      "action": [],
+      "interaction": [],
+      "system_response": [
+        {
+          "id": "SC_EX_PAGE_SIZE_HIGH-response",
+          "sender": "MALL",
+          "receiver": "U",
+          "message": "拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "response",
+          "ref": "SC_EX_PAGE_SIZE_HIGH-response"
+        }
+      ],
+      "guard": "pageSize > 100",
+      "extend_at_main": {
+        "after": "B2"
+      },
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 13,
+          "end_line": 13,
+          "quote": "入口允许匿名访问。分页容量大于 100 时拒绝查询并返回 PAGE_SIZE_OUT_OF_RANGE。"
+        }
+      ]
+    },
+    "ALT_EMPTY": {
+      "ID": "ALT_EMPTY",
+      "scenario_kind": "alternative",
+      "participant": {
+        "U": {
+          "name": "顾客",
+          "kind": "external_actor"
+        },
+        "MALL": {
+          "name": "商城",
+          "kind": "internal_service"
+        },
+        "CATALOG": {
+          "name": "商品目录服务",
+          "kind": "external_service"
+        }
+      },
+      "system_event": [],
+      "action": [],
+      "interaction": [],
+      "system_response": [
+        {
+          "id": "ALT_EMPTY-response",
+          "sender": "MALL",
+          "receiver": "U",
+          "message": "展示空列表"
+        }
+      ],
+      "Order": [
+        {
+          "kind": "response",
+          "ref": "ALT_EMPTY-response"
+        }
+      ],
+      "guard": "未找到符合筛选条件的商品",
+      "extend_at_main": {
+        "after": "B6"
+      },
+      "source_refs": [
+        {
+          "document": "sr",
+          "start_line": 16,
+          "end_line": 16,
+          "quote": "筛选无结果时展示空列表。"
+        }
+      ]
+    }
+  }
+}

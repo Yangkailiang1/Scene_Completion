@@ -316,7 +316,15 @@ class Execution:
 
             if task in INSTRUCTIONS:
                 return INSTRUCTIONS[task]
-        if task in {"ssd-resolve", "ssd-semantic-compare", "ssd-generate", "ssd-bind"}:
+        if task in {
+            "ssd-resolve",
+            "ssd-semantic-compare",
+            "ssd-generate",
+            "ssd-bind",
+            "ssd-entity-inference",
+            "ssd-entity-classify",
+            "ssd-command-classify",
+        }:
             from scene_completion.domain.ssd_contracts import instructions_for
 
             return instructions_for(task)

@@ -78,16 +78,21 @@ STAGES = {
         ),
     ),
     "ssd-resolve": _stage(
-        label="契约绑定与三通道独立识别",
+        label="操作判定、约束挂载与独立识别",
         kind=MODEL,
-        reads=("正向字段约束与操作关联", "G/E/GT 各自的原始记录"),
-        writes=("字段约束绑定到具体步骤", "E/GT 的关注点与具体场景", "待确认记录"),
-        semantic_tasks=("ssd-bind", "ssd-resolve"),
+        reads=("正向主成功事件流、功能树实体约束", "E/GT 各自的原始记录"),
+        writes=("CRUD 与实体约束锚点", "E/GT 的关注点与具体场景", "待确认记录"),
+        semantic_tasks=(
+            "ssd-entity-inference",
+            "ssd-entity-classify",
+            "ssd-command-classify",
+            "ssd-bind",
+            "ssd-resolve",
+        ),
         depends_on=("ssd-prepare",),
         doc=(
-            "先由 ssd-bind 把正向契约里的字段与操作绑定到实际步骤；再按 G/E/GT "
-            "三通道分别识别，每次只给该通道自己的来源记录。已解决的来源必须同时"
-            "产出关注点和具体场景，不能提交空结果丢弃来源。"
+            "实体模式先判定主流程的实际CRUD并处理未能脚本解析的属性约束，再由脚本建立G挂载。"
+            "E和GT分别根据自己的来源分类，脚本只对齐确认的异常。兼容输入沿用ssd-bind与ssd-resolve。"
         ),
     ),
     "ssd-generate": _stage(

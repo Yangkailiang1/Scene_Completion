@@ -211,8 +211,10 @@ class InputWatcher:
                     )
 
     def convert_pending(self, project):
+        from scene_completion.inputs.structured.authoring_cases import core_filename
+
         for row in artifacts.view(project)["items"]:
-            if row["status"] != "needs_conversion":
+            if row["status"] != "needs_conversion" or core_filename(row["name"]):
                 continue
             key = (project.name, row["id"])
             with self.guard:
@@ -223,6 +225,10 @@ class InputWatcher:
 
     def convert(self, project, iid):
         try:
+            from scene_completion.inputs.structured.authoring_cases import core_filename
+
+            if core_filename(artifacts.view(project, iid)["name"]):
+                return
             from scene_completion.application.model_factory import client_for
             from scene_completion.models.transport.request_admission import CallGate
 

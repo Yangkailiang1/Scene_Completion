@@ -6,6 +6,7 @@ from pathlib import Path
 
 from scene_completion.analysis.ssd.core_export import write_core
 from scene_completion.analysis.ssd.pipeline import _input_root, build_cases, case_identity
+from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
 from scene_completion.domain.ssd.validation import validate
 from scene_completion.infrastructure.storage import fingerprint, write_json
 from scene_completion.inputs.structured.authoring_cases import discover
@@ -72,7 +73,7 @@ def _issue(kind, reason, **location):
     return {"kind": kind, "reason": reason, **location}
 
 
-def _read_cases(root, selections):
+def _read_cases(root, selections, profile=None):
     entries = list(discover(root, case_identity))
     selected = set(selections or [])
     seen = set()
@@ -84,7 +85,9 @@ def _read_cases(root, selections):
         if not error:
             try:
                 bundle = validate(
-                    build_cases(root, [case["id"]], case_files=[file], generate=False)[0]
+                    build_cases(
+                        root, [case["id"]], case_files=[file], generate=False, profile=profile
+                    )[0]
                 )
             except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as exc:
                 error = str(exc)
@@ -105,6 +108,24 @@ def _read_cases(root, selections):
 
 def _needs(bundle):
     case_id = bundle["case"]["id"]
+    if bundle.get("analysis_profile") in STRUCTURED_PROFILES:
+        entities = {e["id"] for e in bundle["entities"]}
+        if not entities:
+            yield _issue("pending", "功能树未找到唯一用例的实体约束", case_id=case_id)
+        for step in bundle["steps"]:
+            gaps = set(step["entity_ids"]) - entities
+            if gaps:
+                yield _issue(
+                    "pending",
+                    "交互实体在功能树缺少定义",
+                    case_id=case_id,
+                    step_id=step["id"],
+                    entities=sorted(gaps),
+                )
+            if step.get("participant_gaps"):
+                yield _issue(
+                    "pending", "行为模型缺少参与者声明", case_id=case_id, step_id=step["id"]
+                )
     for api in bundle.get("apis", []):
         if not api.get("path_conflicts"):
             continue
@@ -120,6 +141,15 @@ def _needs(bundle):
                     qualified_candidates=api.get("qualified_candidates", []),
                     evidence=api["source_refs"],
                 )
+    for gap in bundle.get("pending", []):
+        if gap.get("command_gap"):
+            yield _issue(
+                "pending",
+                gap["reason"],
+                case_id=case_id,
+                command_id=gap["command_id"],
+                evidence=gap["source_refs"],
+            )
     if bundle.get("gt_source_available") is False:
         yield _issue("unassessed", "该用例缺少可对齐的 GT", case_id=case_id)
     for channel in ("E", "GT"):
@@ -136,11 +166,11 @@ def _needs(bundle):
             )
 
 
-def inspect(directory, cases=None):
+def inspect(directory, cases=None, *, profile=None):
     root = _input_root(directory)
     if not root.is_dir():
         raise ValueError("输入目录不存在")
-    bundles, issues = _read_cases(root, cases)
+    bundles, issues = _read_cases(root, cases, profile)
     return {
         "version": "core-input-inspection-v1",
         "input_hash": _fingerprint(root),
@@ -247,7 +277,7 @@ def _apply(root, output, overrides, input_hash):
         write_json(output / "accepted-overrides.json", {"input_hash": input_hash, "patches": saved})
 
 
-def convert(directory, destination, cases=None, overrides=None):
+def convert(directory, destination, cases=None, overrides=None, *, profile=None):
     from tempfile import TemporaryDirectory
 
     root, output = _input_root(directory), Path(destination).resolve()
@@ -256,7 +286,7 @@ def convert(directory, destination, cases=None, overrides=None):
     if output.exists() or output.is_relative_to(root):
         raise ValueError("输出须为输入目录之外的新目录")
     input_hash = _fingerprint(root)
-    bundles, issues = _read_cases(root, cases)
+    bundles, issues = _read_cases(root, cases, profile)
     if not bundles:
         return {"output": None, "input_hash": input_hash, "case_ids": [], "issues": issues}
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -302,21 +332,100 @@ def _cross_check(directory, bundle):
         ):
             raise ValueError(location + " 实体属性不存在")
         param = row.get("parameter")
-        if param and (
-            param.get("direction") not in {"request", "return", "response", "storage"}
-            or not any(
-                f["name"] == param.get("name") and f["location"] == param.get("location")
+        if param:
+            direction = "response" if param.get("direction") == "return" else param.get("direction")
+            if not any(
+                f["name"] == param.get("name")
+                and f["location"] == param.get("location")
+                and (
+                    f.get("direction")
+                    or (
+                        "storage"
+                        if f["location"] == "storage"
+                        else "response"
+                        if step["direction"] == "return"
+                        else "request"
+                    )
+                )
+                == direction
                 for f in step["data"]
-            )
-            or param["direction"]
-            not in {
-                step["direction"],
-                "response" if step["direction"] == "return" else "request",
-                "storage" if param.get("location") == "storage" else step["direction"],
-            }
-        ):
-            raise ValueError(location + " 接口字段或方向不存在")
+            ):
+                raise ValueError(location + " 接口字段或方向不存在")
 
+    main = _load(directory / "main-success.json")
+    if main.get("analysis_profile") in STRUCTURED_PROFILES:
+        from scene_completion.domain.ssd_contracts import CRUD
+
+        architecture_file = directory.parent.parent / "architecture.json"
+        parties = {p["id"]: p for p in _load(architecture_file)["elements"]}
+        roles = {"external_actor", "external_service", "internal_service"}
+        for step in main["steps"]:
+            if step.get("declared_fields") or (
+                step.get("data") and main["analysis_profile"] not in COMMAND_PROFILES
+            ):
+                raise ValueError("实体模式不接受接口字段分析产物")
+            if not set(step["operation"].get("crud", [])) <= set(CRUD):
+                raise ValueError("CRUD 包含非 CRUD 操作")
+            if any(
+                parties.get(step[role], {}).get("kind") not in roles
+                for role in ("sender", "receiver")
+            ):
+                raise ValueError("四元组引用了不存在或类型无效的参与者：" + step["id"])
+            if {ref["entity"] for ref in step.get("entity_refs", [])} - set(step["entities"]):
+                raise ValueError("实体引用证据与四元组实体不一致：" + step["id"])
+        if any(not (directory / name).is_file() for name in (*FORMATS, "source-map.json")):
+            raise ValueError("实体模式缺少核心分件")
+        if main["analysis_profile"] in COMMAND_PROFILES:
+            if main.get("command_bindings") != bundle["command_bindings"]:
+                raise ValueError("SR 命令主挂载与输入步骤不一致")
+            for row in main["steps"]:
+                if row["operation"].get("command_id") != steps[row["id"]]["operation"].get(
+                    "command_id"
+                ):
+                    raise ValueError("步骤命令编号与来源不一致：" + row["id"])
+            obligations = {
+                (step["id"], field["id"], field["command_id"], field["location"], field["name"])
+                for step in bundle["steps"]
+                for field in step["data"]
+            }
+            supplied = main.get("data_obligations", [])
+            actual = {
+                (r["step_id"], r["field_id"], r["command_id"], r["location"], r["name"])
+                for r in supplied
+            }
+            if actual != obligations or len(actual) != len(supplied):
+                raise ValueError("SR 数据义务清单与已声明接口不一致")
+        mapping = _load(directory / "extension-mapping.json")
+        gt = _load(directory / "test-exceptions.json")
+        by_extension = {row["extension_id"]: row for row in mapping["items"]}
+        binding_fields = (
+            "step_id",
+            "target",
+            "entity_id",
+            "attribute",
+            "concern_key",
+            "condition",
+            "expected",
+        )
+
+        def bound_rows(rows):
+            return {tuple(row.get(key) for key in binding_fields) for row in rows}
+
+        if len(by_extension) != len(mapping["items"]):
+            raise ValueError("扩展 ID 重复")
+        for ext, item in by_extension.items():
+            bindings = item.get("bindings", [])
+            active = [
+                r
+                for r in gt["exceptions"]
+                if r.get("extension_id") == ext and r.get("status") == "active"
+            ]
+            if (item["kind"] == "exception") != bool(bindings) or bound_rows(
+                bindings
+            ) != bound_rows(active):
+                raise ValueError("GT 与扩展映射的确认绑定不一致：" + ext)
+        if any(row.get("extension_id") not in by_extension for row in gt["exceptions"]):
+            raise ValueError("测试异常缺少对应扩展")
     for name, versions in FORMATS.items():
         file = directory / name
         if not file.is_file():
@@ -325,6 +434,9 @@ def _cross_check(directory, bundle):
         if value.get("version") not in versions:
             raise ValueError(name + " 版本无效")
         if name in {"existing-exceptions.json", "test-exceptions.json"}:
+            identities = [row["id"] for row in value.get("exceptions", [])]
+            if len(set(identities)) != len(identities):
+                raise ValueError(name + " 的异常 ID 重复")
             for row in value.get("exceptions", []):
                 if row.get("status", "active") == "active" and row.get("scenario_kind") not in {
                     "normal",
