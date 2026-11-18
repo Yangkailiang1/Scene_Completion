@@ -106,7 +106,7 @@ def discover_material(*, directory=None, paths=None, files=None):
                     or p.is_symlink()
                 ):
                     continue
-                candidates.append((str(p.relative_to(root)), p, None))
+                candidates.append((p.relative_to(root).as_posix(), p, None))
                 if len(candidates) > 1000:
                     raise ValueError("JSON文件过多，请缩小输入目录")
     elif paths is not None:

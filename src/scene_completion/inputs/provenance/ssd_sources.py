@@ -90,7 +90,7 @@ class Sources:
 
     def add(self, path, role="intermediate"):
         path = Path(path)
-        name = str(path.relative_to(self.root))
+        name = path.relative_to(self.root).as_posix()
         if name not in self.documents:
             text = path.read_text(encoding="utf-8-sig")
             self.documents[name] = {

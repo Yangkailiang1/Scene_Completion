@@ -342,6 +342,7 @@ def test_scheduler_shared_concurrency_local_repair_resume_and_content_invalidati
     lock = threading.Lock()
     active = 0
     peak = 0
+    first_pair = threading.Barrier(2, timeout=10)
 
     def execute(deps, r):
         nonlocal active, peak
@@ -349,7 +350,9 @@ def test_scheduler_shared_concurrency_local_repair_resume_and_content_invalidati
             active += 1
             peak = max(peak, active)
             calls.append((r["case"], r["rounds"]))
-        time.sleep(0.01)
+            synchronize = len(calls) <= 2
+        if synchronize:
+            first_pair.wait()
         with lock:
             active -= 1
         if r["case"] == "bad" and r["rounds"] < 1:

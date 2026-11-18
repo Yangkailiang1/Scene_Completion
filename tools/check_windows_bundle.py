@@ -246,6 +246,29 @@ def smoke(bundle):
             )
             view = json.loads(request("/api/projects/" + meta["id"] + "/test-sources"))
             assert view["preview"]["counts"] == preview["counts"]
+            cli = subprocess.run(
+                [
+                    "cmd.exe",
+                    "/d",
+                    "/c",
+                    "scene.cmd",
+                    "--local",
+                    "--data-dir",
+                    "data",
+                    "--env-file",
+                    ".env",
+                    "status",
+                    "--project",
+                    meta["id"],
+                ],
+                cwd=work,
+                capture_output=True,
+                encoding="utf8",
+                timeout=30,
+            )
+            if cli.returncode:
+                raise RuntimeError("Local CLI startup failed: " + cli.stdout + cli.stderr)
+            assert json.loads(cli.stdout)["job"]["status"] == "ready"
             print(
                 json.dumps(
                     {
@@ -255,6 +278,7 @@ def smoke(bundle):
                         "manifest_files": len(manifest["files"]),
                         "unicode_space_path": True,
                         "launcher_and_http": "passed",
+                        "local_cli_and_web_share_project": "passed",
                         "xlsx_preview_and_project": "passed",
                         "model_calls": 0,
                         **worker_checks,

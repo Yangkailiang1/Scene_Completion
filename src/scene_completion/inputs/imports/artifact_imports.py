@@ -230,7 +230,7 @@ def receive(project, files):
                 "artifacts": [],
                 "created_at": time.time(),
                 "revision": 0,
-                "original": str((folder / "original" / name).relative_to(project)),
+                "original": (folder / "original" / name).relative_to(project).as_posix(),
                 "history": [],
             }
             if core_input:

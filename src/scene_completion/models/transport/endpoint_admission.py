@@ -45,9 +45,7 @@ def endpoint_slot(
             raise TaskBlocked("pending", {"admission_paused": True})
         for n in range(limit):
             f = (root / f"slot-{n}.lock").open("a+b")
-            if not f.seek(0, 2):
-                f.write(b"0")
-                f.flush()
+            # Windows can lock past EOF. Avoid writing a marker another process may lock.
             f.seek(0)
             try:
                 if os.name == "nt":

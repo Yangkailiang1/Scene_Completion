@@ -19,7 +19,9 @@ def project_with_snapshot(tmp_path, *, content=TEXT, duplicates=False, file_text
     )
     file = tmp_path / "imports/spec.md"
     file.parent.mkdir(parents=True)
-    file.write_text(file_text if file_text is not None else content, encoding="utf-8")
+    file.write_bytes(
+        (file_text if file_text is not None else content).replace("\n", "\r\n").encode()
+    )
     rows = [{"number": n, "text": v} for n, v in enumerate(content.splitlines(), 1)]
     document = {
         "source_id": "import-raw-spec",
@@ -32,7 +34,7 @@ def project_with_snapshot(tmp_path, *, content=TEXT, duplicates=False, file_text
     documents = [document]
     if duplicates:
         copy = tmp_path / "imports/spec-copy.md"
-        copy.write_text(content, encoding="utf-8")
+        copy.write_bytes(file.read_bytes())
         documents.append(
             {**document, "source_id": "import-raw-copy", "path": "imports/spec-copy.md"}
         )
@@ -53,7 +55,7 @@ def test_identical_copies_resolve_but_different_content_is_never_guessed(tmp_pat
 
     other = tmp_path / "other"
     other.mkdir()
-    # The snapshot holds text that no source file contains byte-for-byte.
+    # The snapshot holds text that no source file contains.
     snapshot_id = project_with_snapshot(other, file_text=TEXT + "\n额外一行")
     assert snapshot_source(other, snapshot_id) is None
     with pytest.raises(ValueError):

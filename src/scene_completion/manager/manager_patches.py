@@ -67,8 +67,8 @@ def propose(project, program, body):
             compile(after, str(target), "exec")
         rel = target.relative_to(program).as_posix()
         index = len(records)
-        (folder / (str(index) + ".before")).write_text(before, encoding="utf-8")
-        (folder / (str(index) + ".after")).write_text(after, encoding="utf-8")
+        (folder / (str(index) + ".before")).write_text(before, encoding="utf-8", newline="")
+        (folder / (str(index) + ".after")).write_text(after, encoding="utf-8", newline="")
         records.append(
             {"path": rel, "before_hash": fingerprint(before), "after_hash": fingerprint(after)}
         )

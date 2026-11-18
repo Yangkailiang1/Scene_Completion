@@ -1,4 +1,5 @@
 *.cmd text eol=crlf
+deployment/windows/CODING-AGENT.md text eol=lf
 
 # Keep the frontend formatter's required LF endings on Windows checkouts.
 frontend/**/*.ts text eol=lf

@@ -11,6 +11,7 @@ import sqlite3
 import tempfile
 import time
 import zipfile
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -204,13 +205,18 @@ def snapshot_document_texts(project):
             ident, content = doc.get("id"), doc.get("content")
             if isinstance(ident, str) and isinstance(content, str):
                 texts.setdefault(ident, set()).add(
-                    hashlib.sha256(content.encode("utf-8")).hexdigest()
+                    hashlib.sha256(_source_text_bytes(content)).hexdigest()
                 )
     return texts
 
 
+def _source_text_bytes(text):
+    # Source projections use universal newlines. The original file hash is verified separately.
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
 def snapshot_source(project, sid):
-    """Resolve a case-snapshot document id to the source document with the same bytes.
+    """Resolve a snapshot document to a verified source with identical text.
 
     Snapshots store a rendered projection with their own ids, so a result-page
     citation cannot be looked up by id alone. Only an exact, unique content match
@@ -234,7 +240,7 @@ def snapshot_source(project, sid):
             text = data.decode("utf-8-sig")
         except UnicodeDecodeError:
             continue
-        if hashlib.sha256(text.encode("utf-8")).hexdigest() in digests:
+        if hashlib.sha256(_source_text_bytes(text)).hexdigest() in digests:
             candidates[hashlib.sha256(data).hexdigest()] = doc
     # Identical copies carry the same bytes and line numbers, so any one of them
     # opens the cited lines; differing documents are never silently chosen.
@@ -442,11 +448,12 @@ def project_archive(project):
             with tempfile.TemporaryDirectory() as temp:
                 target = Path(temp) / "events.sqlite3"
                 with (
-                    sqlite3.connect(f"file:{dbfile}?mode=ro", uri=True) as src,
-                    sqlite3.connect(target) as dst,
+                    closing(
+                        sqlite3.connect(dbfile.resolve().as_uri() + "?mode=ro", uri=True)
+                    ) as src,
+                    closing(sqlite3.connect(target)) as db,
                 ):
-                    src.backup(dst)
-                with sqlite3.connect(target) as db:
+                    src.backup(db)
                     db.execute("PRAGMA journal_mode=DELETE")
                     db.execute("DELETE FROM events")
                     db.execute("DELETE FROM checkpoints") if db.execute(
