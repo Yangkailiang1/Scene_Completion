@@ -479,6 +479,39 @@ test("split and merge preserve origins and pending test records can be corrected
   });
   expect(saved.bundle.channels.GT.concerns).toHaveLength(0);
 });
+test("unbound navigation restores each regular result layer without reloading", async () => {
+  const data = fixture();
+  data.channels.G.scenarios = [
+    { ...data.channels.G.concerns[0], id: "g-scenario", concern_ids: ["g1"] },
+  ];
+  const fetch = mockApi((path) =>
+    path.endsWith("/editor") ? response(data) : undefined,
+  );
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  await screen.findByLabelText("编辑 G g1");
+  const step = within(screen.getByLabelText("结果交互步骤")).getByRole(
+    "button",
+    { name: /查询商品列表/ },
+  );
+  const goUnbound = () =>
+    fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
+  goUnbound();
+  expect(screen.getByLabelText("编辑 GT t1")).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("只看不一致"));
+  fireEvent.click(step);
+  expect(screen.getByLabelText("编辑 G g1")).toBeTruthy();
+  expect(
+    (screen.getByLabelText("只看不一致") as HTMLInputElement).checked,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("tab", { name: /场景层/ }));
+  goUnbound();
+  fireEvent.click(step);
+  expect(screen.getByLabelText("编辑 G g-scenario")).toBeTruthy();
+  expect(
+    fetch.mock.calls.filter(([url]) => String(url).includes("/editor")),
+  ).toHaveLength(1);
+});
+
 test("409 keeps the draft instead of discarding a business correction", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(
     async (url) =>

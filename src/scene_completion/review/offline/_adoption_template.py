@@ -77,6 +77,8 @@ function record(entry,r,parent,channel,preview=false){
  box.append(el('p',r.condition||r.label||definition(entry,r),'condition'));
  if(r.expected){const p=el('p',undefined,'expected');p.append(el('b','预期结果  '),document.createTextNode(r.expected));box.append(p);}
  if(r.failure_step_id)box.append(stepEvidence(entry,'实际失败步骤',r.failure_step_ids||[r.failure_step_id]));
+ if(r.failure_step_pending)box.append(el('p','实际失败步骤待定位','muted'));
+ if(r.failure_step_reason)box.append(el('p','失败定位依据 · '+r.failure_step_reason,'muted'));
  if(r.validation_step_ids?.length)box.append(stepEvidence(entry,'校验步骤',r.validation_step_ids));
  if(r.response_step_ids?.length)box.append(stepEvidence(entry,'响应步骤',r.response_step_ids));
  if(r.call_step_id)box.append(el('p','接口调用步骤 · '+r.call_step_id,'muted'));

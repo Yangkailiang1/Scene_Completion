@@ -1,6 +1,14 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createElement,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { afterSourceLayout, scrollSourceAnchor } from "./sourceScroll";
 
 export type SourceHeading = {
   line: number;
@@ -85,6 +93,7 @@ export function MarkdownSource({
   outlineOpen,
   onOutline,
   onNavigate,
+  onRawLine,
   mark,
 }: {
   lines: { number: number; text: string }[];
@@ -94,23 +103,26 @@ export function MarkdownSource({
   outlineOpen: boolean;
   onOutline: (headings: SourceHeading[]) => void;
   onNavigate: (line: number) => void;
+  onRawLine?: (line: number) => void;
   mark?: SourceMark | null;
 }) {
   const content = useRef<HTMLDivElement>(null);
+  const rawLine = useRef(onRawLine);
+  rawLine.current = onRawLine;
   const located = mark ? resolveSourceLine(lines, mark) : null;
   const active = located
     ? { start: located.start, end: located.end }
     : { start: highlightStart, end: highlightEnd };
   const [headings, setHeadings] = useState<SourceHeading[]>([]);
   const base = lines[0]?.number || 1;
+  const last = lines.at(-1)?.number || base;
   const text = useMemo(() => {
     const rows = new Map(lines.map((row) => [row.number, row.text]));
-    const last = lines.at(-1)?.number || base;
     return Array.from(
       { length: last - base + 1 },
       (_, i) => rows.get(base + i) || "",
     ).join("\n");
-  }, [lines, base]);
+  }, [lines, base, last]);
   const components = useMemo<Components>(() => {
     const coordinates = (node: any) => ({
       "data-source-start": (node?.position?.start?.line || 1) + base - 1,
@@ -220,33 +232,46 @@ export function MarkdownSource({
     setHeadings(result);
     onOutline(result);
   }, [text, onOutline]);
-  useEffect(() => {
-    const root = content.current;
-    if (!root) return;
-    const blocks = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-source-start]"),
-    );
-    const candidates = blocks.filter(
-      (el) =>
-        Number(el.dataset.sourceStart) <= jump.line &&
-        Number(el.dataset.sourceEnd) >= jump.line,
-    );
-    candidates.sort(
-      (a, b) =>
-        Number(a.dataset.sourceEnd) -
-        Number(a.dataset.sourceStart) -
-        (Number(b.dataset.sourceEnd) - Number(b.dataset.sourceStart)),
-    );
-    const target =
-      candidates[0] ||
-      blocks.find((el) => Number(el.dataset.sourceStart) >= jump.line) ||
-      blocks.at(-1);
-    if (target)
-      root.scrollTop +=
-        target.getBoundingClientRect().top -
-        root.getBoundingClientRect().top -
-        36;
-  }, [jump, text]);
+  const jumpLine =
+    located && jump.line === mark?.start ? located.start : jump.line;
+  useLayoutEffect(
+    () =>
+      afterSourceLayout(() => {
+        const root = content.current;
+        if (!root || jumpLine < base || jumpLine > last) return;
+        const blocks = Array.from(
+          root.querySelectorAll<HTMLElement>("[data-source-start]"),
+        );
+        const candidates = blocks.filter(
+          (el) =>
+            Number(el.dataset.sourceStart) <= jumpLine &&
+            Number(el.dataset.sourceEnd) >= jumpLine,
+        );
+        candidates.sort(
+          (a, b) =>
+            Number(a.dataset.sourceEnd) -
+            Number(a.dataset.sourceStart) -
+            (Number(b.dataset.sourceEnd) - Number(b.dataset.sourceStart)),
+        );
+        const target =
+          candidates[0] ||
+          blocks.find((el) => Number(el.dataset.sourceStart) >= jumpLine) ||
+          blocks.at(-1);
+        if (
+          rawLine.current &&
+          (!candidates.length ||
+            (target &&
+              jumpLine > Number(target.dataset.sourceStart) &&
+              target.getBoundingClientRect().height > root.clientHeight))
+        ) {
+          rawLine.current(jumpLine);
+          return;
+        }
+        if (target) scrollSourceAnchor(root, target);
+        else rawLine.current?.(jumpLine);
+      }),
+    [jumpLine, jump.revision, text, base, last],
+  );
   return (
     <div className="source-markdown-reader">
       {outlineOpen && (

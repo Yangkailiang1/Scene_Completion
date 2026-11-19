@@ -38,12 +38,18 @@ from scene_completion.inputs.imports.artifact_views import view as view
 def receive(project, files):
     project = Path(project)
     out = []
-    from scene_completion.inputs.structured.authoring_cases import core_filename
+    from scene_completion.inputs.structured.authoring_cases import (
+        core_filename,
+        is_behavior_evidence,
+    )
     from scene_completion.inputs.structured.behavior_imports import context_for
     from scene_completion.inputs.structured.behavior_imports import format_of as behavior_format
 
     batch = []
     for f in files:
+        relative = f.get("relative_path") or f.get("name", "")
+        if is_behavior_evidence(relative):
+            continue
         try:
             raw = (
                 base64.b64decode(f["content_base64"], validate=True)
@@ -92,10 +98,11 @@ def receive(project, files):
                 format_of as behavior_format,
             )
 
+            frozen_evidence = is_behavior_evidence(f.get("relative_path") or name)
             try:
                 behavior_kind = (
                     behavior_format(json.loads(raw.decode("utf-8-sig")))
-                    if Path(name).suffix.lower() == ".json"
+                    if Path(name).suffix.lower() == ".json" and not frozen_evidence
                     else None
                 )
             except (ValueError, UnicodeError):
@@ -156,7 +163,7 @@ def receive(project, files):
             from scene_completion.inputs.structured.structure_models import compile_model
 
             structured = compile_model(text, name) if Path(name).suffix.lower() == ".json" else None
-            core_input = Path(name).suffix.lower() == ".json" and core_filename(name)
+            core_input = frozen_evidence or core_filename(name)
             if structured or behavior_kind or core_input:
                 role = "artifact"
             meta = (

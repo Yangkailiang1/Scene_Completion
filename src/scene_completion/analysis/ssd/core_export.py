@@ -6,9 +6,11 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 
+from scene_completion.analysis.ssd import failure_context
 from scene_completion.analysis.ssd.pipeline import _input_root, build_cases
 from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
 from scene_completion.infrastructure.storage import fingerprint, io_path, logical_path, write_json
+from scene_completion.inputs.structured.authoring_cases import is_behavior_evidence
 
 
 def _documents(bundle):
@@ -55,7 +57,7 @@ def _originals(bundle, row):
     return result
 
 
-def _exception(bundle, row, channel):
+def _exception(bundle, row, channel, evidence_files):
     steps = {step["id"]: step for step in bundle["steps"]}
     step = steps.get(row.get("step_id"), {})
     field = next((f for f in step.get("data", []) if f["id"] == row.get("field_id")), {})
@@ -66,6 +68,18 @@ def _exception(bundle, row, channel):
         target = "sender" if field["location"] == "response" else "receiver"
     sources = _sources(bundle, row)
     pending_source = row.get("original") or {}
+    location = failure_context.location(bundle, pending_source) if pending_source else {}
+    branch = failure_context.branch_context(pending_source)
+    structured_refs = [
+        {
+            "file": evidence_files[ref["document_id"]],
+            "pointer": ref["json_pointer"],
+            "original": ref["file"],
+        }
+        for ref in sources
+        if ref["document_id"] in evidence_files and ref.get("json_pointer")
+    ]
+
     original = next(
         (
             s
@@ -88,11 +102,9 @@ def _exception(bundle, row, channel):
         "target": target,
         "condition": row["condition"],
         "expected": row.get("expected") or pending_source.get("expected", ""),
-        **(
-            {"failure_step_id": pending_source["failure_step_id"]}
-            if pending_source.get("failure_step_id")
-            else {}
-        ),
+        **{k: v for k, v in location.items() if v},
+        **({"evidence_context": branch} if branch else {}),
+        **({"structured_source_refs": structured_refs} if structured_refs else {}),
         **(
             {"scenario_kind": pending_source["scenario_type"]}
             if pending_source.get("scenario_type")
@@ -110,7 +122,17 @@ def _exception(bundle, row, channel):
         "origin": {"source": "test_case" if channel == "GT" else "extension_path"},
         **{
             k: row[k]
-            for k in ("key", "entity_id", "attribute", "reason", "extension_id", "failure_step_id")
+            for k in (
+                "key",
+                "entity_id",
+                "attribute",
+                "reason",
+                "extension_id",
+                "failure_step_id",
+                "failure_step_hint",
+                "failure_step_reason",
+                "failure_step_pending",
+            )
             if row.get(k)
         },
         **({"concern_key": row["key"]} if row.get("key") else {}),
@@ -144,6 +166,11 @@ def _main(bundle):
                 "receiver": step["receiver"]["id"],
                 "entities": step["entity_ids"],
                 "api_ref": step["api_id"],
+                **(
+                    {"call_command_id": step["call_command_id"]}
+                    if step.get("call_command_id")
+                    else {}
+                ),
                 **({"validates": step.get("validates", [])} if entity_only else {}),
                 "operation": {
                     "name": operation["name"],
@@ -307,12 +334,30 @@ def write_core(root, output, bundles):
                 target = output / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, target)
+        evidence_files = {}
+        documents = _documents(bundle)
+        for row in bundle["channels"]["E"]["pending"] + bundle["channels"]["E"]["scenarios"]:
+            if not entity_only:
+                break
+            for ref in row.get("source_refs", []):
+                did = ref["document_id"]
+                doc = documents.get(did)
+                if not doc or not ref.get("json_pointer") or did in evidence_files:
+                    continue
+                if Path(
+                    doc["name"]
+                ).name.casefold() != "sysoperation.json" and not is_behavior_evidence(doc["name"]):
+                    continue
+                target = folder / "source-evidence" / (fingerprint(did)[:12] + "-behavior.json")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(doc["content"], encoding="utf-8")
+                evidence_files[did] = target.relative_to(output).as_posix()
         write_json(folder / "main-success.json", _main(bundle))
         test_bindings = defaultdict(list)
         for channel, filename in (("E", "existing-exceptions"), ("GT", "test-exceptions")):
             rows = bundle["channels"][channel]
             exceptions = [
-                _exception(bundle, row, channel)
+                _exception(bundle, row, channel, evidence_files)
                 for row in rows["scenarios"] + rows["pending"]
                 if not entity_only
                 or channel != "GT"
@@ -397,8 +442,9 @@ def write_core(root, output, bundles):
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(root / name, target)
-    if declarations:
-        write_json(output / "source-documents.json", {"documents": list(declarations.values())})
+    manifest = root / "source-documents.json"
+    if manifest.is_file():
+        shutil.copyfile(manifest, output / manifest.name)
     return {
         "output": str(logical_path(output)),
         "case_ids": [bundle["case"]["id"] for bundle in bundles],

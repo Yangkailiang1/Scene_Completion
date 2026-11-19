@@ -325,6 +325,8 @@ class Execution:
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",
+            "ssd-evidence-classify",
+            "ssd-ground-align",
         }:
             from scene_completion.domain.ssd_contracts import instructions_for
 

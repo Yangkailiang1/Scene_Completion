@@ -103,7 +103,7 @@ def discover_material(*, directory=None, paths=None, files=None):
                 p = Path(parent) / name
                 if (
                     name.startswith(".")
-                    or p.suffix.lower() not in {".json", ".md", ".markdown"}
+                    or p.suffix.lower() not in {".json", ".md", ".markdown", ".xlsx"}
                     or p.is_symlink()
                 ):
                     continue
@@ -184,8 +184,14 @@ def discover_material(*, directory=None, paths=None, files=None):
             name = Path(display).name
             if len(raw) > 20 * 1024 * 1024:
                 raise ValueError("文件超过20MB：" + display)
-        from scene_completion.inputs.structured.authoring_cases import SIDECARS
+        from scene_completion.inputs.structured.authoring_cases import (
+            SIDECARS,
+            is_behavior_evidence,
+        )
 
+        if is_behavior_evidence(display):
+            originals.append((display, name, raw))
+            continue
         if name in SIDECARS:
             per_case.append((display, name, raw))
             continue

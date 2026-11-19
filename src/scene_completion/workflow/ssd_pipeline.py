@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.application import ssd_revision_service as ssd_results
-from scene_completion.domain.current_scope import STRUCTURED_PROFILES
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, STRUCTURED_PROFILES
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure import ssd_repository
@@ -75,7 +75,7 @@ def _semantic_cache_identity(ex, stage):
     from scene_completion.workflow.semantics import code_version
 
     task = "ssd-semantic-compare" if stage == "ssd-compare" else stage
-    return {
+    result = {
         "available": _semantic_available(ex),
         "mode": getattr(ex, "mode", "packets"),
         "mock": getattr(ex, "mocks", None) is not None,
@@ -92,6 +92,7 @@ def _semantic_cache_identity(ex, stage):
                         "ssd-entity-inference",
                         "ssd-entity-classify",
                         "ssd-command-classify",
+                        "ssd-evidence-classify",
                     )
                 }
             }
@@ -99,6 +100,9 @@ def _semantic_cache_identity(ex, stage):
             else {}
         ),
     }
+    if stage == "ssd-compare":
+        result["grounding_version"] = code_version("ssd-ground-align")
+    return result
 
 
 def _review_material(bundle):
@@ -196,9 +200,16 @@ def _compare_pairs(ex, bundle, record):
         ]
         for offset in range(0, len(pairs), 24):
             batch = pairs[offset : offset + 24]
+            projected = [{"left": x, "right": y} for x, y in batch]
+            if pair == "GT_E":
+                for comparison in projected:
+                    for side in ("left", "right"):
+                        comparison[side] = {
+                            k: v for k, v in comparison[side].items() if k != "aligned_concern_ids"
+                        }
             result, _ = ex.semantic(
                 "ssd-semantic-compare",
-                {"pair": pair, "pairs": [{"left": x, "right": y} for x, y in batch]},
+                {"pair": pair, "pairs": projected},
                 record,
             )
             expected = {(x["id"], y["id"]) for x, y in batch}
@@ -292,6 +303,16 @@ def _compare(ex, bundle, record):
             else {}
         ),
     }
+    if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE and _semantic_available(ex):
+        from scene_completion.analysis.ssd import grounding
+
+        bundle = deepcopy(bundle)
+
+        def semantic(task, inputs):
+            result, _ = ex.semantic(task, inputs, record)
+            return result
+
+        grounding.align(bundle, semantic)
     machine = _reuse_machine_decisions(ex, bundle, semantic_identity)
     machine = _compare_pairs(ex, machine, record)
     machine["semantic_comparison_identity"] = semantic_identity
@@ -343,14 +364,15 @@ def _resolve(ex, bundle, record):
             return value
 
         executor = semantic if _semantic_available(ex) else None
-        from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
-
         if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
-            from scene_completion.analysis.ssd.operation_units import resolve
+            from scene_completion.analysis.ssd import grounding, operation_units
 
-            resolve(bundle, executor)
+            operation_units.resolve(bundle, executor)
         entity_semantics.infer(bundle, executor)
-        entity_semantics.classify(bundle, executor)
+        if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+            grounding.classify(bundle, executor)
+        else:
+            entity_semantics.classify(bundle, executor)
         return ssd_validation.validate(bundle)
     from scene_completion.analysis.ssd.contract_binding import apply_result, prepare
 

@@ -655,6 +655,8 @@ def generate_g(bundle):
     definitions, profiles = registry["definitions"], registry["profiles"]
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     unit_profile = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
+    from scene_completion.analysis.ssd.operation_units import functional_family
+
     owners = {}
     for unit in bundle.get("operation_units", []):
         owners.setdefault(unit["step_id"], []).append(unit)
@@ -676,6 +678,8 @@ def generate_g(bundle):
             generation_origin="deterministic_constraint",
             on_step=None,
             operation_unit_id=None,
+            functional_keys=(),
+            related_calls=(),
         ):
             definition = definitions.get(key, {})
             if (
@@ -701,8 +705,31 @@ def generate_g(bundle):
             )
             if concern:
                 concern["scope"] = "interaction"
+                if related_calls:
+                    concern["related_call_step_ids"] = list(related_calls)
                 scenario_refs = source_refs if source_refs is not None else refs
                 templates = templates_for(key)
+                if functional_keys:
+                    concern["concern_keys"] = list(functional_keys)
+                    concern["applicable_operations"] = sorted(
+                        {
+                            kind
+                            for k in functional_keys
+                            for kind in definitions[k]["operation_kinds"]
+                        }
+                    )
+                    variants = {}
+                    for k in functional_keys:
+                        for template in templates_for(k):
+                            identity = (
+                                template["variant_id"],
+                                re.sub(r"创建|更新|删除", "操作", template["condition"], count=1),
+                                template["expected"],
+                            )
+                            variants.setdefault(identity, {**template, "concern_keys": []})[
+                                "concern_keys"
+                            ].append(k)
+                    templates = list(variants.values())
                 if condition:
                     if not variant_id:
                         variant_id = (
@@ -755,13 +782,28 @@ def generate_g(bundle):
                             },
                             scope="interaction",
                         )
+                        if functional_keys:
+                            scene["concern_keys"] = template["concern_keys"]
+                            scene["applicable_operations"] = sorted(
+                                {
+                                    kind
+                                    for k in template["concern_keys"]
+                                    for kind in definitions[k]["operation_kinds"]
+                                }
+                            )
+                            if len(template["concern_keys"]) > 1:
+                                scene["condition"] = re.sub(
+                                    r"创建|更新|删除", "操作", scene["condition"], count=1
+                                )
+                        if related_calls:
+                            scene["related_call_step_ids"] = list(related_calls)
             return concern
 
         if request and call and step["sender"]["type"] == "human":
             for key in profiles["human"]:
                 attach(key, "sender")
         if request and call and receiver["type"] == "service":
-            if receiver.get("external"):
+            if receiver.get("external") and (not unit_profile or "operation_units" not in bundle):
                 attach("service.base.availability")
             if step["sender"]["type"] == "service":
                 for key in profiles["relation"]:
@@ -781,7 +823,9 @@ def generate_g(bundle):
                             continue
                         if kinds.intersection(definition["operation_kinds"]):
                             attach(key)
-            if receiver.get("technology") == "database":
+            if receiver.get("technology") == "database" and (
+                not unit_profile or not receiver.get("external")
+            ):
                 special = definitions["database.special_characters"]
                 if "database.special_characters" in profiles["technology"].get("database", []) and (
                     not special["operation_kinds"] or kinds.intersection(special["operation_kinds"])
@@ -799,7 +843,31 @@ def generate_g(bundle):
                         )
         if unit_profile and receiver["type"] == "service":
             for unit in owners.get(step["id"], []):
+                if unit.get("functional_owner_id"):
+                    continue
                 operations = set(unit["crud"])
+                if unit["kind"] == "external":
+                    attach(
+                        "service.base.availability",
+                        source_refs=unit["source_refs"],
+                        related_calls=unit["occurrences"],
+                    )
+                    special = definitions["database.special_characters"]
+                    if (
+                        receiver.get("technology") == "database"
+                        and "database.special_characters"
+                        in profiles["technology"].get("database", [])
+                        and (
+                            not special["operation_kinds"]
+                            or operations.intersection(special["operation_kinds"])
+                        )
+                    ):
+                        attach(
+                            "database.special_characters",
+                            source_refs=unit["source_refs"],
+                            related_calls=unit["occurrences"],
+                        )
+                checks = {}
                 for group, keys in profiles["functional"].items():
                     if group in {
                         "display_interaction",
@@ -812,9 +880,15 @@ def generate_g(bundle):
                             key != "service.query_retrieval.data_visibility"
                             and operations.intersection(definitions[key]["operation_kinds"])
                         ):
-                            attach(
-                                key, operation_unit_id=unit["id"], source_refs=unit["source_refs"]
-                            )
+                            checks.setdefault(functional_family(key), []).append(key)
+                for keys in checks.values():
+                    attach(
+                        keys[0],
+                        operation_unit_id=unit["id"],
+                        source_refs=unit["source_refs"],
+                        functional_keys=keys,
+                        related_calls=unit["occurrences"],
+                    )
         for field in [] if bundle.get("analysis_profile") in COMMAND_PROFILES else step["data"]:
             field_refs = field.get("source_refs", [])
             checks = []
@@ -944,19 +1018,24 @@ def _attach_entity_units(bundle, output, definitions):
             projected = {**unit, **atom, "atoms": []}
             if not _unit_applies(projected, context_step):
                 continue
+            variant = (
+                next((t for t in templates if t["variant_id"] == "immutable_attribute"), template)
+                if atom.get("operation") == "immutable"
+                else template
+            )
             condition = unit["attribute"] + "：" + _atom_condition(projected)
             scene = add_scenario(
                 output,
                 concern,
                 condition,
-                template.get("expected", ""),
+                variant.get("expected", ""),
                 atom.get("source_refs") or unit.get("source_refs") or step.get("source_refs", []),
             )
             scene.update(
                 **{
-                    k: template[k]
+                    k: variant[k]
                     for k in ("template_id", "variant_id", "template_version", "generation_origin")
-                    if k in template
+                    if k in variant
                 },
                 scope="interaction",
             )
@@ -1074,7 +1153,8 @@ def origin_documents(root):
     root = io_path(root).resolve()
     manifest = root / "source-documents.json"
     declared = {}
-    if manifest.is_file():
+    registered = manifest.is_file()
+    if registered:
         for row in json.loads(manifest.read_text(encoding="utf-8-sig"))["documents"]:
             path = (root / row["path"]).resolve()
             role = row["role"]
@@ -1092,7 +1172,7 @@ def origin_documents(root):
                 raise ValueError("原文别名须为非空字符串列表")
             declared[path] = (role, aliases)
     found = []
-    for path in sorted(root.rglob("*")):
+    for path in sorted(declared if registered else root.rglob("*")):
         if (
             not path.is_file()
             or path.suffix.lower() not in ORIGIN_SUFFIXES
@@ -1126,6 +1206,7 @@ def origin_documents(root):
                         "source_path": relative,
                         "id": ident("document", key),
                         "configured_aliases": aliases,
+                        "registered": registered,
                     }
                 )
         except (OSError, UnicodeError, ValueError):

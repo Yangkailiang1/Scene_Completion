@@ -26,6 +26,16 @@ SIDECARS = (
 )
 
 
+def is_behavior_evidence(path):
+    path = Path(path)
+    return (
+        path.parent.name == "source-evidence"
+        and path.name.endswith("-behavior.json")
+        and len(path.name.removesuffix("-behavior.json")) == 12
+        and all(c in "0123456789abcdef" for c in path.name[:12])
+    )
+
+
 def core_filename(name):
     return name in (CASE_FILE, LEGACY_MAIN, *SIDECARS)
 
@@ -105,6 +115,7 @@ def _record(row, mapping):
         ref = f"op-{ref:02d}"
     if ref is not None and not mapping.get(ref):
         record.update(status="pending", reason="步骤无法唯一定位")
+        record.setdefault("failure_step_hint", str(ref))
     record["step_ref"] = mapping.get(ref)
     record["condition"] = row.get("guard") or row.get("condition") or ""
     record["expected"] = row.get("expected") or row.get("expected_result") or ""
@@ -249,8 +260,8 @@ def sys_operation(document):
             node["description"] = step["description"]
         if step.get("layer"):
             node["source_layer"] = step["layer"]
-        if step.get("api_ref"):
-            node["api_id"] = step["api_ref"]
+        if command := step.get("api_ref") or step.get("call_command_id"):
+            node["api_id"] = command
         if step.get("entities"):
             node["data_ref"] = deepcopy(step.get("entity_refs")) or [
                 {"entity": entity} for entity in step["entities"]
@@ -347,6 +358,23 @@ def supplied_exceptions(raw, sources, file, channel):
             pointer,
             kind="test" if channel == "GT" else "context",
         )
+        for citation in row.get("structured_source_refs") or []:
+            name = citation.get("file") if isinstance(citation, dict) else None
+            if not isinstance(name, str):
+                continue
+            path = sources.root / name
+            if (
+                path.suffix.lower() != ".json"
+                or not path.resolve().is_relative_to(sources.root.resolve())
+                or not path.is_file()
+            ):
+                continue
+            snapshot = sources.add(path)
+            source_pointer = citation.get("pointer")
+            if isinstance(source_pointer, str) and source_pointer in sources.spans.get(
+                snapshot, {}
+            ):
+                refs.append(sources.ref(snapshot, source_pointer))
         rows.append({**row, "channel": channel, "source_refs": refs})
     return rows
 

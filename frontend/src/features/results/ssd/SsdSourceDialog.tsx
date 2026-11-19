@@ -1,4 +1,16 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  afterSourceLayout,
+  scrollSourceAnchor,
+} from "../../sources/sourceScroll";
 import type { SourceDocument, SourceRef } from "./types";
 const MarkdownSource = lazy(() =>
   import("../../sources/MarkdownSource").then((module) => ({
@@ -76,8 +88,27 @@ export function SsdSourceDialog({
   const activeRef = ref?.document_id === docId ? ref : undefined;
   const origin =
     typeof activeRef?.origin === "object" ? activeRef.origin : undefined;
-  const start = activeRef?.start_line || 1;
+  const start = activeRef?.start_line ?? 1;
   const end = activeRef?.end_line || start;
+  const lines = useMemo(() => doc?.content.split("\n") || [], [doc]);
+  const markdown = /\.(md|markdown)$/i.test(doc?.name || "");
+  const codeView = source || !markdown;
+  const rawReader = useRef<HTMLDivElement>(null);
+  const invalidLine =
+    !!doc && !!activeRef && (start < 1 || end < start || end > lines.length);
+  useLayoutEffect(() => {
+    if (!codeView) return;
+    return afterSourceLayout(() => {
+      const reader = rawReader.current;
+      if (reader)
+        scrollSourceAnchor(
+          reader,
+          reader.querySelector<HTMLElement>(
+            `[data-source-line="${jump.line}"]`,
+          ),
+        );
+    });
+  }, [codeView, doc, jump]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -107,6 +138,7 @@ export function SsdSourceDialog({
               value={selected}
               onChange={(e) => {
                 const n = Number(e.target.value);
+                if (!ordered[n]) return;
                 setSelected(n);
                 setDocId(ordered[n].document_id);
                 setJump((old) => ({
@@ -115,6 +147,11 @@ export function SsdSourceDialog({
                 }));
               }}
             >
+              {selected < 0 && (
+                <option value={-1} disabled>
+                  当前文档无引用
+                </option>
+              )}
               {ordered.map((r, n) => (
                 <option key={n} value={n}>
                   {documents.find((d) => d.id === r.document_id)?.name ||
@@ -148,8 +185,16 @@ export function SsdSourceDialog({
               aria-label="原文文档"
               value={docId}
               onChange={(e) => {
-                setDocId(e.target.value);
-                setJump((old) => ({ line: 1, revision: old.revision + 1 }));
+                const id = e.target.value;
+                const next = ordered.findIndex(
+                  (item) => item.document_id === id,
+                );
+                setDocId(id);
+                setSelected(next);
+                setJump((old) => ({
+                  line: ordered[next]?.start_line || 1,
+                  revision: old.revision + 1,
+                }));
               }}
             >
               {documents.map((d) => (
@@ -159,9 +204,16 @@ export function SsdSourceDialog({
               ))}
             </select>
           </label>
-          <button onClick={() => setSource(!source)}>
-            {source ? "阅读模式" : "查看源码"}
-          </button>
+          {markdown && (
+            <button
+              onClick={() => {
+                setSource(!source);
+                setJump((old) => ({ line: start, revision: old.revision + 1 }));
+              }}
+            >
+              {source ? "阅读模式" : "查看源码"}
+            </button>
+          )}
           <button
             onClick={() =>
               setJump((old) => ({ line: start, revision: old.revision + 1 }))
@@ -171,6 +223,7 @@ export function SsdSourceDialog({
           </button>
           <select
             aria-label="原文章节"
+            disabled={!markdown || source || !outline.length}
             value=""
             onChange={(e) =>
               setJump((old) => ({
@@ -196,6 +249,7 @@ export function SsdSourceDialog({
               " · 原文未定位：" + (origin.reason || "待核对")}
             {activeRef.kind === "context" &&
               " · 此处为需求上下文，测试出处见测试来源"}
+            {invalidLine && " · 引用行超出文档范围"}
           </p>
         )}
         {!ordered.length && (
@@ -207,11 +261,12 @@ export function SsdSourceDialog({
           <p role="alert">
             尚未导入此引用对应的原始文档，请补充文档后查看。引用：{ref?.quote}
           </p>
-        ) : source || !/\.md$|\.markdown$/i.test(doc.name) ? (
-          <div className="ssd-source-code">
-            {doc.content.split("\n").map((line, i) => (
+        ) : codeView ? (
+          <div className="ssd-source-code" ref={rawReader}>
+            {lines.map((line, i) => (
               <div
                 key={i}
+                data-source-line={i + 1}
                 className={
                   activeRef && i + 1 >= start && i + 1 <= end
                     ? "source-line highlighted"
@@ -226,9 +281,7 @@ export function SsdSourceDialog({
         ) : (
           <Suspense fallback={<p>正在渲染原始文档…</p>}>
             <MarkdownSource
-              lines={doc.content
-                .split("\n")
-                .map((text, i) => ({ number: i + 1, text }))}
+              lines={lines.map((text, i) => ({ number: i + 1, text }))}
               highlightStart={activeRef ? start : 0}
               highlightEnd={activeRef ? end : 0}
               jump={jump}
@@ -237,6 +290,10 @@ export function SsdSourceDialog({
               onNavigate={(line) =>
                 setJump((old) => ({ line, revision: old.revision + 1 }))
               }
+              onRawLine={(line) => {
+                setSource(true);
+                setJump((old) => ({ line, revision: old.revision + 1 }));
+              }}
             />
           </Suspense>
         )}

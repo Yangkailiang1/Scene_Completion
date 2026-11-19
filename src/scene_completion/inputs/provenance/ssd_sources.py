@@ -82,7 +82,8 @@ class Sources:
                 }
             elif path.is_file():
                 self.add(path, doc["role"])
-        for path in sorted(self.root.glob("*.md")):
+        manifest = self.root / "source-documents.json"
+        for path in () if manifest.is_file() else sorted(self.root.glob("*.md")):
             role = (
                 "RR"
                 if "系统需求" in path.name

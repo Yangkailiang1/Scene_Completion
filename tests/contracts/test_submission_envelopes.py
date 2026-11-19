@@ -130,3 +130,71 @@ def test_bounded_repair_keeps_good_payload_and_fixes_only_question_envelope(tmp_
     ex.add("api-map", "api-map", static={"SR": []})
     assert ex.finish()["complete"] and len(seen) == 2
     assert len(read_json(root.parent / "business_questions.json")["items"]) == 1
+
+
+@pytest.mark.parametrize(
+    "promoted,fail_at",
+    [
+        ({"analyses": [], "supplements": []}, None),
+        ({"payload": {"analyses": []}, "supplements": []}, None),
+        (
+            {"payload": {"analyses": [], "supplements": []}, "supplements": []},
+            "arguments.supplements",
+        ),
+        ({"analyses": [], "supplements": [], "extra": []}, "arguments.extra"),
+        ({"analyses": [], "supplements": "wrong"}, "payload.supplements"),
+    ],
+)
+def test_ssd_generate_tool_recovers_promoted_fields_or_audits_conflicts(
+    tmp_path, promoted, fail_at
+):
+    from scene_completion.domain.ssd_contracts import packet as ssd_packet
+
+    calls = []
+
+    def transport(url, key, body, *args):
+        calls.append(body)
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "submit",
+                                "function": {
+                                    "name": "submit_result",
+                                    "arguments": json.dumps(promoted),
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+
+    p = ssd_packet(
+        "ssd-generate", {"templates": [], "concerns": [], "all_failure_conditions": []}, ["UC1"]
+    )
+    p["skill_text"] = "Submit scenario analysis."
+    client = DeepAgentsClient(
+        {
+            "api_key": "fixture",
+            "base_url": "http://offline/v1",
+            "agent_model": "offline",
+            "run_root": str(tmp_path),
+            "submission_mode": "tool_calls",
+        },
+        transport=transport,
+    )
+    if fail_at:
+        with pytest.raises(TaskRejected) as rejection:
+            client.agent(p)
+        assert fail_at in str(rejection.value)
+        raw = read_json(tmp_path / rejection.value.details["rejected_output"])["arguments"]
+        assert all(raw[k] == v for k, v in promoted.items())
+    else:
+        result = client.agent(p)
+        assert result["analyses"] == [] and result["supplements"] == []
+    assert len(calls) == 1

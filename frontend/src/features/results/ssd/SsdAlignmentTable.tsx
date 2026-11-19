@@ -147,7 +147,11 @@ export function SsdAlignmentTable({
     operation_units?: Bundle["operation_units"];
     anchors?: any[];
     documents?: any[];
-    channels?: Record<string, { scenarios: Observation[] }>;
+    channels?: Record<
+      string,
+      { scenarios: Observation[]; concerns?: Observation[] }
+    >;
+    decisions?: Bundle["decisions"];
   };
   savedBundle?: any;
   step?: Step;
@@ -208,6 +212,49 @@ export function SsdAlignmentTable({
       : layer === "scenarios"
         ? "场景"
         : "待确认项";
+  const groundedLinks = new Map<
+    string,
+    {
+      target: Observation;
+      channel: "G" | "E";
+      decision: Bundle["decisions"][number];
+    }[]
+  >();
+  if (layer !== "pending") {
+    const generated = new Map(
+      (bundle.channels?.G?.[layer] || []).map((record) => [record.id, record]),
+    );
+    const originals = new Map(
+      (bundle.channels?.E?.[layer] || []).map((record) => [record.id, record]),
+    );
+    for (const decision of bundle.decisions || []) {
+      if (
+        decision.level !== (layer === "concerns" ? "concern" : "scenario") ||
+        !["full", "partial"].includes(decision.status)
+      )
+        continue;
+      const source =
+        decision.pair === "G_E"
+          ? `E:${decision.right_id}`
+          : decision.pair === "GT_G"
+            ? `GT:${decision.left_id}`
+            : null;
+      const target = generated.get(
+        decision.pair === "G_E" ? decision.left_id : decision.right_id,
+      );
+      if (!source || !target) continue;
+      const links = groundedLinks.get(source) || [];
+      links.push({ target, channel: "G", decision });
+      groundedLinks.set(source, links);
+      const original =
+        decision.pair === "G_E" && originals.get(decision.right_id);
+      if (original) {
+        const reciprocal = groundedLinks.get(`G:${target.id}`) || [];
+        reciprocal.push({ target: original, channel: "E", decision });
+        groundedLinks.set(`G:${target.id}`, reciprocal);
+      }
+    }
+  }
   function objectName(record: Observation) {
     if (getObjectName) return getObjectName(record);
     const unit = bundle.operation_units?.find(
@@ -416,6 +463,50 @@ export function SsdAlignmentTable({
                                   {row.coverage_by_record[record.id].label}
                                 </small>
                               )}
+                            {!!groundedLinks.get(`${channel}:${record.id}`)
+                              ?.length && (
+                              <details className="ssd-coverage-links">
+                                <summary>
+                                  关联 {channel === "G" ? "E" : "G"} 与判定依据
+                                </summary>
+                                {groundedLinks
+                                  .get(`${channel}:${record.id}`)!
+                                  .map(
+                                    ({
+                                      target,
+                                      channel: targetChannel,
+                                      decision,
+                                    }) => (
+                                      <div key={decision.id}>
+                                        <p>
+                                          {decision.status === "partial"
+                                            ? "部分覆盖"
+                                            : "完整覆盖"}{" "}
+                                          · {target.condition}
+                                        </p>
+                                        <p>{decision.reason}</p>
+                                        {onGoToStep &&
+                                          target.step_id &&
+                                          target.step_id !== record.step_id && (
+                                            <button
+                                              onClick={() =>
+                                                onGoToStep(target.step_id!)
+                                              }
+                                            >
+                                              查看 {targetChannel} 步骤{" "}
+                                              {target.step_id}
+                                            </button>
+                                          )}
+                                        <button
+                                          onClick={() => onSources(target)}
+                                        >
+                                          查看关联 {targetChannel} 出处
+                                        </button>
+                                      </div>
+                                    ),
+                                  )}
+                              </details>
+                            )}
                             <div className="ssd-record-title">
                               {!readonly && (
                                 <input
@@ -449,6 +540,17 @@ export function SsdAlignmentTable({
                                   "待确认记录"}
                               </button>
                             </div>
+                            {(record.applicable_operations?.length || 0) >
+                              1 && (
+                              <small>
+                                适用操作{" "}
+                                {record
+                                  .applicable_operations!.map((key) =>
+                                    key[0].toUpperCase(),
+                                  )
+                                  .join("／")}
+                              </small>
+                            )}
                             {onPatch && !readonly ? (
                               <div className="ssd-cell-fields">
                                 {[
@@ -488,6 +590,11 @@ export function SsdAlignmentTable({
                             )}
                             {(!onPatch || readonly) && record.expected && (
                               <p>预期：{record.expected}</p>
+                            )}
+                            {record.failure_step_pending && (
+                              <p className="ssd-record-issue">
+                                实际失败步骤待定位
+                              </p>
                             )}
                             {(record.binding_issue || record.reason) && (
                               <p className="ssd-record-issue">
@@ -601,6 +708,11 @@ export function SsdAlignmentTable({
                                         : ids.join("、")}
                                     </p>
                                   ),
+                              )}
+                              {record.failure_step_reason && (
+                                <p>
+                                  失败定位依据：{record.failure_step_reason}
+                                </p>
                               )}
                               {record.identification_reason && (
                                 <p>识别依据：{record.identification_reason}</p>

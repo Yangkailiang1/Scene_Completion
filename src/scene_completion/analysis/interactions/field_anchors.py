@@ -185,6 +185,26 @@ def _entity_locations(bundle):
     for entity in bundle.get("entities", []):
         name = entity["id"]
         explicit = [step for step in steps if name in step.get("entity_ids", [])]
+        if any("entity_ids" in link for link in bindings.values()):
+            applicable = [link for link in bindings.values() if name in link.get("entity_ids", [])]
+            if applicable:
+                result[name] = sorted(
+                    [
+                        {
+                            **by_id[link["primary_step_id"]],
+                            "interface_owner": True,
+                            "operation": {
+                                **by_id[link["primary_step_id"]]["operation"],
+                                "kinds": link.get("crud", []),
+                            },
+                        }
+                        for link in applicable
+                    ],
+                    key=lambda step: step["order"],
+                )
+                continue
+            result[name] = explicit
+            continue
         primary_steps = [
             by_id[bindings[cid]["primary_step_id"]] for cid in associated.get(name, [])
         ]
@@ -201,7 +221,11 @@ def _first_entity_anchor(steps, atom):
     )
     if step is None:
         return None, "实体约束缺少明确出现或适用操作", None
-    reason = "首个相关接口调用" if step["operation"].get("command_id") else "实体首次出现"
+    reason = (
+        "首个相关接口调用"
+        if step.get("interface_owner") or step["operation"].get("command_id")
+        else "实体首次出现"
+    )
     return step, reason, step if kinds else None
 
 

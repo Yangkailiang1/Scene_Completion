@@ -131,6 +131,7 @@ def batches(bundle, limit=32):
                             "attribute",
                             "condition",
                             "expected",
+                            "applicable_operations",
                             "template_id",
                             "variant_id",
                             "template_version",

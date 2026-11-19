@@ -121,9 +121,28 @@ export function SsdResultsView({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [reason, setReason] = useState("");
-  const [layer, setLayer] = useState<Kind>("concerns");
   const [stepId, setStep] = useState("");
-  const [differences, setDifferences] = useState(false);
+  const [stepLayer, setStepLayer] = useState<Kind>("concerns");
+  const [unboundLayer, setUnboundLayer] = useState<Kind | null>(null);
+  const [stepDifferences, setStepDifferences] = useState(false);
+  const [unboundDifferences, setUnboundDifferences] = useState(false);
+  const unboundView = stepId === UNBOUND;
+  const isUnbound = (record: Observation) =>
+    !draft?.steps.some((step) => step.id === record.step_id);
+  const layer = unboundView
+    ? unboundLayer ||
+      (["pending", "concerns", "scenarios"] as const).find((kind) =>
+        channels.some((channel) =>
+          draft?.channels[channel][kind].some(isUnbound),
+        ),
+      ) ||
+      "pending"
+    : stepLayer;
+  const setLayer = unboundView ? setUnboundLayer : setStepLayer;
+  const differences = unboundView ? unboundDifferences : stepDifferences;
+  const setDifferences = unboundView
+    ? setUnboundDifferences
+    : setStepDifferences;
   const [selected, setSelected] = useState<Record<Channel, string[]>>({
     E: [],
     G: [],
@@ -159,7 +178,7 @@ export function SsdResultsView({
       setVersion("current");
       setResultArea("case");
       setCaseMode("steps");
-      if (requestedStepId) setStep(requestedStepId);
+      if (requestedStepId) selectStep(requestedStepId);
     }
   }, [requestedCaseId, requestedStepId]);
   useEffect(() => {
@@ -182,6 +201,7 @@ export function SsdResultsView({
     setError("");
 
     setStep("");
+    setUnboundLayer(null);
     setConcernFocus(null);
     setSelected({ E: [], G: [], GT: [] });
     getSsdEditor(project, caseId, version)
@@ -524,9 +544,7 @@ export function SsdResultsView({
     )
     .filter((entity) => !firstCall || entity.attributes.length > 0);
   const visible = (record: Observation) =>
-    stepId === UNBOUND
-      ? !draft?.steps.some((step) => step.id === record.step_id)
-      : record.step_id === stepId;
+    unboundView ? isUnbound(record) : record.step_id === stepId;
   const inConcernFocus = (record: Observation, channel: Channel) =>
     layer !== "scenarios" ||
     !concernFocus ||
@@ -594,9 +612,7 @@ export function SsdResultsView({
       ),
     ),
   );
-  const unboundCount = allRecords.filter(
-    (record) => !draft?.steps.some((step) => step.id === record.step_id),
-  ).length;
+  const unboundCount = allRecords.filter(isUnbound).length;
   const stepRecordIds = new Set(
     allRecords.filter(visible).map((record) => record.id),
   );
@@ -1133,22 +1149,7 @@ export function SsdResultsView({
             {(unboundCount > 0 || stepId === UNBOUND) && (
               <button
                 className={`ssd-unbound-nav ${stepId === UNBOUND ? "active" : ""}`}
-                onClick={() => {
-                  selectStep(UNBOUND);
-                  setLayer(
-                    (["pending", "concerns", "scenarios"] as Kind[]).find(
-                      (kind) =>
-                        channels.some((channel) =>
-                          draft.channels[channel][kind].some(
-                            (record) =>
-                              !draft.steps.some(
-                                (step) => step.id === record.step_id,
-                              ),
-                          ),
-                        ),
-                    ) || "pending",
-                  );
-                }}
+                onClick={() => selectStep(UNBOUND)}
               >
                 <strong>待定位／本轮不计分（{unboundCount}）</strong>
                 <span>未挂载到有效步骤的记录，可修正对象与关注点。</span>
@@ -1175,7 +1176,7 @@ export function SsdResultsView({
                     </strong>
                     <p>{row.condition}</p>
                     <p>{row.reason}</p>
-                    {row.rejected_bindings && (
+                    {!!row.rejected_bindings?.length && (
                       <p>待修正挂载 {row.rejected_bindings.length} 项</p>
                     )}
                     <button onClick={() => setSources(row.source_refs)}>
@@ -1298,6 +1299,12 @@ export function SsdResultsView({
                           {cid}
                           {binding.binding_source === "step1_fallback" &&
                             " · 首步回退"}
+                          {binding.crud?.length
+                            ? " · " + binding.crud.join("/")
+                            : ""}
+                          {binding.entity_ids?.length
+                            ? " · " + binding.entity_ids.join("、")
+                            : ""}
                           {binding.reason && <small> · {binding.reason}</small>}
                         </p>
                       ))}
@@ -1916,7 +1923,7 @@ export function SsdResultsView({
               if (i >= 0) b.steps[i] = value;
               else b.steps.push(value);
             });
-            setStep(value.id);
+            selectStep(value.id);
             setStepEdit(null);
           }}
         />

@@ -44,15 +44,49 @@ function markdown(text,start,end){
 }
 function showSource(entry,ref){
  const docs=entry.bundle.documents||[],doc=docs.find(d=>d.id===ref.document_id);
- const content=document.getElementById('source-content');content.replaceChildren();
- document.getElementById('source-title').textContent=(doc?doc.name:ref.document_id||'来源')+' · '+(ref.start_line||'?')+'–'+(ref.end_line||ref.start_line||'?');
- content.append(el('p',ref.json_pointer||'原文行号高亮','source-meta'));
- if(ref.quote)content.append(el('div',ref.quote,'quote'));
- const body=el('div');
- if(doc){body.innerHTML=markdown(doc.content,Number(ref.start_line||0),Number(ref.end_line||ref.start_line||0));}
- else body.textContent='此出处的原始文档未随本次导出提供；可按上方引用回到工作台查找。';
- content.append(body);document.getElementById('source-dialog').showModal();
- requestAnimationFrame(()=>{const line=body.querySelector('.source-highlight');if(line)line.scrollIntoView({block:'center'});});
+ const content=document.getElementById('source-content'),dialog=document.getElementById('source-dialog');
+ const bar=dialog.querySelector('.dialog-bar');
+ bar.querySelector('.source-navigation')?.remove();
+ const nav=el('span',undefined,'source-navigation'),mode=el('button'),back=el('button','返回引用');
+ nav.append(mode,back);bar.insertBefore(nav,document.getElementById('source-close'));
+ dialog.style.overflow='hidden';content.style.maxHeight='76vh';content.style.overflowY='auto';content.style.overscrollBehavior='contain';
+ const start=Number(ref.start_line||0),end=Number(ref.end_line||start),lines=doc?.content?.split('\n')||[];
+ const isMarkdown=!!doc&&/\.(md|markdown)$/i.test(doc.name);
+ let raw=!isMarkdown;
+ document.getElementById('source-title').textContent=(doc?doc.name:ref.document_id||'来源')+' · '+(start||'?')+'–'+(end||'?');
+ function jump(body){
+  requestAnimationFrame(()=>{
+   if(!dialog.open||!content.contains(body))return;
+   const target=body.querySelector('.source-highlight');
+   if(target)content.scrollTop+=target.getBoundingClientRect().top-content.getBoundingClientRect().top-24;
+  });
+ }
+ function render(){
+  content.replaceChildren();
+  mode.textContent=raw?'阅读模式':'查看源码';mode.hidden=!isMarkdown;back.disabled=!doc||start<1||start>lines.length;
+  content.append(el('p',ref.json_pointer||'原文行号高亮','source-meta'));
+  if(ref.quote)content.append(el('div',ref.quote,'quote'));
+  const body=el('div');
+  if(!doc)body.textContent='此出处的原始文档未随本次导出提供，可按上方引用回到工作台查找。';
+  else if(raw){
+   const fragment=document.createDocumentFragment();
+   for(let i=0;i<lines.length;i++){
+    const number=i+1,row=el('div',number+'  '+lines[i],'line'+(number>=start&&number<=end?' source-highlight':''));
+    row.dataset.line=String(number);row.style.whiteSpace='pre-wrap';fragment.append(row);
+   }
+   body.append(fragment);
+  }else body.innerHTML=markdown(doc.content,start,end);
+  if(doc&&(start<1||end>lines.length||end<start))content.append(el('p','引用行超出文档范围','source-meta'));
+  content.append(body);
+  if(!dialog.open)dialog.showModal();
+  back.onclick=()=>jump(body);
+  if(!raw&&start>0&&start<=lines.length&&!body.querySelector('.source-highlight')){
+   raw=true;render();return;
+  }
+  jump(body);
+ }
+ mode.onclick=()=>{raw=!raw;render();};
+ render();
 }
 document.getElementById('source-close').onclick=()=>document.getElementById('source-dialog').close();
 function sources(entry,record){const wrap=el('div',undefined,'sources');(record.source_refs||[]).forEach((ref,i)=>{const doc=(entry.bundle.documents||[]).find(d=>d.id===ref.document_id);const b=el('button',(doc?doc.name:ref.document_id||'出处')+(ref.start_line?' L'+ref.start_line:''));b.type='button';b.onclick=()=>showSource(entry,ref);wrap.append(b);});if(!(record.source_refs||[]).length)wrap.append(el('span','无直接出处','muted'));return wrap;}

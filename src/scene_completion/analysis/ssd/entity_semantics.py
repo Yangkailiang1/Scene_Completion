@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from scene_completion.analysis.ssd import binding_targets, failure_context
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, pending
 from scene_completion.domain.ssd_contracts import CRUD
@@ -43,6 +44,14 @@ def _steps(bundle):
         {
             "id": s["id"],
             "kind": s["kind"],
+            "order": s["order"],
+            "layer": s.get("layer"),
+            "aliases": s.get("aliases", []),
+            "parent_id": s.get("parent_id"),
+            "validates": s.get("validates", []),
+            "sender_id": s["sender"]["id"],
+            "receiver_id": s["receiver"]["id"],
+            "receiver_kind": s["receiver"]["type"],
             "direction": s["direction"],
             "sender": s["sender"]["name"],
             "receiver": s["receiver"]["name"],
@@ -156,13 +165,7 @@ def infer(bundle, semantic):
 
 
 def _occurrence(bundle, source):
-    raw = source.get("raw") or {}
-    label = source.get("failure_step_id") or source.get("step_ref")
-    label = label or (raw.get("extend_at_main") or {}).get("after")
-    found = [
-        s["id"] for s in bundle["steps"] if label and label in [s["id"], *s.get("aliases", [])]
-    ]
-    return found[0] if len(found) == 1 else None
+    return failure_context.location(bundle, source, legacy=True)["failure_step_id"]
 
 
 def _record(bundle, row):
@@ -173,11 +176,20 @@ def _record(bundle, row):
         "name": source.get("original_id"),
         "source_kind": source.get("scenario_type"),
         "condition": source["condition"],
-        "expected": source.get("expected", ""),
-        "failure_step_id": _occurrence(bundle, source),
-        "failure_step_hint": source.get("failure_step_id"),
+        "expected": source.get("expected") or "",
+        **failure_context.location(bundle, source),
+        "branch": failure_context.branch_context(source),
         "note": raw.get("note"),
-        "evidence": raw.get("evidence", []),
+        "evidence": [
+            *(raw.get("evidence") or []),
+            *[
+                r["quote"]
+                for r in source["source_refs"]
+                if r.get("kind") in {"origin", "test"}
+                and not r.get("json_pointer")
+                and r.get("quote")
+            ],
+        ],
     }
 
 
@@ -209,13 +221,8 @@ def _binding_issue(binding, steps, entities, fields):
     return None
 
 
-def classify(bundle, semantic):
-    """Classify before consulting G, then align only confirmed bindings."""
-    classifications = bundle.setdefault("source_classifications", {})
-    command_mode = bundle.get("analysis_profile") in COMMAND_PROFILES
-    step_facts = {s["id"]: s for s in _steps(bundle)}
-    units = bundle.get("operation_units")
-    fields = {
+def interface_fields(bundle):
+    return {
         f["id"]: {
             "id": f["id"],
             "name": f["wire_name"],
@@ -236,6 +243,15 @@ def classify(bundle, semantic):
         for f in s.get("data", [])
         if f.get("command_id")
     }
+
+
+def classify(bundle, semantic):
+    """Classify before consulting G, then align only confirmed bindings."""
+    classifications = bundle.setdefault("source_classifications", {})
+    command_mode = bundle.get("analysis_profile") in COMMAND_PROFILES
+    step_facts = {s["id"]: s for s in _steps(bundle)}
+    units = bundle.get("operation_units")
+    fields = interface_fields(bundle)
     for channel in ("E", "GT"):
         output = bundle["channels"][channel]
         source_rows = [
@@ -266,9 +282,9 @@ def classify(bundle, semantic):
                 ),
                 "records": [_record(bundle, row) for row in batch],
             }
-            for result in semantic(
-                "ssd-command-classify" if command_mode else "ssd-entity-classify", inputs
-            )["records"]:
+            task = "ssd-command-classify" if command_mode else "ssd-entity-classify"
+            validated = validate_result(task, semantic(task, inputs), inputs)
+            for result in validated["records"]:
                 source = by_id[result["record_id"]]
                 audit = {
                     **result,
@@ -277,8 +293,14 @@ def classify(bundle, semantic):
                     "source_id": source.get("extension_id") or source.get("original_id"),
                     "source_refs": source["source_refs"],
                 }
-                accepted, rejected = [], []
-                for binding in result["bindings"]:
+                accepted, rejected, corrections = [], [], []
+                for submitted in result["bindings"]:
+                    binding, note = binding_targets.resolve(submitted, step_facts, units or [])
+                    if binding is None:
+                        rejected.append({**submitted, "reason": note["reason"]})
+                        continue
+                    if note:
+                        corrections.append(note)
                     issue = _binding_issue(binding, step_facts, inputs["entities"], fields)
                     if not issue:
                         issue = _mount(bundle, channel, output, source, binding, result["reason"])
@@ -287,6 +309,8 @@ def classify(bundle, semantic):
                     else:
                         accepted.append(binding)
                 audit["bindings"] = accepted
+                if corrections:
+                    audit["target_corrections"] = corrections
                 if rejected:
                     audit["rejected_bindings"] = rejected
                     audit["reason"] = "；".join(dict.fromkeys(r["reason"] for r in rejected))
@@ -307,9 +331,10 @@ def classify(bundle, semantic):
     bundle["gt_identification_run_complete"] = bool(bundle.get("gt_source_available") and semantic)
 
 
-def _mount(bundle, channel, output, source, binding, reason):
+def _mount(bundle, channel, output, source, binding, reason, *, location=None):
     steps = {s["id"]: s for s in bundle["steps"]}
-    actual = _occurrence(bundle, source) or binding["step_id"]
+    actual = location["failure_step_id"] if location is not None else _occurrence(bundle, source)
+    scope_step = actual or binding["step_id"]
     entity, attribute, key = (binding[k] for k in ("entity_id", "attribute", "key"))
     field_id = binding.get("field_id")
     field = None
@@ -332,10 +357,19 @@ def _mount(bundle, channel, output, source, binding, reason):
         if functional(key):
             operations = set(bundle["registry"]["definitions"][key]["operation_kinds"])
             stated = binding.get("operation_unit_id")
+            stated = next(
+                (
+                    unit["functional_owner_id"]
+                    for unit in bundle["operation_units"]
+                    if unit["id"] == stated and unit.get("functional_owner_id")
+                ),
+                stated,
+            )
             hits = [
                 unit
                 for unit in bundle["operation_units"]
-                if (not stated or stated == unit["id"])
+                if not unit.get("functional_owner_id")
+                and (not stated or stated == unit["id"])
                 and (actual in unit["related_steps"] or binding["step_id"] in unit["related_steps"])
                 and operations.intersection(unit["crud"])
             ]
@@ -346,7 +380,7 @@ def _mount(bundle, channel, output, source, binding, reason):
     candidates = [
         c
         for c in bundle["channels"]["G"]["concerns"]
-        if c["key"] == key
+        if key in {c["key"], *c.get("concern_keys", [])}
         and c["target"] == target
         and c.get("operation_unit_id") == operation_unit_id
         and c.get("field_id") == field_id
@@ -358,9 +392,13 @@ def _mount(bundle, channel, output, source, binding, reason):
             or any(
                 set(c["obligation_scope"]).intersection(steps[sid]["operation"]["kinds"])
                 for sid in [
-                    actual,
-                    *steps[actual].get("validates", []),
-                    *([steps[actual]["parent_id"]] if steps[actual].get("parent_id") else []),
+                    scope_step,
+                    *steps[scope_step].get("validates", []),
+                    *(
+                        [steps[scope_step]["parent_id"]]
+                        if steps[scope_step].get("parent_id")
+                        else []
+                    ),
                 ]
                 if sid in steps
             )
@@ -377,6 +415,8 @@ def _mount(bundle, channel, output, source, binding, reason):
     ):
         return "无法唯一判定实体约束作用域"
     g = candidates[0] if len(candidates) == 1 else None
+    if g:
+        key = g["key"]
     step = steps[g["step_id"] if g else mapped_step]
     refs = source["source_refs"]
     concern = add_concern(
@@ -397,8 +437,16 @@ def _mount(bundle, channel, output, source, binding, reason):
     if concern is None:
         return "关注点在当前规则中未启用"
     scene = add_scenario(output, concern, binding["condition"], binding["expected"], refs)
-    scene["failure_step_id"] = actual
-    scene["failure_step_ids"] = list(dict.fromkeys([*scene.get("failure_step_ids", []), actual]))
+    scene["source_record_ids"] = list(
+        dict.fromkeys([*scene.get("source_record_ids", []), source["id"]])
+    )
+    failure_context.annotate(
+        scene,
+        location
+        if location is not None
+        else {"failure_step_id": scope_step, "failure_step_hint": None},
+        location.get("failure_step_reason") if location is not None else None,
+    )
     scene["identification_reason"] = reason
     if field:
         scene.update(command_id=field["command_id"], call_step_id=field["call_step_id"])
@@ -424,6 +472,19 @@ def _exact(rows, key, expected):
         raise ValueError("模型必须对本批每个来源恰好返回一条判定")
 
 
+def pending_without_details(row, key, description):
+    """Retain an unlocated exception without accepting a fabricated binding."""
+    if row["kind"] != "exception" or row[key]:
+        return row
+    reason = row["reason"].strip()
+    return {
+        **row,
+        "kind": "pending",
+        "reason": f"模型判为异常，但未提供{description}，待定位"
+        + (f"。模型依据：{reason}" if reason else "。"),
+    }
+
+
 def validate_result(task, value, inputs):
     if task == "ssd-entity-inference":
         _exact(value["operations"], "step_id", inputs["operations"])
@@ -443,7 +504,8 @@ def validate_result(task, value, inputs):
         return value
     _exact(value["records"], "record_id", [r["id"] for r in inputs["records"]])
     steps = {s["id"]: s for s in inputs["steps"]}
-    for row in value["records"]:
+    records = [pending_without_details(row, "bindings", "具体挂载") for row in value["records"]]
+    for row in records:
         _validate_bindings(row, "kind", "exception")
         for b in row["bindings"]:
             if (
@@ -452,7 +514,7 @@ def validate_result(task, value, inputs):
                 or not b["condition"].strip()
             ):
                 raise ValueError("逆向结果引用未知步骤、未知关注点或空失败条件")
-    return value
+    return {**value, "records": records}
 
 
 def _validate_bindings(row, classification, expected):

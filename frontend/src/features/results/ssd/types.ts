@@ -84,6 +84,7 @@ export type Observation = {
   condition: string;
   expected?: string;
   concern_ids?: string[];
+  applicable_operations?: string[];
   status: string;
   source_refs: SourceRef[];
   rule_id?: string;
@@ -122,6 +123,8 @@ export type Bundle = {
       occurrences: string[];
       validation_step_ids?: string[];
       response_step_ids?: string[];
+      entity_ids?: string[];
+      crud?: string[];
     }
   >;
   operation_units?: {

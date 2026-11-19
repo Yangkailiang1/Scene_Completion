@@ -132,7 +132,7 @@ def verify_portable_layout(bundle):
     return {"portable_test_modules": len(collected), "portable_resources": "passed"}
 
 
-def local_cli(work, *args):
+def local_cli(work, *args, expected_exit=0):
     cli = subprocess.run(
         [
             "cmd.exe",
@@ -151,8 +151,8 @@ def local_cli(work, *args):
         encoding="utf8",
         timeout=30,
     )
-    if cli.returncode:
-        raise RuntimeError("Local CLI failed: " + cli.stdout + cli.stderr)
+    if cli.returncode != expected_exit:
+        raise RuntimeError("Unexpected local CLI exit: " + cli.stdout + cli.stderr)
     return json.loads(cli.stdout)
 
 
@@ -209,6 +209,21 @@ def verify_deep_materials(work, request):
     assert web["input_bundle"]["saved"] and cli["input_bundle"]["saved"]
     assert local_cli(work, "status", "--project", web["id"])["job"]["status"] == "ready"
 
+    core = work.parent / "长路径核心" / ("核心数据" * 36) / ("转换数据" * 36) / "core"
+    assert len(str(core)) > 260
+    conversion = local_cli(
+        work, "core-input", "convert", "--input", str(source), "--output", str(core)
+    )
+    assert conversion["case_ids"] == ["UC-LONG"]
+    assert local_cli(work, "core-input", "validate", "--input", str(core))["valid"]
+    extended_core = extended.parents[4] / core.relative_to(work.parent)
+    sidecar = next(extended_core.glob("cases/*/source-map.json"))
+    sidecar.unlink()
+    invalid = local_cli(work, "core-input", "validate", "--input", str(core), expected_exit=2)
+    assert not invalid["valid"] and any(
+        "缺少核心分件：source-map.json" in row["reason"] for row in invalid["issues"]
+    )
+
     code = r"""
 import sys
 from pathlib import Path
@@ -258,7 +273,11 @@ for rid in sys.argv[1:3]:
         request(f"/api/projects/{web['id']}/sources/{origin}?start=2&end=2&context=0")
     )
     assert view["lines"] == [{"number": 2, "text": quote}]
-    return {"long_path_cli_and_web_create": "passed", "long_path_ssd_and_provenance": "passed"}
+    return {
+        "long_path_cli_and_web_create": "passed",
+        "long_path_core_validate": "passed",
+        "long_path_ssd_and_provenance": "passed",
+    }
 
 
 def smoke(bundle):

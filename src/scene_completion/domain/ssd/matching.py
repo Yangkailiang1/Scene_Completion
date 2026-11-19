@@ -55,7 +55,13 @@ def semantic_candidates(bundle):
             for right in bundle["channels"][b]["scenarios"]:
                 if (
                     left.get("status") == right.get("status") == "active"
-                    and binding(left) == binding(right)
+                    and (
+                        binding(left) == binding(right)
+                        or pair == "GT_E"
+                        and set(left.get("aligned_concern_ids", [])).intersection(
+                            right.get("aligned_concern_ids", [])
+                        )
+                    )
                     and not disjoint(left.get("condition"), right.get("condition"))
                     and (left["id"], right["id"]) not in decided
                     and (_text(left.get("condition")), _text(left.get("expected")))

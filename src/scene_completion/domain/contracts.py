@@ -104,6 +104,8 @@ def schema(task):
         "ssd-entity-inference",
         "ssd-entity-classify",
         "ssd-command-classify",
+        "ssd-evidence-classify",
+        "ssd-ground-align",
     }:
         from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
 
@@ -300,6 +302,8 @@ def packet(task, inputs, case_ids=None):
         "ssd-entity-inference",
         "ssd-entity-classify",
         "ssd-command-classify",
+        "ssd-evidence-classify",
+        "ssd-ground-align",
     }:
         from scene_completion.domain.ssd_contracts import packet as ssd_packet
 

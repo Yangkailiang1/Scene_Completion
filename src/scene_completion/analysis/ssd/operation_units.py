@@ -1,11 +1,8 @@
-"""Resolve one functional concern owner per interface or evidenced external operation."""
+"""Resolve one functional concern owner per interface or external service."""
 
-import re
-
-from scene_completion.analysis.ssd.command_contract import attach
-from scene_completion.domain.ssd.construction import ident, unique
+from scene_completion.analysis.ssd.command_contract import associate_entities, attach
+from scene_completion.domain.ssd.construction import ident, pending, unique
 from scene_completion.domain.ssd_contracts import CRUD
-from scene_completion.inputs.structured.case_names import normalized
 
 TASK = "ssd-operation-units"
 
@@ -17,12 +14,6 @@ def _call(step):
         and step["sender"]["id"] != step["receiver"]["id"]
         and step["receiver"]["type"] == "service"
     )
-
-
-def _operation_name(step):
-    name = normalized(step["operation"]["name"])
-    name = re.sub(r"^[rs]\d+[.、:：]\s*", "", name)
-    return re.sub(r"^(?:重试|再次|重复调用)\s*", "", name)
 
 
 def _notes(step):
@@ -84,27 +75,16 @@ def resolve(bundle, semantic):
     for step in call_steps:
         if step["id"] in known_calls or not step["receiver"]["external"]:
             continue
-        op = step["operation"]
-        declared = (
-            tuple(sorted(op.get("kinds", [])))
-            if op.get("kinds_source") in {"declared", "manual"}
-            else ()
-        )
-        identity = (
-            step["receiver"]["id"],
-            tuple(sorted(step["entity_ids"])),
-            _operation_name(step),
-            declared,
-        )
+        identity = step["receiver"]["id"]
         unit = external.setdefault(
             identity,
             _unit(
                 case,
-                ("external", *identity),
+                ("external", identity),
                 [],
                 kind="external",
                 step_id=step["id"],
-                name=op["name"],
+                name=step["receiver"]["name"],
                 service=step["receiver"]["name"],
             ),
         )
@@ -132,8 +112,10 @@ def resolve(bundle, semantic):
                 "reason": answer.get("reason") or "缺少唯一调用依据，按约定挂到主成功流首步",
             }
         declared = step["operation"].get("kinds_source") in {"declared", "manual"}
-        if declared and (
-            not cid or sid in prior.get(cid, {}).get("occurrences", []) or answer.get("step_id")
+        if (
+            cid
+            and declared
+            and (sid in prior.get(cid, {}).get("occurrences", []) or answer.get("step_id"))
         ):
             kinds = step["operation"]["kinds"]
         elif answer:
@@ -141,14 +123,32 @@ def resolve(bundle, semantic):
         else:
             from scene_completion.analysis.ssd.pipeline import _kinds
 
-            kinds = _kinds(unit["name"], unit.get("method")) or (
-                step["operation"]["kinds"] if unit["step_id"] else []
+            kinds = (
+                _kinds(unit["name"], unit.get("method"))
+                if cid
+                else [
+                    crud
+                    for member in unit["candidates"]
+                    for crud in by_id[member]["operation"].get("kinds")
+                    or _kinds(by_id[member]["operation"]["name"])
+                ]
             )
+        if not cid:
+            kinds = [
+                *kinds,
+                *[
+                    crud
+                    for member in unit["candidates"]
+                    if by_id[member]["operation"]["kinds_source"] in {"manual", "declared"}
+                    for crud in by_id[member]["operation"]["kinds"]
+                ],
+            ]
+        kinds = [kind for kind in CRUD if kind in kinds]
         resolved.append(
             {
                 **unit,
                 "step_id": sid,
-                "crud": [k for k in kinds if k in CRUD],
+                "crud": kinds,
                 "reason": answer.get("reason") or "采用已声明或可直接推导的业务操作",
             }
         )
@@ -191,12 +191,83 @@ def resolve(bundle, semantic):
         )
         unit.pop("candidates")
         result.append(unit)
-    bundle["operation_units"] = result
-    for step in steps:
-        owners = [u for u in result if u["step_id"] == step["id"]]
+
+    by_service = {}
+    for unit in result:
+        step = by_id[unit["step_id"]]
+        if step["receiver"]["external"] and _call(step):
+            if (
+                unit.get("command_id")
+                and bundle["command_bindings"][unit["command_id"]].get("binding_source")
+                == "step1_fallback"
+            ):
+                continue
+            by_service.setdefault(unit["receiver_id"], []).append(unit)
+    for receiver, members in by_service.items():
+        occurrences = {sid for unit in members for sid in unit["occurrences"]}
+        calls = [s for s in steps if s["id"] in occurrences]
+        first = calls[0]
+        owner = next((unit for unit in members if unit["kind"] == "external"), None)
+        if owner is None:
+            owner = {
+                "id": ident("operation-unit", case, "external", receiver),
+                "kind": "external",
+                "name": first["receiver"]["name"],
+                "service": first["receiver"]["name"],
+                "receiver_id": receiver,
+            }
+            result.append(owner)
+        for unit in members:
+            if unit.get("command_id"):
+                unit["functional_owner_id"] = owner["id"]
+        owner.update(
+            step_id=first["id"],
+            occurrences=[s["id"] for s in calls],
+            related_steps=list(dict.fromkeys(sid for u in members for sid in u["related_steps"])),
+            crud=[kind for kind in CRUD if any(kind in u["crud"] for u in members)],
+            reason="；".join(dict.fromkeys(u["reason"] for u in members)),
+            source_refs=unique([ref for u in members for ref in u["source_refs"]]),
+        )
+    _apply_owners(bundle, result)
+
+
+def _apply_owners(bundle, units):
+    bundle["operation_units"] = units
+    associate_entities(bundle)
+    for unit in units:
+        if cid := unit.get("command_id"):
+            link = bundle["command_bindings"][cid]
+            link["crud"] = unit["crud"]
+            if link.get("binding_source") == "step1_fallback":
+                bundle["pending"].append(
+                    pending(
+                        ident("operation-step-fallback", unit["id"]),
+                        "接口主挂载步待确认",
+                        unit["source_refs"],
+                        step_id=unit["step_id"],
+                        reason=link["reason"],
+                        command_gap=True,
+                    )
+                )
+        if not unit["crud"] and not unit.get("functional_owner_id"):
+            bundle["pending"].append(
+                pending(
+                    ident("operation-pending", unit["id"]),
+                    "实际 CRUD 待确认",
+                    unit["source_refs"],
+                    step_id=unit["step_id"],
+                    reason=unit["reason"],
+                    command_gap=True,
+                )
+            )
+    for step in bundle["steps"]:
+        owners = [u for u in units if u["step_id"] == step["id"]]
         operation = step["operation"]
-        if owners and operation.get("kinds_source") not in {"declared", "manual"}:
-            operation["kinds"] = list(dict.fromkeys(k for unit in owners for k in unit["crud"]))
+        operation["kinds"] = [kind for kind in CRUD if any(kind in u["crud"] for u in owners)]
+        if not owners or operation.get("kinds_source") not in {"declared", "manual"}:
+            operation["kinds_source"] = (
+                "semantic" if operation["kinds"] else "pending" if owners else "none"
+            )
 
 
 def rebind(bundle, previous):
@@ -225,6 +296,19 @@ def rebind(bundle, previous):
     for unit in bundle["operation_units"]:
         sid = unit["step_id"]
         cid = unit.get("command_id")
+        if not cid:
+            members = [
+                step["id"]
+                for step in bundle["steps"]
+                if step["id"] in unit["occurrences"]
+                and _call(step)
+                and step["receiver"]["id"] == unit["receiver_id"]
+                and step["receiver"]["external"]
+            ]
+            if not members:
+                continue
+            unit.update(step_id=members[0], occurrences=members)
+            sid = members[0]
         if sid not in steps or (
             cid and bundle["command_bindings"].get(cid, {}).get("primary_step_id") != sid
         ):
@@ -232,12 +316,14 @@ def rebind(bundle, previous):
         op = steps[sid]["operation"]
         if op.get("kinds_source") == "manual":
             unit["crud"] = op["kinds"]
-        if not cid and (not _call(steps[sid]) or not steps[sid]["receiver"]["external"]):
-            continue
         unit["occurrences"] = [member for member in unit["occurrences"] if member in steps]
         unit["related_steps"] = [member for member in unit["related_steps"] if member in steps]
         kept.append(unit)
-    bundle["operation_units"] = kept
+    available = {unit["id"] for unit in kept}
+    for unit in kept:
+        if unit.get("functional_owner_id") not in available:
+            unit.pop("functional_owner_id", None)
+    _apply_owners(bundle, kept)
 
 
 def validate_result(payload, inputs):
@@ -248,7 +334,9 @@ def validate_result(payload, inputs):
     for uid, answer in answers.items():
         unit = units[uid]
         step = answer["step_id"]
-        if step is not None and step not in unit["candidates"]:
+        if step is not None and (
+            step not in unit["candidates"] or (unit["step_id"] and step != unit["step_id"])
+        ):
             raise ValueError("接口只能挂载到本批该接口的候选交互")
         if not answer["reason"].strip() or len(set(answer["crud"])) != len(answer["crud"]):
             raise ValueError("CRUD 判定必须包含依据且操作不得重复")
@@ -257,3 +345,7 @@ def validate_result(payload, inputs):
 
 def functional(key):
     return key.startswith(("service.crud.", "service.query_retrieval."))
+
+
+def functional_family(key):
+    return key.rsplit(".", 1)[-1] if functional(key) else key

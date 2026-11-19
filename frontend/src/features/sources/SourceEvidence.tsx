@@ -4,11 +4,13 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import type { SourceHeading, SourceJump } from "./MarkdownSource";
+import { afterSourceLayout, scrollSourceAnchor } from "./sourceScroll";
 const MarkdownSource = lazy(() =>
   import("./MarkdownSource").then((module) => ({
     default: module.MarkdownSource,
@@ -79,7 +81,7 @@ export function SourceEvidence({
     line: evidence.line_start,
     revision: 0,
   });
-  const mark = useRef<HTMLDivElement>(null);
+  const rawReader = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setOrigin(null);
     setStart(evidence.line_start);
@@ -122,15 +124,6 @@ export function SourceEvidence({
       live = false;
     };
   }, [project, evidence, start, mode, origin]);
-  useEffect(() => {
-    if (
-      mode === "source" ||
-      (data &&
-        data.document_format !== "markdown" &&
-        !/\.(md|markdown)$/i.test(data.name || ""))
-    )
-      mark.current?.scrollIntoView?.({ block: "center" });
-  }, [data, mode]);
   const navigate = useCallback((line: number) => {
     setJump((old) => ({ line, revision: old.revision + 1 }));
     setOutlineOpen(false);
@@ -143,6 +136,23 @@ export function SourceEvidence({
   const markdown =
     data?.document_format === "markdown" ||
     /\.(md|markdown)$/i.test(data?.name || "");
+  useLayoutEffect(() => {
+    if (!data || (mode === "reading" && markdown)) return;
+    return afterSourceLayout(() => {
+      const reader = rawReader.current;
+      if (!reader) return;
+      const line = mode === "source" ? start : jump.line;
+      scrollSourceAnchor(
+        reader,
+        reader.querySelector<HTMLElement>(`[data-source-line="${line}"]`),
+      );
+    });
+  }, [data, mode, markdown, start, jump]);
+  function switchView(next: "reading" | "source", line = current.line_start) {
+    setMode(next);
+    setStart(line);
+    navigate(line);
+  }
   return (
     <section className="source-evidence-pane" aria-label="原文文档查看框">
       <header>
@@ -156,6 +166,12 @@ export function SourceEvidence({
                 ? ` · 来自中间产物第${evidence.line_start}–${evidence.line_end}行`
                 : ` · 原始出处：${traced.document}第${traced.start_line}–${traced.end_line}行（${matchLabel(traced.match)}）`)}
           </small>
+          {data?.line_count != null &&
+            (current.line_start < 1 ||
+              current.line_end < current.line_start ||
+              current.line_end > data.line_count) && (
+              <small role="note">引用行超出文档范围</small>
+            )}
           {traced?.cell_range && (
             <small>
               {traced.sheet}!{traced.cell_range}
@@ -200,14 +216,14 @@ export function SourceEvidence({
         >
           <button
             aria-pressed={mode === "reading"}
-            onClick={() => setMode("reading")}
+            onClick={() => switchView("reading")}
           >
             <BookOpen size={14} />
             阅读
           </button>
           <button
             aria-pressed={mode === "source"}
-            onClick={() => setMode("source")}
+            onClick={() => switchView("source")}
           >
             <Code2 size={14} />
             源码
@@ -222,8 +238,10 @@ export function SourceEvidence({
                 : `打开原文第${traced.start_line}–${traced.end_line}行`
             }
             onClick={() => {
-              setMode("reading");
-              setStart(traced.start_line);
+              switchView(
+                "reading",
+                origin ? evidence.line_start : traced.start_line,
+              );
               if (origin) {
                 setOrigin(null);
                 return;
@@ -244,9 +262,8 @@ export function SourceEvidence({
         )}
         <button
           onClick={() => {
-            setStart(evidence.line_start);
-            navigate(evidence.line_start);
-            mark.current?.scrollIntoView?.({ block: "center" });
+            setStart(current.line_start);
+            navigate(current.line_start);
           }}
         >
           <CornerUpLeft size={14} />
@@ -288,7 +305,9 @@ export function SourceEvidence({
         <div className="source-view-message" role="alert">
           <p>{error}</p>
           {mode === "reading" && (
-            <button onClick={() => setMode("source")}>切换源码按行查看</button>
+            <button onClick={() => switchView("source")}>
+              切换源码按行查看
+            </button>
           )}
         </div>
       ) : !data ? (
@@ -310,6 +329,7 @@ export function SourceEvidence({
             outlineOpen={outlineOpen}
             onOutline={setOutline}
             onNavigate={navigate}
+            onRawLine={(line) => switchView("source", line)}
           />
         </Suspense>
       ) : (
@@ -331,11 +351,11 @@ export function SourceEvidence({
               <span>按原始行号显示</span>
             </div>
           )}
-          <div className="source-document-lines">
+          <div className="source-document-lines" ref={rawReader}>
             {data.lines.map((r: any) => (
               <div
                 key={r.number}
-                ref={r.number === current.line_start ? mark : undefined}
+                data-source-line={r.number}
                 className={
                   r.number >= current.line_start && r.number <= current.line_end
                     ? "source-line highlighted"

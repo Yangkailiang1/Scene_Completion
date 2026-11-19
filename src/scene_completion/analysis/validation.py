@@ -97,8 +97,23 @@ def validate_result(task, payload, inputs):
             validate_result as validate_entity,
         )
 
-        validate(task, payload)
+        if task == "ssd-entity-inference":
+            validate(task, payload)
+        else:
+            from scene_completion.analysis.ssd.binding_targets import validate_reply
+
+            validate_reply(task, payload)
         return validate_entity(task, payload, inputs)
+    if task in {"ssd-evidence-classify", "ssd-ground-align"}:
+        from scene_completion.analysis.ssd.grounding import validate_result as validate_grounding
+
+        if task == "ssd-ground-align":
+            from scene_completion.analysis.ssd.binding_targets import validate_reply
+
+            validate_reply(task, payload)
+        else:
+            validate(task, payload)
+        return validate_grounding(task, payload, inputs)
     if task == "ssd-bind":
         from scene_completion.analysis.ssd.contract_binding import (
             validate_result as validate_binding,

@@ -85,16 +85,40 @@ def resolve_name(declared, documents):
     if not isinstance(declared, str) or not declared.strip():
         return None
     wanted = declared.strip().replace("\\", "/")
-    for select in (
-        lambda doc: "/" in wanted and (doc.get("path") == wanted or doc["name"] == wanted),
-        lambda doc: stem(doc["name"]) == stem(wanted),
-        lambda doc: wanted.casefold() in {a.casefold() for a in doc.get("configured_aliases", [])},
-        lambda doc: wanted.lower() in aliases_for(doc["name"]),
-        lambda doc: wanted.lower() == str(doc.get("role") or "").lower(),
+    relative = wanted.removeprefix("./")
+    for priority, select in enumerate(
+        (
+            lambda doc: "/" in wanted and (doc.get("path") == relative or doc["name"] == relative),
+            lambda doc: wanted.casefold()
+            in {a.casefold() for a in doc.get("configured_aliases", [])},
+            lambda doc: stem(doc["name"]).casefold() == stem(wanted).casefold(),
+            lambda doc: wanted.lower() in aliases_for(doc["name"]),
+            lambda doc: wanted.lower() == str(doc.get("role") or "").lower(),
+        )
     ):
+        if priority >= 2 and "/" in wanted:
+            return None
         matches = [doc for doc in documents if select(doc)]
+        if len(matches) == 1:
+            return matches[0]
         if matches:
-            return matches[0] if len(matches) == 1 else None
+            identities = {
+                (doc.get("role"), Path(stem(doc["name"])).suffix.lower(), doc.get("hash"))
+                for doc in matches
+            }
+            if (
+                priority >= 2
+                and len(identities) == 1
+                and all(doc.get("hash") and not doc.get("registered") for doc in matches)
+            ):
+                return min(
+                    matches,
+                    key=lambda doc: (
+                        len(Path(doc.get("path") or doc["name"]).parts),
+                        doc.get("path") or doc["name"],
+                    ),
+                )
+            return None
     return None
 
 

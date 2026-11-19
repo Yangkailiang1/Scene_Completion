@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import stat
 from pathlib import Path
 
 from scene_completion.analysis.ssd.core_export import write_core
@@ -30,6 +31,7 @@ PATCHES = {
         {
             "step_id",
             "failure_step_id",
+            "failure_step_hint",
             "target",
             "entity_id",
             "attribute",
@@ -46,7 +48,7 @@ PATCHES = {
 
 
 def _load(path):
-    return json.loads(path.read_text(encoding="utf-8-sig"))
+    return json.loads(io_path(path).read_text(encoding="utf-8-sig"))
 
 
 def _relative(root, path):
@@ -325,10 +327,14 @@ def _cross_check(directory, bundle):
         step = steps.get(row.get("step_id"))
         if not step or row.get("target") not in {"sender", "entity", "receiver", "data"}:
             raise ValueError(location + " 未绑定有效步骤或目标")
-        if row.get("concern_key") not in definitions or (
-            row.get("failure_step_id") and row["failure_step_id"] not in steps
+        if row.get("concern_key") not in definitions:
+            raise ValueError(location + " 关注点无效")
+        if (
+            bundle.get("analysis_profile") not in STRUCTURED_PROFILES
+            and row.get("failure_step_id")
+            and row["failure_step_id"] not in steps
         ):
-            raise ValueError(location + " 关注点或实际失败步骤无效")
+            raise ValueError(location + " 实际失败步骤无效")
         if (
             row["target"] == "entity"
             and row.get("entity_id")
@@ -356,11 +362,23 @@ def _cross_check(directory, bundle):
             ):
                 raise ValueError(location + " 接口字段或方向不存在")
 
+    directory = io_path(directory)
     main = _load(directory / "main-success.json")
     if main.get("analysis_profile") in STRUCTURED_PROFILES:
         from scene_completion.domain.ssd_contracts import CRUD
 
         architecture_file = directory.parent.parent / "architecture.json"
+        for file in [
+            architecture_file,
+            *(directory / name for name in (*FORMATS, "source-map.json")),
+        ]:
+            try:
+                if not stat.S_ISREG(file.stat().st_mode):
+                    raise ValueError("核心分件应为文件：" + file.name)
+            except (FileNotFoundError, NotADirectoryError) as error:
+                raise ValueError("缺少核心分件：" + file.name) from error
+            except OSError as error:
+                raise ValueError(f"无法读取核心分件 {file.name}：{error.strerror}") from error
         parties = {p["id"]: p for p in _load(architecture_file)["elements"]}
         roles = {"external_actor", "external_service", "internal_service"}
         for step in main["steps"]:
@@ -377,15 +395,15 @@ def _cross_check(directory, bundle):
                 raise ValueError("四元组引用了不存在或类型无效的参与者：" + step["id"])
             if {ref["entity"] for ref in step.get("entity_refs", [])} - set(step["entities"]):
                 raise ValueError("实体引用证据与四元组实体不一致：" + step["id"])
-        if any(not (directory / name).is_file() for name in (*FORMATS, "source-map.json")):
-            raise ValueError("实体模式缺少核心分件")
         if main["analysis_profile"] in COMMAND_PROFILES:
             if main.get("command_bindings") != bundle["command_bindings"]:
                 raise ValueError("SR 命令主挂载与输入步骤不一致")
             for row in main["steps"]:
-                if row["operation"].get("command_id") != steps[row["id"]]["operation"].get(
-                    "command_id"
-                ):
+                step = steps[row["id"]]
+                saved_command = row["operation"].get("command_id")
+                observed_command = step["operation"].get("command_id")
+                legacy_occurrence = saved_command and saved_command == step.get("call_command_id")
+                if saved_command != observed_command and not legacy_occurrence:
                     raise ValueError("步骤命令编号与来源不一致：" + row["id"])
             obligations = {
                 (step["id"], field["id"], field["command_id"], field["location"], field["name"])

@@ -1,6 +1,26 @@
 """Check model containers before expanding references or saving questions."""
 
 
+def payload_from_arguments(arguments, schema):
+    """Put recognized business fields back inside the submission envelope."""
+    promoted = arguments.keys() - {"payload", "review_questions"}
+    allowed = schema.get("properties", {})
+    if unknown := promoted - allowed.keys():
+        raise ValueError(
+            ", ".join(f"arguments.{k}: 不是当前任务的业务字段" for k in sorted(unknown))
+        )
+    if "payload" not in arguments and not promoted:
+        raise ValueError("arguments.payload: 缺少业务结果")
+    payload = arguments.get("payload", {})
+    if not promoted:
+        return payload
+    if not isinstance(payload, dict):
+        raise ValueError("arguments.payload: 存在提升字段时必须是 JSON 对象")
+    if overlap := promoted & payload.keys():
+        raise ValueError(", ".join(f"arguments.{k}: 与 payload.{k} 重复" for k in sorted(overlap)))
+    return {**payload, **{k: arguments[k] for k in sorted(promoted)}}
+
+
 def containers(value, schema, path="payload"):
     kind = schema.get("type")
     kinds = kind if isinstance(kind, list) else [kind]

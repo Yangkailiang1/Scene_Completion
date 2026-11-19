@@ -567,7 +567,9 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
                 "source_refs": sources.refs(branch, sources.add(path), pointer),
                 "layer": "RR" if layer == "IR" else "SR",
                 "scenario_type": kind or "exception",
-                "failure_step_id": (branch.get("extend_at_main") or {}).get("after"),
+                "failure_step_id": branch.get("failure_step_id")
+                or (None if entity_only else (branch.get("extend_at_main") or {}).get("after")),
+                "failure_step_hint": branch.get("failure_step_hint"),
                 "raw": branch,
             }
         )

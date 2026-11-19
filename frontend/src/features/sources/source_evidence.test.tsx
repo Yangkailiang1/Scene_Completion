@@ -211,3 +211,45 @@ test("an untraced citation keeps the intermediate file and states why", async ()
   expect(screen.queryByRole("button", { name: /第4行/ })).toBeNull();
   expect(String(fetch.mock.calls.at(-1)?.[0])).toContain("/sources/sr?");
 });
+
+test("opening and returning to a late citation scrolls only the document reader", async () => {
+  const citation = { ...evidence, line_start: 6222, line_end: 6222 };
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      name: "SysOperation.json",
+      document_format: "json",
+      line_count: 6500,
+      lines: [
+        { number: 6162, text: "上下文" },
+        { number: 6222, text: citation.quote },
+      ],
+    }),
+  } as Response);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: HTMLElement) {
+      if (this.dataset.sourceLine === "6222") {
+        return { top: 1340 - (this.parentElement?.scrollTop || 0) } as DOMRect;
+      }
+      return { top: 100 } as DOMRect;
+    },
+  );
+  const { container } = render(
+    <SourceEvidence project="p" evidence={citation} onClose={vi.fn()} />,
+  );
+  container.scrollTop = 80;
+  const reader = await waitFor(() => {
+    const element = container.querySelector<HTMLElement>(
+      ".source-document-lines",
+    );
+    expect(element?.scrollTop).toBe(1216);
+    return element!;
+  });
+  expect(
+    reader.querySelector(".highlighted")?.getAttribute("data-source-line"),
+  ).toBe("6222");
+  reader.scrollTop = 50;
+  fireEvent.click(screen.getByRole("button", { name: "返回引用" }));
+  await waitFor(() => expect(reader.scrollTop).toBe(1216));
+  expect(container.scrollTop).toBe(80);
+});

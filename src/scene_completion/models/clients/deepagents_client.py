@@ -185,6 +185,8 @@ class DeepAgentsClient(SemanticClient):
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",
+            "ssd-evidence-classify",
+            "ssd-ground-align",
         }
         if packet["task"] in {"ssd-semantic-compare", "project-scope-compare"}:
             # This is a model-facing view only. The full original packet stays
@@ -457,11 +459,27 @@ class DeepAgentsClient(SemanticClient):
         from scene_completion.infrastructure.execution_events import emit, phase
         from scene_completion.workflow_core import TaskRejected
 
-        def submit(payload: dict, review_questions: list[dict] | None = None) -> str:
-            from scene_completion.models.transport.model_submission import containers, questions
+        missing_payload = object()
+
+        def submit(payload=missing_payload, review_questions=None, **promoted) -> str:
+            from scene_completion.models.transport.model_submission import (
+                containers,
+                payload_from_arguments,
+                questions,
+            )
             from scene_completion.review.decisions.review_questions import report
 
+            arguments = {
+                **({"payload": payload} if payload is not missing_payload else {}),
+                "review_questions": review_questions,
+                **promoted,
+            }
+            if payload is missing_payload:
+                payload = None
             try:
+                payload = payload_from_arguments(arguments, packet["output_schema"])
+                if promoted:
+                    emit("submission_envelope_normalized", fields=sorted(promoted))
                 if indexed is None:
                     from scene_completion.inputs.provenance.reference_contract import (
                         validate_raw_references,
@@ -529,6 +547,7 @@ class DeepAgentsClient(SemanticClient):
                         "input_hash": fingerprint(original_packet["input"]),
                         "payload": payload,
                         "review_questions": review_questions,
+                        "arguments": arguments,
                         "candidate_format": "model" if indexed else "public",
                         "reference_mode": reference_contract["mode"],
                         "reference_error": getattr(e, "details", None),
@@ -718,6 +737,7 @@ class DeepAgentsClient(SemanticClient):
                         "node_key": task_key,
                         "input_hash": fingerprint(original_packet["input"]),
                         "payload": payload,
+                        **({"arguments": arguments} if promoted else {}),
                         "error": str(e),
                         "reference_mode": reference_contract["mode"],
                         "reference_error": getattr(e, "details", None),

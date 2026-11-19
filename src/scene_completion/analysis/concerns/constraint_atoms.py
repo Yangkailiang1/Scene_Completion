@@ -427,6 +427,23 @@ def normalize_rules(
             continue
         text = rule.strip()
         original = record if isinstance(record, dict) else {"rule": text, "error": None}
+        if rule_refs is not None and re.fullmatch(
+            rf"(?:更新时)?(?:{re.escape(field)}|状态|该字段)?(?:不可修改|不允许修改|不得修改|不可变|只读)[。.]?",
+            _compact(text).replace("`", ""),
+        ):
+            out["items"].append(
+                _item(
+                    OPERATION_CONCERNS["business"],
+                    "immutable",
+                    None,
+                    "explicit",
+                    refs,
+                    field,
+                    failure_condition="尝试修改禁止变更的值",
+                    applicable_operations=["update"],
+                )
+            )
+            continue
         if PAYLOAD_SHAPE.fullmatch(text):
             out["payload"].append({"text": text, "source_refs": deepcopy(refs), "error": None})
             continue

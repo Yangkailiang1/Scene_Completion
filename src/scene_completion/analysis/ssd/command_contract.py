@@ -184,7 +184,7 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
 
 
 def _pick(step, commands):
-    declared = step.get("api_id") or step.get("declared_command")
+    declared = step.get("api_id") or step.get("declared_command") or step.get("call_command_id")
     text = step["operation"]["name"]
     operation = step["operation"]
     observed = {(m.upper(), p) for m, p in _HTTP.findall(text)}
@@ -232,6 +232,7 @@ def attach(bundle, commands, placements=None):
     """Build one obligation owner per command, preserving every call occurrence."""
     steps = sorted(bundle["steps"], key=lambda step: step["order"])
     first_call = bundle.get("analysis_profile") in FIRST_CALL_PROFILES
+    primary_only = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
     bundle["pending"] = [p for p in bundle["pending"] if not p.get("command_gap")]
     calls = {cid: [] for cid in commands}
     for step in steps:
@@ -243,6 +244,8 @@ def attach(bundle, commands, placements=None):
             continue
         cid = _pick(step, commands)
         step["api_id"] = cid
+        if primary_only:
+            step.pop("call_command_id", None)
         if cid:
             calls[cid].append(step)
         elif step.get("declared_command"):
@@ -269,6 +272,10 @@ def attach(bundle, commands, placements=None):
             occurrences = [next(step for step in steps if step["id"] == placement["step_id"])]
         primary = occurrences[0]
         for step in occurrences:
+            if primary_only and step is not primary:
+                step["call_command_id"] = cid
+                step["api_id"] = None
+                continue
             operation = step["operation"]
             if placement is None or placement["binding_source"] != "step1_fallback":
                 operation.setdefault("command_id", cid)
@@ -347,6 +354,38 @@ def attach(bundle, commands, placements=None):
             )
 
 
+def associate_entities(bundle):
+    """Connect commands to evidenced business entities without adding them to source steps."""
+    steps = {s["id"]: s for s in bundle["steps"]}
+    entities = {e["id"] for e in bundle.get("entities", [])}
+    commands = {c["id"]: c for c in bundle["commands"]}
+    for cid, link in bundle["command_bindings"].items():
+        primary = steps[link["primary_step_id"]]
+        related = [
+            *link["occurrences"],
+            *link.get("validation_step_ids", []),
+            *link.get("response_step_ids", []),
+        ]
+        observed = {e for sid in related for e in steps[sid]["entity_ids"]}
+        fields = {
+            (f.get("entity_binding") or {}).get("entity_id")
+            for f in primary["data"]
+            if f["command_id"] == cid
+        }
+        selected = (observed | fields) & entities
+        if not selected and len(commands) == len(entities) == 1:
+            selected = entities
+        link["entity_ids"] = sorted(selected)
+        if not selected:
+            choices = sorted(entities)
+            _gap(
+                bundle,
+                cid,
+                "接口的操作实体待确认" + (" · " + "、".join(choices) if choices else ""),
+                commands[cid]["source_refs"],
+            )
+
+
 def _gap(bundle, cid, reason, refs):
     bundle["pending"].append(
         pending(
@@ -391,7 +430,15 @@ def generate_fields(bundle, output):
     for step in bundle["steps"]:
         for field in step["data"]:
             obligations = {}
+            binding = bundle["command_bindings"][field["command_id"]]
             for atom in field["atoms"]:
+                operations = atom.get("applicable_operations") or []
+                if (
+                    precise_sources
+                    and operations
+                    and not set(operations).intersection(binding.get("crud", []))
+                ):
+                    continue
                 obligations.setdefault(atom["concern_key"], []).append(atom)
             for key, atoms in obligations.items():
                 atom_refs = unique([ref for atom in atoms for ref in atom["source_refs"]])

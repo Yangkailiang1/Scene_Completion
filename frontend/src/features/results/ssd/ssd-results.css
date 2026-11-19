@@ -377,7 +377,9 @@
   height: 100%;
 }
 .ssd-source-code {
+  flex: 1;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 15px 20px;
   min-height: 0;
 }

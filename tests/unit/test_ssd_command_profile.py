@@ -2,12 +2,14 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
+import pytest
+
 from scene_completion.analysis.interactions.field_anchors import anchors
 from scene_completion.analysis.ssd.command_contract import attach
 from scene_completion.analysis.ssd.core_input import convert, validate_core
 from scene_completion.analysis.ssd.entity_semantics import classify
 from scene_completion.analysis.ssd.pipeline import build_cases, generate_g
-from scene_completion.domain.current_scope import COMMAND_PROFILE
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILE
 from scene_completion.domain.ssd.construction import channel, pending
 from scene_completion.domain.ssd.matching import binding, semantic_candidates
 from scene_completion.domain.ssd_contracts import packet
@@ -201,6 +203,68 @@ def test_legacy_command_revision_keeps_historical_anchor():
     ] == ["B2"]
 
 
+def test_repeated_interface_is_a_source_link_after_core_round_trip(tmp_path):
+    from shutil import copytree
+
+    from scene_completion.analysis.ssd.entity_semantics import infer
+    from scene_completion.analysis.ssd.operation_units import resolve
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+
+    root = tmp_path / "raw"
+    copytree(BROWSE, root)
+    original = next(root.rglob("SysOperation.json"))
+    value = json.loads(original.read_text(encoding="utf8"))
+    main = next(iter(value["operations"].values()))
+    repeated = deepcopy(main["interaction"][0])
+    repeated["id"] = "B7"
+    main["interaction"].append(repeated)
+    main["Order"].append({"kind": "interaction", "ref": "B7"})
+    original.write_text(json.dumps(value, ensure_ascii=False), encoding="utf8")
+    tree = root / "功能树.json"
+    tree_value = json.loads(tree.read_text(encoding="utf8"))
+    product = tree_value["functions"][0]["srLayer"]["entities"][0]
+    status = next(a for a in product["attributes"] if a["name"] == "status")
+    status["constraints"].append({"rule": "状态不允许修改"})
+    tree.write_text(json.dumps(tree_value, ensure_ascii=False), encoding="utf8")
+    core = tmp_path / "core"
+    convert(root, core, profile=COMMAND_OPERATION_PROFILE)
+    assert validate_core(core)["valid"]
+    bundle = build_cases(core)[0]
+    resolve(
+        bundle,
+        lambda _, inputs: {
+            "operations": [
+                {
+                    "unit_id": u["id"],
+                    "step_id": u["step_id"],
+                    "crud": ["create", "update"]
+                    if u.get("command_id") == "CATALOG-SEARCH"
+                    else ["read"],
+                    "reason": "夹具操作范围",
+                }
+                for u in inputs["units"]
+            ]
+        },
+    )
+    infer(bundle, None)
+    binding = bundle["command_bindings"]["CATALOG-SEARCH"]
+    by_id = {s["id"]: s for s in bundle["steps"]}
+    assert binding["primary_step_id"] == "B3"
+    assert binding["occurrences"] == ["B3", "B7"]
+    assert binding["entity_ids"] == ["Product"]
+    assert by_id["B7"]["api_id"] is None
+    assert by_id["B7"]["call_command_id"] == "CATALOG-SEARCH"
+    assert by_id["B7"]["data"] == []
+    assert by_id["B7"]["operation"]["kinds"] == []
+    immutable = [
+        r
+        for r in bundle["channels"]["G"]["scenarios"]
+        if r.get("variant_id") == "immutable_attribute"
+    ]
+    assert [(r["step_id"], r["attribute"]) for r in immutable] == [("B3", "status")]
+    assert bundle["registry"]["definitions"][immutable[0]["key"]]["layer"] == "base"
+
+
 def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     import json
     from copy import deepcopy
@@ -233,7 +297,7 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     value = json.loads(behavior.read_text(encoding="utf8"))
     original = next(iter(value["operations"].values()))
     actor = "AI原生应用开发者"
-    role_quote = f"Actor：{actor}。CatalogService 是服务。"
+    role_quote = f"actor-001|{actor}|actor|主(人)|。CatalogService 是服务。"
     original["participant"] = {
         "U": {"name": actor, "kind": "external", "source_refs": [{"quote": role_quote}]},
         "M": {"name": "商城", "kind": "internal"},
@@ -285,6 +349,12 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     recovered.write_text(json.dumps(data, ensure_ascii=False), encoding="utf8")
     target = tmp_path / "core"
     assert convert(root, target, profile=COMMAND_OPERATION_PROFILE)["output"]
+    architecture = json.loads((target / "architecture.json").read_text(encoding="utf8"))
+    assert {party["id"]: party["kind"] for party in architecture["elements"]} == {
+        "U": "external_actor",
+        "M": "internal_service",
+        "DB": "external_service",
+    }
     bundle = build_cases(target, generate=False)[0]
     assert bundle["case"]["id"] == "BEHAVIOR-99"
     assert bundle["function_tree_case_id"] == "TREE-900"
@@ -310,7 +380,13 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
                     "step_id": (
                         "R1" if u.get("command_id") == commands[0]["apiId"] else u["step_id"]
                     ),
-                    "crud": ["read"] if u["step_id"] == "D3" else ["create"],
+                    "crud": (
+                        ["create", "read"]
+                        if u["kind"] == "external"
+                        else ["create", "update"]
+                        if u.get("command_id") == commands[0]["apiId"]
+                        else ["create"]
+                    ),
                     "reason": "按业务动作核对",
                 }
                 for u in inputs["units"]
@@ -330,14 +406,29 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     assert [s["api_id"] for s in bundle["steps"]] == [a, None, None, None]
     units = bundle["operation_units"]
     assert [(u["step_id"], u["occurrences"]) for u in units if u["kind"] == "external"] == [
-        ("D1", ["D1", "D2"]),
-        ("D3", ["D3"]),
+        ("D1", ["D1", "D2", "D3"]),
     ]
     bundle["channels"]["G"] = generate_g(bundle)
     key = "service.crud.create.idempotency"
     g = [row for row in bundle["channels"]["G"]["scenarios"] if row["key"] == key]
     assert [row["step_id"] for row in g] == ["R1", "R1", "D1"]
     assert len({binding(row) for row in g}) == 3
+    assert any(row.get("applicable_operations") == ["create", "update"] for row in g)
+    resources = [
+        row
+        for row in bundle["channels"]["G"]["concerns"]
+        if row["step_id"] == "D1" and row.get("applicable_operations") == ["create", "read"]
+    ]
+    assert len(resources) == 1
+    assert set(resources[0]["concern_keys"]) == {
+        "service.query_retrieval.resource_existence",
+        "service.crud.create.resource_existence",
+    }
+    for concern in ("service.base.availability", "database.special_characters"):
+        assert [
+            s["step_id"] for s in bundle["channels"]["G"]["concerns"] if s["key"] == concern
+        ] == ["D1"]
+    assert not any(step["operation"]["kinds"] for step in bundle["steps"][2:])
 
     selected = next(u for u in units if u.get("command_id") == a)
 
@@ -479,6 +570,10 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     assert convert(root, core, profile=COMMAND_OPERATION_PROFILE)["output"]
     assert validate_core(core)["valid"]
     assert (core / "originals/原始用例.xlsx").read_bytes() == workbook.read_bytes()
+    from scene_completion.inputs.documents.input_bundles import discover
+
+    _, material = discover(directory=str(core))
+    assert any(f["relative_path"] == "originals/原始用例.xlsx" for f in material.values())
     case = build_cases(core)[0]
     mixed_refs = [r for step in case["steps"] for r in step["source_refs"]]
     assert any(r["kind"] == "origin" and r["quote"] == declared[0]["quote"] for r in mixed_refs)
@@ -582,3 +677,549 @@ def test_function_tree_uses_each_constraint_and_tag_citation(tmp_path):
         if row.get("attribute") == "category_id" and row["key"] == "api.data.range"
     }
     assert rows == {"category_id < 1": [3, 5], "category_id > 100": [4, 6]}
+
+
+def test_independent_evidence_aligns_many_to_final_g_and_falls_back(tmp_path):
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.analysis.validation import validate_result
+    from scene_completion.application import ssd_revision_service
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+    from scene_completion.domain.ssd import metrics, validation
+    from scene_completion.domain.ssd.construction import add_concern, add_scenario
+    from scene_completion.review.offline import adoption
+
+    bundle = build_cases(BROWSE, profile=COMMAND_OPERATION_PROFILE)[0]
+    bundle["gt_source_available"] = True
+    step = bundle["steps"][0]
+    fields = {f["name"]: f for f in step["data"]}
+    out = bundle["channels"]["G"]
+    auth = add_concern(out, bundle, "G", step, "human.authentication", "sender")
+    add_scenario(out, auth, "凭证格式无效", "拒绝", [])
+    required = []
+    for name in ("page", "pageSize"):
+        concern = add_concern(
+            out, bundle, "G", step, "api.data.completeness", "data", field=fields[name]
+        )
+        required.append(add_scenario(out, concern, name + " 缺失", "拒绝", [])["id"])
+
+    def raw(ident, condition, expected="拒绝", step_id="B2"):
+        return pending(
+            ident,
+            condition,
+            needs_semantic=True,
+            original={
+                "id": ident,
+                "extension_id": ident,
+                "condition": condition,
+                "expected": expected,
+                "failure_step_id": step_id,
+                "source_refs": [],
+            },
+        )
+
+    bundle["channels"]["E"] = channel()
+    bundle["channels"]["GT"] = channel()
+    bundle["channels"]["E"]["pending"] = [
+        raw("E-config", "配置不完整", step_id=None),
+        raw("E-bounds", "pageSize < 1；pageSize > 100"),
+    ]
+    bundle["channels"]["GT"]["pending"] = [
+        raw("GT-auth", "无效凭证"),
+        raw("GT-high", "pageSize > 100"),
+        raw("GT-keyword", "keyword 比协议允许长度更长"),
+        raw("GT-normal", "合法的上边界被接受", "成功"),
+    ]
+    definitions = {
+        "配置不完整": "api.data.completeness",
+        "无效凭证": "human.authentication",
+        "pageSize < 1": "api.data.range",
+        "pageSize > 100": "api.data.range",
+        "keyword 比协议允许长度更长": "api.data.length",
+    }
+
+    def identify(task, inputs):
+        assert task == grounding.CLASSIFY
+        assert "G" not in inputs and "parts" not in inputs
+        assert len(inputs["steps"]) == len(bundle["steps"])
+        prefix = inputs["channel"] + "-"
+        assert all(row["id"].startswith(prefix) for row in inputs["records"])
+        return validate_result(
+            task,
+            {
+                "records": [
+                    {
+                        "record_id": row["id"],
+                        "reason": "依据本方原文分类",
+                        "kind": "normal" if row["id"] == "GT-normal" else "exception",
+                        "parts": [
+                            {
+                                "condition": condition,
+                                "expected": row["expected"],
+                                "keys": [definitions[condition]],
+                            }
+                            for condition in row["condition"].split("；")
+                            if condition in definitions
+                        ],
+                    }
+                    for row in inputs["records"]
+                ]
+            },
+            inputs,
+        )
+
+    grounding.classify(bundle, identify)
+    expiry = add_scenario(out, auth, "凭证过期", "拒绝", [])["id"]
+    assert bundle["channels"]["GT"]["scenarios"] == []
+
+    def compare(task, inputs):
+        assert task == grounding.ALIGN
+        results = []
+        for part in inputs["parts"]:
+            condition = part["condition"]
+            if condition == "配置不完整":
+                assert set(required) <= {g["id"] for g in part["candidates"]}
+            if condition == "无效凭证":
+                assert expiry in {g["id"] for g in part["candidates"]}
+            if condition == "pageSize > 100":
+                assert not any(g["condition"] == "pageSize < 1" for g in part["candidates"])
+            matches = [
+                {
+                    "candidate_id": g["id"],
+                    "status": "partial"
+                    if condition in {"配置不完整", "无效凭证"}
+                    else "full"
+                    if condition == g["condition"]
+                    else "none",
+                    "reason": "按来源和失败条件核对",
+                }
+                for g in part["candidates"]
+            ]
+            fallback = None
+            if "keyword" in condition:
+                fallback = {
+                    "step_id": "B1",
+                    "target": "interface",
+                    "key": "api.data.length",
+                    "entity_id": None,
+                    "attribute": None,
+                    "field_id": fields["keyword"]["id"],
+                    "operation_unit_id": None,
+                }
+            results.append(
+                {
+                    "part_id": part["id"],
+                    "matches": matches,
+                    "fallback": fallback,
+                    "reason": "依据来源",
+                }
+            )
+        return validate_result(task, {"parts": results}, inputs)
+
+    grounding.align(bundle, compare)
+    bundle = validation.validate(bundle)
+    gt = {r["condition"]: r for r in bundle["channels"]["GT"]["scenarios"]}
+    assert len(gt) == 3
+    assert gt["无效凭证"]["step_id"] == "B1"
+    assert gt["无效凭证"]["failure_step_id"] == "B2"
+    assert len(bundle["channels"]["E"]["scenarios"]) == 3
+    assert {
+        r["condition"]
+        for r in bundle["channels"]["E"]["scenarios"]
+        if "E-bounds" in r["source_record_ids"]
+    } == {"pageSize < 1", "pageSize > 100"}
+    assert not bundle["channels"]["GT"]["pending"]
+    assert not bundle["channels"]["E"]["pending"]
+    config = next(r for r in bundle["channels"]["E"]["scenarios"] if r["condition"] == "配置不完整")
+    assert set(required) <= {
+        d["left_id"]
+        for d in bundle["decisions"]
+        if d["level"] == "scenario" and d["right_id"] == config["id"] and d["status"] == "partial"
+    }
+    assert metrics.analyze(bundle)["scenario_diagnostic"]["counts"]["GT"] == 3
+    ssd_revision_service.publish(tmp_path, bundle)
+    categories = adoption.export_payload(tmp_path)["items"][0]["categories"]
+    assert expiry in {row["cells"]["G"][0]["id"] for row in categories["covered"]}
+    assert gt["keyword 比协议允许长度更长"]["id"] in {
+        row["cells"]["GT"][0]["id"] for row in categories["gt_only"]
+    }
+
+
+def test_authentication_alignment_preserves_branch_and_distinguishes_actual_failure(tmp_path):
+    import shutil
+
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+    from scene_completion.domain.ssd.construction import add_concern, add_scenario
+    from scene_completion.inputs.documents.input_bundles import apply, discover
+    from scene_completion.inputs.imports.artifact_imports import snapshot
+    from tests.support.input_bundles import project
+
+    material = tmp_path / "supplier"
+    shutil.copytree(BROWSE, material)
+    path = next(material.rglob("SysOperation.json"))
+    behavior = json.loads(path.read_text(encoding="utf-8"))
+    branches = behavior["operations"]
+    base = deepcopy(branches["SC_EX_PAGE_SIZE_HIGH"])
+    base.pop("source_refs")
+    base["system_response"][0]["message"] = "拒绝认证失败的请求"
+    for name, hint, message in (
+        ("E4", "旧异常分支中的 ID", "顾客调用商城时认证失败"),
+        ("E5", {"step_id": "B2"}, "入口请求认证失败"),
+        ("E6", None, "认证失败"),
+    ):
+        branches[name] = {**base, "ID": name, "guard": message, "failure_step_hint": hint}
+    path.write_text(json.dumps(behavior, ensure_ascii=False, indent=2), encoding="utf-8")
+    output = tmp_path / "core"
+    assert convert(material, output, profile=COMMAND_OPERATION_PROFILE)["output"]
+    assert validate_core(output)["valid"]
+    preview, files = discover(directory=str(output))
+    assert preview["valid"] and preview["authoring_case_count"] == 1
+    frozen_path = next(
+        f["relative_path"] for f in files.values() if "source-evidence" in f["relative_path"]
+    )
+    assert frozen_path.endswith("-behavior.json")
+    service, workbench = project(tmp_path / "workbench")
+    assert apply(service, workbench, preview, files)["saved"]
+    assert not any(row.get("behavior_product") for row in snapshot(workbench))
+    manifest = json.loads((workbench / "imports/ssd-input.json").read_text(encoding="utf-8"))
+    bundle = build_cases(workbench / manifest["path"])[0]
+    bundle["channels"]["GT"] = channel()
+    pending_rows = bundle["channels"]["E"]["pending"]
+    bundle["channels"]["E"]["pending"] = [r for r in pending_rows if "认证" in r["condition"]]
+
+    human_step = next(s for s in bundle["steps"] if s["id"] == "B1")
+    service_step = next(s for s in bundle["steps"] if s["id"] == "B3")
+    bundle["channels"]["G"] = generated = channel()
+    human = add_concern(generated, bundle, "G", human_step, "human.authentication", "sender")
+    service = add_concern(
+        generated, bundle, "G", service_step, "service_relation.authentication", "receiver"
+    )
+    human_id = add_scenario(generated, human, "调用方认证失败", "拒绝认证失败的请求", [])["id"]
+    service_id = add_scenario(generated, service, "调用方认证失败", "拒绝认证失败的请求", [])["id"]
+
+    def classify_auth(task, inputs):
+        assert task == grounding.CLASSIFY
+        assert {s["id"] for s in inputs["steps"]} >= {"B1", "B2", "B3"}
+        assert next(s for s in inputs["steps"] if s["id"] == "B2")["validates"] == ["B1"]
+        decision = []
+        for row in inputs["records"]:
+            if row["condition"].startswith("顾客"):
+                assert row["failure_step_hint"] == "旧异常分支中的 ID"
+                assert row["failure_step_id"] is None
+                assert row["branch"]["system_response"][0]["sender"] == "MALL"
+                assert row["branch"]["source_pointers"][0]["json_pointer"] == "/operations/E4"
+            decision.append(
+                {
+                    "record_id": row["id"],
+                    "kind": "exception",
+                    "reason": "判为认证失败，调用方待核对",
+                    "parts": [
+                        {
+                            "condition": row["condition"],
+                            "expected": row["expected"],
+                            "keys": ["service_relation.authentication"],
+                        }
+                    ],
+                }
+            )
+        return {"records": decision}
+
+    grounding.classify(bundle, classify_auth)
+
+    def align_auth(task, inputs):
+        assert task == grounding.ALIGN
+        results = []
+        for part in inputs["parts"]:
+            condition = part["condition"]
+            actual = "B2" if condition.startswith("入口") else None
+            ids = {g["id"] for g in part["candidates"]}
+            assert ids == ({human_id} if actual else {human_id, service_id})
+            confirmed = condition != "认证失败"
+            matches = [
+                {
+                    "candidate_id": gid,
+                    "status": "full" if confirmed and gid == human_id else "none",
+                    "reason": "按认证调用主体核对",
+                }
+                for gid in sorted(ids)
+            ]
+            row = {
+                "part_id": part["id"],
+                "matches": matches,
+                "fallback": None,
+                "reason": "顾客向商城发起请求" if confirmed else "无法核实哪一方发起认证",
+                "failure_step_id": actual,
+                "failure_step_reason": "校验步 B2 明确关联 B1" if actual else "原文未声明失败步骤",
+            }
+            if condition.startswith("顾客"):
+                with pytest.raises(ValueError, match="主成功流"):
+                    grounding.validate_result(
+                        task,
+                        {"parts": [{**row, "failure_step_id": "E4"}]},
+                        {**inputs, "parts": [part]},
+                    )
+                with pytest.raises(ValueError, match="同一调用边界"):
+                    grounding.validate_result(
+                        task,
+                        {"parts": [{**row, "matches": [{**m, "status": "full"} for m in matches]}]},
+                        {**inputs, "parts": [part]},
+                    )
+            results.append(row)
+        return {"parts": results}
+
+    grounding.align(bundle, align_auth)
+    rows = {r["condition"]: r for r in bundle["channels"]["E"]["scenarios"]}
+    e4 = rows["顾客调用商城时认证失败"]
+    assert e4["step_id"] == "B1"
+    assert e4["key"] == "human.authentication"
+    assert e4["failure_step_pending"] and not e4.get("failure_step_id")
+    assert e4["failure_step_reason"] == "原文未声明失败步骤"
+    assert rows["入口请求认证失败"]["failure_step_id"] == "B2"
+    assert any(
+        d["level"] == "scenario" and d["left_id"] == human_id and d["right_id"] == e4["id"]
+        for d in bundle["decisions"]
+    )
+    assert [r["condition"] for r in bundle["channels"]["E"]["pending"]] == ["认证失败"]
+    refs = {
+        r["document_id"] for r in e4["source_refs"] if r.get("json_pointer") == "/operations/E4"
+    }
+    assert any(
+        d["id"] in refs
+        and d["name"].endswith("-behavior.json")
+        and '"guard": "顾客调用商城时认证失败"' in d["content"]
+        for d in bundle["documents"]
+    )
+
+
+@pytest.mark.parametrize("profile", [COMMAND_PROFILE, COMMAND_OPERATION_PROFILE])
+def test_empty_exception_details_keep_other_five_gt_records(profile):
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.analysis.validation import validate_result
+    from scene_completion.domain.ssd.construction import add_concern, add_scenario
+
+    bundle = build_cases(BROWSE, profile=profile)[0]
+    step = next(s for s in bundle["steps"] if s["id"] == "B1")
+    field = next(f for f in step["data"] if f["name"] == "pageSize")
+    bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
+    bundle["gt_source_available"] = True
+    generated = bundle["channels"]["G"]
+    key = "api.data.range"
+    concern = add_concern(generated, bundle, "G", step, key, "data", field=field)
+
+    expected = "拒绝"
+    for i in range(1, 7):
+        condition = "请求缺少 service-id" if i == 5 else f"pageSize 取 {100 + i} 超上界"
+        record_id = f"GT{i}"
+        refs = [{"document_id": "test", "start_line": i, "end_line": i, "kind": "test"}]
+        bundle["channels"]["GT"]["pending"].append(
+            pending(
+                record_id,
+                condition,
+                refs,
+                original={
+                    "id": record_id,
+                    "extension_id": record_id,
+                    "condition": condition,
+                    "expected": expected,
+                    "source_refs": refs,
+                },
+                needs_semantic=True,
+            )
+        )
+        if i != 5:
+            add_scenario(generated, concern, condition, expected, [])
+
+    def execute(task, inputs):
+        if task == grounding.ALIGN:
+            value = {
+                "parts": [
+                    {
+                        "part_id": part["id"],
+                        "reason": "测试条件与生成场景相同",
+                        "matches": [
+                            {
+                                "candidate_id": candidate["id"],
+                                "status": "full"
+                                if candidate["condition"] == part["condition"]
+                                else "none",
+                                "reason": "比较分页数值",
+                            }
+                            for candidate in part["candidates"]
+                        ],
+                        "fallback": None,
+                    }
+                    for part in inputs["parts"]
+                ]
+            }
+        else:
+            assert len(inputs["records"]) == 6
+            assert inputs["channel"] == "GT"
+            modern = task == grounding.CLASSIFY
+            detail_key = "parts" if modern else "bindings"
+            records = []
+            for row in inputs["records"]:
+                detail = {"condition": row["condition"], "expected": expected}
+                detail.update(
+                    {"keys": [key]}
+                    if modern
+                    else {
+                        "step_id": step["id"],
+                        "target": "interface",
+                        "key": key,
+                        "field_id": field["id"],
+                        "entity_id": None,
+                        "attribute": None,
+                    }
+                )
+                records.append(
+                    {
+                        "record_id": row["id"],
+                        "kind": "exception",
+                        "reason": "判为失败场景",
+                        detail_key: [] if row["id"] == "GT5" else [detail],
+                    }
+                )
+            value = {"records": records}
+            with pytest.raises(ValueError, match="每个来源恰好"):
+                validate_result(task, {"records": records[:4] + records[5:]}, inputs)
+        # The transport validates the raw reply before the stage interprets it.
+        validate_result(task, value, inputs)
+        return value
+
+    if profile == COMMAND_OPERATION_PROFILE:
+        grounding.classify(bundle, execute)
+        grounding.align(bundle, execute)
+        assert (
+            sum(d["level"] == "scenario" and d["status"] == "full" for d in bundle["decisions"])
+            == 5
+        )
+    else:
+        classify(bundle, execute)
+
+    output = bundle["channels"]["GT"]
+    assert {r["extension_id"] for r in output["scenarios"]} == {"GT1", "GT2", "GT3", "GT4", "GT6"}
+    (unlocated,) = output["pending"]
+    assert unlocated["id"] == "GT5"
+    assert unlocated["condition"] == "请求缺少 service-id"
+    assert unlocated["source_refs"][0]["start_line"] == 5
+    assert "模型判为异常" in unlocated["reason"] and "待定位" in unlocated["reason"]
+    assert not unlocated["needs_semantic"]
+    assert bundle["gt_identification_run_complete"]
+
+
+def test_source_manifest_is_authoritative_and_legacy_copies_are_content_checked(tmp_path):
+    from scene_completion.analysis.ssd.pipeline import origin_documents
+    from scene_completion.inputs.provenance.ssd_sources import Sources
+
+    name = "系统需求_spec.md"
+    original = tmp_path / name
+    copied = tmp_path / "structure_model_fusion" / "RR" / name
+    alias_collision = tmp_path / "RR-副本.md"
+    copied.parent.mkdir(parents=True)
+    original.write_text("# 需求\n原始引文\n", encoding="utf8")
+    copied.write_bytes(original.read_bytes())
+    trace = {"doc": name, "line": "L2", "quote": "原始引文"}
+
+    def sources():
+        return Sources(tmp_path, origin_documents(tmp_path))
+
+    assert sources().trace(trace)["document"] == name
+    copied.write_text("# 需求\n不同版本\n", encoding="utf8")
+    assert sources().trace(trace)["match"] == "pending"
+    alias_collision.write_text("# 其他文件\n未登记的引文\n", encoding="utf8")
+    (tmp_path / "source-documents.json").write_text(
+        json.dumps(
+            {"documents": [{"path": name, "role": "RR", "aliases": [alias_collision.name]}]}
+        ),
+        encoding="utf8",
+    )
+    registered = sources()
+    assert registered.trace(trace)["document"] == name
+    assert registered.trace({**trace, "doc": alias_collision.name})["document"] == name
+    assert (
+        registered.trace({**trace, "doc": copied.relative_to(tmp_path).as_posix()})["match"]
+        == "pending"
+    )
+    assert {d["name"] for d in registered.documents.values()} == {name}
+
+
+@pytest.mark.parametrize("profile", [COMMAND_PROFILE, COMMAND_OPERATION_PROFILE])
+def test_participant_aliases_mount_five_and_keep_one_record_pending(profile):
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.analysis.validation import validate_result
+
+    bundle = build_cases(BROWSE, profile=profile)[0]
+    bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
+    facts = {
+        "GT1": ("B1", "human.authentication", "human"),
+        "GT2": ("B3", "service_relation.authentication", "service"),
+        "GT3": ("B1", "human.authorization", "sender"),
+        "GT4": ("B3", "service_relation.authorization", "receiver"),
+        "GT5": ("B2", "service.base.availability", "service"),
+        "GT6": ("B1", "human.authentication", "sender"),
+    }
+    for rid in facts:
+        condition = f"条件 {rid}"
+        original = {"id": rid, "condition": condition, "source_refs": [], "extension_id": rid}
+        bundle["channels"]["GT"]["pending"].append(
+            pending(rid, condition, original=original, needs_semantic=True)
+        )
+
+    def binding(rid):
+        step_id, key, target = facts[rid]
+        return {
+            "step_id": step_id,
+            "key": key,
+            "target": target,
+            "entity_id": None,
+            "attribute": None,
+            "field_id": None,
+            "operation_unit_id": None,
+        }
+
+    def execute(task, inputs):
+        if task == grounding.ALIGN:
+            value = {
+                "parts": [
+                    {
+                        "part_id": item["id"],
+                        "matches": [],
+                        "fallback": binding(item["condition"].split()[-1]),
+                        "reason": "依据对应步骤",
+                    }
+                    for item in inputs["parts"]
+                ]
+            }
+        else:
+            records = []
+            for record in inputs["records"]:
+                rid = record["id"]
+                condition = {"condition": record["condition"], "expected": ""}
+                detail = (
+                    {"parts": [{**condition, "keys": [facts[rid][1]]}]}
+                    if task == grounding.CLASSIFY
+                    else {"bindings": [{**binding(rid), **condition}]}
+                )
+                records.append(
+                    {"record_id": rid, "kind": "exception", "reason": "测试失败", **detail}
+                )
+            value = {"records": records}
+        validate_result(task, value, inputs)
+        return value
+
+    if profile == COMMAND_OPERATION_PROFILE:
+        grounding.classify(bundle, execute)
+        grounding.align(bundle, execute)
+    else:
+        classify(bundle, execute)
+    gt = bundle["channels"]["GT"]
+    scenes = {r["extension_id"]: r for r in gt["scenarios"]}
+    assert set(scenes) == {"GT1", "GT2", "GT3", "GT4", "GT6"}
+    assert scenes["GT1"]["target"] == "sender"
+    assert scenes["GT2"]["target"] == "receiver"
+    (unlocated,) = gt["pending"]
+    assert unlocated["id"] == "GT5" and "未唯一确定挂载方向" in unlocated["reason"]
+    audit = {r["source_id"]: r for r in bundle["source_classifications"]["GT"]}
+    assert audit["GT1"]["target_corrections"][0]["original_target"] == "human"
+    assert audit["GT2"]["target_corrections"][0]["original_target"] == "service"
+    assert audit["GT5"]["kind"] == "pending"

@@ -87,13 +87,14 @@ STAGES = {
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",
+            "ssd-evidence-classify",
             "ssd-bind",
             "ssd-resolve",
         ),
         depends_on=("ssd-prepare",),
         doc=(
             "实体模式先判定主流程的实际CRUD并处理未能脚本解析的属性约束，再由脚本建立G挂载。"
-            "E和GT分别根据自己的来源分类，脚本只对齐确认的异常。兼容输入沿用ssd-bind与ssd-resolve。"
+            "E和GT分别根据自己的来源分类。新版命令模式在此保留证据分类，最终生成G后再确定挂载。兼容输入沿用ssd-bind与ssd-resolve。"
         ),
     ),
     "ssd-generate": _stage(
@@ -113,9 +114,10 @@ STAGES = {
         kind=MODEL_SCRIPT,
         reads=("G/E/GT 全通道场景与关注点", "历史机器判定"),
         writes=("full/partial/none 判定", "发布版本与人工复核结果"),
-        semantic_tasks=("ssd-semantic-compare",),
+        semantic_tasks=("ssd-ground-align", "ssd-semantic-compare"),
         depends_on=("ssd-generate",),
         doc=(
+            "新版命令模式按最终G分别对齐E与GT，无法对应G的异常再按来源独立挂载。"
             "复用未变化的机器判定，再对候选对分批判定 full/partial/none，"
             "发布机器基线；若检测到人工修订，再独立复核一次。被任一 GT 确认的 G "
             "计为已覆盖。"

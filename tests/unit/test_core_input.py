@@ -53,3 +53,39 @@ def test_core_commands_round_trip_and_reject_stale_agent_patch(tmp_path):
     corrections.write_text(json.dumps(patch), encoding="utf-8")
     with pytest.raises(ValueError, match="输入已变化"):
         convert(DATA, tmp_path / "stale", ["UC-002"], corrections)
+
+
+def test_core_validate_reports_missing_part_in_deep_directory(tmp_path, monkeypatch):
+    import errno
+
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+    from scene_completion.infrastructure.storage import io_path
+
+    output = tmp_path / ("核心目录" * 25) / ("输出版本" * 30) / "core"
+    assert len(str(output)) > 260
+    result = convert(DATA / "examples/browse-product", output, profile=COMMAND_OPERATION_PROFILE)
+    assert result["case_ids"] == ["UC-BROWSE-01"]
+    assert validate_core(output)["valid"]
+    part = next(io_path(output).glob("cases/*/source-map.json"))
+    stat_path = Path.stat
+
+    def denied(path, *args, **kwargs):
+        if path == part:
+            raise PermissionError(errno.EACCES, "权限受限")
+        return stat_path(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "stat", denied)
+        blocked = validate_core(output)
+        assert not blocked["valid"]
+        assert any(
+            row["reason"] == "无法读取核心分件 source-map.json：权限受限"
+            for row in blocked["issues"]
+        )
+    part.unlink()
+    rejected = validate_core(output)
+    assert not rejected["valid"]
+    assert any(
+        row["kind"] == "blocking" and row["reason"] == "缺少核心分件：source-map.json"
+        for row in rejected["issues"]
+    )
