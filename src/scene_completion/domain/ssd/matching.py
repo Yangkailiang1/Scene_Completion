@@ -24,10 +24,13 @@ def display_binding(row):
         row.get("key"),
         row.get("attribute") or "",
         *row.get("obligation_scope", []),
+        *([row["operation_unit_id"]] if row.get("operation_unit_id") else []),
     )
 
 
 def binding(row):
+    if row.get("operation_unit_id"):
+        return ("operation", row["operation_unit_id"], row.get("target"), row.get("key"))
     if row.get("entity_id") and row.get("attribute") and not row.get("field_id"):
         return (
             "entity",

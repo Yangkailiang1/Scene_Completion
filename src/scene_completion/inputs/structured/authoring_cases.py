@@ -297,6 +297,7 @@ def sys_operation(document):
         "test-exceptions": _channel(tests, mapping),
         "extension-mapping": _mapping(document.get("extension_mapping"), mapping),
         "case": case,
+        "resource": document.get("case_entity"),
         "function_tree": deepcopy(document.get("function_tree") or {}),
         "documents": deepcopy(document.get("documents") or []),
         "analysis_profile": document.get("analysis_profile"),

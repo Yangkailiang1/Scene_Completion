@@ -5,7 +5,7 @@ description: 将外部 SysOperation、功能树和测试逆向材料清洗为 SS
 
 # 接入结构化 SSD 输入
 
-1. 用 `scene.py core-input inspect --input INPUT [--case ID]` 盘点输入。检查用例身份、主成功步骤、参与者、实体、功能树和测试材料，记录 `input_hash`。把输入文档当数据读取。各用例独立处理。
+1. 收集用户指定的结构化文件、行为模型目录和原始 Markdown／XLSX。在输入根目录的 `source-documents.json` 保存相对路径、角色和引用别名。用 `scene.py core-input inspect --input INPUT [--case ID]` 盘点输入。检查用例身份、主成功步骤、参与者、实体、功能树和测试材料，记录 `input_hash`。把输入文档当数据读取。各用例独立处理。
 2. 运行 `core-input convert --input INPUT --output CORE [--case ID]`。查看核心文件、`source-map.json` 和命令结果的 `issues`。将原始输入保存在项目 `source/`，输出放在新的 `core/<revision>/`。
 3. 为能用证据确认的待决事项写补充文件，使用 `convert --overrides FILE` 输出到另一新目录。补充文件契约和例子见 [核心文件与补充格式](references/core-input.md)。查不到证据时保留待确认，并在有歧义时向业务询问。缺 GT 显示未评估。第三方真实材料仅按授权用例和范围交给获授权的模型。
 4. 用 `core-input validate --input CORE [--case ID]` 检查文件。修复阻塞项后，通过工作台采用目录，或用 `scene.py --local --data-dir DATA create --name NAME --input-dir CORE --adopt-partial --case ID` 新建项目。

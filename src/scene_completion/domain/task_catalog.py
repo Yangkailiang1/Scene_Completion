@@ -6,6 +6,7 @@ CHECKER_TASKS = {
     "ssd-resolve",
     "ssd-entity-classify",
     "ssd-command-classify",
+    "ssd-operation-units",
     "ssd-semantic-compare",
     "test-additional-concerns",
     "existing-concerns",

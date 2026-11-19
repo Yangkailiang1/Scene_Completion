@@ -31,13 +31,13 @@
 `extension-mapping.json` 用 `source_uc_id` 和 `extension_id` 保留测试来源身份，
 每条扩展都可追查。已确认的绑定派生 `test-exceptions.json` 中的 GT。
 缺测试的用例仍保留分件，并显示未评估。
-`source-map.json` 对应输入目录中的相对路径和源 JSON Pointer。原始 Markdown 随
+`source-map.json` 对应输入目录中的相对路径和源 JSON Pointer。原始 Markdown 和 XLSX 随
 转换版本保存供工作台和离线报告核验。若文件名无明显角色，在来源根目录提供
 `source-documents.json`，例如
-`{"documents":[{"path":"spec-a.md","role":"RR"},{"path":"design-b.md","role":"SR"}]}`。
+`{"documents":[{"path":"spec-a.md","role":"RR","aliases":["rrSpec"]},{"path":"design-b.md","role":"SR","aliases":["srSpec"]},{"path":"testcase.xlsx","role":"test"}]}`。
 
-`core-input convert` 默认输出 `analysis_profile=command-interaction-v2`。
-操作从 `srLayer.commands` 对齐 `SysOperation` 的主成功步骤。同用例同一实际命令只设一个主挂载，重复调用保留出处。实体约束和接口字段约束同时挂载，只有带明确映射及等价作用域的规则合并计分。接口字段在接口首次调用处展开。实体约束挂在第一个使用该实体的接口，缺少对应接口时挂在首次出现处。原始校验、响应和失败位置保留。
+`core-input convert` 默认输出 `analysis_profile=command-interaction-v3`。
+用例按三份材料的名称对齐。命令在同一用例内按 apiId 合并 RR 方法和 SR 字段，再按证据或模型结果绑定主成功步骤。模型无法唯一定位时挂到首步并保留回退理由。同用例同一实际命令只设一个主挂载，重复调用保留出处。实体约束和接口字段约束同时挂载，只有带明确映射及等价作用域的规则合并计分。接口字段在接口首次调用处展开。实体约束挂在第一个使用该实体的接口，缺少对应接口时挂在首次出现处。原始校验、响应和失败位置保留。
 E 与 GT 分别识别，跨步骤对齐同一义务时保留实际失败步骤。
 第三层和数据库存量数据有效性暂停生成。
 `--profile entity` 读取仅实体模式，`--profile compat` 用于旧适配输入。

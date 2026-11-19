@@ -142,6 +142,8 @@ def _needs(bundle):
                     evidence=api["source_refs"],
                 )
     for gap in bundle.get("pending", []):
+        if gap.get("case_match_gap"):
+            yield _issue("pending", gap["reason"], case_id=case_id, candidates=gap["candidates"])
         if gap.get("command_gap"):
             yield _issue(
                 "pending",
@@ -234,6 +236,8 @@ def _apply(root, output, overrides, input_hash):
             raise ValueError("补充引用了不存在或不唯一的 ID：" + str(patch["id"]))
         row = rows[0]
         row.update(patch["set"])
+        if name == "architecture.json" and "kind" in patch["set"]:
+            row["kind_override"] = patch["set"]["kind"]
         if name == "extension-mapping.json":
             if row.get("kind") == "exception" and not row.get("bindings"):
                 raise ValueError("已确认的测试异常必须提供具体挂载")

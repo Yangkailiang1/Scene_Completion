@@ -181,6 +181,7 @@ class DeepAgentsClient(SemanticClient):
         # These tasks report uncertainty in a record's structured classification.
         # Legacy review questions expect line citations outside this compact packet.
         entity_task = packet["task"] in {
+            "ssd-operation-units",
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",

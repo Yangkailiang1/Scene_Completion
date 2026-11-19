@@ -10,6 +10,7 @@ import { Fragment, useMemo } from "react";
 import {
   channelLabels,
   targetLabels,
+  type Bundle,
   type Channel,
   type Observation,
   type Step,
@@ -143,6 +144,7 @@ export function SsdAlignmentTable({
   bundle: {
     registry?: any;
     steps?: Step[];
+    operation_units?: Bundle["operation_units"];
     anchors?: any[];
     documents?: any[];
     channels?: Record<string, { scenarios: Observation[] }>;
@@ -208,6 +210,10 @@ export function SsdAlignmentTable({
         : "待确认项";
   function objectName(record: Observation) {
     if (getObjectName) return getObjectName(record);
+    const unit = bundle.operation_units?.find(
+      (item) => item.id === record.operation_unit_id,
+    );
+    if (unit) return [unit.command_id, unit.name].filter(Boolean).join(" · ");
     if (record.entity_id && record.attribute)
       return `${record.entity_id}.${record.attribute}`;
     const owner = bundle.steps?.find((item) => item.id === record.step_id);

@@ -492,7 +492,7 @@ def markdown_row(values):
     )
 
 
-def xlsx_documents(data, name, identity):
+def xlsx_documents(data, name, identity, *, for_provenance=False):
     ns = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     relns = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
     try:
@@ -522,6 +522,7 @@ def xlsx_documents(data, name, identity):
                 )
                 rows = []
                 header = None
+                cells = {}
                 for row in ET.fromstring(z.read(path)).findall("m:sheetData/m:row", ns):
                     vals = {}
                     for cell in row.findall("m:c", ns):
@@ -543,11 +544,18 @@ def xlsx_documents(data, name, identity):
                             else ""
                         )
                         vals[col - 1] = shared[int(text)] if typ == "s" and text else text
+                    if for_provenance and (
+                        max(vals, default=-1) >= 16384 or not 1 <= int(row.attrib["r"]) <= 1048576
+                    ):
+                        raise ValueError("Excel 单元格超出工作表范围")
                     values = [vals.get(i, "") for i in range(max(vals, default=-1) + 1)]
                     if any(v in ALIASES["测试ID"] for v in values):
                         header = values
-                    if header and values:
-                        rows.append({"number": int(row.attrib["r"]), "text": markdown_row(values)})
+                    if (header or for_provenance) and values:
+                        number = int(row.attrib["r"])
+                        rows.append({"number": number, "text": markdown_row(values)})
+                        if for_provenance:
+                            cells[number] = vals
                 if rows:
                     docs.append(
                         {
@@ -555,6 +563,7 @@ def xlsx_documents(data, name, identity):
                             "name": name + "#" + label,
                             "channel": "test",
                             "lines": rows,
+                            **({"sheet": label, "cells": cells} if for_provenance else {}),
                         }
                     )
             return docs

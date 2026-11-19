@@ -83,8 +83,9 @@
     "project-identify": "e1e10c4cdd2c46cc4d0239180983bac5f801c5aabd6a74340aae9b949a22fab7",
     "project-generate": "31de42a9d72ec010c57bb076434a632cbba0b4b147977ee6bb576674fa126ef6",
     "project-compare": "bf4e32a5703574d9e0abbae69c845416fa6b927bfdb01ede1b7a2d2506134430",
+    "ssd-operation-units": "v1-interface-and-external-operation-owners",
     "ssd-entity-inference": "v1-entity-operation-and-obligations",
-    "ssd-command-classify": "v1-sr-command-field-classification",
+    "ssd-command-classify": "v2-command-field-and-operation-scope",
     "ssd-entity-classify": "v1-entity-source-classification",
     "ssd-bind": "71c53b3ac097a989c3ca66ea771a84863050c105b69ab0e78a4899916ebb3ec3",
     "shared-services-merge": "41dd25d797ce45c758922c957b304259bd8df71866b2de729785ac8eedb1c1c1"

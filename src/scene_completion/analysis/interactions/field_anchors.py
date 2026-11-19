@@ -3,7 +3,7 @@
 import re
 from copy import deepcopy
 
-from scene_completion.domain.current_scope import COMMAND_PROFILE, STRUCTURED_PROFILES
+from scene_completion.domain.current_scope import FIRST_CALL_PROFILES, STRUCTURED_PROFILES
 from scene_completion.infrastructure.storage import fingerprint
 
 VERSION = "field-anchors-v3-sysoperation-entities"
@@ -99,7 +99,7 @@ def anchors(bundle):
     pending = []
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     steps = bundle.get("steps") or []
-    first_call = bundle.get("analysis_profile") == COMMAND_PROFILE
+    first_call = bundle.get("analysis_profile") in FIRST_CALL_PROFILES
     entity_locations = _entity_locations(bundle) if first_call else {}
     for entity in bundle.get("entities") or []:
         name = entity["id"]

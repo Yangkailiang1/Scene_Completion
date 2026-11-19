@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 
 from scene_completion.analysis.concerns.constraint_atoms import normalize_rules
-from scene_completion.domain.current_scope import COMMAND_PROFILE
+from scene_completion.domain.current_scope import FIRST_CALL_PROFILES
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -34,16 +34,23 @@ def _location(row):
     return next((loc for label, loc in LOCATIONS.items() if label in section), None)
 
 
-def catalogue(sources, tree, path, case_id, case_name):
-    """Read the selected function's SR catalogue alone. Source text may complete metadata."""
+def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
+    """Bind SR field declarations to their same-use-case command metadata."""
     functions = list(enumerate((tree or {}).get("functions", [])))
     hits = [(i, f) for i, f in functions if (f.get("functionId") or f.get("ucId")) == case_id]
     hits = hits or [(i, f) for i, f in functions if f.get("name") == case_name]
+    if selected is not None:
+        hits = selected
     if len(hits) != 1:
         return {}
     i, function = hits[0]
     source = sources.add(path)
     commands = {}
+    rr = {}
+    if selected is not None:
+        for index, entry in enumerate((function.get("rrLayer") or {}).get("commands", [])):
+            if entry.get("apiId"):
+                rr.setdefault(entry["apiId"], []).append((index, entry))
     for j, raw in enumerate((function.get("srLayer") or {}).get("commands", [])):
         command_id = raw["apiId"]
         if command_id in commands:
@@ -51,7 +58,27 @@ def catalogue(sources, tree, path, case_id, case_name):
         pointer = f"/functions/{i}/srLayer/commands/{j}"
         declaration = raw.get("source") or {}
         original = sources.original([declaration])
-        method, address = raw.get("method"), raw.get("path")
+        rr_refs, donors = [], rr.get(command_id, [])
+        for index, item in donors:
+            origin = item.get("source") or {}
+            rr_refs.extend(
+                [
+                    sources.traced_ref(source, f"/functions/{i}/rrLayer/commands/{index}", origin),
+                    *sources.original([origin]),
+                ]
+            )
+        conflict = len(donors) > 1
+        donor = donors[0][1] if len(donors) == 1 else {}
+        for key in ("method", "path"):
+            ours, theirs = raw.get(key), donor.get(key)
+            if (
+                ours
+                and theirs
+                and (ours.upper() != theirs.upper() if key == "method" else ours != theirs)
+            ):
+                conflict = True
+        method = raw.get("method") or (donor.get("method") if not conflict else None)
+        address = raw.get("path") or (donor.get("path") if not conflict else None)
         # A resolved SR reference can supply a literal method and path. RR is
         # useful as existing evidence and does not define an SR interface.
         facts = {
@@ -120,16 +147,22 @@ def catalogue(sources, tree, path, case_id, case_name):
             raise ValueError("SR 接口字段位置与名称重复：" + command_id)
         commands[command_id] = {
             "id": command_id,
-            "name": raw.get("name") or command_id,
+            "name": raw.get("name") or donor.get("name") or command_id,
+            **({"conflict": "RR／SR 命令的唯一性、方法或路径有冲突"} if conflict else {}),
             "method": method.upper() if method else None,
             "path": address,
             "service": raw.get("service"),
             "quote": "\n".join(
-                ref["quote"] for ref in original if ref.get("origin", {}).get("role") == "SR"
-            ),
+                dict.fromkeys(
+                    [ref["quote"] for ref in original if ref.get("origin", {}).get("role") == "SR"]
+                    + ([str((donor.get("source") or {}).get("quote") or "")] if donor else [])
+                )
+            ).strip(),
             "authentication": raw.get("authentication"),
             "fields": fields,
-            "source_refs": unique([sources.traced_ref(source, pointer, declaration), *original]),
+            "source_refs": unique(
+                [sources.traced_ref(source, pointer, declaration), *original, *rr_refs]
+            ),
         }
     return commands
 
@@ -179,16 +212,17 @@ def _pick(step, commands):
     return direct[0] if len(direct) == 1 else None
 
 
-def attach(bundle, commands):
+def attach(bundle, commands, placements=None):
     """Build one obligation owner per command, preserving every call occurrence."""
     steps = sorted(bundle["steps"], key=lambda step: step["order"])
-    first_call = bundle.get("analysis_profile") == COMMAND_PROFILE
+    first_call = bundle.get("analysis_profile") in FIRST_CALL_PROFILES
     bundle["pending"] = [p for p in bundle["pending"] if not p.get("command_gap")]
     calls = {cid: [] for cid in commands}
     for step in steps:
         step["data"] = []
         operation = step["operation"]
         operation.pop("command_id", None)
+        operation.pop("command_ids", None)
         if step["direction"] != "request" or step["kind"] == "action":
             continue
         cid = _pick(step, commands)
@@ -209,44 +243,70 @@ def attach(bundle, commands):
     ]
     for cid, command in commands.items():
         occurrences = calls[cid]
+        placement = (placements or {}).get(cid)
+        if command.get("conflict"):
+            _gap(bundle, cid, command["conflict"], command["source_refs"])
         if not occurrences:
-            _gap(bundle, cid, "功能树命令在主成功流缺少明确的调用步骤", command["source_refs"])
-            continue
+            if placement is None:
+                _gap(bundle, cid, "功能树命令在主成功流缺少明确的调用步骤", command["source_refs"])
+                continue
+            occurrences = [next(step for step in steps if step["id"] == placement["step_id"])]
         primary = occurrences[0]
         for step in occurrences:
-            step["operation"]["command_id"] = cid
-            if command["method"]:
-                step["operation"]["http_method"] = command["method"]
-            if command["path"]:
-                step["operation"]["http_path"] = command["path"]
-        validation = [s for s in steps if primary["id"] in s.get("validates", [])]
+            operation = step["operation"]
+            if placement is None or placement["binding_source"] != "step1_fallback":
+                operation.setdefault("command_id", cid)
+                step["api_id"] = step.get("api_id") or cid
+                if operation["command_id"] == cid:
+                    for key in ("method", "path"):
+                        if command[key]:
+                            operation["http_" + key] = command[key]
+            if placements is not None:
+                operation.setdefault("command_ids", []).append(cid)
+        fallback = bool(placement and placement["binding_source"] == "step1_fallback")
+        validation = [s for s in steps if not fallback and primary["id"] in s.get("validates", [])]
         owner = validation[0] if len(validation) == 1 else primary
         if len(validation) > 1:
             _gap(bundle, cid, "参数校验步骤有歧义", command["source_refs"])
         returns = [
-            s for s in steps if s["direction"] == "return" and s.get("parent_id") == primary["id"]
+            s
+            for s in steps
+            if not fallback and s["direction"] == "return" and s.get("parent_id") == primary["id"]
         ]
         bundle["command_bindings"][cid] = {
             "primary_step_id": primary["id"],
             "occurrences": [s["id"] for s in occurrences],
             "validation_step_id": owner["id"] if owner is not primary else None,
+            **(
+                {k: placement[k] for k in ("binding_source", "reason")}
+                if placement
+                else {"binding_source": "evidence"}
+                if placements is not None
+                else {}
+            ),
         }
         if first_call:
             occurrence_ids = {s["id"] for s in occurrences}
             validators = [
-                s["id"] for s in steps if occurrence_ids.intersection(s.get("validates", []))
+                s["id"]
+                for s in steps
+                if not fallback and occurrence_ids.intersection(s.get("validates", []))
             ]
             responses = [
                 s["id"]
                 for s in steps
-                if s["direction"] == "return" and s.get("parent_id") in occurrence_ids
+                if not fallback
+                and s["direction"] == "return"
+                and s.get("parent_id") in occurrence_ids
             ]
             bundle["command_bindings"][cid].update(
                 validation_step_ids=validators, response_step_ids=responses
             )
         for field in command["fields"]:
             location = field["location"]
-            if not location or (location == "response" and len(returns) != 1):
+            if not location or (
+                location == "response" and len(returns) != 1 and placements is None
+            ):
                 _gap(bundle, cid, "未能唯一定位 SR 字段：" + field["name"], field["source_refs"])
                 continue
             target = primary if first_call else returns[0] if location == "response" else owner
@@ -310,7 +370,7 @@ def generate_fields(bundle, output):
                 atoms = frozenset(signature(a) for a in field["atoms"] if a["concern_key"] == key)
                 identity = (explicit.get("entity_id"), explicit.get("attribute"), key, atoms)
                 directions.setdefault(identity, set()).add(field["direction"])
-    first_call = bundle.get("analysis_profile") == COMMAND_PROFILE
+    first_call = bundle.get("analysis_profile") in FIRST_CALL_PROFILES
     for step in bundle["steps"]:
         for field in step["data"]:
             obligations = {}

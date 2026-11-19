@@ -11,7 +11,11 @@ from pathlib import Path
 
 from scene_completion.domain.concern_registry import default_registry
 from scene_completion.domain.concern_templates import scenario_metadata, templates_for
-from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
+from scene_completion.domain.current_scope import (
+    COMMAND_OPERATION_PROFILE,
+    COMMAND_PROFILES,
+    STRUCTURED_PROFILES,
+)
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -26,6 +30,7 @@ from scene_completion.inputs.provenance.ssd_sources import (
     api_contracts,
     entities_for,
 )
+from scene_completion.inputs.structured.case_names import candidates as case_candidates
 
 VERSION = "ssd-case-v1"
 RULE_VERSION = "ssd-three-scope-rules-v2"  # Existing rule/record identities stay stable.
@@ -43,11 +48,33 @@ DATA_KINDS = {
 }
 
 
+def _actor_reference(key, name, value):
+    names = "|".join(re.escape(str(n)) for n in dict.fromkeys([name, key]) if n)
+    actor = r"(?:human(?: actor)?|external_actor|actor|参与者|人类角色|用户角色)"
+    label = rf"(?:[（(【「「]?(?:{names})[）)】」」]?)"
+    patterns = (
+        rf"(?<![\w]){actor}\s*[|：:=]\s*{label}(?![\w])",
+        rf"(?<![\w]){label}\s*(?:[|：:=（(]|是|为|属于)\s*(?:外部)?{actor}(?![\w])",
+    )
+    return next(
+        (
+            ref
+            for ref in value.get("source_refs") or []
+            if isinstance(ref, dict)
+            and any(re.search(pattern, str(ref.get("quote") or ""), re.I) for pattern in patterns)
+        ),
+        None,
+    )
+
+
 def _person(key, participants):
     value = participants.get(key, {})
     if isinstance(value, str):
         value = {"name": value}
     name = value.get("name") or key
+    manual = value.get("kind_override")
+    actor_ref = None if manual else _actor_reference(key, name, value)
+    kind = manual or ("external_actor" if actor_ref else value.get("kind"))
     technology = value.get("technology")
     if not technology and re.search(r"database|数据库", name, re.I):
         technology = "database"
@@ -57,13 +84,19 @@ def _person(key, participants):
         "id": str(key),
         "name": str(name),
         "type": "human"
-        if value.get("element_type") in {"human", "actor"}
-        or value.get("kind") in {"human", "external_actor"}
-        or value.get("kind") == "external"
+        if kind in {"human", "external_actor"}
+        or not manual
+        and value.get("element_type") in {"human", "actor"}
+        or kind == "external"
         and name in {"顾客", "客户", "消费者", "商家", "用户", "管理员"}
         else "service",
         "technology": technology,
-        "external": value.get("kind") in {"external", "external_actor", "external_service"},
+        "external": kind in {"external", "external_actor", "external_service"},
+        **(
+            {"classification_source": "participant.source_refs", "source_refs": [actor_ref]}
+            if actor_ref
+            else {}
+        ),
     }
 
 
@@ -621,6 +654,10 @@ def generate_g(bundle):
     registry = current_registry(bundle.get("registry") or default_registry())
     definitions, profiles = registry["definitions"], registry["profiles"]
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
+    unit_profile = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
+    owners = {}
+    for unit in bundle.get("operation_units", []):
+        owners.setdefault(unit["step_id"], []).append(unit)
     for step in bundle["steps"]:
         refs = step.get("source_refs", [])
         kinds = set(step["operation"].get("kinds", []))
@@ -638,6 +675,7 @@ def generate_g(bundle):
             variant_id=None,
             generation_origin="deterministic_constraint",
             on_step=None,
+            operation_unit_id=None,
         ):
             definition = definitions.get(key, {})
             if (
@@ -659,6 +697,7 @@ def generate_g(bundle):
                 condition=condition,
                 refs=source_refs if source_refs is not None else refs,
                 rule_id=RULE_VERSION + ":" + key,
+                operation_unit_id=operation_unit_id,
             )
             if concern:
                 concern["scope"] = "interaction"
@@ -728,15 +767,20 @@ def generate_g(bundle):
                 for key in profiles["relation"]:
                     attach(key)
         if request and receiver["type"] == "service" and kinds:
-            for group, keys in profiles["functional"].items():
-                if group in {"display_interaction", "analysis_generation", "release_activation"}:
-                    continue
-                for key in keys:
-                    definition = definitions[key]
-                    if entity_only and key == "service.query_retrieval.data_visibility":
+            if not unit_profile:
+                for group, keys in profiles["functional"].items():
+                    if group in {
+                        "display_interaction",
+                        "analysis_generation",
+                        "release_activation",
+                    }:
                         continue
-                    if kinds.intersection(definition["operation_kinds"]):
-                        attach(key)
+                    for key in keys:
+                        definition = definitions[key]
+                        if entity_only and key == "service.query_retrieval.data_visibility":
+                            continue
+                        if kinds.intersection(definition["operation_kinds"]):
+                            attach(key)
             if receiver.get("technology") == "database":
                 special = definitions["database.special_characters"]
                 if "database.special_characters" in profiles["technology"].get("database", []) and (
@@ -753,6 +797,24 @@ def generate_g(bundle):
                             condition=condition,
                             source_refs=source_refs,
                         )
+        if unit_profile and receiver["type"] == "service":
+            for unit in owners.get(step["id"], []):
+                operations = set(unit["crud"])
+                for group, keys in profiles["functional"].items():
+                    if group in {
+                        "display_interaction",
+                        "analysis_generation",
+                        "release_activation",
+                    }:
+                        continue
+                    for key in keys:
+                        if (
+                            key != "service.query_retrieval.data_visibility"
+                            and operations.intersection(definitions[key]["operation_kinds"])
+                        ):
+                            attach(
+                                key, operation_unit_id=unit["id"], source_refs=unit["source_refs"]
+                            )
         for field in [] if bundle.get("analysis_profile") in COMMAND_PROFILES else step["data"]:
             field_refs = field.get("source_refs", [])
             checks = []
@@ -996,7 +1058,7 @@ def _atom_condition(unit):
     return name + "不满足声明约束"
 
 
-ORIGIN_SUFFIXES = (".md", ".markdown")
+ORIGIN_SUFFIXES = (".md", ".markdown", ".xlsx")
 
 
 def origin_documents(root):
@@ -1012,13 +1074,17 @@ def origin_documents(root):
             role = row["role"]
             if (
                 not path.is_relative_to(root)
-                or not path.is_file()
                 or path.suffix.lower() not in ORIGIN_SUFFIXES
                 or role not in {"RR", "SR", "test"}
                 or path in declared
             ):
                 raise ValueError("source-documents.json 的原文路径或角色无效：" + row["path"])
-            declared[path] = role
+            aliases = row.get("aliases", [])
+            if not isinstance(aliases, list) or any(
+                not isinstance(a, str) or not a.strip() for a in aliases
+            ):
+                raise ValueError("原文别名须为非空字符串列表")
+            declared[path] = (role, aliases)
     found = []
     for path in sorted(root.rglob("*")):
         if (
@@ -1027,28 +1093,35 @@ def origin_documents(root):
             or any(part.startswith(".") for part in path.relative_to(root).parts)
         ):
             continue
-        role = declared.get(path) or (
+        role, aliases = declared.get(path, (None, []))
+        role = role or (
             "RR"
             if "需求" in path.name or re.match(r"RR[._-]", path.name, re.I)
             else "SR"
             if "设计" in path.name or re.match(r"SR[._-]", path.name, re.I)
             else "test"
-            if "测试" in path.name or re.match(r"test[._-]", path.name, re.I)
+            if path.suffix.lower() == ".xlsx"
+            or "测试" in path.name
+            or re.match(r"test[._-]", path.name, re.I)
             else None
         )
         if role is None:
             continue
         try:
-            found += [
-                {
-                    **doc,
-                    "path": path.relative_to(root).as_posix(),
-                    "id": ident("document", path.relative_to(root).as_posix()),
-                }
-                for doc in source_origins.read_origin_document(
-                    path, role, "test" if role == "test" else "existing"
+            relative = path.relative_to(root).as_posix()
+            for doc in source_origins.read_origin_document(
+                path, role, "test" if role == "test" else "existing"
+            ):
+                key = relative + ("#" + doc["sheet"] if doc.get("sheet") else "")
+                found.append(
+                    {
+                        **doc,
+                        "path": key,
+                        "source_path": relative,
+                        "id": ident("document", key),
+                        "configured_aliases": aliases,
+                    }
                 )
-            ]
         except (OSError, UnicodeError, ValueError):
             continue
     return source_origins.origin_index(found)
@@ -1098,8 +1171,11 @@ def case_identity(file, directory, raw=None):
         tree = json.loads((root / "功能树.json").read_text(encoding="utf-8-sig"))
         ids = [
             row.get("functionId") or row.get("ucId")
-            for row in tree.get("functions", [])
-            if row.get("name") == raw["use_case"]
+            for _, row in case_candidates(
+                tree.get("functions", []),
+                raw["use_case"],
+                raw.get("resource") or file.parent.parent.name,
+            )
         ]
         if len(ids) == 1:
             inferred = ids[0]
@@ -1177,12 +1253,31 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
         active_profile = profile or raw.get("analysis_profile")
         entity_only = active_profile in STRUCTURED_PROFILES
         tree_case = tree_link.get("uc_id") or case["id"]
+        case_entity = raw.get("resource") or (file.parent.parent.name if not authored else None)
+        tree_hits = []
+        if active_profile == COMMAND_OPERATION_PROFILE:
+            tree_hits = case_candidates(
+                (local_tree or {}).get("functions", []),
+                case["name"],
+                case_entity,
+                explicit_id=tree_link.get("uc_id"),
+            )
+            tree_case = (
+                tree_hits[0][1].get("functionId") or tree_hits[0][1].get("ucId")
+                if len(tree_hits) == 1
+                else None
+            )
         command_mode = active_profile in COMMAND_PROFILES
         if command_mode:
             from scene_completion.analysis.ssd.command_contract import catalogue
 
             local_contracts = catalogue(
-                sources, local_tree, local_tree_path, tree_case, case["name"]
+                sources,
+                local_tree,
+                local_tree_path,
+                tree_case,
+                case["name"],
+                selected=tree_hits if active_profile == COMMAND_OPERATION_PROFILE else None,
             )
         steps, missing = _steps(
             raw, sources, name, local_contracts, root=root, entity_only=entity_only
@@ -1193,6 +1288,7 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
             "case": case,
             **({"analysis_profile": active_profile} if active_profile else {}),
             "function_tree_case_id": tree_case,
+            **({"case_entity": case_entity} if case_entity else {}),
             "function_tree_path": local_tree_path.relative_to(root).as_posix()
             if local_tree
             else None,
@@ -1208,6 +1304,7 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
                 case["name"],
                 local_tree_path,
                 entity_only=entity_only,
+                selected=tree_hits if active_profile == COMMAND_OPERATION_PROFILE else None,
             ),
             # Retain the project catalogue so a reviewer can select another
             # declared API. G still uses only the actual step's bound fields.
@@ -1215,6 +1312,16 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
             "registry": default_registry(),
             "rule_version": RULE_VERSION,
         }
+        if active_profile == COMMAND_OPERATION_PROFILE and len(tree_hits) != 1:
+            bundle["pending"].append(
+                pending(
+                    ident("case-tree-gap", case["id"]),
+                    "功能树用例无法唯一对应",
+                    reason="功能树用例无法唯一对应",
+                    case_match_gap=True,
+                    candidates=[row.get("functionId") or row.get("ucId") for _, row in tree_hits],
+                )
+            )
         if command_mode:
             from scene_completion.analysis.ssd.command_contract import attach
 
@@ -1289,6 +1396,12 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
         )
         bundle["documents"] = deepcopy(list(sources.documents.values()))
         bundle["origin_documents"] = cited_origins(bundle, origins)
+        bundle["source_documents"] = unique(
+            [
+                {"path": d["source_path"], "role": d["role"], "aliases": d["configured_aliases"]}
+                for d in origins
+            ]
+        )
         bundles.append(bundle)
     if selections:
         found = {value for bundle in bundles for value in bundle["case"].values()}
@@ -1330,7 +1443,15 @@ def rebind_steps(previous, updated):
         if result.get("analysis_profile") in COMMAND_PROFILES:
             from scene_completion.analysis.ssd.command_contract import attach
 
-            attach(result, {c["id"]: c for c in result["commands"]})
+            if (
+                result.get("analysis_profile") == COMMAND_OPERATION_PROFILE
+                and result.get("operation_units") is not None
+            ):
+                from scene_completion.analysis.ssd.operation_units import rebind
+
+                rebind(result, previous)
+            else:
+                attach(result, {c["id"]: c for c in result["commands"]})
         result["field_anchors"] = anchors(result)
         return result
 

@@ -27,18 +27,29 @@ def _sources(bundle, row):
 
 
 def _originals(bundle, row):
-    return [
-        {
-            "document": source["file"],
-            "start_line": source["start_line"],
-            "end_line": source["end_line"],
-            "quote": source["quote"],
-        }
-        for source in _sources(bundle, row)
-        if source["file"]
-        and source["kind"] in {"origin", "test"}
-        and not source.get("json_pointer")
-    ]
+    result = []
+    for source in _sources(bundle, row):
+        if (
+            not source["file"]
+            or source["kind"] not in {"origin", "test"}
+            or source.get("json_pointer")
+        ):
+            continue
+        origin = source.get("origin") or {}
+        if origin.get("cell_range"):
+            result.append(
+                {
+                    "document": source["file"].rsplit("#", 1)[0],
+                    "location": origin["declared_line"],
+                    "quote": origin["cell_quote"],
+                }
+            )
+        else:
+            result.append(
+                {k: source[k] for k in ("start_line", "end_line", "quote")}
+                | {"document": source["file"]}
+            )
+    return result
 
 
 def _exception(bundle, row, channel):
@@ -164,6 +175,7 @@ def _main(bundle):
         "version": "main-success-v2",
         **({"analysis_profile": bundle["analysis_profile"]} if entity_only else {}),
         "case": bundle["case"],
+        **({"case_entity": bundle["case_entity"]} if bundle.get("case_entity") else {}),
         **(
             {
                 "command_bindings": bundle["command_bindings"],
@@ -212,9 +224,23 @@ def _architecture(bundles):
                     if party["external"]
                     else "internal_service"
                 )
-                element = {**{k: party[k] for k in ("id", "name", "technology")}, "kind": kind}
-                if party["id"] in elements and elements[party["id"]] != element:
+                element = {
+                    **{k: party[k] for k in ("id", "name", "technology")},
+                    "kind": kind,
+                    **{k: party[k] for k in ("classification_source", "source_refs") if k in party},
+                }
+                current = elements.get(party["id"])
+                if current and any(
+                    current[k] != element[k] for k in ("name", "technology", "kind")
+                ):
                     raise ValueError("参与者 ID 尚未唯一：" + party["id"])
+                if current and current.get("source_refs"):
+                    from scene_completion.domain.ssd.construction import unique
+
+                    element["source_refs"] = unique(
+                        [*current["source_refs"], *element.get("source_refs", [])]
+                    )
+                    element["classification_source"] = current["classification_source"]
                 elements[party["id"]] = element
     return {"version": "architecture-elements-v1", "elements": list(elements.values())}
 
@@ -361,19 +387,15 @@ def write_core(root, output, bundles):
             },
         )
     write_json(output / "architecture.json", architecture)
-    if (root / "source-documents.json").is_file():
-        names = {
-            doc["name"].split("#", 1)[0]: doc["role"]
-            for bundle in bundles
-            for doc in bundle["documents"]
-            if doc["role"] in {"RR", "SR", "test"}
-            and Path(doc["name"]).suffix.lower() in {".md", ".markdown"}
-            and (output / doc["name"]).is_file()
-        }
-        write_json(
-            output / "source-documents.json",
-            {"documents": [{"path": name, "role": role} for name, role in sorted(names.items())]},
-        )
+    declarations = {
+        doc["path"]: doc for bundle in bundles for doc in bundle.get("source_documents", [])
+    }
+    for name in declarations:
+        target = output / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / name, target)
+    if declarations:
+        write_json(output / "source-documents.json", {"documents": list(declarations.values())})
     return {
         "output": str(logical_path(output)),
         "case_ids": [bundle["case"]["id"] for bundle in bundles],

@@ -7,7 +7,9 @@ from scene_completion.infrastructure.identity import fingerprint
 POLICY = "interaction-shared-services-v1"
 ENTITY_PROFILE = "entity-interaction-v1"
 COMMAND_PROFILE = "command-interaction-v2"
-COMMAND_PROFILES = {"command-interaction-v1", COMMAND_PROFILE}
+COMMAND_OPERATION_PROFILE = "command-interaction-v3"
+FIRST_CALL_PROFILES = {COMMAND_PROFILE, COMMAND_OPERATION_PROFILE}
+COMMAND_PROFILES = {"command-interaction-v1", *FIRST_CALL_PROFILES}
 STRUCTURED_PROFILES = {ENTITY_PROFILE, *COMMAND_PROFILES}
 AVAILABILITY = "service.base.availability"
 RETIRED = {

@@ -88,6 +88,7 @@ def _semantic_cache_identity(ex, stage):
                     task: code_version(task)
                     for task in (
                         "ssd-bind",
+                        "ssd-operation-units",
                         "ssd-entity-inference",
                         "ssd-entity-classify",
                         "ssd-command-classify",
@@ -342,6 +343,12 @@ def _resolve(ex, bundle, record):
             return value
 
         executor = semantic if _semantic_available(ex) else None
+        from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+
+        if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+            from scene_completion.analysis.ssd.operation_units import resolve
+
+            resolve(bundle, executor)
         entity_semantics.infer(bundle, executor)
         entity_semantics.classify(bundle, executor)
         return ssd_validation.validate(bundle)

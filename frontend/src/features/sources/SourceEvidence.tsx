@@ -20,6 +20,8 @@ export type TracedOrigin = {
   end_line: number;
   quote?: string;
   match: "exact" | "located";
+  sheet?: string;
+  cell_range?: string;
 };
 
 // Only verified lines are offered: a shipped original is opened by its own
@@ -39,6 +41,9 @@ export function resolvedOrigin(evidence: any): TracedOrigin | null {
     end_line: value.end_line || value.start_line,
     quote: value.quote,
     match: value.match,
+    ...(value.cell_range
+      ? { sheet: value.sheet, cell_range: value.cell_range }
+      : {}),
   };
 }
 function originSource(traced: TracedOrigin) {
@@ -151,6 +156,11 @@ export function SourceEvidence({
                 ? ` · 来自中间产物第${evidence.line_start}–${evidence.line_end}行`
                 : ` · 原始出处：${traced.document}第${traced.start_line}–${traced.end_line}行（${matchLabel(traced.match)}）`)}
           </small>
+          {traced?.cell_range && (
+            <small>
+              {traced.sheet}!{traced.cell_range}
+            </small>
+          )}
           {originPending && (
             <small role="note">原文未定位：{originPending}</small>
           )}

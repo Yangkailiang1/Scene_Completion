@@ -448,7 +448,10 @@ export function SsdResultsView({
   const comparison =
     layer === "pending" ? [] : snapshot?.comparison?.[layer] || [];
   const activeStep = draft?.steps.find((step) => step.id === stepId);
-  const firstCall = draft?.analysis_profile === "command-interaction-v2";
+  const firstCall = [
+    "command-interaction-v2",
+    "command-interaction-v3",
+  ].includes(draft?.analysis_profile || "");
   const commandMode =
     firstCall || draft?.analysis_profile === "command-interaction-v1";
   const activeUnits = (draft?.field_anchors?.units || []).filter(
@@ -482,13 +485,27 @@ export function SsdResultsView({
           ),
         )
       : [];
-  const excludedSources = Object.entries(
+  const sourceAudit = Object.entries(
     draft?.source_classifications || {},
-  ).flatMap(([channel, rows]) =>
-    rows
-      .filter((row) => ["normal", "out_of_scope"].includes(row.kind))
-      .map((row) => ({ channel, ...row })),
-  );
+  ).flatMap(([channel, rows]) => rows.map((row) => ({ channel, ...row })));
+  const sourceStates: Record<string, string> = {
+    exception: "已挂载",
+    normal: "正常备选",
+    out_of_scope: "范围外",
+    pending: "待确认",
+  };
+  const gtAudit = sourceAudit.filter((row) => row.channel === "GT");
+  const gtSummary = Object.entries(sourceStates)
+    .map(
+      ([state, label]) =>
+        label + " " + gtAudit.filter((row) => row.kind === state).length,
+    )
+    .join(" · ");
+  const activeCommands = activeStep
+    ? Object.entries(draft?.command_bindings || {}).filter(
+        ([, row]) => row.primary_step_id === activeStep.id,
+      )
+    : [];
   const stepEntities = (draft?.entities || [])
     .filter((entity) => activeEntityIds.includes(entity.id))
     .map((entity) =>
@@ -1142,17 +1159,25 @@ export function SsdResultsView({
                 新增 SSD 步骤
               </button>
             )}
-            {excludedSources.length > 0 && (
+            {sourceAudit.length > 0 && (
               <details className="ssd-case-issues">
-                <summary>原始记录参考（{excludedSources.length}）</summary>
-                {excludedSources.map((row) => (
-                  <div key={row.record_id}>
+                <summary>原始记录识别（{sourceAudit.length}）</summary>
+                {gtAudit.length > 0 && (
+                  <p>
+                    GT {gtAudit.length} 条 · {gtSummary}
+                  </p>
+                )}
+                {sourceAudit.map((row) => (
+                  <div key={row.channel + ":" + row.record_id}>
                     <strong>
-                      {row.channel} ·{" "}
-                      {row.kind === "normal" ? "正常备选" : "范围外"}
+                      {row.channel} · {sourceStates[row.kind] || row.kind}
+                      {row.source_id && " · " + row.source_id}
                     </strong>
                     <p>{row.condition}</p>
                     <p>{row.reason}</p>
+                    {row.rejected_bindings && (
+                      <p>待修正挂载 {row.rejected_bindings.length} 项</p>
+                    )}
                     <button onClick={() => setSources(row.source_refs)}>
                       查看来源
                     </button>
@@ -1268,13 +1293,23 @@ export function SsdResultsView({
                     </div>
                     <div>
                       <small>操作</small>
-                      {commandMode && activeStep.operation.command_id && (
-                        <p>
-                          {activeStep.operation.command_id} ·{" "}
-                          {activeStep.operation.http_method}{" "}
-                          {activeStep.operation.http_path}
+                      {activeCommands.map(([cid, binding]) => (
+                        <p key={cid}>
+                          {cid}
+                          {binding.binding_source === "step1_fallback" &&
+                            " · 首步回退"}
+                          {binding.reason && <small> · {binding.reason}</small>}
                         </p>
-                      )}
+                      ))}
+                      {commandMode &&
+                        !activeCommands.length &&
+                        activeStep.operation.command_id && (
+                          <p>
+                            {activeStep.operation.command_id} ·{" "}
+                            {activeStep.operation.http_method}{" "}
+                            {activeStep.operation.http_path}
+                          </p>
+                        )}
                       <strong>
                         <EditableCell
                           label="四元组操作"
@@ -1380,7 +1415,7 @@ export function SsdResultsView({
                     {activeEntityIds.join("、") || "未关联"}
                   </p>
                   {firstCall &&
-                    relatedCommands.map((row) => {
+                    relatedCommands.map((row, index) => {
                       const primary = row.primary_step_id;
                       const sourceSteps =
                         activeStep.id === primary
@@ -1391,7 +1426,7 @@ export function SsdResultsView({
                           : [primary];
                       if (!sourceSteps.length) return null;
                       return (
-                        <p key={primary}>
+                        <p key={primary + ":" + index}>
                           {activeStep.id === primary
                             ? "校验及返回："
                             : "约束展开于："}

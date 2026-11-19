@@ -15,16 +15,44 @@ export function SsdSourceDialog({
   refs: SourceRef[];
   onClose: () => void;
 }) {
-  // Stable: RR/SR first, everything else keeps its recorded order.
-  const ordered = refs
+  const expanded = refs.flatMap((ref) => {
+    const origin = typeof ref.origin === "object" ? ref.origin : undefined;
+    const document =
+      origin && ["exact", "located"].includes(origin.match)
+        ? documents.find((doc) => doc.name === origin.document)
+        : undefined;
+    if (
+      !document ||
+      !origin?.start_line ||
+      refs.some(
+        (r) =>
+          r.document_id === document.id && r.start_line === origin.start_line,
+      )
+    ) {
+      return [ref];
+    }
+    return [
+      {
+        ...ref,
+        document_id: document.id,
+        start_line: origin.start_line,
+        end_line: origin.end_line || origin.start_line,
+        quote: origin.quote || "",
+        kind: "origin",
+        json_pointer: undefined,
+      },
+      ref,
+    ];
+  });
+  const ordered = expanded
     .map((r, index) => ({ r, index }))
     .sort((a, b) => {
-      const score = (x: SourceRef) =>
-        ["RR", "SR"].includes(
-          documents.find((d) => d.id === x.document_id)?.role || "",
-        )
-          ? 0
-          : 1;
+      const score = (ref: SourceRef) => {
+        const doc = documents.find((d) => d.id === ref.document_id);
+        if (typeof ref.origin === "object" && ref.origin.document === doc?.name)
+          return 0;
+        return ["RR", "SR"].includes(doc?.role || "") ? 1 : 2;
+      };
       return score(a.r) - score(b.r) || a.index - b.index;
     })
     .map(({ r }) => r);
@@ -46,6 +74,8 @@ export function SsdSourceDialog({
   const ref = ordered[selected];
   const doc = documents.find((d) => d.id === docId);
   const activeRef = ref?.document_id === docId ? ref : undefined;
+  const origin =
+    typeof activeRef?.origin === "object" ? activeRef.origin : undefined;
   const start = activeRef?.start_line || 1;
   const end = activeRef?.end_line || start;
   useEffect(() => {
@@ -160,6 +190,10 @@ export function SsdSourceDialog({
         {activeRef && (
           <p className="ssd-source-location">
             {doc?.name} · 第 {start}–{end} 行 {activeRef.json_pointer}
+            {origin?.cell_range &&
+              " · " + origin.sheet + "!" + origin.cell_range}
+            {origin?.match === "pending" &&
+              " · 原文未定位：" + (origin.reason || "待核对")}
             {activeRef.kind === "context" &&
               " · 此处为需求上下文，测试出处见测试来源"}
           </p>

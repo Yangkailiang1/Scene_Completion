@@ -6,7 +6,18 @@ export type SourceRef = {
   quote: string;
   kind?: string;
   json_pointer?: string;
-  origin?: string;
+  origin?:
+    | string
+    | {
+        document?: string | null;
+        start_line?: number | null;
+        end_line?: number | null;
+        quote?: string;
+        match: string;
+        reason?: string;
+        sheet?: string;
+        cell_range?: string;
+      };
 };
 export type SourceDocument = {
   id: string;
@@ -49,6 +60,7 @@ export type Step = {
     kinds: string[];
     kinds_source?: string;
     command_id?: string;
+    command_ids?: string[];
     http_method?: string;
     http_path?: string;
     reason?: string;
@@ -105,11 +117,20 @@ export type Bundle = {
     string,
     {
       primary_step_id: string;
+      binding_source?: string;
+      reason?: string;
       occurrences: string[];
       validation_step_ids?: string[];
       response_step_ids?: string[];
     }
   >;
+  operation_units?: {
+    id: string;
+    name: string;
+    command_id?: string;
+    step_id: string;
+    crud: string[];
+  }[];
   field_anchors?: {
     units: { step_id: string; entity: string; attribute: string }[];
   };
@@ -128,6 +149,8 @@ export type Bundle = {
       "E" | "GT",
       {
         record_id: string;
+        source_id?: string;
+        rejected_bindings?: { reason: string }[];
         kind: string;
         condition: string;
         reason: string;

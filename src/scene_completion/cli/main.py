@@ -511,9 +511,9 @@ def main(argv=None, client=None):
     args = parser().parse_args(argv)
     if args.command == "core-input":
         from scene_completion.analysis.ssd import core_input
-        from scene_completion.domain.current_scope import COMMAND_PROFILE, ENTITY_PROFILE
+        from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, ENTITY_PROFILE
 
-        profile = {"entity": ENTITY_PROFILE, "command": COMMAND_PROFILE}.get(
+        profile = {"entity": ENTITY_PROFILE, "command": COMMAND_OPERATION_PROFILE}.get(
             getattr(args, "profile", None)
         )
         try:

@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from scene_completion.domain.current_scope import COMMAND_PROFILES
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, pending
 from scene_completion.domain.ssd_contracts import CRUD
 
@@ -86,7 +86,8 @@ def infer(bundle, semantic):
     steps = {
         s["id"]: s
         for s in bundle["steps"]
-        if s["operation"].get("kinds_source") not in {"declared", "manual"}
+        if bundle.get("analysis_profile") != COMMAND_OPERATION_PROFILE
+        and s["operation"].get("kinds_source") not in {"declared", "manual"}
     }
     rules = _unresolved(bundle)
     keys = definitions(bundle)
@@ -213,6 +214,7 @@ def classify(bundle, semantic):
     classifications = bundle.setdefault("source_classifications", {})
     command_mode = bundle.get("analysis_profile") in COMMAND_PROFILES
     step_facts = {s["id"]: s for s in _steps(bundle)}
+    units = bundle.get("operation_units")
     fields = {
         f["id"]: {
             "id": f["id"],
@@ -253,6 +255,15 @@ def classify(bundle, semantic):
                 **({"interface_fields": list(fields.values())} if command_mode else {}),
                 "entities": _catalogue(bundle),
                 "definitions": definitions(bundle),
+                **(
+                    {
+                        "operation_units": [
+                            {k: v for k, v in unit.items() if k != "source_refs"} for unit in units
+                        ]
+                    }
+                    if units is not None
+                    else {}
+                ),
                 "records": [_record(bundle, row) for row in batch],
             }
             for result in semantic(
@@ -266,16 +277,22 @@ def classify(bundle, semantic):
                     "source_id": source.get("extension_id") or source.get("original_id"),
                     "source_refs": source["source_refs"],
                 }
-                issues = {
-                    issue
-                    for binding in result["bindings"]
-                    if (issue := _binding_issue(binding, step_facts, inputs["entities"], fields))
-                }
-                if issues:
-                    audit.update(kind="pending", reason="；".join(sorted(issues)), bindings=[])
-                    audit["rejected_bindings"] = result["bindings"]
-                audited.append(audit)
-                if audit["kind"] == "pending":
+                accepted, rejected = [], []
+                for binding in result["bindings"]:
+                    issue = _binding_issue(binding, step_facts, inputs["entities"], fields)
+                    if not issue:
+                        issue = _mount(bundle, channel, output, source, binding, result["reason"])
+                    if issue:
+                        rejected.append({**binding, "reason": issue})
+                    else:
+                        accepted.append(binding)
+                audit["bindings"] = accepted
+                if rejected:
+                    audit["rejected_bindings"] = rejected
+                    audit["reason"] = "；".join(dict.fromkeys(r["reason"] for r in rejected))
+                    if not accepted:
+                        audit["kind"] = "pending"
+                if audit["kind"] == "pending" or rejected:
                     output["pending"].append(
                         pending(
                             source["id"],
@@ -285,8 +302,7 @@ def classify(bundle, semantic):
                             original=source,
                         )
                     )
-                for binding in audit["bindings"]:
-                    _mount(bundle, channel, output, source, binding, result["reason"])
+                audited.append(audit)
         classifications[channel] = audited
     bundle["gt_identification_run_complete"] = bool(bundle.get("gt_source_available") and semantic)
 
@@ -309,11 +325,30 @@ def _mount(bundle, channel, output, source, binding, reason):
             entity, attribute, field = alias["entity_id"], alias["attribute"], None
             field_id = None
     target = "data" if binding["target"] in {"entity", "interface"} else binding["target"]
+    operation_unit_id = None
+    if bundle.get("operation_units") is not None and target == "receiver":
+        from scene_completion.analysis.ssd.operation_units import functional
+
+        if functional(key):
+            operations = set(bundle["registry"]["definitions"][key]["operation_kinds"])
+            stated = binding.get("operation_unit_id")
+            hits = [
+                unit
+                for unit in bundle["operation_units"]
+                if (not stated or stated == unit["id"])
+                and (actual in unit["related_steps"] or binding["step_id"] in unit["related_steps"])
+                and operations.intersection(unit["crud"])
+            ]
+            if len(hits) != 1:
+                return "无法唯一对齐到已挂载的接口或外部服务 CRUD"
+            operation_unit_id = hits[0]["id"]
+            mapped_step = hits[0]["step_id"]
     candidates = [
         c
         for c in bundle["channels"]["G"]["concerns"]
         if c["key"] == key
         and c["target"] == target
+        and c.get("operation_unit_id") == operation_unit_id
         and c.get("field_id") == field_id
         and c.get("entity_id") == entity
         and c.get("attribute") == attribute
@@ -340,16 +375,7 @@ def _mount(bundle, channel, output, source, binding, reason):
             for c in bundle["channels"]["G"]["concerns"]
         )
     ):
-        output["pending"].append(
-            pending(
-                ident("scope-pending", source["id"], binding),
-                binding["condition"],
-                source["source_refs"],
-                reason="无法唯一判定实体约束作用域",
-                step_id=actual,
-            )
-        )
-        return
+        return "无法唯一判定实体约束作用域"
     g = candidates[0] if len(candidates) == 1 else None
     step = steps[g["step_id"] if g else mapped_step]
     refs = source["source_refs"]
@@ -366,7 +392,10 @@ def _mount(bundle, channel, output, source, binding, reason):
         condition=binding["condition"],
         refs=refs,
         obligation_scope=g.get("obligation_scope") if g else None,
+        operation_unit_id=operation_unit_id,
     )
+    if concern is None:
+        return "关注点在当前规则中未启用"
     scene = add_scenario(output, concern, binding["condition"], binding["expected"], refs)
     scene["failure_step_id"] = actual
     scene["failure_step_ids"] = list(dict.fromkeys([*scene.get("failure_step_ids", []), actual]))

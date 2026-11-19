@@ -9,7 +9,11 @@
 ### 1. 确认环境和输入
 
 - 在当前包根目录执行 `scene.cmd capabilities` 和 `check.cmd`。工作台默认使用包根目录的 `data` 与 `.env`。使用完整路径指定数据目录，确保 CLI、工作台及恢复命令访问同一份项目。
-- 主成功流取自 `SysOperation.json`。把 SR 命令和实体约束绑定到实际交互，交互四元组为发送方、接收方、操作、数据。原文已有异常 E 从需求与行为分支提取，测试逆向 GT 从 `recovered_usecases.json` 的扩展与测试出处识别。G 使用主成功流、功能树与正向约束。整理输入时保留 RR／SR 及测试原文、相对路径和来源位置。
+- 把用户提供的 `功能树.json`、`recovered_usecases.json` 和整个行为模型目录放进本次输入目录。保留 `行为模型/<实体>/<用例>/SysOperation.json` 层级。分别使用 `SysOperation.use_case`、功能树 `functions[].name` 和测试逆向的 `name` 对齐用例，保留各文件自己的编号。实体目录帮助区分同名用例。
+- 向用户取得每份原始 RR／SR Markdown、测试 Markdown 和 XLSX 的实际路径，把原件复制到输入目录并保持约定的文件名。把文件的输入目录相对路径、角色和引用别名写入根目录的 `source-documents.json`。结构化来源使用文件名或登记别名定位。配置示例如下。
+  `{"documents":[{"path":"originals/需求.md","role":"RR","aliases":["rrSpec"]},{"path":"originals/设计.md","role":"SR","aliases":["srSpec","sr"]},{"path":"originals/测试用例.xlsx","role":"test","aliases":["testcase.xlsx"]}]}`
+- 检查 Markdown 引文的 `location`，例如 `L1726-L1726`。Excel 坐标必须是 `测试用例!A120:O120` 这样的实际范围。对于同名文件、找不到的原件、坐标错误或引文不一致，逐条记下受影响的记录并请用户核对。
+- 依据主成功流、功能树和已验证来源运行 G。读取 E 与 GT 时使用独立来源。检查每条测试扩展的识别与挂载结果，报告已挂载、正常、范围外及待确认数量。
 - 先查 `app/.cac/skills/scene-structured-input/SKILL.md`；已提供核心 JSON 时直接校验。格式有差异时先盘点，只用有原始证据的字段补齐转换，遇到歧义保留待确认。
 
 ```bat

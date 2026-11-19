@@ -654,8 +654,9 @@ def existing_channel(bundle, case_dir, sources, supplied=(), raw=None):
 
 
 def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=None):
-    from scene_completion.domain.current_scope import STRUCTURED_PROFILES
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, STRUCTURED_PROFILES
     from scene_completion.domain.ssd.construction import channel, pending
+    from scene_completion.inputs.structured.case_names import candidates as case_candidates
 
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     supplied_records = [_provided(bundle, row, "GT") for row in supplied]
@@ -683,11 +684,21 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
             key = next((k for k in ("usecases", "use_cases", "cases") if k in value), "usecases")
             cases, prefix = value.get(key, []), "/" + key
         source_id = (mapping or {}).get("source_uc_id") or bundle["case"]["id"]
-        found = [(i, row) for i, row in enumerate(cases) if row.get("id") == source_id]
-        if not found and not (mapping or {}).get("source_uc_id"):
-            found = [
-                (i, row) for i, row in enumerate(cases) if row.get("name") == bundle["case"]["name"]
-            ]
+        if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+            found = case_candidates(
+                cases,
+                bundle["case"]["name"],
+                bundle.get("case_entity"),
+                explicit_id=(mapping or {}).get("source_uc_id"),
+            )
+        else:
+            found = [(i, row) for i, row in enumerate(cases) if row.get("id") == source_id]
+            if not found and not (mapping or {}).get("source_uc_id"):
+                found = [
+                    (i, row)
+                    for i, row in enumerate(cases)
+                    if row.get("name") == bundle["case"]["name"]
+                ]
         if len(found) == 1:
             index, case = found[0]
             prefix += f"/{index}"
@@ -698,6 +709,8 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
                     ident("GT-case", bundle["case"]["id"]),
                     "测试用例无法唯一对应",
                     [sources.ref(name)],
+                    reason="测试用例无法唯一对应",
+                    candidates=[row.get("id") for _, row in found],
                 )
             )
             bundle["gt_source_available"] = False
@@ -723,7 +736,16 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
         for evidence in extension.get("evidence", []):
             label = re.split(r"[:：]", str(evidence), maxsplit=1)[0].strip()
             if label in locations:
-                refs.extend(sources.test_evidence(locations[label]))
+                location = locations[label]
+                actual = sources.test_evidence(location)
+                refs.extend(
+                    actual
+                    or [
+                        sources.ref(
+                            name, f"{prefix}/extensions/{index}", kind="test", origin=location
+                        )
+                    ]
+                )
         return unique(refs)
 
     for mount_index, mount in enumerate(mapped):

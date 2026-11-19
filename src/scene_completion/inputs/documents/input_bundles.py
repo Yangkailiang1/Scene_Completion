@@ -141,7 +141,7 @@ def discover_material(*, directory=None, paths=None, files=None):
                 or any(x.startswith(".") or x in EXCLUDED for x in parts)
             ):
                 continue
-            if Path(name).suffix.lower() not in {".json", ".md", ".markdown"}:
+            if Path(name).suffix.lower() not in {".json", ".md", ".markdown", ".xlsx"}:
                 ignored.append(
                     {"name": name, "reason": "仅接入约定的五类JSON，不读取Skill或报告作为任务指令"}
                 )

@@ -16,7 +16,11 @@ from pathlib import Path
 # "第 272 行", "第 8–11 行".
 LINE = re.compile(r"(?:^|\bL)\s*(\d+)\s*(?:[–\-~至]\s*L?\s*(\d+))?", re.I)
 RANGE = re.compile(r"第\s*(\d+)\s*(?:[–\-~至]\s*(\d+))?\s*行")
-CELL = re.compile(r"^(?P<sheet>[^!]+)!(?P<cell>[A-Z]{1,3})(?P<row>\d+)$")
+CELL = re.compile(
+    r"^(?P<sheet>[^!]+)!\$?(?P<first>[A-Z]{1,3})\$?(?P<row>[1-9]\d*)"
+    r"(?::\$?(?P<last>[A-Z]{1,3})\$?(?P<end>[1-9]\d*))?$",
+    re.I,
+)
 ROLES = {
     "spec": "RR",
     "rrSpec": "RR",
@@ -41,9 +45,13 @@ def source_origin(origin):
         return None, origin, None
     if isinstance(origin, dict):
         return (
-            origin.get("doc") or origin.get("document") or origin.get("file"),
+            origin.get("doc")
+            or origin.get("document")
+            or origin.get("file")
+            or origin.get("source_file"),
             origin.get("quote") or "",
             origin.get("line")
+            or origin.get("location")
             or origin.get("locator")
             or (
                 (origin["start_line"], origin.get("end_line") or origin["start_line"])
@@ -78,8 +86,9 @@ def resolve_name(declared, documents):
         return None
     wanted = declared.strip().replace("\\", "/")
     for select in (
-        lambda doc: doc.get("path") == wanted or doc["name"] == wanted,
+        lambda doc: "/" in wanted and (doc.get("path") == wanted or doc["name"] == wanted),
         lambda doc: stem(doc["name"]) == stem(wanted),
+        lambda doc: wanted.casefold() in {a.casefold() for a in doc.get("configured_aliases", [])},
         lambda doc: wanted.lower() in aliases_for(doc["name"]),
         lambda doc: wanted.lower() == str(doc.get("role") or "").lower(),
     ):
@@ -267,29 +276,45 @@ def column_index(letters):
 
 
 def from_cell(declared, quote, sheet_documents):
-    """Excel locator (``测试用例!F5``) to the row of the readable projection."""
-    match = CELL.match(str(declared or "").strip())
+    """Return a checked Excel range against the declared workbook and sheet."""
+    match = CELL.fullmatch(str(declared or "").strip())
     if not match:
-        return None
-    for document in sheet_documents:
-        if document.get("name", "").split("#")[-1] != match["sheet"]:
-            continue
-        row = next((r for r in document["lines"] if r["number"] == int(match["row"])), None)
-        if row is None or not row["text"].strip():
-            continue
-        return {
-            "document": document["name"].split("#", 1)[0],
-            "role": document.get("role"),
-            "start_line": row["number"],
-            "end_line": row["number"],
-            "quote": row["text"],
-            "match": "exact",
-            "declared_line": declared,
-            "json_pointer": declared,
-            "cell_quote": quote,
-            "sheet": match["sheet"],
-        }
-    return None
+        return untraced("Excel 单元格坐标无效：" + str(declared or ""))
+    first = column_index(match["first"])
+    last = column_index(match["last"] or match["first"])
+    start = int(match["row"])
+    end = int(match["end"] or match["row"])
+    if not (first <= last < 16384 and start <= end <= 1048576):
+        return untraced("Excel 单元格范围无效：" + declared)
+    name = match["sheet"]
+    if name.startswith("'") and name.endswith("'"):
+        name = name[1:-1].replace("''", "'")
+    matches = [doc for doc in sheet_documents if doc["sheet"] == name]
+    if len(matches) != 1:
+        return untraced("未找到唯一的 Excel 工作表：" + name)
+    doc = matches[0]
+    cells = [
+        str(value)
+        for row, values in doc["cells"].items()
+        if start <= row <= end
+        for column, value in values.items()
+        if first <= column <= last and value
+    ]
+    if not quote or _normalized(quote) not in _normalized(" ".join(cells)):
+        return untraced("指定 Excel 范围与引文不吻合：" + declared)
+    rows = [row["text"] for row in doc["lines"] if start <= row["number"] <= end]
+    return {
+        "document": doc["path"],
+        "role": doc["role"],
+        "start_line": start,
+        "end_line": end,
+        "quote": "\n".join(rows),
+        "match": "exact",
+        "declared_line": declared,
+        "sheet": doc["sheet"],
+        "cell_range": declared.split("!", 1)[1].upper(),
+        "cell_quote": quote,
+    }
 
 
 def documents_from_inputs(value):
@@ -308,6 +333,19 @@ def read_origin_document(path, role=None, channel="existing"):
     from scene_completion.inputs.documents.source_documents import read_documents
 
     path = Path(path)
+    if path.suffix.lower() == ".xlsx":
+        from scene_completion.inputs.provenance.test_sources import xlsx_documents
+
+        data = path.read_bytes()
+        sheets = xlsx_documents(data, path.name, path.name, for_provenance=True)
+        for doc in sheets:
+            rows = {row["number"]: row["text"] for row in doc["lines"]}
+            doc.update(
+                role=role or "test",
+                hash=fingerprint(data.hex()),
+                content="\n".join(rows.get(n, "") for n in range(1, max(rows) + 1)),
+            )
+        return sheets
     documents = read_documents([path], channel)
     text = path.read_text(encoding="utf-8-sig")
     return [

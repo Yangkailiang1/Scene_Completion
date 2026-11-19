@@ -29,7 +29,7 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 | 阶段 | 页面标签 | 类型 | 对应语义任务 | 依赖 |
 |---|---|---|---|---|
 | `ssd-prepare` | 建立 SSD 与三方结果 | 脚本（不调用模型） | — | （起点） |
-| `ssd-resolve` | 操作判定、约束挂载与独立识别 | 模型调用 | ssd-entity-inference、ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve | ssd-prepare |
+| `ssd-resolve` | 操作判定、约束挂载与独立识别 | 模型调用 | ssd-operation-units、ssd-entity-inference、ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve | ssd-prepare |
 | `ssd-generate` | 展开参考异常与业务场景 | 模型调用 | ssd-generate | ssd-resolve |
 | `ssd-compare` | 三方比较与发布 | 模型调用＋脚本合并 | ssd-semantic-compare | ssd-generate |
 | `shared-services-merge` | 合并共用外部服务（脚本） | 脚本（不调用模型） | — | ssd-compare |
@@ -51,7 +51,7 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 - **类型**：模型调用
 - **读取**：正向主成功事件流、功能树实体约束；E/GT 各自的原始记录
 - **产出**：CRUD 与实体约束锚点；E/GT 的关注点与具体场景；待确认记录
-- **语义任务**：ssd-entity-inference、ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve
+- **语义任务**：ssd-operation-units、ssd-entity-inference、ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve
 - **依赖**：ssd-prepare
 
 实体模式先判定主流程的实际CRUD并处理未能脚本解析的属性约束，再由脚本建立G挂载。E和GT分别根据自己的来源分类，脚本只对齐确认的异常。兼容输入沿用ssd-bind与ssd-resolve。

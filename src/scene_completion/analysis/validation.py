@@ -87,6 +87,11 @@ def validate_result(task, payload, inputs):
     if task in PROJECT_SCHEMAS:
         validate(task, payload)
         return validate_project_result(task, payload, inputs)
+    if task == "ssd-operation-units":
+        from scene_completion.analysis.ssd.operation_units import validate_result as validate_units
+
+        validate(task, payload)
+        return validate_units(payload, inputs)
     if task in {"ssd-entity-inference", "ssd-entity-classify", "ssd-command-classify"}:
         from scene_completion.analysis.ssd.entity_semantics import (
             validate_result as validate_entity,

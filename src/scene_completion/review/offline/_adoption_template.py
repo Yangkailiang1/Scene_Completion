@@ -41,21 +41,24 @@ function changed(){document.getElementById('save-status').textContent='有未保
     + r"""
 function sourceButton(entry,ref){
  const doc=(entry.bundle.documents||[]).find(d=>d.id===ref.document_id),name=doc?.name||ref.document_id||'出处',prefix=doc?.role==='RR'?'需求':doc?.role==='SR'?'设计':doc?.role==='test'?'测试':name.split(/[\\/]/).pop();
- const b=el('button',prefix+(ref.start_line?' L'+ref.start_line:''));b.type='button';b.title=name+(ref.start_line?' L'+ref.start_line:'');b.setAttribute('aria-label',b.title);b.onclick=()=>showSource(entry,ref);return b;
+ const locator=ref.origin?.cell_range?ref.origin.sheet+'!'+ref.origin.cell_range:ref.start_line?'L'+ref.start_line:'';
+ const b=el('button',[prefix,locator].filter(Boolean).join(' '));b.type='button';b.title=[name,locator].filter(Boolean).join(' ');b.setAttribute('aria-label',b.title);b.onclick=()=>showSource(entry,ref);return b;
 }
 function sources(entry,record){
  const wrap=el('div',undefined,'sources'),refs=record.source_refs||[],docs=entry.bundle.documents||[],original=refs.filter(r=>['RR','SR'].includes(docs.find(d=>d.id===r.document_id)?.role)),primary=original.length?original:refs;
  for(const ref of primary.slice(0,2))wrap.append(sourceButton(entry,ref));
  const rest=refs.filter(r=>!primary.slice(0,2).includes(r));
  if(rest.length){const d=el('details',undefined,'extra-sources');d.append(el('summary',`更多出处（${rest.length}）`));for(const ref of rest)d.append(sourceButton(entry,ref));wrap.append(d);}
+ for(const reason of new Set(refs.map(r=>r.origin?.match==='pending'?r.origin.reason:null).filter(Boolean)))wrap.append(el('small','原文未定位 · '+reason,'muted'));
  if(!refs.length)wrap.append(el('span','无直接出处','muted'));return wrap;
 }
 const anchors=entry=>entry.bundle.steps||entry.bundle.anchors||[];
 const anchorId=r=>r.anchor_id||r.step_id||'';
-const binding=r=>JSON.stringify([anchorId(r),r.target||'',r.field_id||'',r.entity_id||'',r.attribute||'',r.key||'',...(r.obligation_scope||[])]);
+const binding=r=>JSON.stringify([anchorId(r),r.target||'',r.field_id||'',r.entity_id||'',r.attribute||'',r.key||'',...(r.obligation_scope||[]),r.operation_unit_id||'']);
 const definition=(entry,r)=>entry.bundle.registry?.definitions?.[r.key]?.label||r.label||r.key||'待归类';
 function objectLabel(entry,r){
- const anchor=anchors(entry).find(a=>a.id===anchorId(r));
+ const anchor=anchors(entry).find(a=>a.id===anchorId(r)),unit=(entry.bundle.operation_units||[]).find(u=>u.id===r.operation_unit_id);
+ if(unit)return [unit.command_id,unit.name].filter(Boolean).join(' · ');
  if(r.entity_id&&r.attribute)return '实体属性 · '+r.entity_id+'.'+r.attribute;
  if(r.target==='sender')return '发送方 · '+(anchor?.sender?.name||'待定位')+(r.entity_id?' · '+r.entity_id:'');
  if(r.target==='receiver')return '接收方 · '+(anchor?.receiver?.name||'待定位')+(r.entity_id?' · '+r.entity_id:'');
@@ -90,7 +93,7 @@ function contextSection(entry,id){
  header.append(el('h3',label),el('span',a?.layer|| (a?.kind==='dependency'?'业务依赖':'外部服务'),'badge blue'),el('span',id||'无锚点','badge'));section.append(header);
  if(a){const details=el('details',undefined,'step-context'),summary=el('summary','展开上下文、数据与原文出处'),body=el('div',undefined,'context-body');
   const field=(label,value,wide=false)=>{const p=el('p',undefined,wide?'wide':undefined);p.append(el('b',label),document.createTextNode(value||'未记录'));body.append(p);};
-  if(a.operation){const entityOnly=entry.bundle.analysis_profile==='entity-interaction-v1';field('操作',a.operation.name,true);field('CRUD',(a.operation.kinds||[]).join('/')||(entityOnly&&a.operation.kinds_source!=='pending'?'无 CRUD':'未确定'));field('实体',[...new Set([...(a.entity_ids||[]),...(entry.bundle.analysis_profile==='command-interaction-v2'?(entry.bundle.field_anchors?.units||[]).filter(u=>u.step_id===a.id).map(u=>u.entity):[])])].join('、'));if(['command-interaction-v1','command-interaction-v2'].includes(entry.bundle.analysis_profile)){const fields=(entry.bundle.steps||[]).flatMap(s=>(s.data||[]).filter(f=>f.command_id&&(s.id===a.id||f.call_step_id===a.id)));field('SR 字段',fields.map(f=>f.location+'.'+f.name).join('、'));if(a.operation.command_id)field('SR 命令',[a.operation.command_id,a.operation.http_method,a.operation.http_path].filter(Boolean).join(' '));}else if(!entityOnly){field('数据',(a.data||[]).map(f=>[f.location,f.name].filter(Boolean).join('.')).join('、')||'无数据字段');field('接口',a.api_id||'未关联接口');}}
+  if(a.operation){const entityOnly=entry.bundle.analysis_profile==='entity-interaction-v1';field('操作',a.operation.name,true);field('CRUD',(a.operation.kinds||[]).join('/')||(entityOnly&&a.operation.kinds_source!=='pending'?'无 CRUD':'未确定'));field('实体',[...new Set([...(a.entity_ids||[]),...(['command-interaction-v2','command-interaction-v3'].includes(entry.bundle.analysis_profile)?(entry.bundle.field_anchors?.units||[]).filter(u=>u.step_id===a.id).map(u=>u.entity):[])])].join('、'));if(['command-interaction-v1','command-interaction-v2','command-interaction-v3'].includes(entry.bundle.analysis_profile)){const fields=(entry.bundle.steps||[]).flatMap(s=>(s.data||[]).filter(f=>f.command_id&&(s.id===a.id||f.call_step_id===a.id)));field('SR 字段',fields.map(f=>f.location+'.'+f.name).join('、'));const bindings=Object.entries(entry.bundle.command_bindings||{}).filter(([,b])=>b.primary_step_id===a.id);if(bindings.length)field('SR 命令',bindings.map(([id,b])=>id+(b.binding_source==='step1_fallback'?'（首步回退）':'')).join('、'));else if(a.operation.command_id)field('SR 命令',[a.operation.command_id,a.operation.http_method,a.operation.http_path].filter(Boolean).join(' '));}else if(!entityOnly){field('数据',(a.data||[]).map(f=>[f.location,f.name].filter(Boolean).join('.')).join('、')||'无数据字段');field('接口',a.api_id||'未关联接口');}}
   else if(a.kind==='dependency'){field('依赖条件',a.condition);field('义务／操作',a.obligation);field('实体',(a.entity_ids||[]).join('、'));field('依赖类型',a.relation_type==='cascade'?'级联依赖':'直接依赖');}
   else{field('服务职责',a.description);field('技术类别',a.technology);field('关联接口',(a.api_ids||[]).join('、'));field('涉及用例',(a.case_ids||[]).join('、'));}
   body.append(sources(entry,a));details.append(summary,body);section.append(details);

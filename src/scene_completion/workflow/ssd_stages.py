@@ -83,6 +83,7 @@ STAGES = {
         reads=("正向主成功事件流、功能树实体约束", "E/GT 各自的原始记录"),
         writes=("CRUD 与实体约束锚点", "E/GT 的关注点与具体场景", "待确认记录"),
         semantic_tasks=(
+            "ssd-operation-units",
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",

@@ -3,7 +3,7 @@
 import re
 from copy import deepcopy
 
-from scene_completion.domain.current_scope import ENTITY_PROFILE
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, ENTITY_PROFILE
 from scene_completion.domain.ssd.construction import add_scenario, ident
 from scene_completion.infrastructure.identity import fingerprint
 
@@ -101,6 +101,22 @@ def batches(bundle, limit=32):
             yield {
                 **step_context(bundle, step),
                 "concerns": _positive(scoped),
+                **(
+                    {
+                        "idempotency_evidence": {
+                            c["id"]: [
+                                ref["origin"]["quote"]
+                                for ref in c.get("source_refs", [])
+                                if (ref.get("origin") or {}).get("match") in {"exact", "located"}
+                                and ref["origin"].get("quote")
+                            ]
+                            for c in scoped
+                            if c["key"].endswith(".idempotency")
+                        }
+                    }
+                    if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
+                    else {}
+                ),
                 "definitions": {c["key"]: _positive(definitions[c["key"]]) for c in scoped},
                 "templates": [
                     {
@@ -164,6 +180,45 @@ def validate_result(payload, inputs):
     return payload
 
 
+def _replay_variant(text):
+    """Distinguish specifically declared replay conditions from generic repeats."""
+    rules = {
+        "changed_payload": r"参数.{0,8}(?:不同|修改|变化)|不同(?:的)?(?:参数|请求体)|different payload",
+        "in_flight": r"执行中|处理完成前|尚未完成|in.flight",
+        "key_expiry": r"幂等键.{0,8}(?:过期|失效)|expired.{0,12}key",
+    }
+    return next((key for key, pattern in rules.items() if re.search(pattern, text, re.I)), None)
+
+
+def _idempotency_supplement(inputs, concern, item, scenarios):
+    allowed = inputs.get("idempotency_evidence", {})
+    if concern["id"] not in allowed:
+        return True
+    quote = item.get("source_quote", "").strip()
+    variant = _replay_variant(item["condition"])
+    supported = (
+        variant
+        and quote
+        and _replay_variant(quote) == variant
+        and any(quote in evidence for evidence in allowed[concern["id"]])
+    )
+    existing = [row for row in scenarios if concern["id"] in row["concern_ids"]]
+    if supported and not any(_replay_variant(row["condition"]) == variant for row in existing):
+        return True
+    # Keep an alternative explanation with the existing failure, without adding a scored row.
+    target = next(
+        (row for row in existing if _replay_variant(row["condition"]) == variant),
+        next((row for row in existing if row.get("variant_id") == "repeated_effect"), None),
+    )
+    if target:
+        target["analysis"] = "\n".join(
+            dict.fromkeys(
+                text for text in (target.get("analysis"), item["analysis"].strip()) if text
+            )
+        )
+    return False
+
+
 def apply_result(bundle, inputs, payload):
     validate_result(payload, inputs)
     records = bundle["channels"]["G"]
@@ -180,6 +235,8 @@ def apply_result(bundle, inputs, payload):
     concerns = {r["id"]: r for r in records["concerns"]}
     for item in payload["supplements"]:
         concern = concerns[item["concern_id"]]
+        if not _idempotency_supplement(inputs, concern, item, records["scenarios"]):
+            continue
         row = add_scenario(
             records,
             concern,

@@ -72,7 +72,15 @@ class Sources:
         self.origins = list(origins or [])
         for doc in self.origins:
             path = self.root / (doc.get("path") or doc["name"])
-            if path.is_file():
+            if doc.get("sheet"):
+                self.documents[doc["path"]] = {
+                    "id": doc["id"],
+                    "name": doc["path"],
+                    "role": doc["role"],
+                    "content": doc["content"],
+                    "hash": doc["hash"],
+                }
+            elif path.is_file():
                 self.add(path, doc["role"])
         for path in sorted(self.root.glob("*.md")):
             role = (
@@ -129,11 +137,23 @@ class Sources:
         from scene_completion.inputs.provenance import source_origins
 
         document, quote, declared = source_origins.source_origin(origin)
+        books = {}
+        for doc in self.origins:
+            if doc.get("sheet"):
+                books.setdefault(doc["source_path"], []).append(doc)
+        if isinstance(declared, str) and "!" in declared:
+            workbooks = [
+                {**sheets[0], "name": path, "path": path} for path, sheets in books.items()
+            ]
+            workbook = source_origins.resolve_name(document, workbooks)
+            if not workbook:
+                return source_origins.untraced("未找到唯一原始 Excel 工作簿")
+            return source_origins.from_cell(declared, quote, books[workbook["path"]])
         return source_origins.origin(
-            source_origins.resolve_name(document, self.origins) if document else None,
+            source_origins.resolve_name(document, [d for d in self.origins if not d.get("sheet")]),
             quote,
             declared,
-        ) or source_origins.untraced("未找到唯一原始文档")
+        ) or source_origins.untraced("原文缺失或文件名／别名不唯一：" + str(document or ""))
 
     def traced_ref(self, name, pointer, origin):
         """Pointer reference that opens the original line when it can be found."""
@@ -165,68 +185,7 @@ class Sources:
         return unique(result)
 
     def test_evidence(self, evidence):
-        from scene_completion.inputs.provenance import source_origins
-        from scene_completion.inputs.provenance.test_sources import xlsx_documents
-
-        name = source_origins.stem(evidence.get("source_file") or "")
-        quote, location = evidence.get("quote"), evidence.get("location")
-        if not name or not quote:
-            return []
-        files = list(self.root.rglob(name))
-        if len(files) != 1 or not files[0].is_file():
-            return []
-        path = files[0]
-        if path.suffix.lower() in {".md", ".markdown"}:
-            key = self.add(path, "test")
-            traced = self.trace({"doc": key, "quote": quote, "line": location})
-            if not traced or traced.get("role") != "test" or traced.get("match") == "pending":
-                return []
-            return [
-                {
-                    **self.ref(key, kind="test"),
-                    "start_line": traced["start_line"],
-                    "end_line": traced["end_line"],
-                    "quote": traced["quote"],
-                    "origin": traced,
-                }
-            ]
-        if path.suffix.lower() != ".xlsx":
-            return []
-        try:
-            sheets = xlsx_documents(
-                path.read_bytes(), path.name, path.relative_to(self.root).as_posix()
-            )
-        except ValueError:
-            return []
-        found = source_origins.from_cell(location, quote, sheets)
-        if not found or source_origins._normalized(quote) not in source_origins._normalized(
-            found["quote"]
-        ):
-            return []
-        sheet = next(d for d in sheets if d["name"].split("#")[-1] == found["sheet"])
-        key = path.relative_to(self.root).as_posix() + "#" + found["sheet"]
-        lines = {row["number"]: row["text"] for row in sheet["lines"]}
-        content = "\n".join(lines.get(i, "") for i in range(1, max(lines) + 1))
-        doc = self.documents.setdefault(
-            key,
-            {
-                "id": ident("document", key),
-                "name": key,
-                "role": "test",
-                "content": content,
-                "hash": fingerprint(content),
-            },
-        )
-        return [
-            {
-                "document_id": doc["id"],
-                "start_line": found["start_line"],
-                "end_line": found["end_line"],
-                "quote": found["quote"],
-                "kind": "test",
-                "json_pointer": location,
-            }
-        ]
+        return self.original([evidence])
 
     def refs(self, node, name, pointer=""):
         declared = node.get("source_refs") or []
@@ -483,7 +442,9 @@ def api_contracts(sources, tree, tree_path=None):
     return contracts
 
 
-def entities_for(sources, tree, case_id, case_name, tree_path=None, *, entity_only=False):
+def entities_for(
+    sources, tree, case_id, case_name, tree_path=None, *, entity_only=False, selected=None
+):
     """Entities and constraints of exactly one use case.
 
     The function tree is already split by use case, so each case carries only
@@ -498,13 +459,17 @@ def entities_for(sources, tree, case_id, case_name, tree_path=None, *, entity_on
     name = sources.add(tree_path or sources.root / "功能树.json")
     functions = tree.get("functions", [])
     exact = [f for f in functions if (f.get("functionId") or f.get("ucId")) == case_id]
-    if entity_only and len(exact or [f for f in functions if f.get("name") == case_name]) != 1:
+    if (
+        selected is None
+        and entity_only
+        and len(exact or [f for f in functions if f.get("name") == case_name]) != 1
+    ):
         return []
-    for fn, function in enumerate(functions):
-        if entity_only and exact and function is not exact[0]:
+    for fn, function in enumerate(functions) if selected is None else selected:
+        if selected is None and entity_only and exact and function is not exact[0]:
             continue
         identity = function.get("functionId") or function.get("ucId")
-        if identity != case_id and function.get("name") != case_name:
+        if selected is None and identity != case_id and function.get("name") != case_name:
             continue
         declared = {}
         for layer in ("srLayer",) if entity_only else ("rrLayer", "srLayer"):
