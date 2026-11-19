@@ -35,6 +35,9 @@
 转换版本保存供工作台和离线报告核验。若文件名无明显角色，在来源根目录提供
 `source-documents.json`，例如
 `{"documents":[{"path":"spec-a.md","role":"RR","aliases":["rrSpec"]},{"path":"design-b.md","role":"SR","aliases":["srSpec"]},{"path":"testcase.xlsx","role":"test"}]}`。
+功能树中，接口字段和实体属性的每条 `constraints[]` 用自身的 `source.doc`、`line` 和 `quote` 定位。
+字符串标签和类型沿用所在字段的 `source`。若标签以 `{"name":"必填","source":{...}}` 提供，优先用标签自身的出处。
+`line` 为原件的全文件行号。引文与声明位置不符时，只在同一文件内凭唯一引文重定位，否则保留声明位置并标记待核对。
 
 `core-input convert` 默认输出 `analysis_profile=command-interaction-v3`。
 用例按三份材料的名称对齐。命令在同一用例内按 apiId 合并 RR 方法和 SR 字段，再按证据或模型结果绑定主成功步骤。模型无法唯一定位时挂到首步并保留回退理由。同用例同一实际命令只设一个主挂载，重复调用保留出处。实体约束和接口字段约束同时挂载，只有带明确映射及等价作用域的规则合并计分。接口字段在接口首次调用处展开。实体约束挂在第一个使用该实体的接口，缺少对应接口时挂在首次出现处。原始校验、响应和失败位置保留。

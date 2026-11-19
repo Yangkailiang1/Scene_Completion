@@ -13,6 +13,7 @@
 - 向用户取得每份原始 RR／SR Markdown、测试 Markdown 和 XLSX 的实际路径，把原件复制到输入目录并保持约定的文件名。把文件的输入目录相对路径、角色和引用别名写入根目录的 `source-documents.json`。结构化来源使用文件名或登记别名定位。配置示例如下。
   `{"documents":[{"path":"originals/需求.md","role":"RR","aliases":["rrSpec"]},{"path":"originals/设计.md","role":"SR","aliases":["srSpec","sr"]},{"path":"originals/测试用例.xlsx","role":"test","aliases":["testcase.xlsx"]}]}`
 - 检查 Markdown 引文的 `location`，例如 `L1726-L1726`。Excel 坐标必须是 `测试用例!A120:O120` 这样的实际范围。对于同名文件、找不到的原件、坐标错误或引文不一致，逐条记下受影响的记录并请用户核对。
+- 功能树的接口字段和实体属性逐条保留 `constraints[].source.doc`、`line` 和 `quote`。`doc` 写原始文件名或登记别名，`line` 写原件的全文件行号。带独立出处的标签可写成 `{"name":"必填","source":{...}}`，字符串标签及类型使用字段自身的出处。接口条目的出处用于定位调用。行号和引文冲突时，保留可查看的声明行并标记待确认，或在同一原件内按唯一引文定位。
 - 依据主成功流、功能树和已验证来源运行 G。读取 E 与 GT 时使用独立来源。检查每条测试扩展的识别与挂载结果，报告已挂载、正常、范围外及待确认数量。
 - 先查 `app/.cac/skills/scene-structured-input/SKILL.md`；已提供核心 JSON 时直接校验。格式有差异时先盘点，只用有原始证据的字段补齐转换，遇到歧义保留待确认。
 

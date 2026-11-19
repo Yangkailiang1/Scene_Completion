@@ -908,6 +908,12 @@ def _attach_entity_units(bundle, output, definitions):
             # A rule that only governs editing must not be re-checked by an
             # operation that merely touches the same entity.
             continue
+        refs = unit.get("source_refs") or step.get("source_refs", [])
+        if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+            refs = (
+                unique([ref for atom in unit.get("atoms") or [unit] for ref in atom["source_refs"]])
+                or refs
+            )
         concern = add_concern(
             output,
             bundle,
@@ -920,7 +926,7 @@ def _attach_entity_units(bundle, output, definitions):
             attribute=unit["attribute"],
             obligation_scope=unit.get("obligation_scope"),
             condition=unit["attribute"] + "：" + _atom_condition(unit),
-            refs=unit.get("source_refs") or step.get("source_refs", []),
+            refs=refs,
             rule_id=RULE_VERSION + ":" + key,
         )
         if concern is None:

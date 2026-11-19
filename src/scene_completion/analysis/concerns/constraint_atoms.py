@@ -380,7 +380,17 @@ def _clause_items(clause, field, refs, state_tag):
     return []
 
 
-def normalize_rules(rules, field, refs, *, tags=None, data_type=None, entity_only=False):
+def normalize_rules(
+    rules,
+    field,
+    refs,
+    *,
+    tags=None,
+    data_type=None,
+    entity_only=False,
+    rule_refs=None,
+    tag_refs=None,
+):
     """Normalize declared rules for one attribute into concerns.
 
     Returns ``{"items": [...], "payload": [...], "unresolved": [...]}``.
@@ -394,14 +404,24 @@ def normalize_rules(rules, field, refs, *, tags=None, data_type=None, entity_onl
     state_tag = bool(re.search(r"status|state", field, re.I) or any(t in tags for t in ("状态",)))
     if entity_only:
         if "必填" in tags or "PK" in tags:
+            required_refs = [ref for tag in ("必填", "PK") for ref in (tag_refs or {}).get(tag, [])]
             out["items"].append(
-                _item(OPERATION_CONCERNS["required"], "required", True, "explicit", refs, field)
+                _item(
+                    OPERATION_CONCERNS["required"],
+                    "required",
+                    True,
+                    "explicit",
+                    required_refs or refs,
+                    field,
+                )
             )
         if data_type:
             out["items"].append(
                 _item(OPERATION_CONCERNS["type"], "type", data_type, "explicit", refs, field)
             )
-    for record in rules or []:
+    field_refs = refs
+    for index, record in enumerate(rules or []):
+        refs = field_refs if rule_refs is None else rule_refs[index]
         rule = record.get("rule") if isinstance(record, dict) else record
         if not isinstance(rule, str) or not rule.strip():
             continue
@@ -506,12 +526,16 @@ def normalize_rules(rules, field, refs, *, tags=None, data_type=None, entity_onl
         out["items"].extend(produced)
     unique = {}
     for item in out["items"]:
-        unique.setdefault(
-            fingerprint(
-                [item["concern_key"], item["operation"], item["value"], item.get("exclusive")]
-            ),
-            item,
+        identity = fingerprint(
+            [item["concern_key"], item["operation"], item["value"], item.get("exclusive")]
         )
+        first = unique.setdefault(identity, item)
+        if first is not item and rule_refs is not None:
+            first["source_refs"] = list(
+                {
+                    fingerprint(ref): ref for ref in first["source_refs"] + item["source_refs"]
+                }.values()
+            )
     out["items"] = list(unique.values())
     return out
 

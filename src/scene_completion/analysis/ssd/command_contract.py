@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 
 from scene_completion.analysis.concerns.constraint_atoms import normalize_rules
-from scene_completion.domain.current_scope import FIRST_CALL_PROFILES
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, FIRST_CALL_PROFILES
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -100,31 +100,48 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
             location = _location(row)
             name = row["name"].removeprefix(f"{location}.")
             origin = row.get("source") or {}
-            refs = unique(
-                [
-                    sources.traced_ref(source, f"{pointer}/attributes/{k}", origin),
-                    *sources.original([origin]),
-                ]
-            )
-            facts = normalize_rules(
-                [], name, refs, tags=row.get("tags"), data_type=row.get("type"), entity_only=True
-            )
-            for n, rule in enumerate(row.get("constraints", [])):
-                if isinstance(rule, dict) and rule.get("source"):
-                    rule_refs = unique(
-                        [
-                            sources.traced_ref(
-                                source, f"{pointer}/attributes/{k}/constraints/{n}", rule["source"]
-                            ),
-                            *sources.original([rule["source"]]),
-                            *refs,
-                        ]
-                    )
-                else:
-                    rule_refs = refs
-                result = normalize_rules([rule], name, rule_refs, entity_only=True)
-                for key in ("items", "unresolved"):
-                    facts[key].extend(result[key])
+            attribute_pointer = f"{pointer}/attributes/{k}"
+            rules = row.get("constraints") or []
+            if selected is not None:
+                refs, rule_refs, tags, tag_refs = sources.attribute_sources(
+                    source, attribute_pointer, row
+                )
+                facts = normalize_rules(
+                    rules,
+                    name,
+                    refs,
+                    tags=tags,
+                    data_type=row.get("type"),
+                    entity_only=True,
+                    rule_refs=rule_refs,
+                    tag_refs=tag_refs,
+                )
+            else:
+                tags = row.get("tags") or []
+                refs = unique(
+                    [
+                        sources.traced_ref(source, attribute_pointer, origin),
+                        *sources.original([origin]),
+                    ]
+                )
+                facts = normalize_rules(
+                    [], name, refs, tags=tags, data_type=row.get("type"), entity_only=True
+                )
+                for n, rule in enumerate(rules):
+                    evidence = refs
+                    if isinstance(rule, dict) and rule.get("source"):
+                        evidence = unique(
+                            [
+                                sources.traced_ref(
+                                    source, f"{attribute_pointer}/constraints/{n}", rule["source"]
+                                ),
+                                *sources.original([rule["source"]]),
+                                *refs,
+                            ]
+                        )
+                    inferred = normalize_rules([rule], name, evidence, entity_only=True)
+                    for key in ("items", "unresolved"):
+                        facts[key].extend(inferred[key])
             fields.append(
                 {
                     "name": name,
@@ -132,11 +149,10 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
                     "location": location,
                     "type": row.get("type"),
                     "entity_binding": row.get("entity_binding"),
-                    "required": True if "必填" in row.get("tags", []) else None,
+                    "required": True if "必填" in tags else None,
                     "constraints": [],
                     "rule_texts": [
-                        rule.get("rule", "") if isinstance(rule, dict) else rule
-                        for rule in row.get("constraints", [])
+                        rule.get("rule", "") if isinstance(rule, dict) else rule for rule in rules
                     ],
                     "atoms": facts["items"],
                     "unresolved": facts["unresolved"],
@@ -363,6 +379,7 @@ def generate_fields(bundle, output):
 
     aliases = {}
     directions = {}
+    precise_sources = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
     for step in bundle["steps"]:
         for field in step["data"]:
             explicit = field.get("entity_binding") or {}
@@ -377,6 +394,7 @@ def generate_fields(bundle, output):
             for atom in field["atoms"]:
                 obligations.setdefault(atom["concern_key"], []).append(atom)
             for key, atoms in obligations.items():
+                atom_refs = unique([ref for atom in atoms for ref in atom["source_refs"]])
                 explicit = field.get("entity_binding") or {}
                 atoms_identity = frozenset(signature(a) for a in atoms)
                 identity = (
@@ -413,15 +431,29 @@ def generate_fields(bundle, output):
                         "entity_id": mapped["entity_id"],
                         "attribute": mapped["attribute"],
                     }
-                    merged_refs = unique(
-                        field["source_refs"] + [ref for a in atoms for ref in a["source_refs"]]
+                    merged_refs = (
+                        atom_refs if precise_sources else unique(field["source_refs"] + atom_refs)
                     )
                     mapped["source_refs"] = unique(mapped["source_refs"] + merged_refs)
                     if first_call:
                         _record_command_sources(mapped, field, include_primary=False)
                     for scene in output["scenarios"]:
                         if mapped["id"] in scene["concern_ids"]:
-                            scene["source_refs"] = unique(scene["source_refs"] + merged_refs)
+                            attribute = mapped["attribute"]
+                            evidence = (
+                                [
+                                    ref
+                                    for atom in atoms
+                                    if scene["condition"]
+                                    == attribute
+                                    + "："
+                                    + _atom_condition({**atom, "attribute": attribute})
+                                    for ref in atom["source_refs"]
+                                ]
+                                if precise_sources
+                                else merged_refs
+                            )
+                            scene["source_refs"] = unique(scene["source_refs"] + evidence)
                             if first_call:
                                 _record_command_sources(scene, field, include_primary=False)
                     continue
@@ -433,7 +465,7 @@ def generate_fields(bundle, output):
                     key,
                     "data",
                     field=field,
-                    refs=field["source_refs"],
+                    refs=atom_refs if precise_sources else field["source_refs"],
                     rule_id="sr-command:" + key,
                 )
                 if not concern:

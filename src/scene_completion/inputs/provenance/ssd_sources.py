@@ -202,6 +202,53 @@ class Sources:
         ]
         return unique(self._original_refs(traces) + (unresolved or [structured]))
 
+    def _attribute_citation(self, name, pointer, definition):
+        from scene_completion.inputs.provenance.source_origins import declared_lines
+
+        source = definition.get("source") if isinstance(definition, dict) else None
+        refs = self.refs({"source_refs": [source] if source else []}, name, pointer)
+        origin = refs[0].get("origin", {})
+        if origin.get("match") == "pending":
+            document = self.documents.get(origin.get("document"))
+            span = declared_lines(origin.get("declared_line"))
+            if document and span:
+                start, end = span
+                lines = document["content"].splitlines()
+                if end <= len(lines):
+                    refs.insert(
+                        0,
+                        {
+                            "document_id": document["id"],
+                            "start_line": start,
+                            "end_line": end,
+                            "quote": "\n".join(lines[start - 1 : end]),
+                            "kind": "context",
+                            "origin": origin,
+                        },
+                    )
+        return refs
+
+    def attribute_sources(self, name, pointer, attribute):
+        """Keep a constraint's own cited location, independently of its declaration."""
+        field_refs = self._attribute_citation(name, pointer, attribute)
+        rule_refs = [
+            self._attribute_citation(name, f"{pointer}/constraints/{index}", rule)
+            for index, rule in enumerate(attribute.get("constraints") or [])
+        ]
+        tags, tag_refs = [], {}
+        for index, item in enumerate(attribute.get("tags") or []):
+            tag = item.get("name") or item.get("tag") if isinstance(item, dict) else item
+            if not isinstance(tag, str) or not tag:
+                continue
+            tags.append(tag)
+            refs = (
+                self._attribute_citation(name, f"{pointer}/tags/{index}", item)
+                if isinstance(item, dict) and item.get("source")
+                else field_refs
+            )
+            tag_refs[tag] = unique(tag_refs.get(tag, []) + refs)
+        return field_refs, rule_refs, tags, tag_refs
+
     def entity_origins(self, entity, attribute=None):
         result = []
         pattern = re.compile(
@@ -508,40 +555,55 @@ def entities_for(
             )
             for row in rows:
                 for an, attr in enumerate(row["attributes"]):
-                    attr_refs = unique(
-                        sources.entity_origins(eid, attr["name"])
-                        + [
-                            sources.traced_ref(
-                                name,
-                                row["pointer"] + f"/attributes/{an}",
-                                attr.get("source") or row["entity"].get("source"),
-                            )
-                        ]
-                    )
+                    attribute_pointer = row["pointer"] + f"/attributes/{an}"
+                    rules = attr.get("constraints") or []
+                    if selected is not None:
+                        attr_refs, rule_refs, tags, tag_refs = sources.attribute_sources(
+                            name, attribute_pointer, attr
+                        )
+                    else:
+                        rule_refs = tag_refs = None
+                        tags = attr.get("tags") or []
+                        attr_refs = unique(
+                            sources.entity_origins(eid, attr["name"])
+                            + [
+                                sources.traced_ref(
+                                    name,
+                                    attribute_pointer,
+                                    attr.get("source") or row["entity"].get("source"),
+                                )
+                            ]
+                        )
                     from scene_completion.analysis.concerns.constraint_atoms import (
                         normalize_rules,
                     )
 
                     normalized = normalize_rules(
-                        attr.get("constraints", []),
+                        rules,
                         attr["name"],
                         attr_refs,
-                        tags=attr.get("tags") or [],
+                        tags=tags,
                         data_type=attr.get("type"),
                         entity_only=entity_only,
+                        rule_refs=rule_refs,
+                        tag_refs=tag_refs,
                     )
+                    simple_constraints = []
+                    for index, rule in enumerate(rules):
+                        text = rule.get("rule", "") if isinstance(rule, dict) else rule
+                        if isinstance(text, str):
+                            simple_constraints.extend(
+                                constraints(
+                                    [re.sub(r"^枚举\s*", "", text)],
+                                    attr["name"],
+                                    attr_refs if rule_refs is None else rule_refs[index],
+                                )
+                            )
                     entry["attributes"].append(
                         {
                             **deepcopy(attr),
                             "source_refs": attr_refs,
-                            "constraints": constraints(
-                                [
-                                    re.sub(r"^枚举\s*", "", r.get("rule", ""))
-                                    for r in attr.get("constraints", [])
-                                ],
-                                attr["name"],
-                                attr_refs,
-                            ),
+                            "constraints": simple_constraints,
                             "atoms": normalized["items"],
                             "payload_fields": normalized["payload"],
                             "unresolved": normalized["unresolved"],

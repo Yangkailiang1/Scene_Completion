@@ -510,3 +510,75 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     )
     found = sources.trace(declared[0])
     assert found["match"] == "located" and found["start_line"] == 2
+
+
+def test_function_tree_uses_each_constraint_and_tag_citation(tmp_path):
+    from shutil import copytree
+
+    from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+
+    raw = tmp_path / "source"
+    copytree(BROWSE, raw)
+    original = raw / "product.md"
+    lines = [
+        '"productId": "P10001"',
+        "商品实体属性的声明位置",
+        "下限引用的实体约束",
+        "上限引用的实体约束",
+        "接口下限的独立约束",
+        "接口上限的独立约束",
+        "标签规定商品号必填",
+        '"productId": "P10001"',
+    ]
+    original.write_text("\n".join(lines), encoding="utf8")
+    (raw / "source-documents.json").write_text(
+        json.dumps({"documents": [{"path": "product.md", "role": "SR", "aliases": ["srSpec"]}]}),
+        encoding="utf8",
+    )
+
+    def cite(line, quote=None):
+        return {"doc": "srSpec", "line": f"L{line}", "quote": quote or lines[line - 1]}
+
+    tree = raw / "功能树.json"
+    payload = json.loads(tree.read_text(encoding="utf8"))
+    sr = payload["functions"][0]["srLayer"]
+    product_id = sr["entities"][0]["attributes"][0]
+    product_id.update(
+        source=cite(2),
+        tags=[{"name": "必填", "source": cite(7)}],
+        constraints=[{"rule": "唯一编号", "error": None, "source": cite(2, lines[0])}],
+    )
+    category = sr["entities"][1]["attributes"][0]
+    wire = next(a for a in sr["commands"][0]["attributes"] if a["name"] == "categoryId")
+    for field, first in ((category, 3), (wire, 5)):
+        field.update(
+            source={**field["source"], **cite(2)},
+            constraints=[
+                {"rule": rule, "source": cite(n)}
+                for rule, n in ((">= 1", first), ("<= 100", first + 1))
+            ],
+        )
+    tree.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf8")
+    core = tmp_path / "core"
+    convert(raw, core, profile=COMMAND_OPERATION_PROFILE)
+    bundle = build_cases(core)[0]
+    document = next(d["id"] for d in bundle["documents"] if d["name"] == "product.md")
+
+    def cited_lines(refs):
+        return sorted({r["start_line"] for r in refs if r["document_id"] == document})
+
+    product_id = bundle["entities"][0]["attributes"][0]
+    unique_rule = product_id["unresolved"][0]
+    assert unique_rule["text"] == "唯一编号"
+    assert cited_lines(unique_rule["source_refs"]) == [2]
+    assert unique_rule["source_refs"][0]["origin"]["match"] == "pending"
+    assert unique_rule["source_refs"][1]["json_pointer"].endswith("/constraints/0")
+    assert cited_lines(
+        next(a for a in product_id["atoms"] if a["operation"] == "required")["source_refs"]
+    ) == [7]
+    rows = {
+        row["condition"].split("：", 1)[-1]: cited_lines(row["source_refs"])
+        for row in bundle["channels"]["G"]["scenarios"]
+        if row.get("attribute") == "category_id" and row["key"] == "api.data.range"
+    }
+    assert rows == {"category_id < 1": [3, 5], "category_id > 100": [4, 6]}
