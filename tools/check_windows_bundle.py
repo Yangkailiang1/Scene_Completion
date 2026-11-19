@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import time
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -131,6 +132,135 @@ def verify_portable_layout(bundle):
     return {"portable_test_modules": len(collected), "portable_resources": "passed"}
 
 
+def local_cli(work, *args):
+    cli = subprocess.run(
+        [
+            "cmd.exe",
+            "/d",
+            "/c",
+            "scene.cmd",
+            "--local",
+            "--data-dir",
+            "data",
+            "--env-file",
+            ".env",
+            *args,
+        ],
+        cwd=work,
+        capture_output=True,
+        encoding="utf8",
+        timeout=30,
+    )
+    if cli.returncode:
+        raise RuntimeError("Local CLI failed: " + cli.stdout + cli.stderr)
+    return json.loads(cli.stdout)
+
+
+def verify_deep_materials(work, request):
+    source = work.parent / "长路径输入"
+    relative = Path("cases") / ("业务 数据" * 20) / ("结构 文件" * 20)
+    case = source / relative / "authoring-case.json"
+    spec = source / relative / "系统需求_spec.md"
+    assert len(str(case)) > 260
+    extended = Path("\\\\?\\" + str(case))
+    extended.parent.mkdir(parents=True, exist_ok=True)
+    quote = "用户读取条目。"
+    extended.with_name(spec.name).write_text("# 需求\n" + quote + "\n", encoding="utf8")
+    extended.write_text(
+        json.dumps(
+            {
+                "version": "authoring-case-v1",
+                "case": {"id": "UC-LONG", "name": "长路径建档"},
+                "steps": [
+                    {
+                        "id": "S1",
+                        "order": 1,
+                        "sender": {"id": "user", "kind": "external_actor"},
+                        "receiver": {"id": "system", "kind": "internal_service"},
+                        "operation": {"name": "读取条目", "crud": ["read"]},
+                        "source_refs": [
+                            {"document": spec.name, "start_line": 2, "end_line": 2, "quote": quote}
+                        ],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf8",
+    )
+    if os.environ.get("SCENE_VERIFY_LEGACY_MAX_PATH") == "1":
+        try:
+            case.read_bytes()
+        except OSError as error:
+            if getattr(error, "winerror", None) not in {2, 3, 206} and error.errno != 2:
+                raise
+        else:
+            raise AssertionError("The control read did not reproduce the Windows MAX_PATH error")
+
+    web = json.loads(
+        request(
+            "/api/projects/from-input-bundle",
+            {"name": "长路径网页建档", "directory": str(source), "adopt_partial": True},
+        )
+    )
+    cli = local_cli(
+        work, "create", "--name", "长路径CLI建档", "--input-dir", str(source), "--adopt-partial"
+    )
+    assert web["input_bundle"]["saved"] and cli["input_bundle"]["saved"]
+    assert local_cli(work, "status", "--project", web["id"])["job"]["status"] == "ready"
+
+    code = r"""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "app/src"))
+from scene_completion.infrastructure.storage import io_path, read_json
+from scene_completion.application.execution import Execution
+from scene_completion.application.ssd_revision_service import editor
+from scene_completion.workflow.ssd_pipeline import build_structured, input_directory
+for rid in sys.argv[1:3]:
+    project = Path.cwd() / "data" / rid
+    point = read_json(project / "imports/ssd-input.json")
+    assert not Path(point["path"]).anchor
+    relative = Path(sys.argv[3])
+    frozen = project / point["path"] / relative
+    assert len(str(frozen)) > 260 and io_path(frozen).is_file()
+    ex = Execution(project / "run", case_ids=["UC-LONG"])
+    assert ex.client is None
+    assert build_structured(ex, input_directory(ex))
+    assert ex.scheduler.run()["complete"]
+    task = ex.scheduler.state["tasks"]["UC-LONG:ssd-prepare"]
+    assert task["status"] == "passed"
+    assert any(
+        ref.get("origin", {}).get("start_line") == 2
+        for ref in editor(project, "UC-LONG")["bundle"]["steps"][0]["source_refs"]
+    )
+"""
+    result = subprocess.run(
+        [
+            str(work / "python/python.exe"),
+            "-X",
+            "utf8",
+            "-c",
+            code,
+            web["id"],
+            cli["id"],
+            (relative / case.name).as_posix(),
+        ],
+        cwd=work,
+        capture_output=True,
+        encoding="utf8",
+        timeout=90,
+    )
+    if result.returncode:
+        raise RuntimeError("Deep Windows path failed during SSD preparation: " + result.stderr)
+    origin = urllib.parse.quote("origin:" + (relative / spec.name).as_posix(), safe="")
+    view = json.loads(
+        request(f"/api/projects/{web['id']}/sources/{origin}?start=2&end=2&context=0")
+    )
+    assert view["lines"] == [{"number": 2, "text": quote}]
+    return {"long_path_cli_and_web_create": "passed", "long_path_ssd_and_provenance": "passed"}
+
+
 def smoke(bundle):
     if os.name != "nt":
         raise RuntimeError(
@@ -246,29 +376,8 @@ def smoke(bundle):
             )
             view = json.loads(request("/api/projects/" + meta["id"] + "/test-sources"))
             assert view["preview"]["counts"] == preview["counts"]
-            cli = subprocess.run(
-                [
-                    "cmd.exe",
-                    "/d",
-                    "/c",
-                    "scene.cmd",
-                    "--local",
-                    "--data-dir",
-                    "data",
-                    "--env-file",
-                    ".env",
-                    "status",
-                    "--project",
-                    meta["id"],
-                ],
-                cwd=work,
-                capture_output=True,
-                encoding="utf8",
-                timeout=30,
-            )
-            if cli.returncode:
-                raise RuntimeError("Local CLI startup failed: " + cli.stdout + cli.stderr)
-            assert json.loads(cli.stdout)["job"]["status"] == "ready"
+            assert local_cli(work, "status", "--project", meta["id"])["job"]["status"] == "ready"
+            path_checks = verify_deep_materials(work, request)
             print(
                 json.dumps(
                     {
@@ -283,6 +392,7 @@ def smoke(bundle):
                         "model_calls": 0,
                         **worker_checks,
                         **portable_checks,
+                        **path_checks,
                     },
                     ensure_ascii=False,
                 ),

@@ -37,10 +37,15 @@ class API:
                 return json.load(r)
         except urllib.error.HTTPError as e:
             try:
-                detail = json.loads(e.read()).get("detail", "操作失败")
+                detail = json.loads(e.read())
+                message = detail.get("detail", "操作失败")
+                failure = detail.get("create_failure")
             except (ValueError, AttributeError):
-                detail = "操作失败"
-            raise ValueError(f"工作台HTTP {e.code}: {detail}") from None
+                message, failure = "操作失败", None
+            error = ValueError(f"工作台HTTP {e.code}: {message}")
+            if isinstance(failure, dict):
+                error.create_failure = failure
+            raise error from None
         except urllib.error.URLError:
             raise ValueError("无法连接本机工作台，请先启动serve.py并保持运行") from None
 
@@ -618,17 +623,22 @@ def main(argv=None, client=None):
         output(api.call("model-accounts", body, "PUT"))
         return 0
     if args.command == "create":
+        from scene_completion.infrastructure.storage import create_io, io_path, logical_path
+
         if args.input_manifest or args.input_dir:
             from scene_completion.inputs.documents.input_bundles import discover
 
             if args.input_manifest and args.input_dir:
                 raise ValueError("--input-manifest与--input-dir不能同时提供")
             selection = (
-                {"paths": json.loads(Path(args.input_manifest).read_text(encoding="utf-8-sig"))}
+                {"paths": json.loads(io_path(args.input_manifest).read_text(encoding="utf-8-sig"))}
                 if args.input_manifest
-                else {"directory": str(Path(args.input_dir).resolve())}
+                else {"directory": str(logical_path(io_path(args.input_dir).resolve()))}
             )
-            preview, found = discover(**selection)
+            with create_io(
+                "读取输入材料", selection.get("directory") or Path(args.input_manifest).parent
+            ):
+                preview, found = discover(**selection)
             if (
                 args.input_manifest
                 or any(k in found for k in ("RR", "SR"))
@@ -657,7 +667,7 @@ def main(argv=None, client=None):
         if args.input_dir:
             from scene_completion.inputs.imports.artifact_imports import role_hint
 
-            directory = Path(args.input_dir).resolve()
+            directory = io_path(args.input_dir).resolve()
             if not directory.is_dir():
                 raise ValueError("input目录不存在")
             for file in directory.iterdir():
@@ -680,12 +690,13 @@ def main(argv=None, client=None):
         for role in ("rr", "sr", "test"):
             sources["test" if role == "test" else role.upper()] = []
             for name in getattr(args, role):
-                file = Path(name)
+                file = io_path(name)
                 row = {"name": file.name}
-                if file.suffix.lower() == ".xlsx" and role == "test":
-                    row["content_base64"] = base64.b64encode(file.read_bytes()).decode()
-                else:
-                    row["content"] = file.read_text(encoding="utf-8-sig")
+                with create_io("读取输入材料", file.parent):
+                    if file.suffix.lower() == ".xlsx" and role == "test":
+                        row["content_base64"] = base64.b64encode(file.read_bytes()).decode()
+                    else:
+                        row["content"] = file.read_text(encoding="utf-8-sig")
                 sources["test" if role == "test" else role.upper()].append(row)
         value = api.call(
             "projects",
@@ -700,7 +711,7 @@ def main(argv=None, client=None):
         if args.input_dir:
             api.call(
                 "projects/" + value["id"] + "/input-scan",
-                {"directory": str(Path(args.input_dir).resolve()), "watch": True},
+                {"directory": str(logical_path(directory)), "watch": True},
             )
         output(value)
         return 0
@@ -1175,7 +1186,10 @@ def entry():
     try:
         return main()
     except (ValueError, OSError) as e:
-        output({"error": str(e)})
+        result = {"error": str(e)}
+        if hasattr(e, "create_failure"):
+            result["create_failure"] = e.create_failure
+        output(result)
         return 2
     except Exception as e:
         output(

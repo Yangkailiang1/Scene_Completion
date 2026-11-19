@@ -78,6 +78,11 @@ def create_app(root=None, client_factory=None, env_file=None):
                             if hasattr(e, "import_preview")
                             else {}
                         ),
+                        **(
+                            {"create_failure": e.create_failure}
+                            if hasattr(e, "create_failure")
+                            else {}
+                        ),
                     },
                     ensure_ascii=False,
                 ),

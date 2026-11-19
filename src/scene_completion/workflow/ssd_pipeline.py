@@ -10,7 +10,7 @@ from scene_completion.domain.current_scope import STRUCTURED_PROFILES
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure import ssd_repository
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, read_json, write_json
 from scene_completion.workflow.ssd_stages import MERGE_STAGE
 from scene_completion.workflow.ssd_stages import label as stage_label
 from scene_completion.workflow_core import Task
@@ -25,7 +25,7 @@ def enabled(ex):
 
 def input_directory(ex):
     """Reconstruct frozen uploaded paths, never re-read mutable external inputs."""
-    project = getattr(ex, "source_project", ex.root.parent)
+    project = io_path(getattr(ex, "source_project", ex.root.parent)).resolve()
     pointer = project / "imports/ssd-input.json"
     if pointer.exists():
         root = (project / read_json(pointer)["path"]).resolve()
@@ -35,7 +35,7 @@ def input_directory(ex):
     if not any((r.get("behavior_product") or {}).get("kind") == "system_operations" for r in rows):
         return None
     root = (
-        (ex.root.parent if getattr(ex, "is_preview", False) else project)
+        (io_path(ex.root.parent) if getattr(ex, "is_preview", False) else project)
         / "imports/ssd-inputs"
         / fingerprint(rows)
     )
@@ -529,15 +529,16 @@ def build_structured(ex, directory):
             bundle = ssd_validation.validate(bundles[0])
             # Pin the exact model-independent core used for all downstream stages.
             normalized = ex.root / "structured-cores" / fingerprint(bundle)[:24]
-            if not normalized.is_dir():
-                normalized.parent.mkdir(parents=True, exist_ok=True)
-                with TemporaryDirectory(dir=normalized.parent) as staging:
+            destination = io_path(normalized)
+            if not destination.is_dir():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                with TemporaryDirectory(dir=destination.parent) as staging:
                     staged = Path(staging) / "core"
                     write_core(directory, staged, [bundle])
                     try:
-                        staged.rename(normalized)
+                        staged.rename(destination)
                     except FileExistsError:
-                        if not normalized.is_dir():
+                        if not destination.is_dir():
                             raise
             bundle["core_snapshot"] = normalized.relative_to(ex.root).as_posix()
             bundle["registry"] = deepcopy(ex.registry_snapshot)

@@ -4,7 +4,7 @@ import re
 from copy import deepcopy
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.infrastructure.storage import fingerprint, io_path, logical_path
 
 # Section-level exclusion, including numbered use-case sections in existing specs.
 EXCEPTION = re.compile(
@@ -17,11 +17,11 @@ SECTION = re.compile(r"^\s*(?:#{1,6}\s+|\d+[.、]\s*|\*\*\d+[.、]\s*)")
 def read_documents(paths, channel):
     docs = []
     for path in paths:
-        p = Path(path)
+        p = io_path(path)
         if p.suffix.lower() == ".xlsx" and channel == "test":
             from scene_completion.inputs.provenance.test_sources import xlsx_documents
 
-            docs.extend(xlsx_documents(p.read_bytes(), p.name, str(p.resolve())))
+            docs.extend(xlsx_documents(p.read_bytes(), p.name, str(logical_path(p.resolve()))))
             continue
         if p.suffix.lower() not in {".md", ".markdown", ".json"}:
             raise ValueError(
@@ -46,7 +46,7 @@ def read_documents(paths, channel):
         lines = text.splitlines()
         docs.append(
             {
-                "source_id": fingerprint(str(p.resolve()))[:20],
+                "source_id": fingerprint(str(logical_path(p.resolve())))[:20],
                 "name": p.name,
                 "channel": channel,
                 "lines": [{"number": i, "text": s} for i, s in enumerate(lines, 1)],

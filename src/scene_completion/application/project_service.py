@@ -2,6 +2,9 @@
 
 import io
 import json
+import os
+import shutil
+import tempfile
 import time
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
@@ -11,7 +14,14 @@ from uuid import uuid4
 
 from scene_completion.domain.contracts import PROTOCOL
 from scene_completion.infrastructure.paths import PROGRAM_ROOT
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import (
+    create_io,
+    fingerprint,
+    io_path,
+    logical_path,
+    read_json,
+    write_json,
+)
 from scene_completion.infrastructure.worker_runtime import read_job
 from scene_completion.review.decisions.project_review import project_scoped
 
@@ -21,8 +31,9 @@ WEB = PROJECT / "web"
 
 class Workbench:
     def __init__(self, root, client_factory=None, env_file=None, worker=False):
-        self.root = Path(root).resolve()
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.root = logical_path(io_path(root).resolve())
+        with create_io("准备项目目录", self.root):
+            io_path(self.root).mkdir(parents=True, exist_ok=True)
         self.env_file = Path(env_file or PROJECT / ".env")
         self.review_only = (self.root / ".review-mode.json").exists()
         self.pool = ThreadPoolExecutor(max_workers=2)
@@ -43,11 +54,11 @@ class Workbench:
         if len(run_id) != 32 or any(c not in "0123456789abcdef" for c in run_id):
             raise ValueError("invalid project id")
         p = self.root / run_id
-        if not (p / "project.json").is_file():
+        if not io_path(p / "project.json").is_file():
             raise ValueError("unknown project")
-        return p.resolve()
+        return logical_path(io_path(p).resolve())
 
-    def create(self, body):
+    def create(self, body, *, initialize=None):
         name = body.get("name", "").strip()
         if not name:
             raise ValueError("请填写项目名称")
@@ -75,19 +86,6 @@ class Workbench:
         ):
             raise ValueError("invalid use-case scope")
         rid = uuid4().hex
-        p = self.root / rid
-        p.mkdir()
-        for role in ("RR", "SR", "AR", "test"):
-            saved[role] = []
-            for idx, d in enumerate(sources.get(role, [])):
-                from scene_completion.inputs.provenance.test_sources import decode_source
-
-                content, suffix = decode_source(d, role)
-                filename = f"sources/{role}-{idx}{suffix}"
-                target = p / filename
-                target.parent.mkdir(exist_ok=True)
-                target.write_bytes(content)
-                saved[role].append({"path": filename, "name": Path(d["name"]).name})
         from scene_completion.analysis.concerns.normal_rules import RULESET_VERSION
 
         meta = {
@@ -103,11 +101,32 @@ class Workbench:
         }
         if supplied_default:
             meta["supplied_only_default"] = True
-        write_json(p / "project.json", meta)
-        from scene_completion.review.decisions.project_review import project_registry
+        with create_io("保存项目", self.root):
+            stage = Path(tempfile.mkdtemp(prefix=".create-", dir=io_path(self.root)))
+            p = stage / rid
+            try:
+                p.mkdir()
+                for role in ("RR", "SR", "AR", "test"):
+                    saved[role] = []
+                    for idx, d in enumerate(sources.get(role, [])):
+                        from scene_completion.inputs.provenance.test_sources import decode_source
 
-        project_registry(p)
-        return meta
+                        content, suffix = decode_source(d, role)
+                        filename = f"sources/{role}-{idx}{suffix}"
+                        target = io_path(p / filename)
+                        target.parent.mkdir(exist_ok=True)
+                        target.write_bytes(content)
+                        saved[role].append({"path": filename, "name": Path(d["name"]).name})
+                write_json(p / "project.json", meta)
+                from scene_completion.review.decisions.project_review import project_registry
+
+                project_registry(p)
+                if initialize is not None:
+                    imported = initialize(p)
+                os.rename(p, io_path(self.root / rid))
+            finally:
+                shutil.rmtree(stage, ignore_errors=True)
+        return {**meta, "input_bundle": imported} if initialize is not None else meta
 
     def test_sources(self, rid, body=None):
         from scene_completion.inputs.documents.source_documents import read_project_documents
@@ -215,7 +234,7 @@ class Workbench:
 
     def list(self):
         return sorted(
-            [read_json(p) for p in self.root.glob("*/project.json")],
+            [read_json(p) for p in io_path(self.root).glob("*/project.json")],
             key=lambda x: x["created_at"],
             reverse=True,
         )
@@ -377,6 +396,7 @@ class Workbench:
         root = self.run_dir(rid)
         rows = snapshot(root)
         preview, _, _, accepted = inspect_cases(rows, case_ids)
+        root = io_path(root)
         point = root / "imports/ssd-input.json"
         if point.is_file():
             inputs = (root / read_json(point)["path"]).resolve()

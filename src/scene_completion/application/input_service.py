@@ -7,7 +7,14 @@ from pathlib import Path
 from threading import Event, RLock, Thread
 
 import scene_completion.inputs.imports.artifact_imports as artifacts
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import (
+    create_io,
+    fingerprint,
+    io_path,
+    logical_path,
+    read_json,
+    write_json,
+)
 
 LOCK = RLock()
 EXCLUDED = {
@@ -35,7 +42,9 @@ def watch_settings(project, body=None):
         return {k: v for k, v in value.items() if k != "observed"}
     if body.get("expected_revision") is not None and body["expected_revision"] != value["revision"]:
         raise ValueError("扫描设置已变化")
-    directory = Path(body.get("directory") or value.get("directory") or "").expanduser().resolve()
+    directory = io_path(
+        Path(body.get("directory") or value.get("directory") or "").expanduser()
+    ).resolve()
     if not directory.is_dir():
         raise ValueError("input目录不存在，请填写服务所在电脑的本地目录")
     if directory == Path(directory.anchor):
@@ -48,7 +57,7 @@ def watch_settings(project, body=None):
         raise ValueError("请登记专用材料目录，不扫描程序或凭证目录")
     row = {
         **value,
-        "directory": str(directory),
+        "directory": str(logical_path(directory)),
         "watch": body.get("watch", value["watch"]),
         "mode": body.get("mode", value.get("mode", "auto")),
         "revision": value["revision"] + 1,
@@ -57,7 +66,7 @@ def watch_settings(project, body=None):
         raise ValueError("扫描模式必须为auto、bundle或generic")
     if type(row["watch"]) is not bool:
         raise ValueError("watch必须为布尔值")
-    if str(directory) != value.get("directory"):
+    if row["directory"] != value.get("directory"):
         row["observed"] = {}
     if body.get("dry_run"):
         return {"saved": False, **{k: v for k, v in row.items() if k != "observed"}}
@@ -72,7 +81,7 @@ def scan(project, service=None):
         if not cfg.exists():
             return {"received": [], "waiting": 0}
         setting = read_json(cfg)
-        root = Path(setting["directory"]).resolve()
+        root = io_path(setting["directory"]).resolve()
         received = []
         waiting = 0
         seen = {}
@@ -277,7 +286,7 @@ def accept_source(service, p, row, body):
     role = body.get("role", row["role"])
     if role not in {"RR", "SR", "test"}:
         raise ValueError("请选择来源用途")
-    raw = (p / row["original"]).read_bytes()
+    raw = io_path(p / row["original"]).read_bytes()
     import base64
 
     from scene_completion.inputs.provenance.test_sources import decode_source
@@ -307,7 +316,7 @@ def accept_source(service, p, row, body):
     if role == "test":
         version = fingerprint(
             [
-                (f["name"], fingerprint((p / f["path"]).read_bytes().hex()))
+                (f["name"], fingerprint(io_path(p / f["path"]).read_bytes().hex()))
                 for f in meta["sources"][role]
             ]
         )[:20]
@@ -348,9 +357,10 @@ def idle(service, project):
 def create_bundle(service, body: dict):
     from scene_completion.inputs.documents.input_bundles import apply, discover, validate_files
 
-    preview, files = discover(
-        directory=body.get("directory"), paths=body.get("paths"), files=body.get("files")
-    )
+    with create_io("读取输入材料", body.get("directory") or service.root):
+        preview, files = discover(
+            directory=body.get("directory"), paths=body.get("paths"), files=body.get("files")
+        )
     supplied = bool(preview["supplied_cases"]["accepted"])
     adopt = bool(body.get("adopt_partial", False))
     # A per-case authoring file is already the structured use case; RR/SR
@@ -384,7 +394,14 @@ def create_bundle(service, body: dict):
                 "content": base64.b64decode(files["test"]["content_base64"]).decode("utf-8-sig"),
             }
         ]
-    meta = service.create(
+
+    def initialize(project):
+        with create_io("保存原始材料", project):
+            install_materials(project, files)
+        with create_io("保存结构化快照", project):
+            return apply(service, project, preview, files, adopt_partial=adopt)
+
+    return service.create(
         {
             "name": body.get("name", ""),
             "sources": sources,
@@ -392,12 +409,9 @@ def create_bundle(service, body: dict):
             "evaluation_scope": body.get("evaluation_scope", "SR"),
             "case_ids": body.get("case_ids", []),
             "supplied_only_default": (supplied or authored) and adopt,
-        }
+        },
+        initialize=initialize,
     )
-    project = service.run_dir(meta["id"])
-    install_materials(project, files)
-    imported = apply(service, project, preview, files, adopt_partial=adopt)
-    return {**meta, "input_bundle": imported}
 
 
 def install_materials(project, files):
@@ -417,12 +431,12 @@ def install_materials(project, files):
         parts = Path(relative).parts
         if (
             ".." in parts
-            or Path(relative).is_absolute()
+            or Path(relative).anchor
             or not relative
             or any(part.startswith(".") for part in parts)
         ):
             raise ValueError("材料路径无效：" + relative)
-        target = material / relative
+        target = io_path(material / relative)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(base64.b64decode(f["content_base64"]))
 

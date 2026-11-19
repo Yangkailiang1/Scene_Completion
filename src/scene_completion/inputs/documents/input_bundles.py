@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, read_json, write_json
 from scene_completion.inputs.structured.colleague_formats import format_of
 from scene_completion.inputs.structured.recovered_tests import json_cases, parsed
 from scene_completion.inputs.structured.structure_models import recognized
@@ -86,8 +86,9 @@ def discover_material(*, directory=None, paths=None, files=None):
     ignored = []
     if directory is not None:
         root = Path(directory).expanduser()
-        if not root.is_absolute() or not root.is_dir() or root == Path(root.anchor):
+        if not root.is_absolute() or not io_path(root).is_dir() or root == Path(root.anchor):
             raise ValueError("请指定专用输入文件夹的绝对路径")
+        root = io_path(root)
         if (root / ".git").exists() or (root / "serve.py").exists():
             raise ValueError("不能扫描程序仓库，请选择材料文件夹")
         for parent, dirs, names in os.walk(root, followlinks=False):
@@ -118,12 +119,12 @@ def discover_material(*, directory=None, paths=None, files=None):
             p = Path(path).expanduser()
             if (
                 not p.is_absolute()
-                or not p.is_file()
-                or p.is_symlink()
+                or not io_path(p).is_file()
+                or io_path(p).is_symlink()
                 or p.suffix.lower() != ".json"
             ):
                 raise ValueError(role + "必须是现有JSON文件的绝对路径")
-            candidates.append((p.name, p, role))
+            candidates.append((p.name, io_path(p), role))
     else:
         if (
             not isinstance(files, list)
@@ -544,7 +545,7 @@ def apply(
             digest = fingerprint(base64.b64decode(f["content_base64"]).hex())
             if not any(
                 s.get("path") == row["original"]
-                or fingerprint((project / s["path"]).read_bytes().hex()) == digest
+                or fingerprint(io_path(project / s["path"]).read_bytes().hex()) == digest
                 for s in meta["sources"]["test"]
             ):
                 accept_source(
@@ -584,14 +585,14 @@ def apply(
     snapshot_root = project / "imports/ssd-inputs" / preview["preview_hash"]
     for f in files.values():
         relative = Path(f.get("relative_path") or f["name"])
-        if relative.is_absolute() or ".." in relative.parts:
+        if relative.anchor or ".." in relative.parts:
             raise ValueError("输入文件相对路径无效")
-        destination = snapshot_root / relative
+        destination = io_path(snapshot_root / relative)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(base64.b64decode(f["content_base64"]))
     write_json(
         project / "imports/ssd-input.json",
-        {"path": str(snapshot_root.relative_to(project)), "hash": preview["preview_hash"]},
+        {"path": snapshot_root.relative_to(project).as_posix(), "hash": preview["preview_hash"]},
     )
     return {
         **preview,

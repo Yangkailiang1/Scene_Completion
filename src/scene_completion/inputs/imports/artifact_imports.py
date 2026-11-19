@@ -6,7 +6,7 @@ import re
 import time
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, read_json, write_json
 from scene_completion.inputs.documents.source_documents import normal_projection
 from scene_completion.inputs.imports.artifact_adoption import candidate as candidate
 from scene_completion.inputs.imports.artifact_adoption import decide as decide
@@ -148,9 +148,9 @@ def receive(project, files):
                 out.append({"id": iid, "duplicate": True})
                 continue
             folder = project / "imports/files" / iid
-            folder.mkdir(parents=True, exist_ok=True)
-            (folder / "original").mkdir(exist_ok=True)
-            (folder / "original" / name).write_bytes(raw)
+            original = io_path(folder / "original" / name)
+            original.parent.mkdir(parents=True, exist_ok=True)
+            original.write_bytes(raw)
             text = raw.decode("utf-8-sig") if Path(name).suffix.lower() != ".xlsx" else ""
             role = f.get("role") or role_hint(name, text)
             from scene_completion.inputs.structured.structure_models import compile_model
@@ -168,8 +168,8 @@ def receive(project, files):
                 r
                 for r, files in meta["sources"].items()
                 for source in files
-                if (project / source["path"]).is_file()
-                and (project / source["path"]).read_bytes() == raw
+                if io_path(project / source["path"]).is_file()
+                and io_path(project / source["path"]).read_bytes() == raw
             ]
             if len(set(bound)) == 1:
                 role = bound[0]

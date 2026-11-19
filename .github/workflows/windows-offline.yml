@@ -39,7 +39,23 @@ jobs:
           & dist/scene-completion-windows-x64/python/python.exe -X utf8 -m pytest dist/scene-completion-windows-x64/app/tests/portable -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Native portable launcher and web acceptance
-        run: python tools/check_windows_bundle.py dist/scene-completion-windows-x64
+        shell: pwsh
+        env:
+          SCENE_VERIFY_LEGACY_MAX_PATH: "1"
+        run: |
+          $key = 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem'
+          $previous = Get-ItemPropertyValue -Path $key -Name LongPathsEnabled -ErrorAction SilentlyContinue
+          try {
+            New-ItemProperty -Path $key -Name LongPathsEnabled -Value 0 -PropertyType DWord -Force | Out-Null
+            python tools/check_windows_bundle.py dist/scene-completion-windows-x64
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            if ($null -eq $previous) {
+              Remove-ItemProperty -Path $key -Name LongPathsEnabled
+            } else {
+              Set-ItemProperty -Path $key -Name LongPathsEnabled -Value $previous
+            }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: scene-completion-windows-x64

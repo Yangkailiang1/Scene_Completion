@@ -215,6 +215,63 @@ def test_http_create_bundle_and_review_mode_protection(tmp_path):
         )
 
 
+def test_create_rolls_back_a_failed_snapshot_and_reports_the_write(tmp_path, monkeypatch, capsys):
+    import errno
+    import sys
+
+    from scene_completion.cli.main import entry
+
+    paths = write_folder(tmp_path / "input")
+    data = tmp_path / "data"
+    original = Path.write_bytes
+    attempts = 0
+
+    def fail_second_write(path, content):
+        nonlocal attempts
+        if "ssd-inputs" in path.parts:
+            attempts += 1
+            if attempts % 2 == 0:
+                raise OSError(errno.ENAMETOOLONG, "fixture", str(path))
+        return original(path, content)
+
+    with TestClient(create_app(data)) as client:
+        body = {"name": "回滚检查", "paths": paths, "adopt_partial": True}
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "write_bytes", fail_second_write)
+            failed = client.post("/api/projects/from-input-bundle", json=body)
+            assert failed.status_code == 400
+            failure = failed.json()["create_failure"]
+            assert failure["stage"] == "保存结构化快照"
+            assert failure["relative_path"].startswith("imports/ssd-inputs/")
+            assert failure["errno"] == errno.ENAMETOOLONG
+            patch.setattr(
+                sys,
+                "argv",
+                [
+                    "scene.py",
+                    "--local",
+                    "--data-dir",
+                    str(data),
+                    "create",
+                    "--name",
+                    "回滚检查",
+                    "--input-dir",
+                    str(tmp_path / "input"),
+                    "--adopt-partial",
+                ],
+            )
+            assert entry() == 2
+            assert (
+                json.loads(capsys.readouterr().out)["create_failure"]["stage"] == failure["stage"]
+            )
+        assert client.get("/api/projects").json() == []
+        assert not list(data.glob(".create-*"))
+        retry = client.post("/api/projects/from-input-bundle", json=body)
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["input_bundle"]["saved"]
+        assert [p["id"] for p in client.get("/api/projects").json()] == [retry.json()["id"]]
+
+
 def test_cli_discovers_recursive_bundle_and_exposes_explicit_manifest(tmp_path, capsys):
     from scene_completion.cli.main import capabilities, main
 

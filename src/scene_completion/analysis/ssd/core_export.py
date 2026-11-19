@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scene_completion.analysis.ssd.pipeline import _input_root, build_cases
 from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
-from scene_completion.infrastructure.storage import fingerprint, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, logical_path, write_json
 
 
 def _documents(bundle):
@@ -220,7 +220,7 @@ def _architecture(bundles):
 
 
 def export_core(directory, output, case_ids=None):
-    root, output = _input_root(directory), Path(output).resolve()
+    root, output = _input_root(directory), io_path(output).resolve()
     if output.exists():
         raise ValueError("核心文件请导出到新的目录")
     return write_core(root, output, build_cases(root, case_ids, generate=False))
@@ -228,7 +228,7 @@ def export_core(directory, output, case_ids=None):
 
 def write_core(root, output, bundles):
     """Materialize the normalized cases without generating or running model nodes."""
-    root, output = Path(root), Path(output)
+    root, output = io_path(root), io_path(output)
     variants = defaultdict(set)
     for bundle in bundles:
         for step in bundle["steps"]:
@@ -374,4 +374,7 @@ def write_core(root, output, bundles):
             output / "source-documents.json",
             {"documents": [{"path": name, "role": role} for name, role in sorted(names.items())]},
         )
-    return {"output": str(output), "case_ids": [bundle["case"]["id"] for bundle in bundles]}
+    return {
+        "output": str(logical_path(output)),
+        "case_ids": [bundle["case"]["id"] for bundle in bundles],
+    }

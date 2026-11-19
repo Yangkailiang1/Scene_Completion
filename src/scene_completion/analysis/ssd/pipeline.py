@@ -20,6 +20,7 @@ from scene_completion.domain.ssd.construction import (
     pending,
     unique,
 )
+from scene_completion.infrastructure.storage import io_path
 from scene_completion.inputs.provenance.ssd_sources import (
     Sources,
     api_contracts,
@@ -1002,7 +1003,7 @@ def origin_documents(root):
     """Original requirement/design documents shipped beside structured inputs."""
     from scene_completion.inputs.provenance import source_origins
 
-    root = Path(root).resolve()
+    root = io_path(root).resolve()
     manifest = root / "source-documents.json"
     declared = {}
     if manifest.is_file():
@@ -1074,7 +1075,7 @@ def walk_refs(value):
 
 
 def _input_root(directory):
-    root = Path(directory).resolve()
+    root = io_path(directory).resolve()
     return root / "输入文件" if (root / "输入文件").is_dir() else root
 
 
@@ -1088,7 +1089,7 @@ def case_identity(file, directory, raw=None):
     file = Path(file)
     if not file.is_absolute():
         file = root / file
-    file = file.resolve()
+    file = io_path(file).resolve()
     relative = file.parent.relative_to(root)
     if raw is None:
         raw = json.loads(file.read_text(encoding="utf-8-sig"))
@@ -1125,7 +1126,7 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
         entries = []
         for value in case_files:
             file = Path(value)
-            file = (file if file.is_absolute() else root / file).resolve()
+            file = io_path(file if file.is_absolute() else root / file).resolve()
             if (
                 not file.is_relative_to(root)
                 or file.name not in authoring_cases.FILES

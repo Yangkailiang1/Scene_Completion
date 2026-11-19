@@ -8,7 +8,7 @@ from scene_completion.analysis.ssd.core_export import write_core
 from scene_completion.analysis.ssd.pipeline import _input_root, build_cases, case_identity
 from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
 from scene_completion.domain.ssd.validation import validate
-from scene_completion.infrastructure.storage import fingerprint, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, logical_path, write_json
 from scene_completion.inputs.structured.authoring_cases import discover
 
 FORMATS = {
@@ -280,7 +280,7 @@ def _apply(root, output, overrides, input_hash):
 def convert(directory, destination, cases=None, overrides=None, *, profile=None):
     from tempfile import TemporaryDirectory
 
-    root, output = _input_root(directory), Path(destination).resolve()
+    root, output = _input_root(directory), io_path(destination).resolve()
     if not root.is_dir():
         raise ValueError("输入目录不存在")
     if output.exists() or output.is_relative_to(root):
@@ -306,7 +306,7 @@ def convert(directory, destination, cases=None, overrides=None, *, profile=None)
         core.rename(output)
     return {
         **report,
-        "output": str(output),
+        "output": str(logical_path(output)),
         "input_hash": input_hash,
         "issues": issues + validation["issues"],
     }

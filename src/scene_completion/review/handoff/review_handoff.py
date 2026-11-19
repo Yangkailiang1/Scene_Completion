@@ -15,7 +15,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, read_json, write_json
 from scene_completion.review.decisions.review_questions import VERSION, bindings, load
 
 
@@ -33,8 +33,8 @@ def source_documents(project):
     old = ResultView(project).payload("source-index").get("documents", [])
     for role, entries in meta["sources"].items():
         for entry in entries:
-            path = (project / entry["path"]).resolve()
-            if not path.is_relative_to(project.resolve()):
+            path = io_path(project / entry["path"]).resolve()
+            if not path.is_relative_to(io_path(project).resolve()):
                 raise ValueError("来源文档超出项目目录")
             for doc in read_project_documents(
                 project, [entry], "test" if role == "test" else "existing"
@@ -54,10 +54,10 @@ def source_documents(project):
     # Imported citations remain available across file edits and installation paths.
     from scene_completion.inputs.imports.artifact_imports import snapshot
 
-    versions = list(project.glob("imports/versions/*/*.json"))
+    versions = list(io_path(project).glob("imports/versions/*/*.json"))
     imported = snapshot(project) + [read_json(f) for f in versions]
     for item in imported:
-        original = project / item["original"]
+        original = io_path(project / item["original"])
         if not original.is_file():
             continue
         if original.suffix.lower() != ".xlsx":
@@ -158,7 +158,7 @@ def origin_documents(project):
     """
     project = Path(project)
     found = {}
-    for file in sorted(project.glob("ssd_results/*/revisions/*.json")):
+    for file in sorted(io_path(project).glob("ssd_results/*/revisions/*.json")):
         try:
             bundle = (read_json(file) or {}).get("bundle") or {}
         except (OSError, ValueError):
@@ -230,7 +230,7 @@ def snapshot_source(project, sid):
     for doc in source_documents(project):
         if not doc.get("path"):
             continue
-        path = (project / doc["path"]).resolve()
+        path = io_path(project / doc["path"]).resolve()
         if not path.is_file():
             continue
         data = path.read_bytes()
@@ -278,9 +278,9 @@ def source_view(project, sid, start=1, end=None, context=40, quote="", view="win
     ):
         raise ValueError("无效原文行范围")
     if doc.get("path"):
-        p = (Path(project) / doc["path"]).resolve()
+        p = io_path(Path(project) / doc["path"]).resolve()
         if (
-            not p.is_relative_to(Path(project).resolve())
+            not p.is_relative_to(io_path(project).resolve())
             or not p.exists()
             or hashlib.sha256(p.read_bytes()).hexdigest() != doc["file_hash"]
         ):

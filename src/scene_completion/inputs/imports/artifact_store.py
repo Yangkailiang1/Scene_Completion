@@ -3,7 +3,7 @@
 from pathlib import Path
 from threading import RLock
 
-from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.infrastructure.storage import fingerprint, io_path, read_json, write_json
 from scene_completion.inputs.imports.artifact_recognition import ROOTS as ROOTS
 from scene_completion.inputs.imports.artifact_recognition import TASKS as TASKS
 from scene_completion.inputs.imports.artifact_recognition import deterministic as deterministic
@@ -13,7 +13,7 @@ LOCK = RLock()
 
 
 def load(project):
-    p = Path(project) / "imports/index.json"
+    p = io_path(Path(project) / "imports/index.json")
     return (
         read_json(p)
         if p.exists()
@@ -38,7 +38,7 @@ def snapshot(project):
 
             from scene_completion.inputs.structured.colleague_formats import function_interfaces
 
-            original = project / row["original"]
+            original = io_path(project / row["original"])
             if original.is_file():
                 tree.update(
                     function_interfaces(

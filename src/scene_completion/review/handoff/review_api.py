@@ -29,7 +29,7 @@ def register(app, service, project_root):
     def source_list(rid: str):
         return handoff.sources(service.run_dir(rid))
 
-    @app.get("/api/projects/{rid}/sources/{source_id}")
+    @app.get("/api/projects/{rid}/sources/{source_id:path}")
     def source_read(
         rid: str,
         source_id: str,
