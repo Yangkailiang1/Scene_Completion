@@ -29,7 +29,6 @@ jobs:
       - run: npm run lint --prefix frontend
       - run: npm run typecheck --prefix frontend
       - run: npm run format:check --prefix frontend
-      - run: python -m pytest -q
       - run: python tools/build_windows_bundle.py --output-dir dist
       - name: Smoke test embedded runtime
         shell: pwsh
@@ -56,6 +55,7 @@ jobs:
               Set-ItemProperty -Path $key -Name LongPathsEnabled -Value $previous
             }
           }
+      - run: python -m pytest -q
       - uses: actions/upload-artifact@v4
         with:
           name: scene-completion-windows-x64

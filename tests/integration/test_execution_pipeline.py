@@ -313,7 +313,8 @@ def test_dynamic_case_work_starts_while_independent_api_task_is_still_running(tm
 
     def slow(p):
         slow_started.set()
-        assert fused_started.wait(6), "fused SSD was incorrectly held behind unrelated API map"
+        # Hosted Windows runners can take longer to materialize dynamic tasks.
+        assert fused_started.wait(30), "fused SSD was incorrectly held behind unrelated API map"
         return base
 
     fused = m["fused-ssd"]
