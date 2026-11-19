@@ -130,6 +130,8 @@ class Sources:
         traced = self.trace(origin) if origin else None
         if traced:
             row["origin"] = traced
+            if traced["match"] == "pending":
+                row["declared_source"] = deepcopy(origin)
         return row
 
     def trace(self, origin):
@@ -162,9 +164,11 @@ class Sources:
         return self.ref(name, pointer, kind=kind, origin=origin)
 
     def original(self, refs):
+        return self._original_refs(self.trace(ref) for ref in refs or [])
+
+    def _original_refs(self, traces):
         result = []
-        for ref in refs or []:
-            traced = self.trace(ref)
+        for traced in traces:
             if not traced or traced.get("match") not in {"exact", "located"}:
                 continue
             doc = next(
@@ -187,13 +191,16 @@ class Sources:
     def test_evidence(self, evidence):
         return self.original([evidence])
 
-    def refs(self, node, name, pointer=""):
+    def refs(self, node, name, pointer="", *, kind="context"):
         declared = node.get("source_refs") or []
-        originals = self.original(declared)
-        return unique(
-            originals
-            + [self.ref(name, pointer, origin=declared[0] if declared and not originals else None)]
-        )
+        traces = [self.trace(ref) for ref in declared]
+        structured = self.ref(name, pointer, kind=kind)
+        unresolved = [
+            {**structured, "origin": trace, "declared_source": deepcopy(source)}
+            for source, trace in zip(declared, traces)
+            if trace and trace["match"] == "pending"
+        ]
+        return unique(self._original_refs(traces) + (unresolved or [structured]))
 
     def entity_origins(self, entity, attribute=None):
         result = []

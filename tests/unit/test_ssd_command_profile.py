@@ -466,10 +466,26 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     spec.write_text("标题\n唯一的原文引文。\n", encoding="utf8")
     docs.append({"path": "originals/document.md", "role": "SR", "aliases": ["designDocument"]})
     (root / "source-documents.json").write_text(json.dumps({"documents": docs}), encoding="utf8")
+    behavior = next(root.rglob("SysOperation.json"))
+    operation = json.loads(behavior.read_text(encoding="utf8"))
+    main = next(iter(operation["operations"].values()))
+    declared = [
+        {"doc": "designDocument", "location": "L1726-L1726", "quote": "唯一的原文引文。"},
+        {"doc": "missing.md", "location": "L35", "quote": "暂未提供原件"},
+    ]
+    main["interaction"][0]["source_refs"] = declared
+    behavior.write_text(json.dumps(operation, ensure_ascii=False), encoding="utf8")
     core = tmp_path / "core"
     assert convert(root, core, profile=COMMAND_OPERATION_PROFILE)["output"]
     assert validate_core(core)["valid"]
     assert (core / "originals/原始用例.xlsx").read_bytes() == workbook.read_bytes()
+    case = build_cases(core)[0]
+    mixed_refs = [r for step in case["steps"] for r in step["source_refs"]]
+    assert any(r["kind"] == "origin" and r["quote"] == declared[0]["quote"] for r in mixed_refs)
+    assert any(
+        r.get("declared_source") == declared[1] and "missing.md" in r["origin"]["reason"]
+        for r in mixed_refs
+    )
     sources = Sources(core, origin_documents(core))
     result = sources.trace(
         {"doc": "testing", "location": "测试用例!A120:O120", "quote": "只创建一次"}
@@ -492,7 +508,5 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         sources.trace({"doc": "duplicate.md", "location": "L1-L1", "quote": "同名文档"})["match"]
         == "pending"
     )
-    found = sources.trace(
-        {"doc": "designDocument", "location": "L1726-L1726", "quote": "唯一的原文引文。"}
-    )
+    found = sources.trace(declared[0])
     assert found["match"] == "located" and found["start_line"] == 2

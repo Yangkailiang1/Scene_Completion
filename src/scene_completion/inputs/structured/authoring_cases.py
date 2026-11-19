@@ -341,9 +341,11 @@ def supplied_exceptions(raw, sources, file, channel):
                 "end_line": anchor.get("end_line"),
                 "quote": anchor.get("quote"),
             }
-        refs = sources.original(row.get("source_refs", []))
-        refs.append(
-            sources.ref(name, pointer, kind="test" if channel == "GT" else "context", origin=origin)
+        refs = sources.refs(
+            {"source_refs": [*(row.get("source_refs") or []), *([origin] if origin else [])]},
+            name,
+            pointer,
+            kind="test" if channel == "GT" else "context",
         )
         rows.append({**row, "channel": channel, "source_refs": refs})
     return rows

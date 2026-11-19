@@ -29,6 +29,9 @@ def _sources(bundle, row):
 def _originals(bundle, row):
     result = []
     for source in _sources(bundle, row):
+        if source.get("declared_source"):
+            result.append(source["declared_source"])
+            continue
         if (
             not source["file"]
             or source["kind"] not in {"origin", "test"}
