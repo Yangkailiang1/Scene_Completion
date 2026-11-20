@@ -187,7 +187,8 @@ def origin_documents(project):
 def sources(project):
     return {
         "documents": [
-            {k: v for k, v in d.items() if k != "lines"} | {"line_count": len(d["lines"])}
+            {k: v for k, v in d.items() if k != "lines"}
+            | {"line_count": d["lines"][-1]["number"] if d["lines"] else 0}
             for d in source_documents(project)
         ]
     }
@@ -270,8 +271,9 @@ def source_view(project, sid, start=1, end=None, context=40, quote="", view="win
             doc = next(iter(unique.values()))
     if doc is None:
         raise ValueError("来源ID无法定位；请核对快照，不根据模型文字猜测文档")
+    last_line = doc["lines"][-1]["number"] if doc["lines"] else 0
     if (
-        not 1 <= start <= max(1, len(doc["lines"]))
+        not 1 <= start <= max(1, last_line)
         or not start <= (end or start)
         or (end or start) - start > 1000
         or not 0 <= context <= 200
@@ -291,11 +293,7 @@ def source_view(project, sid, start=1, end=None, context=40, quote="", view="win
     ):
         raise ValueError("文档超过2MB，请切换源码按行查看；阅读视图不会静默截断原文")
     lo = 1 if view == "document" else max(1, start - context)
-    hi = (
-        len(doc["lines"])
-        if view == "document"
-        else min(len(doc["lines"]), (end or start) + context)
-    )
+    hi = last_line if view == "document" else min(last_line, (end or start) + context)
     headings = [
         r for r in doc["lines"] if r["number"] <= start and r["text"].lstrip().startswith("#")
     ]
@@ -303,7 +301,7 @@ def source_view(project, sid, start=1, end=None, context=40, quote="", view="win
         "lines": [r for r in doc["lines"] if lo <= r["number"] <= hi],
         "highlight_start": start,
         "highlight_end": end or start,
-        "line_count": len(doc["lines"]),
+        "line_count": last_line,
         "section": headings[-1]["text"] if headings else doc["name"],
         "view": view,
         "document_format": "markdown"

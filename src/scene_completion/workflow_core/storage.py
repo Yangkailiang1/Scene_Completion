@@ -7,7 +7,7 @@ from scene_completion.infrastructure.storage import fingerprint, read_json, writ
 
 
 @contextmanager
-def run_lock(root):
+def run_lock(root, *, blocking=False):
     import os
 
     path = Path(root) / ".workflow.lock"
@@ -21,7 +21,7 @@ def run_lock(root):
             import msvcrt
 
             try:
-                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK, 1)
             except OSError as e:
                 raise ValueError("run already active") from e
             try:
@@ -33,7 +33,7 @@ def run_lock(root):
             import fcntl
 
             try:
-                fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(f, fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError as e:
                 raise ValueError("run already active") from e
             try:

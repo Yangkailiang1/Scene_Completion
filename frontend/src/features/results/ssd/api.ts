@@ -1,4 +1,8 @@
-import { resultGet, invalidateResults } from "../shared/resultRequests";
+import {
+  resultGet,
+  resultSummary,
+  invalidateResults,
+} from "../shared/resultRequests";
 import { api, projectUrl } from "../../../shared/api";
 import type { Bundle } from "./types";
 
@@ -13,7 +17,7 @@ export function getSsdEditor(
 ) {
   return resultGet(
     project,
-    `results/${encodeURIComponent(caseId)}/editor${revision === "current" ? "" : `?revision=${encodeURIComponent(revision)}`}`,
+    `results/${encodeURIComponent(caseId)}/editor${revision === "current" ? "?compact=true" : `?revision=${encodeURIComponent(revision)}&compact=true`}`,
   );
 }
 
@@ -73,8 +77,5 @@ export async function applySsdReview(
 }
 
 export function getReviewSummary(project: string, body: object = {}) {
-  return api(projectUrl(project, "ssd-review/summary"), {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return resultSummary(project, "ssd-review/summary", body);
 }

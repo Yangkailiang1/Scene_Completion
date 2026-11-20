@@ -844,6 +844,128 @@ def test_independent_evidence_aligns_many_to_final_g_and_falls_back(tmp_path):
     }
 
 
+def test_grounding_admits_exact_fragments_and_isolates_duplicate_and_foreign_parts():
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.analysis.validation import validate_result
+
+    bundle = build_cases(BROWSE, profile=COMMAND_PROFILE)[0]
+    bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
+    cases = [
+        (
+            "mixed",
+            "keyword 为空时拒绝；合法 keyword 通过",
+            "返回 400；合法返回 200；保留未创建状态",
+        ),
+        ("split", "字段为空或字段无效", "拒绝"),
+        ("conflict", "字段为空且配置有效；配置不存在", "拒绝"),
+        ("pass", "合法边界通过", "返回 200"),
+    ]
+    for record_id, condition, expected in cases:
+        original = {
+            "id": record_id,
+            "condition": condition,
+            "expected": expected,
+            "source_refs": [],
+        }
+        bundle["channels"]["GT"]["pending"].append(
+            pending(record_id, condition, original=original, needs_semantic=True)
+        )
+    key = "api.data.completeness"
+
+    def part(condition, expected="拒绝"):
+        return {"condition": condition, "expected": expected, "keys": [key]}
+
+    mixed = {
+        **part("", ""),
+        "condition_fragments": [{"field": "condition", "index": None, "quote": "keyword 为空"}],
+        "expected_fragments": [
+            {"field": "expected", "index": None, "quote": quote}
+            for quote in ("返回 400", "保留未创建状态")
+        ],
+    }
+
+    def execute(task, inputs):
+        assert task == grounding.CLASSIFY and inputs["channel"] == "GT"
+        records = [
+            {
+                "record_id": rid,
+                "kind": "exception" if parts else "normal",
+                "reason": "原文判定",
+                "parts": parts,
+            }
+            for rid, parts in (
+                ("mixed", [mixed, mixed, part("不是本条原文")]),
+                ("split", [part("字段为空或字段无效"), part("字段为空"), part("字段无效")]),
+                ("conflict", [part("字段为空且配置有效"), part("字段为空"), part("配置不存在")]),
+                ("pass", []),
+                ("foreign", []),
+            )
+        ]
+        with pytest.raises(ValueError, match="本批每个来源"):
+            validate_result(task, {"records": records[1:]}, inputs)
+        return validate_result(task, {"records": records}, inputs)
+
+    grounding.classify(bundle, execute)
+    by_id = {row["record_id"]: row for row in bundle["source_classifications"]["GT"]}
+    assert set(by_id) == {rid for rid, _, _ in cases}
+    (excerpt,) = by_id["mixed"]["parts"]
+    assert (excerpt["condition"], excerpt["expected"]) == (
+        "keyword 为空",
+        "返回 400；保留未创建状态",
+    )
+    assert by_id["mixed"]["pending_parts"][0]["condition"] == "不是本条原文"
+    assert [p["condition"] for p in by_id["split"]["parts"]] == ["字段为空", "字段无效"]
+    assert [p["condition"] for p in by_id["conflict"]["parts"]] == ["配置不存在"]
+    assert len(by_id["conflict"]["pending_parts"]) == 2
+    assert by_id["pass"]["kind"] == "normal" and not by_id["pass"]["parts"]
+
+
+def test_ground_align_uses_one_request_for_auth_fallback_and_validates_reason_paths():
+    from scene_completion.analysis.ssd.entity_semantics import _steps
+    from scene_completion.analysis.validation import validate_result
+
+    steps = _steps(build_cases(BROWSE, profile=COMMAND_PROFILE)[0])
+    human = "human.authentication"
+    service = "service_relation.authentication"
+    inputs = {
+        "steps": steps,
+        "parts": [{"id": "p1", "keys": [service], "candidates": [], "failure_step_id": "B2"}],
+    }
+    row = {
+        "part_id": "p1",
+        "matches": [],
+        "reason": "入口请求校验失败",
+        "fallback": {
+            "step_id": "B1",
+            "key": service,
+            "target": "receiver",
+            "entity_id": None,
+            "attribute": None,
+            "field_id": None,
+            "operation_unit_id": None,
+        },
+    }
+    task = "ssd-ground-align"
+    result = validate_result(task, {"parts": [row], "reason": "多余的总体说明"}, inputs)
+    assert set(result) == {"parts"}
+    fallback = result["parts"][0]["fallback"]
+    assert (fallback["step_id"], fallback["key"], fallback["target"]) == ("B1", human, "sender")
+    wrong = {**row, "fallback": {**row["fallback"], "step_id": "B3"}}
+    rejected = validate_result(task, {"parts": [wrong]}, inputs)["parts"][0]
+    assert rejected["fallback"] is None and "待定位" in rejected["reason"]
+    with pytest.raises(ValueError, match="p1 缺少对齐依据"):
+        validate_result(
+            task,
+            {
+                "parts": [{k: v for k, v in row.items() if k != "reason"}],
+                "reason": "不能代替片段依据",
+            },
+            inputs,
+        )
+    with pytest.raises(ValueError, match="Additional properties"):
+        validate_result(task, {"parts": [row], "unrelated": "不允许"}, inputs)
+
+
 def test_authentication_alignment_preserves_branch_and_distinguishes_actual_failure(tmp_path):
     import shutil
 
@@ -958,12 +1080,13 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
                         {"parts": [{**row, "failure_step_id": "E4"}]},
                         {**inputs, "parts": [part]},
                     )
-                with pytest.raises(ValueError, match="同一调用边界"):
-                    grounding.validate_result(
-                        task,
-                        {"parts": [{**row, "matches": [{**m, "status": "full"} for m in matches]}]},
-                        {**inputs, "parts": [part]},
-                    )
+                ambiguous = grounding.validate_result(
+                    task,
+                    {"parts": [{**row, "matches": [{**m, "status": "full"} for m in matches]}]},
+                    {**inputs, "parts": [part]},
+                )["parts"][0]
+                assert {m["status"] for m in ambiguous["matches"]} == {"none"}
+                assert "同一调用边界" in ambiguous["reason"] and ambiguous["fallback"] is None
             results.append(row)
         return {"parts": results}
 

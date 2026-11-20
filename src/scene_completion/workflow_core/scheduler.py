@@ -319,6 +319,10 @@ class Scheduler:
                             ),
                         )
                         failure = rec["failure"]
+                        diagnostic = getattr(e, "response_diagnostic", None)
+                        if isinstance(diagnostic, dict):
+                            for field, value in diagnostic.items():
+                                failure.setdefault(field, value)
                         if not hasattr(e, "details"):
                             failure["traceback"] = traceback.format_exc()
                         sig = fingerprint(

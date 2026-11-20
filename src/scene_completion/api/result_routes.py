@@ -20,8 +20,10 @@ def register(app, service):
         return ssd_results.index(service.run_dir(rid))
 
     @app.get("/api/projects/{rid}/results/{case_id}/editor")
-    def ssd_editor(rid: str, case_id: str, revision: str | None = None):
-        return JSONResponse(ssd_results.editor(service.run_dir(rid), case_id, revision))
+    def ssd_editor(rid: str, case_id: str, revision: str | None = None, compact: bool = False):
+        return JSONResponse(
+            ssd_results.editor(service.run_dir(rid), case_id, revision, compact=compact)
+        )
 
     @app.get("/api/projects/{rid}/results/{case_id}/revisions")
     def ssd_revisions(rid: str, case_id: str):

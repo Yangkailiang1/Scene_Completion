@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 
-from scene_completion.analysis.validation import validate_result
+from scene_completion.analysis.validation import SSD_CANONICAL_SUBMISSIONS, validate_result
 from scene_completion.domain.contracts import PROTOCOL, registry
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
 
@@ -183,6 +183,13 @@ def submit_repair(project, key, document, *, validate_only=False):
         raise ValueError("payload必须是完整业务JSON对象")
     from jsonschema import Draft202012Validator
 
+    raw_payload = value
+    if p["task"] in SSD_CANONICAL_SUBMISSIONS:
+        value = deepcopy(value)
+    if p["task"] == "ssd-ground-align":
+        from scene_completion.analysis.ssd.grounding import strip_align_summary
+
+        strip_align_summary(value)
     errors = list(Draft202012Validator(p["output_schema"]).iter_errors(value))
     if errors:
         raise ValueError("修复不满足冻结Schema：" + errors[0].message)
@@ -196,6 +203,18 @@ def submit_repair(project, key, document, *, validate_only=False):
         raise ValueError("提交修复须填写note说明修改及依据")
     if validate_only:
         return {"valid": True, "saved": False, "task_key": key}
+    audit = {"semantic_batch": batch_id(p)} if raw_payload != value else {}
+    if audit and p["task"] == "ssd-entity-inference":
+        audit["discarded_step_ids"] = [
+            operation["step_id"] for operation in raw_payload["operations"]
+        ]
+    if audit and "records" in value:
+        accepted_ids = {record["record_id"] for record in value["records"]}
+        audit["discarded_record_ids"] = [
+            record["record_id"]
+            for record in raw_payload["records"]
+            if record["record_id"] not in accepted_ids
+        ]
     target = path(Path(project) / "run", key, document.get("batch"))
     old = read_json(target) if target.exists() else {}
     row = {
@@ -207,12 +226,13 @@ def submit_repair(project, key, document, *, validate_only=False):
         "previous_failure": current["failure"],
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
-    write_json(target.parent / "history" / (fingerprint(row) + ".json"), row)
+    history = {**row, **({"raw_payload": raw_payload, **audit} if audit else {})}
+    write_json(target.parent / "history" / (fingerprint(history) + ".json"), history)
     write_json(target, row)
     from scene_completion.infrastructure.execution_events import EventStore
 
     EventStore(Path(project) / "run").append(
-        "external_repair_saved", task_key=key, revision=row["revision"], note=note
+        "external_repair_saved", task_key=key, revision=row["revision"], note=note, **audit
     )
     return {
         "valid": True,

@@ -49,6 +49,8 @@ function otherItems(bundle: any) {
   return items;
 }
 export function draftChanges(saved: any, draft: any) {
+  if (saved === draft)
+    return { matches: new Set<string>(), other: 0, total: 0 };
   const before = decisionsByKey(saved),
     after = decisionsByKey(draft);
   const keys = new Set([...before.keys(), ...after.keys()]);

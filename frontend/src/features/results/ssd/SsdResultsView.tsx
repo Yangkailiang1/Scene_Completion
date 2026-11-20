@@ -208,7 +208,7 @@ export function SsdResultsView({
       .then((v) => {
         if (live) {
           setSnapshot(v);
-          setDraft(copy(v.bundle));
+          setDraft(v.bundle);
 
           setStep(
             requestedCaseId === caseId &&
@@ -242,7 +242,7 @@ export function SsdResultsView({
           const updated = await getSsdEditor(project, caseId);
           if (live) {
             setSnapshot(updated);
-            setDraft(copy(updated.bundle));
+            setDraft(updated.bundle);
           }
         }
       })
@@ -461,9 +461,10 @@ export function SsdResultsView({
       });
     });
   }
+  const excludedIds = new Set<string>(snapshot?.scope_excluded_ids || []);
   const records = (channel: Channel) =>
     (draft?.channels[channel][layer] || []).filter(
-      (r) => readonly || !(snapshot?.scope_excluded_ids || []).includes(r.id),
+      (r) => readonly || !excludedIds.has(r.id),
     );
   const comparison =
     layer === "pending" ? [] : snapshot?.comparison?.[layer] || [];
@@ -550,12 +551,18 @@ export function SsdResultsView({
     !concernFocus ||
     record.concern_ids?.some((id) => concernFocus[channel].includes(id));
   const known = new Set<string>();
+  const recordsById = Object.fromEntries(
+    channels.map((ch) => [
+      ch,
+      new Map(records(ch).map((row) => [row.id, row])),
+    ]),
+  );
   let rows = comparison
     .map((r: any) => {
       const cells: Record<string, Observation[]> = {};
       channels.forEach((ch) => {
         cells[ch] = (r.cells[ch] || [])
-          .map((x: Observation) => records(ch).find((y) => y.id === x.id))
+          .map((x: Observation) => recordsById[ch].get(x.id))
           .filter(
             (x: Observation | undefined): x is Observation =>
               !!x && visible(x) && !!inConcernFocus(x, ch),
@@ -608,7 +615,7 @@ export function SsdResultsView({
   const allRecords = channels.flatMap((channel) =>
     ["concerns", "scenarios", "pending"].flatMap((kind) =>
       (draft?.channels[channel][kind as Kind] || []).filter(
-        (r) => readonly || !(snapshot?.scope_excluded_ids || []).includes(r.id),
+        (r) => readonly || !excludedIds.has(r.id),
       ),
     ),
   );

@@ -27,8 +27,8 @@ def _fresh(project):
     from scene_completion.application.result_projection import identification_proof
 
     views = [
-        ssd_repository.revision(project, s["case"]["id"], s["revision"])
-        for s in ssd_repository.states(project)
+        ssd_repository.revision(project, s["case"]["id"], s["revision"], isolate=False)
+        for s in ssd_repository.heads(project)
     ]
     legacy = None
     if project_scope_repository.exists(project, "architecture"):

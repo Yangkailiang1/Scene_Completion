@@ -38,7 +38,10 @@ export function documentLines(
   documents: SourceDocument[] = [],
   id: string,
 ): { number: number; text: string }[] {
-  return documentChoices(documents).find((d) => d.id === id)?.lines || [];
+  const text = documents.find((d) => d.id === id)?.content;
+  return typeof text === "string"
+    ? text.split("\n").map((text, n) => ({ number: n + 1, text }))
+    : [];
 }
 
 // An empty range is not evidence: the record has no traceable origin yet.

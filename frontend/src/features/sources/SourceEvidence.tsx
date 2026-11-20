@@ -11,6 +11,7 @@ import {
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import type { SourceHeading, SourceJump } from "./MarkdownSource";
 import { afterSourceLayout, scrollSourceAnchor } from "./sourceScroll";
+import { SpreadsheetSource, workbookSheet } from "./SpreadsheetSource";
 const MarkdownSource = lazy(() =>
   import("./MarkdownSource").then((module) => ({
     default: module.MarkdownSource,
@@ -136,8 +137,9 @@ export function SourceEvidence({
   const markdown =
     data?.document_format === "markdown" ||
     /\.(md|markdown)$/i.test(data?.name || "");
+  const sheet = workbookSheet(data?.name);
   useLayoutEffect(() => {
-    if (!data || (mode === "reading" && markdown)) return;
+    if (!data || (mode === "reading" && (markdown || sheet))) return;
     return afterSourceLayout(() => {
       const reader = rawReader.current;
       if (!reader) return;
@@ -147,7 +149,7 @@ export function SourceEvidence({
         reader.querySelector<HTMLElement>(`[data-source-line="${line}"]`),
       );
     });
-  }, [data, mode, markdown, start, jump]);
+  }, [data, mode, markdown, sheet, start, jump]);
   function switchView(next: "reading" | "source", line = current.line_start) {
     setMode(next);
     setStart(line);
@@ -219,7 +221,7 @@ export function SourceEvidence({
             onClick={() => switchView("reading")}
           >
             <BookOpen size={14} />
-            阅读
+            {sheet ? "表格" : "阅读"}
           </button>
           <button
             aria-pressed={mode === "source"}
@@ -312,6 +314,20 @@ export function SourceEvidence({
         </div>
       ) : !data ? (
         <p className="source-view-message">正在定位原文…</p>
+      ) : mode === "reading" && sheet ? (
+        <SpreadsheetSource
+          key={data.name}
+          sheet={sheet}
+          lines={data.lines}
+          start={current.line_start}
+          end={current.line_end}
+          address={
+            traced?.document === data.name && traced?.sheet === sheet
+              ? traced.cell_range
+              : undefined
+          }
+          jump={jump}
+        />
       ) : mode === "reading" && markdown ? (
         <Suspense
           fallback={<p className="source-view-message">正在渲染Markdown…</p>}

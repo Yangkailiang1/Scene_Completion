@@ -56,6 +56,56 @@ def test_string_question_is_rejected_with_path_and_preserved_for_repair(tmp_path
     assert not (tmp_path.parent / "business_questions.json").exists()
 
 
+@pytest.mark.parametrize("mode", ["tool_calls", "json_text"])
+def test_ssd_generate_accepts_valid_payload_with_one_invalid_question_reference(tmp_path, mode):
+    payload = {"analyses": [], "supplements": []}
+    valid = {"question": "原文是否另有限制", "required_answer": "补充规则", "source_refs": []}
+    invalid = {**valid, "question": "引用未提供的行", "source_refs": [{"line": 42}]}
+    questions = [invalid, valid]
+
+    def transport(*args):
+        message = {"content": json.dumps({"result": payload, "review_questions": questions})}
+        if mode == "tool_calls":
+            message = {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "submit",
+                        "function": {
+                            "name": "submit_result",
+                            "arguments": json.dumps(
+                                {"payload": payload, "review_questions": questions}
+                            ),
+                        },
+                    }
+                ],
+            }
+        return {"choices": [{"message": message, "finish_reason": "stop"}]}
+
+    root = tmp_path / "run"
+    p = packet(
+        "ssd-generate", {"templates": [], "concerns": [], "all_failure_conditions": []}, ["UC1"]
+    )
+    p["skill_text"] = p["instructions"]
+    client = DeepAgentsClient(
+        {
+            "api_key": "fixture",
+            "base_url": "http://offline/v1",
+            "agent_model": "offline",
+            "run_root": str(root),
+            "submission_mode": mode,
+        },
+        transport=transport,
+    )
+    result = client.agent(p)
+    assert {key: result[key] for key in payload} == payload
+    (valid_record,) = read_json(tmp_path / "business_questions.json")["items"].values()
+    assert valid_record["reason"] == valid["question"]
+    trace = read_json(next((root / "question_rejections").glob("*.json")))
+    assert trace["index"] == 0 and trace["question"] == invalid
+    assert "精确引用" in trace["error"]
+
+
 @pytest.mark.parametrize(
     "payload,path",
     [

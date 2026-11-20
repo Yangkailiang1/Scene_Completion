@@ -5,6 +5,7 @@ TEMPLATE = r"""<!doctype html>
 <title>SSD 差异校对</title>
 <style>
 :root{font-family:system-ui,-apple-system,"PingFang SC",sans-serif;color:#193047;background:#f3f6f8;font-size:15px}*{box-sizing:border-box}body{margin:0}header{position:sticky;top:0;background:#fff;border-bottom:1px solid #d6e0e8;padding:16px 24px;z-index:2;display:flex;gap:12px;align-items:center;flex-wrap:wrap}h1{font-size:22px;margin:0 auto 0 0}button,select{font:inherit;border:1px solid #aebdca;border-radius:6px;background:#fff;padding:7px 10px;color:#193047;cursor:pointer}button.primary{background:#1b5f8f;color:white;border-color:#1b5f8f}button:hover{filter:brightness(.96)}main{max-width:1500px;margin:24px auto;padding:0 20px}.muted{color:#607588;font-size:13px}.status{margin:8px 0;color:#256447}.case{margin:25px 0}.case h2{font-size:20px}.row{background:white;border:1px solid #d6e0e8;border-radius:10px;margin:18px 0;overflow:hidden}.row-head{padding:16px 18px;background:#eaf1f6}.row-head h3{margin:0 0 7px;font-size:16px}.reason{color:#8c4a13;white-space:pre-wrap;margin-top:8px}.channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.channel{padding:16px;border-right:1px solid #e1e8ee}.channel:last-child{border:0}.channel h4{margin:0 0 12px}.record{border-top:1px solid #e1e8ee;padding-top:12px;margin-top:12px}.record:first-of-type{border-top:0;padding-top:0}.record-id{overflow-wrap:anywhere;font-size:11px;color:#607588}label{display:block;margin:8px 0;font-size:13px}input,textarea{display:block;width:100%;font:inherit;padding:8px;border:1px solid #bac9d5;border-radius:5px;background:#fff;line-height:1.5}textarea{resize:vertical;min-height:65px}.sources{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.sources button{font-size:12px}.judgments{padding:14px 18px;border-top:1px solid #d6e0e8}.judgment{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}.judgment span{font-size:12px}.judgment input{flex:1;min-width:180px}.judgment select{font-size:13px}.empty{background:#fff;padding:25px;border:1px dashed #b5c5d1;border-radius:8px}dialog{width:min(1100px,94vw);max-height:88vh;border:1px solid #bac9d5;border-radius:10px;padding:0;box-shadow:0 15px 80px #112b4455}dialog::backdrop{background:#152c4566}.dialog-bar{position:sticky;top:0;background:white;border-bottom:1px solid #d6e0e8;padding:12px 18px;display:flex;align-items:center;gap:12px;z-index:1}.dialog-bar strong{flex:1}.document{padding:22px 30px;line-height:1.75;overflow-wrap:anywhere}.document h1{font-size:24px}.document h2{font-size:21px}.document h3{font-size:18px}.document p{margin:10px 0}.document table{border-collapse:collapse;width:100%;margin:15px 0}.document th,.document td{border:1px solid #ccd7e0;padding:7px 10px;text-align:left}.document th{background:#edf2f6}.document pre{white-space:pre-wrap;background:#f0f3f6;padding:14px;border-radius:5px}.document code{background:#edf1f5;padding:2px 4px;border-radius:3px}.document blockquote{border-left:4px solid #b1c4d4;padding-left:15px;margin:14px 0;color:#405d72}.source-highlight{background:#fff0aa!important;box-shadow:inset 3px 0 #ce9e14}.line{display:block}.source-meta{font-size:13px;color:#607588;margin:0 0 16px}.quote{white-space:pre-wrap;margin:12px 0;padding:12px;background:#fff6cd;border-left:3px solid #cba337}@media(max-width:900px){.channels{grid-template-columns:1fr}.channel{border-right:0;border-bottom:1px solid #e1e8ee}header{padding:12px}main{padding:0 12px}}
+.excel-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 8px;color:#607588;font-size:13px}.excel-grid{position:relative;max-height:62vh;overflow:auto;overscroll-behavior:contain;border:1px solid #d6e0e8;border-radius:6px}.document .excel-grid table{width:max-content;min-width:100%;margin:0;border-collapse:separate;border-spacing:0}.excel-grid td{min-width:76px;max-width:330px;white-space:pre-wrap}.excel-grid thead th,.excel-grid tr>th:first-child{position:sticky;z-index:1}.excel-grid thead th{top:0}.excel-grid tr>th:first-child{left:0;min-width:48px}.excel-grid thead th:first-child{z-index:2}
 </style></head><body>
 <header><h1>SSD 差异校对</h1><button id="save-html" class="primary">保存含修改的 HTML</button><button id="save-json">导出校对 JSON</button></header>
 <main><p class="muted">仅展示导出时存在差异的记录。点击出处查看原文；修改后请保存 HTML 或导出 JSON，再回到工作台预览并应用。此页面可离线使用。</p><p id="save-status" class="status" role="status"></p><div id="app"></div></main>
@@ -42,8 +43,49 @@ function markdown(text,start,end){
  }
  return out.join('');
 }
+function excelSource(body,lines,sheet,start,end,address){
+ const pageRows=80,pageColumns=24;
+ const index=name=>Array.from(name.toUpperCase()).reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1;
+ const label=n=>{const q=Math.floor(n/26);return(q?label(q-1):'')+String.fromCharCode(65+n%26);};
+ const range=address?.match(/^([A-Z]{1,3})[1-9]\d*(?::([A-Z]{1,3})[1-9]\d*)?$/i);
+ const left=range?index(range[1]):0,right=range?index(range[2]||range[1]):-1,bounded=left<=right&&right<16384;
+ const anchor=Math.max(1,Math.min(start,lines.length)),anchorRow=Math.floor((anchor-1)/pageRows),anchorColumn=bounded?Math.floor(left/pageColumns):0;
+ let rowPage=anchorRow,columnPage=anchorColumn;
+ const toolbar=el('div',undefined,'excel-toolbar'),grid=el('div',undefined,'excel-grid');grid.tabIndex=0;body.append(toolbar,grid);
+ function render(){
+  toolbar.replaceChildren();grid.replaceChildren();grid.scrollTop=0;grid.scrollLeft=0;
+  const firstRow=rowPage*pageRows,lastRow=Math.min(lines.length,firstRow+pageRows);
+  const rows=lines.slice(firstRow,lastRow).map(text=>text.startsWith('| ')&&text.endsWith(' |')?text.slice(2,-2).split(' | '):[]);
+  const width=Math.max(1,...rows.map(r=>r.length),bounded?right+1:0);
+  const firstColumn=Math.min(columnPage,Math.floor((width-1)/pageColumns))*pageColumns,lastColumn=Math.min(width,firstColumn+pageColumns);
+  toolbar.append(el('span',sheet+(address?'!'+address:'')+' · 第 '+(firstRow+1)+'–'+lastRow+' 行'));
+  function button(text,disabled,action){const control=el('button',text);control.disabled=disabled;control.onclick=()=>{action();render();};toolbar.append(control);}
+  button('上一段',!rowPage,()=>rowPage--);button('下一段',lastRow>=lines.length,()=>rowPage++);
+  if(width>pageColumns){button('向左翻列',!firstColumn,()=>columnPage=firstColumn/pageColumns-1);button('向右翻列',lastColumn>=width,()=>columnPage=firstColumn/pageColumns+1);}
+  const table=el('table');table.setAttribute('aria-label',sheet+' 工作表');const head=table.createTHead().insertRow();
+  const heading=(row,text,scope)=>{const th=el('th',text);th.scope=scope;row.append(th);};
+  heading(head,'#','col');for(let c=firstColumn;c<lastColumn;c++)heading(head,label(c),'col');
+  const content=table.createTBody();
+  rows.forEach((cells,n)=>{const number=firstRow+n+1,row=content.insertRow();row.dataset.line=number;heading(row,number,'row');
+   for(let c=firstColumn;c<lastColumn;c++){
+    const cell=row.insertCell();cell.dataset.cell=label(c)+number;
+    cell.textContent=(cells[c]||'').replaceAll('\\|','|').replaceAll('<br>','\n');
+    if(number>=start&&number<=end&&(!bounded||(c>=left&&c<=right)))cell.className='source-highlight';
+   }
+  });grid.append(table);
+ }
+ function jump(){rowPage=anchorRow;columnPage=anchorColumn;render();requestAnimationFrame(()=>{
+  const row=grid.querySelector('[data-line="'+anchor+'"]'),cell=row?.querySelector('.source-highlight');
+  if(row)grid.scrollTop+=row.getBoundingClientRect().top-grid.getBoundingClientRect().top-grid.querySelector('thead').getBoundingClientRect().height;
+  if(cell)grid.scrollLeft=Math.max(0,cell.offsetLeft-56);
+ });}
+ return jump;
+}
 function showSource(entry,ref){
- const docs=entry.bundle.documents||[],doc=docs.find(d=>d.id===ref.document_id);
+ const docs=entry.bundle.documents||[],origin=ref.origin;
+ const original=origin?.cell_range&&['exact','located'].includes(origin.match)?docs.find(d=>d.name===origin.document&&/\.xlsx#.+$/i.test(d.name)):null;
+ const doc=original||docs.find(d=>d.id===ref.document_id);
+ if(original)ref={...ref,start_line:origin.start_line,end_line:origin.end_line,json_pointer:null};
  const content=document.getElementById('source-content'),dialog=document.getElementById('source-dialog');
  const bar=dialog.querySelector('.dialog-bar');
  bar.querySelector('.source-navigation')?.remove();
@@ -52,6 +94,7 @@ function showSource(entry,ref){
  dialog.style.overflow='hidden';content.style.maxHeight='76vh';content.style.overflowY='auto';content.style.overscrollBehavior='contain';
  const start=Number(ref.start_line||0),end=Number(ref.end_line||start),lines=doc?.content?.split('\n')||[];
  const isMarkdown=!!doc&&/\.(md|markdown)$/i.test(doc.name);
+ const sheet=doc?.name.match(/\.xlsx#(.+)$/i)?.[1];
  let raw=!isMarkdown;
  document.getElementById('source-title').textContent=(doc?doc.name:ref.document_id||'来源')+' · '+(start||'?')+'–'+(end||'?');
  function jump(body){
@@ -65,9 +108,11 @@ function showSource(entry,ref){
   content.replaceChildren();
   mode.textContent=raw?'阅读模式':'查看源码';mode.hidden=!isMarkdown;back.disabled=!doc||start<1||start>lines.length;
   content.append(el('p',ref.json_pointer||'原文行号高亮','source-meta'));
-  if(ref.quote)content.append(el('div',ref.quote,'quote'));
+  if(ref.quote&&!sheet)content.append(el('div',ref.quote,'quote'));
   const body=el('div');
+  let jumpToCell;
   if(!doc)body.textContent='此出处的原始文档未随本次导出提供，可按上方引用回到工作台查找。';
+  else if(sheet)jumpToCell=excelSource(body,lines,sheet,start,end,origin?.document===doc.name&&origin.sheet===sheet?origin.cell_range:undefined);
   else if(raw){
    const fragment=document.createDocumentFragment();
    for(let i=0;i<lines.length;i++){
@@ -79,6 +124,7 @@ function showSource(entry,ref){
   if(doc&&(start<1||end>lines.length||end<start))content.append(el('p','引用行超出文档范围','source-meta'));
   content.append(body);
   if(!dialog.open)dialog.showModal();
+  if(jumpToCell){back.onclick=jumpToCell;jumpToCell();return;}
   back.onclick=()=>jump(body);
   if(!raw&&start>0&&start<=lines.length&&!body.querySelector('.source-highlight')){
    raw=true;render();return;

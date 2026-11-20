@@ -20,7 +20,25 @@ def validate_reply(task, value):
         Draft202012Validator(contract).iter_errors(value), key=lambda error: str(list(error.path))
     )
     if errors:
-        raise ValueError("; ".join(f"{list(e.path)}: {e.message}" for e in errors[:12]))
+        messages = []
+        for error in errors[:12]:
+            path = list(error.path)
+            if (
+                task == "ssd-ground-align"
+                and error.validator == "required"
+                and isinstance(error.instance, dict)
+            ):
+                identity = error.instance.get("candidate_id") or error.instance.get("part_id")
+                if (
+                    identity
+                    and "reason" not in error.instance
+                    and error.message.startswith("'reason'")
+                ):
+                    path.append("reason")
+                    messages.append(f"{path}: {identity} 缺少对齐依据")
+                    continue
+            messages.append(f"{path}: {error.message}")
+        raise ValueError("; ".join(messages))
 
 
 def resolve(binding, steps, operation_units=()):

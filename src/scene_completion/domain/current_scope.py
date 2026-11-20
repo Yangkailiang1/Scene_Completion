@@ -49,8 +49,20 @@ def current_registry(value):
     return result
 
 
-def filtered(bundle, *, ordinary=False):
-    result = deepcopy(bundle)
+def filtered(bundle, *, ordinary=False, isolate=True):
+    result = (
+        deepcopy(bundle)
+        if isolate
+        else {
+            **bundle,
+            "channels": {name: data.copy() for name, data in bundle["channels"].items()},
+            **(
+                {"scenario_generation": bundle["scenario_generation"].copy()}
+                if "scenario_generation" in bundle
+                else {}
+            ),
+        }
+    )
     for data in result["channels"].values():
         for kind in ("concerns", "scenarios", "pending"):
             data[kind] = [
@@ -58,10 +70,11 @@ def filtered(bundle, *, ordinary=False):
                 for r in data.get(kind, [])
                 if allowed(r) and (not ordinary or r.get("key") != AVAILABILITY)
             ]
-    retained = {
-        c: {r["id"] for k in ("concerns", "scenarios") for r in d[k]}
+    ids = {
+        c: {k: {r["id"] for r in d[k]} for k in ("concerns", "scenarios", "pending")}
         for c, d in result["channels"].items()
     }
+    retained = {c: d["concerns"] | d["scenarios"] for c, d in ids.items()}
     result["decisions"] = [
         d
         for d in result.get("decisions", [])
@@ -74,7 +87,7 @@ def filtered(bundle, *, ordinary=False):
         for c, data in bundle["channels"].items()
         for k in ("concerns", "scenarios", "pending")
         for r in data.get(k, [])
-        if r["id"] not in {x["id"] for x in result["channels"][c].get(k, [])}
+        if r["id"] not in ids[c][k]
     }
     result["generation_pending"] = [
         i for i in result.get("generation_pending", []) if i not in removed
@@ -84,7 +97,7 @@ def filtered(bundle, *, ordinary=False):
             i for i in result["scenario_generation"].get("pending_ids", []) if i not in removed
         ]
     result["scope_exclusions"] = [
-        deepcopy(r)
+        deepcopy(r) if isolate else r
         for data in bundle["channels"].values()
         for kind in ("concerns", "scenarios", "pending")
         for r in data.get(kind, [])
@@ -97,9 +110,16 @@ def filtered(bundle, *, ordinary=False):
 def case_report(bundle):
     from scene_completion.domain.ssd.metrics import analyze
 
-    result = analyze(filtered(bundle))
-    ordinary = analyze(filtered(bundle, ordinary=True))
-    for key in ("metrics", "metrics_by_level", "scenario_diagnostic"):
-        result[key] = ordinary[key]
+    full = filtered(bundle, isolate=False)
+    result = analyze(full)
+    if any(
+        r.get("key") == AVAILABILITY
+        for data in full["channels"].values()
+        for kind in ("concerns", "scenarios", "pending")
+        for r in data[kind]
+    ):
+        ordinary = analyze(filtered(bundle, ordinary=True, isolate=False))
+        for key in ("metrics", "metrics_by_level", "scenario_diagnostic"):
+            result[key] = ordinary[key]
     result["analysis_policy"] = POLICY
     return result

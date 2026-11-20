@@ -10,7 +10,13 @@ from tests.support.ssd_results import coverage_bundle
 def test_offline_html_adoption_save_reopen_and_source_rendering(tmp_path):
     bundle = coverage_bundle()
     bundle["documents"] = [
-        {"id": "RR", "name": "系统需求.md", "content": "# 认证要求\n必须有合法凭证。"}
+        {"id": "RR", "name": "系统需求.md", "content": "# 认证要求\n必须有合法凭证。"},
+        {
+            "id": "sheet",
+            "role": "test",
+            "name": "原始测试.xlsx#验证",
+            "content": "\n" * 119 + r"| GT01 | 缺失\|拒绝<br>第二行 |  | <img src=unsafe> |",
+        },
     ]
     bundle["channels"]["G"]["scenarios"][-1]["source_refs"] = [
         {"document_id": "RR", "start_line": 1, "end_line": 2, "quote": "必须有合法凭证。"}
@@ -30,6 +36,37 @@ def test_offline_html_adoption_save_reopen_and_source_rendering(tmp_path):
         text=True,
     )
     assert json.loads(result.stdout)["saved_reopened"]
+
+
+def test_lightweight_review_summary_matches_export_and_observes_new_revisions(tmp_path):
+    from copy import deepcopy
+
+    from scene_completion.review.offline import adoption as report
+
+    bundle = coverage_bundle()
+    bundle["machine_g"] = deepcopy(bundle["channels"]["G"])
+    service.publish(tmp_path, bundle)
+    full = service.editor(tmp_path, "case")
+    compact = service.editor(tmp_path, "case", compact=True)
+    assert "machine_g" in full["bundle"] and "machine_g" not in compact["bundle"]
+    assert compact["bundle"]["channels"] == full["bundle"]["channels"]
+    assert compact["review_statuses"] == full["review_statuses"]
+    for layer, rows in full["comparison"].items():
+        for a, b in zip(rows, compact["comparison"][layer], strict=True):
+            assert b["cells"] == {
+                ch: [{"id": r["id"]} for r in cells] for ch, cells in a["cells"].items()
+            }
+    for selection in ({}, {"record_ids": ["G-third"]}, {"anchor_ids": ["step"]}):
+        overview = report.summary(tmp_path, selection)
+        exported = report.export_payload(tmp_path, selection)
+        assert overview == {k: exported[k] for k in ("format", "excluded", "report")}
+    current = report.summary(tmp_path)
+    submitted = deepcopy(compact["bundle"])
+    submitted["review_notes"] = ["更新测试"]
+    service.save_revision(tmp_path, "case", {"base_revision": 1, "bundle": submitted})
+    latest = report.summary(tmp_path)
+    assert current["excluded"]["by_scope"]["interaction"]["items"][0]["revision"] == 1
+    assert latest["excluded"]["by_scope"]["interaction"]["items"][0]["revision"] == 2
 
 
 def test_grouped_five_auth_scenarios_keep_independent_decisions_and_bindings(tmp_path):

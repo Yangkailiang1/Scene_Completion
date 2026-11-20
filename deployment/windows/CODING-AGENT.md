@@ -135,8 +135,16 @@ scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" repair-export --p
 - 多批次节点用实际失败批次 ID，仅单批次节点可省略 `--batch`。保留诊断里的分类、失败字段、运行参数、检查点和原报错。导出版本过期时按诊断刷新受影响的任务后重新导出。
 - **工具提交形状错误**。例如 `submit_result` 的 `supplements` 出现在顶层。当前实现可把可确认且无冲突的业务字段放回 `payload`。若仍拒绝，按诊断区分未知顶层键、内外重复键、错误类型或业务校验错误，保留原始参数，修复时使用导出包内的冻结 Schema。
 - **模型业务 JSON 交接**。仅编辑导出文件的 `payload` 和 `note`。note 写具体修改和证据。保留冻结输入、Schema、节点身份、批次身份、短编号映射和版本字段。生成节点只使用正向材料，E、GT 各用本方来源，比较节点使用获授权的指定两侧。补交须保留固定模板、合法字段和锚点，未确认事实按契约留待确认。
-- **脚本或调度故障**。诊断为 `code_failure` 时检查堆栈、检查点和复现入口。修改源码须在授权范围内，完成针对性验证，然后执行 `rerun --project "%PROJECT_ID%" --node "%NODE%"`。该命令同样加本地全局参数。正式产物由工作流执行和发布。
+- **`ssd-entity-inference` 批次误带操作判定**。实际失败批次的冻结 `input.operations` 为 `[]` 时，补交的 `payload.operations` 也填 `[]`。保留并逐条核对 `payload.constraints`，兼顾规则 ID、关注点和失败条件。若冻结输入列出了待判定的操作 ID，逐项提交对应判定。
+- **证据分类及认证对齐**。逐项核对本批来源和原文片段。`ssd-ground-align` 的每条 `parts[i]` 和每条 `matches[j]` 各自填写 `reason`。认证候选和独立挂载使用同一条实际请求，依据不足时保留待定位。`ssd-generate` 的问题引用诊断可在 `run/question_rejections/` 核对。
+- **脚本或调度故障**。诊断为 `code_failure` 时检查堆栈、检查点和复现入口。修改源码须在授权范围内，完成针对性验证，然后执行下面的 `rerun --wait`。若 `ssd-prepare` 报核心快照写入失败，记录诊断中的 `operation`、`relative_path`、`winerror` 和 `retries`。工作流会复用可用的快照，正式产物由工作流执行和发布。
 - **业务、额度与在途请求**。需要业务裁决、额度不足或已有请求用量未决时，报告确定的阻塞、影响范围及需用户确认的事项。保留请求和账本记录，核对后再恢复。用量未知的请求不盲目重发。
+
+修复脚本或文件系统故障后，使用下面的命令派发并等待该轮结束。重跑保留包含目标节点的上轮用例范围。旧记录缺少范围时，用例节点按其所属用例恢复。超时只结束 CLI 等待，通过 `status` 或 `events` 查看仍在运行的 worker。
+
+```bat
+scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" rerun --project "%PROJECT_ID%" --node "%NODE%" --wait --timeout 3600 --poll 2
+```
 
 确认 worker 已结束后，先校验再提交。以下恢复命令以单用例为例，多用例和全量恢复使用原运行范围。已由用户暂停的项目按授权执行 `execution-control --project "%PROJECT_ID%" --action resume`，随后查看状态。合法修复应用后复用仍有效的成功批次。
 

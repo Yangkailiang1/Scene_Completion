@@ -366,6 +366,66 @@ test("opens original Markdown and can switch between original RR and SR", async 
   });
   expect(screen.getByRole("heading", { name: "服务设计" })).toBeTruthy();
 });
+test("Excel provenance opens as a worksheet and precisely highlights the cited cells", () => {
+  const name = "原始测试.xlsx#测试用例";
+  const content = Array.from({ length: 121 }, (_, i) =>
+    i === 119
+      ? "| GT-01 | 需要\\|校验<br>第二行 |  | <img src=unsafe> |"
+      : i === 0
+        ? "| 编号 | 条件 | 预期 | 备注 |"
+        : "",
+  ).join("\n");
+  render(
+    <SsdSourceDialog
+      documents={[
+        {
+          id: "json",
+          name: "recovered_usecases.json",
+          role: "test",
+          content: "{}",
+        },
+        { id: "excel", name, role: "test", content },
+      ]}
+      refs={[
+        {
+          document_id: "json",
+          start_line: 1,
+          end_line: 1,
+          quote: "{}",
+          kind: "test",
+          origin: {
+            document: name,
+            start_line: 120,
+            end_line: 120,
+            match: "exact",
+            sheet: "测试用例",
+            cell_range: "B120:C120",
+          },
+        },
+      ]}
+      onClose={() => {}}
+    />,
+  );
+  const table = screen.getByRole("table", { name: "测试用例 工作表" });
+  expect(within(table).getByRole("columnheader", { name: "C" })).toBeTruthy();
+  expect(within(table).getByRole("rowheader", { name: "120" })).toBeTruthy();
+  expect(table.querySelector('[data-cell="B120"]')?.textContent).toBe(
+    "需要|校验\n第二行",
+  );
+  expect(table.querySelector('[data-cell="C120"]')?.textContent).toBe("");
+  expect(
+    Array.from(
+      table.querySelectorAll<HTMLElement>(".source-sheet-highlight"),
+      (cell) => cell.dataset.cell,
+    ),
+  ).toEqual(["B120", "C120"]);
+  expect(table.querySelector("img")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "上一段" }));
+  expect(screen.getByRole("rowheader", { name: "1" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "返回引用" }));
+  expect(screen.getByRole("rowheader", { name: "120" })).toBeTruthy();
+});
+
 test("the source dialog jumps to a manually added origin among recorded ones", async () => {
   const manual = {
     document_id: "sr",
@@ -485,7 +545,7 @@ test("unbound navigation restores each regular result layer without reloading", 
     { ...data.channels.G.concerns[0], id: "g-scenario", concern_ids: ["g1"] },
   ];
   const fetch = mockApi((path) =>
-    path.endsWith("/editor") ? response(data) : undefined,
+    path.includes("/editor?") ? response(data) : undefined,
   );
   render(<SsdResultsView project="P1" initialIndex={index} />);
   await screen.findByLabelText("编辑 G g1");
@@ -875,7 +935,7 @@ test("a manually added record keeps the origin picked from snapshot documents", 
   );
   const withinDialog = within(dialog);
   // A new origin starts empty; the editor says so instead of implying a source.
-  expect(withinDialog.getByText(/尚未补录出处/)).toBeTruthy();
+  expect(withinDialog.getByText(/尚无出处/)).toBeTruthy();
   fireEvent.change(withinDialog.getByLabelText("来源文件"), {
     target: { value: "json" },
   });
@@ -898,7 +958,7 @@ test("a manually added record keeps the origin picked from snapshot documents", 
   expect(
     withinDialog.getByText(/预览：api_extraction\.json · 第 2–3 行/),
   ).toBeTruthy();
-  fireEvent.click(withinDialog.getByRole("button", { name: "添加出处" }));
+  fireEvent.click(withinDialog.getByRole("button", { name: /添加出处/ }));
   expect(withinDialog.getByText(/第 2–3 行/)).toBeTruthy();
   fireEvent.change(withinDialog.getByLabelText("挂载步骤"), {
     target: { value: "step1" },
@@ -938,4 +998,34 @@ test("a manually added record keeps the origin picked from snapshot documents", 
   ]);
   // The pinned originals are still untouched by the manual edit.
   expect(submitted.bundle.documents).toEqual(bundle.documents);
+});
+
+test("applying a concern draft includes filled provenance and opens it immediately", async () => {
+  const bundle = fixture();
+  bundle.channels.G.concerns[0].source_refs = [];
+  mockApi((path) => (path.includes("/editor?") ? response(bundle) : undefined));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  fireEvent.click(await screen.findByLabelText("编辑 G g1"));
+  const editor = within(screen.getByRole("dialog"));
+  fireEvent.change(editor.getByLabelText("来源文件"), {
+    target: { value: "sr" },
+  });
+  fireEvent.change(editor.getByLabelText("起始行"), { target: { value: "2" } });
+  fireEvent.change(editor.getByLabelText("结束行"), { target: { value: "3" } });
+  expect(
+    editor.getByRole<HTMLButtonElement>("button", { name: "应用到草稿" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.change(editor.getByLabelText("结束行"), { target: { value: "" } });
+  fireEvent.click(editor.getByRole("button", { name: "应用到草稿" }));
+  const record = screen
+    .getByLabelText("编辑 G g1")
+    .closest(".ssd-record")! as HTMLElement;
+  fireEvent.click(
+    within(record).getByRole("button", { name: /查看原始出处.*1/ }),
+  );
+  expect(await screen.findByText("服务处理原文。")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "跳到人工补录出处（1）" }),
+  ).toBeTruthy();
 });

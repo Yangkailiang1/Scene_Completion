@@ -229,6 +229,8 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "app/src"))
 from scene_completion.infrastructure.storage import io_path, read_json
+from scene_completion.infrastructure.code_retry import request
+from scene_completion.analysis.ssd import core_snapshot
 from scene_completion.application.execution import Execution
 from scene_completion.application.ssd_revision_service import editor
 from scene_completion.workflow.ssd_pipeline import build_structured, input_directory
@@ -239,12 +241,39 @@ for rid in sys.argv[1:3]:
     relative = Path(sys.argv[3])
     frozen = project / point["path"] / relative
     assert len(str(frozen)) > 260 and io_path(frozen).is_file()
+    registration = core_snapshot.write_json
+    attempts = []
+
+    def transient_access_denied(path, value):
+        attempts.append(path)
+        if len(attempts) == 1:
+            error = PermissionError(13, "fixture access denied", str(path))
+            error.winerror = 5
+            raise error
+        return registration(path, value)
+
+    core_snapshot.write_json = transient_access_denied
+    key = "UC-LONG:ssd-prepare"
     ex = Execution(project / "run", case_ids=["UC-LONG"])
-    assert ex.client is None
-    assert build_structured(ex, input_directory(ex))
-    assert ex.scheduler.run()["complete"]
-    task = ex.scheduler.state["tasks"]["UC-LONG:ssd-prepare"]
+    try:
+        assert ex.client is None
+        assert build_structured(ex, input_directory(ex))
+        assert ex.scheduler.run()["complete"]
+    finally:
+        core_snapshot.write_json = registration
+    assert len(attempts) == 2
+    task = ex.scheduler.state["tasks"][key]
     assert task["status"] == "passed"
+    snapshot = read_json(ex.root / task["output_file"])["payload"]["core_snapshot"]
+    assert io_path(ex.root / snapshot / "architecture.json").is_file()
+
+    request(ex.root, key, {"error": "fixture core write retry"})
+    recovered = Execution(project / "run", case_ids=["UC-LONG"])
+    assert build_structured(recovered, input_directory(recovered))
+    assert recovered.scheduler.run()["complete"]
+    task = recovered.scheduler.state["tasks"][key]
+    assert task["status"] == "passed"
+    assert read_json(recovered.root / task["output_file"])["payload"]["core_snapshot"] == snapshot
     assert any(
         ref.get("origin", {}).get("start_line") == 2
         for ref in editor(project, "UC-LONG")["bundle"]["steps"][0]["source_refs"]
@@ -277,6 +306,7 @@ for rid in sys.argv[1:3]:
         "long_path_cli_and_web_create": "passed",
         "long_path_core_validate": "passed",
         "long_path_ssd_and_provenance": "passed",
+        "core_snapshot_retry_and_rerun": "passed",
     }
 
 

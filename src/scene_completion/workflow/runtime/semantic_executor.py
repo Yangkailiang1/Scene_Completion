@@ -262,6 +262,16 @@ def semantic(self, task, inputs, record):
     elif self.mode == "external":
         if not self.client:
             raise ValueError("external mode needs a configured semantic client")
+        dispatch_packet = p
+        if task == "ssd-entity-inference" and not inputs["operations"]:
+            # A live reminder does not change the frozen packet or checkpoint identity.
+            dispatch_packet = {
+                **p,
+                "tool_rule_instruction": (
+                    '本批 input.operations=[]，提交时必须返回 "operations": []。'
+                    "input.steps 仅供理解本批约束，不能作为待判定操作。"
+                ),
+            }
         try:
             if task in {"gap-compare", "semantic-compare"}:
                 from scene_completion.analysis.matching.comparison_batches import compare_in_batches
@@ -280,12 +290,12 @@ def semantic(self, task, inputs, record):
             elif record.get("recovery_dispatch"):
                 from scene_completion.workflow.recovery.node_recovery import generate
 
-                raw = generate(self, p, record)
+                raw = generate(self, dispatch_packet, record)
             else:
                 raw = (
-                    self.client.agent(p)
+                    self.client.agent(dispatch_packet)
                     if hasattr(self.client, "post")
-                    else self.gate.call(self.client.agent, p)
+                    else self.gate.call(self.client.agent, dispatch_packet)
                 )
         except ValueError as exc:
             diagnostic = getattr(exc, "response_diagnostic", None)

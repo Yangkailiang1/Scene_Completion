@@ -5,7 +5,7 @@ import {
 import { getProjectResultIndex } from "../results/project/api";
 import { useEffect, useRef, useState } from "react";
 import { api, projectUrl } from "../../shared/api";
-import { getSsdResultIndex } from "../results/ssd/api";
+import { getReviewSummary, getSsdResultIndex } from "../results/ssd/api";
 import {
   SsdReviewHandoff,
   type SsdReviewApplied,
@@ -29,6 +29,7 @@ export function ReviewHandoff({
   activeProject.current = project;
   const [ssdCases, setSsdCases] = useState<SsdReviewCase[]>([]);
   const [projectScopes, setProjectScopes] = useState<string[]>([]);
+  const [initialSummary, setInitialSummary] = useState<any>(null);
   const [probe, setProbe] = useState<
     "loading" | "current" | "legacy" | "error"
   >("loading");
@@ -59,6 +60,7 @@ export function ReviewHandoff({
     setFormat("auto");
     setSsdCases([]);
     setProjectScopes([]);
+    setInitialSummary(null);
   }, [project]);
   useEffect(() => {
     let active = true;
@@ -66,10 +68,31 @@ export function ReviewHandoff({
     setProbe((previous) =>
       probeProject === project && previous === "current" ? previous : "loading",
     );
-    Promise.allSettled([
-      getProjectResultIndex(project),
-      getSsdResultIndex(project),
-    ]).then(([p, s]) => {
+    async function detectFormat() {
+      const summary = await getReviewSummary(project).catch(() => null);
+      if (!active) return;
+      if (summary?.format === "business-adoption-v3") {
+        const scopes = summary.excluded?.by_scope;
+        const items = scopes?.interaction?.items || [];
+        const shared = scopes?.shared_services?.available;
+        if (items.length || shared) {
+          setProbeProject(project);
+          setSsdCases(
+            items.map((item: { id: string; name: string }) => ({
+              id: item.id.replace(/^interaction:/, ""),
+              name: item.name,
+            })),
+          );
+          setProjectScopes(shared ? ["shared_services"] : []);
+          setInitialSummary(summary);
+          setProbe("current");
+          return;
+        }
+      }
+      const [p, s] = await Promise.allSettled([
+        getProjectResultIndex(project),
+        getSsdResultIndex(project),
+      ]);
       if (!active) return;
       const scopes =
         p.status === "fulfilled" && p.value?.version === "project-scopes-v1"
@@ -87,6 +110,7 @@ export function ReviewHandoff({
       setProbeProject(project);
       setProjectScopes(scopes);
       setSsdCases(cases);
+      setInitialSummary(summary);
       setProbe(
         cases.length || scopes.length
           ? "current"
@@ -94,7 +118,8 @@ export function ReviewHandoff({
             ? "error"
             : "legacy",
       );
-    });
+    }
+    void detectFormat();
     return () => {
       active = false;
     };
@@ -249,6 +274,7 @@ export function ReviewHandoff({
             cases={ssdCases}
             selection={selection}
             onApplied={onApplied}
+            initialSummary={initialSummary}
           />
         ) : (
           <>

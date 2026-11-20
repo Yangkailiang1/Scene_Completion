@@ -11,6 +11,10 @@ import {
   afterSourceLayout,
   scrollSourceAnchor,
 } from "../../sources/sourceScroll";
+import {
+  SpreadsheetSource,
+  workbookSheet,
+} from "../../sources/SpreadsheetSource";
 import type { SourceDocument, SourceRef } from "./types";
 const MarkdownSource = lazy(() =>
   import("../../sources/MarkdownSource").then((module) => ({
@@ -91,8 +95,14 @@ export function SsdSourceDialog({
   const start = activeRef?.start_line ?? 1;
   const end = activeRef?.end_line || start;
   const lines = useMemo(() => doc?.content.split("\n") || [], [doc]);
+  const sheet = workbookSheet(doc?.name);
+  const sheetLines = useMemo(
+    () =>
+      sheet ? lines.map((text, index) => ({ number: index + 1, text })) : [],
+    [lines, sheet],
+  );
   const markdown = /\.(md|markdown)$/i.test(doc?.name || "");
-  const codeView = source || !markdown;
+  const codeView = !sheet && (source || !markdown);
   const rawReader = useRef<HTMLDivElement>(null);
   const invalidLine =
     !!doc && !!activeRef && (start < 1 || end < start || end > lines.length);
@@ -261,6 +271,20 @@ export function SsdSourceDialog({
           <p role="alert">
             尚未导入此引用对应的原始文档，请补充文档后查看。引用：{ref?.quote}
           </p>
+        ) : sheet ? (
+          <SpreadsheetSource
+            key={docId}
+            sheet={sheet}
+            lines={sheetLines}
+            start={invalidLine || !activeRef ? 0 : start}
+            end={invalidLine || !activeRef ? 0 : end}
+            address={
+              origin?.document === doc.name && origin.sheet === sheet
+                ? origin.cell_range
+                : undefined
+            }
+            jump={jump}
+          />
         ) : codeView ? (
           <div className="ssd-source-code" ref={rawReader}>
             {lines.map((line, i) => (

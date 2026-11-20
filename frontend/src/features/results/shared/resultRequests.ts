@@ -15,11 +15,19 @@ export function setResultEpoch(project: string, epoch?: string) {
     invalidateResults(project);
   }
 }
-export function resultGet(project: string, suffix: string) {
-  const key = projectUrl(project, suffix),
+function resultRead(project: string, suffix: string, body?: string) {
+  const url = projectUrl(project, suffix),
+    key = body === undefined ? url : `${url}\n${body}`,
     found = entries.get(key);
   if (found && found.expires > Date.now()) return found.promise;
-  const entry = { promise: api(key), expires: Infinity, project };
+  const entry = {
+    promise: api(
+      url,
+      body === undefined ? undefined : { method: "POST", body },
+    ),
+    expires: Infinity,
+    project,
+  };
   entries.set(key, entry);
   entry.promise.then(
     () => {
@@ -31,4 +39,12 @@ export function resultGet(project: string, suffix: string) {
   );
   if (entries.size > 16) entries.delete(entries.keys().next().value!);
   return entry.promise;
+}
+
+export function resultGet(project: string, suffix: string) {
+  return resultRead(project, suffix);
+}
+
+export function resultSummary(project: string, suffix: string, body: object) {
+  return resultRead(project, suffix, JSON.stringify(body));
 }

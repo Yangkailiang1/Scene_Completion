@@ -7,10 +7,12 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { ReviewHandoff } from "./ReviewHandoff";
+import { invalidateResults } from "../results/shared/resultRequests";
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  invalidateResults();
 });
 const json = (value: unknown) =>
   ({ ok: true, json: async () => value }) as Response;
@@ -23,6 +25,37 @@ const counts = {
   available: true,
   items: [],
 };
+test("a current handoff starts with one summary request", async () => {
+  const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    json({
+      format: "business-adoption-v3",
+      excluded: {
+        by_scope: {
+          interaction: {
+            ...counts,
+            items: [
+              {
+                id: "interaction:C1",
+                name: "原用例",
+                revision: 1,
+                counts: {
+                  E: { scenarios: 0 },
+                  G: { scenarios: 1 },
+                  GT: { scenarios: 0 },
+                },
+              },
+            ],
+          },
+          shared_services: { ...counts, available: false, exported: 0 },
+        },
+      },
+    }),
+  );
+  render(<ReviewHandoff project="current" />);
+  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(String(fetcher.mock.calls[0][0])).toMatch(/\/ssd-review\/summary$/);
+});
 function setup(post: (url: string, body: any) => Response = () => json({})) {
   return vi
     .spyOn(globalThis, "fetch")

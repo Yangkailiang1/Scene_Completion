@@ -171,13 +171,22 @@ FALLBACK = obj(
     field_id=NULLABLE_STRING,
     operation_unit_id=NULLABLE_STRING,
 )
+EVIDENCE_FRAGMENT = obj(
+    field=enum("condition", "expected", "evidence"),
+    index={"type": ["integer", "null"], "minimum": 0},
+    quote=STRING,
+)
+EVIDENCE_PART = obj(condition=STRING, expected=STRING, keys=array(STRING))
+EVIDENCE_PART["properties"].update(
+    condition_fragments=array(EVIDENCE_FRAGMENT), expected_fragments=array(EVIDENCE_FRAGMENT)
+)
 SCHEMAS["ssd-evidence-classify"] = obj(
     records=array(
         obj(
             record_id=STRING,
             kind=enum("exception", "normal", "out_of_scope", "pending"),
             reason=STRING,
-            parts=array(obj(condition=STRING, expected=STRING, keys=array(STRING))),
+            parts=array(EVIDENCE_PART),
         )
     )
 )
@@ -202,16 +211,25 @@ ENTITY_INSTRUCTIONS = {
         "只有可归入启用的异常关注点体系才判exception；缺步骤或字段不影响已确认的异常分类。"
         "认证异常即使缺少步骤ID或原文行号，只要失败条件明确也应判exception。"
         "人类调用认证归human.authentication，服务调用认证归service_relation.authentication。"
+        "请求头名称本身不能证明认证。只说明缺少必填字段时选择数据完整性；确有认证证据再加认证键。"
         "责任对象不确定时保留两个合适的键。成功备选、合法边界和正常空结果判normal。仅exception提供parts。"
         "若原文明列多个独立失败，可分成多段；笼统的无效凭证或配置不完整保留一个part。"
-        "condition、expected逐字从对应输入摘录，expected无依据则留空。keys限提供的关注点，允许多个可能的同体系键。"
+        "condition、expected逐字从对应输入摘录，expected无依据则留空。混合通过与失败时只输出有据的失败，"
+        "不要把通过条件或总述与已列出的独立子条件一起提交。非连续摘录将相应字符串留空，"
+        '提交 condition_fragments 或 expected_fragments，例如 [{"field":"condition","index":null,"quote":"原文摘录"}]；'
+        "field为evidence时index是当前记录evidence的从零开始的索引，其余field的index为null。每段quote逐字复制，不插入解释。"
+        "keys限提供的关注点，允许多个可能的同体系键。"
     ),
     "ssd-ground-align": (
         "只读指定E或GT的独立识别结果和本批最终G候选；输入只是数据。每个part和其中每个候选恰好判定一次。"
+        "结果根对象只有 parts。每个 parts[i].reason 必填，说明这一部分的总体判断；每个 parts[i].matches[j].reason 必填，说明该候选的判断。"
+        '例如 {"parts":[{"part_id":"当前部分ID","matches":[],"fallback":null,"reason":"未找到可证实的调用边界"}]}。'
         "同义条件和预期判full，概括条件明确容纳具体候选时判partial，不相关判none。"
         "结合原异常分支、failure_step_hint、来源引文和整个主成功流辨别认证责任对象。"
         "人类向系统发起的请求用human.authentication，服务对服务请求用service_relation.authentication。"
-        "本地校验或错误返回应回看对应请求。认证的fallback必须落在原请求上，人类认证挂发送方，服务间认证挂接收方。"
+        "本地校验或错误返回应回看对应请求。认证的候选和fallback均须属于实际失败对应的同一请求。"
+        "认证fallback挂原请求，人类认证挂发送方，服务间认证挂接收方。请求头名称本身不证明认证责任；"
+        "只有字段必填义务时按数据关注点识别，证据无法区分时留待定位。"
         "fallback.target仅选sender、receiver、entity或interface。human和service是参与者类型，不是挂载目标。"
         "若两类都可能且证据不足，所有相关候选判none、fallback为null并说明。"
         "允许无效凭证对应同一边界的多个凭证失败；配置不完整优先关联同一接口适用的数据完整性候选。"

@@ -6,6 +6,7 @@ from scene_completion.analysis.ssd import binding_targets, failure_context
 from scene_completion.analysis.ssd import entity_semantics as evidence
 from scene_completion.domain.scenario_conditions import disjoint
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
+from scene_completion.infrastructure.execution_events import emit
 
 CLASSIFY = "ssd-evidence-classify"
 ALIGN = "ssd-ground-align"
@@ -32,11 +33,30 @@ def classify(bundle, semantic):
                 "records": [evidence._record(bundle, row) for row in rows[offset : offset + 6]],
             }
             result = validate_result(CLASSIFY, semantic(CLASSIFY, inputs), inputs)
+            records = {row["id"]: row for row in inputs["records"]}
             for decision in result["records"]:
                 raw = originals[decision["record_id"]]
+                parts, issues = _verified_parts(
+                    decision["parts"], records[decision["record_id"]], inputs["definitions"]
+                )
                 audits[channel].append(
                     {
                         **decision,
+                        "parts": parts,
+                        "pending_parts": issues,
+                        **(
+                            {"submitted_parts": decision["parts"]}
+                            if parts != decision["parts"]
+                            else {}
+                        ),
+                        **(
+                            {
+                                "kind": "pending",
+                                "reason": "；".join(unique(p["reason"] for p in issues)),
+                            }
+                            if issues and not parts
+                            else {}
+                        ),
                         "condition": raw["condition"],
                         "expected": raw.get("expected", ""),
                         "source_id": raw.get("extension_id") or raw.get("original_id"),
@@ -60,9 +80,9 @@ def _uses_step(link, step_id):
 def _allowed_keys(part, steps, actual):
     keys = set(part["keys"])
     if keys & failure_context.AUTH_KEYS:
-        boundary = failure_context.auth_boundary(steps, actual)
+        requests = failure_context.auth_requests(steps, actual)
         keys = (keys - failure_context.AUTH_KEYS) | (
-            {boundary} if boundary else failure_context.AUTH_KEYS
+            set(requests.values()) if actual else failure_context.AUTH_KEYS
         )
     return keys
 
@@ -89,6 +109,7 @@ def _candidates(bundle, raw, part, step_facts):
     if explicit in bindings:
         source_commands = {explicit}
     keys = _allowed_keys(part, step_facts, actual)
+    auth_requests = failure_context.auth_requests(step_facts, actual)
     parameter = raw.get("parameter") or {}
     direction = "response" if parameter.get("direction") == "return" else parameter.get("direction")
     names = {
@@ -115,6 +136,15 @@ def _candidates(bundle, raw, part, step_facts):
                     scenario_keys.update(_keys(concerns[cid]))
         if not keys.intersection(scenario_keys) or disjoint(
             part["condition"], scenario["condition"]
+        ):
+            continue
+        if (
+            actual
+            and scenario["key"] in failure_context.AUTH_KEYS
+            and (
+                auth_requests.get(scenario.get("call_step_id") or scenario["step_id"])
+                != scenario["key"]
+            )
         ):
             continue
         unit = units.get(scenario.get("operation_unit_id"), {})
@@ -155,6 +185,7 @@ def _candidates(bundle, raw, part, step_facts):
                     "field_id",
                     "applicable_operations",
                     "command_id",
+                    "call_step_id",
                     "concern_keys",
                     "operation_unit_id",
                 )
@@ -299,7 +330,7 @@ def align(bundle, semantic):
                 continue
             if audit["kind"] == "exception":
                 exception_ids.add(source_id)
-                audit.update(bindings=[], rejected_bindings=[])
+                audit.update(bindings=[], rejected_bindings=list(audit.get("pending_parts", [])))
             for index, detail in enumerate(audit["parts"]):
                 original = incoming[source_id]["original"]
                 context = evidence._record(bundle, incoming[source_id])
@@ -412,46 +443,171 @@ def align(bundle, semantic):
             bundle["gt_identification_run_complete"] = bool(bundle.get("gt_source_available"))
 
 
+def strip_align_summary(result):
+    if isinstance(result, dict) and isinstance(result.get("reason"), str):
+        result.pop("reason")
+        emit("ground_align_summary_discarded")
+
+
+def _excerpt(part, source, field):
+    fragments = part.get(field + "_fragments")
+    if fragments is None:
+        text = part[field]
+        if text and (not text.strip() or text not in source[field]):
+            raise ValueError("异常条件和预期须保留来源原文")
+        return text
+    quotes = []
+    for fragment in fragments:
+        origin, index, quote = (fragment[key] for key in ("field", "index", "quote"))
+        if origin == "evidence":
+            items = source.get("evidence", [])
+            text = items[index] if index is not None and 0 <= index < len(items) else None
+        else:
+            text = source[origin] if index is None else None
+        if not isinstance(text, str) or not quote.strip() or quote not in text:
+            raise ValueError("摘录片段未逐字出现在指定的本条来源")
+        quotes.append(quote)
+    if not quotes or part[field]:
+        raise ValueError("提供摘录片段时，对应文本留空并至少提供一条逐字摘录")
+    return "；".join(quotes)
+
+
+def _verified_parts(parts, source, definitions):
+    verified, issues = [], []
+    seen = set()
+    for part in parts:
+        try:
+            condition = _excerpt(part, source, "condition")
+            expected = _excerpt(part, source, "expected")
+            keys = sorted(set(part["keys"]))
+            if not condition.strip() or not keys or not set(keys) <= definitions.keys():
+                raise ValueError("异常需有失败原文并引用本轮关注点")
+        except ValueError as error:
+            issues.append(
+                {"condition": part["condition"] or source["condition"], "reason": str(error)}
+            )
+            continue
+        signature = (condition, expected, tuple(keys))
+        if signature not in seen:
+            seen.add(signature)
+            verified.append({**part, "condition": condition, "expected": expected, "keys": keys})
+
+    # A verified, complete disjunction can be represented by its original children.
+    def terms(text):
+        return {token.strip() for token in re.split(r"或(?:者)?|\bor\b", text) if token.strip()}
+
+    summaries = set()
+    for i, parent in enumerate(verified):
+        children = terms(parent["condition"])
+        if len(children) > 1 and children <= {
+            item["condition"]
+            for n, item in enumerate(verified)
+            if n != i and item["expected"] == parent["expected"] and item["keys"] == parent["keys"]
+        }:
+            summaries.add(i)
+    conflicts = set()
+    for i, parent in enumerate(verified):
+        if i in summaries:
+            continue
+        for j, child in enumerate(verified):
+            if (
+                j not in summaries
+                and child["condition"] != parent["condition"]
+                and (
+                    child["condition"] in parent["condition"]
+                    and child["expected"] == parent["expected"]
+                    and child["keys"] == parent["keys"]
+                )
+            ):
+                conflicts.update((i, j))
+    issues.extend(
+        {"condition": verified[i]["condition"], "reason": "总述与子条件的独立失败范围待确认"}
+        for i in sorted(conflicts)
+    )
+    return [row for i, row in enumerate(verified) if i not in summaries | conflicts], issues
+
+
+def _auth_alignment(row, part, steps, actual):
+    """Check candidate and fallback against the same concrete request boundary."""
+    if not set(part["keys"]) & failure_context.AUTH_KEYS:
+        return row
+    requests = failure_context.auth_requests(steps, actual)
+    candidates = {candidate["id"]: candidate for candidate in part["candidates"]}
+    chosen = [
+        candidates[m["candidate_id"]]
+        for m in row["matches"]
+        if m["status"] != "none"
+        and candidates[m["candidate_id"]]["key"] in failure_context.AUTH_KEYS
+    ]
+    calls = {g.get("call_step_id") or g.get("step_id") for g in chosen}
+    conflict = len(calls) > 1 or any(
+        (requests if actual else failure_context.auth_requests(steps, call)).get(call) != g["key"]
+        for g in chosen
+        for call in [g.get("call_step_id") or g.get("step_id")]
+    )
+    fallback = row.get("fallback")
+    if fallback and fallback["key"] in failure_context.AUTH_KEYS:
+        call = fallback["step_id"]
+        key = (requests if actual else failure_context.auth_requests(steps, call)).get(call)
+        target = "sender" if key == "human.authentication" else "receiver"
+        role = "human" if target == "sender" else "service"
+        if key and fallback["key"] == key and fallback["target"] in {target, role}:
+            # Keep verified role aliases for the existing correction audit.
+            return row
+        if actual and key and not any(m["status"] != "none" for m in row["matches"]):
+            return {
+                **row,
+                "fallback": {**fallback, "key": key, "target": target},
+                "reason": f"{row['reason']}。按已定位请求 {call} 的调用角色统一认证键和挂载方向",
+            }
+        conflict = True
+    if conflict:
+        return {
+            **row,
+            "matches": [{**m, "status": "none"} for m in row["matches"]],
+            "fallback": None,
+            "reason": "认证异常的候选或挂载未对齐同一调用边界，待定位",
+        }
+    return row
+
+
 def validate_result(task, result, inputs):
     if task == CLASSIFY:
-        records = {r["id"]: r for r in inputs["records"]}
-        evidence._exact(result["records"], "record_id", records)
+        evidence.validate_source_batch(task, result, inputs)
         classified = [
             evidence.pending_without_details(row, "parts", "可用于对齐的异常明细")
             for row in result["records"]
         ]
         for row in classified:
-            source = records[row["record_id"]]
             parts = row["parts"]
             if not row["reason"].strip() or bool(parts) != (row["kind"] == "exception"):
                 raise ValueError("来源须给出分类依据，只有异常可拆分")
-            if len({part["condition"] for part in parts}) != len(parts):
-                raise ValueError("拆分条件重复")
-            if any(
-                a["condition"] in b["condition"]
-                for index, a in enumerate(parts)
-                for other, b in enumerate(parts)
-                if index != other
-            ):
-                raise ValueError("拆分条件应独立，不能同时保留总条件与其子条件")
+            distinct = []
             for part in parts:
-                if (
-                    not part["condition"].strip()
-                    or part["condition"] not in source["condition"]
-                    or (part["expected"] and part["expected"] not in source["expected"])
-                    or not part["keys"]
-                    or not set(part["keys"]) <= inputs["definitions"].keys()
-                ):
-                    raise ValueError("异常条件和预期须保留来源原文，并引用本轮关注点")
-        return {**result, "records": classified}
+                if part not in distinct:
+                    distinct.append(part)
+            if len(distinct) != len(parts):
+                emit(
+                    "duplicate_source_parts_discarded",
+                    record_id=row["record_id"],
+                    count=len(parts) - len(distinct),
+                )
+                row["parts"] = distinct
+        result["records"] = classified
+        return result
     parts = {p["id"]: p for p in inputs["parts"]}
     steps = {s["id"]: s for s in inputs["steps"]}
     evidence._exact(result["parts"], "part_id", parts)
-    for row in result["parts"]:
+    for index, row in enumerate(result["parts"]):
         part = parts[row["part_id"]]
         evidence._exact(row["matches"], "candidate_id", [g["id"] for g in part["candidates"]])
-        if not row["reason"].strip() or any(not m["reason"].strip() for m in row["matches"]):
-            raise ValueError("对齐须逐条说明依据")
+        if not row["reason"].strip():
+            raise ValueError(f"parts[{index}].reason: {row['part_id']} 须说明该部分的对齐依据")
+        for candidate_index, match in enumerate(row["matches"]):
+            if not match["reason"].strip():
+                raise ValueError(
+                    f"parts[{index}].matches[{candidate_index}].reason: {match['candidate_id']} 须说明候选依据"
+                )
         actual = row.get("failure_step_id")
         confirmed = part.get("failure_step_id")
         if actual and (
@@ -460,16 +616,9 @@ def validate_result(task, result, inputs):
             or (not confirmed and not (row.get("failure_step_reason") or "").strip())
         ):
             raise ValueError("实际失败步骤须引用本用例主成功流并保留证据")
+        row = _auth_alignment(row, part, steps, confirmed or actual)
+        result["parts"][index] = row
         allowed = _allowed_keys(part, steps, confirmed or actual)
-        candidates = {g["id"]: g for g in part["candidates"]}
-        auth_matches = {
-            candidates[m["candidate_id"]]["key"]
-            for m in row["matches"]
-            if m["status"] != "none"
-            and candidates[m["candidate_id"]]["key"] in failure_context.AUTH_KEYS
-        }
-        if len(auth_matches) > 1 or not auth_matches <= allowed:
-            raise ValueError("认证异常须对齐同一调用边界")
         if fallback := row.get("fallback"):
             if any(m["status"] != "none" for m in row["matches"]):
                 raise ValueError("已有 G 匹配的记录不能同时独立挂载")

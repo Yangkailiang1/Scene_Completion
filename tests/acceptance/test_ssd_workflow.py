@@ -405,3 +405,32 @@ def test_function_tree_qualified_fields_keep_request_and_response_separate(tmp_p
     assert not any("20" in str(rule["value"]) for rule in response["constraints"])
     assert lookup[("body", "quantity")]["required"] is False
     assert ("response", "tagged") in lookup
+
+
+def test_code_retry_keeps_previous_case_scope_with_another_case_cached(tmp_path, monkeypatch):
+    from scene_completion.application.node_recovery_service import rerun
+    from scene_completion.infrastructure.storage import write_json
+
+    service, rid, root = imported_project(tmp_path)
+    first, _ = execute(root, ["UC-001", "UC-002"])
+    prepare = "UC-001:ssd-prepare"
+    other = "UC-002:ssd-prepare"
+    before = deepcopy(first.scheduler.state["tasks"][other])
+    original = read_json(root / "run" / first.scheduler.state["tasks"][prepare]["output_file"])
+    write_json(
+        root / "job.json",
+        {"status": "waiting", "started_at": 1, "run_options": {"case_ids": ["UC-001"]}},
+    )
+
+    def resume(project_id, options):
+        assert project_id == rid
+        ex, manifest = execute(root, options["case_ids"])
+        assert all(task.case == "UC-001" for task in ex.scheduler.tasks.values())
+        assert ex.scheduler.state["tasks"][other] == before
+        result = read_json(root / "run" / ex.scheduler.state["tasks"][prepare]["output_file"])
+        assert result["payload"]["core_snapshot"] == original["payload"]["core_snapshot"]
+        return manifest
+
+    monkeypatch.setattr(service, "_start", resume)
+    assert rerun(service, rid, {"task_key": prepare})["execution_complete"]
+    service.pool.shutdown()

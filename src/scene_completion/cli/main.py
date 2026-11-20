@@ -107,7 +107,7 @@ def capabilities():
                 "prompts",
                 "repair-export",
                 "repair-submit",
-                "rerun --node",
+                "rerun --node --wait",
                 "run --wait",
                 "execution-control",
                 "configure",
@@ -134,7 +134,7 @@ def capabilities():
             "handoff": "--project ID --out FILE.zip [--format windows|project] [--dry-run]",
             "feedback": "--project ID --out FILE.json 导出；--file FILE.json [--dry-run] 导入预览/应用；不自动重跑",
             "impact": "--project ID；输出plan_id、来源节点及真实DAG下游",
-            "rerun": "--project ID --affected --plan-id ID [--dry-run]；或--node ID定向重跑",
+            "rerun": "--project ID --node ID 或 --affected --plan-id ID；支持 --wait、--timeout、--poll 和 --dry-run",
             "repair-export/repair-submit": "支持--batch精确子任务；--local --data-dir DATA不依赖HTTP；外部修复必须通过原校验器",
             "input-scan": "--project ID --directory PATH [--watch|--no-watch]；服务端稳定采样与监控目录，CLI退出后继续",
             "execution-control": "--project ID --action pause|stop|resume [--dry-run]；暂停等待在途请求，停止保留检查点；明确继续后才派发请求",
@@ -208,6 +208,48 @@ def capabilities():
 
 def output(value):
     print(json.dumps(value, ensure_ascii=False), flush=True)
+
+
+def _check_wait_options(args):
+    if args.timeout <= 0 or not 0.2 <= args.poll <= 60:
+        raise ValueError("timeout需为正数，poll范围0.2至60秒")
+
+
+def _wait_for_run(api, args, rid, cursor, started_at=None):
+    path = "projects/" + rid
+    deadline = time.monotonic() + args.timeout
+    previous = None
+    while True:
+        value = api.call(path + "/execution-status")
+        job = value["job"]
+        if started_at is not None and job.get("started_at") not in {None, started_at}:
+            output({"kind": "detached", "project": rid, "reason": "当前项目已切换执行轮次"})
+            return 2
+        events = api.call(
+            path + "/events/history?" + urllib.parse.urlencode({"after": cursor, "limit": 200})
+        )["events"]
+        for event in events:
+            cursor = max(cursor, event["id"])
+            output(
+                {"kind": "execution_event", "project": rid, "event_cursor": cursor, "event": event}
+            )
+        signature = json.dumps(value, sort_keys=True)
+        if signature != previous:
+            output({"kind": "status", **value})
+            previous = signature
+        if job["status"] != "running":
+            output({"kind": "finished", **value, "web_url": getattr(api, "server", args.server)})
+            return 0 if value.get("execution_complete", value.get("complete")) else 2
+        if time.monotonic() >= deadline:
+            output(
+                {
+                    "kind": "detached",
+                    "project": rid,
+                    "reason": "CLI等待超时；服务端运行继续，可在网页查看或再次status/events",
+                }
+            )
+            return 3
+        time.sleep(min(args.poll, max(0, deadline - time.monotonic())))
 
 
 def parser():
@@ -321,11 +363,12 @@ def parser():
     ):
         a = sub.add_parser(cmd)
         a.add_argument("--project", required=True)
-        if cmd == "run":
+        if cmd in {"run", "rerun"}:
             a.add_argument("--wait", action="store_true")
-            a.add_argument("--mode", choices=("manual", "auto"))
             a.add_argument("--timeout", type=float, default=3600)
             a.add_argument("--poll", type=float, default=2)
+        if cmd == "run":
+            a.add_argument("--mode", choices=("manual", "auto"))
             scope = a.add_mutually_exclusive_group()
             scope.add_argument("--case", action="append")
             scope.add_argument("--all-cases", action="store_true")
@@ -794,16 +837,9 @@ def main(argv=None, client=None):
         )
         return 0
     if args.command == "rerun":
-        if args.affected:
-            if not args.plan_id:
-                raise ValueError("先impact查看影响范围，再传--plan-id")
-            output(
-                api.call(
-                    path + "/rerun-affected", {"plan_id": args.plan_id, "dry_run": args.dry_run}
-                )
-            )
-            return 0
-        if args.dry_run:
+        if args.affected and not args.plan_id:
+            raise ValueError("先impact查看影响范围，再传--plan-id")
+        if args.dry_run and not args.affected:
             output(
                 {
                     "valid": True,
@@ -813,13 +849,26 @@ def main(argv=None, client=None):
                 }
             )
             return 0
-        output(
-            api.call(
-                path + "/rerun-node",
-                {"task_key": args.node, "text": args.text, "dry_run": args.dry_run},
+        cursor = None
+        if args.wait and not args.dry_run:
+            _check_wait_options(args)
+            cursor = api.call(path + "/execution-status")["event_cursor"]
+        if args.affected:
+            value = api.call(
+                path + "/rerun-affected", {"plan_id": args.plan_id, "dry_run": args.dry_run}
             )
+        else:
+            value = api.call(
+                path + "/rerun-node", {"task_key": args.node, "text": args.text, "dry_run": False}
+            )
+        if cursor is None or value.get("started") is False:
+            output(value)
+            return 0
+        project = value.get("project_id", rid)
+        output({"kind": "started", **value})
+        return _wait_for_run(
+            api, args, project, cursor if project == rid else 0, value.get("started_at")
         )
-        return 0
     if args.command == "manager":
         body = json.loads(Path(args.file).read_text(encoding="utf-8-sig")) if args.file else {}
         if not isinstance(body, dict):
@@ -1110,8 +1159,7 @@ def main(argv=None, client=None):
             query = urlencode({"case": args.case}, doseq=True) if args.case else ""
             output(api.call(path + "/supplied-cases" + ("?" + query if query else "")))
             return 0
-        if args.timeout <= 0 or not 0.2 <= args.poll <= 60:
-            raise ValueError("timeout需为正数，poll范围0.2至60秒")
+        _check_wait_options(args)
         if args.mode:
             api.call(path + "/mode", {"review_mode": args.mode}, "PUT")
         # Begin at current cursor, not a replay of every historical token.
@@ -1139,46 +1187,10 @@ def main(argv=None, client=None):
             cursor = 0
         if not args.wait:
             return 0
-        deadline = time.monotonic() + args.timeout
-        previous = None
-        while True:
-            events = api.call(
-                path + "/events/history?" + urllib.parse.urlencode({"after": cursor, "limit": 200})
-            )["events"]
-            for event in events:
-                cursor = max(cursor, event["id"])
-                output(
-                    {
-                        "kind": "execution_event",
-                        "project": rid,
-                        "event_cursor": cursor,
-                        "event": event,
-                    }
-                )
-            value = api.call(path + "/execution-status")
-            signature = json.dumps(value, sort_keys=True)
-            if signature != previous:
-                output({"kind": "status", **value})
-                previous = signature
-            if value["job"]["status"] != "running":
-                output(
-                    {
-                        "kind": "finished",
-                        **value,
-                        "web_url": api.server if hasattr(api, "server") else args.server,
-                    }
-                )
-                return 0 if value.get("execution_complete", value["complete"]) else 2
-            if time.monotonic() >= deadline:
-                output(
-                    {
-                        "kind": "detached",
-                        "project": rid,
-                        "reason": "CLI等待超时；服务端运行继续，可在网页查看或再次status/events",
-                    }
-                )
-                return 3
-            time.sleep(args.poll)
+        started_at = (
+            current["job"].get("started_at") if value.get("attached") else value.get("started_at")
+        )
+        return _wait_for_run(api, args, rid, cursor, started_at)
     raise ValueError("unsupported command")
 
 

@@ -40,6 +40,92 @@ def party(party_id, **extra):
     return {"id": party_id, "name": party_id, "type": "service", **extra}
 
 
+def test_infer_keeps_batch_inputs_separate_and_ignores_later_crud():
+    from scene_completion.analysis.validation import validate_result as validate_submission
+
+    task = "ssd-entity-inference"
+    bundle = build_cases(DATA, case_ids="UC-002", profile=ENTITY_PROFILE, generate=False)[0]
+    attribute = bundle["entities"][0]["attributes"][0]
+    attribute["unresolved"] = [{"text": f"约束 {i}", "source_refs": []} for i in range(19)]
+    for step in bundle["steps"]:
+        step["operation"].update(kinds=[], kinds_source="pending")
+    batches = []
+
+    def semantic(name, inputs):
+        assert name == task
+        batches.append(inputs)
+        return validate_submission(
+            task,
+            {
+                "operations": [
+                    {
+                        "step_id": step_id,
+                        "crud": ["read"] if len(batches) == 1 else ["delete"],
+                        "state": "operation",
+                        "reason": "操作语义",
+                    }
+                    for step_id in batches[0]["operations"]
+                ],
+                "constraints": [
+                    {
+                        "rule_id": rule["id"],
+                        "state": "mapped",
+                        "reason": "约束语义",
+                        "bindings": [
+                            {
+                                "key": "api.data.validity",
+                                "failure": f"违反 {rule['rule']}",
+                                "applies_to": [],
+                            }
+                        ],
+                    }
+                    for rule in inputs["constraints"]
+                ],
+            },
+            inputs,
+        )
+
+    infer(bundle, semantic)
+    first, second = batches
+    assert first["operations"] == [step["id"] for step in bundle["steps"]]
+    assert not second["operations"]
+    assert first["steps"] == second["steps"]
+    first_ids = {rule["id"] for rule in first["constraints"]}
+    second_ids = {rule["id"] for rule in second["constraints"]}
+    assert len(first_ids) == 12 and len(second_ids) >= 7 and not first_ids & second_ids
+    assert {atom.get("failure_condition") for atom in attribute["atoms"]} >= {
+        f"违反 约束 {i}" for i in range(19)
+    }
+    assert all(step["operation"]["kinds"] == ["read"] for step in bundle["steps"])
+
+
+@pytest.mark.parametrize(
+    "expected,returned,error",
+    [
+        (["step-1"], [], "本批每个来源"),
+        (["step-1"], ["other-step"], "本批每个来源"),
+        (["step-1"], ["step-1", "step-1"], "本批每个来源"),
+        ([], [None], "is not of type 'string'"),
+    ],
+)
+def test_entity_inference_retains_schema_and_nonempty_batch_identity_checks(
+    expected, returned, error
+):
+    from scene_completion.analysis.validation import validate_result as validate_submission
+
+    value = {
+        "operations": [
+            {"step_id": step_id, "crud": ["read"], "state": "operation", "reason": "证据"}
+            for step_id in returned
+        ],
+        "constraints": [],
+    }
+    with pytest.raises(ValueError, match=error):
+        validate_submission(
+            "ssd-entity-inference", value, {"operations": expected, "constraints": []}
+        )
+
+
 def test_independent_classification_uses_canonical_entity_anchor_and_retains_occurrence():
     from scene_completion.domain.concern_registry import default_registry
     from scene_completion.domain.current_scope import current_registry

@@ -6,6 +6,8 @@ from scene_completion.analysis.ssd import binding_targets, failure_context
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, pending
 from scene_completion.domain.ssd_contracts import CRUD
+from scene_completion.infrastructure.execution_events import emit
+from scene_completion.infrastructure.identity import fingerprint
 
 ENTITY_KEYS = {
     "api.data.completeness",
@@ -100,22 +102,25 @@ def infer(bundle, semantic):
     }
     rules = _unresolved(bundle)
     keys = definitions(bundle)
-    inputs = {
+    context = {
         "case": bundle["case"],
         "steps": _steps(bundle),
         "operation_hints": bundle.get("operation_hints", []),
         "entities": _catalogue(bundle),
         "definitions": {k: keys[k] for k in sorted(ENTITY_KEYS.intersection(keys))},
-        "operations": list(steps),
-        "constraints": [],
     }
     unresolved = []
+    rule_items = list(rules.items())
     for offset in range(0, max(len(rules), 1), 12):
-        batch = list(rules.items())[offset : offset + 12]
-        inputs["constraints"] = [
-            {"id": rid, "entity": entity, "attribute": attr["name"], "rule": rule["text"]}
-            for rid, (entity, attr, rule) in batch
-        ]
+        batch = rule_items[offset : offset + 12]
+        inputs = {
+            **context,
+            "operations": list(steps) if offset == 0 else [],
+            "constraints": [
+                {"id": rid, "entity": entity, "attribute": attr["name"], "rule": rule["text"]}
+                for rid, (entity, attr, rule) in batch
+            ],
+        }
         if not (inputs["operations"] or inputs["constraints"]):
             continue
         if not semantic:
@@ -123,7 +128,6 @@ def infer(bundle, semantic):
                 {"step_id": sid, "reason": "实际 CRUD 待分析"} for sid in inputs["operations"]
             )
             unresolved.extend({"rule_id": key, "reason": "实体约束待分析"} for key, _ in batch)
-            inputs["operations"] = []
             continue
         result = semantic("ssd-entity-inference", inputs)
         for row in result["operations"]:
@@ -158,7 +162,6 @@ def infer(bundle, semantic):
                 }
                 for binding in row["bindings"]
             )
-        inputs["operations"] = []
     bundle["field_anchors"] = anchors(bundle)
     bundle["contract_binding_pending"] = unresolved + bundle["field_anchors"]["pending"]
     bundle["channels"]["G"] = generate_g(bundle)
@@ -472,6 +475,22 @@ def _exact(rows, key, expected):
         raise ValueError("模型必须对本批每个来源恰好返回一条判定")
 
 
+def validate_source_batch(task, result, inputs):
+    expected = {row["id"] for row in inputs["records"]}
+    records = result["records"]
+    current = [row for row in records if row["record_id"] in expected]
+    _exact(current, "record_id", expected)
+    if len(current) != len(records):
+        emit(
+            "unrequested_sources_discarded",
+            semantic_batch=fingerprint([task, inputs])[:24],
+            discarded_record_ids=[
+                row["record_id"] for row in records if row["record_id"] not in expected
+            ],
+        )
+        result["records"] = current
+
+
 def pending_without_details(row, key, description):
     """Retain an unlocated exception without accepting a fabricated binding."""
     if row["kind"] != "exception" or row[key]:
@@ -487,9 +506,10 @@ def pending_without_details(row, key, description):
 
 def validate_result(task, value, inputs):
     if task == "ssd-entity-inference":
-        _exact(value["operations"], "step_id", inputs["operations"])
+        operations = value["operations"] if inputs["operations"] else []
+        _exact(operations, "step_id", inputs["operations"])
         _exact(value["constraints"], "rule_id", [r["id"] for r in inputs["constraints"]])
-        for row in value["operations"]:
+        for row in operations:
             if (row["state"] == "operation") != bool(row["crud"]) or len(row["crud"]) != len(
                 set(row["crud"])
             ):
@@ -501,8 +521,16 @@ def validate_result(task, value, inputs):
                     raise ValueError("实体规则绑定引用未知关注点或空失败条件")
                 if not set(b["applies_to"]) <= set(CRUD):
                     raise ValueError("实体规则的CRUD作用域无效")
+        if operations != value["operations"]:
+            emit(
+                "unrequested_operations_discarded",
+                semantic_batch=fingerprint([task, inputs])[:24],
+                discarded_step_ids=[row["step_id"] for row in value["operations"]],
+            )
+            # The transport, checkpoint and repair all persist this validated payload.
+            value["operations"] = operations
         return value
-    _exact(value["records"], "record_id", [r["id"] for r in inputs["records"]])
+    validate_source_batch(task, value, inputs)
     steps = {s["id"]: s for s in inputs["steps"]}
     records = [pending_without_details(row, "bindings", "具体挂载") for row in value["records"]]
     for row in records:

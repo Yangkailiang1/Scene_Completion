@@ -123,7 +123,7 @@ def _review_identity(ex, cid):
     return fingerprint(material) if material != _review_material(baseline) else None
 
 
-def _task(ex, cid, stage, deps, fn, identity=None):
+def _task(ex, cid, stage, deps, fn, identity=None, *, verify_payload=None):
     from scene_completion.infrastructure.code_retry import revision as code_retry_revision
     from scene_completion.workflow.recovery.node_repair import repair_revision
     from scene_completion.workflow.semantics import code_version
@@ -147,6 +147,11 @@ def _task(ex, cid, stage, deps, fn, identity=None):
                 }
             },
         }
+
+    def verify(value):
+        bundle = ssd_validation.validate(value["payload"])
+        if verify_payload:
+            verify_payload(bundle)
 
     task = Task(
         key=cid + ":" + stage,
@@ -177,7 +182,7 @@ def _task(ex, cid, stage, deps, fn, identity=None):
             )
         ),
         execute=execute,
-        verify=lambda v: ssd_validation.validate(v["payload"]),
+        verify=verify,
         # Labels live in workflow/ssd_stages.py so the page, the generated
         # documentation and this pipeline cannot drift apart.
         display_label=stage_label(stage),
@@ -511,6 +516,7 @@ def build_structured(ex, directory):
     ex.registry_snapshot = current_registry(
         getattr(ex, "registry_snapshot", None) or default_registry()
     )
+    from scene_completion.analysis.ssd.core_snapshot import pin_core, verify_core_snapshot
     from scene_completion.analysis.ssd.pipeline import (
         _input_root,
         build_cases,
@@ -546,10 +552,6 @@ def build_structured(ex, directory):
         selected.append(cid)
 
         def prepare(_, record, cid=cid, file=file, problem=problem):
-            from tempfile import TemporaryDirectory
-
-            from scene_completion.analysis.ssd.core_export import write_core
-
             if problem:
                 raise ValueError(problem)
             bundles = build_cases(directory, [cid], case_files=[file], generate=False)
@@ -557,19 +559,7 @@ def build_structured(ex, directory):
                 raise ValueError("当前用例没有唯一可用的 SysOperation")
             bundle = ssd_validation.validate(bundles[0])
             # Pin the exact model-independent core used for all downstream stages.
-            normalized = ex.root / "structured-cores" / fingerprint(bundle)[:24]
-            destination = io_path(normalized)
-            if not destination.is_dir():
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                with TemporaryDirectory(dir=destination.parent) as staging:
-                    staged = Path(staging) / "core"
-                    write_core(directory, staged, [bundle])
-                    try:
-                        staged.rename(destination)
-                    except FileExistsError:
-                        if not destination.is_dir():
-                            raise
-            bundle["core_snapshot"] = normalized.relative_to(ex.root).as_posix()
+            bundle["core_snapshot"] = pin_core(ex.root, directory, bundle)
             bundle["registry"] = deepcopy(ex.registry_snapshot)
             bundle["analysis_policy"] = ex.registry_snapshot["analysis_policy"]
             bundle["channels"]["G"] = generate_g(bundle)
@@ -582,7 +572,15 @@ def build_structured(ex, directory):
             if p.is_relative_to(file.parent)
             or not any(p.is_relative_to(other.parent) for other, _, _ in entries)
         ]
-        key = _task(ex, cid, "ssd-prepare", [], prepare, identity)
+        key = _task(
+            ex,
+            cid,
+            "ssd-prepare",
+            [],
+            prepare,
+            identity,
+            verify_payload=lambda bundle: verify_core_snapshot(ex.root, bundle),
+        )
         _tail(ex, cid, key)
     if not selected:
         raise ValueError("指定用例不在当前结构化输入中")

@@ -78,6 +78,15 @@ def _validate_literal_http_coverage(payload, inputs):
         )
 
 
+SSD_CANONICAL_SUBMISSIONS = {
+    "ssd-entity-inference",
+    "ssd-entity-classify",
+    "ssd-command-classify",
+    "ssd-evidence-classify",
+    "ssd-ground-align",
+}
+
+
 def validate_result(task, payload, inputs):
     from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
     from scene_completion.domain.project_scope_contracts import (
@@ -105,11 +114,13 @@ def validate_result(task, payload, inputs):
             validate_reply(task, payload)
         return validate_entity(task, payload, inputs)
     if task in {"ssd-evidence-classify", "ssd-ground-align"}:
+        from scene_completion.analysis.ssd.grounding import strip_align_summary
         from scene_completion.analysis.ssd.grounding import validate_result as validate_grounding
 
         if task == "ssd-ground-align":
             from scene_completion.analysis.ssd.binding_targets import validate_reply
 
+            strip_align_summary(payload)
             validate_reply(task, payload)
         else:
             validate(task, payload)

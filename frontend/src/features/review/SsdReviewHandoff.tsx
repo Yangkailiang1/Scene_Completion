@@ -45,11 +45,13 @@ export function SsdReviewHandoff({
   cases,
   selection,
   onApplied,
+  initialSummary,
 }: {
   project: string;
   cases: SsdReviewCase[];
   selection?: SsdReviewSelection;
   onApplied?: (result: SsdReviewApplied) => void;
+  initialSummary?: any;
 }) {
   const live = useRef(true);
   useEffect(() => {
@@ -67,7 +69,7 @@ export function SsdReviewHandoff({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const [summary, setSummary] = useState<any>(null),
+  const [summary, setSummary] = useState<any>(initialSummary ?? null),
     [refresh, setRefresh] = useState(0);
   const [feedback, setFeedback] = useState(""),
     [preview, setPreview] = useState<Preview | null>(null),
@@ -90,8 +92,12 @@ export function SsdReviewHandoff({
   );
   useEffect(() => {
     let active = true;
-    setSummary(null);
     setError("");
+    if (range === "all" && initialSummary && refresh === 0) {
+      setSummary(initialSummary);
+      return;
+    }
+    setSummary(null);
     getReviewSummary(project, body)
       .then((value) => {
         if (active) setSummary(value);
@@ -102,7 +108,7 @@ export function SsdReviewHandoff({
     return () => {
       active = false;
     };
-  }, [project, body, refresh]);
+  }, [project, body, range, refresh, initialSummary]);
   useEffect(() => {
     let active = true;
     setEditor(null);

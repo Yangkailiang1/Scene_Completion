@@ -109,15 +109,16 @@ def auth_request(step):
     return "service_relation.authentication"
 
 
-def auth_boundary(steps, step_id):
+def auth_requests(steps, step_id):
     step = steps.get(step_id)
     if not step:
-        return None
+        return {}
+    if key := auth_request(step):
+        return {step_id: key}
     related = [
         steps[ref] for ref in [step.get("parent_id"), *step.get("validates", [])] if ref in steps
     ]
-    boundaries = {key for item in [step, *related] if (key := auth_request(item))}
-    return next(iter(boundaries)) if len(boundaries) == 1 else None
+    return {item["id"]: key for item in related if (key := auth_request(item))}
 
 
 def annotate(scene, loc, reason=None):

@@ -33,11 +33,15 @@ def exists(project, cid):
     return (root(project, cid) / "state.json").exists()
 
 
-def revision(project, case_id, number):
-    path = root(project, case_id) / "revisions" / (str(number) + ".json")
+def revision_path(project, case_id, number):
+    return root(project, case_id) / "revisions" / (str(number) + ".json")
+
+
+def revision(project, case_id, number, *, isolate=True):
+    path = revision_path(project, case_id, number)
     if not path.is_file():
         raise ValueError("该修订版本不存在")
-    return read_snapshot(path)
+    return read_snapshot(path, isolate=isolate)
 
 
 def store(project, case_id, revision, snapshot, current_state):
@@ -48,3 +52,19 @@ def store(project, case_id, revision, snapshot, current_state):
 
 def states(project):
     return [read_snapshot(path) for path in sorted(root(project).glob("*/state.json"))]
+
+
+def _head(path):
+    state = read_snapshot(path, isolate=False)
+    return {"case": dict(state["case"]), "revision": state["revision"]}
+
+
+def head(project, case_id):
+    path = root(project, case_id) / "state.json"
+    if not path.is_file():
+        raise ValueError("该用例尚无 SSD 比较结果")
+    return _head(path)
+
+
+def heads(project):
+    return [_head(path) for path in sorted(root(project).glob("*/state.json"))]

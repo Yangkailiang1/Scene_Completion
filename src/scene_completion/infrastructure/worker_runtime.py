@@ -36,16 +36,27 @@ def pid_alive(pid):
     return True
 
 
+def user_hold(project):
+    try:
+        hold = read_json(Path(project) / "run/pause_requested.json")
+    except FileNotFoundError:
+        return None
+    return hold if hold.get("by") == "user" else None
+
+
 def read_job(project):
     p = Path(project)
     job = read_json(p / "job.json") if (p / "job.json").exists() else {"status": "ready"}
     hb = p / "worker-heartbeat.json"
     if job.get("status") == "running" and hb.exists():
         row = read_json(hb)
-        if row.get("pid") == job.get("pid") and row.get("worker_token") == job.get("worker_token"):
+        if (
+            job.get("worker_token")
+            and row.get("pid") == job.get("pid")
+            and row.get("worker_token") == job["worker_token"]
+        ):
             job.update(worker_heartbeat=row["at"])
-    hold = p / "run/pause_requested.json"
-    if hold.exists() and (value := read_json(hold)).get("by") == "user":
+    if value := user_hold(p):
         job["control_state"] = (
             ("pausing" if value.get("action") == "pause" else "stopping")
             if job.get("status") == "running"
@@ -54,7 +65,77 @@ def read_job(project):
     return job
 
 
-def spawn(service, rid):
+def job_lock(project):
+    from scene_completion.workflow_core.storage import run_lock
+
+    return run_lock(Path(project) / "job-state", blocking=True)
+
+
+def same_run(left, right):
+    return all(left.get(key) == right.get(key) for key in ("worker_token", "started_at"))
+
+
+def live_job(job):
+    return job.get("status") == "running" and (
+        job.get("worker_heartbeat", job.get("started_at", 0)) > time.time() - 30
+        or bool(job.get("pid") and pid_alive(job["pid"]))
+    )
+
+
+def new_job(options):
+    started_at = time.time()
+    return {
+        "status": "running",
+        "worker_token": secrets.token_hex(16),
+        "started_at": started_at,
+        "worker_heartbeat": started_at,
+        "run_options": options,
+    }
+
+
+def update_job(project, expected, **changes):
+    with job_lock(project):
+        current = read_job(project)
+        if not same_run(current, expected) or current.get("status") != expected.get("status"):
+            return None
+        current.update(changes)
+        current.pop("control_state", None)
+        write_json(Path(project) / "job.json", current)
+        return current
+
+
+def interrupt_job(project, observed, message, *, exit_code=None):
+    with job_lock(project):
+        job = read_job(project)
+        if job.get("status") != "running" or not same_run(job, observed):
+            return None
+        if exit_code is None and live_job(job):
+            return None
+        job.update(status="interrupted", message=message)
+        job.pop("control_state", None)
+        if exit_code is not None:
+            job["exit_code"] = exit_code
+        write_json(Path(project) / "job.json", job)
+        return job
+
+
+def register_worker(project, token, pid):
+    with job_lock(project):
+        job = read_job(project)
+        if (
+            not token
+            or job.get("worker_token") != token
+            or job.get("status") != "running"
+            or job.get("pid")
+        ):
+            return None
+        job.update(pid=pid, worker_heartbeat=time.time())
+        job.pop("control_state", None)
+        write_json(Path(project) / "job.json", job)
+        return job
+
+
+def spawn(service, rid, token):
     p = service.run_dir(rid)
     log = p / "run/worker.log"
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -64,9 +145,6 @@ def spawn(service, rid):
     else:
         # Local CLI exits after dispatch; the project worker must survive its terminal parent.
         kwargs["start_new_session"] = True
-    job = read_json(p / "job.json")
-    job.update(worker_token=secrets.token_hex(16), worker_heartbeat=time.time())
-    write_json(p / "job.json", job)
     with log.open("ab") as out:
         process = subprocess.Popen(
             [
@@ -79,6 +157,8 @@ def spawn(service, rid):
                 str(service.root),
                 "--project",
                 rid,
+                "--worker-token",
+                token,
                 "--env-file",
                 str(service.env_file),
             ],
@@ -86,9 +166,6 @@ def spawn(service, rid):
             stderr=out,
             **kwargs,
         )
-    job = read_json(p / "job.json")
-    job.update(pid=process.pid, worker_heartbeat=time.time())
-    write_json(p / "job.json", job)
     return process
 
 
@@ -120,36 +197,44 @@ def unsafe_to_resume(project):
     return False
 
 
-def monitor(service, rid, process):
+def restart_if_safe(service, rid, job):
+    from scene_completion.workflow_core.storage import run_lock
+
+    project = service.run_dir(rid)
+    try:
+        with run_lock(project / "dispatch"):
+            current = read_job(project)
+            if (
+                not same_run(current, job)
+                or current.get("status") != "interrupted"
+                or current.get("reason") in {"user_pause", "user_stop"}
+                or unsafe_to_resume(project)
+            ):
+                return
+            marker = project / "worker-restarts.json"
+            record = read_json(marker) if marker.exists() else {"count": 0}
+            if record["count"] < 1:
+                write_json(marker, {**record, "count": record["count"] + 1})
+                service._start(rid, current.get("run_options", {}))
+    except ValueError:
+        return
+
+
+def monitor(service, rid, process, dispatched):
     p = service.run_dir(rid)
     code = process.wait()
-    job = read_job(p)
-    if job.get("status") == "running":
-        job.update(
-            status="interrupted",
-            exit_code=code,
-            message="执行进程退出，现场已保存；检查不确定请求后再恢复",
-        )
-        write_json(p / "job.json", job)
+    job = interrupt_job(
+        p, dispatched, "执行进程退出，现场已保存；检查不确定请求后再恢复", exit_code=code
+    )
+    if job is not None:
         from scene_completion.application.recovery_handoff import prepare_handoff
 
         prepare_handoff(p)
     with service.lock:
         service.active.discard(rid)
-    if (
-        job.get("status") == "interrupted"
-        and job.get("reason") != "user_stop"
-        and not unsafe_to_resume(p)
-    ):
-        marker = p / "worker-restarts.json"
-        record = read_json(marker) if marker.exists() else {"count": 0}
-        if record["count"] < 1:
-            record["count"] += 1
-            write_json(marker, record)
-            try:
-                service.start(rid, job.get("run_options", {}))
-            except ValueError:
-                pass
+    current = read_job(p)
+    if same_run(current, dispatched) and current.get("status") == "interrupted":
+        restart_if_safe(service, rid, current)
 
 
 def main():
@@ -158,37 +243,47 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
     parser.add_argument("--project", required=True)
+    parser.add_argument("--worker-token", required=True)
     parser.add_argument("--env-file", required=True)
     args = parser.parse_args()
     from scene_completion.application.project_service import Workbench
 
     service = Workbench(args.root, env_file=args.env_file, worker=True)
-    service.active.add(args.project)
     project = service.run_dir(args.project)
     stop = threading.Event()
-    token = read_json(project / "job.json")["worker_token"]
+    token = args.worker_token
+    job = register_worker(project, token, os.getpid())
+    if job is None:
+        print("worker 启动身份已过期或已被领取", file=sys.stderr)
+        return
+    service.active.add(args.project)
 
     def heartbeat():
         while not stop.wait(1):
             request = project / "worker-stop.json"
             if request.exists() and read_json(request).get("worker_token") == token:
-                job = read_json(project / "job.json")
-                job.update(
+                if update_job(
+                    project,
+                    job,
                     status="interrupted",
                     reason="user_stop",
                     message="用户停止后台服务，已保留检查点；未决模型请求不会自动重发",
+                ):
+                    os._exit(0)
+                return
+            with job_lock(project):
+                current = read_job(project)
+                if not same_run(current, job) or current.get("status") != "running":
+                    return
+                write_json(
+                    project / "worker-heartbeat.json",
+                    {"pid": os.getpid(), "worker_token": token, "at": time.time()},
                 )
-                write_json(project / "job.json", job)
-                os._exit(0)
-            write_json(
-                project / "worker-heartbeat.json",
-                {"pid": os.getpid(), "worker_token": token, "at": time.time()},
-            )
 
     thread = threading.Thread(target=heartbeat, daemon=True)
     thread.start()
     try:
-        service._execute(args.project)
+        service._execute(args.project, job)
     finally:
         stop.set()
         thread.join(timeout=2)
@@ -200,11 +295,12 @@ def stop_workers(service):
     stop_managers(service)
     for path in service.root.glob("*/project.json"):
         p = path.parent
-        job = read_job(p)
-        if job.get("status") == "running" and job.get("worker_token"):
-            write_json(
-                p / "worker-stop.json", {"worker_token": job["worker_token"], "at": time.time()}
-            )
+        with job_lock(p):
+            job = read_job(p)
+            if job.get("status") == "running" and job.get("worker_token"):
+                write_json(
+                    p / "worker-stop.json", {"worker_token": job["worker_token"], "at": time.time()}
+                )
 
 
 class Guardian:
@@ -226,23 +322,7 @@ class Guardian:
                 job = read_job(p)
                 if job.get("status") != "running" or p.name in self.service.active:
                     continue
-                if job.get("worker_heartbeat", job.get("started_at", 0)) > time.time() - 30:
-                    continue
-                # A live PID with an expired heartbeat is not assumed dead.
-                pid = job.get("pid")
-                if pid and pid_alive(pid):
-                    continue
-                job.update(
-                    status="interrupted", message="进程失联，检查点已保留；仅在无未决模型请求时恢复"
-                )
-                write_json(p / "job.json", job)
-                if not unsafe_to_resume(p):
-                    marker = p / "worker-restarts.json"
-                    record = read_json(marker) if marker.exists() else {"count": 0}
-                    if record["count"] < 1:
-                        record["count"] += 1
-                        write_json(marker, record)
-                        try:
-                            self.service.start(p.name, job.get("run_options", {}))
-                        except ValueError:
-                            pass
+                if not live_job(job) and (
+                    job := interrupt_job(p, job, "进程失联，检查点已保留；仅在无未决模型请求时恢复")
+                ):
+                    restart_if_safe(self.service, p.name, job)

@@ -12,13 +12,14 @@ def _read(path, identity):
     return read_json(path)
 
 
-def read_snapshot(path):
+def read_snapshot(path, *, isolate=True):
     path = Path(path)
     stat = path.stat()
-    return deepcopy(_read(str(path.resolve()), (stat.st_mtime_ns, stat.st_size, stat.st_ino)))
+    value = _read(str(path.resolve()), (stat.st_mtime_ns, stat.st_size, stat.st_ino))
+    return deepcopy(value) if isolate else value
 
 
-def cached_index(*directories):
+def cached_index(*directories, files=()):
     """Cache derived indexes against all persisted revision identities, across workers."""
     from collections import OrderedDict
     from functools import wraps
@@ -30,12 +31,13 @@ def cached_index(*directories):
         @wraps(fn)
         def index(project):
             root = Path(project).resolve()
-            files = sorted(
-                p for directory in directories for p in (root / directory).rglob("*.json")
+            paths = sorted(
+                [p for directory in directories for p in (root / directory).rglob("*.json")]
+                + [root / name for name in files]
             )
             signature = tuple(
                 (str(p), s.st_mtime_ns, s.st_size, s.st_ino)
-                for p in files
+                for p in paths
                 if p.is_file()
                 for s in [p.stat()]
             )

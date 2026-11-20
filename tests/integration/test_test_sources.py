@@ -58,13 +58,13 @@ def test_excel_upload_and_version_restore_keep_original_file(tmp_path):
 
     from scene_completion.api.application import create_app
     from scene_completion.inputs.provenance.test_sources import cells
+    from scene_completion.review.handoff.review_handoff import source_documents, source_view
 
     client = TestClient(create_app(tmp_path))
+    header, entry = (cells(x["text"]) for x in docs()[0]["lines"][:2])
     source = {
         "name": "tests.xlsx",
-        "content_base64": base64.b64encode(
-            workbook([cells(x["text"]) for x in docs()[0]["lines"][:2]])
-        ).decode(),
+        "content_base64": base64.b64encode(workbook([header, *([[]] * 118), entry])).decode(),
     }
     assert (
         client.post("/api/test-sources/preview", json={"sources": [source]}).json()["counts"][
@@ -81,6 +81,10 @@ def test_excel_upload_and_version_restore_keep_original_file(tmp_path):
         },
     }
     rid = client.post("/api/projects", json=body).json()["id"]
+    sheet = next(d for d in source_documents(tmp_path / rid) if d["name"] == "tests.xlsx#测试")
+    location = source_view(tmp_path / rid, sheet["source_id"], start=120, context=0)
+    assert location["line_count"] == 120
+    assert [row["number"] for row in location["lines"]] == [120]
     first = client.get(f"/api/projects/{rid}/test-sources").json()
     assert (tmp_path / rid / "sources/test-0.xlsx").read_bytes() == base64.b64decode(
         source["content_base64"]

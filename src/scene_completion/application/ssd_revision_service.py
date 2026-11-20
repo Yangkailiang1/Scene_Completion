@@ -93,6 +93,7 @@ def _baseline_report(bundle):
 
 
 def _store(project, bundle, baseline, revision, history, overrides, reason, previous=None):
+    from scene_completion.application.result_projection import CASE_REPORT_VERSION
     from scene_completion.domain.current_scope import case_report
 
     report = case_report(bundle)
@@ -107,6 +108,7 @@ def _store(project, bundle, baseline, revision, history, overrides, reason, prev
     saved = {
         "bundle": bundle,
         "revision": revision,
+        "case_report_version": CASE_REPORT_VERSION,
         **report,
         "original_metrics": original_report["metrics"],
         "original_metrics_by_level": original_report["metrics_by_level"],
@@ -170,12 +172,14 @@ def publish(project, bundle):
         )
 
 
-def editor(project, case_id, revision=None):
-    state = repository.state(project, case_id)
+def editor(project, case_id, revision=None, *, compact=False):
+    from scene_completion.application.result_projection import compact_editor, current_view
+
     if revision == "original":
-        baseline = deepcopy(state["baseline"])
+        state = repository.state(project, case_id)
+        baseline = state["baseline"]
         report = _baseline_report(baseline)
-        return {
+        view = {
             "bundle": baseline,
             "revision": "original",
             **report,
@@ -183,14 +187,43 @@ def editor(project, case_id, revision=None):
             "original_metrics_by_level": report["metrics_by_level"],
             "history": state["history"],
         }
-    number = state["revision"] if revision is None else int(revision)
-    view = repository.revision(project, case_id, number)
+        return compact_editor(view) if compact else view
+    number = repository.head(project, case_id)["revision"] if revision is None else int(revision)
+    view = repository.revision(project, case_id, number, isolate=not compact)
     if revision is None:
-        from scene_completion.application.result_projection import current_view
         from scene_completion.domain.ssd import matching
 
-        return current_view(project, view, matching)
-    return view
+        return current_view(project, view, matching, compact=compact)
+    return compact_editor(view) if compact else view
+
+
+def review_view(project, case_id, revision):
+    from scene_completion.application.result_projection import review_proof
+    from scene_completion.domain.ssd import matching
+
+    view = repository.revision(project, case_id, revision, isolate=False)
+    statuses, proof = review_proof(project, view["bundle"], matching)
+    return {
+        "bundle": view["bundle"],
+        "revision": view["revision"],
+        "review_statuses": statuses,
+        "identification_proof": proof,
+    }
+
+
+def review_catalog(project):
+    from scene_completion.application.result_projection import CASE_REPORT_VERSION
+    from scene_completion.domain.current_scope import filtered
+    from scene_completion.domain.ssd.metrics import completeness
+
+    for state in repository.heads(project):
+        view = repository.revision(project, state["case"]["id"], state["revision"], isolate=False)
+        progress = (
+            view.get("completeness")
+            if view.get("case_report_version") == CASE_REPORT_VERSION
+            else completeness(filtered(view["bundle"], isolate=False))
+        )
+        yield {**state["case"], "revision": state["revision"], "completeness": progress}
 
 
 def _invalidate(previous, bundle):
@@ -338,26 +371,24 @@ def save_revision(project, case_id, body):
 
 @cached_index("ssd_results")
 def index(project):
-    cases = []
-    for state in repository.states(project):
-        result = repository.revision(project, state["case"]["id"], state["revision"])
-        from scene_completion.domain.current_scope import case_report
+    from scene_completion.application.result_projection import stored_case_report
 
-        report = case_report(result["bundle"])
-        result = {**result, **report}
+    cases = []
+    for state in repository.heads(project):
+        cid = state["case"]["id"]
+        result = repository.revision(project, cid, state["revision"], isolate=False)
+        report = {**result, **stored_case_report(project, result)}
         progress = report["completeness"]
         pending = sum(v for k, v in progress.items() if k != "complete")
         cases.append(
             {
                 **state["case"],
                 "revision": result["revision"],
-                "metrics": result["metrics"],
-                "metrics_by_level": result["metrics_by_level"]
-                if "metrics_by_level" in result
-                else analyze(result["bundle"])["metrics_by_level"],
+                "metrics": report["metrics"],
+                "metrics_by_level": report["metrics_by_level"],
                 "original_metrics_by_level": result["original_metrics_by_level"]
                 if "original_metrics_by_level" in result
-                else analyze(state["baseline"])["metrics_by_level"],
+                else analyze(repository.state(project, cid)["baseline"])["metrics_by_level"],
                 "pending_count": pending,
                 "completeness": progress,
             }

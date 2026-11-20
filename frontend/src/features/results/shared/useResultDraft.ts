@@ -10,7 +10,7 @@ export function useResultDraft<T>() {
     history = useRef<T[]>([]);
   function reset(value: T | null) {
     current.current = copy(value);
-    saved.current = copy(value);
+    saved.current = current.current;
     history.current = [];
     render(current.current);
   }

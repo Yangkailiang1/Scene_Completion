@@ -150,6 +150,8 @@ test("feedback preview and import never start execution until the separate affec
   const writes: any[] = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (u, init) => {
     const url = String(u);
+    if (url.endsWith("/ssd-review/summary"))
+      return new Response(null, { status: 404 });
     if (init?.method === "POST") {
       const body = JSON.parse(String(init.body));
       writes.push({ url, body });

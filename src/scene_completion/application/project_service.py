@@ -375,14 +375,6 @@ class Workbench:
         return rid
 
     def start(self, rid, options=None):
-        if self.review_only:
-            raise ValueError("业务审核包只保存确认记录；请交回研发后重跑")
-        hold = self.run_dir(rid) / "run/pause_requested.json"
-        if hold.exists() and read_json(hold).get("by") == "user":
-            raise ValueError("项目已由用户暂停／停止；请明确点击继续运行，不自动恢复")
-        if (self.root / "manager-maintenance.json").exists():
-            raise ValueError("程序正在安全重启或回退，暂不接受新执行；请查看管理Agent操作记录")
-        rid = self.require_current_project(rid)
         from scene_completion.workflow_core import run_lock
 
         with run_lock(self.run_dir(rid) / "dispatch"):
@@ -428,7 +420,19 @@ class Workbench:
             raise ValueError("业务审核包只保存确认记录；请交回研发后重跑")
         rid = self.require_current_project(rid)
         p = self.run_dir(rid)
-        from scene_completion.infrastructure.worker_runtime import read_job
+        from scene_completion.infrastructure.worker_runtime import (
+            job_lock,
+            live_job,
+            new_job,
+            read_job,
+            update_job,
+            user_hold,
+        )
+
+        if (self.root / "manager-maintenance.json").exists():
+            raise ValueError("程序正在安全重启或回退，暂不接受新执行；请查看管理Agent操作记录")
+        if user_hold(p):
+            raise ValueError("项目已由用户暂停／停止；请明确点击继续运行，不自动恢复")
 
         job = read_job(p)
         options = dict(options or {})
@@ -448,59 +452,66 @@ class Workbench:
                 or any(not isinstance(x, str) or not x.strip() for x in options[k])
             ):
                 raise ValueError("用例范围必须为非空编号列表")
-        from scene_completion.infrastructure.worker_runtime import pid_alive
-
-        if job.get("status") == "running" and (
-            job.get("worker_heartbeat", 0) > time.time() - 30
-            or job.get("pid")
-            and pid_alive(job["pid"])
-        ):
+        if live_job(job):
             raise ValueError("项目正在由联调工作进程执行")
         if "supplied_only" in options and type(options["supplied_only"]) is not bool:
             raise ValueError("仅运行已校验用例选项必须为布尔值")
+        options.setdefault("case_ids", project.get("case_ids", []))
         if options.get("supplied_only"):
-            selected = options.get("case_ids", project.get("case_ids")) or []
+            selected = options["case_ids"]
             if not self.supplied_case_preview(rid, selected)["accepted"]:
                 raise ValueError("没有通过正式校验的已有 SSD 用例")
         config = self.model_config(rid)
         if not self.client_factory and (not config["api_key"] or not config["base_url"]):
             raise ValueError("请在.env或项目中配置模型地址和密钥")
-        with self.lock:
-            if rid in self.active:
+        local_worker = self.client_factory or self.worker
+        with job_lock(p), self.lock:
+            if user_hold(p):
+                raise ValueError("项目已由用户暂停／停止；请明确点击继续运行，不自动恢复")
+            if rid in self.active or live_job(read_job(p)):
                 raise ValueError("项目正在运行")
+            dispatched = new_job(options)
+            if local_worker:
+                dispatched["pid"] = os.getpid()
+            write_json(p / "job.json", dispatched)
             self.active.add(rid)
-        write_json(
-            p / "job.json",
-            {
-                "status": "running",
-                "started_at": time.time(),
-                "worker_heartbeat": time.time(),
-                "run_options": options,
-            },
-        )
-        if self.client_factory or self.worker:
-            self.pool.submit(self._execute, rid)
-        else:
-            from scene_completion.infrastructure.worker_runtime import monitor, spawn
+        try:
+            if local_worker:
+                self.pool.submit(self._execute, rid, dispatched)
+            else:
+                from threading import Thread
 
-            try:
-                process = spawn(self, rid)
-            except Exception:
-                with self.lock:
-                    self.active.discard(rid)
-                write_json(p / "job.json", {"status": "error", "message": "项目进程启动失败"})
-                raise
-            from threading import Thread
+                from scene_completion.infrastructure.worker_runtime import monitor, spawn
 
-            Thread(
-                target=monitor, args=(self, rid, process), daemon=True, name="scene-project-monitor"
-            ).start()
-        return {"status": "running", "project_id": rid}
+                process = spawn(self, rid, dispatched["worker_token"])
+                Thread(
+                    target=monitor,
+                    args=(self, rid, process, dispatched),
+                    daemon=True,
+                    name="scene-project-monitor",
+                ).start()
+        except Exception:
+            update_job(p, dispatched, status="error", message="项目进程启动失败")
+            with self.lock:
+                self.active.discard(rid)
+            raise
+        return {"status": "running", "project_id": rid, "started_at": dispatched["started_at"]}
 
     @project_scoped
-    def _execute(self, rid):
+    def _execute(self, rid, dispatched=None):
         p = self.run_dir(rid)
+        from scene_completion.infrastructure.worker_runtime import (
+            read_job,
+            same_run,
+            update_job,
+            user_hold,
+        )
+
+        job = dispatched if dispatched is not None else read_job(p)
         try:
+            current = read_job(p)
+            if not same_run(current, job) or current.get("status") != "running":
+                return
             from scene_completion.application.execution import Execution, build_pipeline
             from scene_completion.application.model_factory import client_for
             from scene_completion.inputs.documents.source_documents import (
@@ -514,17 +525,20 @@ class Workbench:
             config.setdefault("scenario_patterns", True)
             from scene_completion.analysis.recommendation.pattern_settings import history, settings
 
-            write_json(p / "run/pattern_settings_used.json", settings(p)["settings"])
-            write_json(p / "run/recommendation_history_used.json", history(p)["items"])
             config["review_mode"] = project["review_mode"]
             config["run_root"] = str(p / "run")
             with run_lock(p / "run"):
+                current = read_job(p)
+                if not same_run(current, job) or current.get("status") != "running":
+                    return
+                write_json(p / "run/pattern_settings_used.json", settings(p)["settings"])
+                write_json(p / "run/recommendation_history_used.json", history(p)["items"])
                 client = (
                     self.client_factory(config, p / "run")
                     if self.client_factory
                     else client_for(config, p / "run")
                 )
-                options = read_json(p / "job.json").get("run_options", {})
+                options = job.get("run_options", {})
                 config["priority_cases"] = options.get("priority_cases", [])
                 ex = Execution(
                     p / "run",
@@ -545,47 +559,42 @@ class Workbench:
                 }
                 build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
                 manifest = ex.finish()
-                hold = (
-                    read_json(p / "run/pause_requested.json")
-                    if (p / "run/pause_requested.json").exists()
-                    else {}
-                )
-                status = (
-                    ("paused" if hold.get("action") == "pause" else "interrupted")
-                    if hold.get("by") == "user"
-                    else "complete"
-                    if manifest["complete"]
-                    else "complete_with_questions"
-                    if manifest.get("execution_complete")
-                    else "waiting"
-                )
-                write_json(
-                    p / "job.json",
-                    {
-                        "status": status,
-                        "reason": "user_" + hold["action"] if hold.get("by") == "user" else None,
-                        "finished_at": time.time(),
-                    },
-                )
+            hold = user_hold(p)
+            status = (
+                ("paused" if hold["action"] == "pause" else "interrupted")
+                if hold
+                else "complete"
+                if manifest["complete"]
+                else "complete_with_questions"
+                if manifest.get("execution_complete")
+                else "waiting"
+            )
+            update_job(
+                p,
+                job,
+                status=status,
+                reason="user_" + hold["action"] if hold else None,
+                finished_at=time.time(),
+            )
         except Exception as e:
             # Preserve actual diagnostics server-side without returning credentials.
-            write_json(
-                p / "job.json",
-                {
-                    "status": "error",
-                    "error_type": type(e).__name__,
-                    "message": "执行未完成，请查看任务状态与运行日志",
-                    "finished_at": time.time(),
-                },
-            )
-            import traceback
+            if update_job(
+                p,
+                job,
+                status="error",
+                error_type=type(e).__name__,
+                message="执行未完成，请查看任务状态与运行日志",
+                finished_at=time.time(),
+            ):
+                import traceback
 
-            (p / "error.log").write_text(traceback.format_exc(), encoding="utf8")
+                (p / "error.log").write_text(traceback.format_exc(), encoding="utf8")
         finally:
             try:
                 from scene_completion.application.recovery_handoff import prepare_handoff
 
-                prepare_handoff(p)
+                if same_run(read_job(p), job):
+                    prepare_handoff(p)
             except Exception:
                 # Diagnostic preparation must never mask the original failure.
                 pass
@@ -608,20 +617,16 @@ class Workbench:
             else {}
         )
         active = {k: v for k, v in records.items() if k in nodes}
-        from scene_completion.infrastructure.worker_runtime import pid_alive, read_job
+        from scene_completion.infrastructure.worker_runtime import interrupt_job, live_job, read_job
 
         job = read_job(p)
-        if (
-            job["status"] == "running"
-            and rid not in self.active
-            and job.get("worker_heartbeat", 0) < time.time() - 30
-            and not (job.get("pid") and pid_alive(job["pid"]))
-        ):
-            job.update(status="interrupted", message="worker已退出，已准备Code Agent交接")
-            write_json(p / "job.json", job)
-            from scene_completion.application.recovery_handoff import prepare_handoff
+        if job["status"] == "running" and rid not in self.active and not live_job(job):
+            interrupted = interrupt_job(p, job, "worker已退出，已准备Code Agent交接")
+            if interrupted is not None:
+                from scene_completion.application.recovery_handoff import prepare_handoff
 
-            prepare_handoff(p)
+                prepare_handoff(p)
+            job = read_job(p)
         manifest = read_json(r / "run_manifest.json") if (r / "run_manifest.json").exists() else {}
         from scene_completion.infrastructure.execution_events import EventStore
         from scene_completion.review.decisions.project_review import pending_view

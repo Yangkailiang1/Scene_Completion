@@ -304,7 +304,7 @@ class DeepAgentsClient(SemanticClient):
         from deepagents.backends import StateBackend
         from deepagents.middleware.filesystem import FilesystemPermission
 
-        from scene_completion.analysis.validation import validate_result
+        from scene_completion.analysis.validation import SSD_CANONICAL_SUBMISSIONS, validate_result
 
         role = role_for(packet["task"])
         if role == "recommender":
@@ -391,6 +391,58 @@ class DeepAgentsClient(SemanticClient):
                 for r in refs or []
             ]
 
+        def save_question(question):
+            from scene_completion.review.decisions.review_questions import report
+
+            return report(
+                self.root.parent,
+                task_key,
+                original_packet["task"],
+                event_context.get("case"),
+                {**question, "source_refs": question_refs(question.get("source_refs", []))},
+                inputs=original_packet["input"],
+            )
+
+        def question_rejected(question, index, error):
+            path = (
+                self.root
+                / "question_rejections"
+                / (fingerprint([packet["batch_id"], attempt, index, question]) + ".json")
+            )
+            write_json(
+                path,
+                {
+                    "task_key": task_key,
+                    "batch_id": packet["batch_id"],
+                    "index": index,
+                    "question": question,
+                    "error": str(error),
+                },
+            )
+            emit(
+                "business_question_rejected",
+                question_index=index,
+                error=str(error),
+                diagnostic=str(path.relative_to(self.root)),
+            )
+
+        def save_generation_questions(value):
+            from scene_completion.models.transport.model_submission import questions
+
+            if value is None:
+                return
+            if not isinstance(value, list) or len(value) > 30:
+                question_rejected(
+                    value, None, ValueError("review_questions 必须是最多 30 项的数组")
+                )
+                return
+            for index, question in enumerate(value):
+                try:
+                    questions([question])
+                    save_question(question)
+                except ValueError as error:
+                    question_rejected(question, index, error)
+
         def ask_user(
             question: str,
             basis: str,
@@ -399,25 +451,23 @@ class DeepAgentsClient(SemanticClient):
             interaction_id: str = "unbound",
             source_refs: list[str | dict] | None = None,
         ) -> str:
-            from scene_completion.review.decisions.review_questions import report
-
             if question_type == "general_clarification" and packet["task"] == "normal-rules":
                 question_type = "rule_completion"
-            q = report(
-                self.root.parent,
-                task_key,
-                packet["task"],
-                event_context.get("case"),
-                {
-                    "question": question,
-                    "required_answer": decision,
-                    "known_facts": basis,
-                    "question_type": question_type,
-                    "interaction_id": interaction_id,
-                    "source_refs": question_refs(source_refs),
-                },
-                inputs=original_packet["input"],
-            )
+            value = {
+                "question": question,
+                "required_answer": decision,
+                "known_facts": basis,
+                "question_type": question_type,
+                "interaction_id": interaction_id,
+                "source_refs": source_refs,
+            }
+            try:
+                q = save_question(value)
+            except ValueError as error:
+                if packet["task"] != "ssd-generate":
+                    raise
+                question_rejected(value, None, error)
+                return f"业务问题未入队。{error}。可使用任务提供的引用修正问题，继续提交有效场景。"
             return (
                 "问题已保存为非阻断业务待确认项 "
                 + q["id"]
@@ -467,7 +517,6 @@ class DeepAgentsClient(SemanticClient):
                 payload_from_arguments,
                 questions,
             )
-            from scene_completion.review.decisions.review_questions import report
 
             arguments = {
                 **({"payload": payload} if payload is not missing_payload else {}),
@@ -510,16 +559,9 @@ class DeepAgentsClient(SemanticClient):
                         raise ValueError(
                             "; ".join(f"{list(e.path)}: {e.message}" for e in errors[:8])
                         )
-                checked_questions = [] if entity_task else questions(review_questions)
-                for question in checked_questions:
-                    report(
-                        self.root.parent,
-                        task_key,
-                        original_packet["task"],
-                        event_context.get("case"),
-                        {**question, "source_refs": question_refs(question.get("source_refs", []))},
-                        inputs=original_packet["input"],
-                    )
+                if not entity_task and packet["task"] != "ssd-generate":
+                    for question in questions(review_questions):
+                        save_question(question)
             except (ValueError, KeyError, TypeError) as e:
                 emit("validation_failed", error=str(e), phase="submission_envelope")
                 rejection = (
@@ -737,6 +779,11 @@ class DeepAgentsClient(SemanticClient):
                         "node_key": task_key,
                         "input_hash": fingerprint(original_packet["input"]),
                         "payload": payload,
+                        **(
+                            {"raw_payload": raw_public_submission}
+                            if raw_public_submission != payload
+                            else {}
+                        ),
                         **({"arguments": arguments} if promoted else {}),
                         "error": str(e),
                         "reference_mode": reference_contract["mode"],
@@ -752,6 +799,8 @@ class DeepAgentsClient(SemanticClient):
                         "instruction": "由任务执行器使用剩余修复预算定向修复",
                     }
                 ) from e
+            if packet["task"] == "ssd-generate":
+                save_generation_questions(review_questions)
             submitted.append(payload)
             raw_submitted.append(raw_public_submission)
             emit("result_validated")
@@ -1069,9 +1118,9 @@ class DeepAgentsClient(SemanticClient):
             }
         )
         raw_evidence = {}
-        if (
+        if raw_submitted and (
             packet["task"] in {"concern-match", "existing-concerns", "test-concerns"}
-            and raw_submitted
+            or (packet["task"] in SSD_CANONICAL_SUBMISSIONS and raw_submitted[-1] != submitted[-1])
         ):
             raw_hash = fingerprint(raw_submitted[-1])
             raw_path = (

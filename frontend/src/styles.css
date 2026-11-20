@@ -6647,6 +6647,67 @@ td {
   overflow: hidden;
   background: #fff;
 }
+.source-sheet-reader {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 12px 12px;
+}
+.source-sheet-toolbar {
+  color: #526784;
+  font-size: 12px;
+}
+.source-sheet-grid {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #d8e1ef;
+  border-radius: 6px;
+}
+.source-sheet-grid table {
+  min-width: 100%;
+  width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+.source-sheet-grid th,
+.source-sheet-grid td {
+  border-right: 1px solid #e0e7f1;
+  border-bottom: 1px solid #e0e7f1;
+  padding: 7px 10px;
+  vertical-align: top;
+}
+.source-sheet-grid th {
+  color: #526784;
+  background: #edf3fb;
+}
+.source-sheet-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.source-sheet-grid tr > th:first-child {
+  position: sticky;
+  left: 0;
+  min-width: 48px;
+}
+.source-sheet-grid thead th:first-child {
+  z-index: 2;
+}
+.source-sheet-grid td {
+  min-width: 76px;
+  max-width: 330px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.source-sheet-grid td.source-sheet-highlight {
+  background: #fff2be;
+  box-shadow: inset 0 -2px #d8aa36;
+}
 .source-outline {
   position: absolute;
   inset: 0 auto 0 0;

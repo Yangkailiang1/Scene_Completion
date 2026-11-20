@@ -65,6 +65,31 @@ function mockSource() {
   );
 }
 afterEach(() => vi.restoreAllMocks());
+test("a saved Excel worksheet shows table rows at their original sparse row numbers", async () => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      name: "原始测试.xlsx#验证",
+      line_count: 120,
+      lines: [
+        { number: 117, text: "| 编号 | 条件 |" },
+        { number: 120, text: "| GT1 | 拒绝重复创建 |" },
+      ],
+    }),
+  } as Response);
+  render(
+    <SourceEvidence
+      project="p"
+      evidence={{ source_id: "test", line_start: 120, line_end: 120 }}
+      onClose={vi.fn()}
+    />,
+  );
+  const table = await screen.findByRole("table", { name: "验证 工作表" });
+  expect(within(table).getByRole("rowheader", { name: "120" })).toBeTruthy();
+  expect(
+    within(table).getByRole("cell", { name: "拒绝重复创建" }).className,
+  ).toContain("source-sheet-highlight");
+});
 test("Markdown reader renders tables, emphasis, lists and code with citation highlight and safe links", async () => {
   const fetch = mockSource();
   render(<SourceEvidence project="p" evidence={evidence} onClose={vi.fn()} />);

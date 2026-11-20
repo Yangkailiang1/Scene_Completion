@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scene_completion.domain.business_report import classify
 from scene_completion.domain.current_scope import POLICY, filtered
+from scene_completion.infrastructure.result_cache import cached_index
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
 from scene_completion.review.offline import _adoption_v2 as legacy
 from scene_completion.review.offline.ssd_review import _safe_json
@@ -30,7 +31,7 @@ def _selected(groups, body):
     return groups
 
 
-def _collect(project, body=None):
+def _collect(project, body=None, *, include_snapshot=True):
     from scene_completion.application import (
         shared_service_service as shared,
     )
@@ -50,23 +51,20 @@ def _collect(project, body=None):
     scopes = body.get("scopes") or list(SCOPES)
     if any(s not in SCOPES for s in scopes):
         raise ValueError("当前仅分析交互与共用外部服务，历史范围请使用只读入口")
-    index = cases.index(project)
+    catalog = list(cases.review_catalog(project))
     import re
 
-    index["cases"].sort(
+    catalog.sort(
         key=lambda c: [int(t) if t.isdigit() else t.casefold() for t in re.split(r"(\d+)", c["id"])]
     )
-    for case in index["cases"] if "interaction" in scopes else []:
+    for case in catalog if "interaction" in scopes else []:
         if body.get("case_ids") is not None and case["id"] not in body["case_ids"]:
             continue
-        view = cases.editor(project, case["id"])
-        own = filtered(view["bundle"], ordinary=True)
-        status = {
-            k: v
-            for k, v in view["review_statuses"].items()
-            if any(r["id"] == k for r in own["channels"]["G"]["scenarios"])
-        }
-        groups, excluded = classify(own, matching, status)
+        view = cases.review_view(project, case["id"], case["revision"])
+        own = filtered(view["bundle"], ordinary=True, isolate=False)
+        generated = {r["id"] for r in own["channels"]["G"]["scenarios"]}
+        status = {k: v for k, v in view["review_statuses"].items() if k in generated}
+        groups, excluded = classify(own, matching, status, include_records=include_snapshot)
         groups = _selected(groups, body)
         rows = groups["g_only"]
         for r in rows:
@@ -82,14 +80,12 @@ def _collect(project, body=None):
                 "key": case["id"],
                 "name": case["name"],
                 "base_revision": view["revision"],
-                "bundle": view["bundle"],
-                "reference_excluded_ids": [
-                    r["id"]
-                    for c, data in view["bundle"]["channels"].items()
-                    for k in ("concerns", "scenarios", "pending")
-                    for r in data.get(k, [])
-                    if not any(x["id"] == r["id"] for x in own["channels"][c][k])
-                ],
+                **({"bundle": deepcopy(view["bundle"])} if include_snapshot else {}),
+                **(
+                    {"reference_excluded_ids": _reference_exclusions(view["bundle"], own)}
+                    if include_snapshot
+                    else {}
+                ),
                 "counts": {
                     c: {k: len(data[k]) for k in ("concerns", "scenarios", "pending")}
                     for c, data in own["channels"].items()
@@ -109,7 +105,12 @@ def _collect(project, body=None):
     ):
         view = shared.editor(project)
         if view["bundle"]["anchors"]:
-            groups, excluded = classify(view["bundle"], shared_matching, view["review_statuses"])
+            groups, excluded = classify(
+                view["bundle"],
+                shared_matching,
+                view["review_statuses"],
+                include_records=include_snapshot,
+            )
             groups = _selected(groups, body)
             items.append(
                 {
@@ -118,7 +119,17 @@ def _collect(project, body=None):
                     "key": "shared_services",
                     "name": "共用外部服务",
                     "base_revision": view["revision"],
-                    "bundle": view["bundle"],
+                    **({"bundle": view["bundle"]} if include_snapshot else {}),
+                    **(
+                        {
+                            "counts": {
+                                c: {k: len(data[k]) for k in ("concerns", "scenarios", "pending")}
+                                for c, data in view["bundle"]["channels"].items()
+                            }
+                        }
+                        if not include_snapshot
+                        else {}
+                    ),
                     "rows": groups["g_only"],
                     "categories": groups,
                     "report_excluded": excluded,
@@ -133,7 +144,7 @@ def _collect(project, body=None):
         items = [i for i in items if i["id"] in body["item_ids"]]
     case_catalog = {
         c["id"]: {"id": c["id"], "name": c["name"], "complete": c["completeness"]["complete"]}
-        for c in index["cases"]
+        for c in catalog
     }
     manifest = Path(project) / "run/run_manifest.json"
     if manifest.exists():
@@ -176,11 +187,8 @@ def _collect(project, body=None):
                     "revision": i["base_revision"],
                     "counts": i.get("counts")
                     or {
-                        c: {
-                            k: len(i["bundle"]["channels"][c][k])
-                            for k in ("concerns", "scenarios", "pending")
-                        }
-                        for c in ("E", "G", "GT")
+                        c: {k: len(data[k]) for k in ("concerns", "scenarios", "pending")}
+                        for c, data in i["bundle"]["channels"].items()
                     },
                     "reasons": {},
                 }
@@ -201,9 +209,35 @@ def _collect(project, body=None):
     }
 
 
-def summary(project, body=None):
-    p = _collect(project, body)
+def _reference_exclusions(bundle, ordinary):
+    excluded = []
+    for channel, data in bundle["channels"].items():
+        for kind in ("concerns", "scenarios", "pending"):
+            kept = {r["id"] for r in ordinary["channels"][channel][kind]}
+            excluded.extend(r["id"] for r in data.get(kind, []) if r["id"] not in kept)
+    return excluded
+
+
+def _summary(project, body=None):
+    p = _collect(project, body, include_snapshot=False)
     return {"format": FORMAT, "excluded": p["excluded"], "report": p["report"]}
+
+
+@cached_index(
+    "ssd_results",
+    "project_results",
+    "shared_service_results",
+    files=(
+        "run/run_manifest.json",
+        "run/artifacts/shared/project--architecture--project-identify.json",
+    ),
+)
+def _all_summary(project):
+    return _summary(project)
+
+
+def summary(project, body=None):
+    return _summary(project, body) if body else _all_summary(project)
 
 
 def export_payload(project, body=None):
