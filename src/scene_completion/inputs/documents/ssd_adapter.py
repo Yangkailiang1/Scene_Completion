@@ -22,12 +22,12 @@ def normalize_extracted_case(
     tests=None,
     documents=None,
 ):
-    from scene_completion.analysis.ssd.inverse import recognize_records
-    from scene_completion.analysis.ssd.pipeline import (
+    from scene_completion.workflow.ssd.generate.fixed import generate_g
+    from scene_completion.workflow.ssd.input_conversion.evidence_records import recognize_records
+    from scene_completion.workflow.ssd.shared.step_bindings import (
         RULE_VERSION,
         VERSION,
         _enrich_fields,
-        generate_g,
     )
 
     case = {"id": case, "name": case} if isinstance(case, str) else deepcopy(case)

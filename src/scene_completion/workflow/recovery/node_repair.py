@@ -187,7 +187,7 @@ def submit_repair(project, key, document, *, validate_only=False):
     if p["task"] in SSD_CANONICAL_SUBMISSIONS:
         value = deepcopy(value)
     if p["task"] == "ssd-ground-align":
-        from scene_completion.analysis.ssd.grounding import strip_align_summary
+        from scene_completion.workflow.ssd.compare.alignment import strip_align_summary
 
         strip_align_summary(value)
     errors = list(Draft202012Validator(p["output_schema"]).iter_errors(value))

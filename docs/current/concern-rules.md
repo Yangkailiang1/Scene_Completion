@@ -49,6 +49,6 @@ G仅从正向SSD、接口、实体及规则生成；E与GT根据各自原始材�
 
 人工修订保存为新版本，旧机器结果和原始出处继续可查；改动步骤、字段或条件使相关旧语义判定失效，未决范围明确列出。没有模型完成比较时不能伪装完整评测。执行节点全部通过与业务审核全部确认分别展示。
 
-实现入口为`analysis/ssd/pipeline.py`、`domain/ssd/`和`application/ssd_revision_service.py`，页面操作见[SSD三方比较与审核](ssd-case-workflow.md)。
+规则展开见`workflow/ssd/generate/`，匹配与计分见`domain/ssd/`，结果保存见`application/ssd_revision_service.py`。页面操作见[SSD三方比较与审核](ssd-case-workflow.md)。
 
 当前coverage-any-confirmed-v2中full与partial均计覆盖，每条G被任一GT覆盖计一次，允许一条GT覆盖多条G；互斥数值或上下界失败不是partial。关注点与场景均按此口径计算；旧版无policy标记的历史保留一对一完全匹配口径。

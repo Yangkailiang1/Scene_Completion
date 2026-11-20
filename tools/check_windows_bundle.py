@@ -230,10 +230,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / "app/src"))
 from scene_completion.infrastructure.storage import io_path, read_json
 from scene_completion.infrastructure.code_retry import request
-from scene_completion.analysis.ssd import core_snapshot
 from scene_completion.application.execution import Execution
 from scene_completion.application.ssd_revision_service import editor
-from scene_completion.workflow.ssd_pipeline import build_structured, input_directory
+from scene_completion.workflow.ssd.pipeline import build_structured, input_directory
+from scene_completion.workflow.ssd.prepare import snapshot as core_snapshot
 for rid in sys.argv[1:3]:
     project = Path.cwd() / "data" / rid
     point = read_json(project / "imports/ssd-input.json")

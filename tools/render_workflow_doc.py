@@ -40,14 +40,15 @@ python tools/render_workflow_doc.py
 {sequence}
 ```
 
-用例之间并行，互不阻塞。全部用例完成后，每个用例再触发一次合并阶段。
+用例之间并行。每个用例完成比较后触发对应的共用服务合并节点。
 """
 
 FOOTER = """
 ## 阶段来源
 
 - 阶段定义与顺序：`src/scene_completion/workflow/ssd_stages.py`
-- 执行装配：`src/scene_completion/workflow/ssd_pipeline.py`
+- 执行装配见 `src/scene_completion/workflow/ssd/pipeline.py`
+- 按阶段阅读代码及输入映射见[架构与代码导览](../architecture/code-guide.md#按顺序阅读-ssd)
 - 模型提示词与输出 Schema：`src/scene_completion/domain/ssd_contracts.py`
 - 缓存用的语义版本：`src/scene_completion/workflow/task_semantics.json`
 """
@@ -78,7 +79,7 @@ def render():
         deps = "、".join(stage.depends_on) or "无（用例起点）"
         lines.append(f"- **依赖**：{deps}")
         lines.append(f"\n{stage.doc}\n")
-    lines.append(f"> 合并阶段 `{MERGE_STAGE}` 在上述用例序列全部完成后按用例触发。")
+    lines.append(f"> 合并阶段 `{MERGE_STAGE}` 依赖对应的用例比较节点。")
     lines.append(FOOTER)
     return "\n".join(lines).rstrip() + "\n"
 

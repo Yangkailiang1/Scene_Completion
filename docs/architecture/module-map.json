@@ -1960,6 +1960,11 @@
           "module": "scene_completion.workflow.ssd_pipeline",
           "path": "src/scene_completion/workflow/ssd_pipeline.py",
           "responsibility": "Compact case-parallel workflow using the shared scheduler and model transport."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.prepare.stage",
+          "path": "src/scene_completion/workflow/ssd/prepare/stage.py",
+          "responsibility": "Convert structured or extracted inputs into the initial published revision."
         }
       ]
     },
@@ -2083,6 +2088,226 @@
         "frontend/src/features/results/shared/resultRequests.ts"
       ],
       "responsibility": "结果读取合并、项目代次失效及写后刷新。"
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.binding_targets",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.shared.binding_targets",
+          "path": "src/scene_completion/workflow/ssd/shared/binding_targets.py",
+          "responsibility": "Handle role words in model replies without changing the advertised enum."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.command_contract",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.generate.command_fields",
+          "path": "src/scene_completion/workflow/ssd/generate/command_fields.py",
+          "responsibility": "Generate and deduplicate positive command field obligations."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.function_tree",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/function_tree.py",
+          "responsibility": "Map the selected supplier function tree commands into SSD contracts."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.shared.command_bindings",
+          "path": "src/scene_completion/workflow/ssd/shared/command_bindings.py",
+          "responsibility": "Single command placement and entity associations shared across stages."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.contract_binding",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.resolve.contract_binding",
+          "path": "src/scene_completion/workflow/ssd/resolve/contract_binding.py",
+          "responsibility": "Forward-only missing-contract assistance; API identity remains optional."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.core_export",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.core_files",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/core_files.py",
+          "responsibility": "Export the structured SSD handoff and an auditable field-to-source map."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.core_input",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.core_input",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/core_input.py",
+          "responsibility": "Deterministic core input tools used by the CLI and coding agents."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.core_snapshot",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.prepare.snapshot",
+          "path": "src/scene_completion/workflow/ssd/prepare/snapshot.py",
+          "responsibility": "Publish immutable core snapshots after all files have been written."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.entity_semantics",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.resolve.entity_semantics",
+          "path": "src/scene_completion/workflow/ssd/resolve/entity_semantics.py",
+          "responsibility": "Channel-isolated semantic inference and canonical entity obligation alignment."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.failure_context",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.shared.failure_context",
+          "path": "src/scene_completion/workflow/ssd/shared/failure_context.py",
+          "responsibility": "Separate the source's actual failure step from the canonical display anchor."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.generation",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.generate.scenarios",
+          "path": "src/scene_completion/workflow/ssd/generate/scenarios.py",
+          "responsibility": "Forward-only contextual analysis of immutable reference scenario variants."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.grounding",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.compare.alignment",
+          "path": "src/scene_completion/workflow/ssd/compare/alignment.py",
+          "responsibility": "Align independently classified evidence to the final G snapshot."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.resolve.classification",
+          "path": "src/scene_completion/workflow/ssd/resolve/classification.py",
+          "responsibility": "Classify E and GT evidence independently before G alignment."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.inverse",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.evidence_records",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/evidence_records.py",
+          "responsibility": "Recognize SSD source records using only the current evidence channel."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.requirements",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/requirements.py",
+          "responsibility": "Read source requirement branches and map original exceptions into E."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.test_evidence",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/test_evidence.py",
+          "responsibility": "Read recovered tests and extension mappings into GT."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.operation_units",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.resolve.operations",
+          "path": "src/scene_completion/workflow/ssd/resolve/operations.py",
+          "responsibility": "Resolve one functional concern owner per interface or external service."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.analysis.ssd.pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.generate.fixed",
+          "path": "src/scene_completion/workflow/ssd/generate/fixed.py",
+          "responsibility": "Generate the deterministic G concerns and reference scenarios from positive inputs."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.case_builder",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/case_builder.py",
+          "responsibility": "Discover and assemble independent SSD cases from supplier and core inputs."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.provenance",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/provenance.py",
+          "responsibility": "Index and select pinned original documents."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.sys_operation",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/sys_operation.py",
+          "responsibility": "Map behavior-model participants, order and interactions into SSD steps."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.shared.step_bindings",
+          "path": "src/scene_completion/workflow/ssd/shared/step_bindings.py",
+          "responsibility": "Field and operation bindings reused by conversion and revisions."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.function_tree",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/function_tree.py",
+          "responsibility": "Resolve a supplier function-tree entry and command contracts for one SSD case."
+        }
+      ]
+    },
+    {
+      "original_module": "scene_completion.workflow.ssd_pipeline",
+      "destinations": [
+        {
+          "module": "scene_completion.workflow.ssd.compare.stage",
+          "path": "src/scene_completion/workflow/ssd/compare/stage.py",
+          "responsibility": "Align, compare and publish the three SSD channels."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.generate.stage",
+          "path": "src/scene_completion/workflow/ssd/generate/stage.py",
+          "responsibility": "Run and validate business scenario analysis using positive inputs."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.pipeline",
+          "path": "src/scene_completion/workflow/ssd/pipeline.py",
+          "responsibility": "Select cases, register SSD stage dependencies and publish workflow progress."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.resolve.stage",
+          "path": "src/scene_completion/workflow/ssd/resolve/stage.py",
+          "responsibility": "Resolve operation, constraints and independent evidence for one SSD case."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.shared.machine_history",
+          "path": "src/scene_completion/workflow/ssd/shared/machine_history.py",
+          "responsibility": "Read verified machine baselines for reuse between SSD stages."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.shared.semantic_execution",
+          "path": "src/scene_completion/workflow/ssd/shared/semantic_execution.py",
+          "responsibility": "Determine model capability and stable SSD semantic cache identity."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.shared_services.stage",
+          "path": "src/scene_completion/workflow/ssd/shared_services/stage.py",
+          "responsibility": "Register per-case shared external service aggregation."
+        }
+      ]
     }
   ],
   "file_moves": {

@@ -143,7 +143,10 @@ def publish(project, bundle):
         issues = []
         effective = {**baseline, **_patch(_editable(baseline), state["overrides"], issues)}
         if "machine_g" in baseline:
-            from scene_completion.analysis.ssd.generation import refresh_status, regenerate_machine
+            from scene_completion.workflow.ssd.generate.scenarios import (
+                refresh_status,
+                regenerate_machine,
+            )
 
             machine_g = (
                 deepcopy(baseline["machine_g"])
@@ -295,7 +298,8 @@ def save_revision(project, case_id, body):
         updated["coverage_policy"] = "coverage-any-confirmed-v2"
         _promote_pending(updated)
         if current["steps"] != updated["steps"]:
-            from scene_completion.analysis.ssd.pipeline import generate_g, rebind_steps
+            from scene_completion.workflow.ssd.generate.fixed import generate_g
+            from scene_completion.workflow.ssd.shared.step_bindings import rebind_steps
 
             updated = rebind_steps(current, updated)
 
@@ -314,7 +318,7 @@ def save_revision(project, case_id, body):
             # Regenerate only the changed-step policy output, then retain G human differences.
             before_g = current.get("machine_g", generate_g(current))
             if "machine_g" in current:
-                from scene_completion.analysis.ssd.generation import regenerate_machine
+                from scene_completion.workflow.ssd.generate.scenarios import regenerate_machine
 
                 after_g = regenerate_machine(updated, current)
                 updated["machine_g"] = deepcopy(after_g)
@@ -338,7 +342,7 @@ def save_revision(project, case_id, body):
                             }
                         )
         if "machine_g" in updated:
-            from scene_completion.analysis.ssd.generation import refresh_status
+            from scene_completion.workflow.ssd.generate.scenarios import refresh_status
 
             # A reviewer-authored analysis is not a stale model result.
             old_g = {r["id"]: r for r in current["channels"]["G"]["scenarios"]}
@@ -418,7 +422,7 @@ def index(project):
 
 def enrich_effective(project, case_id, base_revision, generated):
     """Save analyses of manually edited SSD context without treating them as human overrides."""
-    from scene_completion.analysis.ssd.generation import refresh_status
+    from scene_completion.workflow.ssd.generate.scenarios import refresh_status
 
     with repository.locked(project):
         state = repository.state(project, case_id)

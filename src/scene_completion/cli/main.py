@@ -553,8 +553,8 @@ def parser():
 def main(argv=None, client=None):
     args = parser().parse_args(argv)
     if args.command == "core-input":
-        from scene_completion.analysis.ssd import core_input
         from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, ENTITY_PROFILE
+        from scene_completion.workflow.ssd.input_conversion import core_input
 
         profile = {"entity": ENTITY_PROFILE, "command": COMMAND_OPERATION_PROFILE}.get(
             getattr(args, "profile", None)

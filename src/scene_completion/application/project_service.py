@@ -393,7 +393,7 @@ class Workbench:
         if point.is_file():
             inputs = (root / read_json(point)["path"]).resolve()
             if inputs.is_relative_to(root.resolve()) and any(inputs.rglob("main-success.json")):
-                from scene_completion.analysis.ssd.core_input import validate_core
+                from scene_completion.workflow.ssd.input_conversion.core_input import validate_core
 
                 authored = validate_core(inputs, case_ids)
                 blocked = {i.get("case_id") for i in authored["issues"] if i["kind"] == "blocking"}

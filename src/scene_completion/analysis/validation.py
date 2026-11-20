@@ -97,43 +97,47 @@ def validate_result(task, payload, inputs):
         validate(task, payload)
         return validate_project_result(task, payload, inputs)
     if task == "ssd-operation-units":
-        from scene_completion.analysis.ssd.operation_units import validate_result as validate_units
+        from scene_completion.workflow.ssd.resolve.operations import (
+            validate_result as validate_units,
+        )
 
         validate(task, payload)
         return validate_units(payload, inputs)
     if task in {"ssd-entity-inference", "ssd-entity-classify", "ssd-command-classify"}:
-        from scene_completion.analysis.ssd.entity_semantics import (
+        from scene_completion.workflow.ssd.resolve.entity_semantics import (
             validate_result as validate_entity,
         )
 
         if task == "ssd-entity-inference":
             validate(task, payload)
         else:
-            from scene_completion.analysis.ssd.binding_targets import validate_reply
+            from scene_completion.workflow.ssd.shared.binding_targets import validate_reply
 
             validate_reply(task, payload)
         return validate_entity(task, payload, inputs)
-    if task in {"ssd-evidence-classify", "ssd-ground-align"}:
-        from scene_completion.analysis.ssd.grounding import strip_align_summary
-        from scene_completion.analysis.ssd.grounding import validate_result as validate_grounding
+    if task == "ssd-evidence-classify":
+        from scene_completion.workflow.ssd.resolve.classification import validate_result as classify
 
-        if task == "ssd-ground-align":
-            from scene_completion.analysis.ssd.binding_targets import validate_reply
+        validate(task, payload)
+        return classify(task, payload, inputs)
+    if task == "ssd-ground-align":
+        from scene_completion.workflow.ssd.compare import alignment
+        from scene_completion.workflow.ssd.shared.binding_targets import validate_reply
 
-            strip_align_summary(payload)
-            validate_reply(task, payload)
-        else:
-            validate(task, payload)
-        return validate_grounding(task, payload, inputs)
+        alignment.strip_align_summary(payload)
+        validate_reply(task, payload)
+        return alignment.validate_result(task, payload, inputs)
     if task == "ssd-bind":
-        from scene_completion.analysis.ssd.contract_binding import (
+        from scene_completion.workflow.ssd.resolve.contract_binding import (
             validate_result as validate_binding,
         )
 
         validate(task, payload)
         return validate_binding(payload, inputs)
     if task == "ssd-generate":
-        from scene_completion.analysis.ssd.generation import validate_result as validate_generation
+        from scene_completion.workflow.ssd.generate.scenarios import (
+            validate_result as validate_generation,
+        )
 
         validate(task, payload)
         return validate_generation(payload, inputs)

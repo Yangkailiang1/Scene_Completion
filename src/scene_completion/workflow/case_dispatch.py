@@ -17,7 +17,7 @@ def _build_cases(
     supplied=None,
     reference_groups=None,
 ):
-    from scene_completion.workflow.ssd_pipeline import build_from_documents, enabled
+    from scene_completion.workflow.ssd.pipeline import build_from_documents, enabled
 
     if enabled(ex):
         return build_from_documents(

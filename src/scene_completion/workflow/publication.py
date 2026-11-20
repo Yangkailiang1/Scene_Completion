@@ -13,7 +13,7 @@ def finish(self):
 
     result = run_pipeline(self)
     if self.manifest.get("workflow") == "ssd-case-v1":
-        from scene_completion.workflow.ssd_pipeline import finish as finish_ssd
+        from scene_completion.workflow.ssd.pipeline import finish as finish_ssd
 
         return finish_ssd(self, result)
     artifact_root = self.root / "artifacts"
@@ -222,7 +222,7 @@ def finish(self):
 
 def publish_progress(self):
     if self.manifest.get("workflow") == "ssd-case-v1":
-        from scene_completion.workflow.ssd_pipeline import progress
+        from scene_completion.workflow.ssd.pipeline import progress
 
         return progress(self)
     ready = getattr(self.scheduler, "resolved_tasks", set())

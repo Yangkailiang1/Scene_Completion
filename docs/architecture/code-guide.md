@@ -8,13 +8,12 @@
 flowchart TD
     Web[frontend / HTTP API] --> App[application 应用服务]
     CLI[CLI] --> App
-    App --> Plan[workflow SSD编排]
-    Plan --> Input[inputs 结构化输入与文档转换]
-    Plan --> Analysis[analysis SSD生成与独立逆向识别]
+    App --> Plan[workflow/ssd 阶段编排与实现]
+    Plan --> Input[inputs 可复用的结构化解析与文档转换]
     Plan --> Runtime[workflow/runtime 调度适配]
     Runtime --> Core[workflow_core 通用调度]
     Runtime --> Models[models 语义请求与用量]
-    Analysis --> Domain[domain/ssd 校验、匹配、指标]
+    Plan --> Domain[domain/ssd 校验、匹配、指标]
     App --> Revision[application/ssd_revision_service 修订与发布]
     Revision --> Domain
     Revision --> Repository[infrastructure/ssd_repository 持久化]
@@ -32,7 +31,33 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 
 `serve.py → api/application.create_app → application/project_service.Workbench`装配本地服务。`scene.py → cli/main`使用相同公开能力。`application/execution.Execution`组织执行会话，`workflow/planning.build_pipeline`选择结构化输入或文档抽取路径。
 
-结构化输入由`workflow/ssd_pipeline.py`按用例进入四个交互阶段（`ssd-prepare → ssd-resolve → ssd-generate → ssd-compare`），每个用例完成后由同一文件的`_project_scopes()`注册一个`shared-services-merge`脚本节点。阶段定义、顺序、读写与对应语义任务集中在`workflow/ssd_stages.py`，[结构化输入工作流](../current/structured-input-workflow.md)由它生成。`workflow/project_scopes.py`只保留兼容语义函数，其`build_project_scopes()`已停用并显式报错；业务链路与项目架构结果仅作只读历史投影。原始RR/SR文档通过`build_from_documents`获得抽取产物，再由`inputs/documents/ssd_adapter.normalize_extracted_case`转为共同用例结构；这是当前文档输入适配，不是旧协议执行。
+`workflow/ssd/pipeline.py`选择用例、注册依赖并写入流程进度。它复用同一套 SSD 阶段处理结构化输入和 RR／SR 文档抽取结果。阶段定义与语义任务集中在 `workflow/ssd_stages.py`，[结构化输入工作流](../current/structured-input-workflow.md)由它生成。
+
+## 按顺序阅读 SSD
+
+下表目录均位于 [`src/scene_completion/workflow/ssd/`](../../src/scene_completion/workflow/ssd/)。五个调度阶段从各自的 `stage.py` 开始读。
+
+| 目录 | 从这里读 | 主要产物 |
+|---|---|---|
+| `input_conversion/` | `core_input.py` 的 `inspect`、`convert`、`validate_core`，以及 `case_builder.py` 的 `build_cases` | 核心文件、待决映射、出处索引和运行用例 |
+| `prepare/` | `stage.py` 的结构化与文档两种准备入口，`snapshot.py` 的冻结与验证 | 核心快照、初始三方容器和初始发布版本 |
+| `resolve/` | `stage.py`，再读操作、实体和来源分类模块 | CRUD、约束挂载、独立 E／GT 分类和待确认项 |
+| `generate/` | `fixed.py`、`command_fields.py`、`scenarios.py` 和 `stage.py` | 固定关注点、固定场景、G 业务分析及补充场景 |
+| `compare/` | `alignment.py` 和 `stage.py` | E／GT 对齐到最终 G、判定复用、语义匹配及发布 |
+| `shared_services/` | `stage.py` | 按用例触发外部服务归并及发布 |
+| `shared/` | 按绑定、失败位置、语义执行和基线复用进入 | 各阶段共同使用的上下文与稳定身份 |
+
+`workflow/ssd_pipeline.py` 和 `analysis/ssd/` 保留既有导入入口。共用服务的归并规则仍由 `domain/shared_services/` 维护，修订和发布由应用服务处理。领域层继续提供三方校验、匹配与指标。
+
+### 来源文件到核心 JSON
+
+| 来源 | `input_conversion/` 中的映射 | 主要输出 |
+|---|---|---|
+| `SysOperation.json` 的参与者、顺序、交互、动作和响应 | `sys_operation.py` 提取步骤和参与者，`case_builder.py` 统一用例与步骤身份 | `architecture.json`、`main-success.json` |
+| `功能树.json` 的用例、命令与实体属性 | `function_tree.py` 对齐同用例的接口契约，`case_builder.py` 组装实体目录 | `main-success.json` 的命令、实体与约束 |
+| 行为模型中的原文异常和分支文件 | `requirements.py` 读取分支，`evidence_records.py` 处理本方证据 | `existing-exceptions.json` |
+| `recovered_usecases.json` 与测试证据 | `test_evidence.py` 按用例读取测试扩展，保留命中、待确认和来源 | `test-exceptions.json`、`extension-mapping.json` |
+| 中间 JSON 引用及配置的 Markdown／XLSX 原件 | `provenance.py` 索引原件，`core_files.py` 写出各核心分件和引用 | `source-map.json`、原文清单及随包证据 |
 
 ## 目录职责
 
@@ -40,10 +65,10 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 |---|---|
 | `application/` | 项目、运行配置、执行控制和SSD修订用例；协调业务服务 |
 | `domain/`、`domain/ssd/` | 协议、Schema、注册表及SSD校验、匹配、指标；不负责项目文件写入 |
-| `workflow/` | SSD主编排、规划、发布；`runtime/`为调度适配，`recovery/`为有限恢复 |
+| `workflow/` | `ssd/` 为正式 SSD 各阶段的实现，`runtime/` 为调度适配，`recovery/` 为有限恢复 |
 | `workflow_core/` | 通用DAG依赖、并发、暂停、检查点；不放SSD业务规则 |
 | `inputs/` | `structured/`结构化材料，`documents/`文档转换，`provenance/`来源索引，及导入采用 |
-| `analysis/` | 按`ssd/`、`concerns/`、`scenarios/`、`matching/`、`evaluation/`、`interactions/`等职责计算 |
+| `analysis/` | 通用关注点、场景、匹配、评估和交互分析，`ssd/` 保留原导入入口 |
 | `models/` | 模型路由、传输、流式、限流、上下文和用量；不改变业务结果版本 |
 | `review/` | `offline/` SSD HTML，`handoff/`原业务包，`decisions/`人工决定，`truth/`审核真值 |
 | `compat/` | 显式保留的详细流程、独立旧格式与保存报告，见下节 |
@@ -51,7 +76,7 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 | `api/`、`cli/` | HTTP与命令装配；公开URL和参数不因目录迁移改变 |
 | `infrastructure/` | 项目存储、事件、进程、资源定位、SSD仓储及项目范围仓储 |
 
-`domain/concern_templates.py`维护三范围固定参考异常；`analysis/ssd/generation.py`负责 `ssd-generate` 的模型分析与补充校验；`analysis/project_scopes/`从正向材料构建紧凑用例投影、依赖边和外部服务，`domain/project_scopes/`负责项目范围校验、匹配和指标，`application/project_scope_service.py`与`project_scope_review.py`负责发布、修订和离线审核。
+`domain/concern_templates.py` 维护固定参考异常。`workflow/ssd/generate/scenarios.py` 负责 `ssd-generate` 的模型分析与补充校验。业务链路与项目架构结果继续通过历史投影查看。
 
 ## 三种兼容职责
 

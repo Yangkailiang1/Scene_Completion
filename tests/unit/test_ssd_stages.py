@@ -82,11 +82,13 @@ def test_every_stage_states_whether_it_calls_a_model():
 
 def test_labels_are_the_ones_the_scheduler_publishes():
     """The page label must come from here, not from a literal in the pipeline."""
-    source = (ROOT / "src/scene_completion/workflow/ssd_pipeline.py").read_text(encoding="utf8")
-    assert "display_label=stage_label(stage)" in source
-    assert "display_label=stage_label(MERGE_STAGE)" in source
+    workflow = ROOT / "src/scene_completion/workflow/ssd"
+    pipeline = (workflow / "pipeline.py").read_text(encoding="utf8")
+    merge = (workflow / "shared_services/stage.py").read_text(encoding="utf8")
+    assert "display_label=stage_label(stage)" in pipeline
+    assert "display_label=stage_label(MERGE_STAGE)" in merge
     for stage in STAGES.values():
-        assert f'"{stage.label}"' not in source
+        assert f'"{stage.label}"' not in pipeline + merge
 
 
 def test_unknown_stage_degrades_to_its_raw_name():

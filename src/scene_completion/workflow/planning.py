@@ -7,7 +7,7 @@ from scene_completion.workflow.support import payload
 
 
 def build_pipeline(ex, rr, sr, tests, extraction_truth=None, adjudications=None, ar=None):
-    from scene_completion.workflow.ssd_pipeline import build_structured, enabled, input_directory
+    from scene_completion.workflow.ssd.pipeline import build_structured, enabled, input_directory
 
     if enabled(ex):
         ex.project_scope_documents = rr + sr + (ar or [])

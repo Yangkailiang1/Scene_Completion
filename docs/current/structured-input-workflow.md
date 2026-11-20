@@ -22,7 +22,7 @@ python tools/render_workflow_doc.py
 ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 ```
 
-用例之间并行，互不阻塞。全部用例完成后，每个用例再触发一次合并阶段。
+用例之间并行。每个用例完成比较后触发对应的共用服务合并节点。
 
 ## 阶段总表
 
@@ -86,11 +86,12 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 
 按实际外部请求的接收方识别服务身份，再按故障类型合并场景，保留每个调用成员的原记录与出处。服务身份无法确认时保留待定位，不按同名强合并。
 
-> 合并阶段 `shared-services-merge` 在上述用例序列全部完成后按用例触发。
+> 合并阶段 `shared-services-merge` 依赖对应的用例比较节点。
 
 ## 阶段来源
 
 - 阶段定义与顺序：`src/scene_completion/workflow/ssd_stages.py`
-- 执行装配：`src/scene_completion/workflow/ssd_pipeline.py`
+- 执行装配见 `src/scene_completion/workflow/ssd/pipeline.py`
+- 按阶段阅读代码及输入映射见[架构与代码导览](../architecture/code-guide.md#按顺序阅读-ssd)
 - 模型提示词与输出 Schema：`src/scene_completion/domain/ssd_contracts.py`
 - 缓存用的语义版本：`src/scene_completion/workflow/task_semantics.json`

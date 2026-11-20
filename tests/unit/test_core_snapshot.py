@@ -5,8 +5,8 @@ from threading import Barrier
 
 import pytest
 
-from scene_completion.analysis.ssd import core_snapshot
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
+from scene_completion.workflow.ssd.prepare import snapshot as core_snapshot
 
 BUNDLE = {"case": {"id": "UC-SNAPSHOT"}}
 
