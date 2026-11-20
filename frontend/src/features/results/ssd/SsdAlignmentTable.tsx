@@ -128,6 +128,7 @@ export function SsdAlignmentTable({
   onDeleteRow,
   onMerge,
   onEdit,
+  onLocate,
   onSplit,
   onRemove,
   onSources,
@@ -165,6 +166,7 @@ export function SsdAlignmentTable({
   onDeleteRow?: (row: any) => void;
   onMerge: (channel: Channel) => void;
   onEdit: (channel: Channel, item: Observation) => void;
+  onLocate?: (channel: Channel, item: Observation) => void;
   onSplit: (channel: Channel, item: Observation) => void;
   onRemove: (channel: Channel, item: Observation) => void;
   onSources: (item: Observation) => void;
@@ -648,6 +650,19 @@ export function SsdAlignmentTable({
                                 含人工补录出处
                               </small>
                             )}
+                            {!readonly &&
+                              onLocate &&
+                              (!step ||
+                                layer === "pending" ||
+                                record.status === "unbound") && (
+                                <button
+                                  className="ssd-match-link"
+                                  aria-label={`定位并匹配 ${channel} ${record.id}`}
+                                  onClick={() => onLocate(channel, record)}
+                                >
+                                  定位并匹配
+                                </button>
+                              )}
                             <details>
                               <summary>
                                 记录详情{readonly ? "" : "与更多操作"}

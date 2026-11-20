@@ -572,6 +572,170 @@ test("unbound navigation restores each regular result layer without reloading", 
   ).toHaveLength(1);
 });
 
+test("locating a pending GT record reuses the concern and drafts a cross-step match", async () => {
+  const data = fixture();
+  data.steps.push({
+    ...data.steps[0],
+    id: "step2",
+    order: 2,
+    operation: { name: "校验分页限制", kinds: [] },
+  });
+  const generated = {
+    ...data.channels.G.concerns[0],
+    id: "g-range",
+    step_id: "step2",
+    entity_id: "Product",
+    attribute: "pageSize",
+    obligation_scope: ["query"],
+  };
+  data.channels.G.concerns.push(generated);
+  data.channels.G.scenarios = [
+    {
+      ...generated,
+      id: "g-range-exceeded",
+      concern_ids: [generated.id],
+      expected: "拒绝超出范围的查询",
+    },
+  ];
+  data.channels.GT.concerns = [
+    { ...generated, id: "gt-range-existing", source_refs: [] },
+    { ...generated, id: "gt-other", attribute: "pageNumber" },
+  ];
+  data.channels.GT.pending[0] = {
+    ...data.channels.GT.pending[0],
+    condition: "页大小为101时测试失败",
+    expected: "HTTP 400",
+    failure_step_id: "step1",
+    binding_issue: "未定位字段",
+    source_refs: [ref],
+  };
+  let saved: any;
+  mockApi((path, init) => {
+    if (path.endsWith("/revisions")) {
+      saved = JSON.parse(String(init?.body));
+      return response(saved.bundle, 2);
+    }
+    if (path.includes("/editor?")) return response(data);
+  });
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  const goToPending = () =>
+    fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
+  const locate = () =>
+    fireEvent.click(screen.getByLabelText("定位并匹配 GT t1"));
+  await screen.findByLabelText("编辑 G g1");
+  goToPending();
+  locate();
+  const dialog = within(
+    screen.getByRole("dialog", { name: "定位并匹配已有关注点" }),
+  );
+  expect(
+    dialog.getByRole<HTMLButtonElement>("button", { name: "应用到草稿" })
+      .disabled,
+  ).toBe(true);
+  fireEvent.change(dialog.getByLabelText("定位到已有步骤"), {
+    target: { value: "step2" },
+  });
+  expect(
+    dialog.getByRole("option", { name: /方法生成.*数据范围.*query.pageSize/ }),
+  ).toBeTruthy();
+  fireEvent.change(dialog.getByLabelText("匹配已有关注点"), {
+    target: { value: "G:g-range" },
+  });
+  fireEvent.change(dialog.getByLabelText("匹配已有场景（可选）"), {
+    target: { value: "g-range-exceeded" },
+  });
+  fireEvent.change(dialog.getByLabelText("场景匹配判定"), {
+    target: { value: "partial" },
+  });
+  fireEvent.change(dialog.getByLabelText("匹配说明（可选）"), {
+    target: { value: "现场验证了上界" },
+  });
+  fireEvent.click(dialog.getByRole("button", { name: "应用到草稿" }));
+  expect(screen.getByText(/已定位并应用到草稿/)).toBeTruthy();
+  const moved = screen.getByLabelText("GT t1 条件或描述");
+  expect(moved.textContent).toBe("页大小为101时测试失败");
+  expect(
+    within(moved.closest("tr")!).getByText(/GT_G · 部分匹配/),
+  ).toBeTruthy();
+  expect(screen.queryByLabelText("定位并匹配 GT t1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+  await waitFor(() => expect(saved?.base_revision).toBe(1));
+  expect(saved.bundle.channels.GT.pending).toEqual([]);
+  expect(saved.bundle.channels.GT.concerns).toHaveLength(2);
+  expect(saved.bundle.channels.GT.concerns[0].source_refs).toEqual([ref]);
+  expect(saved.bundle.channels.GT.scenarios).toEqual([
+    expect.objectContaining({
+      id: "t1",
+      step_id: "step2",
+      failure_step_id: "step1",
+      field_id: "field1",
+      attribute: "pageSize",
+      concern_ids: ["gt-range-existing"],
+      condition: "页大小为101时测试失败",
+      expected: "HTTP 400",
+      status: "active",
+      source_refs: [ref],
+    }),
+  ]);
+  expect(saved.bundle.channels.GT.scenarios[0].binding_issue).toBeUndefined();
+  expect(saved.bundle.decisions).toEqual([
+    expect.objectContaining({
+      pair: "GT_G",
+      level: "concern",
+      left_id: "gt-range-existing",
+      right_id: "g-range",
+      status: "full",
+      origin: "manual",
+    }),
+    expect.objectContaining({
+      pair: "GT_G",
+      level: "scenario",
+      left_id: "t1",
+      right_id: "g-range-exceeded",
+      status: "partial",
+      origin: "manual",
+      reason: "现场验证了上界",
+    }),
+  ]);
+});
+
+test("a pending record can be located without asserting scenario coverage, and undone", async () => {
+  const data = fixture();
+  data.channels.GT.pending[0].expected = "显示错误提示";
+  mockApi((path) => (path.includes("/editor?") ? response(data) : undefined));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  const pending = () =>
+    fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
+  const locate = () =>
+    fireEvent.click(screen.getByLabelText("定位并匹配 GT t1"));
+  await screen.findByLabelText("编辑 G g1");
+  pending();
+  locate();
+  fireEvent.click(screen.getByRole("button", { name: "取消编辑" }));
+  expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+  locate();
+  const dialog = within(
+    screen.getByRole("dialog", { name: "定位并匹配已有关注点" }),
+  );
+  fireEvent.change(dialog.getByLabelText("定位到已有步骤"), {
+    target: { value: "step1" },
+  });
+  fireEvent.change(dialog.getByLabelText("匹配已有关注点"), {
+    target: { value: "G:g1" },
+  });
+  expect(dialog.getByLabelText("匹配已有场景（可选）")).toHaveProperty(
+    "value",
+    "",
+  );
+  fireEvent.click(dialog.getByRole("button", { name: "应用到草稿" }));
+  expect(screen.getByText(/匹配判定修改 1 条/)).toBeTruthy();
+  expect(screen.queryByLabelText("定位并匹配 GT t1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "撤销草稿修改" }));
+  pending();
+  expect(screen.getByLabelText("定位并匹配 GT t1")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+});
+
 test("409 keeps the draft instead of discarding a business correction", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation(
     async (url) =>

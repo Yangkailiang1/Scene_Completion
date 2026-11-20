@@ -22,6 +22,7 @@ import {
 } from "./SsdAlignmentTable";
 import { getSsdEditor, getSsdResultIndex, saveSsdRevision } from "./api";
 import { MatchEditor, ObservationEditor, StepEditor } from "./SsdEditors";
+import { LocateObservation, locateObservation } from "./LocateObservation";
 import { SsdSourceDialog } from "./SsdSourceDialog";
 import {
   copy,
@@ -153,6 +154,7 @@ export function SsdResultsView({
     channel: Channel;
     kind: Kind;
     item: Observation;
+    locate?: boolean;
   } | null>(null);
   const [matchEdit, setMatchEdit] = useState<Decision | true | null>(null);
   const [sources, setSources] = useState<SourceRef[] | null>(null);
@@ -1693,7 +1695,7 @@ export function SsdResultsView({
                 <h3>待定位／本轮不计分</h3>
                 <p>
                   这些记录尚未挂载到有效 SSD
-                  步骤。保留原始出处，可编辑后重新挂载；不属于异常的待确认项可标记移除。
+                  步骤。用「定位并匹配」选择已有步骤和关注点，或在记录编辑中指定新的挂载。不属于异常的待确认项可标记移除。
                 </p>
               </div>
             )}
@@ -1799,6 +1801,9 @@ export function SsdResultsView({
               onMerge={merge}
               onEdit={(channel, item) =>
                 setRecordEdit({ channel, kind: layer, item: copy(item) })
+              }
+              onLocate={(channel, item) =>
+                setRecordEdit({ channel, kind: layer, item, locate: true })
               }
               onSplit={(channel, item) =>
                 setRecordEdit({
@@ -1935,7 +1940,33 @@ export function SsdResultsView({
           }}
         />
       )}
-      {draft && recordEdit && (
+      {draft && recordEdit?.locate && (
+        <LocateObservation
+          {...recordEdit}
+          bundle={draft}
+          excludedIds={excludedIds}
+          onClose={() => setRecordEdit(null)}
+          onSave={(choice) => {
+            const { channel, kind, item } = recordEdit;
+            if (
+              !change((bundle) =>
+                locateObservation(bundle, channel, kind, item, choice),
+              )
+            )
+              return;
+            setRecordEdit(null);
+            setStepLayer(
+              kind === "concerns" || !choice.scenario
+                ? "concerns"
+                : "scenarios",
+            );
+            setStepDifferences(false);
+            selectStep(choice.target.record.step_id!);
+            setNotice("已定位并应用到草稿。保存后重算匹配与指标。");
+          }}
+        />
+      )}
+      {draft && recordEdit && !recordEdit.locate && (
         <ObservationEditor
           {...recordEdit}
           bundle={draft}
