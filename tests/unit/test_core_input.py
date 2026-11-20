@@ -68,14 +68,22 @@ def test_core_validate_reports_missing_part_in_deep_directory(tmp_path, monkeypa
     assert validate_core(output)["valid"]
     part = next(io_path(output).glob("cases/*/source-map.json"))
     stat_path = Path.stat
+    is_file = Path.is_file
 
     def denied(path, *args, **kwargs):
         if path == part:
             raise PermissionError(errno.EACCES, "权限受限")
         return stat_path(path, *args, **kwargs)
 
+    def stat_based_is_file(path):
+        if path == part:
+            path.stat()
+        return is_file(path)
+
     with monkeypatch.context() as patch:
         patch.setattr(Path, "stat", denied)
+        # Python 3.12 checks file type through Path.stat.
+        patch.setattr(Path, "is_file", stat_based_is_file)
         blocked = validate_core(output)
         assert not blocked["valid"]
         assert any(

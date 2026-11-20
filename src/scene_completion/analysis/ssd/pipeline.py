@@ -1174,9 +1174,9 @@ def origin_documents(root):
     found = []
     for path in sorted(declared if registered else root.rglob("*")):
         if (
-            not path.is_file()
-            or path.suffix.lower() not in ORIGIN_SUFFIXES
+            path.suffix.lower() not in ORIGIN_SUFFIXES
             or any(part.startswith(".") for part in path.relative_to(root).parts)
+            or not path.is_file()
         ):
             continue
         role, aliases = declared.get(path, (None, []))
