@@ -230,7 +230,9 @@ class Sources:
             source_origins.resolve_name(document, [d for d in self.origins if not d.get("sheet")]),
             quote,
             declared,
-        ) or source_origins.untraced("原文缺失或文件名／别名不唯一：" + str(document or ""))
+        ) or source_origins.untraced(
+            "原文缺失或文件名／别名不唯一，请核对导入文件或登记唯一别名：" + str(document or "")
+        )
 
     def traced_ref(self, name, pointer, origin):
         """Pointer reference that opens the original line when it can be found."""

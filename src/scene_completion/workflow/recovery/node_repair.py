@@ -129,7 +129,7 @@ def export_repair(project, key, batch=None):
 
     if (
         p.get("semantic_version") and p["semantic_version"] != code_version(p["task"])
-    ) or fingerprint(p["output_schema"]) != fingerprint(schema(p["task"])):
+    ) or fingerprint(p["output_schema"]) != fingerprint(schema(p["task"], p["input"])):
         raise ValueError("任务包语义版本或Schema已过期，请先run刷新对应失败批次，再重新导出")
     from scene_completion.review.decisions.node_conversations import Conversations
 

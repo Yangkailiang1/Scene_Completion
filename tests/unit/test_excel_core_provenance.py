@@ -26,7 +26,7 @@ def excel_case(tmp_path):
     recovered = source / "recovered_usecases.json"
     records = json.loads(recovered.read_text(encoding="utf8"))
     citation = records[0]["evidence_locations"][1]
-    citation.update(source_file=BOOK, location=f"{SHEET}!A51:O51")
+    citation.update(source_file="\\\\supplier\\share\\" + BOOK, location=f"{SHEET}!A51:O51")
     recovered.write_text(json.dumps(records, ensure_ascii=False), encoding="utf8")
 
     target = source / BOOK
@@ -131,6 +131,10 @@ def test_excel_basename_ambiguity_and_missing_sheet_remain_pending(excel_case):
     (source / "source-documents.json").write_text(json.dumps(manifest), encoding="utf8")
     indexed = Sources(source, origin_documents(source))
     assert indexed.trace(citation)["match"] == "exact"
+    assert (
+        indexed.trace({**citation, "source_file": "\\\\supplier\\share\\" + second.name})["match"]
+        == "pending"
+    )
     ambiguous = indexed.trace({**citation, "source_file": second.name})
     assert ambiguous["match"] == "pending" and "唯一原始 Excel 工作簿" in ambiguous["reason"]
     missing = indexed.trace({**citation, "location": "已移除!A51:O51"})

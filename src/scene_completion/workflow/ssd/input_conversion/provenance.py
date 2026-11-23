@@ -42,6 +42,7 @@ def origin_documents(root):
             path.suffix.lower() not in ORIGIN_SUFFIXES
             or any(part.startswith(".") for part in path.relative_to(root).parts)
             or not path.is_file()
+            or not path.resolve().is_relative_to(root)
         ):
             continue
         role, aliases = declared.get(path, (None, []))

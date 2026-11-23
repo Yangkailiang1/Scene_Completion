@@ -519,7 +519,15 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     assert sum(r["key"] == key for r in bundle["channels"]["G"]["scenarios"]) == 3
 
 
-def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp_path):
+@pytest.mark.parametrize(
+    "reference",
+    [
+        {"doc": "designDocument", "location": "L1726-L1726", "quote": "唯一的原文引文。"},
+        {"path": "/supplier/originals/document.md", "line": "L2", "quote": "唯一的原文引文。"},
+        r"C:\supplier\originals\document.md:L2 - 唯一的原文引文。",
+    ],
+)
+def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp_path, reference):
     from shutil import copytree
     from zipfile import ZipFile
 
@@ -561,7 +569,7 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     operation = json.loads(behavior.read_text(encoding="utf8"))
     main = next(iter(operation["operations"].values()))
     declared = [
-        {"doc": "designDocument", "location": "L1726-L1726", "quote": "唯一的原文引文。"},
+        reference,
         {"doc": "missing.md", "location": "L35", "quote": "暂未提供原件"},
     ]
     main["interaction"][0]["source_refs"] = declared
@@ -576,7 +584,7 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     assert any(f["relative_path"] == "originals/原始用例.xlsx" for f in material.values())
     case = build_cases(core)[0]
     mixed_refs = [r for step in case["steps"] for r in step["source_refs"]]
-    assert any(r["kind"] == "origin" and r["quote"] == declared[0]["quote"] for r in mixed_refs)
+    assert any(r["kind"] == "origin" and r["quote"] == "唯一的原文引文。" for r in mixed_refs)
     assert any(
         r.get("declared_source") == declared[1] and "missing.md" in r["origin"]["reason"]
         for r in mixed_refs
@@ -604,7 +612,8 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         == "pending"
     )
     found = sources.trace(declared[0])
-    assert found["match"] == "located" and found["start_line"] == 2
+    assert found["match"] in {"exact", "located"} and found["start_line"] == 2
+    assert found["document"] == "originals/document.md"
 
 
 def test_function_tree_uses_each_constraint_and_tag_citation(tmp_path):
@@ -986,10 +995,13 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
     base["system_response"][0]["message"] = "拒绝认证失败的请求"
     for name, hint, message in (
         ("E4", "旧异常分支中的 ID", "顾客调用商城时认证失败"),
-        ("E5", {"step_id": "B2"}, "入口请求认证失败"),
+        ("E5", {"ref": "B3"}, "入口请求认证失败"),
         ("E6", None, "认证失败"),
+        ("E7", {"step_id": "B3"}, "已声明校验步的认证失败"),
     ):
         branches[name] = {**base, "ID": name, "guard": message, "failure_step_hint": hint}
+    branches["E5"].update(extend_at_main={"ref": "B3"}, resume_at_main={"ref": "B4"})
+    branches["E7"]["failure_step_id"] = "B2"
     path.write_text(json.dumps(behavior, ensure_ascii=False, indent=2), encoding="utf-8")
     output = tmp_path / "core"
     assert convert(material, output, profile=COMMAND_OPERATION_PROFILE)["output"]
@@ -1030,6 +1042,13 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
                 assert row["failure_step_id"] is None
                 assert row["branch"]["system_response"][0]["sender"] == "MALL"
                 assert row["branch"]["source_pointers"][0]["json_pointer"] == "/operations/E4"
+            if row["condition"].startswith("入口"):
+                assert row["failure_step_hint"] == {"ref": "B3"}
+                assert row["failure_step_id"] is None
+                assert row["branch"]["extend_at_main"] == {"ref": "B3"}
+                assert row["branch"]["resume_at_main"] == {"ref": "B4"}
+            if row["condition"].startswith("已声明"):
+                assert row["failure_step_id"] == "B2"
             decision.append(
                 {
                     "record_id": row["id"],
@@ -1053,9 +1072,9 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
         results = []
         for part in inputs["parts"]:
             condition = part["condition"]
-            actual = "B2" if condition.startswith("入口") else None
+            actual = "B2" if condition.startswith(("入口", "已声明")) else None
             ids = {g["id"] for g in part["candidates"]}
-            assert ids == ({human_id} if actual else {human_id, service_id})
+            assert ids == ({human_id} if condition.startswith("已声明") else {human_id, service_id})
             confirmed = condition != "认证失败"
             matches = [
                 {
@@ -1087,6 +1106,13 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
                 )["parts"][0]
                 assert {m["status"] for m in ambiguous["matches"]} == {"none"}
                 assert "同一调用边界" in ambiguous["reason"] and ambiguous["fallback"] is None
+            if condition.startswith("已声明"):
+                with pytest.raises(ValueError, match="主成功流"):
+                    grounding.validate_result(
+                        task,
+                        {"parts": [{**row, "failure_step_id": "B3"}]},
+                        {**inputs, "parts": [part]},
+                    )
             results.append(row)
         return {"parts": results}
 
@@ -1098,6 +1124,8 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
     assert e4["failure_step_pending"] and not e4.get("failure_step_id")
     assert e4["failure_step_reason"] == "原文未声明失败步骤"
     assert rows["入口请求认证失败"]["failure_step_id"] == "B2"
+    assert rows["入口请求认证失败"]["step_id"] == "B1"
+    assert rows["已声明校验步的认证失败"]["failure_step_id"] == "B2"
     assert any(
         d["level"] == "scenario" and d["left_id"] == human_id and d["right_id"] == e4["id"]
         for d in bundle["decisions"]

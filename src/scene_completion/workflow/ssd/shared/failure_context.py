@@ -23,22 +23,23 @@ def location(bundle, source, *, legacy=False):
     step_ref = source.get("step_ref") or raw.get("step_ref")
     extension = raw.get("extend_at_main") or context.get("extend_at_main")
 
-    # An extension boundary locates a branch in the flow. It can be before or
-    # after the failing operation and cannot by itself certify that operation.
-    def explicit_id(value):
-        if isinstance(value, Mapping):
-            return value.get("step_id") or value.get("ref") or value.get("id")
-        return value
+    resume = raw.get("resume_at_main") or context.get("resume_at_main")
 
-    actual = _lookup(bundle["steps"], explicit_id(declared)) or _lookup(
-        bundle["steps"], explicit_id(hint)
+    # A branch boundary or hint can point to a different step from the failure.
+    declared_id = (
+        declared.get("step_id") or declared.get("ref") or declared.get("id")
+        if isinstance(declared, Mapping)
+        else declared
     )
+    actual = _lookup(bundle["steps"], declared_id)
     if legacy and not actual:
         anchor = extension.get("after") if isinstance(extension, Mapping) else None
         actual = _lookup(bundle["steps"], step_ref or anchor)
     return {
         "failure_step_id": actual,
-        "failure_step_hint": hint or (declared if not actual else None) or step_ref or extension,
+        "failure_step_hint": (
+            hint or (declared if not actual else None) or step_ref or extension or resume
+        ),
     }
 
 

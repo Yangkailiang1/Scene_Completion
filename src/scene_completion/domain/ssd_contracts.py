@@ -361,37 +361,17 @@ def instructions_for(task):
     return INSTRUCTIONS
 
 
-def packet(task, inputs, case_ids):
-    from scene_completion.infrastructure.identity import fingerprint
-
+def output_schema(task, inputs):
     schema = deepcopy(SCHEMAS[task])
-    instructions = instructions_for(task)
-    if (
-        inputs.get("interface_field_policy") == INPUT_FIELD_POLICY
-        and task == "ssd-evidence-classify"
-    ):
-        instructions += (
-            "\n接口字段仅分析发送的数据。只检查返回值或响应结构异常的来源归 out_of_scope；"
-            "非法输入后系统返回错误仍是输入校验。含两类条件时独立摘录输入失败，保留测试原文。"
-        )
     if inputs.get("coverage_policy") == GRAIN_POLICY:
         if task == "ssd-ground-align":
             statuses = schema["properties"]["parts"]["items"]["properties"]["matches"]["items"][
                 "properties"
             ]
             statuses["status"] = enum("full", "none")
-            instructions = instructions.replace(
-                "同义条件和预期判full，概括条件明确容纳具体候选时判partial，不相关判none。",
-                "同一失败义务且条件相同或原文明确涵盖候选时判full；否则判none。",
-            ).replace("有full或partial时", "有full时")
         if task == "ssd-semantic-compare":
             statuses = schema["properties"]["decisions"]["items"]["properties"]
             statuses["status"] = enum("full", "none")
-            instructions = INSTRUCTIONS.split("partial仅供诊断。")[0] + (
-                "只返回full或none。证据支持同一失败义务时判full；"
-                "互斥条件、不同边界、不同字段或操作判none。"
-                "非法JSON只匹配请求体解析失败。不能根据G补E或GT，不能根据E/GT补G。"
-            )
     if task == "ssd-command-classify":
         row = schema["properties"]["records"]["items"]["properties"]
         row["record_id"] = enum(*(item["id"] for item in inputs["records"]))
@@ -408,6 +388,34 @@ def packet(task, inputs, case_ids):
                 "enum": [None, *(u["id"] for u in inputs["operation_units"])],
             }
             row["bindings"]["items"]["required"].append("operation_unit_id")
+    return schema
+
+
+def packet(task, inputs, case_ids):
+    from scene_completion.infrastructure.identity import fingerprint
+
+    schema = output_schema(task, inputs)
+    instructions = instructions_for(task)
+    if (
+        inputs.get("interface_field_policy") == INPUT_FIELD_POLICY
+        and task == "ssd-evidence-classify"
+    ):
+        instructions += (
+            "\n接口字段仅分析发送的数据。只检查返回值或响应结构异常的来源归 out_of_scope；"
+            "非法输入后系统返回错误仍是输入校验。含两类条件时独立摘录输入失败，保留测试原文。"
+        )
+    if inputs.get("coverage_policy") == GRAIN_POLICY:
+        if task == "ssd-ground-align":
+            instructions = instructions.replace(
+                "同义条件和预期判full，概括条件明确容纳具体候选时判partial，不相关判none。",
+                "同一失败义务且条件相同或原文明确涵盖候选时判full；否则判none。",
+            ).replace("有full或partial时", "有full时")
+        if task == "ssd-semantic-compare":
+            instructions = INSTRUCTIONS.split("partial仅供诊断。")[0] + (
+                "只返回full或none。证据支持同一失败义务时判full；"
+                "互斥条件、不同边界、不同字段或操作判none。"
+                "非法JSON只匹配请求体解析失败。不能根据G补E或GT，不能根据E/GT补G。"
+            )
     return {
         "protocol": "scene-workflow-v5",
         "stage": task,

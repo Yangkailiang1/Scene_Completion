@@ -106,6 +106,37 @@ def test_legacy_single_string_source_is_read(tmp_path):
     assert origin == ("功能设计_spec.md", "根据请求条件查询 product 表", "L6")
 
 
+def test_absolute_path_uses_unique_suffix_or_configured_alias():
+    from scene_completion.inputs.provenance.source_origins import resolve_name
+
+    configured = {"name": "spec.md", "path": "design/spec.md", "registered": True}
+    other = {"name": "spec.md", "path": "requirements/spec.md", "registered": True}
+    docs = [configured, other]
+    assert resolve_name(r"D:\handoff\DESIGN\Spec.md", docs) == configured
+    assert resolve_name("/supplier/requirements/spec.md", docs) == other
+    assert resolve_name("/old-workspace/spec.md", docs) is None
+    assert resolve_name("/old-workspace/spec.md", [other]) == other
+    assert resolve_name("wrong-folder/spec.md", [other]) is None
+    assert resolve_name("/old-workspace/missing.md", docs) is None
+    configured["configured_aliases"] = [r"\\supplier\share\spec.md"]
+    assert resolve_name("//supplier/share/spec.md", docs) == configured
+
+
+def test_absolute_source_reference_cannot_open_external_file(tmp_path):
+    from scene_completion.inputs.provenance.ssd_sources import Sources
+    from scene_completion.workflow.ssd.input_conversion.provenance import origin_documents
+
+    root = tmp_path / "inputs"
+    root.mkdir()
+    original = tmp_path / "RR-secret.md"
+    original.write_text("外部引文", encoding="utf-8")
+    source = Sources(root, origin_documents(root))
+    assert (
+        source.trace({"doc": str(original), "line": "L1", "quote": "外部引文"})["match"]
+        == "pending"
+    )
+
+
 def test_missing_original_keeps_the_pointer_without_a_line(tmp_path):
     tree = json.loads(json.dumps(_tree()))
     product = convert(tree, "file", "功能树.json", [])

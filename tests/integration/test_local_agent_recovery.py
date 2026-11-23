@@ -127,12 +127,17 @@ def test_multi_batch_repair_cannot_cross_batches_and_keeps_identity(tmp_path):
     service.pool.shutdown()
 
 
-def test_retry_and_exact_batch_submission_reuse_successful_batches(tmp_path):
+@pytest.mark.parametrize("grain", [False, True])
+def test_retry_and_exact_batch_submission_reuse_successful_batches(tmp_path, grain):
     from scene_completion.application.execution import Execution
+    from scene_completion.domain.coverage import GRAIN_POLICY
     from scene_completion.infrastructure.execution_events import EventStore, bind
     from scene_completion.workflow_core import TaskRejected
 
     calls = []
+    status = "full" if grain else "partial"
+    policy = {"coverage_policy": GRAIN_POLICY} if grain else {}
+    first, second = ({**compare_input(suffix), **policy} for suffix in ("a", "b"))
 
     def response(packet):
         suffix = packet["input"]["pairs"][0]["left"]["id"]
@@ -141,7 +146,7 @@ def test_retry_and_exact_batch_submission_reuse_successful_batches(tmp_path):
             return {"decisions": []}
         return {
             "decisions": [
-                {"left_id": suffix, "right_id": "G-a", "status": "partial", "reason": "覆盖"}
+                {"left_id": suffix, "right_id": "G-a", "status": status, "reason": "覆盖"}
             ]
         }
 
@@ -150,9 +155,9 @@ def test_retry_and_exact_batch_submission_reuse_successful_batches(tmp_path):
     record = {"case": "case", "rounds": 0}
     store = EventStore(root)
     with bind(store, task_key="case:ssd-compare", case="case", role="checker", attempt=1):
-        ex.semantic("ssd-semantic-compare", compare_input("a"), record)
+        ex.semantic("ssd-semantic-compare", first, record)
         with pytest.raises(TaskRejected):
-            ex.semantic("ssd-semantic-compare", compare_input("b"), record)
+            ex.semantic("ssd-semantic-compare", second, record)
     write_json(
         root / "workflow_tasks.json",
         {"tasks": {"case:ssd-compare": {"status": "rejected", "identity": "batch-v1"}}},
@@ -160,22 +165,125 @@ def test_retry_and_exact_batch_submission_reuse_successful_batches(tmp_path):
     doc = export_repair(
         tmp_path,
         "case:ssd-compare",
-        batch=batch_id({"task": "ssd-semantic-compare", "input": compare_input("b")}),
+        batch=batch_id({"task": "ssd-semantic-compare", "input": second}),
     )
     doc["payload"] = {
         "decisions": [
-            {"left_id": "GT-b", "right_id": "G-b", "status": "partial", "reason": "本批独立对应"}
+            {"left_id": "GT-b", "right_id": "G-b", "status": status, "reason": "本批独立对应"}
         ]
     }
     doc["note"] = "校验本批输入对应，补齐遗漏决定"
     submit_repair(tmp_path, "case:ssd-compare", doc)
     record["rounds"] = 1
     with bind(store, task_key="case:ssd-compare", case="case", role="checker", attempt=2):
-        _, first_proof = ex.semantic("ssd-semantic-compare", compare_input("a"), record)
-        _, second_proof = ex.semantic("ssd-semantic-compare", compare_input("b"), record)
+        _, first_proof = ex.semantic("ssd-semantic-compare", first, record)
+        _, second_proof = ex.semantic("ssd-semantic-compare", second, record)
     assert calls == ["GT-a", "GT-b"]
     assert first_proof["provider"] == "verified_batch_checkpoint"
     assert second_proof["provider"] == "external_code_agent_repair"
+
+
+def test_grain_alignment_cli_repair_validates_frozen_schema_and_resumes(
+    tmp_path, capsys, monkeypatch
+):
+    from scene_completion.application.execution import Execution
+    from scene_completion.domain.coverage import GRAIN_POLICY
+    from scene_completion.infrastructure.execution_events import EventStore, bind
+    from scene_completion.infrastructure.storage import read_json
+    from scene_completion.workflow.recovery.node_repair import batch_inventory
+    from scene_completion.workflow_core import TaskRejected
+
+    service, rid, location = project(tmp_path)
+    root = location / "run"
+    task, key = "ssd-ground-align", "case:ssd-compare"
+    inputs = [
+        {
+            "coverage_policy": GRAIN_POLICY,
+            "steps": [],
+            "parts": [{"id": part, "keys": [], "candidates": [{"id": "G"}]}],
+        }
+        for part in ("a", "b")
+    ]
+    result = {
+        "parts": [
+            {
+                "part_id": "a",
+                "matches": [{"candidate_id": "G", "status": "full", "reason": "同一失败"}],
+                "fallback": None,
+                "reason": "核对同一义务",
+            }
+        ]
+    }
+    calls = []
+
+    def response(p):
+        part = p["input"]["parts"][0]["id"]
+        calls.append(part)
+        return result if part == "a" else {"parts": []}
+
+    executor = Execution(root, mocks={task: response})
+    record = {"case": "case", "rounds": 0}
+    store = EventStore(root)
+    with bind(store, task_key=key, case="case", role="checker", attempt=1):
+        executor.semantic(task, inputs[0], record)
+        with pytest.raises(TaskRejected):
+            executor.semantic(task, inputs[1], record)
+
+    state = root / "workflow_tasks.json"
+    node = {"case": "case", "stage": "ssd-compare", "status": "rejected", "identity": "compare-v1"}
+    write_json(state, {"tasks": {key: node}})
+    write_json(root / "workflow_graph.json", {"nodes": [{"id": key, "case": "case"}]})
+    batch = batch_id({"task": task, "input": inputs[1]})
+    file = tmp_path / "repair.json"
+
+    def cli(*args):
+        return main(["--local", "--data-dir", str(service.root), *args, "--project", rid])
+
+    assert cli("diagnose", "--node", key) == 0
+    assert key in capsys.readouterr().out
+    package_args = ("--node", key, "--batch", batch)
+    inventory = next(row for row in batch_inventory(root, key) if row["batch"] == batch)
+    packet_file = root / inventory["packet_file"]
+    frozen = read_json(packet_file)
+    tampered = deepcopy(frozen)
+    tampered["output_schema"]["additionalProperties"] = True
+    write_json(packet_file, tampered)
+    with pytest.raises(ValueError, match="Schema已过期"):
+        cli("repair-export", *package_args, "--out", str(file))
+    write_json(packet_file, frozen)
+    assert cli("repair-export", *package_args, "--out", str(file)) == 0
+    doc = read_json(file)
+    doc.update(note="按冻结候选核对失败义务", payload=deepcopy(result))
+    reply = doc["payload"]["parts"][0]
+    reply["part_id"] = "b"
+    reply["matches"][0]["status"] = "partial"
+    write_json(file, doc)
+    submit_args = ("repair-submit", *package_args, "--file", str(file))
+    with pytest.raises(ValueError, match="冻结Schema.*partial"):
+        cli(*submit_args, "--validate-only")
+    reply["matches"][0]["status"] = "full"
+    write_json(file, doc)
+    assert cli(*submit_args, "--validate-only") == 0
+    assert not (root / "external_repairs").exists()
+    assert cli(*submit_args) == 0
+
+    def resume(self, project_id, options=None):
+        assert project_id == rid
+        # Exercise the real executor with a fixture model, in place of spawning a worker.
+        with bind(store, task_key=key, case="case", role="checker", attempt=2):
+            _, first = executor.semantic(task, inputs[0], record)
+            _, second = executor.semantic(task, inputs[1], record)
+        assert first["provider"] == "verified_batch_checkpoint"
+        assert second["provider"] == "external_code_agent_repair"
+        write_json(state, {"tasks": {key: {**node, "status": "passed"}}})
+        write_json(root / "run_manifest.json", {"complete": True, "execution_complete": True})
+        write_json(location / "job.json", {"status": "complete"})
+        return {"status": "complete", "project_id": rid}
+
+    monkeypatch.setattr(Workbench, "_start", resume)
+    assert cli("run", "--wait") == 0
+    assert calls == ["a", "b"]
+    service.pool.shutdown()
 
 
 @pytest.mark.parametrize("repair", [False, True])

@@ -90,7 +90,7 @@ TASKS = {
 }
 
 
-def schema(task):
+def schema(task, inputs=None):
     from scene_completion.domain.project_scope_contracts import SCHEMAS as PROJECT_SCHEMAS
 
     if task in PROJECT_SCHEMAS:
@@ -108,7 +108,10 @@ def schema(task):
         "ssd-ground-align",
     }:
         from scene_completion.domain.ssd_contracts import SCHEMAS as SSD_SCHEMAS
+        from scene_completion.domain.ssd_contracts import output_schema
 
+        if inputs is not None:
+            return output_schema(task, inputs)
         return _cited(deepcopy(SSD_SCHEMAS[task]))
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

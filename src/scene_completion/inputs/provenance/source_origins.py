@@ -39,7 +39,7 @@ def source_origin(origin):
     older ones put "功能设计_spec.md:L27 - 原文" in one string.
     """
     if isinstance(origin, str):
-        match = re.match(r"^\s*([^:\n]+):\s*(L\s*\d+[^\n]*?)\s+-\s+(.*)$", origin, re.S)
+        match = re.match(r"^\s*([^\n]+?):\s*(L\s*\d+[^\n]*?)\s+-\s+(.*)$", origin, re.S)
         if match:
             return match[1].strip(), match[3].strip(), match[2].strip()
         return None, origin, None
@@ -48,7 +48,8 @@ def source_origin(origin):
             origin.get("doc")
             or origin.get("document")
             or origin.get("file")
-            or origin.get("source_file"),
+            or origin.get("source_file")
+            or origin.get("path"),
             origin.get("quote") or "",
             origin.get("line")
             or origin.get("location")
@@ -80,17 +81,51 @@ def aliases_for(name):
     return {a.lower() for a in out if a}
 
 
+def _reference_path(value):
+    path = value.strip().replace("\\", "/")
+    if path[:8].lower() == "//?/unc/":
+        return "//" + path[8:]
+    return path.removeprefix("//?/")
+
+
+def _absolute_match(wanted, documents):
+    windows = wanted.startswith("//") or bool(re.match(r"^[A-Za-z]:/", wanted))
+
+    def parts(path):
+        if windows:
+            path = path.casefold()
+        return [part for part in path.split("/") if part and part != "."]
+
+    declared = parts(wanted)
+    if not declared or ".." in declared:
+        return None
+    best, matches = 0, []
+    for doc in documents:
+        local = parts(_reference_path(doc.get("path") or doc["name"]))
+        score = 0
+        for given, registered in zip(reversed(declared), reversed(local)):
+            if given != registered:
+                break
+            score += 1
+        if score > best:
+            best, matches = score, [doc]
+        elif score and score == best:
+            matches.append(doc)
+    return matches[0] if len(matches) == 1 else None
+
+
 def resolve_name(declared, documents):
     """Match a declared document name to one document by name/alias/role alias."""
     if not isinstance(declared, str) or not declared.strip():
         return None
-    wanted = declared.strip().replace("\\", "/")
+    wanted = _reference_path(declared)
     relative = wanted.removeprefix("./")
     for priority, select in enumerate(
         (
             lambda doc: "/" in wanted and (doc.get("path") == relative or doc["name"] == relative),
             lambda doc: (
-                wanted.casefold() in {a.casefold() for a in doc.get("configured_aliases", [])}
+                wanted.casefold()
+                in {_reference_path(a).casefold() for a in doc.get("configured_aliases", [])}
             ),
             lambda doc: stem(doc["name"]).casefold() == stem(wanted).casefold(),
             lambda doc: wanted.lower() in aliases_for(doc["name"]),
@@ -98,6 +133,8 @@ def resolve_name(declared, documents):
         )
     ):
         if priority >= 2 and "/" in wanted:
+            if wanted.startswith("/") or re.match(r"^[A-Za-z]:/", wanted):
+                return _absolute_match(wanted, documents)
             return None
         matches = [doc for doc in documents if select(doc)]
         if len(matches) == 1:
