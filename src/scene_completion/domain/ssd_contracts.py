@@ -324,6 +324,7 @@ ENTITY_INSTRUCTIONS["ssd-command-classify"] = (
 
 ROLE_TEXT = {
     **{task: "你是SSD交互分析校验员。" + msg for task, msg in ENTITY_INSTRUCTIONS.items()},
+    "ssd-participant-classify": "你是当前用例的 SSD 参与者身份判定员。",
     "ssd-bind": "你是当前用例的正向操作与字段约束定位员。没有RR接口不阻塞；只从正向材料确认已有数据字段的约束与实际CRUD，不读取E/GT，不创建虚假API。",
     "ssd-generate": (
         "你是当前用例的场景分析生成器。只读取正向用例、SSD步骤、对象、接口、实体及参考异常模板。"

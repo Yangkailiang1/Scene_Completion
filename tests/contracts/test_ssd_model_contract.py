@@ -72,11 +72,40 @@ def decision():
     }
 
 
-@pytest.mark.parametrize("task", ["ssd-resolve", "ssd-semantic-compare"])
+@pytest.mark.parametrize(
+    "task", ["ssd-resolve", "ssd-semantic-compare", "ssd-participant-classify"]
+)
 @pytest.mark.parametrize("skill_suffix", ["", "\n当前节点补充说明。"])
 def test_ssd_deepagents_uses_own_role_and_source_contract(tmp_path, task, skill_suffix):
     sent = []
-    output = resolved() if task == "ssd-resolve" else decision()
+    if task == "ssd-participant-classify":
+        quote = "MallAdminService 由商城管理，是其软件单元。"
+        inputs = {
+            "case": {"id": "UC-1", "name": "浏览商品"},
+            "participants": [
+                {
+                    "id": "MU",
+                    "name": "MallAdminService",
+                    "role": "外部服务",
+                    "kind": "internal",
+                    "source_refs": [{"id": "Q-MU", "quote": quote}],
+                }
+            ],
+        }
+        output = {
+            "participants": [
+                {
+                    "participant_id": "MU",
+                    "kind": "internal_service",
+                    "source_ref_ids": ["Q-MU"],
+                    "reason": "SR 原文说明它是商城软件单元。",
+                }
+            ]
+        }
+    elif task == "ssd-resolve":
+        inputs, output = resolve_input(), resolved()
+    else:
+        inputs, output = comparison_input(), decision()
 
     def transport(url, key, body, *args):
         sent.append(body)
@@ -111,7 +140,7 @@ def test_ssd_deepagents_uses_own_role_and_source_contract(tmp_path, task, skill_
         },
         transport=transport,
     )
-    p = packet(task, resolve_input() if task == "ssd-resolve" else comparison_input(), ["UC-1"])
+    p = packet(task, inputs, ["UC-1"])
     p["skill_text"] = instructions_for(task) + skill_suffix
     original = deepcopy(p)
     assert client.agent(p)[next(iter(output))] == output[next(iter(output))]
@@ -130,7 +159,13 @@ def test_ssd_deepagents_uses_own_role_and_source_contract(tmp_path, task, skill_
         assert skill_suffix in system
     else:
         assert "指定Skill已全文加载" not in system
-    assert "来源由工具按source_record_id保留" in system
+    if task == "ssd-participant-classify":
+        assert "source_ref_ids只填该参与者" in system
+        assert "不输出引用字段" not in system
+        assert quote in json.dumps(sent, ensure_ascii=False)
+        assert {t["function"]["name"] for t in sent[0]["tools"]} >= {"submit_result"}
+    else:
+        assert "来源由工具按source_record_id保留" in system
     assert "看不到文档已有异常E" not in system
     assert "本次启用indexed_context" not in system
     assert "lookup_evidence" not in {t["function"]["name"] for t in sent[0]["tools"]}

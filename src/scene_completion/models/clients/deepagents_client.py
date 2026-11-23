@@ -867,7 +867,11 @@ class DeepAgentsClient(SemanticClient):
             if ssd_task
             else (AGENTS_ROOT / ("scene-" + role + ".md")).read_text(encoding="utf8")
         )
-        if ssd_task:
+        if packet["task"] == "ssd-participant-classify":
+            reference_text = (
+                "source_ref_ids只填该参与者source_refs中已有的id，原文quote由工具保留。"
+            )
+        elif ssd_task:
             from scene_completion.domain.ssd_contracts import REFERENCE_INSTRUCTIONS
 
             reference_text = (
