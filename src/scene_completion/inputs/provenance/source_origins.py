@@ -10,6 +10,7 @@ line, matching the review handoff rule.
 """
 
 import re
+from bisect import bisect_right
 from pathlib import Path
 
 # Declared line forms seen in supplied artifacts: "L272", "L8–L11", "L8-L11",
@@ -178,7 +179,10 @@ def _normalized(value):
 
 def _line_matches(text, quote):
     """Markdown list/table/bold prefixes are presentation, not different text."""
-    right = re.sub(r"^[\s|>*#\-+]+", "", _normalized(quote).splitlines()[0]).rstrip()
+    quoted_lines = _normalized(quote).splitlines()
+    if not quoted_lines:
+        return not str(text or "").strip()
+    right = re.sub(r"^[\s|>*#\-+]+", "", quoted_lines[0]).rstrip()
     if not right:
         return False
     left = re.sub(r"^[\s|>*#\-+]+", "", str(text or "")).rstrip()
@@ -189,19 +193,19 @@ def _line_matches(text, quote):
 
 def _locate_in(document, quote):
     """Unique line or line range whose text equals the quotation."""
-    wanted = _normalized(quote)
-    if not wanted:
+    span = _normalized(quote).splitlines()
+    if not span:
         return None
     rows = document["lines"]
-    first = wanted.splitlines()[0]
     hits = []
     for n, row in enumerate(rows):
-        if not _line_matches(row["text"], first):
+        if not _line_matches(row["text"], span[0]):
             continue
-        span = wanted.splitlines()
-        texts = [r["text"] for r in rows[n : n + len(span)]]
-        if len(texts) == len(span) and all(_line_matches(a, b) for a, b in zip(texts, span)):
-            hits.append((row["number"], rows[min(n + len(span), len(rows)) - 1]["number"]))
+        window = rows[n : n + len(span)]
+        if len(window) == len(span) and all(
+            _line_matches(source["text"], part) for source, part in zip(window, span)
+        ):
+            hits.append((row["number"], window[-1]["number"]))
     unique = sorted(set(hits))
     return unique[0] if len(unique) == 1 else None
 
@@ -218,13 +222,47 @@ def _verified(document, span, quote):
     wanted = _normalized(quote)
     if not wanted:
         return False
-    if _normalized(text) == wanted:
+    if wanted in _normalized(text):
         return True
-    if len(wanted.splitlines()) == 1 and any(
-        _line_matches(text, part) for part in wanted.splitlines()
-    ):
-        return True
-    return wanted in _normalized(text) or _normalized(text) in wanted
+    if "\n\n" in wanted:
+        return False
+    compact = _compact_quote(wanted)
+    return bool(compact and compact in _compact_quote(text))
+
+
+def _compact_quote(text):
+    """Ignore whitespace and Markdown line decoration without changing words."""
+    return "".join(
+        re.sub(r"\s+", "", re.sub(r"^\s*(?:[>|]\s*|#{1,6}\s+|[*+-]\s+)+", "", line))
+        for line in text.splitlines()
+    )
+
+
+def _nearby_span(document, span, quote):
+    start, end = span
+    rows = [row for row in document["lines"] if start - 2 <= row["number"] <= end + 2]
+    if not rows:
+        return None
+    if "\n\n" in _normalized(quote):
+        return _locate_in({"lines": rows}, quote)
+    wanted = _compact_quote(quote)
+    if not wanted:
+        return None
+    pieces, offsets, length = [], [], 0
+    for row in rows:
+        offsets.append(length)
+        piece = _compact_quote(row["text"])
+        pieces.append(piece)
+        length += len(piece)
+    text = "".join(pieces)
+    hits = set()
+    for match in re.finditer(r"(?=" + re.escape(wanted) + ")", text):
+        first = bisect_right(offsets, match.start()) - 1
+        last = bisect_right(offsets, match.start() + len(wanted) - 1) - 1
+        first_line, last_line = rows[first]["number"], rows[last]["number"]
+        if last_line - first_line == last - first:
+            hits.add((first_line, last_line))
+    return next(iter(hits)) if len(hits) == 1 else None
 
 
 LEAD = re.compile(r"^\s*(?:[A-Z]{1,4}\s*-?\s*)?\d{1,3}\s*[.．、:：]\s*")
@@ -284,7 +322,9 @@ def locate(document, quote, declared=None):
             "quote": "\n".join(rows[n] for n in range(start, end + 1)),
             "match": "exact",
         }
-    found = _locate_in(document, quote)
+    found = _nearby_span(document, span, quote) if span else None
+    if found is None:
+        found = _locate_in(document, quote)
     multiple = []
     if found is None and len(_normalized(quote)) >= 12:
         # Supplied quotations may prefix a step label (``ES-03``) or shorten a
@@ -323,6 +363,11 @@ def origin(document, quote, declared=None):
         "role": document.get("role"),
         **found,
         **({"declared_line": declared} if isinstance(declared, str) and declared else {}),
+        **(
+            {"declared_line": f"L{declared[0]}–L{declared[1]}"}
+            if isinstance(declared, tuple)
+            else {}
+        ),
     }
 
 

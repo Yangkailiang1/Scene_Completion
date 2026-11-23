@@ -174,6 +174,7 @@ def generate_g(bundle):
     """Attach registry rules to positive facts only, without source-evidence gates."""
     output = channel()
     from scene_completion.domain.current_scope import current_registry
+    from scene_completion.domain.ssd import external_databases
 
     registry = current_registry(bundle.get("registry") or default_registry())
     definitions, profiles = registry["definitions"], registry["profiles"]
@@ -185,6 +186,10 @@ def generate_g(bundle):
     for unit in bundle.get("operation_units", []):
         owners.setdefault(unit["step_id"], []).append(unit)
     external_calls = {}
+    database_anchors = {}
+    for appearances in external_databases.occurrences(bundle["steps"]).values():
+        first, target = appearances[0]
+        database_anchors.setdefault(first["id"], []).append((target, appearances))
     if unit_profile and "operation_units" in bundle:
         for step in sorted(bundle["steps"], key=lambda step: step["order"]):
             receiver = step["receiver"]
@@ -194,6 +199,7 @@ def generate_g(bundle):
                 and step["sender"]["id"] != receiver["id"]
                 and receiver["type"] == "service"
                 and receiver.get("external")
+                and receiver.get("technology") != "database"
             ):
                 external_calls.setdefault(receiver["id"], []).append(step)
     for step in bundle["steps"]:
@@ -335,11 +341,34 @@ def generate_g(bundle):
                             scene["related_call_step_ids"] = list(related_calls)
             return concern
 
+        for target, appearances in database_anchors.get(step["id"], []):
+            database_refs = unique(
+                [ref for occurrence, _ in appearances for ref in occurrence.get("source_refs", [])]
+            )
+            related = [occurrence["id"] for occurrence, _ in appearances]
+            attach(
+                "service.base.availability",
+                target,
+                source_refs=database_refs,
+                related_calls=related,
+            )
+            if "database.special_characters" in profiles["technology"].get("database", []):
+                attach(
+                    "database.special_characters",
+                    target,
+                    source_refs=database_refs,
+                    related_calls=related,
+                )
+
         if request and call and step["sender"]["type"] == "human":
             for key in profiles["human"]:
                 attach(key, "sender")
         if request and call and receiver["type"] == "service":
-            if receiver.get("external") and (not unit_profile or "operation_units" not in bundle):
+            if (
+                receiver.get("external")
+                and receiver.get("technology") != "database"
+                and (not unit_profile or "operation_units" not in bundle)
+            ):
                 attach("service.base.availability")
             calls = external_calls.get(receiver["id"], [])
             if calls and calls[0]["id"] == step["id"]:
@@ -366,9 +395,7 @@ def generate_g(bundle):
                             continue
                         if kinds.intersection(definition["operation_kinds"]):
                             attach(key)
-            if receiver.get("technology") == "database" and (
-                not unit_profile or not receiver.get("external")
-            ):
+            if receiver.get("technology") == "database" and not receiver.get("external"):
                 special = definitions["database.special_characters"]
                 if "database.special_characters" in profiles["technology"].get("database", []) and (
                     not special["operation_kinds"] or kinds.intersection(special["operation_kinds"])
@@ -389,22 +416,6 @@ def generate_g(bundle):
                 if unit.get("functional_owner_id"):
                     continue
                 operations = set(unit["crud"])
-                if unit["kind"] == "external":
-                    special = definitions["database.special_characters"]
-                    if (
-                        receiver.get("technology") == "database"
-                        and "database.special_characters"
-                        in profiles["technology"].get("database", [])
-                        and (
-                            not special["operation_kinds"]
-                            or operations.intersection(special["operation_kinds"])
-                        )
-                    ):
-                        attach(
-                            "database.special_characters",
-                            source_refs=unit["source_refs"],
-                            related_calls=unit["occurrences"],
-                        )
                 checks = {}
                 for group, keys in profiles["functional"].items():
                     if group in {

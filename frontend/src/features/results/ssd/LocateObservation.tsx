@@ -286,6 +286,15 @@ function applicable(
     step.receiver.type === "service";
   if (key.startsWith("human."))
     return call && target === "sender" && step.sender.type === "human";
+  const party = target === "sender" ? step.sender : step.receiver;
+  if (
+    party.type === "service" &&
+    party.external &&
+    party.technology === "database" &&
+    (target !== "sender" || step.sender.id !== step.receiver.id) &&
+    ["service.base.availability", "database.special_characters"].includes(key)
+  )
+    return true;
   if (target !== "receiver" || step.receiver.type !== "service") return false;
   if (key.startsWith("service_relation."))
     return call && step.sender.type === "service";

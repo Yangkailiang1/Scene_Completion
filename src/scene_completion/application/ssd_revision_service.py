@@ -349,6 +349,7 @@ def _validate_new_manual_mounts(current, updated):
         return
     from scene_completion.domain.concern_registry import default_registry
     from scene_completion.domain.current_scope import current_registry
+    from scene_completion.domain.ssd import external_databases
 
     definitions = current_registry(updated.get("registry") or default_registry())["definitions"]
     steps = {step["id"]: step for step in updated["steps"]}
@@ -422,7 +423,9 @@ def _validate_new_manual_mounts(current, updated):
             elif key.startswith("service_relation."):
                 valid = target == "receiver" and call and sender["type"] == "service"
             elif key == "service.base.availability":
-                valid = target == "receiver" and call and receiver.get("external")
+                valid = target in external_databases.availability_roles(step)
+            elif key == "database.special_characters" and target in external_databases.roles(step):
+                valid = True
             else:
                 kinds = definition.get("operation_kinds", [])
                 tech = definition.get("technology")

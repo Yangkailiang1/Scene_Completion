@@ -10,6 +10,7 @@ from scene_completion.domain.ssd.construction import (
     pending,
     unique,
 )
+from scene_completion.domain.ssd.external_databases import roles as database_roles
 from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY, related_steps
 from scene_completion.domain.ssd_contracts import CRUD
 from scene_completion.infrastructure.execution_events import emit
@@ -67,6 +68,11 @@ def _steps(bundle):
             "receiver_technology": s["receiver"].get("technology"),
             "sender_kind": "human" if s["sender"]["type"] == "human" else "service",
             "receiver_external": bool(s["receiver"].get("external")),
+            **(
+                {"external_database_roles": databases}
+                if (databases := {role: party["id"] for role, party in database_roles(s).items()})
+                else {}
+            ),
             "crud": s["operation"].get("kinds", []),
             "entities": s["entity_ids"],
             "operation": s["operation"]["name"],
@@ -251,10 +257,21 @@ def _binding_issue(binding, steps, entities, fields):
             return "数据异常缺少功能树中明确的实体属性对应"
     elif binding["target"] == "entity" or entity is not None or attribute is not None:
         return "服务异常的挂载对象有歧义"
-    if key == "database.special_characters" and step["receiver_technology"] != "database":
+    database_target = binding["target"] in step.get("external_database_roles", {})
+    if key == "database.special_characters" and not (
+        database_target
+        or (binding["target"] == "receiver" and step["receiver_technology"] == "database")
+    ):
         return "异常无法定位到明确的数据库操作"
-    if key == "service.base.availability" and (
-        not step["receiver_external"] or step["direction"] != "request" or step["kind"] == "action"
+    if key == "service.base.availability" and not (
+        database_target
+        or (
+            binding["target"] == "receiver"
+            and step["receiver_external"]
+            and step["direction"] == "request"
+            and step["kind"] != "action"
+            and step["sender_id"] != step["receiver_id"]
+        )
     ):
         return "服务可用性异常无法定位到实际外部服务调用"
     return None

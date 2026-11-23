@@ -51,6 +51,18 @@ def resolve(binding, steps, operation_units=()):
     direction = None
     call = auth_request(step)
     participant = not any(binding.get(field) for field in ("entity_id", "attribute", "field_id"))
+    databases = step.get("external_database_roles", {})
+    if (
+        participant
+        and role == "service"
+        and key
+        in {
+            "service.base.availability",
+            "database.special_characters",
+        }
+        and len(databases) == 1
+    ):
+        direction = next(iter(databases))
     if (
         participant
         and role == "human"
@@ -58,7 +70,7 @@ def resolve(binding, steps, operation_units=()):
         and key.startswith("human.")
     ):
         direction = "sender"
-    if participant and role == "service" and call:
+    if participant and role == "service" and call and not direction:
         if call == "service_relation.authentication" and key.startswith("service_relation."):
             direction = "receiver"
         elif key == "service.base.availability" and step.get("receiver_external"):

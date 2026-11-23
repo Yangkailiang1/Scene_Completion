@@ -1,13 +1,42 @@
 """Bound standalone placements using the case's positive facts and one source."""
 
-from scene_completion.domain.current_scope import current_registry
-from scene_completion.domain.ssd import interface_fields
+import re
+
+from scene_completion.domain.current_scope import AVAILABILITY, current_registry
+from scene_completion.domain.ssd import external_databases, interface_fields
 from scene_completion.workflow.ssd.resolve.entity_semantics import ENTITY_KEYS
 from scene_completion.workflow.ssd.resolve.operations import functional
 from scene_completion.workflow.ssd.shared import binding_targets, failure_context
 
 
-def options(bundle, source, keys, actual, steps, entities, fields, units):
+def database_anchors(bundle, source, actual):
+    appearances = external_databases.occurrences(bundle["steps"])
+    anchors = {ident: rows[0] for ident, rows in appearances.items()}
+    at_actual = {
+        ident for ident, rows in appearances.items() if any(s["id"] == actual for s, _ in rows)
+    }
+    text = source["condition"]
+    named = {
+        ident
+        for ident, (step, target) in anchors.items()
+        if any(
+            re.search(
+                r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])",
+                text,
+                re.I,
+            )
+            for name in (ident, step[target]["name"])
+            if name and name != "数据库"
+        )
+    }
+    if named and at_actual:
+        selected = named & at_actual
+    else:
+        selected = named or at_actual or anchors.keys()
+    return {ident: anchor for ident, anchor in anchors.items() if ident in selected}
+
+
+def options(bundle, source, keys, actual, steps, entities, fields, units, *, failure=None):
     definitions = current_registry(bundle["registry"])["definitions"]
     anchors = {}
     for unit in bundle.get("field_anchors", {}).get("units", []):
@@ -56,6 +85,15 @@ def options(bundle, source, keys, actual, steps, entities, fields, units):
             }
         )
 
+    database_only = failure in {"database_access", "database_unavailable"}
+    database_keys = {AVAILABILITY, "database.special_characters"} & keys
+    if database_keys:
+        for step, target in database_anchors(bundle, source, actual).values():
+            for key in sorted(database_keys):
+                definition = definitions.get(key, {})
+                if definition.get("enabled", True) and definition.get("kind") == "check":
+                    add(step["id"], key, target)
+
     for sid, step in steps.items():
         if (actual or explicit_command) and sid not in related:
             continue
@@ -93,9 +131,19 @@ def options(bundle, source, keys, actual, steps, entities, fields, units):
                 key.startswith("service_relation.") and request == "service_relation.authentication"
             ):
                 add(sid, key, "receiver")
-            elif key == "service.base.availability" and request and step["receiver_external"]:
+            elif (
+                key == AVAILABILITY
+                and not database_only
+                and request
+                and step["receiver_external"]
+                and step["receiver_technology"] != "database"
+            ):
                 add(sid, key, "receiver")
-            elif key == "database.special_characters" and step["receiver_technology"] == "database":
+            elif (
+                key == "database.special_characters"
+                and step["receiver_technology"] == "database"
+                and not step["receiver_external"]
+            ):
                 add(sid, key, "receiver")
             elif functional(key):
                 for unit in units:
@@ -119,7 +167,7 @@ def permitted(binding, candidates, steps, units):
 def confirmed_binding(source, part, candidates):
     """Only bypass semantic work when the source explicitly fixes the location."""
     if not (actual := part["failure_step_id"]):
-        return None
+        return candidates[0] if len(candidates) == 1 and part.get("explicit_failure") else None
     at_actual = [candidate for candidate in candidates if candidate["step_id"] == actual]
     candidates = at_actual or candidates
     if len(candidates) != 1:

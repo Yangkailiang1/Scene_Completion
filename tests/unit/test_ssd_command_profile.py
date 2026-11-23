@@ -105,7 +105,109 @@ def test_external_database_role_survives_core_and_availability_does_not_need_cru
         row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == availability
     ] == ["B3"]
     bundle["steps"] = [step for step in bundle["steps"] if step["id"] != "B3"]
+    assert [
+        row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == availability
+    ] == ["B4"]
+    bundle["steps"] = [
+        step
+        for step in bundle["steps"]
+        if participant not in {step["sender"]["id"], step["receiver"]["id"]}
+    ]
     assert not any(row["key"] == availability for row in generate_g(bundle)["concerns"])
+
+
+@pytest.mark.parametrize("target", ["receiver", "sender"])
+@pytest.mark.parametrize("with_g", [True, False])
+def test_return_only_database_and_literal_e_gt_are_mounted(target, with_g):
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.domain.coverage import GRAIN_POLICY
+    from scene_completion.domain.shared_services.aggregation import build
+
+    bundle = build_cases(BROWSE, profile=COMMAND_OPERATION_PROFILE)[0]
+    for command in bundle["commands"]:
+        if command["id"] == "BROWSE-GET":
+            command["authentication"] = "required"
+    request = bundle["steps"][0]
+    database = {
+        "id": "act-gaussdb4mysql",
+        "name": "GaussDB4mysql",
+        "technology": "database",
+        "type": "service",
+        "external": True,
+    }
+    returned = {
+        **deepcopy(request),
+        "id": "N0005",
+        "order": 2,
+        "direction": "return",
+        "operation": {"name": "数据库返回结果", "kinds": [], "kinds_source": "pending"},
+        "entity_ids": [],
+        "data": [],
+        "api_id": None,
+        "sender": request["receiver"],
+        "receiver": request["receiver"],
+        target: database,
+    }
+    bundle["steps"] = [request, returned, {**deepcopy(returned), "id": "N0006", "order": 3}]
+    bundle["operation_units"] = []
+    bundle["coverage_policy"] = GRAIN_POLICY
+    bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
+    generated = generate_g(bundle)
+    keys = {"service.base.availability", "database.special_characters"}
+    db_concerns = [r for r in generated["concerns"] if r["key"] in keys]
+    assert {(r["key"], r["target"], r["step_id"]) for r in db_concerns} == {
+        (key, target, "N0005") for key in keys
+    }
+    assert all(r["related_call_step_ids"] == ["N0005", "N0006"] for r in db_concerns)
+    assert not any(
+        r["step_id"] == "N0005"
+        and r["key"].startswith(("service.crud.", "service.query_retrieval."))
+        for r in generated["concerns"]
+    )
+    if with_g:
+        bundle["channels"]["G"] = generated
+
+    for origin, ident, condition, expected in (
+        ("E", "E-access", "数据库访问异常", "返回原有错误"),
+        ("GT", "GT-auth", "Authorization 缺失->401", "401"),
+        ("GT", "GT-db", "数据库不可用", "返回服务不可用"),
+    ):
+        raw = {"id": ident, "condition": condition, "expected": expected, "source_refs": []}
+        bundle["channels"][origin]["pending"].append(
+            pending(ident, condition, original=raw, needs_semantic=True)
+        )
+
+    def semantic(task, inputs):
+        pytest.fail(f"唯一的原文失败和挂载对象可确定，不需要调用 {task}")
+
+    grounding.classify(bundle, semantic)
+    grounding.align(bundle, semantic)
+    for side in ("E", "GT"):
+        assert bundle["channels"][side]["pending"] == []
+    [existing] = bundle["channels"]["E"]["scenarios"]
+    assert (existing["key"], existing["step_id"], existing["target"]) == (
+        "service.base.availability",
+        "N0005",
+        target,
+    )
+    truth = {r["key"]: r for r in bundle["channels"]["GT"]["scenarios"]}
+    assert truth["service.base.availability"]["step_id"] == "N0005"
+    assert truth["human.authentication"]["step_id"] == request["id"]
+    matched = [d for d in bundle["decisions"] if d["level"] == "scenario" and d["status"] == "full"]
+    assert len(matched) == (2 if with_g else 0)
+    assert all(d["pair"] == "GT_G" for d in matched)
+    if with_g:
+        canonical = {r["id"]: r["variant_id"] for r in generated["scenarios"]}
+        assert {canonical[d["right_id"]] for d in matched} == {
+            "missing_credential",
+            "service_unavailable",
+        }
+
+    merged = build([{"bundle": bundle, "revision": 1}])
+    [anchor] = merged["anchors"]
+    assert [call["step_id"] for call in anchor["calls"]] == ["N0005", "N0006"]
+    assert len(merged["channels"]["GT"]["scenarios"]) == 1
+    assert merged["channels"]["GT"]["pending"] == []
 
 
 def test_four_missing_g_candidates_use_verified_independent_placements():
@@ -710,6 +812,14 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         {"doc": "missing.md", "location": "L35", "quote": "暂未提供原件"},
     ]
     main["interaction"][0]["source_refs"] = declared
+    operation["operations"]["SC_EX_PAGE_SIZE_HIGH"]["source_refs"] = [
+        {
+            "document": r"D:\supplier\document.md",
+            "start_line": 1,
+            "end_line": 1,
+            "quote": "唯一的原文引文。",
+        }
+    ]
     behavior.write_text(json.dumps(operation, ensure_ascii=False), encoding="utf8")
     core = tmp_path / "core"
     assert convert(root, core, profile=COMMAND_OPERATION_PROFILE)["output"]
@@ -720,6 +830,18 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     _, material = discover(directory=str(core))
     assert any(f["relative_path"] == "originals/原始用例.xlsx" for f in material.values())
     case = build_cases(core)[0]
+    e_sources = [
+        ref
+        for row in case["channels"]["E"]["pending"]
+        for ref in row["source_refs"]
+        if ref.get("kind") == "origin"
+    ]
+    assert any(
+        ref["origin"]["document"] == "originals/document.md"
+        and ref["start_line"] == 2
+        and ref["quote"] == "唯一的原文引文。"
+        for ref in e_sources
+    )
     mixed_refs = [r for step in case["steps"] for r in step["source_refs"]]
     assert any(r["kind"] == "origin" and r["quote"] == "唯一的原文引文。" for r in mixed_refs)
     assert any(
@@ -811,8 +933,8 @@ def test_function_tree_uses_each_constraint_and_tag_citation(tmp_path):
     product_id = bundle["entities"][0]["attributes"][0]
     unique_rule = product_id["unresolved"][0]
     assert unique_rule["text"] == "唯一编号"
-    assert cited_lines(unique_rule["source_refs"]) == [2]
-    assert unique_rule["source_refs"][0]["origin"]["match"] == "pending"
+    assert cited_lines(unique_rule["source_refs"]) == [1]
+    assert unique_rule["source_refs"][0]["origin"]["match"] == "located"
     assert unique_rule["source_refs"][1]["json_pointer"].endswith("/constraints/0")
     assert cited_lines(
         next(a for a in product_id["atoms"] if a["operation"] == "required")["source_refs"]

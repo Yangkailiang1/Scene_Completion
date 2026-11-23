@@ -9,6 +9,8 @@ quotation, otherwise reporting the record as untraced.
 
 import json
 
+import pytest
+
 from scene_completion.inputs.provenance import source_origins
 from scene_completion.inputs.structured.colleague_formats import convert, format_of
 
@@ -47,6 +49,72 @@ def test_wrong_declared_line_falls_back_to_the_unique_quotation(tmp_path):
     assert found["start_line"] == 5
     assert found["declared_line"] == "L2"
     assert "productId" in found["quote"]
+
+
+@pytest.mark.parametrize(
+    ("declared", "match"), [(None, "located"), ("L1", "located"), ("L5-L7", "exact")]
+)
+def test_multiline_quotation_preserves_blank_lines(tmp_path, declared, match):
+    source = tmp_path / "设计.md"
+    text = "校验请求参数\n \t\n校验失败时返回错误"
+    source.write_text(
+        "设计说明\n校验请求参数\n非空中间行\n校验失败时返回错误\n" + text, encoding="utf-8"
+    )
+    [document] = source_origins.read_origin_document(source, "SR")
+
+    result = source_origins.origin(document, "校验请求参数\n\n校验失败时返回错误", declared)
+    assert (result["match"], result["start_line"], result["end_line"], result["quote"]) == (
+        match,
+        5,
+        7,
+        text,
+    )
+
+
+@pytest.mark.parametrize("document_ref", ["spec", r"C:\supplier\需求.md", "/supplier/需求.md"])
+def test_citation_checks_nearby_lines_before_searching_the_whole_document(tmp_path, document_ref):
+    from scene_completion.inputs.provenance.ssd_sources import Sources
+    from scene_completion.workflow.ssd.input_conversion.provenance import origin_documents
+
+    (tmp_path / "需求.md").write_text(
+        "# 需求\n① 顾客选择SKU\n和购买数量。\n"
+        + "其他内容\n" * 8
+        + "① 顾客选择SKU\n和购买数量。\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "source-documents.json").write_text(
+        json.dumps({"documents": [{"path": "需求.md", "role": "RR", "aliases": ["spec"]}]}),
+        encoding="utf-8",
+    )
+    sources = Sources(tmp_path, origin_documents(tmp_path))
+    result = sources.trace(
+        {
+            "document": document_ref,
+            "start_line": 4,
+            "end_line": 4,
+            "quote": "   ① 顾客选择SKU和购买数量。",
+        }
+    )
+    assert (result["document"], result["match"], result["start_line"], result["end_line"]) == (
+        "需求.md",
+        "located",
+        2,
+        3,
+    )
+    result = sources.trace(
+        {
+            "document": document_ref,
+            "start_line": 2,
+            "end_line": 2,
+            "quote": "① 顾客选择SKU和购买数量。",
+        }
+    )
+    assert result["end_line"] == 3
+    assert result["quote"] == "① 顾客选择SKU\n和购买数量。"
+    invalid = sources.trace(
+        {"document": document_ref, "start_line": 2, "end_line": 3, "quote": "顾客取消订单。"}
+    )
+    assert invalid["match"] == "pending"
 
 
 def test_ambiguous_quotation_is_reported_not_guessed(tmp_path):

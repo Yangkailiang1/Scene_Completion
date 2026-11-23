@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from scene_completion.domain.current_scope import AVAILABILITY, POLICY
 from scene_completion.domain.project_scopes import matching
+from scene_completion.domain.ssd import external_databases
 from scene_completion.domain.ssd import matching as case_matching
 from scene_completion.infrastructure.identity import fingerprint
 
@@ -95,16 +96,7 @@ def build(views, legacy=None):
         calls = {}
         if source == "interaction":
             for step in b["steps"]:
-                if (
-                    step.get("kind") == "action"
-                    or step.get("direction") != "request"
-                    or step["sender"]["id"] == step["receiver"]["id"]
-                ):
-                    continue
-                for role in ("receiver",):
-                    party = step[role]
-                    if not party.get("external") or party.get("type") == "human":
-                        continue
+                for role, party in external_databases.availability_roles(step).items():
                     identity = [
                         party.get("id"),
                         party.get("name", "").casefold(),

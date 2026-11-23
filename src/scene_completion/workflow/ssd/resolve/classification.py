@@ -7,6 +7,7 @@ from scene_completion.domain.ssd import interface_fields, validation_scope
 from scene_completion.domain.ssd.construction import unique
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
+from scene_completion.workflow.ssd.shared.failure_context import explicit_failure
 
 CLASSIFY = "ssd-evidence-classify"
 
@@ -65,7 +66,13 @@ def classify(bundle, semantic):
                         }
                     )
                     continue
-                part = summary_part(source["condition"], source["expected"])
+                failure, keys = explicit_failure(source["condition"], source["expected"])
+                keys = sorted(keys & inputs["definitions"].keys())
+                part = (
+                    {"condition": source["condition"], "expected": source["expected"], "keys": keys}
+                    if failure and keys
+                    else summary_part(source["condition"], source["expected"])
+                )
                 if not part:
                     remaining.append(source)
                     continue
@@ -73,7 +80,11 @@ def classify(bundle, semantic):
                     {
                         "record_id": source["id"],
                         "kind": "exception",
-                        "reason": "原文明确描述请求校验失败，按失败类型匹配",
+                        "reason": (
+                            "依据原文中明确的失败条件归类"
+                            if failure and keys
+                            else "原文明确描述请求校验失败，按失败类型匹配"
+                        ),
                         "parts": [part],
                     }
                 )

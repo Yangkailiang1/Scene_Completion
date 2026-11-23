@@ -232,6 +232,9 @@ def resolve(bundle, semantic):
 
 
 def _apply_owners(bundle, units):
+    from scene_completion.domain.ssd.external_databases import occurrences
+
+    databases = occurrences(bundle["steps"])
     bundle["operation_units"] = units
     associate_entities(bundle)
     for unit in units:
@@ -249,7 +252,11 @@ def _apply_owners(bundle, units):
                         command_gap=True,
                     )
                 )
-        if not unit["crud"] and not unit.get("functional_owner_id"):
+        if (
+            not unit["crud"]
+            and not unit.get("functional_owner_id")
+            and unit.get("receiver_id") not in databases
+        ):
             bundle["pending"].append(
                 pending(
                     ident("operation-pending", unit["id"]),

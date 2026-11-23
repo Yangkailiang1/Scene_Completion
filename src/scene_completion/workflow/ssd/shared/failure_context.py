@@ -1,8 +1,31 @@
 """Separate the source's actual failure step from the canonical display anchor."""
 
+import re
 from collections.abc import Mapping
 
+from scene_completion.domain.current_scope import AVAILABILITY
+
 AUTH_KEYS = {"human.authentication", "service_relation.authentication"}
+
+
+def explicit_failure(condition, expected):
+    """Recognize a narrow set of explicitly worded failures without consulting G."""
+    text = condition.strip().rstrip("。.!！")
+    response = r"(?:\s*(?:->|→|[,，])\s*(?:返回\s*)?(?:HTTP\s*)?401(?:\s+Unauthorized)?)?"
+    if re.fullmatch(
+        r"(?:(?:请求头\s*)?Authorization\s*(?:缺失|缺少|未提供|未携带)|"
+        r"(?:缺少|未提供|未携带)\s*(?:请求头\s*)?Authorization)" + response,
+        text,
+        re.I,
+    ) and re.search(r"(?<!\d)401(?!\d)", f"{text} {expected}"):
+        return "missing_credential", AUTH_KEYS
+    if re.fullmatch(
+        r"(?:数据库|GaussDB(?:4MySQL)?)\s*(?:不可用|不可达|连接失败|无法连接)", text, re.I
+    ):
+        return "database_unavailable", {AVAILABILITY}
+    if re.fullmatch(r"(?:数据库|GaussDB(?:4MySQL)?)\s*访问异常", text, re.I):
+        return "database_access", {AVAILABILITY}
+    return None, set()
 
 
 def _lookup(steps, label):

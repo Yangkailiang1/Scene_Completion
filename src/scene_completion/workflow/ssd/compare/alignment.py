@@ -3,6 +3,7 @@
 import re
 
 from scene_completion.domain.coverage import GRAIN_POLICY, binary_status
+from scene_completion.domain.current_scope import AVAILABILITY
 from scene_completion.domain.scenario_conditions import disjoint
 from scene_completion.domain.ssd import interface_fields, validation_scope
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
@@ -93,6 +94,16 @@ def _candidates(bundle, raw, part, step_facts):
             bindings, actual or raw.get("step_ref"), interface_fields.command_id(raw)
         )
     keys = _allowed_keys(part, step_facts, actual)
+    failure = part.get("explicit_failure")
+    database_only = failure in {"database_access", "database_unavailable"}
+    database_steps = (
+        {
+            (step["id"], role)
+            for step, role in independent_mount.database_anchors(bundle, raw, actual).values()
+        }
+        if database_only
+        else set()
+    )
     scope = part.get("validation_summary")
     if scope:
         keys = validation_scope.keys_for(scope)
@@ -128,6 +139,20 @@ def _candidates(bundle, raw, part, step_facts):
     names = {name.casefold() for name in names}
     for scenario in bundle["channels"]["G"]["scenarios"]:
         if scenario["status"] != "active":
+            continue
+        if failure == "missing_credential" and scenario.get("variant_id") != failure:
+            continue
+        if database_only and (
+            (scenario["step_id"], scenario["target"]) not in database_steps
+            or scenario["key"] != AVAILABILITY
+            or (
+                failure == "database_access" and scenario.get("variant_id") == "service_unavailable"
+            )
+            or (
+                failure == "database_unavailable"
+                and scenario.get("variant_id") != "service_unavailable"
+            )
+        ):
             continue
         scenario_keys = _keys(scenario)
         if not scenario.get("concern_keys"):
@@ -180,7 +205,7 @@ def _candidates(bundle, raw, part, step_facts):
             and validation_scope.summary_kind(scenario["condition"]) == "json_syntax"
         ):
             continue
-        if external and receiver != external:
+        if external and not database_only and receiver != external:
             continue
         if cmd and source_commands and cmd not in source_commands:
             continue
@@ -415,6 +440,11 @@ def align(bundle, semantic):
                     "source_evidence": context["evidence"],
                     "classification_reason": audit["reason"],
                 }
+                failure, keys = failure_context.explicit_failure(
+                    part["condition"], part["expected"]
+                )
+                if failure and keys.intersection(part["keys"]):
+                    part["explicit_failure"] = failure
                 if bundle.get("coverage_policy") == GRAIN_POLICY:
                     scope = validation_scope.summary_kind(part["condition"])
                     if scope:
@@ -449,6 +479,24 @@ def align(bundle, semantic):
                 ),
             }
             direct, model_parts = [], []
+            options_by_id = {}
+
+            def mount_options(part):
+                part_id = part["id"]
+                if part_id not in options_by_id:
+                    options_by_id[part_id] = independent_mount.options(
+                        bundle,
+                        owners[part_id][0],
+                        _allowed_keys(part, step_facts, part["failure_step_id"]),
+                        part["failure_step_id"],
+                        step_facts,
+                        entities,
+                        fields,
+                        units,
+                        failure=part.get("explicit_failure"),
+                    )
+                return options_by_id[part_id]
+
             for part in inputs["parts"]:
                 if part.get("validation_summary") and not part["candidates"]:
                     raw = owners[part["id"]][0]
@@ -489,7 +537,35 @@ def align(bundle, semantic):
                         }
                     )
                 elif part["candidates"]:
-                    model_parts.append(part)
+                    candidate = part["candidates"][0]
+                    literal = part.get("explicit_failure") in {
+                        "missing_credential",
+                        "database_unavailable",
+                    }
+                    options = (
+                        mount_options(part) if literal and len(part["candidates"]) == 1 else []
+                    )
+                    if len(options) == 1 and all(
+                        options[0][key] == candidate.get(key)
+                        for key in ("key", "step_id", "target")
+                    ):
+                        reason = "原文与生成场景指向同一对象及同一失败条件"
+                        direct.append(
+                            {
+                                "part_id": part["id"],
+                                "reason": reason,
+                                "fallback": None,
+                                "matches": [
+                                    {
+                                        "candidate_id": candidate["id"],
+                                        "status": "full",
+                                        "reason": reason,
+                                    }
+                                ],
+                            }
+                        )
+                    else:
+                        model_parts.append(part)
             inputs["parts"] = model_parts
             model_rows = (
                 validate_result(ALIGN, semantic(ALIGN, inputs), inputs)["parts"]
@@ -507,16 +583,7 @@ def align(bundle, semantic):
                 if any(match["status"] != "none" for match in previous.get("matches", [])):
                     continue
                 raw = owners[part_id][0]
-                options = independent_mount.options(
-                    bundle,
-                    raw,
-                    _allowed_keys(part, step_facts, part["failure_step_id"]),
-                    part["failure_step_id"],
-                    step_facts,
-                    entities,
-                    fields,
-                    units,
-                )
+                options = mount_options(part)
                 if (
                     fallback
                     and independent_mount.permitted(fallback, options, step_facts, units)[0]
@@ -527,7 +594,7 @@ def align(bundle, semantic):
                         "part_id": part_id,
                         "matches": previous.get("matches", []),
                         "fallback": fallback,
-                        "reason": "原文确认失败步骤及唯一适用的挂载对象",
+                        "reason": "原文的失败条件与主成功流中唯一适用的挂载对象一致",
                     }
                 elif options:
                     independent.append({**part, "candidates": [], "mount_options": options})
@@ -536,7 +603,14 @@ def align(bundle, semantic):
                         "part_id": part_id,
                         "matches": previous.get("matches", []),
                         "fallback": None,
-                        "reason": "主成功流中缺少与该关注点及原文一致的步骤、对象或字段",
+                        "reason": {
+                            "missing_credential": "无法核实 Authorization 所属的认证请求边界",
+                            "database_access": "无法核实该访问异常对应的外部数据库",
+                            "database_unavailable": "无法核实该不可用异常对应的外部数据库",
+                        }.get(
+                            part.get("explicit_failure"),
+                            "主成功流中缺少与该关注点及原文一致的步骤、对象或字段",
+                        ),
                     }
             if independent:
                 mount_inputs = {
