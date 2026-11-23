@@ -801,7 +801,10 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         (place / "duplicate.md").write_text("同名文档\n", encoding="utf8")
         docs.append({"path": (place / "duplicate.md").relative_to(root).as_posix(), "role": "RR"})
     spec = originals / "document.md"
-    spec.write_text("标题\n唯一的原文引文。\n", encoding="utf8")
+    spec.write_text(
+        "标题\n唯一的原文引文。\n" + "说明\n" * 18 + "异常原文跨行\n并指明参数错误。\n",
+        encoding="utf8",
+    )
     docs.append({"path": "originals/document.md", "role": "SR", "aliases": ["designDocument"]})
     (root / "source-documents.json").write_text(json.dumps({"documents": docs}), encoding="utf8")
     behavior = next(root.rglob("SysOperation.json"))
@@ -812,12 +815,20 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         {"doc": "missing.md", "location": "L35", "quote": "暂未提供原件"},
     ]
     main["interaction"][0]["source_refs"] = declared
+    main["participant"]["MALL"]["source_refs"] = [
+        {
+            "document": "designDocument",
+            "start_line": 6000,
+            "end_line": 6000,
+            "quote": "唯一的原文引文。",
+        }
+    ]
     operation["operations"]["SC_EX_PAGE_SIZE_HIGH"]["source_refs"] = [
         {
             "document": r"D:\supplier\document.md",
             "start_line": 1,
             "end_line": 1,
-            "quote": "唯一的原文引文。",
+            "quote": "异常原文跨行并指明参数错误。",
         }
     ]
     behavior.write_text(json.dumps(operation, ensure_ascii=False), encoding="utf8")
@@ -838,10 +849,14 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
     ]
     assert any(
         ref["origin"]["document"] == "originals/document.md"
-        and ref["start_line"] == 2
-        and ref["quote"] == "唯一的原文引文。"
+        and ref["start_line"] == 21
+        and ref["end_line"] == 22
+        and ref["quote"] == "异常原文跨行\n并指明参数错误。"
         for ref in e_sources
     )
+    mall = case["steps"][0]["receiver"]
+    assert mall["source_refs"][0]["start_line"] == 6000
+    assert mall["original_refs"][0]["start_line"] == 2
     mixed_refs = [r for step in case["steps"] for r in step["source_refs"]]
     assert any(r["kind"] == "origin" and r["quote"] == "唯一的原文引文。" for r in mixed_refs)
     assert any(

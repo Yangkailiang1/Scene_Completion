@@ -220,6 +220,7 @@ def _steps(raw, sources, file_name, contracts, root=None, *, entity_only=False):
     missing = [key for key in nodes if key not in ordered]
     ordered += missing
     result = []
+    participant_origins = {}
     for order, key in enumerate(dict.fromkeys(k for k in ordered if k in nodes), 1):
         group, node, pointer = nodes[key]
         action = group == "action"
@@ -229,6 +230,13 @@ def _steps(raw, sources, file_name, contracts, root=None, *, entity_only=False):
         executor = node.get("executor")
         sender = _person(executor if action else node.get("sender", "?"), participants)
         receiver = _person(executor if action else node.get("receiver", "?"), participants)
+        for party in (sender, receiver):
+            if party.get("source_refs"):
+                pid = party["id"]
+                if pid not in participant_origins:
+                    participant_origins[pid] = sources.original(party["source_refs"])
+                if original := participant_origins[pid]:
+                    party["original_refs"] = original
         direction = node.get("direction") or ("return" if group == "system_response" else "request")
         layer = node.get("source_layer") or (
             "RR"

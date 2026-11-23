@@ -117,6 +117,39 @@ def test_citation_checks_nearby_lines_before_searching_the_whole_document(tmp_pa
     assert invalid["match"] == "pending"
 
 
+@pytest.mark.parametrize("lines", [(13, 13), (6000, 6000), (13, "错误"), (9, 4), None])
+def test_source_quote_recovers_far_or_malformed_lines_and_preserves_wrapping(tmp_path, lines):
+    from scene_completion.inputs.provenance.ssd_sources import Sources
+    from scene_completion.workflow.ssd.input_conversion.provenance import origin_documents
+
+    quote = "本 SR 分配给架构元素 OnlineMallService 内的一个软件单元 MallAdminService。"
+    original = "本 SR 分配给架构元素 OnlineMallService 内的一个\n软件单元 MallAdminService。"
+    (tmp_path / "SR-spec.md").write_text("说明\n" * 57 + original + "\n", encoding="utf-8")
+    (tmp_path / "RR-spec.md").write_text(quote + "\n", encoding="utf-8")
+    sources = Sources(tmp_path, origin_documents(tmp_path))
+    ref = {"document": "sr", "quote": quote}
+    if lines is not None:
+        ref.update(start_line=lines[0], end_line=lines[1])
+    result = sources.trace(ref)
+    assert (result["document"], result["match"], result["start_line"], result["end_line"]) == (
+        "SR-spec.md",
+        "located",
+        58,
+        59,
+    )
+    assert result["quote"] == original
+
+
+def test_ambiguous_wrapped_quote_does_not_fall_back_to_one_fragment(tmp_path):
+    text = "这是在同一个设计文档中重复出现的完整引文，内部软件单元 MallAdminService。"
+    source = tmp_path / "SR.md"
+    source.write_text(text + "\n" + text.replace("完整引文，", "完整引文，\n"), encoding="utf-8")
+    [document] = source_origins.read_origin_document(source, "SR")
+    result = source_origins.origin(document, text, "L9999")
+    assert result["match"] == "pending"
+    assert result["alternatives"] == [1, 2]
+
+
 def test_ambiguous_quotation_is_reported_not_guessed(tmp_path):
     sr = documents(tmp_path)[1]
     docs = {

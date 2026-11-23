@@ -191,23 +191,23 @@ def _line_matches(text, quote):
     return left == right or right in text or left in right
 
 
-def _locate_in(document, quote):
-    """Unique line or line range whose text equals the quotation."""
+def _line_quote_hits(rows, quote):
+    """Match quoted lines in order, including any blank lines in the quotation."""
     span = _normalized(quote).splitlines()
     if not span:
-        return None
-    rows = document["lines"]
-    hits = []
+        return []
+    hits = set()
     for n, row in enumerate(rows):
         if not _line_matches(row["text"], span[0]):
             continue
         window = rows[n : n + len(span)]
-        if len(window) == len(span) and all(
-            _line_matches(source["text"], part) for source, part in zip(window, span)
+        if (
+            len(window) == len(span)
+            and window[-1]["number"] - row["number"] == len(span) - 1
+            and all(_line_matches(source["text"], part) for source, part in zip(window, span))
         ):
-            hits.append((row["number"], window[-1]["number"]))
-    unique = sorted(set(hits))
-    return unique[0] if len(unique) == 1 else None
+            hits.add((row["number"], window[-1]["number"]))
+    return sorted(hits)
 
 
 def _verified(document, span, quote):
@@ -238,16 +238,13 @@ def _compact_quote(text):
     )
 
 
-def _nearby_span(document, span, quote):
-    start, end = span
-    rows = [row for row in document["lines"] if start - 2 <= row["number"] <= end + 2]
-    if not rows:
-        return None
+def _quotation_hits(rows, quote):
+    """Locate all occurrences, even when the document wraps a sentence."""
     if "\n\n" in _normalized(quote):
-        return _locate_in({"lines": rows}, quote)
+        return _line_quote_hits(rows, quote)
     wanted = _compact_quote(quote)
     if not wanted:
-        return None
+        return []
     pieces, offsets, length = [], [], 0
     for row in rows:
         offsets.append(length)
@@ -262,7 +259,7 @@ def _nearby_span(document, span, quote):
         first_line, last_line = rows[first]["number"], rows[last]["number"]
         if last_line - first_line == last - first:
             hits.add((first_line, last_line))
-    return next(iter(hits)) if len(hits) == 1 else None
+    return sorted(hits)
 
 
 LEAD = re.compile(r"^\s*(?:[A-Z]{1,4}\s*-?\s*)?\d{1,3}\s*[.．、:：]\s*")
@@ -311,43 +308,43 @@ def _substring_hits(document, fragment):
 
 
 def locate(document, quote, declared=None):
-    """Resolve one origin against one document without guessing."""
-    span = declared_lines(declared) if not isinstance(declared, tuple) else declared
+    """Check the reported line and then search the named document for the quote."""
+    span = declared if isinstance(declared, tuple) else declared_lines(declared)
+    if span and (
+        len(span) != 2 or not all(type(n) is int for n in span) or not 0 < span[0] <= span[1]
+    ):
+        span = None
+    rows = document["lines"]
     if span and _verified(document, span, quote):
-        start, end = span
-        rows = {r["number"]: r["text"] for r in document["lines"]}
+        found, match = span, "exact"
+    else:
+        nearby = (
+            [row for row in rows if span[0] - 2 <= row["number"] <= span[1] + 2] if span else []
+        )
+        hits = _quotation_hits(nearby, quote)
+        if len(hits) != 1:
+            hits = _quotation_hits(rows, quote)
+            if not hits:
+                hits = _line_quote_hits(rows, quote)
+            if not hits and len(_normalized(quote)) >= 12:
+                # Some suppliers prepend a label or quote only part of a sentence.
+                hits = _substring_hits(document, quote)
+        found, match = (hits[0] if len(hits) == 1 else None), "located"
+    if found:
+        by_number = {row["number"]: row["text"] for row in rows}
+        start, end = found
         return {
             "start_line": start,
             "end_line": end,
-            "quote": "\n".join(rows[n] for n in range(start, end + 1)),
-            "match": "exact",
-        }
-    found = _nearby_span(document, span, quote) if span else None
-    if found is None:
-        found = _locate_in(document, quote)
-    multiple = []
-    if found is None and len(_normalized(quote)) >= 12:
-        # Supplied quotations may prefix a step label (``ES-03``) or shorten a
-        # sentence. A literal fragment still points at a real line.
-        hits = _substring_hits(document, quote)
-        if len(hits) == 1:
-            found = hits[0]
-        elif hits:
-            multiple = [h[0] for h in hits]
-    if found:
-        rows = {r["number"]: r["text"] for r in document["lines"]}
-        return {
-            "start_line": found[0],
-            "end_line": found[1],
-            "quote": "\n".join(rows[n] for n in range(found[0], found[1] + 1)),
-            "match": "located",
+            "quote": "\n".join(by_number[n] for n in range(start, end + 1)),
+            "match": match,
         }
     return {
         "start_line": None,
         "end_line": None,
         "quote": str(quote or ""),
         "match": "pending",
-        **({"alternatives": multiple} if multiple else {}),
+        **({"alternatives": sorted({start for start, _ in hits})} if hits else {}),
         "reason": "原文未包含该引文，或同一引文出现多处，无法唯一定位"
         + ("；已尝试声明行 " + str(span) if span else ""),
     }
