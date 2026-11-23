@@ -81,11 +81,12 @@ STAGES = {
         ),
     ),
     "ssd-resolve": _stage(
-        label="操作判定、约束挂载与独立识别",
+        label="参与者与操作判定、约束挂载与独立识别",
         kind=MODEL,
         reads=("正向主成功事件流、功能树实体约束", "E/GT 各自的原始记录"),
         writes=("操作单元、CRUD、字段与实体约束挂载", "E/GT 各自的来源分类与待定位部分"),
         semantic_tasks=(
+            "ssd-participant-classify",
             "ssd-operation-units",
             "ssd-entity-inference",
             "ssd-evidence-classify",
@@ -98,7 +99,8 @@ STAGES = {
         ),
         depends_on=("ssd-prepare",),
         doc=(
-            "默认命令模式先判操作单元和 CRUD，再处理未能确定性解析的约束，由脚本建立 G 挂载。"
+            "先结合参与者声明和原文引文确认角色。默认命令模式接着判操作单元和 CRUD，"
+            "再处理未能确定性解析的约束，由脚本建立 G 挂载。"
             "E、GT 分别按本方证据分类，在 compare 才对齐最终 G。旧输入按配置使用其他分类或绑定任务。"
         ),
     ),

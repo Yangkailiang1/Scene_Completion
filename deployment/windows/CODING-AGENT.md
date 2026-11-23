@@ -62,7 +62,7 @@ if not exist "%DELIVERY%" mkdir "%DELIVERY%"
 - Markdown 定位使用原件全文件行号，例如 `L1726-L1726` 或 `start_line/end_line`。声明位置与引文有偏差时，程序先核验其上下各两行，再在同一文件检索唯一引文。核实后高亮实际位置。Excel 使用工作表和标准范围，例如 `测试用例!A120:O120`，后一段的 `O` 是列名。缺原件、坐标无效或引文无法核实时，记录文件、位置和受影响记录。
 - `SysOperation.json` 提供步骤及发送方、接收方。当前结构化流程将 `srLayer.commands[].attributes` 视为同一接口发送的数据，只使用接口 ID 和字段名定位。直接使用功能树的字段名、类型、约束、标签及其出处，无需补写字段的 `location` 或 `direction`。Excel 或 Markdown 的原文定位仍照原样登记。
 - 功能树的每条 `constraints[]` 用该约束自己的 `source.doc`、`line` 和 `quote`。有独立出处的标签保留自身来源，例如 `{"name":"必填","source":{...}}`；字符串标签或类型使用字段声明的来源。接口命令出处用于关联调用，字段约束出处用于证明约束。
-- 人类 Actor、外部服务、内部服务按参与者声明和确切原文区分。例如 `actor-001|AI原生应用开发者|actor|主(人)|` 可用于确认该开发者是外部人类 Actor；同一引文中提到的服务仍按服务自己的声明处理。人工更正须带确切证据。明确是数据库的服务另保留 `technology=database`。
+- 人类 Actor、外部服务、内部服务按参与者声明和确切原文区分。转换把主成功流参与者的 `name/role/kind/element_type` 及 `participant.source_refs[].quote` 保留给正式 `ssd-resolve`。有引文的参与者先由模型核对，同一引文提到的依赖或适配器按自己的声明识别。人工 `kind_override` 优先，缺少引文或模型明确说明引文不足时保留脚本分类。旧核心文件缺少参与者引文时，从保留的供应方输入转换到新目录，再按现有升级流程核对。例如 `actor-001|AI原生应用开发者|actor|主(人)|` 可用于确认该开发者是外部人类 Actor；同一引文中提到的服务仍按服务自己的声明处理。人工更正须带确切证据。明确是数据库的服务另保留 `technology=database`。
 
 ## 3. 盘点、转换并核对核心 JSON
 

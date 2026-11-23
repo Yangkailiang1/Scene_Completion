@@ -96,6 +96,13 @@ def validate_result(task, payload, inputs):
     if task in PROJECT_SCHEMAS:
         validate(task, payload)
         return validate_project_result(task, payload, inputs)
+    if task == "ssd-participant-classify":
+        from scene_completion.workflow.ssd.resolve.participants import (
+            validate_result as validate_participants,
+        )
+
+        validate(task, payload)
+        return validate_participants(payload, inputs)
     if task == "ssd-operation-units":
         from scene_completion.workflow.ssd.resolve.operations import (
             validate_result as validate_units,

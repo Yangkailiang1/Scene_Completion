@@ -173,7 +173,20 @@ def _exception(bundle, row, channel, evidence_files):
 def _main(bundle):
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     steps = []
+    declarations = {}
     for step in bundle["steps"]:
+        for party in (step["sender"], step["receiver"]):
+            declarations[party["id"]] = {
+                key: party.get(key)
+                for key in (
+                    "declared_kind",
+                    "role",
+                    "element_type",
+                    "source_refs",
+                    "kind_override",
+                    "classification_source",
+                )
+            }
         operation = step["operation"]
         steps.append(
             {
@@ -263,6 +276,7 @@ def _main(bundle):
             for doc in bundle["documents"]
             if doc["role"] in {"RR", "SR", "test"}
         ],
+        **({"participant_declarations": declarations} if declarations else {}),
         "steps": steps,
     }
 
@@ -285,7 +299,7 @@ def _architecture(bundles):
                     **{
                         k: party[k]
                         for k in ("classification_source", "role", "source_refs")
-                        if k in party
+                        if k in party and party.get("classification_source")
                     },
                 }
                 current = elements.get(party["id"])
@@ -299,7 +313,8 @@ def _architecture(bundles):
                     element["source_refs"] = unique(
                         [*current["source_refs"], *element.get("source_refs", [])]
                     )
-                    element["classification_source"] = current["classification_source"]
+                    if "classification_source" not in element:
+                        element["classification_source"] = current["classification_source"]
                 elements[party["id"]] = element
     return {"version": "architecture-elements-v1", "elements": list(elements.values())}
 

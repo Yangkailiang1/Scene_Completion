@@ -57,7 +57,7 @@ def _person(key, participants):
         )
     )
     technology = value.get("technology")
-    classification = value.get("classification_source")
+    classification = "participant.source_refs" if actor_ref else value.get("classification_source")
     if not technology and database_role:
         technology = "database"
         classification = "participant.role"
@@ -74,19 +74,17 @@ def _person(key, participants):
         or not kind
         and database_role
         and role.casefold().strip().startswith(("外部", "external ")),
+        **({"classification_source": classification} if classification else {}),
         **(
-            {"classification_source": "participant.source_refs", "source_refs": [actor_ref]}
-            if actor_ref
-            else {
-                **({"classification_source": classification} if classification else {}),
-                **({"role": role} if isinstance(role, str) and role.strip() else {}),
-                **(
-                    {"source_refs": value["source_refs"]}
-                    if classification and value.get("source_refs")
-                    else {}
-                ),
-            }
+            {"declared_kind": declared}
+            if (declared := value.get("declared_kind", value.get("kind")))
+            else {}
         ),
+        **{
+            field: deepcopy(value[field])
+            for field in ("role", "element_type", "source_refs", "kind_override")
+            if value.get(field)
+        },
     }
 
 

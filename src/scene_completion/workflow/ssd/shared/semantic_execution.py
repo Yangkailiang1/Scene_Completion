@@ -33,6 +33,7 @@ def _semantic_cache_identity(ex, stage):
                     task: code_version(task)
                     for task in (
                         "ssd-bind",
+                        "ssd-participant-classify",
                         "ssd-operation-units",
                         "ssd-entity-inference",
                         "ssd-entity-classify",

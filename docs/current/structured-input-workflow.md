@@ -31,7 +31,7 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 | 阶段 | 页面标签 | 类型 | 默认命令模式的语义任务 | 依赖 |
 |---|---|---|---|---|
 | `ssd-prepare` | 建立 SSD 与三方结果 | 脚本（不调用模型） | — | （起点） |
-| `ssd-resolve` | 操作判定、约束挂载与独立识别 | 模型调用 | ssd-operation-units、ssd-entity-inference、ssd-evidence-classify | ssd-prepare |
+| `ssd-resolve` | 参与者与操作判定、约束挂载与独立识别 | 模型调用 | ssd-participant-classify、ssd-operation-units、ssd-entity-inference、ssd-evidence-classify | ssd-prepare |
 | `ssd-generate` | 展开参考异常与业务场景 | 模型调用 | ssd-generate | ssd-resolve |
 | `ssd-compare` | 三方比较与发布 | 模型调用＋脚本合并 | ssd-ground-align、ssd-semantic-compare | ssd-generate |
 | `shared-services-merge` | 合并共用外部服务（脚本） | 脚本（不调用模型） | — | ssd-compare |
@@ -48,16 +48,16 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 
 从结构化输入确定性构建步骤与三方结果容器，挂载注册表规则与固定参考异常模板，生成 G 通道，并发布本用例的第一个版本。
 
-### `ssd-resolve` · 操作判定、约束挂载与独立识别
+### `ssd-resolve` · 参与者与操作判定、约束挂载与独立识别
 
 - **类型**：模型调用
 - **读取**：正向主成功事件流、功能树实体约束；E/GT 各自的原始记录
 - **产出**：操作单元、CRUD、字段与实体约束挂载；E/GT 各自的来源分类与待定位部分
-- **默认语义任务**：ssd-operation-units、ssd-entity-inference、ssd-evidence-classify
+- **默认语义任务**：ssd-participant-classify、ssd-operation-units、ssd-entity-inference、ssd-evidence-classify
 - **其他输入配置的语义任务**：ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve
 - **依赖**：ssd-prepare
 
-默认命令模式先判操作单元和 CRUD，再处理未能确定性解析的约束，由脚本建立 G 挂载。E、GT 分别按本方证据分类，在 compare 才对齐最终 G。旧输入按配置使用其他分类或绑定任务。
+先结合参与者声明和原文引文确认角色。默认命令模式接着判操作单元和 CRUD，再处理未能确定性解析的约束，由脚本建立 G 挂载。E、GT 分别按本方证据分类，在 compare 才对齐最终 G。旧输入按配置使用其他分类或绑定任务。
 
 ### `ssd-generate` · 展开参考异常与业务场景
 

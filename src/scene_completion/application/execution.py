@@ -321,6 +321,7 @@ class Execution:
             "ssd-semantic-compare",
             "ssd-generate",
             "ssd-bind",
+            "ssd-participant-classify",
             "ssd-operation-units",
             "ssd-entity-inference",
             "ssd-entity-classify",

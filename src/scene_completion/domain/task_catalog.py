@@ -8,6 +8,7 @@ CHECKER_TASKS = {
     "ssd-command-classify",
     "ssd-evidence-classify",
     "ssd-ground-align",
+    "ssd-participant-classify",
     "ssd-operation-units",
     "ssd-semantic-compare",
     "test-additional-concerns",

@@ -15,13 +15,14 @@ def _resolve(ex, bundle, record):
 
         return legacy_resolution.resolve(ex, bundle, record)
 
-    from scene_completion.workflow.ssd.resolve import entity_semantics
+    from scene_completion.workflow.ssd.resolve import entity_semantics, participants
 
     def semantic(task, inputs):
         value, _ = ex.semantic(task, inputs, record)
         return value
 
     executor = semantic if _semantic_available(ex) else None
+    participants.classify(bundle, executor)
     if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
         from scene_completion.workflow.ssd.resolve import classification, operations
 

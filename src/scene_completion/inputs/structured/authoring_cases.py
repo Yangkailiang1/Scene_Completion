@@ -210,13 +210,9 @@ def sys_operation(document):
         raise ValueError("编写用例缺少 case.id")
     mapping = _step_map(document)
     participants = deepcopy(document.get("architecture") or {})
+    declarations = document.get("participant_declarations", {})
     existing = document.get("existing_exceptions") or {}
     tests = document.get("test_exceptions") or {}
-    for rows in (existing.get("exceptions", []), tests.get("exceptions", [])):
-        for row in rows:
-            party = row.get("participant")
-            if isinstance(party, dict) and party.get("id"):
-                participants[party["id"]] = deepcopy(party)
     operation = {
         # The main path is explicit; the builder rejects a path without one.
         "scenario_kind": "main",
@@ -235,7 +231,11 @@ def sys_operation(document):
         participants.setdefault(sender["id"], sender)
         participants.setdefault(receiver["id"], receiver)
         for party in (sender, receiver):
-            participants[party["id"]] = {**party, **participants[party["id"]]}
+            pid = party["id"]
+            declaration = deepcopy(declarations.get(pid, {}))
+            if manual := participants[pid].get("kind_override"):
+                declaration["kind_override"] = manual
+            participants[pid] = {**party, **participants[pid], **declaration}
         node = {
             "id": key,
             "sender": sender["id"],
@@ -297,6 +297,12 @@ def sys_operation(document):
             group = "interaction"
         operation[group].append(node)
         operation["Order"].append({"kind": group, "ref": key})
+    # Exception-only participants cannot override the positive main-flow declaration.
+    for channel in (existing, tests):
+        for row in channel.get("exceptions", []):
+            party = row.get("participant")
+            if isinstance(party, dict) and party.get("id"):
+                participants.setdefault(party["id"], deepcopy(party))
     return {
         "operations": {"main": operation},
         "participant": participants,

@@ -1647,3 +1647,170 @@ def test_participant_aliases_mount_five_and_keep_one_record_pending(profile):
     assert audit["GT1"]["target_corrections"][0]["original_target"] == "human"
     assert audit["GT2"]["target_corrections"][0]["original_target"] == "service"
     assert audit["GT5"]["kind"] == "pending"
+
+
+def test_resolve_classifies_each_participant_from_its_quotes_after_core_round_trip(tmp_path):
+    from shutil import copytree
+
+    from scene_completion.analysis.validation import validate_result
+    from scene_completion.application.execution import Execution
+    from scene_completion.workflow.ssd.resolve.stage import _resolve
+
+    materials = tmp_path / "raw"
+    copytree(BROWSE, materials)
+    source = next(materials.rglob("SysOperation.json"))
+    operation = json.loads(source.read_text(encoding="utf8"))
+    people = operation["operations"]["browse_main_success"]["participant"]
+    mall_quotes = [
+        {"document": "sr", "quote": "MallAdminService 是商城内部软件单元，依赖商品目录服务。"},
+        {"document": "structure", "quote": "MallAdminService 负责校验商城查询请求。"},
+    ]
+    people["MALL"].update(
+        name="MallAdminService",
+        role="外部服务",
+        kind="internal",
+        element_type="software_unit",
+        source_refs=mall_quotes,
+    )
+    people["U"].update(
+        name="AI原生应用开发者",
+        kind="external_service",
+        role="外部服务",
+        source_refs=[{"document": "sr", "quote": "业务的交互发起人是个人开发者。"}],
+    )
+    people["CATALOG"].update(
+        kind="internal",
+        technology="database",
+        source_refs=[{"document": "sr", "quote": "商城访问其边界之外的商品目录服务。"}],
+    )
+    source.write_text(json.dumps(operation, ensure_ascii=False), encoding="utf8")
+    core = tmp_path / "core"
+    assert convert(materials, core, profile=COMMAND_OPERATION_PROFILE)["output"]
+    assert validate_core(core)["valid"]
+    [bundle] = build_cases(core)
+    assert bundle["steps"][0]["sender"]["type"] == "service"
+    bundle["channels"]["GT"]["pending"].append(pending("gt-fixture-only", "GT-ONLY-SENTINEL"))
+
+    calls = []
+
+    def classify(packet):
+        rows = {p["id"]: p for p in packet["input"]["participants"]}
+        calls.append(tuple(rows))
+        assert "GT-ONLY-SENTINEL" not in json.dumps(packet["input"])
+        assert rows["MALL"]["kind"] == "internal"
+        assert rows["MALL"]["role"] == "外部服务"
+        assert rows["MALL"]["element_type"] == "software_unit"
+        assert [r["quote"] for r in rows["MALL"]["source_refs"]] == [
+            r["quote"] for r in mall_quotes
+        ]
+        decisions = {
+            "participants": [
+                {
+                    "participant_id": pid,
+                    "kind": kind,
+                    "reason": "依据各自的参与者声明及引文",
+                    "source_ref_ids": [rows[pid]["source_refs"][0]["id"]],
+                }
+                for pid, kind in (
+                    ("MALL", "internal_service"),
+                    ("U", "external_actor"),
+                    ("CATALOG", "external_service"),
+                )
+            ]
+        }
+        forged = deepcopy(decisions)
+        forged["participants"][0]["source_ref_ids"] = [rows["U"]["source_refs"][0]["id"]]
+        with pytest.raises(ValueError, match="自己的原文"):
+            validate_result(packet["task"], forged, packet["input"])
+        duplicate = deepcopy(decisions)
+        duplicate["participants"][0] = duplicate["participants"][1]
+        with pytest.raises(ValueError, match="恰好"):
+            validate_result(packet["task"], duplicate, packet["input"])
+        return decisions
+
+    ex = Execution(
+        tmp_path / "run",
+        mocks={
+            "ssd-participant-classify": classify,
+            "ssd-operation-units": lambda p: {
+                "operations": [
+                    {
+                        "unit_id": row["id"],
+                        "step_id": row["step_id"],
+                        "crud": ["read"],
+                        "reason": "查询",
+                    }
+                    for row in p["input"]["units"]
+                ]
+            },
+            "ssd-entity-inference": lambda p: {
+                "operations": [],
+                "constraints": [
+                    {"rule_id": row["id"], "state": "pending", "reason": "待核查", "bindings": []}
+                    for row in p["input"]["constraints"]
+                ],
+            },
+            "ssd-evidence-classify": lambda p: {
+                "records": [
+                    {"record_id": row["id"], "kind": "normal", "reason": "夹具", "parts": []}
+                    for row in p["input"]["records"]
+                ]
+            },
+        },
+    )
+    resolved = _resolve(ex, bundle, {"case": bundle["case"]["id"]})
+    assert calls == [("U", "MALL", "CATALOG")]
+    assert resolved["steps"][0]["sender"]["type"] == "human"
+    assert all(
+        party["classification_source"] == "ssd-participant-classify"
+        for step in resolved["steps"]
+        for party in (step["sender"], step["receiver"])
+    )
+    assert any(
+        row["key"] == "service.base.availability" and row["step_id"] == "B3"
+        for row in resolved["channels"]["G"]["concerns"]
+    )
+    assert any(
+        row["key"] == "database.special_characters" and row["step_id"] == "B3"
+        for row in resolved["channels"]["G"]["concerns"]
+    )
+
+
+def test_participant_manual_override_and_missing_evidence_keep_script_type():
+    from scene_completion.workflow.ssd.input_conversion.sys_operation import _person
+    from scene_completion.workflow.ssd.resolve.participants import classify
+
+    original = {"role": "外部服务", "kind": "external_service"}
+    sources = [{"quote": "已有原文，无法判断该服务是否属于当前系统。"}]
+    values = {
+        "manual": {**original, "kind_override": "internal_service", "source_refs": sources},
+        "undecided": {**original, "source_refs": sources},
+        "missing": original,
+    }
+    parties = {pid: _person(pid, values) for pid in values}
+    bundle = {
+        "case": {"id": "case", "name": "夹具"},
+        "steps": [
+            {"sender": parties["manual"], "receiver": parties["undecided"]},
+            {"sender": parties["missing"], "receiver": parties["manual"]},
+        ],
+    }
+
+    def semantic(task, inputs):
+        assert task == "ssd-participant-classify"
+        assert [row["id"] for row in inputs["participants"]] == ["undecided"]
+        return {
+            "participants": [
+                {
+                    "participant_id": "undecided",
+                    "kind": None,
+                    "source_ref_ids": [],
+                    "reason": "没有系统边界依据",
+                }
+            ]
+        }
+
+    classify(bundle, semantic)
+    assert not parties["manual"]["external"]
+    assert parties["undecided"]["external"]
+    assert parties["missing"]["external"]
