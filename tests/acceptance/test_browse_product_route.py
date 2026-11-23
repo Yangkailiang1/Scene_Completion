@@ -224,14 +224,22 @@ def test_browse_product_route(tmp_path, capsys):
                 re.S,
             )[1]
         )
-        assert "需求异常场景识别结果" in response.text
+        assert "异常场景完整性补全识别结果" in response.text
+        assert report["report"]["concern_options"]["human.authentication"] == "身份认证"
         group = next(g for g in report["report"]["groups"] if g["case_id"] == CASE)
-        assert {row["text"] for row in group["categories"]["covered"]} == {
-            "pageSize < 1",
-            "pageSize > 100",
-        }
-        assert {row["text"] for row in group["categories"]["gt_only"]} == {"keyword 长度 > 32"}
+        covered = {row["text"].splitlines()[-1]: row for row in group["categories"]["covered"]}
+        assert set(covered) == {"具体异常 · pageSize < 1", "具体异常 · pageSize > 100"}
+        upper = covered["具体异常 · pageSize > 100"]
+        assert upper["text"].startswith("实际失败步骤 · B2 商城校验 B1 的查询参数")
+        assert any(
+            ref.get("kind") == "origin" and ref["start_line"] == 4
+            for step in upper["step_evidence"]
+            for ref in step["source_refs"]
+        )
+        (gt_only,) = group["categories"]["gt_only"]
+        assert gt_only["text"].startswith("实际失败步骤 · B2 商城校验 B1 的查询参数")
+        assert gt_only["text"].endswith("具体异常 · keyword 长度 > 32")
         assert group["categories"]["g_only"]
         delivery = tmp_path / "delivery"
         delivery.mkdir()
-        (delivery / "需求异常场景识别结果.html").write_text(response.text, encoding="utf8")
+        (delivery / "异常场景完整性补全识别结果.html").write_text(response.text, encoding="utf8")

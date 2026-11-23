@@ -5,8 +5,9 @@ from copy import deepcopy
 import pytest
 
 from scene_completion.application import ssd_revision_service as service
+from scene_completion.domain.concern_registry import default_registry, registry_scope
 from scene_completion.domain.current_scope import AVAILABILITY
-from scene_completion.infrastructure.storage import write_json
+from scene_completion.infrastructure.storage import fingerprint, write_json
 from scene_completion.review.offline import adoption, business_report_export
 from tests.support.paths import ROOT
 from tests.support.shared_services import service_case
@@ -17,6 +18,11 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
     bundle = coverage_bundle()
     bundle["case"]["name"] = "浏览商品"
     bundle["steps"][0]["sender"]["name"] = "顾客"
+    bundle["steps"][0]["operation"]["name"] = "顾客发送商品查询"
+    check = deepcopy(bundle["steps"][0])
+    check.update(id="verify", order=2)
+    check["operation"]["name"] = "商城核对商品是否存在"
+    bundle["steps"].append(check)
     auth = bundle["channels"]["G"]["scenarios"][-1]
     auth["analysis"] = "凭证格式校验会拒绝无法识别的凭证。"
     auth["source_refs"] = [
@@ -54,6 +60,7 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
         **deepcopy(bundle["channels"]["GT"]["scenarios"][0]),
         "id": "GT-extra",
         "condition": "资源不存在",
+        "failure_step_id": "verify",
         "source_refs": [
             {"document_id": "sheet", "start_line": 120, "end_line": 120, "quote": "资源不存在"}
         ],
@@ -84,7 +91,20 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
 
     before = service.editor(tmp_path, "case")
     write_json(tmp_path / "run/run_manifest.json", {"ssd_cases": ["case", "A", "B", "C"]})
-    document = business_report_export.export_html(tmp_path)
+    current_registry = default_registry()
+    definitions = current_registry["definitions"]
+    definitions["human.authorization"]["enabled"] = False
+    definitions["human.example-review"] = {
+        **definitions["human.authorization"],
+        "key": "human.example-review",
+        "label": "项目自定义关注点",
+        "enabled": True,
+    }
+    current_registry["hash"] = fingerprint(
+        {k: v for k, v in current_registry.items() if k != "hash"}
+    )
+    with registry_scope(current_registry):
+        document = business_report_export.export_html(tmp_path)
     assert not (tmp_path / "review_exports").exists()
     assert service.editor(tmp_path, "case")["bundle"] == before["bundle"]
     with pytest.raises(ValueError):

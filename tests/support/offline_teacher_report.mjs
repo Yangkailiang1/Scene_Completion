@@ -49,12 +49,25 @@ const choose = (select, label) => {
   edit(select, option.value, "change");
 };
 
-assert.equal(d.querySelector("h1").textContent, "需求异常场景识别结果");
+const defaultTitle = "异常场景完整性补全识别结果";
+const editedTitle = "场景补全评审 <记录> & </script>";
+assert.equal(d.querySelector("h1").textContent, defaultTitle);
+assert.equal(d.title, defaultTitle);
+d.querySelector("#edit-title").click();
+edit(d.querySelector("#title-input"), "取消的标题");
+d.querySelector("#cancel-title").click();
+assert.equal(d.title, defaultTitle);
+d.querySelector("#edit-title").click();
+edit(d.querySelector("#title-input"), editedTitle);
+d.querySelector("#title-form").dispatchEvent(new first.window.Event("submit", { cancelable: true }));
+assert.equal(d.querySelector("h1").textContent, editedTitle);
+assert.equal(d.title, editedTitle);
 assert.match(d.querySelector("#case-count").textContent, /共 4 个用例.*3 个用例尚未完整/);
 assert.equal(d.querySelectorAll('[role="tab"]').length, 3);
 assert.deepEqual(headings(), ["用例", "异常场景", "异常场景数量"]);
 assert.equal(group().rows.length, 1);
 assert.equal(group().querySelectorAll('[data-field="text"]').length, 2);
+assert.match(group().querySelector('[data-field="text"]').value, /^关联步骤 · 顾客发送商品查询\n具体异常 · /);
 assert.match(group().querySelector(".quantity").textContent, /^2 项$/);
 assert.ok(!d.querySelector("#report-toolbar select"));
 edit(group().querySelector('[data-field="name"]'), "浏览商品（修改）");
@@ -70,6 +83,9 @@ assert.equal(group().querySelector(".quantity-cell").rowSpan, 3);
 assert.equal(d.querySelector(common).querySelector(".quantity").textContent, "1 项");
 const members = d.querySelector(common).querySelectorAll(".case-members b");
 assert.deepEqual([...new Set([...members].map((item) => item.textContent))].sort(), ["用例 A", "用例 B"]);
+const commonScene = d.querySelector(common + " .scene-edit");
+assert.match(commonScene.querySelector('[data-field="text"]').value, /用例 A · 执行 A.*另有 1 个调用/);
+assert.match(commonScene.querySelector(".scene-evidence").textContent, /用例 B · 执行 B/);
 const reportTotal = d.querySelector("#tab-g_only").textContent;
 choose(d.querySelector("#report-toolbar select"), "身份认证");
 assert.equal(group().rows.length, 2);
@@ -79,6 +95,8 @@ assert.ok(!d.querySelector(common));
 assert.equal(d.querySelector("#tab-g_only").textContent, reportTotal);
 
 const auth = group().querySelector("[data-scene-id]");
+assert.equal(auth.querySelector('[data-field="text"]').value,
+  "关联步骤 · 顾客发送商品查询\n具体异常 · 凭证格式错误");
 assert.match(group().querySelector('[data-field="reason"]').value, /发送方 顾客 · 身份认证/);
 auth.querySelector(".scene-evidence button").click();
 assert.equal(d.querySelector("#source-dialog").open, true);
@@ -86,7 +104,10 @@ assert.equal(d.querySelector('#source-content .source-highlight[data-line="2"]')
 d.querySelector("#source-close").click();
 edit(auth.querySelector('[data-field="text"]'), "离线编辑 <说明> & </script>");
 edit(group().querySelector('[data-field="count_note"]'), "数量说明");
-edit(group().querySelector('[data-field="reason"]'), "补充理由");
+const reason = group().querySelector('[data-field="reason"]');
+assert.equal(reason.parentElement.dataset.content, reason.value);
+edit(reason, "补充理由");
+assert.equal(reason.parentElement.dataset.content, "补充理由");
 edit(group().querySelector('[data-field="cause_note"]'), "诊断说明");
 edit(group().querySelector('[data-field="solution"]'), "处理方案");
 assert.equal(group().querySelector('[data-field="cause"]').value, "");
@@ -97,10 +118,14 @@ edit(d.querySelector("#cause-name"), "规则边界待澄清");
 d.querySelector("#cause-form").dispatchEvent(new first.window.Event("submit", { cancelable: true }));
 edit(group().querySelector('[data-field="cause"]'), "规则边界待澄清", "change");
 choose(d.querySelector("#report-toolbar select"), "全部关注点");
-const permission = Array.from(group().querySelectorAll('[data-field="concern"]')).find(e => e.value === "权限控制");
-edit(permission, "权限待核对");
-permission.dispatchEvent(new first.window.Event("change"));
-choose(d.querySelector("#report-toolbar select"), "权限待核对");
+const permission = Array.from(group().querySelectorAll('select[data-field="concern"]')).find(e => e.value === "human.authorization");
+assert.ok(permission.selectedOptions[0].disabled);
+assert.equal(permission.selectedOptions[0].textContent, "权限控制（原关注点）");
+assert.ok([...permission.options].some(o => o.value === "api.data.range"));
+assert.ok(![...permission.options].some(o => o.value === "global.call_order"));
+assert.ok(![...permission.options].some(o => o.value === "service.base.response_contract"));
+choose(permission, "项目自定义关注点");
+choose(d.querySelector("#report-toolbar select"), "项目自定义关注点");
 assert.equal(group().rows.length, 1);
 assert.equal(group().querySelector(".quantity").textContent, "1 项");
 
@@ -108,7 +133,8 @@ d.querySelector("#tab-gt_only").click();
 assert.deepEqual(headings(), ["用例", "异常场景", "异常场景数量", "问题归因", "解决方案"]);
 assert.ok(!d.querySelector("#report-toolbar select"));
 assert.equal(group().rows.length, 1);
-assert.equal(group().querySelector('[data-field="text"]').value, "资源不存在");
+assert.equal(group().querySelector('[data-field="text"]').value,
+  "实际失败步骤 · 商城核对商品是否存在\n具体异常 · 资源不存在");
 assert.match(group().querySelector(".scene-evidence").textContent, /用测试逆向做的ground truth/);
 assert.deepEqual([...group().querySelector('[data-field="cause"]').options].slice(1).map(o => o.value),
   ["关注点不够", "前置抽取问题"]);
@@ -122,6 +148,8 @@ d.querySelector("#source-close").click();
 d.querySelector("#save-html").click();
 const reopened = open(downloads.at(-1)), next = reopened.window.document;
 assert.deepEqual(payload(next).report, original.report);
+assert.equal(next.title, editedTitle);
+assert.equal(next.querySelector("h1").textContent, editedTitle);
 assert.equal(next.querySelector(mainCase + ' [data-field="name"]').value, "浏览商品（修改）");
 assert.equal(next.querySelector(mainCase + ' [data-field="text"]').value, "第一项场景编辑");
 next.querySelector("#tab-g_only").click();
@@ -133,7 +161,8 @@ for (const [field, value] of Object.entries({
 })) {
   assert.equal(next.querySelector(mainCase + ' [data-field="' + field + '"]').value, value);
 }
-assert.ok(Array.from(next.querySelector("#report-toolbar select").options).some(o => o.textContent === "权限待核对"));
+assert.ok(Array.from(next.querySelector("#report-toolbar select").options).some(o => o.textContent === "项目自定义关注点"));
+assert.ok(Array.from(next.querySelectorAll(mainCase + ' select[data-field="concern"]')).some(select => select.value === "human.example-review"));
 next.querySelector("#tab-gt_only").click();
 assert.equal(next.querySelector(mainCase + ' [data-field="cause"]').value, "关注点不够");
 assert.equal(next.querySelector(mainCase + ' [data-field="solution"]').value, "补充 GT 独有场景的检查项。");

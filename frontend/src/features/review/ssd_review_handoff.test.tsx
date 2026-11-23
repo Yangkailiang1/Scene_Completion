@@ -52,7 +52,9 @@ test("a current handoff starts with one summary request", async () => {
     }),
   );
   render(<ReviewHandoff project="current" />);
-  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  await screen.findByRole("heading", {
+    name: "导出异常场景完整性补全识别报告",
+  });
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(String(fetcher.mock.calls[0][0])).toMatch(/\/ssd-review\/summary$/);
 });
@@ -111,7 +113,9 @@ test("format detection never flashes legacy controls; legacy is still explicitly
   setup();
   render(<ReviewHandoff project="p" />);
   expect(screen.queryByText("导出Windows业务审核包")).toBeNull();
-  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  await screen.findByRole("heading", {
+    name: "导出异常场景完整性补全识别报告",
+  });
   expect(screen.queryByText("④ 研发定向重跑")).toBeNull();
   fireEvent.change(screen.getByLabelText("审核交接格式"), {
     target: { value: "windows" },
@@ -176,7 +180,9 @@ test("default exports interactions and shared services regardless of current sel
 test("case options retain natural order and source names", async () => {
   setup();
   render(<ReviewHandoff project="p" />);
-  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  await screen.findByRole("heading", {
+    name: "导出异常场景完整性补全识别报告",
+  });
   fireEvent.click(screen.getByText("导出范围（可选）"));
   fireEvent.change(screen.getByLabelText("SSD 报告范围"), {
     target: { value: "case" },
@@ -223,7 +229,9 @@ test("network failure never falls back to legacy and retry recovers", async () =
         : json({ scopes: [] }),
   );
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
-  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  await screen.findByRole("heading", {
+    name: "导出异常场景完整性补全识别报告",
+  });
 });
 
 test("late responses for another project cannot replace the selected project", async () => {
@@ -241,7 +249,9 @@ test("late responses for another project cannot replace the selected project", a
   );
   const view = render(<ReviewHandoff project="old" />);
   view.rerender(<ReviewHandoff project="new" />);
-  await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
+  await screen.findByRole("heading", {
+    name: "导出异常场景完整性补全识别报告",
+  });
   await act(async () =>
     resolve(json({ version: "ssd-case-v1", cases: [{ id: "old-case" }] })),
   );

@@ -2,11 +2,12 @@
 
 from ._adoption_template import READER_STYLE, SOURCE_JS
 
+TITLE = "异常场景完整性补全识别结果"
 TEMPLATE = (
     r"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>需求异常场景识别结果</title>
+<title>__TEACHER_REPORT_TITLE__</title>
 <style>"""
     + READER_STYLE
     + r"""
@@ -14,7 +15,9 @@ TEMPLATE = (
 [hidden]{display:none!important}
 body{height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden}
 .page-header{position:static;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 24px;padding:20px clamp(14px,2vw,32px) 12px;border-bottom:1px solid #d8e1ef}
-.page-header h1{font-size:clamp(19px,2vw,26px);margin:0 0 5px;letter-spacing:.03em}
+.report-heading{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin-bottom:5px}
+.page-header h1{overflow-wrap:anywhere;font-size:clamp(19px,2vw,26px);margin:0;letter-spacing:.03em}
+#edit-title{padding:3px 8px;font-size:12px;color:#315baa}
 .page-header p{margin:0}
 .page-header .primary{background:#315baa;border-color:#315baa}
 #report-tabs{grid-column:1/-1;display:flex;gap:8px;overflow:auto;padding:2px}
@@ -38,7 +41,12 @@ main.report-main{min-width:0;min-height:0;width:100%;max-width:none;margin:0;dis
 .report-table tr .scene-cell{overflow-wrap:anywhere}
 .report-table textarea,.report-table input,.report-table select{background:#ffffffbf;border-color:#d0dbec;font-size:13px}
 .report-table textarea{min-height:2.15em;field-sizing:content;padding:6px 8px;line-height:1.6}
-.report-table textarea[data-field=text]{color:#263d65;font-weight:600}
+.fitted-editor{display:grid;--editor-min:calc(3lh + 14px)}
+.reason-editor{--editor-min:calc(6lh + 14px)}
+.fitted-editor::after,.report-table .fitted-editor textarea{grid-area:1/1;min-width:0;min-height:var(--editor-min)}
+.fitted-editor::after{content:attr(data-content) " ";visibility:hidden;white-space:pre-wrap;overflow-wrap:break-word;overflow:hidden;max-height:calc(14lh + 14px);padding:6px 8px;border:1px solid transparent;font:inherit;font-size:13px;line-height:1.6}
+.report-table .fitted-editor textarea{field-sizing:fixed;align-self:stretch}
+.report-table textarea[data-field=text]{color:#263d65}
 .report-table select{width:100%;padding:6px 8px;margin-bottom:6px}
 .report-table .case-name{font-weight:650}
 .report-table .quantity{font-size:18px;font-weight:650;font-variant-numeric:tabular-nums;color:#315baa}
@@ -50,14 +58,17 @@ main.report-main{min-width:0;min-height:0;width:100%;max-width:none;margin:0;dis
 .scene-evidence .case-members{margin:5px 0 5px 10px;padding-left:8px;border-left:1px solid #cbd7eb}
 .scene-edit+.scene-edit{border-top:1px solid #cbd7eb;padding-top:9px;margin-top:9px}
 .exclusions{font-size:12px}.exclusions ul{margin:6px 0;padding-left:20px}
-#cause-dialog{width:min(415px,92vw);padding:18px}
-#cause-dialog h2{font-size:17px;margin:0}
-#cause-dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.edit-dialog{width:min(415px,92vw);padding:18px}
+.edit-dialog h2{font-size:17px;margin:0}
+.edit-dialog .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 @media(max-width:550px){.page-header{grid-template-columns:1fr;gap:8px;padding-top:12px}.page-header .primary{justify-self:start}.page-header #save-status{font-size:12px}}
 @media print{body{height:auto;display:block;overflow:visible}.page-header button:not([aria-selected=true]),.report-toolbar button,.report-toolbar label{display:none}.report-grid{overflow:visible}.report-table th{position:static}}
 </style></head><body>
 <header class="page-header">
-<div><h1>需求异常场景识别结果</h1><p id="case-count" class="muted"></p></div>
+<div>
+<div class="report-heading"><h1 id="report-title">__TEACHER_REPORT_TITLE__</h1><button id="edit-title" type="button">编辑标题</button></div>
+<p id="case-count" class="muted"></p>
+</div>
 <button id="save-html" class="primary" type="button">保存含修改的 HTML</button>
 <nav id="report-tabs" role="tablist" aria-label="场景分类"></nav>
 <p id="save-status" class="muted" role="status" hidden></p>
@@ -67,7 +78,14 @@ main.report-main{min-width:0;min-height:0;width:100%;max-width:none;margin:0;dis
 <div id="report-grid" class="report-grid" role="region" aria-label="异常场景表格" tabindex="0"></div>
 </main>
 <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-bar"><strong id="source-title"></strong><button id="source-close" type="button">关闭</button></div><article class="document" id="source-content"></article></dialog>
-<dialog id="cause-dialog" aria-labelledby="cause-title">
+<dialog id="title-dialog" class="edit-dialog" aria-labelledby="title-editor-heading">
+<form id="title-form">
+<h2 id="title-editor-heading">编辑报告标题</h2>
+<label>报告标题<input id="title-input" required maxlength="160"></label>
+<div class="actions"><button id="cancel-title" type="button">取消</button><button class="primary" type="submit">保存标题</button></div>
+</form>
+</dialog>
+<dialog id="cause-dialog" class="edit-dialog" aria-labelledby="cause-title">
 <form id="cause-form">
 <h2 id="cause-title">新增归因类别</h2>
 <label>类别名称<input id="cause-name" required maxlength="80"></label>
@@ -89,6 +107,11 @@ const sections={
 const channels={E:'原文 E',G:'方案生成 G',GT:'用测试逆向做的ground truth'};
 const editorFields={text:'异常场景',concern:'异常关注点',reason:'理由',cause_note:'归因说明',solution:'解决方案'};
 const caseNames=new Map(report.cases.map(item=>[item.id,item.name]));
+const concernLabels=new Map(Object.entries(report.concern_options));
+const originalConcernLabels=new Map(report.groups.flatMap(group=>
+ group.categories.g_only.map(scene=>[scene.concern_key,scene.concern])
+));
+const titleDialog=document.getElementById('title-dialog'),titleInput=document.getElementById('title-input');
 const tabs=document.getElementById('report-tabs'),toolbar=document.getElementById('report-toolbar');
 const panel=document.getElementById('report-panel'),grid=document.getElementById('report-grid');
 const saveStatus=document.getElementById('save-status'),causeDialog=document.getElementById('cause-dialog');
@@ -110,6 +133,28 @@ function changed(){
  saveStatus.hidden=false;
  saveStatus.textContent='有未保存的报告修改';
 }
+function showTitle(){
+ document.title=state.edits.title??report.title;
+ document.getElementById('report-title').textContent=document.title;
+}
+showTitle();
+document.getElementById('edit-title').onclick=()=>{
+ titleInput.value=document.title;
+ titleDialog.showModal();
+ titleInput.select();
+};
+document.getElementById('cancel-title').onclick=()=>titleDialog.close();
+document.getElementById('title-form').onsubmit=event=>{
+ event.preventDefault();
+ const value=titleInput.value.trim();
+ if(!value){titleInput.value='';titleInput.reportValidity();return;}
+ if(value!==document.title){
+  state.edits.title=value;
+  showTitle();
+  changed();
+ }
+ titleDialog.close();
+};
 function editKey(group,scene){
  return JSON.stringify(scene?[section,group.id,scene.id]:[section,group.id]);
 }
@@ -160,6 +205,13 @@ function recordEvidence(parent,group,record){
 function evidence(group,scene){
  const detail=el('details',undefined,'scene-evidence');
  detail.append(el('summary','原文与依据'),el('p',scene.classification));
+ if(scene.step_evidence?.length){
+  detail.append(el('strong','步骤原文与出处'));
+  for(const step of scene.step_evidence){
+   detail.append(el('p',step.text));
+   appendSources(detail,group,step.source_refs);
+  }
+ }
  for(const link of scene.links){
   const status={full:'完整匹配',partial:'部分匹配'}[link.status]||'匹配依据';
   detail.append(el('p',[status,link.reason].filter(Boolean).join(' · ')));
@@ -183,11 +235,49 @@ function evidence(group,scene){
 function sceneEdit(group,scene){
  const wrapper=el('div',undefined,'scene-edit');
  wrapper.dataset.sceneId=scene.id;
- wrapper.append(input(group,scene,'text',editorFields.text,scene.text),evidence(group,scene));
+ wrapper.append(fittedEditor(input(group,scene,'text',editorFields.text,scene.text)),evidence(group,scene));
  return wrapper;
 }
 function concernOf(group,scene){
- return editValue(group,scene,'concern',scene.concern).trim().normalize('NFC');
+ return editValue(group,scene,'concern_key',scene.concern_key);
+}
+function labeledOptions(entries){
+ const counts=new Map();
+ for(const [,label] of entries)counts.set(label,(counts.get(label)||0)+1);
+ return entries.map(([key,label])=>[key,counts.get(label)>1?label+' · '+key:label])
+  .sort((a,b)=>a[1].localeCompare(b[1],'zh-CN'));
+}
+const concernOptions=labeledOptions([...concernLabels]);
+function concernCell(group,scene){
+ const cell=el('td'),select=el('select');
+ select.dataset.field='concern';
+ select.setAttribute('aria-label',editorFields.concern);
+ const current=concernOf(group,scene);
+ if(!concernLabels.has(current)){
+  const original=el('option',scene.concern+'（原关注点）');
+  original.value=current;
+  original.disabled=true;
+  select.append(original);
+ }
+ for(const [key,label] of concernOptions){
+  const option=el('option',label);
+  option.value=key;
+  select.append(option);
+ }
+ select.value=current;
+ select.onchange=()=>{
+  if(!concernLabels.has(select.value))return;
+  const filter=concernFilter;
+  saveEdit(group,scene,'concern_key',select.value);
+  const filterSelect=document.getElementById('concern-filter');
+  updateConcernFilter(filterSelect);
+  if(filter!==null&&filter!==select.value){
+   renderTable();
+   filterSelect.focus();
+  }
+ };
+ cell.append(select);
+ return cell;
 }
 function updateConcernFilter(select){
  const values=new Map();
@@ -198,15 +288,18 @@ function updateConcernFilter(select){
   }
  }
  if(concernFilter!==null&&!values.has(concernFilter))concernFilter=null;
- const options=[null,...[...values.keys()].sort((a,b)=>a.localeCompare(b,'zh-CN'))];
+ const options=[[null,'全部关注点'],...labeledOptions([...values.keys()].map(key=>
+  [key,concernLabels.get(key)??originalConcernLabels.get(key)??key]
+ ))];
  select.replaceChildren();
- for(const value of options){
-  const option=el('option',value===null?'全部关注点':value||'未填写关注点');
+ for(const [value,label] of options){
+  const option=el('option',label);
+  option.value=value??'';
   option.selected=value===concernFilter;
   select.append(option);
  }
  select.onchange=()=>{
-  concernFilter=options[select.selectedIndex];
+  concernFilter=select.value||null;
   updateConcernFilter(select);
   renderTable();
  };
@@ -277,6 +370,18 @@ function fieldCell(group,scene,field,fallback=''){
  cell.append(input(group,scene,field,editorFields[field],fallback));
  return cell;
 }
+function fittedEditor(field,cls=''){
+ const editor=el('div',undefined,'fitted-editor'+(cls?' '+cls:''));
+ editor.dataset.content=field.value;
+ field.addEventListener('input',()=>{editor.dataset.content=field.value;});
+ editor.append(field);
+ return editor;
+}
+function reasonCell(group,scene){
+ const cell=el('td');
+ cell.append(fittedEditor(input(group,scene,'reason',editorFields.reason,scene.reason),'reason-editor'));
+ return cell;
+}
 function fillCauseOptions(select,selected){
  select.replaceChildren();
  for(const text of ['',...sections[section].causes,...state.edits.causes[section]]){
@@ -339,13 +444,7 @@ function renderTable(){
    row.append(cell);
    if(index===0)row.append(countCell(group,records.length,records.length));
    if(section==='g_only'){
-    const concern=fieldCell(group,scene,'concern',scene.concern);
-    concern.firstChild.onchange=()=>{
-     const filter=concernFilter;
-     updateConcernFilter(document.getElementById('concern-filter'));
-     if(filter!==null&&filter!==concernOf(group,scene))renderTable();
-    };
-    row.append(concern,fieldCell(group,scene,'reason',scene.reason));
+    row.append(concernCell(group,scene),reasonCell(group,scene));
    }
    row.append(causeCell(group,scene),fieldCell(group,scene,'solution'));
   });
@@ -411,11 +510,11 @@ document.getElementById('save-html').onclick=()=>{
  copy.querySelector('.source-navigation')?.remove();
  copy.querySelector('#save-status').hidden=true;
  for(const dialog of copy.querySelectorAll('dialog'))dialog.removeAttribute('open');
- copy.querySelector('#cause-name').removeAttribute('value');
+ for(const selector of ['#cause-name','#title-input'])copy.querySelector(selector).removeAttribute('value');
  const blob=new Blob(['<!doctype html>\n'+copy.outerHTML],{type:'text/html;charset=utf-8'});
  const url=URL.createObjectURL(blob),anchor=el('a');
  anchor.href=url;
- anchor.download='需求异常场景识别结果.html';
+ anchor.download=report.title+'.html';
  anchor.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
  saveStatus.hidden=false;
@@ -424,4 +523,4 @@ document.getElementById('save-html').onclick=()=>{
 setSection(section);
 </script></body></html>
 """
-)
+).replace("__TEACHER_REPORT_TITLE__", TITLE)

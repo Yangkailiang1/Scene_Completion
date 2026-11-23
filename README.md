@@ -1,10 +1,42 @@
 # Scene Completion 场景完整性工作台
 
-从同事的 SysOperation、功能树和测试逆向材料出发，工作台按发送方、接收方、操作、数据建立 SSD，比较需求已有（E）、方法生成（G）和测试逆向（GT）的异常。第一次沿代码运行，请从[结构化材料到离线报告](docs/architecture/ssd-walkthrough.md)开始。
+工作台从同事提供的行为模型、功能树和测试逆向材料提取交互四元组（发送方、接收方、操作、数据），按用例对照需求已有场景（E）、方法生成场景（G）和用测试逆向做的 ground truth（GT）。从输入转换、定位脚本到报告导出，可沿[端到端操作指南](docs/architecture/ssd-walkthrough.md)逐步核对。
 
-当前项目协议为 **scene-workflow-v5**，交互级结果格式为 **ssd-case-v1**，共用外部服务汇总复用 **project-scope-v1**（历史链路/架构保留只读）。v2/v3/v4仅保留历史文档；既有详细流程、独立旧格式导入和保存报告分别放在`compat/detailed`、`compat/standalone`、`compat/saved`，用途见[版本与兼容边界](docs/reference/versions.md)。
+## 从结构化材料到报告
 
-[当前规则](docs/current/concern-rules.md)说明字段、实体、返回报文与计分边界；v9/v10/v11保留为历史演进和验收记录，不是并行源码版本。关注点漏报率0%不表示全部场景已覆盖，历史报告不冒充新版成绩。完整入口见[文档导航](docs/README.md)。
+```mermaid
+flowchart TD
+    SRC["SysOperation.json · 功能树.json · recovered_usecases.json<br/>已登记的 Markdown / Excel 原件"] --> CORE["core-input inspect → convert → validate<br/>写入并校验核心 JSON"]
+    CORE --> PRE["建档后按用例执行 ssd-prepare<br/>冻结核心分件及出处"]
+    PRE --> RES["ssd-resolve<br/>操作、字段与实体约束、证据分类"]
+    RES -->|"正向材料与固定模板"| GEN["ssd-generate · 生成 G"]
+    RES -->|"各自的原文或测试证据"| OBS["E 与 GT 分别识别"]
+    GEN --> CMP["ssd-compare · 分别向 G 对齐并发布结果"]
+    OBS --> CMP
+    CMP --> VIEW["最终结果 · 查看、修订、定位原文与项目指标"]
+    CMP --> MERGE["shared-services-merge<br/>同服务、同故障归并"]
+    VIEW --> HTML["审核交接 · 导出离线 HTML"]
+    MERGE --> HTML
+
+    classDef files fill:#f1f5f9,stroke:#64748b,color:#1e293b
+    classDef script fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef semantic fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class SRC files
+    class CORE,PRE,MERGE script
+    class RES,GEN,OBS,CMP semantic
+    class VIEW,HTML result
+```
+
+**图例**　灰色为输入材料，蓝色为脚本阶段，紫色为含语义判断的阶段，绿色为可查看、编辑或导出的结果。箭头表示材料流向和执行依赖。
+
+1. **转换与校验**。默认按用例名对齐三份结构化材料，生成 `architecture.json` 和各用例的 `main-success.json`、`existing-exceptions.json`、`extension-mapping.json`、`test-exceptions.json`、`source-map.json`。脚本处理可确定的映射，Coding Agent 可用原文补证后重新校验。 [核心字段与目录](.cac/skills/scene-structured-input/references/core-input.md)
+2. **运行与比较**。各用例可单独运行，也可由同一项目 worker 并行调度。每个接口只在主调用步骤展开，G 只读取正向材料。E、GT 分别向最终 G 对齐，可保留跨步骤的失败位置及证据。已确认覆盖按 G 义务计数，未完成或待定位项保留状态。 [阶段与计分口径](docs/current/ssd-case-workflow.md)
+3. **交付与审核**。工作台的「最终结果」可编辑三方记录并定位 Markdown 行或 Excel 单元格。「审核交接」导出《异常场景完整性补全识别结果》，按用例列出交集、仅生成有、仅 GT 有三类场景。场景正文显示步骤原文和具体异常，失败位置未确认时显示关联步骤。第二项可按关注点筛选，并从项目启用的关注点定义中选取。报告标题、场景、归因和解决方案可离线编辑，保存 HTML 后可重开续改。
+
+想先试跑，可用仓库的[浏览商品合成样例](datasets/mini-mall/examples/browse-product/README.md)。端到端验收使用测试模型，覆盖核心分件、三方对齐，以及正式 HTML 导出入口。 [可复现命令](docs/architecture/ssd-walkthrough.md#4-照着跑)
+
+当前使用 **scene-workflow-v5**、交互结果 **ssd-case-v1** 和共用服务结果 **project-scope-v1**。旧业务链路、项目架构和审核包可通过历史入口访问。 [版本与兼容边界](docs/reference/versions.md) · [文档导航](docs/README.md)
 
 ## 启动
 
@@ -47,14 +79,6 @@ Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/S
 
 [架构与依赖图](docs/architecture/code-guide.md) · [开发约定](docs/architecture/development.md) · [唯一迁移清单](docs/architecture/module-map.json)
 
-## 实际流程
-
-默认命令是 `core-input inspect → convert → validate`，再建档和运行。每个用例经过 prepare、resolve、generate、compare，完成后触发共用服务归并。在最终结果可以编辑三方行并定位原始 Markdown 或 Excel。审核交接导出《需求异常场景识别结果》；三页的编辑保存在 HTML 中。
-
-同一服务和故障类型在项目内计一次。当前 `coverage-g-obligation-v3` 按确认覆盖的 G 义务计数，正常边界、缺测试和待定位分别呈现。旧审核包继续使用原来的预览与回导接口。
-
-详细边界与兼容文件见[当前流程说明](docs/current/ssd-case-workflow.md)，原三范围说明保存在[历史快照](docs/history/20261113-three-scope-workflow.md)。
-
 ## 已有文件输入
 
 支持Markdown、JSON及测试XLSX。可使用原始RR/SR/AR，也可接入API提取结果、功能树、恢复用例、结构化需求及行为目录；完整且验证通过的输入跳过相应模型抽取，部分输入只补缺项。
@@ -90,8 +114,8 @@ python scene.py import-case-result --project PROJECT_ID \
 python scene.py capabilities
 python scene.py projects
 python scene.py status --project PROJECT_ID
-python scene.py run --project PROJECT_ID --case CASE_ID
-python scene.py diagnose --project PROJECT_ID --task NODE_ID
+python scene.py run --project PROJECT_ID --case CASE_ID --wait
+python scene.py diagnose --project PROJECT_ID --node NODE_ID
 python scene.py manager --help
 ```
 
@@ -104,6 +128,7 @@ CLI与网页使用相同项目、DAG、校验和审计。模型配置按连接�
 ```sh
 make check
 make frontend-build
+make test-portable
 python tools/build_windows_bundle.py --output-dir dist/windows-latest --offline
 ```
 

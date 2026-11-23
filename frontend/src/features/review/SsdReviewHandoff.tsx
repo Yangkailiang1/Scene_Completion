@@ -100,7 +100,7 @@ export function SsdReviewHandoff({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "需求异常场景识别结果.html";
+      link.download = "异常场景完整性补全识别结果.html";
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice("报告已导出。离线编辑后，点击报告内的「保存含修改的 HTML」。");
@@ -114,7 +114,7 @@ export function SsdReviewHandoff({
   const counts = summary?.report?.counts;
   return (
     <article>
-      <h3>导出需求异常场景识别报告</h3>
+      <h3>导出异常场景完整性补全识别报告</h3>
       <p>
         按用例列出生成与测试共有、仅生成有、仅测试有三类场景。可离线编辑并另存
         HTML，第二项支持按关注点筛选。

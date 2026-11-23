@@ -20,7 +20,7 @@ flowchart LR
     B[SysOperation 分支或已编制的 E] --> E[existing-exceptions.json]
     T[recovered 扩展与测试原文] --> X[extension-mapping.json]
     T --> GT[test-exceptions.json]
-    GT -->|已确认绑定| X
+    GT -->|核对确认绑定| X
     O[原始 Markdown / Excel 与别名清单] --> P[原文快照与 source-map.json]
     M --> P
     E --> P
@@ -31,7 +31,16 @@ flowchart LR
     X --> V
     GT --> V
     P --> V
+
+    classDef files fill:#f1f5f9,stroke:#64748b,color:#1e293b
+    classDef core fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef validated fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class S,F,B,T,O files
+    class A,M,E,X,GT,P core
+    class V validated
 ```
+
+**图例**　灰色为同事提供的材料，蓝色为脚本写入的分件和出处，绿色为建档前的校验入口。
 
 建议一项目分为 `source/`（收到的材料）、`core/<revision>/`（每次转换的新目录）、`workbench/`（建档和运行）、`delivery/`（导出 HTML）。核心根存 `architecture.json`、使用的功能树、可用的 recovered 文件及配套原件。源目录提供 `source-documents.json` 时随核心复制。五个用例分件位于 `cases/<稳定目录>/`，运行命令用 `case.id` 选用例。分件引用的 `source-evidence/` 随版本保存。
 
@@ -66,7 +75,7 @@ flowchart LR
 1. 合成样例的 `功能树.json`，Pointer `/functions/0/srLayer/commands/0/attributes/1/constraints/0` 是 `1 <= pageSize <= 100`，自己的 `source` 指向 `功能设计_spec.md` 第 10 行。主成功调用在 `SysOperation.json#/operations/browse_main_success/system_event/0`，节点 B1 由 U 发给 MALL。
 2. 在 `cases/UC-BROWSE-01-浏览商品-2d5f1eda/main-success.json` 找 `data_obligations` 中的 `(B1, BROWSE-GET, pageSize)`。其 `field_id` 为 `sr-input-field-11790c16e48939faaafaedcd`。用它查 `source-map.json` 的 `interface_fields`，minimum 和 maximum 两条都能回到上面的 Pointer 和原件第 10 行。
 3. 查看工作台「最终结果」的 B1。G 把上下界分成两行。在 `pageSize > 100` 行，E 来自行为分支 `/operations/SC_EX_PAGE_SIZE_HIGH`，核心的 `failure_step_hint.after=B2` 保留到对齐，来源可回到 SR 第 13 行。GT 来自测试用例 `REC-BROWSE-01` 的 `EXT-03`（`/0/extensions/2`），原文为 `test_browse.md` 第 5 行。检查返回的 `comparison.scenarios[].cells.G/E/GT`，可同时看到 G 挂载在 B1 和 E 实际失败在 B2。
-4. 该行出现在《需求异常场景识别结果》的交集页。另一条 `pageSize < 1` 靠 EXT-02 获得覆盖；上界证据只覆盖上界。`keyword 长度 > 32` 有独立测试依据，在仅 GT 页。以下离线验收固定了这三条断言。
+4. 该行出现在《异常场景完整性补全识别结果》的交集页，正文先显示 B2 的设计文档原句，再显示具体异常 `pageSize > 100`。另一条 `pageSize < 1` 靠 EXT-02 获得覆盖；上界证据只覆盖上界。`keyword 长度 > 32` 有独立测试依据，在仅 GT 页。以下离线验收固定了这三条断言。
 
 ## 2. 建档，按用例调度，发布三方修订
 
@@ -89,8 +98,17 @@ flowchart TD
     UI --> PUB
     UI --> REPORT[审核交接 POST ssd-review/report]
     SS --> REPORT
-    REPORT --> HTML[需求异常场景识别结果 HTML]
+    REPORT --> HTML["异常场景完整性补全识别结果 HTML<br/>步骤原文 · 具体异常 · 原文入口"]
+
+    classDef script fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef semantic fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef result fill:#dcfce7,stroke:#16a34a,color:#14532d
+    class APP,P,PRE,SS,REPORT script
+    class RES,G,CE,CT semantic
+    class PUB,UI,HTML result
 ```
+
+**图例**　蓝色为脚本或应用服务，紫色为含语义判断的阶段，绿色为发布或交付结果。E、GT 各自对齐已经生成的 G。
 
 `create --input-dir` 经 [input_service.create_bundle](../../src/scene_completion/application/input_service.py) 建档、采纳输入并冻结文件。`scene.py --local` 通过 `application/local_workbench.py` 调用应用服务；`serve.py` 通过 `api/application.create_app` 装配相同服务。[Workbench._start / _execute](../../src/scene_completion/application/project_service.py) 负责项目 worker、运行锁与 `Execution`。[planning.build_pipeline](../../src/scene_completion/workflow/planning.py) 优先取冻结目录，进入 [ssd/pipeline.py](../../src/scene_completion/workflow/ssd/pipeline.py) 的 `input_directory → build_structured → _task / _tail`。找到核心分件即可运行。同用例的多份同优先级输入会给出冲突文件，选中的用例不存在会报错。RR/SR 文档抽取是另一个上游，产出进入同一 SSD 阶段。
 
@@ -111,7 +129,7 @@ flowchart TD
 - **修订**。[ssd_revision_service.publish / editor / save_revision](../../src/scene_completion/application/ssd_revision_service.py) 分别发布、读取、保存。仓储 [ssd_repository](../../src/scene_completion/infrastructure/ssd_repository.py) 将当前指针存入 `ssd_results/<用例哈希>/state.json`，版本存入 `revisions/<n>.json`。`run/task_outputs` 记录执行，人工编辑要走带 `base_revision` 的修订接口。并发冲突返回 HTTP 409。
 - **三方表**。[SsdResultsView](../../frontend/src/features/results/ssd/SsdResultsView.tsx) 取得 editor 投影，[SsdAlignmentTable](../../frontend/src/features/results/ssd/SsdAlignmentTable.tsx) 按 G 义务呈现本方去重后的场景与出处。[SsdEditors](../../frontend/src/features/results/ssd/SsdEditors.tsx) 编辑草稿，[LocateObservation](../../frontend/src/features/results/ssd/LocateObservation.tsx) 将待定位记录挂到候选关注点。[SsdSourceDialog](../../frontend/src/features/results/ssd/SsdSourceDialog.tsx) 打开冻结原文。一个来源可在多个适用行保留对应依据。
 - **计分与分类**。当前 `coverage-g-obligation-v3` 在 G 义务粒度记录确认覆盖，一项 G 被任一 GT 确认即可。冻结旧口径允许 full/partial 均计覆盖。三方行和指标查 `domain/ssd/{matching,g_grain,metrics}.py`；报告归类查 [business_report.classify](../../src/scene_completion/domain/business_report.py)。E 作为需求已有的参考；仅 G、仅 GT 和交集按 G/GT 的确认对应划分。未完成、无测试或待确认需分别查看状态。
-- **交付**。[SsdReviewHandoff](../../frontend/src/features/review/SsdReviewHandoff.tsx) 在审核交接请求 `POST /api/projects/{rid}/ssd-review/report`。[result_routes.ssd_business_report](../../src/scene_completion/api/result_routes.py) 调用 `business_report_export.export_html`，读取已发布快照，交给 `_teacher_report_template.py` 渲染。交集页有 3 列，仅 G 页有 7 列，仅 GT 页有 5 列。仅 G 可按关注点筛选，当前小计随筛选变化，页签总数始终取全量。共用服务单列；离线修改、数量备注、预设或自定义归因及解决方案保存在下载的 HTML，重新打开可续改。
+- **交付**。[SsdReviewHandoff](../../frontend/src/features/review/SsdReviewHandoff.tsx) 在审核交接请求 `POST /api/projects/{rid}/ssd-review/report`。[result_routes.ssd_business_report](../../src/scene_completion/api/result_routes.py) 调用 `business_report_export.export_html`，读取已发布快照，交给 `_teacher_report_template.py` 渲染。交集页有 3 列，仅 G 页有 7 列，仅 GT 页有 5 列。仅 G 可按关注点筛选，场景的关注点从项目启用的定义中选择。小计随筛选变化，页签总数取全量。场景正文列出步骤、异常和可点开的出处，共用服务单列。编辑报告标题、场景、数量备注、归因及解决方案后，保存 HTML 可重开续改。
 - **已有审核文件**。历史 `/ssd-review/export`、`/preview`、`/apply` 使用可回导的审核包，由 `review/offline/adoption.py` 处理。`analysis/ssd/*` 和 `workflow/ssd_pipeline.py` 是 Python 旧导入入口。查历史文件去[迁移清单](module-map.json)。
 
 ## 4. 照着跑
@@ -155,7 +173,7 @@ wb run --project "$PROJECT_ID" --case "$CASE_1" --case "$CASE_2" --wait
 mkdir -p "$PROJECT_DIR/delivery"
 curl --fail --silent --show-error -H 'Content-Type: application/json' -d '{}' \
   "http://127.0.0.1:8765/api/projects/$PROJECT_ID/ssd-review/report" \
-  -o "$PROJECT_DIR/delivery/需求异常场景识别结果.html"
+  -o "$PROJECT_DIR/delivery/异常场景完整性补全识别结果.html"
 ```
 
 ## 5. 断点和故障定位

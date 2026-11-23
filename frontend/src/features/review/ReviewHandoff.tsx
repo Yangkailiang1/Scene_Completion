@@ -226,7 +226,7 @@ export function ReviewHandoff({
         <h3>审核交接</h3>
         <span>
           {showSsd
-            ? "需求异常场景识别报告 · 离线编辑"
+            ? "异常场景完整性补全识别报告 · 离线编辑"
             : reviewOnly
               ? "业务审核模式 · 不运行模型"
               : "研发端 · 反馈导入后手动重跑"}
@@ -257,7 +257,9 @@ export function ReviewHandoff({
                 setFormat(event.target.value as "ssd" | "windows")
               }
             >
-              <option value="ssd">需求异常场景识别报告 · 离线 HTML</option>
+              <option value="ssd">
+                异常场景完整性补全识别报告 · 离线 HTML
+              </option>
               <option value="windows">
                 业务问题与推荐 · Windows 审核包 / 反馈 JSON
               </option>
