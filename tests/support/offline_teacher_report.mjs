@@ -86,6 +86,8 @@ assert.deepEqual([...new Set([...members].map((item) => item.textContent))].sort
 const commonScene = d.querySelector(common + " .scene-edit");
 assert.match(commonScene.querySelector('[data-field="text"]').value, /用例 A · 执行 A.*另有 1 个调用/);
 assert.match(commonScene.querySelector(".scene-evidence").textContent, /用例 B · 执行 B/);
+assert.equal(commonScene.querySelector("details.scene-evidence").open, true);
+assert.match(commonScene.querySelector(".scene-evidence").textContent, /未找到可打开的原始文档出处/);
 const reportTotal = d.querySelector("#tab-g_only").textContent;
 choose(d.querySelector("#report-toolbar select"), "身份认证");
 assert.equal(group().rows.length, 2);
@@ -98,8 +100,18 @@ const auth = group().querySelector("[data-scene-id]");
 assert.equal(auth.querySelector('[data-field="text"]').value,
   "关联步骤 · 顾客发送商品查询\n具体异常 · 凭证格式错误");
 assert.match(group().querySelector('[data-field="reason"]').value, /发送方 顾客 · 身份认证/);
+assert.equal(auth.querySelectorAll(".scene-evidence button").length, 1);
+assert.equal(auth.querySelector(".scene-evidence button").textContent, "原始需求.md L2");
+assert.ok(!auth.querySelector("details.scene-evidence"));
+assert.doesNotMatch(auth.querySelector(".scene-evidence").textContent, /SysOperation|步骤原文与出处|预期结果/);
 auth.querySelector(".scene-evidence button").click();
 assert.equal(d.querySelector("#source-dialog").open, true);
+assert.equal(d.querySelector('#source-content .source-highlight[data-line="2"]').textContent, "凭证必须有效。");
+d.querySelector("#source-close").click();
+const proxied = [...group().querySelectorAll(".scene-edit")].find(node =>
+  node.querySelector('[data-field="text"]').value.includes("Token签发方不受信任"));
+assert.equal(proxied.querySelector(".scene-evidence button").textContent, "原始需求.md L2");
+proxied.querySelector(".scene-evidence button").click();
 assert.equal(d.querySelector('#source-content .source-highlight[data-line="2"]').textContent, "凭证必须有效。");
 d.querySelector("#source-close").click();
 edit(auth.querySelector('[data-field="text"]'), "离线编辑 <说明> & </script>");
@@ -120,6 +132,9 @@ edit(group().querySelector('[data-field="cause"]'), "规则边界待澄清", "ch
 choose(d.querySelector("#report-toolbar select"), "全部关注点");
 const permission = Array.from(group().querySelectorAll('select[data-field="concern"]')).find(e => e.value === "human.authorization");
 assert.ok(permission.selectedOptions[0].disabled);
+const permissionEvidence = permission.closest("tr").querySelector("details.scene-evidence");
+assert.ok(permissionEvidence.open);
+assert.equal(permissionEvidence.querySelector("button").textContent, "SysOperation.json L1");
 assert.equal(permission.selectedOptions[0].textContent, "权限控制（原关注点）");
 assert.ok([...permission.options].some(o => o.value === "api.data.range"));
 assert.ok(![...permission.options].some(o => o.value === "global.call_order"));
@@ -135,7 +150,8 @@ assert.ok(!d.querySelector("#report-toolbar select"));
 assert.equal(group().rows.length, 1);
 assert.equal(group().querySelector('[data-field="text"]').value,
   "实际失败步骤 · 商城核对商品是否存在\n具体异常 · 资源不存在");
-assert.match(group().querySelector(".scene-evidence").textContent, /用测试逆向做的ground truth/);
+assert.match(group().querySelector(".scene-evidence").textContent, /原始测试\.xlsx.*验证!B120/);
+assert.ok(!group().querySelector("details.scene-evidence"));
 assert.deepEqual([...group().querySelector('[data-field="cause"]').options].slice(1).map(o => o.value),
   ["关注点不够", "前置抽取问题"]);
 edit(group().querySelector('[data-field="cause"]'), "关注点不够", "change");

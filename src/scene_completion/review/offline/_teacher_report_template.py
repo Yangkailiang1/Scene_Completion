@@ -180,18 +180,46 @@ function appendSources(parent,group,refs){
  for(const ref of refs||[]){
   const doc=group.bundle.documents.find(d=>d.id===ref.document_id);
   const origin=ref.origin;
-  const exact=origin&&['exact','located'].includes(origin.match);
-  const name=(exact?origin.document:doc?.name)||ref.document_id||'原文';
+  const exact=origin&&doc?.name===origin.document&&['exact','located'].includes(origin.match);
+  const name=doc?.name||ref.document_id||'原文';
   const location=exact&&origin.cell_range
-   ? origin.cell_range
+   ? [origin.sheet,origin.cell_range].filter(Boolean).join('!')
    : ref.start_line?'L'+ref.start_line+(ref.end_line>ref.start_line?'–L'+ref.end_line:''):'';
-  const button=el('button',[name.split('/').at(-1),location].filter(Boolean).join(' '));
+  const file=name.split(/[\\/]/).at(-1);
+  const button=el('button',[exact&&origin.sheet?file.replace(/(\.xlsx)#.+$/i,'$1'):file,location].filter(Boolean).join(' '));
   button.type='button';
   button.title=name;
   button.onclick=()=>showSource(group,ref);
   links.append(button);
  }
  if(links.childNodes.length)parent.append(links);
+}
+const documentLineCounts=new WeakMap();
+function originalSources(group,scene){
+ const docs=group.bundle.documents,found=new Map(),records=Object.values(scene.evidence).flat()
+  .flatMap(record=>[record,...(record.members||[])]);
+ const refs=[
+  ...records.flatMap(record=>record.source_refs||[]),
+  ...(scene.step_evidence||[]).flatMap(step=>step.source_refs||[]),
+  ...records.flatMap(record=>record.requirement_refs||[])
+ ];
+ for(const ref of refs){
+  const origin=ref.origin;
+  if(origin?.match==='pending')continue;
+  const traced=['exact','located'].includes(origin?.match);
+  const doc=traced?docs.find(d=>d.name===origin.document):
+   ref.json_pointer?null:docs.find(d=>d.id===ref.document_id&&['RR','SR','test'].includes(d.role));
+  if(!doc||typeof doc.content!=='string'||!(/\.(?:md|markdown)$|\.xlsx#.+$/i.test(doc.name)))continue;
+  const start=traced?origin.start_line:ref.start_line,end=(traced?origin.end_line:ref.end_line)??start;
+  if(!documentLineCounts.has(doc))documentLineCounts.set(doc,doc.content.split('\n').length);
+  if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>documentLineCounts.get(doc))continue;
+  const cell=traced?origin.cell_range:undefined,key=JSON.stringify([doc.id,start,end,cell||null]);
+  if(!found.has(key))found.set(key,{
+   document_id:doc.id,start_line:start,end_line:end,quote:traced?origin.quote||ref.quote:ref.quote,
+   ...(cell?{origin}:{})
+  });
+ }
+ return [...found.values()];
 }
 function recordEvidence(parent,group,record){
  if(record.condition)parent.append(el('p',record.condition));
@@ -203,8 +231,16 @@ function recordEvidence(parent,group,record){
  }
 }
 function evidence(group,scene){
+ const originals=originalSources(group,scene);
+ if(originals.length){
+  const list=el('div',undefined,'scene-evidence');
+  list.setAttribute('aria-label','原始文档出处');
+  appendSources(list,group,originals);
+  return list;
+ }
  const detail=el('details',undefined,'scene-evidence');
- detail.append(el('summary','原文与依据'),el('p',scene.classification));
+ detail.open=true;
+ detail.append(el('summary','原文与依据'),el('p','未找到可打开的原始文档出处'),el('p',scene.classification));
  if(scene.step_evidence?.length){
   detail.append(el('strong','步骤原文与出处'));
   for(const step of scene.step_evidence){

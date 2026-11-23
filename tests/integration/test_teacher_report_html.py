@@ -26,10 +26,25 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
     auth = bundle["channels"]["G"]["scenarios"][-1]
     auth["analysis"] = "凭证格式校验会拒绝无法识别的凭证。"
     auth["source_refs"] = [
-        {"document_id": "req", "start_line": 2, "end_line": 2, "quote": "凭证必须有效。"}
+        {"document_id": "req", "start_line": 2, "end_line": 2, "quote": "凭证必须有效。"},
+        {
+            "document_id": "behavior",
+            "start_line": 1,
+            "end_line": 1,
+            "quote": "已转换的步骤",
+            "json_pointer": "/steps/0",
+            "origin": {
+                "document": "原始需求.md",
+                "match": "located",
+                "start_line": 2,
+                "end_line": 2,
+                "quote": "凭证必须有效。",
+            },
+        },
     ]
     bundle["documents"] = [
         {"id": "req", "name": "原始需求.md", "role": "RR", "content": "# 身份认证\n凭证必须有效。"},
+        {"id": "behavior", "name": "SysOperation.json", "role": "intermediate", "content": "{}"},
         {
             "id": "sheet",
             "name": "原始测试.xlsx#验证",
@@ -38,6 +53,7 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
         },
     ]
     auth_extra = {**deepcopy(auth), "id": "G-auth-extra", "condition": "Token签发方不受信任"}
+    auth_extra["source_refs"] = auth_extra["source_refs"][1:]
     bundle["channels"]["G"]["scenarios"].append(auth_extra)
     permission = {
         **deepcopy(bundle["channels"]["G"]["concerns"][0]),
@@ -54,6 +70,21 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
             "concern_ids": [permission["id"]],
             "condition": "无访问权限",
             "analysis": "",
+            "source_refs": [
+                {
+                    "document_id": "behavior",
+                    "start_line": 1,
+                    "end_line": 1,
+                    "quote": "{}",
+                    "json_pointer": "/steps/0",
+                    "origin": {
+                        "document": "未随报告提供的设计.md",
+                        "match": "located",
+                        "start_line": 2,
+                        "end_line": 2,
+                    },
+                },
+            ],
         }
     )
     truth = {
@@ -62,7 +93,22 @@ def test_teacher_report_offline_tables_filters_and_frozen_evidence(tmp_path):
         "condition": "资源不存在",
         "failure_step_id": "verify",
         "source_refs": [
-            {"document_id": "sheet", "start_line": 120, "end_line": 120, "quote": "资源不存在"}
+            {
+                "document_id": "behavior",
+                "start_line": 1,
+                "end_line": 1,
+                "quote": "测试记录",
+                "json_pointer": "/extensions/0",
+                "origin": {
+                    "document": "原始测试.xlsx#验证",
+                    "match": "exact",
+                    "start_line": 120,
+                    "end_line": 120,
+                    "sheet": "验证",
+                    "cell_range": "B120",
+                    "quote": "资源不存在",
+                },
+            }
         ],
     }
     bundle["channels"]["GT"]["scenarios"].append(truth)
