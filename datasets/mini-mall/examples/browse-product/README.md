@@ -12,7 +12,9 @@
 
 `pageSize` 的两个边界失败在 B1 分别进入三方表，实际校验保留 B2。商品实体约束在 B3 展开，B4 保留读取步骤。分类编号的接口和实体约束带显式等价证据，合并同一格式义务。测试中合法边界属于正常结果。测试独立的关键词长度边界用于验证 GT 独有场景。入口允许匿名访问。
 
-在仓库根目录执行：
+从源码离线复现全部五个节点和新报告，执行 `python -m pytest -q tests/acceptance/test_browse_product_route.py`。它使用本地测试模型。[字段追踪、命令与排障](../../../../docs/architecture/ssd-walkthrough.md)
+
+使用已授权项目模型时，在仓库根目录执行：
 
 ```sh
 SOURCE=datasets/mini-mall/examples/browse-product

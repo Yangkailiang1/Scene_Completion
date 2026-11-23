@@ -36,7 +36,7 @@ export type Party = {
 export type Field = {
   id: string;
   name: string;
-  location: string;
+  location?: string;
   type?: string;
   required?: boolean | null;
   command_id?: string;
@@ -44,9 +44,15 @@ export type Field = {
   validation_step_ids?: string[];
   response_step_ids?: string[];
   rule_texts?: string[];
+  conflicts?: string[];
   constraints: { kind: string; value: any; source_refs?: SourceRef[] }[];
   source_refs: SourceRef[];
 };
+export function fieldLabel(field: Field) {
+  return field.location
+    ? `${field.location}.${field.name}`
+    : [field.command_id, field.name].filter(Boolean).join(" · ");
+}
 export type Step = {
   id: string;
   order: number;
@@ -114,6 +120,7 @@ export type Bundle = {
   >;
   documents: SourceDocument[];
   analysis_profile?: string;
+  interface_field_policy?: string;
   command_bindings?: Record<
     string,
     {

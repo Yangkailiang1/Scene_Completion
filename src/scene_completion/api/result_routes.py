@@ -45,6 +45,16 @@ def register(app, service):
 
         return summary(service.run_dir(rid), body)
 
+    @app.post("/api/projects/{rid}/ssd-review/report")
+    def ssd_business_report(rid: str, body: dict):
+        from scene_completion.review.offline.business_report_export import export_html
+
+        return Response(
+            export_html(service.run_dir(rid), body),
+            media_type="text/html",
+            headers={"Content-Disposition": 'attachment; filename="ssd-business-report.html"'},
+        )
+
     @app.post("/api/projects/{rid}/ssd-review/export")
     def ssd_review_export(rid: str, body: dict):
         from scene_completion.review.offline.adoption import export_html

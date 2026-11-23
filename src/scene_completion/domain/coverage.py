@@ -1,7 +1,14 @@
 """Confirmed many-to-many coverage shared by metrics and business review."""
 
+from collections import defaultdict
+
 POLICY = "coverage-any-confirmed-v2"
+GRAIN_POLICY = "coverage-g-obligation-v3"
 COVERED = {"full", "partial"}
+
+
+def binary_status(status):
+    return "full" if status in COVERED else status
 
 
 def covered(edges, left, right):
@@ -31,58 +38,84 @@ REASONS = {
 }
 
 
-def review_statuses(bundle, matching):
-    """Per-record eligibility and confirmed links; pending sources only block their anchor."""
-    units, aliases = matching._units(bundle, "scenarios")
-    edges = matching._edges(bundle, "scenarios", units, aliases)
-    links = {}
-    truth = {r["id"]: r for r in bundle["channels"]["GT"]["scenarios"]}
-    for (left, right), status in edges["GT_G"].items():
-        if status in COVERED:
-            records = [r for r in truth.values() if aliases["GT"].get(r["id"]) == left]
-            for r in records:
-                decision = next(
-                    (
-                        d
-                        for d in reversed(
-                            sorted(
-                                bundle.get("decisions", []),
-                                key=lambda d: d.get("origin") == "manual",
-                            )
-                        )
-                        if d.get("pair") == "GT_G"
-                        and d.get("level") == "scenario"
-                        and aliases["GT"].get(d.get("left_id")) == left
-                        and aliases["G"].get(d.get("right_id")) == right
-                        and d.get("status") == status
-                    ),
-                    {},
-                )
-                links.setdefault(right, []).append(
-                    {
-                        "id": r["id"],
-                        "status": status,
-                        "condition": r.get("condition", ""),
-                        "reason": decision.get("reason", "相同定位及失败条件"),
-                    }
-                )
-    unresolved = {
-        aliases["G"].get(p["right_id"])
-        for p in matching.semantic_candidates(bundle)
-        if p["pair"] == "GT_G"
+def gt_identification_complete(bundle):
+    if bundle.get("gt_source_available") is False:
+        return False
+    identified = bundle.get("gt_identification_run_complete")
+    if identified is not None:
+        return identified
+    gt = bundle["channels"]["GT"]
+    return not any(
+        row.get("needs_semantic")
+        for row in gt.get("pending", [])
+        + [r for r in gt["scenarios"] if r.get("status") != "active"]
+    )
+
+
+def unassessed_gt(bundle, matching, truth, statuses, pending):
+    """Exclude unmatched tests whose corresponding generation or matching is unfinished."""
+    if not gt_identification_complete(bundle):
+        return set(truth)
+    incomplete = {
+        matching.binding(row)
+        for row in bundle["channels"]["G"]["scenarios"]
+        if statuses[row["id"]]["reason"] in {"generation_pending", "inactive"}
     }
+    generation = set(bundle.get("generation_pending", [])) | set(
+        bundle.get("scenario_generation", {}).get("pending_ids", [])
+    )
+    return pending | {
+        ident
+        for ident, row in truth.items()
+        if row.get("step_id", row.get("anchor_id")) in generation
+        or matching.binding(row) in incomplete
+    }
+
+
+def review_statuses(bundle, matching, *, comparison=None):
+    """Per-record eligibility and confirmed links; pending sources only block their anchor."""
+    if comparison is None:
+        units, aliases = matching._units(bundle, "scenarios")
+        edges = matching._edges(bundle, "scenarios", units, aliases)
+        candidates = matching.semantic_candidates(bundle)
+    else:
+        aliases, edges, candidates = comparison
+    links = defaultdict(list)
+    truth = bundle["channels"]["GT"]["scenarios"]
+    truth_records = defaultdict(list)
+    for row in truth:
+        truth_records[aliases["GT"].get(row["id"])].append(row)
+    decisions = {
+        (
+            aliases["GT"].get(d["left_id"]),
+            aliases["G"].get(d["right_id"]),
+            d["status"],
+        ): d
+        for d in sorted(bundle.get("decisions", []), key=lambda d: d.get("origin") == "manual")
+        if d.get("pair") == "GT_G" and d.get("level") == "scenario"
+    }
+    for (left, right), status in edges["GT_G"].items():
+        if status not in COVERED:
+            continue
+        decision = decisions.get((left, right, status), {})
+        links[right].extend(
+            {
+                "id": row["id"],
+                "status": binary_status(status)
+                if bundle.get("coverage_policy") == GRAIN_POLICY
+                else status,
+                "condition": row.get("condition", ""),
+                "reason": decision.get("reason", "相同定位及失败条件"),
+            }
+            for row in truth_records[left]
+        )
+    unresolved = {aliases["G"].get(p["right_id"]) for p in candidates if p["pair"] == "GT_G"}
     pending = bundle["channels"]["GT"].get("pending", []) + [
-        r for r in truth.values() if r.get("status") != "active"
+        r for r in truth if r.get("status") != "active"
     ]
     generation = set(bundle.get("scenario_generation", {}).get("pending_ids", []))
     generation.update(bundle.get("generation_pending", []))
-    identified = bundle.get("gt_identification_run_complete")
-    # Legacy SSD packets represent an unfinished source task with needs_semantic.
-    # Project packets recover the explicit completion proof in the application projection.
-    if bundle.get("gt_source_available") is False:
-        identified = False
-    elif identified is None:
-        identified = not any(p.get("needs_semantic") for p in pending)
+    identified = gt_identification_complete(bundle)
     result = {}
     for row in bundle["channels"]["G"]["scenarios"]:
         ident = aliases["G"].get(row["id"])

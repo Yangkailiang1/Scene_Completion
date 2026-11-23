@@ -7,6 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.domain.current_scope import COMMAND_PROFILES, STRUCTURED_PROFILES
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.infrastructure.storage import fingerprint, io_path, logical_path, write_json
 from scene_completion.inputs.structured.authoring_cases import is_behavior_evidence
 from scene_completion.workflow.ssd.input_conversion.case_builder import _input_root, build_cases
@@ -30,6 +31,7 @@ def _sources(bundle, row):
 
 def _originals(bundle, row):
     result = []
+    documents = _documents(bundle)
     for source in _sources(bundle, row):
         if source.get("declared_source"):
             result.append(source["declared_source"])
@@ -40,11 +42,18 @@ def _originals(bundle, row):
             or source.get("json_pointer")
         ):
             continue
-        origin = source.get("origin") or {}
+        origin = source.get("origin")
+        origin = origin if isinstance(origin, dict) else {}
+        snapshot = documents[source["document_id"]]
+        sheet = origin.get("sheet") or snapshot.get("sheet")
+        document = snapshot.get("source_path") or (
+            source["file"].removesuffix("#" + sheet) if sheet else source["file"]
+        )
         if origin.get("cell_range"):
             result.append(
                 {
-                    "document": source["file"].rsplit("#", 1)[0],
+                    "document": document,
+                    "sheet": origin["sheet"],
                     "location": origin["declared_line"],
                     "quote": origin["cell_quote"],
                 }
@@ -52,7 +61,8 @@ def _originals(bundle, row):
         else:
             result.append(
                 {k: source[k] for k in ("start_line", "end_line", "quote")}
-                | {"document": source["file"]}
+                | {"document": document}
+                | ({"sheet": sheet} if sheet else {})
             )
     return result
 
@@ -64,10 +74,23 @@ def _exception(bundle, row, channel, evidence_files):
     target = row.get("target")
     if row.get("entity_id") and row.get("attribute"):
         target = "entity"
+    named = bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
     if field:
-        target = "sender" if field["location"] == "response" else "receiver"
+        target = "receiver" if named or field.get("location") != "response" else "sender"
+    parameter = None
+    if field and named:
+        parameter = {"command_id": field["command_id"], "name": field["name"]}
+    elif field:
+        parameter = {
+            "name": field["name"],
+            "location": field["location"],
+            "direction": field.get("direction")
+            or (step["direction"] if field["location"] != "storage" else "storage"),
+        }
     sources = _sources(bundle, row)
     pending_source = row.get("original") or {}
+    if not parameter and named and (declared := pending_source.get("parameter")):
+        parameter = {k: declared[k] for k in ("command_id", "name") if declared.get(k)}
     location = failure_context.location(bundle, pending_source) if pending_source else {}
     branch = failure_context.branch_context(pending_source)
     structured_refs = [
@@ -91,10 +114,17 @@ def _exception(bundle, row, channel, evidence_files):
     anchor = None
     if original:
         document = _documents(bundle)[original["document_id"]]
+        origin = original.get("origin")
+        origin = origin if isinstance(origin, dict) else {}
         anchor = {
             "document_id": document["id"],
             "layer": document["role"],
             **{k: original[k] for k in ("start_line", "end_line", "quote")},
+            **(
+                {"location": origin["declared_line"], "cell_quote": origin["cell_quote"]}
+                if origin.get("cell_range")
+                else {}
+            ),
         }
     return {
         "id": row["id"],
@@ -136,18 +166,7 @@ def _exception(bundle, row, channel, evidence_files):
             if row.get(k)
         },
         **({"concern_key": row["key"]} if row.get("key") else {}),
-        **(
-            {
-                "parameter": {
-                    "name": field["name"],
-                    "location": field["location"],
-                    "direction": field.get("direction")
-                    or (step["direction"] if field["location"] != "storage" else "storage"),
-                }
-            }
-            if field
-            else {}
-        ),
+        **({"parameter": parameter} if parameter else {}),
     }
 
 
@@ -203,6 +222,11 @@ def _main(bundle):
         )
     return {
         "version": "main-success-v2",
+        **(
+            {"interface_field_policy": INPUT_FIELD_POLICY}
+            if bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
+            else {}
+        ),
         **({"analysis_profile": bundle["analysis_profile"]} if entity_only else {}),
         "case": bundle["case"],
         **({"case_entity": bundle["case_entity"]} if bundle.get("case_entity") else {}),
@@ -214,7 +238,7 @@ def _main(bundle):
                         "step_id": step["id"],
                         "field_id": field["id"],
                         "command_id": field["command_id"],
-                        "location": field["location"],
+                        **({"location": field["location"]} if "location" in field else {}),
                         "name": field["name"],
                     }
                     for step in bundle["steps"]
@@ -231,9 +255,10 @@ def _main(bundle):
         "documents": [
             {
                 "id": doc["id"],
-                "path": doc["name"],
+                "path": doc.get("source_path") or doc["name"],
                 "name": Path(doc["name"]).name,
                 "role": doc["role"],
+                **({"sheet": doc["sheet"]} if doc.get("sheet") else {}),
             }
             for doc in bundle["documents"]
             if doc["role"] in {"RR", "SR", "test"}
@@ -328,7 +353,7 @@ def write_core(root, output, bundles):
         for doc in bundle["documents"]:
             if doc["role"] not in {"RR", "SR", "test"}:
                 continue
-            name = doc["name"].split("#", 1)[0]
+            name = doc.get("source_path") or doc["name"]
             source = root / name
             if source.is_file():
                 target = output / name
@@ -424,6 +449,26 @@ def write_core(root, output, bundles):
             {
                 "case_id": case_id,
                 "steps": {step["id"]: _sources(bundle, step) for step in bundle["steps"]},
+                **(
+                    {
+                        "interface_fields": {
+                            field["id"]: {
+                                "field": _sources(bundle, field),
+                                "constraints": [
+                                    {
+                                        "operation": atom.get("operation"),
+                                        "source_refs": _sources(bundle, atom),
+                                    }
+                                    for atom in field["atoms"] + field["unresolved"]
+                                ],
+                            }
+                            for step in bundle["steps"]
+                            for field in step["data"]
+                        }
+                    }
+                    if bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
+                    else {}
+                ),
                 **{
                     channel: {
                         row["id"]: _sources(bundle, row)

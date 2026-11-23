@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { documentChoices, documentLines } from "../shared/provenance";
 import {
+  fieldLabel,
   channelLabels,
   copy,
   targetLabels,
@@ -802,7 +803,7 @@ export function ObservationEditor({
           values={[
             ["", "选择字段"],
             ...(step?.data || []).map(
-              (f) => [f.id, `${f.location}.${f.name}`] as [string, string],
+              (f) => [f.id, fieldLabel(f)] as [string, string],
             ),
           ]}
           onChange={(field_id) => set({ ...value, field_id: field_id || null })}
@@ -931,17 +932,23 @@ export function ObservationEditor({
 export function MatchEditor({
   bundle,
   decision,
+  binary = false,
   onClose,
   onSave,
 }: {
   bundle: Pick<Bundle, "channels">;
   decision?: Decision;
+  binary?: boolean;
   onClose: () => void;
   onSave: (value: Decision) => void;
 }) {
   const [value, set] = useState<Decision>(
     decision
-      ? copy(decision)
+      ? {
+          ...copy(decision),
+          status:
+            binary && decision.status === "partial" ? "full" : decision.status,
+        }
       : {
           id: uid("match"),
           level: "scenario",
@@ -955,6 +962,7 @@ export function MatchEditor({
   );
   const [left, right] = value.pair.split("_") as [Channel, Channel];
   const field = value.level === "concern" ? "concerns" : "scenarios";
+  const fixed = binary && !!decision;
   const options = (ch: Channel): [string, string][] => [
     ["", "选择记录"],
     ...bundle.channels[ch][field].map(
@@ -968,45 +976,67 @@ export function MatchEditor({
       onClose={onClose}
       onSave={() => onSave({ ...value, origin: "manual" })}
     >
-      <Select
-        label="匹配粒度"
-        value={value.level}
-        values={[
-          ["concern", "关注点"],
-          ["scenario", "场景"],
-        ]}
-        onChange={(level) =>
-          set({ ...value, level, left_id: "", right_id: "" })
-        }
-      />
-      <Select
-        label="匹配来源"
-        value={value.pair}
-        values={[
-          ["G_E", "方法生成 ↔ 原文抽取"],
-          ["GT_G", "测试逆向 ↔ 方法生成"],
-          ["GT_E", "测试逆向 ↔ 原文抽取"],
-        ]}
-        onChange={(pair) => set({ ...value, pair, left_id: "", right_id: "" })}
-      />
-      <Select
-        label={`${channelLabels[left]}记录`}
-        value={value.left_id}
-        values={options(left)}
-        onChange={(left_id) => set({ ...value, left_id })}
-      />
-      <Select
-        label={`${channelLabels[right]}记录`}
-        value={value.right_id}
-        values={options(right)}
-        onChange={(right_id) => set({ ...value, right_id })}
-      />
+      {!fixed && (
+        <>
+          <Select
+            label="匹配粒度"
+            value={value.level}
+            values={[
+              ["concern", "关注点"],
+              ["scenario", "场景"],
+            ]}
+            onChange={(level) =>
+              set({ ...value, level, left_id: "", right_id: "" })
+            }
+          />
+          <Select
+            label="匹配来源"
+            value={value.pair}
+            values={[
+              ["G_E", "方法生成 ↔ 原文抽取"],
+              ["GT_G", "测试逆向 ↔ 方法生成"],
+              ["GT_E", "测试逆向 ↔ 原文抽取"],
+            ]}
+            onChange={(pair) =>
+              set({ ...value, pair, left_id: "", right_id: "" })
+            }
+          />
+        </>
+      )}
+      {fixed && decision.left_id ? (
+        <p>
+          {channelLabels[left]}：
+          {options(left).find(([id]) => id === decision.left_id)?.[1] ||
+            decision.left_id}
+        </p>
+      ) : (
+        <Select
+          label={`${channelLabels[left]}记录`}
+          value={value.left_id}
+          values={options(left)}
+          onChange={(left_id) => set({ ...value, left_id })}
+        />
+      )}
+      {fixed && decision.right_id ? (
+        <p>
+          {channelLabels[right]}：
+          {options(right).find(([id]) => id === decision.right_id)?.[1] ||
+            decision.right_id}
+        </p>
+      ) : (
+        <Select
+          label={`${channelLabels[right]}记录`}
+          value={value.right_id}
+          values={options(right)}
+          onChange={(right_id) => set({ ...value, right_id })}
+        />
+      )}
       <Select
         label="匹配判定"
         value={value.status}
         values={[
-          ["full", "完整匹配"],
-          ["partial", "部分匹配"],
+          ["full", binary ? "匹配" : "完整匹配"],
+          ...(binary ? [] : ([["partial", "部分匹配"]] as [string, string][])),
           ["none", "不匹配"],
         ]}
         onChange={(status) => set({ ...value, status })}

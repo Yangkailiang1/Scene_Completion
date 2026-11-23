@@ -1,15 +1,28 @@
 """Skipped semantic stages cannot masquerade as cached model analysis."""
 
+import json
+import shutil
 from copy import deepcopy
 from types import SimpleNamespace
 
+import pytest
+
 from scene_completion.application import ssd_revision_service as ssd_results
 from scene_completion.domain.concern_registry import default_registry
+from scene_completion.domain.coverage import GRAIN_POLICY
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
 from scene_completion.domain.ssd import validation as ssd_validation
+from scene_completion.domain.ssd.construction import add_concern, add_scenario
+from scene_completion.domain.ssd.construction import channel as empty_channel
 from scene_completion.infrastructure import ssd_repository
 from scene_completion.infrastructure.storage import read_json
-from scene_completion.workflow import ssd_pipeline
+from scene_completion.workflow import semantics, ssd_pipeline
+from scene_completion.workflow.ssd.compare import alignment
+from scene_completion.workflow.ssd.input_conversion.case_builder import build_cases
+from scene_completion.workflow.ssd.resolve import classification
+from scene_completion.workflow.ssd.resolve.entity_semantics import evidence_items
 from scene_completion.workflow_core import Scheduler
+from tests.support.paths import ROOT
 from tests.support.ssd_results import bundle
 
 
@@ -113,8 +126,6 @@ def test_packet_cache_then_model_reruns_only_semantic_stages(tmp_path):
 
 
 def test_semantic_inner_version_invalidates_compare_only(tmp_path, monkeypatch):
-    from scene_completion.workflow import semantics
-
     ex = executor(tmp_path / "run", lambda *args: None, client=object(), mode="external")
     before = {
         stage: ssd_pipeline._semantic_cache_identity(ex, stage)
@@ -409,3 +420,255 @@ def test_concurrent_revision_wins_and_comparison_remains_retryable(tmp_path):
     assert ssd_results.editor(tmp_path, "case", "original")["bundle"] == machine
     ssd_pipeline._compare(ex, bundle(), {})
     assert not ssd_results.editor(tmp_path, "case")["bundle"]["semantic_pending"]
+
+
+@pytest.mark.parametrize("has_original", [True, False], ids=["original", "structured-only"])
+def test_sc075_quotations_reach_comparison_after_prepare_upgrade(
+    tmp_path, monkeypatch, has_original
+):
+    source = tmp_path / "input"
+    shutil.copytree(ROOT / "datasets/mini-mall/examples/browse-product", source)
+    required = "缺少必填请求头x-wisecloud-service-id"
+    enum = "memoryType=INVALID不在枚举值[PROFILE,SEMANTIC]内"
+    page = "page=abc类型非法（非整数）"
+    size = "pageSize=xyz类型非法（非整数）"
+    expected = "返回 HTTP 400"
+    excerpt = "、".join((required, enum, page, size)) + "，" + expected
+    foreign = "其他扩展中的 pageSize=900"
+    original = source / "test_browse.md"
+    if has_original:
+        original.write_text("# 样例\n" + excerpt + "\n", encoding="utf8")
+    else:
+        original.unlink()
+
+    def extension(ext_id, text, result, evidence):
+        return {
+            "id": ext_id,
+            "condition": text,
+            "expected_result": result,
+            "evidence": evidence,
+            "failure_step_id": "B2",
+            "api_id": "BROWSE-GET",
+        }
+
+    recovered_path = source / "recovered_usecases.json"
+    recovered = read_json(recovered_path)
+    recovered[0]["extensions"] = [
+        {
+            **extension(
+                "EXT-SC075", "memoryType=INVALID、page/pageSize传字符串", "拒绝请求", ["EV-310"]
+            ),
+            "scene_id": "SC-075",
+        },
+        extension("EXT-OTHER", "合法输入", "成功", [foreign]),
+        extension("EXT-BAD", "非法输入", "拒绝", ["pageSize=990"]),
+    ]
+    recovered[0]["evidence_locations"] = [
+        {"id": "EV-310", "location": "L2", "source_file": original.name, "quote": excerpt},
+    ]
+    recovered_path.write_text(json.dumps(recovered, ensure_ascii=False, indent=2), encoding="utf8")
+
+    tree_path = source / "功能树.json"
+    tree = read_json(tree_path)
+    commands = tree["functions"][0]["srLayer"]["commands"]
+    command = next(row for row in commands if row["apiId"] == "BROWSE-GET")
+    command["attributes"].extend(
+        {"name": name, "type": "string", "tags": [], "source": {}, "constraints": []}
+        for name in ("memoryType", "x-wisecloud-service-id")
+    )
+    tree_path.write_text(json.dumps(tree, ensure_ascii=False), encoding="utf8")
+
+    completeness, bounds, data_type = "api.data.completeness", "api.data.range", "api.data.type"
+    prepare_calls = []
+
+    def prepare(_, __):
+        prepare_calls.append(semantics.code_version("ssd-prepare"))
+        value = build_cases(source, profile=COMMAND_OPERATION_PROFILE, generate=False)[0]
+        value["coverage_policy"] = GRAIN_POLICY
+        value["channels"]["E"] = empty_channel()
+        step_id = value["command_bindings"]["BROWSE-GET"]["primary_step_id"]
+        step = next(row for row in value["steps"] if row["id"] == step_id)
+        fields = {field["name"]: field for field in step["data"]}
+        generated = value["channels"]["G"]
+        for name, key, condition in (
+            ("x-wisecloud-service-id", completeness, required),
+            ("memoryType", bounds, enum),
+            ("page", data_type, page),
+            ("pageSize", data_type, size),
+        ):
+            concern = add_concern(generated, value, "G", step, key, "data", field=fields[name])
+            add_scenario(generated, concern, condition, expected, [])
+        return value
+
+    def semantic(task, inputs):
+        if task == classification.CLASSIFY:
+
+            def part(condition, key, expected_text=""):
+                return {"condition": condition, "expected": expected_text, "keys": [key]}
+
+            def fragments(index, *quotes):
+                return {
+                    **part("", data_type),
+                    "condition_fragments": [
+                        {"field": "evidence", "index": index, "quote": quote} for quote in quotes
+                    ],
+                }
+
+            rows = []
+            for record in inputs["records"]:
+                if record["name"] == "EXT-SC075":
+                    index = record["evidence"].index(excerpt)
+                    parts = [
+                        part(required, completeness, expected),
+                        part(enum, bounds),
+                        fragments(index, page, size),
+                        part(enum.replace("INVALID", "invalid"), bounds),
+                        fragments(index + len(record["evidence"]), page),
+                    ]
+                elif record["name"] == "EXT-BAD":
+                    parts = [part(foreign, data_type), part("pageSize=991", data_type)]
+                else:
+                    parts = []
+                rows.append(
+                    {
+                        "record_id": record["id"],
+                        "kind": "exception" if parts else "normal",
+                        "reason": "样例分类",
+                        "parts": parts,
+                    }
+                )
+            return {"records": rows}
+        assert task == alignment.ALIGN
+        return {
+            "parts": [
+                {
+                    "part_id": row["id"],
+                    "reason": "核对同一请求字段与失败条件",
+                    "fallback": None,
+                    "matches": [
+                        {
+                            "candidate_id": candidate["id"],
+                            "status": "full"
+                            if candidate["condition"] in row["condition"]
+                            else "none",
+                            "reason": "按失败条件逐字核对",
+                        }
+                        for candidate in row["candidates"]
+                    ],
+                }
+                for row in inputs["parts"]
+            ]
+        }
+
+    root = tmp_path / "run"
+    cid = "UC-BROWSE-01"
+    if not has_original:
+        old_version = "v5-sr-input-field-identity"
+        current_version = semantics.code_version
+        assert current_version("ssd-prepare") != old_version
+
+        def legacy_prepare(values, record):
+            value = prepare(values, record)
+            pending = next(
+                row
+                for row in value["channels"]["GT"]["pending"]
+                if row["original"]["extension_id"] == "EXT-SC075"
+            )
+            # Before the upgrade only the extension-level reference carried the
+            # original locator. The packet exposed the EV identifier alone.
+            pending["original"]["source_refs"] = [
+                {
+                    **pending["original"]["source_refs"][0],
+                    "origin": {"match": "pending"},
+                    "declared_source": recovered[0]["evidence_locations"][0],
+                }
+            ]
+            assert [item["text"] for item in evidence_items(pending["original"])] == ["EV-310"]
+            return value
+
+        def legacy_version(task):
+            return old_version if task == "ssd-prepare" else current_version(task)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(semantics, "code_version", legacy_version)
+            previous = executor(root, lambda *_: None)
+            old_prepare = ssd_pipeline._task(
+                previous, cid, "ssd-prepare", [], legacy_prepare, "sc075"
+            )
+            assert previous.scheduler.run()["complete"]
+            stale_version = previous.scheduler.tasks[old_prepare].version
+            checkpoint = previous.scheduler.state["tasks"][old_prepare]["output_file"]
+        prior = ssd_results.publish(tmp_path, read_json(root / checkpoint)["payload"])
+        edited = deepcopy(prior["bundle"])
+        edited["channels"]["G"]["scenarios"][0]["analysis"] = "人工审核说明"
+        reviewed = ssd_results.save_revision(
+            tmp_path, cid, {"base_revision": prior["revision"], "bundle": edited}
+        )
+
+    ex = executor(root, lambda *_: None)
+    prepare_key = ssd_pipeline._task(ex, cid, "ssd-prepare", [], prepare, "sc075")
+
+    def resolve(dependencies, _):
+        value = deepcopy(dependencies[prepare_key])
+        classification.classify(value, semantic)
+        return value
+
+    resolve_key = ssd_pipeline._task(ex, cid, "ssd-resolve", [prepare_key], resolve)
+
+    def compare(dependencies, _):
+        value = deepcopy(dependencies[resolve_key])
+        alignment.align(value, semantic)
+        return ssd_results.publish(tmp_path, value)["bundle"]
+
+    ssd_pipeline._task(ex, cid, "ssd-compare", [resolve_key], compare)
+    assert ex.scheduler.run()["complete"], ex.scheduler.state["tasks"]
+    if not has_original:
+        assert ex.scheduler.tasks[prepare_key].version != stale_version
+        assert prepare_calls == [old_version, semantics.code_version("ssd-prepare")]
+
+    view = ssd_results.editor(tmp_path, cid, compact=True)
+    result = view["bundle"]
+    if not has_original:
+        saved = ssd_results.editor(tmp_path, cid, revision=reviewed["revision"])["bundle"]
+        assert not saved["channels"]["GT"]["scenarios"]
+        assert saved["channels"]["G"]["scenarios"][0]["analysis"] == "人工审核说明"
+        assert result["channels"]["G"]["scenarios"][0]["analysis"] == "人工审核说明"
+    audits = {row["source_id"]: row for row in result["source_classifications"]["GT"]}
+    assert len(audits["EXT-SC075"]["pending_parts"]) == 2
+    assert audits["EXT-BAD"]["kind"] == "pending"
+    assert len(audits["EXT-BAD"]["pending_parts"]) == 2
+    conditions = {row["condition"]: row for row in result["channels"]["GT"]["scenarios"]}
+    assert set(conditions) == {required, enum, page + "；" + size}
+    assert conditions[required]["expected"] == expected
+    assert conditions[enum]["expected"] == ""
+    assert len(result["channels"]["GT"]["pending"]) == 2
+    matched = [
+        row for row in result["decisions"] if row["level"] == "scenario" and row["status"] == "full"
+    ]
+    assert len(matched) == 4
+    assert [quote["quote"] for quote in conditions[page + "；" + size]["verified_excerpts"]] == [
+        page,
+        size,
+    ]
+    visible_gt = {
+        row["id"]
+        for entry in view["comparison"]["scenarios"]
+        if entry.get("generated_id")
+        for row in entry["cells"]["GT"]
+    }
+    assert visible_gt == {row["id"] for row in conditions.values()}
+    documents = {doc["id"]: doc for doc in result["documents"]}
+    for row in conditions.values():
+        refs = [ref for quote in row["verified_excerpts"] for ref in quote.get("source_refs", [])]
+        assert refs and all(ref in row["source_refs"] for ref in refs)
+        if has_original:
+            assert any(
+                documents[ref["document_id"]]["name"] == original.name and ref["start_line"] == 2
+                for ref in refs
+            )
+        else:
+            assert any(
+                ref.get("json_pointer", "").endswith("/evidence_locations/0/quote")
+                and ref["origin"]["match"] == "pending"
+                for ref in refs
+            )

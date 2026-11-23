@@ -12,6 +12,7 @@ import {
   type ProjectScope,
 } from "../results/project/types";
 import type { SsdReviewApplied, SsdReviewSelection } from "./SsdReviewHandoff";
+import "./ssd-review-handoff.css";
 export function ProjectReviewHandoff({
   project,
   scope,

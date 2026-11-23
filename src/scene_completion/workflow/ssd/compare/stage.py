@@ -3,6 +3,7 @@
 from copy import deepcopy
 
 from scene_completion.application import ssd_revision_service as ssd_results
+from scene_completion.domain.coverage import GRAIN_POLICY, binary_status
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
@@ -56,7 +57,15 @@ def _compare_pairs(ex, bundle, record):
                         }
             result, _ = ex.semantic(
                 "ssd-semantic-compare",
-                {"pair": pair, "pairs": projected},
+                {
+                    "pair": pair,
+                    "pairs": projected,
+                    **(
+                        {"coverage_policy": GRAIN_POLICY}
+                        if bundle.get("coverage_policy") == GRAIN_POLICY
+                        else {}
+                    ),
+                },
                 record,
             )
             expected = {(x["id"], y["id"]) for x, y in batch}
@@ -70,6 +79,11 @@ def _compare_pairs(ex, bundle, record):
                     "level": "scenario",
                     "pair": pair,
                     "origin": "auto",
+                    **(
+                        {"status": binary_status(d["status"])}
+                        if bundle.get("coverage_policy") == GRAIN_POLICY
+                        else {}
+                    ),
                 }
                 for d in result["decisions"]
             )
@@ -134,7 +148,9 @@ def _compare(ex, bundle, record):
             else {}
         ),
     }
-    if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE and _semantic_available(ex):
+    if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+        bundle = {**bundle, "coverage_policy": GRAIN_POLICY}
+    if bundle.get("coverage_policy") == GRAIN_POLICY and _semantic_available(ex):
         from scene_completion.workflow.ssd.compare import alignment
 
         bundle = deepcopy(bundle)

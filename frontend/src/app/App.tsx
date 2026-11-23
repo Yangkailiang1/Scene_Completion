@@ -132,22 +132,10 @@ export default function App() {
   const [workspaceFocus, setWorkspaceFocus] = useState(
     () => localStorage.getItem("scene-results-focus") === "true",
   );
-  const [resultRevision, setResultRevision] = useState(0);
   const [resultsDirty, setResultsDirty] = useState(false);
   const [resultSelection, setResultSelection] = useState<{
     project: string;
     selection: SsdReviewSelection;
-  } | null>(null);
-  const [resultTarget, setResultTarget] = useState<{
-    project: string;
-    caseId?: string;
-    stepId?: string;
-    scope?:
-      | "interaction"
-      | "business_chain"
-      | "architecture"
-      | "shared_services";
-    anchorId?: string;
   } | null>(null);
   const rememberSelection = useCallback(
     (selection: SsdReviewSelection) => {
@@ -170,7 +158,6 @@ export default function App() {
   );
   const resultLiveVersion = JSON.stringify([
     snapshot?.manifest?.live_cases || {},
-    resultRevision,
   ]);
   const ssdWorkflow = snapshot?.manifest?.workflow === "ssd-case-v1";
   const executionComplete = ssdWorkflow
@@ -442,26 +429,6 @@ export default function App() {
                           : undefined
                       }
                       liveVersion={resultLiveVersion}
-                      onApplied={(result) => {
-                        setResultRevision((value) => value + 1);
-                        setResultTarget({
-                          project: current,
-                          caseId: result.caseId,
-                          stepId: result.stepId,
-                          scope: result.scope || "interaction",
-                          anchorId: result.anchorId,
-                        });
-                        setNotice(
-                          result.scopes && result.scopes.length > 1
-                            ? `已应用 ${result.scopes.length} 个分析范围的审核修改，结果与汇总指标已更新。`
-                            : result.scope && result.scope !== "interaction"
-                              ? "已应用项目范围审核修改，结果与指标已更新。"
-                              : `已应用 ${result.caseIds.length} 个用例的审核修改，结果与指标已更新。`,
-                        );
-                        setManagement("results");
-                        setUsageOpen(false);
-                        void refresh(current).catch(error);
-                      }}
                     />
                   ) : management === "recommendations" && current ? (
                     <BusinessRecommendations
@@ -475,26 +442,6 @@ export default function App() {
                       onReviewRequest={requestReview}
                       onSelectionChange={rememberSelection}
                       onDirtyChange={setResultsDirty}
-                      requestedScope={
-                        resultTarget?.project === current
-                          ? resultTarget.scope
-                          : undefined
-                      }
-                      requestedAnchorId={
-                        resultTarget?.project === current
-                          ? resultTarget.anchorId
-                          : undefined
-                      }
-                      requestedCaseId={
-                        resultTarget?.project === current
-                          ? resultTarget.caseId
-                          : undefined
-                      }
-                      requestedStepId={
-                        resultTarget?.project === current
-                          ? resultTarget.stepId
-                          : undefined
-                      }
                     />
                   ) : management === "patterns" && current ? (
                     <PatternManager project={current} />

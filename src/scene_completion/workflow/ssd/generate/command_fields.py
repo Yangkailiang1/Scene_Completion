@@ -6,6 +6,7 @@ from scene_completion.domain.ssd.construction import (
     add_scenario,
     unique,
 )
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.infrastructure.identity import fingerprint
 
 
@@ -28,6 +29,7 @@ def generate_fields(bundle, output):
 
     aliases = {}
     directions = {}
+    input_fields = bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
     precise_sources = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
     for step in bundle["steps"]:
         for field in step["data"]:
@@ -35,10 +37,12 @@ def generate_fields(bundle, output):
             for key in {a["concern_key"] for a in field["atoms"]}:
                 atoms = frozenset(signature(a) for a in field["atoms"] if a["concern_key"] == key)
                 identity = (explicit.get("entity_id"), explicit.get("attribute"), key, atoms)
-                directions.setdefault(identity, set()).add(field["direction"])
+                directions.setdefault(identity, set()).add(field.get("direction"))
     first_call = bundle.get("analysis_profile") in FIRST_CALL_PROFILES
     for step in bundle["steps"]:
         for field in step["data"]:
+            if field.get("conflicts"):
+                continue
             obligations = {}
             binding = bundle["command_bindings"][field["command_id"]]
             for atom in field["atoms"]:
@@ -68,7 +72,7 @@ def generate_fields(bundle, output):
                     and u["attribute"] == explicit.get("attribute")
                     and u["concern_key"] == key
                     and (
-                        len(directions[identity]) == 1
+                        (input_fields or len(directions[identity]) == 1)
                         and not any(a.get("value_pending") for a in atoms)
                         if first_call
                         else u["step_id"] == step["id"] and not u.get("obligation_scope")

@@ -8,12 +8,14 @@ import { relatedRequirementRefs } from "../shared/provenance";
 import { EditableCell } from "../shared/EditableCell";
 import { Fragment, useMemo } from "react";
 import {
+  fieldLabel,
   channelLabels,
   targetLabels,
   type Bundle,
   type Channel,
   type Observation,
   type Step,
+  type SourceRef,
 } from "./types";
 
 export type SsdRecordKind = "concerns" | "scenarios" | "pending";
@@ -134,6 +136,7 @@ export function SsdAlignmentTable({
   onSources,
   onGoToStep,
   onMatch,
+  onMatchEvidence,
   onScenarios,
   getObjectName,
   getGroupPath,
@@ -172,6 +175,11 @@ export function SsdAlignmentTable({
   onSources: (item: Observation) => void;
   onGoToStep?: (stepId: string) => void;
   onMatch: (row: any) => void;
+  onMatchEvidence?: (
+    row: any,
+    channel: "E" | "GT",
+    record?: Observation,
+  ) => void;
   onScenarios: (row: any) => void;
   getObjectName?: (record: Observation) => string;
   getGroupPath?: (key: string) => string;
@@ -268,9 +276,7 @@ export function SsdAlignmentTable({
     const owner = bundle.steps?.find((item) => item.id === record.step_id);
     const field = owner?.data.find((item) => item.id === record.field_id);
     if (record.target === "data")
-      return field
-        ? [field.location, field.name].filter(Boolean).join(".")
-        : record.field_id || "待指定字段";
+      return field ? fieldLabel(field) : record.field_id || "待指定字段";
     if (record.target === "sender") return owner?.sender.name || "待定位发送方";
     if (record.target === "receiver")
       return owner?.receiver.name || "待定位接收方";
@@ -332,7 +338,7 @@ export function SsdAlignmentTable({
               "待归类关注点";
             const bindings = [
               ...new Map<string, Observation>(
-                channels
+                (row.generated_id ? ["G"] : channels)
                   .flatMap((channel) => row.cells[channel])
                   .map((record: Observation) => [
                     [
@@ -354,6 +360,15 @@ export function SsdAlignmentTable({
                   changedMatches,
                 )
               : [];
+            const single = (channel: Channel) =>
+              row.generated_id && channel !== "G" ? [] : row.cells[channel];
+            const scopedDrafts = row.generated_id
+              ? rowDrafts.filter(
+                  (d) =>
+                    (d.pair === "G_E" && d.left_id === row.generated_id) ||
+                    (d.pair === "GT_G" && d.right_id === row.generated_id),
+                )
+              : rowDrafts;
             return (
               <Fragment key={row.id}>
                 {(index === 0 || group(shown[index - 1]) !== group(row)) && (
@@ -386,8 +401,30 @@ export function SsdAlignmentTable({
                   </td>
                   {channels.map((channel) => (
                     <td key={channel}>
+                      {row.generated_id &&
+                        channel !== "G" &&
+                        row.cells[channel].length > 0 && (
+                          <EvidenceCell
+                            records={row.cells[channel]}
+                            channel={channel}
+                            onSources={onSources}
+                            onGoToStep={onGoToStep}
+                            onEdit={readonly ? undefined : onEdit}
+                            onMatch={
+                              readonly || !onMatchEvidence
+                                ? undefined
+                                : (record) =>
+                                    onMatchEvidence(row, channel, record)
+                            }
+                            generated={row.cells.G[0]}
+                            decisions={bundle.decisions}
+                            level={
+                              layer === "concerns" ? "concern" : "scenario"
+                            }
+                          />
+                        )}
                       {row.cells[channel].length ? (
-                        row.cells[channel].map((record: Observation) => (
+                        single(channel).map((record: Observation) => (
                           <article
                             className="concern-cell ssd-record"
                             key={record.id}
@@ -395,7 +432,7 @@ export function SsdAlignmentTable({
                             {channel === "G" &&
                               row.coverage_by_record?.[record.id] && (
                                 <small className="ssd-coverage">
-                                  {rowDrafts.some(
+                                  {scopedDrafts.some(
                                     (d) =>
                                       d.pair === "GT_G" &&
                                       d.right_id === record.id,
@@ -432,9 +469,11 @@ export function SsdAlignmentTable({
                                       return (
                                         <div key={link.id}>
                                           <strong>
-                                            {link.status === "partial"
-                                              ? "部分覆盖"
-                                              : "完整覆盖"}
+                                            {row.generated_id
+                                              ? "匹配"
+                                              : link.status === "partial"
+                                                ? "部分覆盖"
+                                                : "完整覆盖"}
                                           </strong>
                                           <p>{link.condition}</p>
                                           <p>{link.reason}</p>
@@ -481,9 +520,11 @@ export function SsdAlignmentTable({
                                     }) => (
                                       <div key={decision.id}>
                                         <p>
-                                          {decision.status === "partial"
-                                            ? "部分覆盖"
-                                            : "完整覆盖"}{" "}
+                                          {row.generated_id
+                                            ? "匹配"
+                                            : decision.status === "partial"
+                                              ? "部分覆盖"
+                                              : "完整覆盖"}{" "}
                                           · {target.condition}
                                         </p>
                                         <p>{decision.reason}</p>
@@ -831,7 +872,9 @@ export function SsdAlignmentTable({
                           </button>
                           {onClearCell && row.cells[channel].length > 0 && (
                             <button onClick={() => onClearCell(channel, row)}>
-                              清空单元格
+                              {row.generated_id && channel !== "G"
+                                ? "解除本格匹配"
+                                : "清空单元格"}
                             </button>
                           )}
                         </div>
@@ -840,14 +883,14 @@ export function SsdAlignmentTable({
                   ))}
                   <td>
                     <strong className={`ssd-status ssd-status-${row.status}`}>
-                      {rowDrafts.length > 0 && "已保存："}
+                      {scopedDrafts.length > 0 && "已保存："}
                       {ssdStatusNames[row.status] || row.status}
                     </strong>
                     <p>
-                      {rowDrafts.length > 0 && "已保存依据："}
+                      {scopedDrafts.length > 0 && "已保存依据："}
                       {row.reason}
                     </p>
-                    {rowDrafts.map((d) => (
+                    {scopedDrafts.map((d) => (
                       <p
                         role="status"
                         className="ssd-table-draft-status"
@@ -870,17 +913,28 @@ export function SsdAlignmentTable({
                         查看该关注点的场景 →
                       </button>
                     )}
-                    {!readonly && onDeleteRow && (
+                    {!readonly && onDeleteRow && !row.generated_id && (
                       <button onClick={() => onDeleteRow(row)}>删除整行</button>
                     )}
-                    {!readonly && layer !== "pending" && (
-                      <button
-                        className="ssd-match-link"
-                        onClick={() => onMatch(row)}
-                      >
-                        修正匹配
-                      </button>
-                    )}
+                    {!readonly && row.generated_id && onMatchEvidence
+                      ? (["E", "GT"] as const).map((channel) => (
+                          <button
+                            className="ssd-match-link"
+                            key={channel}
+                            onClick={() => onMatchEvidence(row, channel)}
+                          >
+                            匹配 {channel} 记录
+                          </button>
+                        ))
+                      : !readonly &&
+                        layer !== "pending" && (
+                          <button
+                            className="ssd-match-link"
+                            onClick={() => onMatch(row)}
+                          >
+                            修正匹配
+                          </button>
+                        )}
                   </td>
                 </tr>
               </Fragment>
@@ -905,5 +959,134 @@ export function SsdAlignmentTable({
         </p>
       )}
     </div>
+  );
+}
+
+function citationKey(ref: SourceRef) {
+  const origin = typeof ref.origin === "object" ? ref.origin : undefined;
+  if (
+    origin?.document &&
+    ["exact", "located"].includes(origin.match) &&
+    (origin.cell_range || origin.start_line)
+  )
+    return JSON.stringify([
+      origin.document,
+      origin.sheet,
+      origin.cell_range,
+      origin.start_line,
+      origin.end_line,
+    ]);
+  return JSON.stringify([
+    ref.document_id,
+    ref.start_line,
+    ref.end_line,
+    ref.json_pointer,
+  ]);
+}
+
+function EvidenceCell({
+  records,
+  channel,
+  generated,
+  decisions,
+  level,
+  onSources,
+  onGoToStep,
+  onEdit,
+  onMatch,
+}: {
+  records: Observation[];
+  channel: "E" | "GT";
+  generated: Observation;
+  decisions?: Bundle["decisions"];
+  level: string;
+  onSources: (record: Observation) => void;
+  onGoToStep?: (id: string) => void;
+  onEdit?: (channel: Channel, record: Observation) => void;
+  onMatch?: (record: Observation) => void;
+}) {
+  const refs = [
+    ...new Map(
+      records.flatMap((record) =>
+        (record.source_refs || []).map(
+          (ref) => [citationKey(ref), ref] as const,
+        ),
+      ),
+    ).values(),
+  ];
+  const preferred = records[0];
+  const getDecision = (record: Observation) =>
+    decisions?.find(
+      (decision) =>
+        decision.level === level &&
+        (channel === "E"
+          ? decision.pair === "G_E" &&
+            decision.left_id === generated.id &&
+            decision.right_id === record.id
+          : decision.pair === "GT_G" &&
+            decision.left_id === record.id &&
+            decision.right_id === generated.id),
+    );
+  return (
+    <article className="concern-cell ssd-record ssd-evidence-cell">
+      <strong>
+        {preferred.validation_summary
+          ? "概括性来源已匹配"
+          : preferred.condition}
+      </strong>
+      {!preferred.validation_summary && preferred.expected && (
+        <p>预期：{preferred.expected}</p>
+      )}
+      <button
+        className="ssd-source-link"
+        onClick={() =>
+          onSources({
+            ...preferred,
+            source_refs: refs,
+          })
+        }
+      >
+        {channel === "GT" ? "查看测试逆向出处" : "查看原始出处"}（{refs.length}
+        ）
+      </button>
+      <details>
+        <summary>查看来源记录与判定（{records.length}）</summary>
+        {records.map((record) => (
+          <div className="ssd-evidence-member" key={record.id}>
+            <p>{record.condition}</p>
+            {record.expected && <p>预期：{record.expected}</p>}
+            {(record.failure_step_id || record.step_id) && (
+              <p>实际步骤：{record.failure_step_id || record.step_id}</p>
+            )}
+            {getDecision(record)?.reason && (
+              <p>{getDecision(record)?.reason}</p>
+            )}
+            <div className="ssd-inline-actions">
+              <button onClick={() => onSources(record)}>查看本条出处</button>
+              {onGoToStep &&
+                (record.failure_step_id || record.step_id) &&
+                (record.failure_step_id || record.step_id) !==
+                  generated.step_id && (
+                  <button
+                    onClick={() =>
+                      onGoToStep((record.failure_step_id || record.step_id)!)
+                    }
+                  >
+                    跳到实际步骤
+                  </button>
+                )}
+              {onEdit && (
+                <button onClick={() => onEdit(channel, record)}>
+                  编辑来源记录
+                </button>
+              )}
+              {onMatch && (
+                <button onClick={() => onMatch(record)}>修正此项匹配</button>
+              )}
+            </div>
+          </div>
+        ))}
+      </details>
+    </article>
   );
 }

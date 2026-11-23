@@ -67,18 +67,22 @@ class Sources:
         self.documents = {}
         self.spans = {}
         self.aliases = {}
+        self.workbooks = {}
         # Original specification documents. Structured inputs cite their own
         # JSON pointers; their ``source`` fields point at these real lines.
         self.origins = list(origins or [])
         for doc in self.origins:
             path = self.root / (doc.get("path") or doc["name"])
             if doc.get("sheet"):
+                self.workbooks.setdefault(doc["source_path"], []).append(doc)
                 self.documents[doc["path"]] = {
                     "id": doc["id"],
                     "name": doc["path"],
                     "role": doc["role"],
                     "content": doc["content"],
                     "hash": doc["hash"],
+                    "source_path": doc["source_path"],
+                    "sheet": doc["sheet"],
                 }
             elif path.is_file():
                 self.add(path, doc["role"])
@@ -135,23 +139,93 @@ class Sources:
                 row["declared_source"] = deepcopy(origin)
         return row
 
+    def _workbook_reference(self, document):
+        if not isinstance(document, str):
+            return document, None
+        name = document.strip().replace("\\", "/").removeprefix("./")
+        if name in self.workbooks:
+            return document, None
+        legacy = re.fullmatch(r"(.+?\.xlsx)#(.+)", name, re.I)
+        if not legacy:
+            return document, None
+        known = next((d for d in self.origins if d.get("path") == name), None)
+        if known:
+            return known["source_path"], known.get("sheet")
+        return legacy.groups()
+
+    def _workbook(self, document, *, exact=False):
+        from scene_completion.inputs.provenance.source_origins import resolve_name
+
+        if exact and isinstance(document, str):
+            path = document.strip().replace("\\", "/").removeprefix("./")
+            if path in self.workbooks:
+                return path
+        candidates = [
+            {**sheets[0], "name": path, "path": path} for path, sheets in self.workbooks.items()
+        ]
+        matched = resolve_name(document, candidates)
+        return matched["path"] if matched else None
+
+    def has_matching_excel_citation(self, anchor, references):
+        """Skip a repeated cell citation or its less specific legacy row anchor."""
+        from scene_completion.inputs.provenance import source_origins
+
+        document, quote, locator = source_origins.source_origin(anchor)
+        document, legacy_sheet = self._workbook_reference(document)
+        sheet = anchor.get("sheet") or legacy_sheet
+        workbook = self._workbook(document, exact=True) if sheet else None
+        if not workbook:
+            return False
+        for ref in references:
+            other, other_quote, location = source_origins.source_origin(ref)
+            if not isinstance(location, str) or "!" not in location:
+                continue
+            other, old_sheet = self._workbook_reference(other)
+            explicit = old_sheet or (ref.get("sheet") if isinstance(ref, dict) else None)
+            if (
+                self._workbook(other, exact=bool(explicit)) != workbook
+                or source_origins.sheet_name(location.strip()) != sheet
+            ):
+                continue
+            if isinstance(locator, str) and "!" in locator:
+                address = location.split("!", 1)[1].strip().upper()
+                anchor_address = locator.split("!", 1)[1].strip().upper()
+                if address == anchor_address and other_quote == quote:
+                    return True
+            if isinstance(locator, tuple):
+                fields = source_origins.CELL.fullmatch(location.strip())
+                if (
+                    fields is None
+                    or (int(fields["row"]), int(fields["end"] or fields["row"])) == locator
+                ):
+                    return True
+        return False
+
     def trace(self, origin):
         """Resolve one supplied ``source`` field to a real line of its original."""
         from scene_completion.inputs.provenance import source_origins
 
         document, quote, declared = source_origins.source_origin(origin)
-        books = {}
-        for doc in self.origins:
-            if doc.get("sheet"):
-                books.setdefault(doc["source_path"], []).append(doc)
+        document, legacy_sheet = self._workbook_reference(document)
+        sheet = origin.get("sheet") if isinstance(origin, dict) else None
+        if sheet and legacy_sheet and sheet != legacy_sheet:
+            return source_origins.untraced("Excel 工作表声明不一致")
+        sheet = sheet or legacy_sheet
         if isinstance(declared, str) and "!" in declared:
-            workbooks = [
-                {**sheets[0], "name": path, "path": path} for path, sheets in books.items()
-            ]
-            workbook = source_origins.resolve_name(document, workbooks)
+            workbook = self._workbook(document, exact=bool(sheet))
             if not workbook:
                 return source_origins.untraced("未找到唯一原始 Excel 工作簿")
-            return source_origins.from_cell(declared, quote, books[workbook["path"]])
+            if sheet and sheet != source_origins.sheet_name(declared.strip()):
+                return source_origins.untraced("Excel 工作表声明与坐标不一致")
+            return source_origins.from_cell(declared, quote, self.workbooks[workbook])
+        if sheet:
+            workbook = self._workbook(document, exact=True)
+            if not workbook:
+                return source_origins.untraced("未找到唯一原始 Excel 工作簿")
+            matches = [doc for doc in self.workbooks[workbook] if doc["sheet"] == sheet]
+            if len(matches) != 1:
+                return source_origins.untraced("未找到唯一的 Excel 工作表：" + str(sheet))
+            return source_origins.from_sheet_rows(matches[0], quote, declared)
         return source_origins.origin(
             source_origins.resolve_name(document, [d for d in self.origins if not d.get("sheet")]),
             quote,

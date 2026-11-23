@@ -38,7 +38,11 @@ def test_shared_identity_has_no_storage_or_business_dependency():
 
 
 def test_ssd_implementation_does_not_import_detailed_compatibility_workflow():
-    paths = [*(PACKAGE / "analysis/ssd").rglob("*.py"), PACKAGE / "workflow/ssd_pipeline.py"]
+    paths = [
+        *(PACKAGE / "workflow/ssd").rglob("*.py"),
+        *(PACKAGE / "analysis/ssd").rglob("*.py"),
+        PACKAGE / "workflow/ssd_pipeline.py",
+    ]
     assert not [
         (str(path), name)
         for path in paths

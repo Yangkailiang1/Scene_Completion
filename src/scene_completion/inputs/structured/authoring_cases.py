@@ -1,11 +1,6 @@
-"""Adapt per-case authoring files to the SysOperation layout the SSD builder reads.
+"""Discover supplier or authored cases and read the split core from main-success.json.
 
-A case folder may hold one ``authoring-case.json`` (or the older
-``main-success.json``) written by the customer agent: 1-based step numbers as
-``ref``/``step_ref``, an original-line ``anchor`` on every exception, and a
-recovered-test ``extension_mapping``. The builder loads one
-``SysOperation.json`` per case; this module renders that file in memory so the
-literal values stay untouched and only the references are re-pointed.
+Keep source values and stable IDs when adapting a core to the shared step builder.
 """
 
 import json
@@ -13,8 +8,9 @@ from copy import deepcopy
 from pathlib import Path
 
 CASE_FILE = "authoring-case.json"
-LEGACY_MAIN = "main-success.json"
-FILES = (CASE_FILE, LEGACY_MAIN, "SysOperation.json")
+MAIN_SUCCESS = "main-success.json"
+LEGACY_MAIN = MAIN_SUCCESS  # Prior import name.
+FILES = (CASE_FILE, MAIN_SUCCESS, "SysOperation.json")
 SIDECARS = (
     "architecture.json",
     "existing-exceptions.json",
@@ -37,7 +33,7 @@ def is_behavior_evidence(path):
 
 
 def core_filename(name):
-    return name in (CASE_FILE, LEGACY_MAIN, *SIDECARS)
+    return name in (CASE_FILE, MAIN_SUCCESS, *SIDECARS)
 
 
 def case_files(directory):
@@ -161,7 +157,7 @@ def read(path, root):
         return value
     value = deepcopy(value)
     case_id = case_identity(value)["id"]
-    if path.name == LEGACY_MAIN:
+    if path.name == MAIN_SUCCESS:
         for key in ("existing-exceptions", "test-exceptions", "extension-mapping"):
             file = path.with_name(key + ".json")
             if not file.is_file():
@@ -331,7 +327,7 @@ def supplied_exceptions(raw, sources, file, channel):
     """Keep a JSON citation even when the declared original cannot be verified."""
     key = "existing-exceptions" if channel == "E" else "test-exceptions"
     part = file.with_name(key + ".json")
-    split = file.name == LEGACY_MAIN and part.is_file()
+    split = file.name == MAIN_SUCCESS and part.is_file()
     name = sources.add(
         part if split else file, "test" if channel == "GT" and split else "intermediate"
     )
@@ -344,7 +340,7 @@ def supplied_exceptions(raw, sources, file, channel):
         pointer = (
             f"/exceptions/{index}" if split else f"/{key.replace('-', '_')}/exceptions/{index}"
         )
-        origin = None
+        references = list(row.get("source_refs") or [])
         if anchor:
             origin = {
                 "document": document or anchor.get("document_id"),
@@ -352,8 +348,17 @@ def supplied_exceptions(raw, sources, file, channel):
                 "end_line": anchor.get("end_line"),
                 "quote": anchor.get("quote"),
             }
+            if declared.get("sheet"):
+                origin["sheet"] = declared["sheet"]
+            location = anchor.get("location")
+            if isinstance(location, str) and "!" in location:
+                origin.update(
+                    location=location, quote=anchor.get("cell_quote") or anchor.get("quote")
+                )
+            if not sources.has_matching_excel_citation(origin, references):
+                references.append(origin)
         refs = sources.refs(
-            {"source_refs": [*(row.get("source_refs") or []), *([origin] if origin else [])]},
+            {"source_refs": references},
             name,
             pointer,
             kind="test" if channel == "GT" else "context",

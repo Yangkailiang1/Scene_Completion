@@ -4,6 +4,7 @@ import json
 import re
 
 from scene_completion.domain.ssd.construction import ident, unique
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY, legacy_name
 from scene_completion.workflow.ssd.input_conversion.evidence_records import (
     _provided,
     recognize_records,
@@ -16,6 +17,21 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
     from scene_completion.inputs.structured.case_names import candidates as case_candidates
 
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
+    named = bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
+
+    def same_binding(key, existing, proposed):
+        if not existing or existing == proposed:
+            return True
+        if key != "parameter" or not named or not proposed:
+            return False
+        if (
+            existing.get("command_id")
+            and proposed.get("command_id")
+            and existing["command_id"] != proposed["command_id"]
+        ):
+            return False
+        return legacy_name(existing.get("name")) == legacy_name(proposed.get("name"))
+
     supplied_records = [_provided(bundle, row, "GT") for row in supplied]
     mapped = (mapping or {}).get("items", [])
     requested_path = (mapping or {}).get("source") or "recovered_usecases.json"
@@ -84,25 +100,49 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
             records.append(row)
     extensions = case.get("extensions", [])
     indexed = {extension.get("id"): (i, extension) for i, extension in enumerate(extensions)}
-    locations = {e.get("id"): e for e in case.get("evidence_locations", [])}
+    locations = {}
+    for position, item in enumerate(case.get("evidence_locations", [])):
+        locations.setdefault(item.get("id"), []).append((position, item))
 
     def refs_for(extension, index):
         if name is None or index is None:
             return []
-        refs = [sources.ref(name, f"{prefix}/extensions/{index}", kind="test")]
-        for evidence in extension.get("evidence", []):
-            label = re.split(r"[:：]", str(evidence), maxsplit=1)[0].strip()
-            if label in locations:
-                location = locations[label]
+        pointer = f"{prefix}/extensions/{index}"
+        refs = [sources.ref(name, pointer, kind="test")]
+        for evidence_index, evidence in enumerate(extension.get("evidence") or []):
+            if not isinstance(evidence, str):
+                continue
+            label = re.split(r"[:：]", evidence, maxsplit=1)[0].strip()
+            linked = locations.get(label, [])
+            metadata = {"evidence_index": evidence_index}
+            if linked or re.fullmatch(r"EV[-@][\w@.-]+", label):
+                metadata["evidence_id"] = label
+            excerpt = sources.ref(name, f"{pointer}/evidence/{evidence_index}", kind="test")
+            if len(linked) == 1:
+                position, location = linked[0]
                 actual = sources.test_evidence(location)
-                refs.extend(
-                    actual
-                    or [
-                        sources.ref(
-                            name, f"{prefix}/extensions/{index}", kind="test", origin=location
-                        )
-                    ]
-                )
+                refs.extend(actual)
+                declared = location.get("quote")
+                if isinstance(declared, str) and declared.strip():
+                    citation = sources.ref(
+                        name,
+                        f"{prefix}/evidence_locations/{position}/quote",
+                        kind="test",
+                        origin=None if actual else location,
+                    )
+                    if citation.get("origin"):
+                        excerpt["origin"] = citation["origin"]
+                    refs.append({**citation, **metadata, "evidence_quote": declared})
+                else:
+                    excerpt = sources.ref(
+                        name, f"{pointer}/evidence/{evidence_index}", kind="test", origin=location
+                    )
+            else:
+                excerpt["origin"] = {
+                    "match": "pending",
+                    "reason": "未提供可唯一核验的原始测试证据位置",
+                }
+            refs.append({**excerpt, **metadata})
         return unique(refs)
 
     for mount_index, mount in enumerate(mapped):
@@ -137,7 +177,7 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
             equivalent = [
                 item
                 for item in provided
-                if all(not item.get(key) or item.get(key) == binding.get(key) for key in fields)
+                if all(same_binding(key, item.get(key), binding.get(key)) for key in fields)
                 and item["condition"] == condition
                 and item["expected"] == expected
             ]

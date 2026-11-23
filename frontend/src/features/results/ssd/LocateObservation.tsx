@@ -4,6 +4,7 @@ import { putTableRecord } from "../shared/tableEditing";
 import { Modal, Select, Text } from "./SsdEditors";
 import type { SsdRecordKind } from "./SsdAlignmentTable";
 import { channelLabels, targetLabels, uid } from "./types";
+import { fieldLabel } from "./types";
 import type { Bundle, Channel, Observation, Step } from "./types";
 
 type LocationTarget = { channel: Channel; record: Observation };
@@ -163,7 +164,7 @@ function describeObject(record: Observation, step: Step, bundle: Bundle) {
   if (operation)
     return [operation.command_id, operation.name].filter(Boolean).join(" · ");
   const field = step.data.find((field) => field.id === record.field_id);
-  if (field) return [field.location, field.name].filter(Boolean).join(".");
+  if (field) return fieldLabel(field);
   if (record.entity_id)
     return [record.entity_id, record.attribute].filter(Boolean).join(".");
   if (record.target === "sender") return step.sender.name;
@@ -322,19 +323,20 @@ export function LocateObservation({
               onChange={setScenario}
             />
           )}
-          {scenario && (
-            <Select
-              label="场景匹配判定"
-              value={status}
-              values={[
-                ["full", "完整匹配"],
-                ["partial", "部分匹配"],
-              ]}
-              onChange={(value) =>
-                setStatus(value === "partial" ? "partial" : "full")
-              }
-            />
-          )}
+          {scenario &&
+            bundle.coverage_policy !== "coverage-g-obligation-v3" && (
+              <Select
+                label="场景匹配判定"
+                value={status}
+                values={[
+                  ["full", "完整匹配"],
+                  ["partial", "部分匹配"],
+                ]}
+                onChange={(value) =>
+                  setStatus(value === "partial" ? "partial" : "full")
+                }
+              />
+            )}
         </>
       )}
       <Text

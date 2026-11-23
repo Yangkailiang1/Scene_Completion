@@ -7,6 +7,9 @@ reply (``SCHEMAS``).
 
 from copy import deepcopy
 
+from scene_completion.domain.coverage import GRAIN_POLICY
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
+
 STRING = {"type": "string"}
 
 
@@ -214,10 +217,12 @@ ENTITY_INSTRUCTIONS = {
         "请求头名称本身不能证明认证。只说明缺少必填字段时选择数据完整性；确有认证证据再加认证键。"
         "责任对象不确定时保留两个合适的键。成功备选、合法边界和正常空结果判normal。仅exception提供parts。"
         "若原文明列多个独立失败，可分成多段；笼统的无效凭证或配置不完整保留一个part。"
-        "condition、expected逐字从对应输入摘录，expected无依据则留空。混合通过与失败时只输出有据的失败，"
-        "不要把通过条件或总述与已列出的独立子条件一起提交。非连续摘录将相应字符串留空，"
-        '提交 condition_fragments 或 expected_fragments，例如 [{"field":"condition","index":null,"quote":"原文摘录"}]；'
-        "field为evidence时index是当前记录evidence的从零开始的索引，其余field的index为null。每段quote逐字复制，不插入解释。"
+        "condition、expected使用本条记录的原字段或evidence中的连续逐字原文。expected无依据则留空。"
+        "混合通过与失败时只输出有据的失败。不要把通过条件或总述与已列出的独立子条件一起提交。"
+        "非连续摘录将相应字符串留空，使用多个condition_fragments或expected_fragments逐段引用。"
+        '例如 [{"field":"evidence","index":0,"quote":"page=abc"},{"field":"evidence","index":0,"quote":"pageSize=xyz"}]。'
+        "field为evidence时index是本条记录evidence的从零开始的索引，其他field的index为null。"
+        "每段quote必须连续逐字复制。保留大小写、枚举值和阈值，不拼写改写后的句子，也不引用其他记录。"
         "keys限提供的关注点，允许多个可能的同体系键。"
     ),
     "ssd-ground-align": (
@@ -360,6 +365,33 @@ def packet(task, inputs, case_ids):
     from scene_completion.infrastructure.identity import fingerprint
 
     schema = deepcopy(SCHEMAS[task])
+    instructions = instructions_for(task)
+    if (
+        inputs.get("interface_field_policy") == INPUT_FIELD_POLICY
+        and task == "ssd-evidence-classify"
+    ):
+        instructions += (
+            "\n接口字段仅分析发送的数据。只检查返回值或响应结构异常的来源归 out_of_scope；"
+            "非法输入后系统返回错误仍是输入校验。含两类条件时独立摘录输入失败，保留测试原文。"
+        )
+    if inputs.get("coverage_policy") == GRAIN_POLICY:
+        if task == "ssd-ground-align":
+            statuses = schema["properties"]["parts"]["items"]["properties"]["matches"]["items"][
+                "properties"
+            ]
+            statuses["status"] = enum("full", "none")
+            instructions = instructions.replace(
+                "同义条件和预期判full，概括条件明确容纳具体候选时判partial，不相关判none。",
+                "同一失败义务且条件相同或原文明确涵盖候选时判full；否则判none。",
+            ).replace("有full或partial时", "有full时")
+        if task == "ssd-semantic-compare":
+            statuses = schema["properties"]["decisions"]["items"]["properties"]
+            statuses["status"] = enum("full", "none")
+            instructions = INSTRUCTIONS.split("partial仅供诊断。")[0] + (
+                "只返回full或none。证据支持同一失败义务时判full；"
+                "互斥条件、不同边界、不同字段或操作判none。"
+                "非法JSON只匹配请求体解析失败。不能根据G补E或GT，不能根据E/GT补G。"
+            )
     if task == "ssd-command-classify":
         row = schema["properties"]["records"]["items"]["properties"]
         row["record_id"] = enum(*(item["id"] for item in inputs["records"]))
@@ -381,9 +413,9 @@ def packet(task, inputs, case_ids):
         "stage": task,
         "task": task,
         "skill": "scene-ssd-case",
-        "batch_id": fingerprint([task, inputs, schema, instructions_for(task)]),
+        "batch_id": fingerprint([task, inputs, schema, instructions]),
         "case_ids": case_ids or [],
-        "instructions": instructions_for(task),
+        "instructions": instructions,
         "input": deepcopy(inputs),
         "output_contract": schema,
         "output_schema": schema,

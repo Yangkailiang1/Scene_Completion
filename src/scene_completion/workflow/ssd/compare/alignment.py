@@ -2,7 +2,9 @@
 
 import re
 
+from scene_completion.domain.coverage import GRAIN_POLICY, binary_status
 from scene_completion.domain.scenario_conditions import disjoint
+from scene_completion.domain.ssd import interface_fields, validation_scope
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
@@ -21,6 +23,36 @@ def _uses_step(link, step_id):
         + link.get("validation_step_ids", [])
         + link.get("response_step_ids", [])
     )
+
+
+def _summary_command(bundle, raw, actual):
+    """Use only a uniquely identified inbound command for broad evidence."""
+    bindings = bundle.get("command_bindings", {})
+    step = next((s for s in bundle["steps"] if s["id"] == actual), {})
+    receiver = step.get("receiver", {})
+    named = bundle.get("interface_field_policy") == interface_fields.INPUT_FIELD_POLICY
+    if not named and (raw.get("parameter") or {}).get("direction") in {"response", "return"}:
+        return None
+    if (
+        receiver.get("external")
+        and receiver.get("type") == "service"
+        and step.get("kind") != "action"
+    ):
+        return None
+    if named:
+        related = interface_fields.commands_at(
+            bindings, actual or raw.get("step_ref"), interface_fields.command_id(raw)
+        )
+        return next(iter(related)) if len(related) == 1 else None
+    related = {cid for cid, link in bindings.items() if _uses_step(link, actual)}
+    explicit = raw.get("api_id") or (raw.get("raw") or {}).get("api_id")
+    if explicit:
+        return explicit if explicit in bindings and (not related or explicit in related) else None
+    if len(related) == 1:
+        return next(iter(related))
+    if not related and len(bindings) == 1 and (not step or step.get("kind") == "action"):
+        return next(iter(bindings))
+    return None
 
 
 def _allowed_keys(part, steps, actual):
@@ -54,7 +86,19 @@ def _candidates(bundle, raw, part, step_facts):
     source_commands = {cid for cid, link in bindings.items() if _uses_step(link, actual)}
     if explicit in bindings:
         source_commands = {explicit}
+    named = bundle.get("interface_field_policy") == interface_fields.INPUT_FIELD_POLICY
+    if named:
+        source_commands = interface_fields.commands_at(
+            bindings, actual or raw.get("step_ref"), interface_fields.command_id(raw)
+        )
     keys = _allowed_keys(part, step_facts, actual)
+    scope = part.get("validation_summary")
+    if scope:
+        keys = validation_scope.keys_for(scope)
+        command = _summary_command(bundle, raw, actual)
+        if command is None:
+            return
+        source_commands = {command}
     auth_requests = failure_context.auth_requests(step_facts, actual)
     parameter = raw.get("parameter") or {}
     direction = "response" if parameter.get("direction") == "return" else parameter.get("direction")
@@ -69,8 +113,17 @@ def _candidates(bundle, raw, part, step_facts):
             re.IGNORECASE,
         )
     }
-    if parameter.get("name"):
-        names = {parameter["name"]}
+    declared_field = parameter.get("name") or raw.get("field_name")
+    if declared_field:
+        names = {declared_field}
+    field_ids = (
+        {
+            f["id"]
+            for _, f in interface_fields.candidates(bundle, actual or raw.get("step_ref"), raw)
+        }
+        if named and declared_field
+        else set()
+    )
     names = {name.casefold() for name in names}
     for scenario in bundle["channels"]["G"]["scenarios"]:
         if scenario["status"] != "active":
@@ -100,6 +153,32 @@ def _candidates(bundle, raw, part, step_facts):
         cmd = (
             scenario.get("command_id") or unit.get("command_id") or (field or {}).get("command_id")
         )
+        if scope:
+            if not cmd:
+                primary_commands = {
+                    cid
+                    for cid, link in bindings.items()
+                    if link.get("primary_step_id") == target["id"]
+                }
+                if len(primary_commands) == 1:
+                    cmd = next(iter(primary_commands))
+                elif scenario.get("entity_id") and scenario.get("attribute"):
+                    cmd = next(iter(source_commands))
+            if cmd not in source_commands or not validation_scope.applies(
+                scope,
+                scenario,
+                field,
+                fields,
+                cmd,
+                bundle.get("command_aliases", {}),
+                field_policy=bundle.get("interface_field_policy"),
+            ):
+                continue
+        elif (
+            bundle.get("coverage_policy") == GRAIN_POLICY
+            and validation_scope.summary_kind(scenario["condition"]) == "json_syntax"
+        ):
+            continue
         if external and receiver != external:
             continue
         if cmd and source_commands and cmd not in source_commands:
@@ -108,14 +187,45 @@ def _candidates(bundle, raw, part, step_facts):
             continue
         if raw.get("attribute") and scenario.get("attribute") not in {None, raw["attribute"]}:
             continue
-        if raw.get("field_id") and scenario.get("field_id") not in {None, raw["field_id"]}:
-            continue
-        if field and (
-            (names and (field.get("wire_name") or field["name"]).casefold() not in names)
-            or (parameter.get("location") and field["location"] != parameter["location"])
-            or (direction and field.get("direction") != direction)
+        if (
+            not named
+            and raw.get("field_id")
+            and scenario.get("field_id") not in {None, raw["field_id"]}
         ):
             continue
+        if field:
+            if named:
+                if (
+                    field.get("conflicts")
+                    or cmd not in source_commands
+                    or declared_field
+                    and field["id"] not in field_ids
+                    or names
+                    and not declared_field
+                    and (field.get("wire_name") or field["name"]).casefold() not in names
+                ):
+                    continue
+                if len(source_commands) > 1 and any(
+                    other["id"] != field["id"]
+                    and other.get("command_id") in source_commands
+                    and other["name"] == field["name"]
+                    for other in fields.values()
+                ):
+                    continue
+            elif (
+                (names and (field.get("wire_name") or field["name"]).casefold() not in names)
+                or (parameter.get("location") and field["location"] != parameter["location"])
+                or (direction and field.get("direction") != direction)
+            ):
+                continue
+        elif named and declared_field and scenario.get("entity_id"):
+            if not any(
+                (alias := bundle.get("command_aliases", {}).get(fid, {}).get(scenario["key"]))
+                and (alias["entity_id"], alias["attribute"])
+                == (scenario["entity_id"], scenario.get("attribute"))
+                for fid in field_ids
+            ):
+                continue
         yield {
             **{
                 k: scenario[k]
@@ -144,8 +254,14 @@ def _candidates(bundle, raw, part, step_facts):
             **(
                 {
                     "field_name": field.get("wire_name") or field["name"],
-                    "field_location": field["location"],
-                    "field_direction": field.get("direction"),
+                    **(
+                        {
+                            "field_location": field["location"],
+                            "field_direction": field.get("direction"),
+                        }
+                        if not named
+                        else {}
+                    ),
                 }
                 if field
                 else {}
@@ -213,6 +329,15 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
     scene = add_scenario(output, concern, part["condition"], part["expected"], raw["source_refs"])
     scene["source_record_ids"] = unique([*scene.get("source_record_ids", []), raw["id"]])
     scene["identification_reason"] = part["classification_reason"]
+    if raw.get("verified_excerpts"):
+        scene["verified_excerpts"] = unique(
+            [
+                *scene.get("verified_excerpts", []),
+                *raw["verified_excerpts"],
+            ]
+        )
+    if part.get("validation_summary"):
+        scene["validation_summary"] = part["validation_summary"]
     failure_context.annotate(scene, location, location.get("failure_step_reason"))
     if raw.get("extension_id"):
         scene.setdefault("extension_id", raw["extension_id"])
@@ -281,7 +406,7 @@ def align(bundle, semantic):
                 original = incoming[source_id]["original"]
                 context = evidence._record(bundle, incoming[source_id])
                 part = {
-                    **detail,
+                    **{k: v for k, v in detail.items() if k != "verified_excerpts"},
                     "id": ident("source-part", source_id, index, detail["condition"]),
                     "failure_step_id": context["failure_step_id"],
                     "failure_step_hint": context["failure_step_hint"],
@@ -289,8 +414,23 @@ def align(bundle, semantic):
                     "source_evidence": context["evidence"],
                     "classification_reason": audit["reason"],
                 }
+                if bundle.get("coverage_policy") == GRAIN_POLICY:
+                    scope = validation_scope.summary_kind(part["condition"])
+                    if scope:
+                        part["validation_summary"] = scope
                 part["candidates"] = list(_candidates(bundle, original, part, step_facts))
-                owners[part["id"]] = (original, audit, part)
+                excerpts = detail.get("verified_excerpts") or []
+                refs = unique(
+                    [
+                        *[ref for excerpt in excerpts for ref in excerpt.get("source_refs", [])],
+                        *original["source_refs"],
+                    ]
+                )
+                owners[part["id"]] = (
+                    {**original, "source_refs": refs, "verified_excerpts": excerpts},
+                    audit,
+                    part,
+                )
                 parts.append(part)
         for offset in range(0, len(parts), 4):
             inputs = {
@@ -301,9 +441,65 @@ def align(bundle, semantic):
                 "interface_fields": list(fields.values()),
                 "operation_units": units,
                 "parts": parts[offset : offset + 4],
+                **(
+                    {"coverage_policy": GRAIN_POLICY}
+                    if bundle.get("coverage_policy") == GRAIN_POLICY
+                    else {}
+                ),
             }
-            result = validate_result(ALIGN, semantic(ALIGN, inputs), inputs)
-            for row in result["parts"]:
+            direct, model_parts = [], []
+            for part in inputs["parts"]:
+                if part.get("validation_summary") and not part["candidates"]:
+                    raw = owners[part["id"]][0]
+                    command = _summary_command(bundle, raw, part["failure_step_id"])
+                    owner = (
+                        bundle["command_bindings"][command]["primary_step_id"] if command else None
+                    )
+                    direct.append(
+                        {
+                            "part_id": part["id"],
+                            "reason": "有明确的请求校验异常，暂无相同的 G 场景"
+                            if owner
+                            else "概括性请求校验无法唯一定位接口",
+                            "matches": [],
+                            "fallback": {
+                                "step_id": owner,
+                                "target": "receiver",
+                                "key": "service.base.request_data",
+                                "entity_id": None,
+                                "attribute": None,
+                                "field_id": None,
+                                "operation_unit_id": None,
+                                "command_id": command,
+                            }
+                            if owner
+                            else None,
+                        }
+                    )
+                elif part.get("validation_summary"):
+                    reason = "来源总述与候选属于同一接口及请求校验范围"
+                    direct.append(
+                        {
+                            "part_id": part["id"],
+                            "reason": reason,
+                            "fallback": None,
+                            "matches": [
+                                {"candidate_id": c["id"], "status": "full", "reason": reason}
+                                for c in part["candidates"]
+                            ],
+                        }
+                    )
+                else:
+                    model_parts.append(part)
+            inputs["parts"] = model_parts
+            model_rows = (
+                validate_result(ALIGN, semantic(ALIGN, inputs), inputs)["parts"]
+                if model_parts
+                else []
+            )
+            results = {row["part_id"]: row for row in direct + model_rows}
+            for part_in_batch in parts[offset : offset + 4]:
+                row = results[part_in_batch["id"]]
                 raw, audit, part = owners[row["part_id"]]
                 matches = [(generated[m["candidate_id"]], m) for m in row["matches"]]
                 selected = [(g, m) for g, m in matches if m["status"] in {"full", "partial"}]
@@ -334,6 +530,28 @@ def align(bundle, semantic):
                         "expected": part["expected"],
                     }
                     issue = evidence._binding_issue(binding, step_facts, entities, fields)
+                    if (
+                        not issue
+                        and bundle.get("interface_field_policy")
+                        == interface_fields.INPUT_FIELD_POLICY
+                        and binding.get("field_id")
+                    ):
+                        actual = (
+                            location["failure_step_id"] or raw.get("step_ref") or binding["step_id"]
+                        )
+                        commands = interface_fields.commands_at(
+                            bundle["command_bindings"], actual, interface_fields.command_id(raw)
+                        )
+                        field_id = binding["field_id"]
+                        if (
+                            fields[field_id]["command_id"] not in commands
+                            or ((raw.get("parameter") or {}).get("name") or raw.get("field_name"))
+                            and field_id
+                            not in {
+                                f["id"] for _, f in interface_fields.candidates(bundle, actual, raw)
+                            }
+                        ):
+                            issue = "字段与来源声明的 SR 接口或字段名不符"
                     if not issue:
                         issue = evidence._mount(
                             bundle, channel, output, raw, binding, row["reason"], location=location
@@ -345,6 +563,9 @@ def align(bundle, semantic):
                                 raw["id"] in scene.get("source_record_ids", [])
                                 and scene["condition"] == part["condition"]
                             ):
+                                if part.get("validation_summary"):
+                                    scene["validation_summary"] = part["validation_summary"]
+                                    scene["command_id"] = fallback["command_id"]
                                 for target, match in matches:
                                     _decision(
                                         bundle,
@@ -453,6 +674,8 @@ def validate_result(task, result, inputs):
                 raise ValueError(
                     f"parts[{index}].matches[{candidate_index}].reason: {match['candidate_id']} 须说明候选依据"
                 )
+            if inputs.get("coverage_policy") == GRAIN_POLICY:
+                match["status"] = binary_status(match["status"])
         actual = row.get("failure_step_id")
         confirmed = part.get("failure_step_id")
         if actual and (

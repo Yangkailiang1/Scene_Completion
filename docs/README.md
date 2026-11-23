@@ -1,6 +1,6 @@
 # 文档导航
 
-默认从[SSD三方比较与审核](current/ssd-case-workflow.md)开始。项目协议、结果格式、离线反馈与发布版本各有含义，见[版本说明](reference/versions.md)。
+从同事的材料一路读到工作台和报告，请读[默认 SSD 代码路线与运行命令](architecture/ssd-walkthrough.md)。业务边界见[SSD 三方比较与审核](current/ssd-case-workflow.md)。项目协议、结果格式、离线反馈与发布版本各有含义，见[版本说明](reference/versions.md)。
 
 | 区域 | 内容 |
 |---|---|

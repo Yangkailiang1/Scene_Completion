@@ -1193,3 +1193,108 @@ test("applying a concern draft includes filled provenance and opens it immediate
     screen.getByRole("button", { name: "跳到人工补录出处（1）" }),
   ).toBeTruthy();
 });
+
+test("groups cross-step evidence under each G row and unlinks one match independently", async () => {
+  const bundle = fixture();
+  bundle.coverage_policy = "coverage-g-obligation-v3";
+  bundle.analysis_profile = "command-interaction-v3";
+  bundle.steps.push({
+    ...bundle.steps[0],
+    id: "step2",
+    order: 2,
+    operation: { name: "实际参数校验步骤", kinds: [] },
+  });
+  const broad = {
+    ...bundle.channels.E.concerns[0],
+    id: "e-broad",
+    condition: "参数校验失败",
+    validation_summary: "request_validation",
+    step_id: "step2",
+  };
+  const explicit = {
+    ...broad,
+    id: "e-explicit",
+    condition: "pageSize > 100",
+    validation_summary: undefined,
+  };
+  const first = bundle.channels.G.concerns[0];
+  const second = { ...first, id: "g2", condition: "页面大小缺失" };
+  bundle.channels.E.concerns = [broad, explicit];
+  bundle.channels.G.concerns = [first, second];
+  bundle.decisions = [
+    [first, broad],
+    [first, explicit],
+    [second, broad],
+  ].map(([g, e], i) => ({
+    id: `d${i}`,
+    level: "concern",
+    pair: "G_E",
+    left_id: g.id,
+    right_id: e.id,
+    status: "full",
+    origin: "auto",
+    reason: "同一请求校验义务",
+  }));
+  const view = response(bundle);
+  view.comparison.concerns = [first, second].map((g, i) => ({
+    id: `row-${g.id}`,
+    generated_id: g.id,
+    step_id: "step1",
+    target: "data",
+    key: "api.data.range",
+    status: "pair",
+    reason: "按 G 义务归组",
+    cells: { E: i === 0 ? [explicit, broad] : [broad], G: [g], GT: [] },
+  }));
+  mockApi((path) => (path.endsWith("ssd-results") ? index : view));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+
+  const firstRow = (await screen.findByLabelText("编辑 G g1")).closest("tr")!;
+  const secondRow = screen.getByLabelText("编辑 G g2").closest("tr")!;
+  const firstEvidence = within(firstRow.cells[1]);
+  const secondEvidence = within(secondRow.cells[1]);
+  expect(firstEvidence.getByText("查看来源记录与判定（2）")).toBeTruthy();
+  expect(
+    firstEvidence.getByRole("button", { name: "查看原始出处（1）" }),
+  ).toBeTruthy();
+  fireEvent.click(firstEvidence.getByText("查看来源记录与判定（2）"));
+  fireEvent.click(
+    firstEvidence.getAllByRole("button", { name: "修正此项匹配" })[1],
+  );
+  const editor = within(screen.getByRole("dialog", { name: "修正匹配关系" }));
+  const select = editor.getByLabelText<HTMLSelectElement>("匹配判定");
+  expect([...select.options].map((option) => option.text)).toEqual([
+    "匹配",
+    "不匹配",
+  ]);
+  fireEvent.change(select, { target: { value: "none" } });
+  fireEvent.click(editor.getByRole("button", { name: "应用到草稿" }));
+
+  expect(firstEvidence.getByText("查看来源记录与判定（1）")).toBeTruthy();
+  expect(firstEvidence.queryByText("参数校验失败")).toBeNull();
+  expect(secondEvidence.getByText("参数校验失败")).toBeTruthy();
+  expect(within(firstRow).getByText(/G_E · 不匹配 · 未保存/)).toBeTruthy();
+});
+
+test("shows the SR command and field name when transport location is absent", async () => {
+  const bundle = fixture();
+  bundle.analysis_profile = "command-interaction-v3";
+  bundle.interface_field_policy = "sr-input-by-name-v1";
+  const field = bundle.steps[0].data[0];
+  delete field.location;
+  field.command_id = "CATALOG-GET";
+  field.rule_texts = ["pageSize <= 100"];
+  mockApi((path) => (path.endsWith("ssd-results") ? index : response(bundle)));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+
+  const table = await screen.findByRole("table", { name: "SR 接口字段" });
+  expect(
+    within(table).getByRole("columnheader", { name: "SR 接口" }),
+  ).toBeTruthy();
+  expect(
+    within(table).queryByRole("columnheader", { name: "位置" }),
+  ).toBeNull();
+  expect(within(table).getByText("CATALOG-GET")).toBeTruthy();
+  expect(within(table).getByText("pageSize")).toBeTruthy();
+  expect(within(table).getByText(/pageSize <= 100/)).toBeTruthy();
+});

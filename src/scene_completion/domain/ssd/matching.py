@@ -3,7 +3,9 @@
 import re
 import unicodedata
 
+from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.scenario_conditions import disjoint
+from scene_completion.domain.ssd.validation_scope import compatible
 
 PAIRS = {"G_E": ("G", "E"), "GT_G": ("GT", "G"), "GT_E": ("GT", "E")}
 
@@ -53,6 +55,7 @@ def semantic_candidates(bundle):
         }
         for left in bundle["channels"][a]["scenarios"]:
             for right in bundle["channels"][b]["scenarios"]:
+                left_condition, right_condition = left.get("condition"), right.get("condition")
                 if (
                     left.get("status") == right.get("status") == "active"
                     and (
@@ -62,7 +65,11 @@ def semantic_candidates(bundle):
                             right.get("aligned_concern_ids", [])
                         )
                     )
-                    and not disjoint(left.get("condition"), right.get("condition"))
+                    and not disjoint(left_condition, right_condition)
+                    and (
+                        bundle.get("coverage_policy") != GRAIN_POLICY
+                        or compatible(left_condition, right_condition)
+                    )
                     and (left["id"], right["id"]) not in decided
                     and (_text(left.get("condition")), _text(left.get("expected")))
                     != (_text(right.get("condition")), _text(right.get("expected")))

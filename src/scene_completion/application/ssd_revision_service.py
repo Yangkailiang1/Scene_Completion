@@ -3,6 +3,8 @@
 import time
 from copy import deepcopy
 
+from scene_completion.domain.coverage import GRAIN_POLICY, POLICY, binary_status
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.domain.ssd.matching import PAIRS, binding
 from scene_completion.domain.ssd.metrics import _rate, analyze
 from scene_completion.domain.ssd.validation import VERSION, validate
@@ -141,7 +143,21 @@ def publish(project, bundle):
         if state["baseline"] == baseline:
             return editor(project, cid)
         issues = []
-        effective = {**baseline, **_patch(_editable(baseline), state["overrides"], issues)}
+        overrides = state["overrides"]
+        previous = editor(project, cid)["bundle"]
+        upgrading = (
+            baseline.get("interface_field_policy") == INPUT_FIELD_POLICY
+            and previous.get("interface_field_policy") != INPUT_FIELD_POLICY
+        )
+        if upgrading:
+            from scene_completion.application.ssd_input_field_migration import rebase
+
+            overrides = rebase(state["baseline"], baseline, overrides)
+        effective = {**baseline, **_patch(_editable(baseline), overrides, issues)}
+        if baseline.get("coverage_policy") == GRAIN_POLICY:
+            effective["coverage_policy"] = GRAIN_POLICY
+            for row in effective.get("decisions", []):
+                row["status"] = binary_status(row["status"])
         if "machine_g" in baseline:
             from scene_completion.workflow.ssd.generate.scenarios import (
                 refresh_status,
@@ -155,21 +171,22 @@ def publish(project, bundle):
             )
             effective["machine_g"] = machine_g
             effective["channels"]["G"] = _patch(
-                machine_g, state["overrides"].get("channels", {}).get("G", {}), issues
+                machine_g, overrides.get("channels", {}).get("G", {}), issues
             )
             refresh_status(effective)
         effective["revision_issues"] = issues
-        previous = editor(project, cid)["bundle"]
-        _invalidate(previous, effective)
+        if upgrading:
+            _preserve_migration_issues(effective, previous, issues)
+        _invalidate(previous, effective, preserve_manual=upgrading)
         effective = validate(effective)
-        _invalidate(previous, effective)
+        _invalidate(previous, effective, preserve_manual=upgrading)
         return _store(
             project,
             effective,
             baseline,
             state["revision"] + 1,
             state["history"],
-            state["overrides"],
+            overrides,
             "自动运行更新；保留人工修订",
             state["baseline"],
         )
@@ -229,7 +246,41 @@ def review_catalog(project):
         yield {**state["case"], "revision": state["revision"], "completeness": progress}
 
 
-def _invalidate(previous, bundle):
+def _preserve_migration_issues(bundle, previous, issues):
+    old_records = {
+        row["id"]: row
+        for channel in previous["channels"].values()
+        for kind in ("concerns", "scenarios", "pending")
+        for row in channel[kind]
+    }
+    for issue in issues:
+        if old := old_records.get(issue["id"]):
+            issue["condition"] = old["condition"]
+            issue["previous_record"] = old
+    available = {
+        (channel, kind): {r["id"] for r in records[kind] if r.get("status") == "active"}
+        for channel, records in bundle["channels"].items()
+        for kind in ("concerns", "scenarios")
+    }
+    for decision in bundle.get("decisions", []):
+        if decision.get("origin") not in {"manual", "business_review"}:
+            continue
+        kind = "concerns" if decision["level"] == "concern" else "scenarios"
+        left, right = PAIRS[decision["pair"]]
+        if (
+            decision["left_id"] not in available[left, kind]
+            or decision["right_id"] not in available[right, kind]
+        ):
+            issues.append(
+                {
+                    "id": decision["id"],
+                    "reason": "原字段或场景未能唯一对应，人工判定待重新挂载",
+                    "previous_decision": decision,
+                }
+            )
+
+
+def _invalidate(previous, bundle, *, preserve_manual=False):
     changed = set()
     for channel in ("G", "E", "GT"):
         for kind in ("concerns", "scenarios"):
@@ -242,8 +293,10 @@ def _invalidate(previous, bundle):
     kept = []
     for d in bundle.get("decisions", []):
         a, b = PAIRS[d["pair"]]
-        if ((a, d["left_id"]) in changed or (b, d["right_id"]) in changed) and (
-            old_decisions.get(d["id"]) == d
+        if (
+            ((a, d["left_id"]) in changed or (b, d["right_id"]) in changed)
+            and (old_decisions.get(d["id"]) == d)
+            and not (preserve_manual and d.get("origin") in {"manual", "business_review"})
         ):
             continue
         kind = "concerns" if d["level"] == "concern" else "scenarios"
@@ -295,7 +348,12 @@ def save_revision(project, case_id, body):
             if submitted.get(key) != current.get(key):
                 raise ValueError("不可改写用例身份、版本或原始文档")
         updated = {**current, **_editable(submitted)}
-        updated["coverage_policy"] = "coverage-any-confirmed-v2"
+        updated["coverage_policy"] = (
+            GRAIN_POLICY if current.get("coverage_policy") == GRAIN_POLICY else POLICY
+        )
+        if updated["coverage_policy"] == GRAIN_POLICY:
+            for row in updated.get("decisions", []):
+                row["status"] = binary_status(row["status"])
         _promote_pending(updated)
         if current["steps"] != updated["steps"]:
             from scene_completion.workflow.ssd.generate.fixed import generate_g

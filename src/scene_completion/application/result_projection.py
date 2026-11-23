@@ -4,7 +4,7 @@ from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
 
-from scene_completion.domain.coverage import review_statuses
+from scene_completion.domain.coverage import GRAIN_POLICY, review_statuses
 from scene_completion.infrastructure.result_cache import read_snapshot
 from scene_completion.infrastructure.storage import read_json
 
@@ -92,7 +92,9 @@ def current_view(project, view, matching, *, compact=False):
             if status:
                 coverage[record["id"]] = deepcopy(status)
         row["coverage_by_record"] = coverage
-        if any(s["covered"] for s in coverage.values()):
+        if local.get("coverage_policy") != GRAIN_POLICY and any(
+            s["covered"] for s in coverage.values()
+        ):
             row["reason"] = "已确认GT覆盖；关联记录可能位于其他表格行，见覆盖依据"
             if row["status"] == "single":
                 row["status"] = "partial"

@@ -15,7 +15,7 @@ def structured(ex, directory, case_id, file, problem):
         raise ValueError(problem)
     bundles = build_cases(directory, [case_id], case_files=[file], generate=False)
     if len(bundles) != 1:
-        raise ValueError("当前用例没有唯一可用的 SysOperation")
+        raise ValueError("当前用例没有唯一可用的结构化执行输入")
     bundle = validate(bundles[0])
     # Pin the exact model-independent core used for all downstream stages.
     bundle["core_snapshot"] = pin_core(ex.root, directory, bundle)

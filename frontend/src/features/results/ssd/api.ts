@@ -37,7 +37,7 @@ export async function saveSsdRevision(
   return result;
 }
 
-export async function exportSsdReview(
+export async function exportSsdBusinessReport(
   project: string,
   selection: {
     case_ids?: string[];
@@ -46,7 +46,7 @@ export async function exportSsdReview(
     anchor_ids?: string[];
   },
 ) {
-  const response = await fetch(projectUrl(project, "ssd-review/export"), {
+  const response = await fetch(projectUrl(project, "ssd-review/report"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(selection),
@@ -54,26 +54,6 @@ export async function exportSsdReview(
   if (!response.ok)
     throw new Error((await response.json()).detail || "导出失败");
   return response.blob();
-}
-
-export function previewSsdReview(project: string, content: string) {
-  return api(projectUrl(project, "ssd-review/preview"), {
-    method: "POST",
-    body: JSON.stringify({ content }),
-  });
-}
-
-export async function applySsdReview(
-  project: string,
-  content: string,
-  itemIds: string[],
-) {
-  const result = await api(projectUrl(project, "ssd-review/apply"), {
-    method: "POST",
-    body: JSON.stringify({ content, item_ids: itemIds }),
-  });
-  invalidateResults(project);
-  return result;
 }
 
 export function getReviewSummary(project: string, body: object = {}) {

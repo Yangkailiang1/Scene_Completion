@@ -10,6 +10,8 @@ from scene_completion.domain.current_scope import (
 from scene_completion.domain.ssd.construction import (
     unique,
 )
+from scene_completion.domain.ssd.interface_fields import field_name
+from scene_completion.infrastructure.identity import fingerprint
 from scene_completion.inputs.provenance.ssd_sources import api_contracts
 from scene_completion.inputs.structured.case_names import candidates as case_candidates
 from scene_completion.workflow.ssd.shared.command_bindings import _HTTP
@@ -96,8 +98,11 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
             method, address = method or found_method, address or found_path
         fields = []
         for k, row in enumerate(raw.get("attributes", [])):
-            location = _location(row)
-            name = row["name"].removeprefix(f"{location}.")
+            direct = selected is not None
+            location = None if direct else _location(row)
+            name = field_name(row["name"]) if direct else row["name"].removeprefix(f"{location}.")
+            if not name:
+                raise ValueError("SR 接口字段名为空：" + command_id)
             origin = row.get("source") or {}
             attribute_pointer = f"{pointer}/attributes/{k}"
             rules = row.get("constraints") or []
@@ -145,7 +150,7 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
                 {
                     "name": name,
                     "wire_name": row.get("wire_name") or name,
-                    "location": location,
+                    **({"location": location} if not direct else {}),
                     "type": row.get("type"),
                     "entity_binding": row.get("entity_binding"),
                     "required": True if "必填" in tags else None,
@@ -158,7 +163,9 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
                     "source_refs": refs,
                 }
             )
-        if len({(f["location"], f["name"]) for f in fields}) != len(fields):
+        if selected is not None:
+            fields = _merge_input_fields(fields)
+        elif len({(f["location"], f["name"]) for f in fields}) != len(fields):
             raise ValueError("SR 接口字段位置与名称重复：" + command_id)
         commands[command_id] = {
             "id": command_id,
@@ -180,6 +187,61 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
             ),
         }
     return commands
+
+
+def _merge_input_fields(fields):
+    by_name = {}
+    for field in fields:
+        current = by_name.setdefault(field["name"], field)
+        if current is not field:
+            if current["type"] and field["type"] and current["type"] != field["type"]:
+                current["conflicts"] = sorted(
+                    set(current.get("conflicts", [])) | {"字段类型声明冲突"}
+                )
+            bindings = [f["entity_binding"] for f in (current, field) if f["entity_binding"]]
+            if bindings and any(b != bindings[0] for b in bindings):
+                current["conflicts"] = sorted(
+                    set(current.get("conflicts", [])) | {"字段关联到不同实体属性"}
+                )
+            current["type"] = current["type"] or field["type"]
+            current["entity_binding"] = current["entity_binding"] or field["entity_binding"]
+            current["required"] = current["required"] or field["required"]
+            for key in ("atoms", "unresolved", "rule_texts", "source_refs"):
+                current[key].extend(field[key])
+    for field in by_name.values():
+        for key in ("atoms", "unresolved"):
+            atoms = {}
+            for atom in field[key]:
+                identity = fingerprint(
+                    {k: v for k, v in atom.items() if k not in {"id", "source_refs"}}
+                )
+                first = atoms.setdefault(identity, atom)
+                if first is not atom:
+                    first["source_refs"] = unique(
+                        first.get("source_refs", []) + atom.get("source_refs", [])
+                    )
+            field[key] = list(atoms.values())
+        bounds = {}
+        for atom in field["atoms"]:
+            operation, value = atom["operation"], atom.get("value")
+            if operation in {"minimum", "maximum", "min_length", "max_length"} and type(value) in {
+                int,
+                float,
+            }:
+                bounds.setdefault(
+                    tuple(sorted(atom.get("applicable_operations") or [])), {}
+                ).setdefault(operation, []).append((value, bool(atom.get("exclusive"))))
+        if any(
+            low > high or low == high and (lower_open or upper_open)
+            for scope in bounds.values()
+            for lower, upper in (("minimum", "maximum"), ("min_length", "max_length"))
+            for low, lower_open in scope.get(lower, [])
+            for high, upper_open in scope.get(upper, [])
+        ):
+            field.setdefault("conflicts", []).append("字段上下界约束互斥")
+        for key in ("rule_texts", "source_refs"):
+            field[key] = unique(field[key])
+    return list(by_name.values())
 
 
 def for_case(root, sources, shared_tree, tree_link, case, case_entity, active_profile):

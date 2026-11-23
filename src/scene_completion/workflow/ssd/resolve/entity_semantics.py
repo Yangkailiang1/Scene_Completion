@@ -3,7 +3,14 @@
 from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
-from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, pending
+from scene_completion.domain.ssd.construction import (
+    add_concern,
+    add_scenario,
+    ident,
+    pending,
+    unique,
+)
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY, related_steps
 from scene_completion.domain.ssd_contracts import CRUD
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.infrastructure.identity import fingerprint
@@ -171,6 +178,44 @@ def _occurrence(bundle, source):
     return failure_context.location(bundle, source, legacy=True)["failure_step_id"]
 
 
+def evidence_items(source):
+    """Text in packet order and the references that attest each item."""
+    refs = source["source_refs"]
+    raw = source.get("raw") or {}
+    raw_items = raw.get("evidence") or []
+    items = []
+    for index, text in enumerate(raw_items):
+        related = [
+            ref
+            for ref in refs
+            if ref.get("evidence_index") == index
+            and (
+                ref.get("json_pointer", "").endswith(f"/evidence/{index}")
+                or isinstance(text, str)
+                and text in ref.get("quote", "")
+            )
+        ]
+        label = next((ref["evidence_id"] for ref in related if ref.get("evidence_id")), None)
+        items.append({"text": text, "source_refs": related, "evidence_id": label})
+    for ref in refs:
+        if (
+            ref.get("kind") in {"origin", "test"}
+            and not ref.get("json_pointer")
+            and ref.get("quote")
+        ):
+            items.append(
+                {"text": ref["quote"], "source_refs": [ref], "evidence_id": ref.get("evidence_id")}
+            )
+    seen = {item["text"] for item in items if isinstance(item["text"], str)}
+    for ref in refs:
+        if (quote := ref.get("evidence_quote")) and quote not in seen:
+            items.append(
+                {"text": quote, "source_refs": [ref], "evidence_id": ref.get("evidence_id")}
+            )
+            seen.add(quote)
+    return items
+
+
 def _record(bundle, row):
     source = row["original"]
     raw = source.get("raw") or {}
@@ -183,16 +228,7 @@ def _record(bundle, row):
         **failure_context.location(bundle, source),
         "branch": failure_context.branch_context(source),
         "note": raw.get("note"),
-        "evidence": [
-            *(raw.get("evidence") or []),
-            *[
-                r["quote"]
-                for r in source["source_refs"]
-                if r.get("kind") in {"origin", "test"}
-                and not r.get("json_pointer")
-                and r.get("quote")
-            ],
-        ],
+        "evidence": [item["text"] for item in evidence_items(source)],
     }
 
 
@@ -229,9 +265,11 @@ def interface_fields(bundle):
         f["id"]: {
             "id": f["id"],
             "name": f["wire_name"],
-            "location": f["location"],
+            **({"location": f["location"]} if "location" in f else {}),
             "command_id": f["command_id"],
-            "related_steps": list(
+            "related_steps": sorted(related_steps(bundle["command_bindings"][f["command_id"]]))
+            if bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
+            else list(
                 dict.fromkeys(
                     [
                         s["id"],
@@ -244,7 +282,7 @@ def interface_fields(bundle):
         }
         for s in bundle["steps"]
         for f in s.get("data", [])
-        if f.get("command_id")
+        if f.get("command_id") and not f.get("conflicts")
     }
 
 
@@ -451,6 +489,13 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
         location.get("failure_step_reason") if location is not None else None,
     )
     scene["identification_reason"] = reason
+    if source.get("verified_excerpts"):
+        scene["verified_excerpts"] = unique(
+            [
+                *scene.get("verified_excerpts", []),
+                *source["verified_excerpts"],
+            ]
+        )
     if field:
         scene.update(command_id=field["command_id"], call_step_id=field["call_step_id"])
     if g:

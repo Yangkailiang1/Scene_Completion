@@ -17,7 +17,7 @@ function reportTable(entry,rows){
  const previous=mode;mode=reportSection==='g_only'?'review':'reference';const result=table(entry,rows);mode=previous;
  for(const row of rows){const line=[...result.querySelectorAll('tbody tr')].find(t=>t.dataset.rowId===row.id);if(!line)continue;
   const g=line.cells[line.cells.length-2];callMembers(entry,row,g);
-  if(row.links?.length){const d=el('details',undefined,'coverage-links');d.append(el('summary','匹配判定及依据'));for(const link of row.links)d.append(el('p',(link.status==='partial'?'部分覆盖':'完整覆盖')+'：'+link.reason));line.lastElementChild.append(d);}
+  if(row.links?.length){const d=el('details',undefined,'coverage-links');d.append(el('summary','匹配判定及依据'));for(const link of row.links)d.append(el('p',(binaryReview(entry)?'匹配':link.status==='partial'?'部分覆盖':'完整覆盖')+'：'+link.reason));line.lastElementChild.append(d);}
  }return result;
 }
 function reportDetails(entry,rows){
@@ -29,7 +29,8 @@ function render(){
  document.querySelector('.brand h1').textContent=state.report.title;
  const tabs=document.getElementById('tabs');tabs.replaceChildren();for(const [key,name]of Object.entries(reportNames)){const b=el('button',name+' · '+state.report.counts[key].total+' 条');b.setAttribute('role','tab');b.setAttribute('aria-selected',String(key===reportSection));b.onclick=()=>{reportSection=key;render();};tabs.append(b);}
  const select=document.getElementById('item-select');select.replaceChildren();const all=el('option','全部用例与共用服务');all.value='';select.append(all);for(const i of state.items){const o=el('option',i.name);o.value=i.id;select.append(o);}select.value=itemId;select.onchange=()=>{itemId=select.value;render();};
- document.getElementById('mode-description').textContent='一共是 '+state.report.case_count+' 个 use case · full、partial 均算覆盖；E仅作为依据，不从三类结果扣除。';
+ const grain=state.items.some(binaryReview);
+ document.getElementById('mode-description').textContent='一共是 '+state.report.case_count+' 个 use case · '+(grain?'按匹配与不匹配统计，历史项目沿用冻结口径。':'full、partial 均算覆盖。')+' E 作为依据。';
  const excluded=state.items.reduce((n,i)=>n+(i.report_excluded||[]).length,0);document.getElementById('counts').textContent='待核对／未完成 '+excluded+' 条，不混入已确认分类。';
  app.replaceChildren();const heading=el('div',undefined,'entry-title');heading.append(el('h2',ref?'完整参考（只读）':reportNames[reportSection]+'：共 '+state.report.counts[reportSection].total+' 条'));const progress=el('span');progress.id='adoption-progress';heading.append(progress);app.append(heading);updateProgress();
  if(!ref){const total=state.report.counts[reportSection];app.append(el('p','用例合计 '+total.cases+' 条 ＋ 共用外部服务 '+total.shared_services+' 条 ＝ '+total.total+' 条','report-equation'));}

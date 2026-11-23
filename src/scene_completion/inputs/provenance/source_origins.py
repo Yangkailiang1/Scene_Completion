@@ -89,8 +89,9 @@ def resolve_name(declared, documents):
     for priority, select in enumerate(
         (
             lambda doc: "/" in wanted and (doc.get("path") == relative or doc["name"] == relative),
-            lambda doc: wanted.casefold()
-            in {a.casefold() for a in doc.get("configured_aliases", [])},
+            lambda doc: (
+                wanted.casefold() in {a.casefold() for a in doc.get("configured_aliases", [])}
+            ),
             lambda doc: stem(doc["name"]).casefold() == stem(wanted).casefold(),
             lambda doc: wanted.lower() in aliases_for(doc["name"]),
             lambda doc: wanted.lower() == str(doc.get("role") or "").lower(),
@@ -299,6 +300,39 @@ def column_index(letters):
     return value - 1
 
 
+def sheet_name(locator):
+    name = locator.split("!", 1)[0]
+    if name.startswith("'") and name.endswith("'"):
+        return name[1:-1].replace("''", "'")
+    return name
+
+
+def from_sheet_rows(document, quote, declared):
+    """Verify an older exported Excel anchor that carries a rendered row quote."""
+    if (
+        not isinstance(declared, tuple)
+        or not all(type(line) is int for line in declared)
+        or not 1 <= declared[0] <= declared[1] <= 1048576
+    ):
+        return untraced("Excel 原文行号无效")
+    start, end = declared
+    rows = [row for row in document["lines"] if start <= row["number"] <= end]
+    text = "\n".join(row["text"] for row in rows)
+    if not rows or (rows[0]["number"], rows[-1]["number"]) != declared or not _normalized(text):
+        return untraced("指定 Excel 行缺失或为空")
+    if _normalized(text) != _normalized(quote):
+        return untraced("指定 Excel 行与保存的整行引文不吻合")
+    return {
+        "document": document["path"],
+        "role": document["role"],
+        "start_line": start,
+        "end_line": end,
+        "quote": text,
+        "match": "exact",
+        "sheet": document["sheet"],
+    }
+
+
 def from_cell(declared, quote, sheet_documents):
     """Return a checked Excel range against the declared workbook and sheet."""
     match = CELL.fullmatch(str(declared or "").strip())
@@ -310,9 +344,7 @@ def from_cell(declared, quote, sheet_documents):
     end = int(match["end"] or match["row"])
     if not (first <= last < 16384 and start <= end <= 1048576):
         return untraced("Excel 单元格范围无效：" + declared)
-    name = match["sheet"]
-    if name.startswith("'") and name.endswith("'"):
-        name = name[1:-1].replace("''", "'")
+    name = sheet_name(declared.strip())
     matches = [doc for doc in sheet_documents if doc["sheet"] == name]
     if len(matches) != 1:
         return untraced("未找到唯一的 Excel 工作表：" + name)

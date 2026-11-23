@@ -1,5 +1,7 @@
 # 架构与代码导览
 
+用一个合成用例跟读或运行请从[同事材料到离线报告](ssd-walkthrough.md)开始。本页供查阅跨模块依赖。
+
 默认运行入口是交互三方比较流程，业务链路退出当前分析。外部服务在交互中生成后归并，历史链路与架构只读。`compat`保留仍在使用的详细流程、独立分析格式和保存报告能力，不代表恢复v2/v3/v4协议。版本含义见[版本与兼容边界](../reference/versions.md)，唯一文件迁移清单为[module-map.json](module-map.json)。
 
 ## 主链与依赖方向
@@ -22,7 +24,9 @@ flowchart TD
     Merge --> ProjectDomain[domain/project_scopes 匹配与指标复用]
     Merge --> Store[shared_service_results 独立仓储]
     Historical[旧 project_results] --> Merge
-    Offline[review/offline 离线HTML回收] --> Revision
+    Web --> Report[review/offline/business_report_export 离线报告]
+    Report --> Revision
+    Legacy[历史审核包预览及应用] --> Revision
 ```
 
 `application/input_service`组织输入扫描、接纳与监控；`domain/task_extensions`保存任务Schema扩展注册，避免领域层反向依赖分析层；`infrastructure/identity`提供纯指纹计算。`analysis/scenarios/eligibility`协调输入解析和计分资格，纯场景类型规则仍留在`domain/scenario_types.py`。
@@ -35,29 +39,9 @@ HTTP与CLI处理参数及响应，应用服务组织用例操作；领域代码�
 
 ## 按顺序阅读 SSD
 
-下表目录均位于 [`src/scene_completion/workflow/ssd/`](../../src/scene_completion/workflow/ssd/)。五个调度阶段从各自的 `stage.py` 开始读。
+[端到端代码路线](ssd-walkthrough.md)依次列出原件与分件的字段、五个节点的入口和校验、修订与报告，以及合成用例的离线验收。阶段名称、依赖、语义任务以[自动生成的阶段表](../current/structured-input-workflow.md)为准。
 
-| 目录 | 从这里读 | 主要产物 |
-|---|---|---|
-| `input_conversion/` | `core_input.py` 的 `inspect`、`convert`、`validate_core`，以及 `case_builder.py` 的 `build_cases` | 核心文件、待决映射、出处索引和运行用例 |
-| `prepare/` | `stage.py` 的结构化与文档两种准备入口，`snapshot.py` 的冻结与验证 | 核心快照、初始三方容器和初始发布版本 |
-| `resolve/` | `stage.py`，再读操作、实体和来源分类模块 | CRUD、约束挂载、独立 E／GT 分类和待确认项 |
-| `generate/` | `fixed.py`、`command_fields.py`、`scenarios.py` 和 `stage.py` | 固定关注点、固定场景、G 业务分析及补充场景 |
-| `compare/` | `alignment.py` 和 `stage.py` | E／GT 对齐到最终 G、判定复用、语义匹配及发布 |
-| `shared_services/` | `stage.py` | 按用例触发外部服务归并及发布 |
-| `shared/` | 按绑定、失败位置、语义执行和基线复用进入 | 各阶段共同使用的上下文与稳定身份 |
-
-`workflow/ssd_pipeline.py` 和 `analysis/ssd/` 保留既有导入入口。共用服务的归并规则仍由 `domain/shared_services/` 维护，修订和发布由应用服务处理。领域层继续提供三方校验、匹配与指标。
-
-### 来源文件到核心 JSON
-
-| 来源 | `input_conversion/` 中的映射 | 主要输出 |
-|---|---|---|
-| `SysOperation.json` 的参与者、顺序、交互、动作和响应 | `sys_operation.py` 提取步骤和参与者，`case_builder.py` 统一用例与步骤身份 | `architecture.json`、`main-success.json` |
-| `功能树.json` 的用例、命令与实体属性 | `function_tree.py` 对齐同用例的接口契约，`case_builder.py` 组装实体目录 | `main-success.json` 的命令、实体与约束 |
-| 行为模型中的原文异常和分支文件 | `requirements.py` 读取分支，`evidence_records.py` 处理本方证据 | `existing-exceptions.json` |
-| `recovered_usecases.json` 与测试证据 | `test_evidence.py` 按用例读取测试扩展，保留命中、待确认和来源 | `test-exceptions.json`、`extension-mapping.json` |
-| 中间 JSON 引用及配置的 Markdown／XLSX 原件 | `provenance.py` 索引原件，`core_files.py` 写出各核心分件和引用 | `source-map.json`、原文清单及随包证据 |
+`workflow/ssd/` 保存阶段实现。`workflow/ssd_pipeline.py` 和 `analysis/ssd/` 保留旧导入名称，查原模块对应的新文件可用 [module-map.json](module-map.json)。
 
 ## 目录职责
 

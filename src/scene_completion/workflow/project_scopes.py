@@ -453,13 +453,13 @@ def build_project_scopes(ex, prepare_keys, documents=None):
     """Removed stage registration. Kept so a stale caller fails with a reason.
 
     The business-chain and architecture project stages were replaced by the
-    shared-service merge in ``workflow/ssd_pipeline.py``. Their results remain
+    shared-service merge in ``workflow/ssd/shared_services/stage.py``. Their results remain
     readable as read-only history; nothing registers those stages any more.
     The semantic helpers above are still exercised by the compatibility suite.
     """
     raise RuntimeError(
         "build_project_scopes() 已停用：结构化输入流程不再注册业务链路与项目架构阶段。"
-        "用例完成后由 workflow/ssd_pipeline.py 的 _project_scopes() 注册 "
+        "用例完成后由 workflow/ssd/shared_services/stage.py 的 _project_scopes() 注册 "
         "shared-services-merge；阶段说明见 workflow/ssd_stages.py，"
         "历史只读投影见 docs/current/ssd-case-workflow.md。"
     )

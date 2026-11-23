@@ -8,6 +8,7 @@ from scene_completion.domain.ssd.construction import (
     ident,
     pending,
 )
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 
 _HTTP = re.compile(r"\b(GET|HEAD|POST|PUT|PATCH|DELETE)\s+(/[^\s`，。；]+)", re.I)
 
@@ -155,6 +156,24 @@ def attach(bundle, commands, placements=None):
                 validation_step_ids=validators, response_step_ids=responses
             )
         for field in command["fields"]:
+            if bundle.get("interface_field_policy") == INPUT_FIELD_POLICY:
+                if field.get("conflicts"):
+                    _gap(
+                        bundle,
+                        cid,
+                        field["name"] + "：" + "、".join(field["conflicts"]),
+                        field["source_refs"],
+                    )
+                primary["data"].append(
+                    {
+                        **deepcopy(field),
+                        "id": ident("sr-input-field", bundle["case"]["id"], cid, field["name"]),
+                        "command_id": cid,
+                        "call_step_id": primary["id"],
+                        "validation_step_ids": validators,
+                    }
+                )
+                continue
             location = field["location"]
             if not location or (
                 location == "response" and len(returns) != 1 and placements is None

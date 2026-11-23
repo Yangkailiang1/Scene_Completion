@@ -2146,6 +2146,11 @@
           "module": "scene_completion.workflow.ssd.input_conversion.core_input",
           "path": "src/scene_completion/workflow/ssd/input_conversion/core_input.py",
           "responsibility": "Deterministic core input tools used by the CLI and coding agents."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.input_conversion.core_validation",
+          "path": "src/scene_completion/workflow/ssd/input_conversion/core_validation.py",
+          "responsibility": "Cross-check serialized core parts against the reconstructed runtime case."
         }
       ]
     },
@@ -2291,6 +2296,11 @@
           "module": "scene_completion.workflow.ssd.resolve.stage",
           "path": "src/scene_completion/workflow/ssd/resolve/stage.py",
           "responsibility": "Resolve operation, constraints and independent evidence for one SSD case."
+        },
+        {
+          "module": "scene_completion.workflow.ssd.resolve.legacy_resolution",
+          "path": "src/scene_completion/workflow/ssd/resolve/legacy_resolution.py",
+          "responsibility": "Resolve channel records for inputs predating structured entity and command profiles."
         },
         {
           "module": "scene_completion.workflow.ssd.shared.machine_history",

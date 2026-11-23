@@ -572,3 +572,18 @@
   color: #224eac;
   border-color: #9cb9ec;
 }
+
+.ssd-evidence-cell {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ssd-evidence-cell > button {
+  justify-self: start;
+}
+
+.ssd-evidence-member {
+  border-top: 1px solid var(--border, #dce4ef);
+  margin-top: 0.6rem;
+  padding-top: 0.45rem;
+}

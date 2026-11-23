@@ -6,6 +6,8 @@ import pytest
 
 from scene_completion.application import shared_service_service as shared
 from scene_completion.application import ssd_revision_service as cases
+from scene_completion.domain.coverage import GRAIN_POLICY
+from scene_completion.domain.coverage import POLICY as LEGACY_COVERAGE
 from scene_completion.domain.current_scope import AVAILABILITY, POLICY, case_report
 from scene_completion.domain.project_scopes import matching
 from scene_completion.domain.shared_services.aggregation import build
@@ -224,13 +226,16 @@ def test_seventeen_case_fixture_counts_incomplete_cases_without_hardcoding(tmp_p
         adoption.feedback(tmp_path, forged)
 
 
-def test_business_report_offline_controls_and_save_roundtrip(tmp_path):
+@pytest.mark.parametrize("coverage_policy", [LEGACY_COVERAGE, GRAIN_POLICY])
+def test_business_report_offline_controls_and_save_roundtrip(tmp_path, coverage_policy):
     import json
     import subprocess
 
     from tests.support.paths import ROOT
 
-    cases.publish(tmp_path, coverage_bundle())
+    bundle = coverage_bundle()
+    bundle["coverage_policy"] = coverage_policy
+    cases.publish(tmp_path, bundle)
     target = tmp_path / "report.html"
     target.write_text(adoption.export_html(tmp_path), encoding="utf8")
     result = subprocess.run(

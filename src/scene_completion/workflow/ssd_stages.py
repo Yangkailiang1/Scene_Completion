@@ -6,7 +6,7 @@ cannot drift apart. Changing a label or a stage's behaviour starts in this file.
 
 Where the other halves live:
 
-- execution order and wiring: ``workflow/ssd_pipeline.py``
+- execution order and wiring: ``workflow/ssd/pipeline.py``
 - what the model is told for each semantic task, and the output schema:
   ``domain/ssd_contracts.py`` (``SCHEMAS`` / ``ROLE_TEXT``)
 - semantic version used for cache identity: ``workflow/task_semantics.json``
@@ -49,6 +49,7 @@ def _stage(
     depends_on,
     doc,
     *,
+    compatible_tasks=(),
     user_visible=True,
 ):
     return Stage(
@@ -57,7 +58,9 @@ def _stage(
         kind_label=KIND_LABELS[kind],
         reads=tuple(reads),
         writes=tuple(writes),
-        semantic_tasks=tuple(semantic_tasks),
+        semantic_tasks=tuple(semantic_tasks) + tuple(compatible_tasks),
+        default_tasks=tuple(semantic_tasks),
+        compatible_tasks=tuple(compatible_tasks),
         depends_on=tuple(depends_on),
         doc=doc,
         user_visible=user_visible,
@@ -68,8 +71,8 @@ STAGES = {
     "ssd-prepare": _stage(
         label="建立 SSD 与三方结果",
         kind=SCRIPT,
-        reads=("SysOperation.json", "功能树", "行为目录", "结构化输入快照"),
-        writes=("用例 steps（发送方·数据·接收方）", "G 通道关注点与参考场景", "初始发布版本"),
+        reads=("冻结的核心分件或 SysOperation 与配套材料", "关注点注册表"),
+        writes=("用例 steps（发送方·接收方·操作·数据）", "G 通道关注点与参考场景", "初始发布版本"),
         semantic_tasks=(),
         depends_on=(),
         doc=(
@@ -81,20 +84,22 @@ STAGES = {
         label="操作判定、约束挂载与独立识别",
         kind=MODEL,
         reads=("正向主成功事件流、功能树实体约束", "E/GT 各自的原始记录"),
-        writes=("CRUD 与实体约束锚点", "E/GT 的关注点与具体场景", "待确认记录"),
+        writes=("操作单元、CRUD、字段与实体约束挂载", "E/GT 各自的来源分类与待定位部分"),
         semantic_tasks=(
             "ssd-operation-units",
             "ssd-entity-inference",
+            "ssd-evidence-classify",
+        ),
+        compatible_tasks=(
             "ssd-entity-classify",
             "ssd-command-classify",
-            "ssd-evidence-classify",
             "ssd-bind",
             "ssd-resolve",
         ),
         depends_on=("ssd-prepare",),
         doc=(
-            "实体模式先判定主流程的实际CRUD并处理未能脚本解析的属性约束，再由脚本建立G挂载。"
-            "E和GT分别根据自己的来源分类。新版命令模式在此保留证据分类，最终生成G后再确定挂载。兼容输入沿用ssd-bind与ssd-resolve。"
+            "默认命令模式先判操作单元和 CRUD，再处理未能确定性解析的约束，由脚本建立 G 挂载。"
+            "E、GT 分别按本方证据分类，在 compare 才对齐最终 G。旧输入按配置使用其他分类或绑定任务。"
         ),
     ),
     "ssd-generate": _stage(
@@ -112,13 +117,13 @@ STAGES = {
     "ssd-compare": _stage(
         label="三方比较与发布",
         kind=MODEL_SCRIPT,
-        reads=("G/E/GT 全通道场景与关注点", "历史机器判定"),
-        writes=("full/partial/none 判定", "发布版本与人工复核结果"),
+        reads=("最终 G 与 E、GT 各自的来源分类", "候选对、历史判定与人工修订"),
+        writes=("逐 G 义务的确认覆盖及独立挂载", "发布基线与有效修订"),
         semantic_tasks=("ssd-ground-align", "ssd-semantic-compare"),
         depends_on=("ssd-generate",),
         doc=(
             "新版命令模式按最终G分别对齐E与GT，无法对应G的异常再按来源独立挂载。"
-            "复用未变化的机器判定，再对候选对分批判定 full/partial/none，"
+            "复用未变化的机器判定，再对候选对分批判定。当前口径记录 full/none，旧口径保留 partial。"
             "发布机器基线；若检测到人工修订，再独立复核一次。被任一 GT 确认的 G "
             "计为已覆盖。"
         ),
@@ -137,7 +142,7 @@ STAGES = {
     ),
 }
 
-# The order a single case advances through; the merge stage follows all cases.
+# The order a single case advances through; each case unlocks its own shared-service merge.
 CASE_SEQUENCE = ("ssd-prepare", "ssd-resolve", "ssd-generate", "ssd-compare")
 MERGE_STAGE = "shared-services-merge"
 

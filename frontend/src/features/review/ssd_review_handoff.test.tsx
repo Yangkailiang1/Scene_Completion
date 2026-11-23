@@ -96,11 +96,6 @@ function setup(post: (url: string, body: any) => Response = () => json({})) {
       return json({ snapshots: [] });
     });
 }
-function file() {
-  const f = new File(["review-data"], "review.html");
-  Object.defineProperty(f, "text", { value: async () => "review-data" });
-  return f;
-}
 function downloads() {
   vi.stubGlobal(
     "URL",
@@ -127,7 +122,8 @@ test("format detection never flashes legacy controls; legacy is still explicitly
   fireEvent.change(screen.getByLabelText("审核交接格式"), {
     target: { value: "ssd" },
   });
-  expect(screen.getByLabelText("导入 SSD 审核文件")).toBeTruthy();
+  expect(screen.queryByLabelText("导入 SSD 审核文件")).toBeNull();
+  expect(screen.getByRole("button", { name: "导出报告 HTML" })).toBeTruthy();
 });
 
 test("default exports interactions and shared services regardless of current selection; object loading is lazy", async () => {
@@ -149,25 +145,24 @@ test("default exports interactions and shared services regardless of current sel
     />,
   );
   const button = await screen.findByRole("button", {
-    name: "导出需求异常场景识别报告",
+    name: "导出报告 HTML",
   });
   await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
   expect(
-    (screen.getByLabelText("SSD 审核范围") as HTMLSelectElement).value,
+    (screen.getByLabelText("SSD 报告范围") as HTMLSelectElement).value,
   ).toBe("all");
   expect(fetcher.mock.calls.some(([u]) => String(u).includes("/editor"))).toBe(
     false,
   );
   fireEvent.click(button);
-  await screen.findByText(/已导出保存版本/);
-  expect(requests[0].body).toEqual({});
-  fireEvent.click(screen.getByText("高级筛选（可选）"));
-  fireEvent.change(screen.getByLabelText("SSD 审核范围"), {
-    target: { value: "step" },
+  await screen.findByText(/报告已导出/);
+  expect(requests[0]).toEqual({
+    url: "/api/projects/p/ssd-review/report",
+    body: {},
   });
-  await screen.findByRole("option", { name: "请求" });
-  fireEvent.change(screen.getByLabelText("SSD 审核步骤"), {
-    target: { value: "S1" },
+  fireEvent.click(screen.getByText("导出范围（可选）"));
+  fireEvent.change(screen.getByLabelText("SSD 报告范围"), {
+    target: { value: "case" },
   });
   await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
   fireEvent.click(button);
@@ -175,7 +170,6 @@ test("default exports interactions and shared services regardless of current sel
   expect(requests[1].body).toEqual({
     scopes: ["interaction"],
     case_ids: ["UC-2"],
-    anchor_ids: ["S1"],
   });
 });
 
@@ -183,102 +177,35 @@ test("case options retain natural order and source names", async () => {
   setup();
   render(<ReviewHandoff project="p" />);
   await screen.findByRole("heading", { name: "导出需求异常场景识别报告" });
-  fireEvent.click(screen.getByText("高级筛选（可选）"));
-  fireEvent.change(screen.getByLabelText("SSD 审核范围"), {
+  fireEvent.click(screen.getByText("导出范围（可选）"));
+  fireEvent.change(screen.getByLabelText("SSD 报告范围"), {
     target: { value: "case" },
   });
   expect(
     Array.from(
-      (screen.getByLabelText("SSD 审核用例") as HTMLSelectElement).options,
+      (screen.getByLabelText("SSD 报告用例") as HTMLSelectElement).options,
     ).map((o) => o.text),
   ).toEqual(["UC-1 · 第一例", "UC-2 · 第二例", "UC-10 · 第十例"]);
 });
 
-test("one HTML previews and applies precise cross-scope items with ready items selected by default", async () => {
-  const writes: any[] = [];
-  const onApplied = vi.fn();
-  setup((url, body) => {
-    writes.push({ url, body });
-    return json({
-      cases: [
-        {
-          item_id: "interaction:business_chain",
-          case_id: "business_chain",
-          scope: "interaction",
-          name: "查询",
-          status: url.endsWith("/preview") ? "ready" : "applied",
-        },
-        {
-          item_id: "business_chain:business_chain",
-          case_id: "business_chain",
-          scope: "business_chain",
-          name: "链路",
-          status: url.endsWith("/preview") ? "ready" : "applied",
-        },
-        {
-          item_id: "architecture:architecture",
-          case_id: "architecture",
-          scope: "architecture",
-          name: "外部服务",
-          status: "conflict",
-          conflicts: ["基线版本已变化"],
-        },
-      ],
-    });
-  });
-  render(<ReviewHandoff project="p" onApplied={onApplied} />);
-  fireEvent.change(await screen.findByLabelText("导入 SSD 审核文件"), {
-    target: { files: [file()] },
-  });
-  await screen.findByText("基线版本已变化");
-  expect(writes).toHaveLength(1);
-  expect((screen.getByLabelText("应用 查询") as HTMLInputElement).checked).toBe(
-    true,
+test("a failed report download leaves the export button available for retry", async () => {
+  let failures = 1;
+  setup(() =>
+    failures-- > 0
+      ? ({
+          ok: false,
+          json: async () => ({ detail: "报告暂不可用" }),
+        } as Response)
+      : ({ ok: true, blob: async () => new Blob(["report"]) } as Response),
   );
-  expect((screen.getByLabelText("应用 链路") as HTMLInputElement).checked).toBe(
-    true,
-  );
-  expect(
-    (screen.getByLabelText("应用 外部服务") as HTMLInputElement).disabled,
-  ).toBe(true);
-  fireEvent.click(
-    screen.getByRole("button", { name: "应用选定审核修改并返回结果" }),
-  );
-  await waitFor(() => expect(onApplied).toHaveBeenCalled());
-  expect(writes[1].body).toEqual({
-    content: "review-data",
-    item_ids: ["interaction:business_chain", "business_chain:business_chain"],
-  });
-  expect(onApplied.mock.calls[0][0].scopes).toEqual([
-    "interaction",
-    "business_chain",
-  ]);
-});
-
-test("apply-time conflict stays on the preview and does not claim successful application", async () => {
-  const onApplied = vi.fn();
-  setup((url) =>
-    json({
-      cases: [
-        {
-          case_id: "UC-1",
-          name: "查询",
-          status: url.endsWith("/preview") ? "ready" : "conflict",
-          conflicts: url.endsWith("/preview") ? [] : ["保存前版本已变化"],
-        },
-      ],
-    }),
-  );
-  render(<ReviewHandoff project="p" onApplied={onApplied} />);
-  fireEvent.change(await screen.findByLabelText("导入 SSD 审核文件"), {
-    target: { files: [file()] },
-  });
-  await screen.findByLabelText("应用 查询");
-  fireEvent.click(
-    screen.getByRole("button", { name: "应用选定审核修改并返回结果" }),
-  );
-  await screen.findByText("保存前版本已变化");
-  expect(onApplied).not.toHaveBeenCalled();
+  downloads();
+  render(<ReviewHandoff project="p" />);
+  const button = await screen.findByRole("button", { name: "导出报告 HTML" });
+  fireEvent.click(button);
+  await screen.findByText("报告暂不可用");
+  expect(button.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(button);
+  await screen.findByText(/报告已导出/);
 });
 
 test("network failure never falls back to legacy and retry recovers", async () => {

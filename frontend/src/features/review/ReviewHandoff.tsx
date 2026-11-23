@@ -8,7 +8,6 @@ import { api, projectUrl } from "../../shared/api";
 import { getReviewSummary, getSsdResultIndex } from "../results/ssd/api";
 import {
   SsdReviewHandoff,
-  type SsdReviewApplied,
   type SsdReviewCase,
   type SsdReviewSelection,
 } from "./SsdReviewHandoff";
@@ -16,13 +15,11 @@ export function ReviewHandoff({
   project,
   reviewOnly = false,
   selection,
-  onApplied,
   liveVersion,
 }: {
   project: string;
   reviewOnly?: boolean;
   selection?: SsdReviewSelection;
-  onApplied?: (result: SsdReviewApplied) => void;
   liveVersion?: string;
 }) {
   const activeProject = useRef(project);
@@ -229,7 +226,7 @@ export function ReviewHandoff({
         <h3>审核交接</h3>
         <span>
           {showSsd
-            ? "SSD 差异审核 · 预览后应用人工修改"
+            ? "需求异常场景识别报告 · 离线编辑"
             : reviewOnly
               ? "业务审核模式 · 不运行模型"
               : "研发端 · 反馈导入后手动重跑"}
@@ -260,7 +257,7 @@ export function ReviewHandoff({
                 setFormat(event.target.value as "ssd" | "windows")
               }
             >
-              <option value="ssd">三层三方差异 · 离线 HTML / JSON</option>
+              <option value="ssd">需求异常场景识别报告 · 离线 HTML</option>
               <option value="windows">
                 业务问题与推荐 · Windows 审核包 / 反馈 JSON
               </option>
@@ -273,7 +270,6 @@ export function ReviewHandoff({
             project={project}
             cases={ssdCases}
             selection={selection}
-            onApplied={onApplied}
             initialSummary={initialSummary}
           />
         ) : (

@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from scene_completion.domain.business_report import classify
+from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.current_scope import POLICY, filtered
 from scene_completion.infrastructure.result_cache import cached_index
 from scene_completion.infrastructure.storage import fingerprint, read_json, write_json
@@ -31,7 +32,7 @@ def _selected(groups, body):
     return groups
 
 
-def _collect(project, body=None, *, include_snapshot=True):
+def _collect(project, body=None, *, include_snapshot=True, include_reference=True):
     from scene_completion.application import (
         shared_service_service as shared,
     )
@@ -39,7 +40,7 @@ def _collect(project, body=None, *, include_snapshot=True):
         ssd_revision_service as cases,
     )
     from scene_completion.domain.project_scopes import matching as shared_matching
-    from scene_completion.domain.ssd import matching
+    from scene_completion.domain.ssd import g_grain, matching
 
     body = body or {}
     for key in ("scopes", "case_ids", "anchor_ids", "record_ids", "item_ids"):
@@ -66,6 +67,21 @@ def _collect(project, body=None, *, include_snapshot=True):
         status = {k: v for k, v in view["review_statuses"].items() if k in generated}
         groups, excluded = classify(own, matching, status, include_records=include_snapshot)
         groups = _selected(groups, body)
+        reference = {}
+        if include_snapshot and include_reference and own.get("coverage_policy") == GRAIN_POLICY:
+            for kind in ("concerns", "scenarios"):
+                units, aliases = matching._units(own, kind)
+                edges = matching._edges(own, kind, units, aliases)
+                reference[kind] = [
+                    {
+                        "id": row["id"],
+                        "anchor_id": row["step_id"],
+                        "cells": {
+                            ch: [r["id"] for r in records] for ch, records in row["cells"].items()
+                        },
+                    }
+                    for row in g_grain.rows(own, kind, units, aliases, edges, isolate=False)
+                ]
         rows = groups["g_only"]
         for r in rows:
             r["id"] = (
@@ -83,13 +99,14 @@ def _collect(project, body=None, *, include_snapshot=True):
                 **({"bundle": deepcopy(view["bundle"])} if include_snapshot else {}),
                 **(
                     {"reference_excluded_ids": _reference_exclusions(view["bundle"], own)}
-                    if include_snapshot
+                    if include_snapshot and include_reference
                     else {}
                 ),
                 "counts": {
                     c: {k: len(data[k]) for k in ("concerns", "scenarios", "pending")}
                     for c, data in own["channels"].items()
                 },
+                **({"reference_rows": reference} if reference else {}),
                 "rows": rows,
                 "categories": groups,
                 "report_excluded": excluded,

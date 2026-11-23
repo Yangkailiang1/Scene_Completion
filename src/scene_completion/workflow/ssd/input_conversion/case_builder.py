@@ -16,6 +16,7 @@ from scene_completion.domain.ssd.construction import (
     pending,
     unique,
 )
+from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.infrastructure.storage import io_path
 from scene_completion.inputs.provenance.ssd_sources import (
     Sources,
@@ -149,6 +150,11 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
             "coverage_policy": "coverage-any-confirmed-v2",
             "case": case,
             **({"analysis_profile": active_profile} if active_profile else {}),
+            **(
+                {"interface_field_policy": INPUT_FIELD_POLICY}
+                if active_profile == COMMAND_OPERATION_PROFILE
+                else {}
+            ),
             "function_tree_case_id": tree_case,
             **({"case_entity": case_entity} if case_entity else {}),
             "function_tree_path": local_tree_path.relative_to(root).as_posix()
@@ -240,7 +246,7 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
             mapping=raw.get("extension-mapping") if authored else None,
             mapping_source=(
                 (file.with_name("extension-mapping.json"), "")
-                if file.name == authoring_cases.LEGACY_MAIN
+                if file.name == authoring_cases.MAIN_SUCCESS
                 else (file, "/extension_mapping")
             )
             if authored and (raw.get("extension-mapping") or {}).get("items")

@@ -1,6 +1,6 @@
 # Scene Completion 场景完整性工作台
 
-以 SSD 的发送方、数据和接收方为统一定位，以交互为范围比较原文已有、方法生成和测试逆向三方异常，支持步骤与结果修正、原始 Markdown 追溯，以及离线差异审核。新主流程说明见 [SSD 工作流与审核](docs/current/ssd-case-workflow.md)。
+从同事的 SysOperation、功能树和测试逆向材料出发，工作台按发送方、接收方、操作、数据建立 SSD，比较需求已有（E）、方法生成（G）和测试逆向（GT）的异常。第一次沿代码运行，请从[结构化材料到离线报告](docs/architecture/ssd-walkthrough.md)开始。
 
 当前项目协议为 **scene-workflow-v5**，交互级结果格式为 **ssd-case-v1**，共用外部服务汇总复用 **project-scope-v1**（历史链路/架构保留只读）。v2/v3/v4仅保留历史文档；既有详细流程、独立旧格式导入和保存报告分别放在`compat/detailed`、`compat/standalone`、`compat/saved`，用途见[版本与兼容边界](docs/reference/versions.md)。
 
@@ -49,27 +49,9 @@ Windows用户下载 [Releases中的离线包](https://github.com/Yangkailiang1/S
 
 ## 实际流程
 
-```mermaid
-flowchart LR
-    A[结构化输入／原文转换] --> B[按用例建立 SSD、接口、实体索引]
-    B --> E[IR＋SR 去重：SR 优先]
-    B --> G[字段约束与固定参考异常挂载]
-    B --> T[测试 ID 定位＋语义补充]
-    G --> S[场景业务化分析：模型写分析并补充]
-    E --> C[关注点及场景三方比较]
-    S --> C
-    T --> C
-    C --> M[脚本合并同一外部服务与故障]
-    M --> R[用例交互＋共用外部服务、项目指标]
-    R --> H[差异 HTML 审核与反馈回收]
-    H --> R
-```
+默认命令是 `core-input inspect → convert → validate`，再建档和运行。每个用例经过 prepare、resolve、generate、compare，完成后触发共用服务归并。在最终结果可以编辑三方行并定位原始 Markdown 或 Excel。审核交接导出《需求异常场景识别结果》；三页的编辑保存在 HTML 中。
 
-当前流程只分析用例交互。服务可用性在实际外部调用的接收方生成，随后按服务身份与故障类型合并；保留所有调用、处理预期、来源和人工判定。普通交互按用例计数，共用服务在项目中只计一次。业务链路退出本方法，范围外测试不计漏报；旧链路、架构及历史报告保留只读。
-
-第二层统一名为“第二层：功能类型关注点”，CRUD 规则不变。数据约束按请求、响应与存储分别确定性展开；固定异常完整保留，模型只按正向用例和步骤写分析、补充适用场景。E/GT 独立识别，IR/SR 同一失败优先 SR 并保留全部出处。
-
-现有三方表支持逐格编辑、匹配草稿、修订和原始 Markdown 弹窗。保存检查版本，重跑保留人工修改。报告“需求异常场景识别结果”按实际用例数列 G∩GT、G有GT无、G无GT有三项，E只作参考；每项注明用例小计与共用服务小计。第二项支持离线采纳、意见、保存 HTML 和一个文件回导。full/partial 均算覆盖，指标累计分子分母，空分母不适用。
+同一服务和故障类型在项目内计一次。当前 `coverage-g-obligation-v3` 按确认覆盖的 G 义务计数，正常边界、缺测试和待定位分别呈现。旧审核包继续使用原来的预览与回导接口。
 
 详细边界与兼容文件见[当前流程说明](docs/current/ssd-case-workflow.md)，原三范围说明保存在[历史快照](docs/history/20261113-three-scope-workflow.md)。
 

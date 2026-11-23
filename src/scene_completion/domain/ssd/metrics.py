@@ -2,8 +2,16 @@
 
 from copy import deepcopy
 
-from scene_completion.domain.coverage import POLICY, counts
+from scene_completion.domain.coverage import (
+    GRAIN_POLICY,
+    POLICY,
+    counts,
+    gt_identification_complete,
+    review_statuses,
+    unassessed_gt,
+)
 from scene_completion.domain.result_rows import display_rows
+from scene_completion.domain.ssd import g_grain, matching
 from scene_completion.domain.ssd.matching import (
     PAIRS,
     _assignment,
@@ -48,54 +56,82 @@ def analyze(bundle):
         for item in pending_pairs
         for channel, key in zip(PAIRS[item["pair"]], ("left_id", "right_id"))
     }
+    g_aligned = bundle.get("coverage_policy") == GRAIN_POLICY
+    identified = not g_aligned or gt_identification_complete(bundle)
     for kind in ("concerns", "scenarios"):
         units, aliases = _units(bundle, kind)
         edges = _edges(bundle, kind, units, aliases)
         sets = {k: set(v) for k, v in units.items()}
-        ge = _assignment(edges["G_E"], sets["G"], sets["E"])
-        te = _assignment(edges["GT_E"], sets["GT"], sets["E"])
-        missing = sets["G"] - {a for a, _ in ge}
-        truth = sets["GT"] - {a for a, _ in te}
-        hits = _assignment(edges["GT_G"], truth, missing)
-        valid = _assignment(edges["GT_G"], sets["GT"], sets["G"])
-        if bundle.get("coverage_policy") == POLICY:
-            truth, hit_ids, valid_ids = counts(edges, sets)
-            hits = [(i, None) for i in hit_ids]
-            valid = [(None, i) for i in valid_ids]
+        relevant = [
+            pair for pair in pending_pairs if kind == "scenarios" and pair["pair"] == "GT_G"
+        ]
+        undecided_g = {aliases["G"].get(pair["right_id"]) for pair in relevant}
+        undecided_truth = {aliases["GT"].get(pair["left_id"]) for pair in relevant}
         g_assessed = sets["G"]
-        if bundle.get("gt_source_available") is False:
-            g_assessed = set()
-        elif bundle.get("gt_source_available") is True:
-            covered_g = {right for _, right in valid}
-            undecided_g = {
-                aliases["G"].get(p["right_id"]) for p in pending_pairs if p["pair"] == "GT_G"
-            }
+        if g_aligned:
             if kind == "scenarios":
-                g_assessed = g_assessed - (undecided_g - covered_g)
+                statuses = review_statuses(
+                    bundle, matching, comparison=(aliases, edges, pending_pairs)
+                )
+                g_assessed = {gid for gid in sets["G"] if statuses[gid]["complete"]}
+                undecided_truth = unassessed_gt(
+                    bundle, matching, units["GT"], statuses, undecided_truth
+                )
+            elif not identified:
+                undecided_truth = sets["GT"]
+            truth, hits, valid = g_grain.counts(
+                units, edges, scenarios=kind == "scenarios", undecided=undecided_truth
+            )
+            if not identified and kind == "concerns":
+                g_assessed = valid
+            if bundle.get("gt_source_available") is False:
+                truth, hits, valid, g_assessed = set(), set(), set(), set()
+        elif bundle.get("coverage_policy") == POLICY:
+            truth, hits, valid = counts(edges, sets)
+        else:
+            ge = _assignment(edges["G_E"], sets["G"], sets["E"])
+            te = _assignment(edges["GT_E"], sets["GT"], sets["E"])
+            missing = sets["G"] - {a for a, _ in ge}
+            truth = sets["GT"] - {a for a, _ in te}
+            hits = {a for a, _ in _assignment(edges["GT_G"], truth, missing)}
+            valid = {b for _, b in _assignment(edges["GT_G"], sets["GT"], sets["G"])}
+        if not g_aligned:
+            if bundle.get("gt_source_available") is False:
+                g_assessed = set()
+            elif bundle.get("gt_source_available") is True:
+                g_assessed = g_assessed - (undecided_g - valid)
                 covered_truth = {
                     left
                     for (left, _), status in edges["GT_G"].items()
                     if status in {"full", "partial"}
                 }
-                undecided_truth = {
-                    aliases["GT"].get(p["left_id"]) for p in pending_pairs if p["pair"] == "GT_G"
-                }
-                truth = truth - (undecided_truth - covered_truth)
+                truth -= undecided_truth - covered_truth
         rates = {
             "missing_exception_miss_rate": _rate(len(truth) - len(hits), len(truth)),
             "generation_validity": _rate(len(valid), len(g_assessed)),
         }
-        if bundle.get("gt_source_available") is False:
-            for rate in rates.values():
+        unassessed = {
+            "generation_validity": sets["G"] - g_assessed,
+            "missing_exception_miss_rate": sets["GT"] & undecided_truth,
+        }
+        for name, rate in rates.items():
+            if bundle.get("gt_source_available") is False or (
+                g_aligned and not rate["denominator"] and (not identified or unassessed[name])
+            ):
                 rate["status"] = "未评估"
         if kind == "concerns":
             metrics = rates
         else:
             diagnostics = {
                 **rates,
-                "missing_truth_ids": sorted(truth - {a for a, _ in hits}),
-                "counts": {k: len(v) for k, v in sets.items()},
+                "missing_truth_ids": sorted(key[1] if g_aligned else key for key in truth - hits),
+                "counts": g_grain.unit_counts(sets, edges)
+                if g_aligned
+                else {k: len(v) for k, v in sets.items()},
             }
+        if g_aligned:
+            comparison[kind] = g_grain.rows(bundle, kind, units, aliases, edges)
+            continue
         groups = {}
         for channel in ("G", "E", "GT"):
             for record in bundle["channels"][channel][kind]:
@@ -225,7 +261,7 @@ def analyze(bundle):
             )
     return {
         "coverage_policy": bundle.get("coverage_policy", "coverage-one-to-one-v1"),
-        "comparison": display_rows(bundle, comparison),
+        "comparison": comparison if g_aligned else display_rows(bundle, comparison),
         "metrics": metrics,
         "scenario_diagnostic": diagnostics,
         "metrics_by_level": {

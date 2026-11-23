@@ -2,6 +2,8 @@
 
 import re
 
+from scene_completion.domain.coverage import GRAIN_POLICY
+from scene_completion.domain.ssd import interface_fields, validation_scope
 from scene_completion.domain.ssd.construction import unique
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
@@ -29,13 +31,92 @@ def classify(bundle, semantic):
                 "steps": evidence._steps(bundle),
                 "records": [evidence._record(bundle, row) for row in rows[offset : offset + 6]],
             }
-            result = validate_result(CLASSIFY, semantic(CLASSIFY, inputs), inputs)
+            named = bundle.get("interface_field_policy") == interface_fields.INPUT_FIELD_POLICY
+            if named:
+                inputs["interface_field_policy"] = interface_fields.INPUT_FIELD_POLICY
             records = {row["id"]: row for row in inputs["records"]}
-            for decision in result["records"]:
+            direct, remaining = [], []
+            g_aligned = bundle.get("coverage_policy") == GRAIN_POLICY
+
+            def summary_part(condition, expected):
+                scope = validation_scope.summary_kind(condition) if g_aligned else None
+                keys = (
+                    sorted(validation_scope.keys_for(scope) & inputs["definitions"].keys())
+                    if scope
+                    else []
+                )
+                return (
+                    {"condition": condition, "expected": expected, "keys": keys} if keys else None
+                )
+
+            for source in records.values():
+                if named and (
+                    source["source_kind"] == "out_of_scope"
+                    or interface_fields.output_only(source["condition"])
+                ):
+                    direct.append(
+                        {
+                            "record_id": source["id"],
+                            "kind": "out_of_scope",
+                            "reason": "该来源已标记范围外"
+                            if source["source_kind"] == "out_of_scope"
+                            else "条件只涉及返回值异常",
+                            "parts": [],
+                        }
+                    )
+                    continue
+                part = summary_part(source["condition"], source["expected"])
+                if not part:
+                    remaining.append(source)
+                    continue
+                direct.append(
+                    {
+                        "record_id": source["id"],
+                        "kind": "exception",
+                        "reason": "原文明确描述请求校验失败，按失败类型匹配",
+                        "parts": [part],
+                    }
+                )
+            inputs["records"] = remaining
+            classified = (
+                validate_result(CLASSIFY, semantic(CLASSIFY, inputs), inputs)["records"]
+                if remaining
+                else []
+            )
+            by_source = {item["record_id"]: item for item in direct + classified}
+            for decision in (by_source[key] for key in records):
                 raw = originals[decision["record_id"]]
                 parts, issues = _verified_parts(
-                    decision["parts"], records[decision["record_id"]], inputs["definitions"]
+                    decision["parts"],
+                    records[decision["record_id"]],
+                    inputs["definitions"],
+                    evidence_items=evidence.evidence_items(raw),
                 )
+                source = records[decision["record_id"]]
+                if g_aligned and decision["kind"] == "exception":
+                    conditions = {part["condition"] for part in parts}
+                    # A colon introduces a scope for the examples that follow. Only
+                    # standalone clauses separated by semicolons/newlines are added.
+                    for text in re.split(r"[；;\n]+", source["condition"]):
+                        condition = text.strip()
+                        part = summary_part(condition, source["expected"])
+                        if part and condition not in conditions:
+                            verified, _ = _verified_parts([part], source, inputs["definitions"])
+                            parts.extend(verified)
+                            conditions.add(condition)
+                if named and parts:
+                    inbound = [
+                        part
+                        for part in parts
+                        if not interface_fields.output_only(part["condition"])
+                    ]
+                    if not inbound and not issues:
+                        decision = {
+                            **decision,
+                            "kind": "out_of_scope",
+                            "reason": "拆分后的失败条件只涉及返回值异常",
+                        }
+                    parts = inbound
                 audits[channel].append(
                     {
                         **decision,
@@ -66,10 +147,21 @@ def _excerpt(part, source, field):
     fragments = part.get(field + "_fragments")
     if fragments is None:
         text = part[field]
-        if text and (not text.strip() or text not in source[field]):
-            raise ValueError("异常条件和预期须保留来源原文")
-        return text
-    quotes = []
+        if not text:
+            return text, []
+        if text.strip() and text in source[field]:
+            return text, [{"field": field, "index": None, "quote": text}]
+        matches = [
+            {"field": "evidence", "index": index, "quote": text}
+            for index, item in enumerate(source.get("evidence", []))
+            if text.strip() and isinstance(item, str) and text in item
+        ]
+        if not matches:
+            raise ValueError("异常摘录须逐字出现在本条记录的原字段或证据中")
+        return text, matches
+
+    if not fragments or part[field]:
+        raise ValueError("提供摘录片段时，对应文本留空并至少提供一条逐字摘录")
     for fragment in fragments:
         origin, index, quote = (fragment[key] for key in ("field", "index", "quote"))
         if origin == "evidence":
@@ -79,31 +171,54 @@ def _excerpt(part, source, field):
             text = source[origin] if index is None else None
         if not isinstance(text, str) or not quote.strip() or quote not in text:
             raise ValueError("摘录片段未逐字出现在指定的本条来源")
-        quotes.append(quote)
-    if not quotes or part[field]:
-        raise ValueError("提供摘录片段时，对应文本留空并至少提供一条逐字摘录")
-    return "；".join(quotes)
+    return "；".join(f["quote"] for f in fragments), fragments
 
 
-def _verified_parts(parts, source, definitions):
+def _verified_parts(parts, source, definitions, *, evidence_items=()):
     verified, issues = [], []
-    seen = set()
+    seen = {}
     for part in parts:
         try:
-            condition = _excerpt(part, source, "condition")
-            expected = _excerpt(part, source, "expected")
+            condition, condition_fragments = _excerpt(part, source, "condition")
+            expected, expected_fragments = _excerpt(part, source, "expected")
             keys = sorted(set(part["keys"]))
             if not condition.strip() or not keys or not set(keys) <= definitions.keys():
                 raise ValueError("异常需有失败原文并引用本轮关注点")
         except ValueError as error:
-            issues.append(
-                {"condition": part["condition"] or source["condition"], "reason": str(error)}
+            description = (
+                part["condition"]
+                or "；".join(fragment["quote"] for fragment in part.get("condition_fragments", []))
+                or source["condition"]
             )
+            issues.append({"condition": description, "reason": str(error)})
             continue
+        excerpts = []
+        for subject, fragments in (
+            ("condition", condition_fragments),
+            ("expected", expected_fragments),
+        ):
+            for fragment in fragments:
+                proof = {"subject": subject, **fragment}
+                if fragment["field"] == "evidence" and fragment["index"] < len(evidence_items):
+                    item = evidence_items[fragment["index"]]
+                    if item.get("evidence_id"):
+                        proof["evidence_id"] = item["evidence_id"]
+                    if item["source_refs"]:
+                        proof["source_refs"] = item["source_refs"]
+                excerpts.append(proof)
         signature = (condition, expected, tuple(keys))
-        if signature not in seen:
-            seen.add(signature)
-            verified.append({**part, "condition": condition, "expected": expected, "keys": keys})
+        if signature in seen:
+            saved = seen[signature]
+            saved["verified_excerpts"] = unique(saved["verified_excerpts"] + excerpts)
+            continue
+        saved = {
+            "condition": condition,
+            "expected": expected,
+            "keys": keys,
+            "verified_excerpts": excerpts,
+        }
+        verified.append(saved)
+        seen[signature] = saved
 
     # A verified, complete disjunction can be represented by its original children.
     def terms(text):

@@ -552,7 +552,29 @@ export function SsdResultsView({
     layer !== "scenarios" ||
     !concernFocus ||
     record.concern_ids?.some((id) => concernFocus[channel].includes(id));
+  const gAligned =
+    draft?.coverage_policy === "coverage-g-obligation-v3" &&
+    layer !== "pending";
+  const level = layer === "concerns" ? "concern" : "scenario";
+  const manualByGenerated = new Map<string, Map<string, Decision>>();
+  if (gAligned) {
+    for (const decision of draft?.decisions || []) {
+      if (decision.origin !== "manual" || decision.level !== level) continue;
+      const generated =
+        decision.pair === "G_E"
+          ? decision.left_id
+          : decision.pair === "GT_G"
+            ? decision.right_id
+            : null;
+      if (!generated) continue;
+      const byPair =
+        manualByGenerated.get(generated) || new Map<string, Decision>();
+      byPair.set(decisionKey(decision), decision);
+      manualByGenerated.set(generated, byPair);
+    }
+  }
   const known = new Set<string>();
+  const newlyPlaced = new Set<string>();
   const recordsById = Object.fromEntries(
     channels.map((ch) => [
       ch,
@@ -562,12 +584,63 @@ export function SsdResultsView({
   let rows = comparison
     .map((r: any) => {
       const cells: Record<string, Observation[]> = {};
+      if (gAligned && r.generated_id) {
+        const generated = recordsById.G.get(r.generated_id);
+        if (!generated || isUnbound(generated)) return null;
+        const generationIds: string[] = r.generated_member_ids || [
+          r.generated_id,
+        ];
+        generationIds.forEach((id) => known.add(`G:${id}`));
+        const manual = generationIds.flatMap((id) => [
+          ...(manualByGenerated.get(id)?.values() || []),
+        ]);
+        for (const ch of channels) {
+          const items = new Map<string, Observation>(
+            (r.cells[ch] || []).flatMap((ref: Observation) => {
+              const item = recordsById[ch].get(ref.id);
+              return item ? [[item.id, item]] : [];
+            }),
+          );
+          for (const decision of manual) {
+            const otherId =
+              ch === "E" && decision.pair === "G_E"
+                ? decision.right_id
+                : ch === "GT" && decision.pair === "GT_G"
+                  ? decision.left_id
+                  : null;
+            if (!otherId) continue;
+            const item = recordsById[ch].get(otherId);
+            if (decision.status === "none") items.delete(otherId);
+            else if (item) {
+              if (!items.has(otherId)) newlyPlaced.add(`${ch}:${otherId}`);
+              items.set(otherId, item);
+            }
+          }
+          cells[ch] = [...items.values()].sort(
+            (a, b) =>
+              Number(!!a.validation_summary) - Number(!!b.validation_summary),
+          );
+          cells[ch].forEach((item) => known.add(`${ch}:${item.id}`));
+        }
+        if (!visible(generated) || !inConcernFocus(generated, "G")) return null;
+        return { ...r, cells };
+      }
+      if (gAligned && r.status !== "pending") {
+        for (const ch of channels) {
+          for (const ref of r.cells[ch] || []) {
+            if (recordsById[ch].has(ref.id)) known.add(`${ch}:${ref.id}`);
+          }
+        }
+        if (unboundView ? r.step_id : r.step_id !== stepId) return null;
+      }
       channels.forEach((ch) => {
         cells[ch] = (r.cells[ch] || [])
           .map((x: Observation) => recordsById[ch].get(x.id))
           .filter(
             (x: Observation | undefined): x is Observation =>
-              !!x && visible(x) && !!inConcernFocus(x, ch),
+              !!x &&
+              ((gAligned && r.status !== "pending") || visible(x)) &&
+              !!inConcernFocus(x, ch),
           );
         cells[ch].forEach((x) => known.add(`${ch}:${x.id}`));
       });
@@ -585,8 +658,21 @@ export function SsdResultsView({
         cells,
       };
     })
+    .map((r: any) => {
+      if (!gAligned || !r || r.generated_id) return r;
+      const cells = Object.fromEntries(
+        channels.map((ch) => [
+          ch,
+          r.cells[ch].filter(
+            (item: Observation) => !newlyPlaced.has(`${ch}:${item.id}`),
+          ),
+        ]),
+      );
+      return { ...r, cells };
+    })
     .filter(
       (r: any) =>
+        r &&
         channels.some((ch) => r.cells[ch].length) &&
         (!differences || r.status !== "triple"),
     );
@@ -608,7 +694,7 @@ export function SsdResultsView({
         }),
       ),
   );
-  rows = groupDisplayRows(rows);
+  if (!gAligned) rows = groupDisplayRows(rows);
   const stepName = (id?: string) =>
     draft?.steps.find((s) => s.id === id)?.operation.name || "待重新挂载";
   const orderedCases = [...index.cases].sort((a, b) =>
@@ -646,6 +732,7 @@ export function SsdResultsView({
             kind,
             draft.channels[channel][kind as Kind].filter(
               (record) =>
+                (gAligned && !isUnbound(record)) ||
                 visible(record) ||
                 (matchEdit &&
                   matchEdit !== true &&
@@ -707,7 +794,39 @@ export function SsdResultsView({
       parent_id: null,
     });
   }
+  function projectedDecision(
+    row: { generated_id: string },
+    channel: "E" | "GT",
+    record?: Observation,
+  ): Decision {
+    const decision: Decision = {
+      id: uid("match"),
+      level,
+      pair: channel === "E" ? "G_E" : "GT_G",
+      left_id: channel === "E" ? row.generated_id : record?.id || "",
+      right_id: channel === "GT" ? row.generated_id : record?.id || "",
+      status: "full",
+      reason: "人工确认",
+      origin: "manual",
+    };
+    const existing = findDecision(draft, decision);
+    return existing
+      ? {
+          ...existing,
+          status: existing.status === "partial" ? "full" : existing.status,
+        }
+      : decision;
+  }
   function matchRow(row: any) {
+    if (gAligned && row.generated_id) {
+      setMatchEdit(
+        projectedDecision(
+          row,
+          row.cells.E.length && !row.cells.GT.length ? "GT" : "E",
+        ),
+      );
+      return;
+    }
     const pair =
       row.cells.G.length && row.cells.E.length
         ? "G_E"
@@ -1532,7 +1651,11 @@ export function SsdResultsView({
                           <thead>
                             <tr>
                               <th>字段</th>
-                              <th>位置</th>
+                              <th>
+                                {draft.interface_field_policy
+                                  ? "SR 接口"
+                                  : "位置"}
+                              </th>
                               <th>约束</th>
                               <th>依据</th>
                             </tr>
@@ -1541,11 +1664,20 @@ export function SsdResultsView({
                             {commandFields.map((field) => (
                               <tr key={field.id}>
                                 <td>{field.name}</td>
-                                <td>{field.location}</td>
+                                <td>
+                                  {draft.interface_field_policy
+                                    ? field.command_id
+                                    : field.location}
+                                </td>
                                 <td>
                                   {[field.type, ...(field.rule_texts || [])]
                                     .filter(Boolean)
                                     .join(" · ")}
+                                  {!!field.conflicts?.length && (
+                                    <p className="ssd-record-issue">
+                                      {field.conflicts.join("、")}
+                                    </p>
+                                  )}
                                 </td>
                                 <td>
                                   <button
@@ -1737,7 +1869,7 @@ export function SsdResultsView({
               </p>
             </div>
             <div className="ssd-comparison-controls">
-              {!readonly && (
+              {!readonly && !gAligned && (
                 <button
                   onClick={() =>
                     change((b) => {
@@ -1789,8 +1921,37 @@ export function SsdResultsView({
               onPatch={(channel, value) =>
                 change((b) => putTableRecord(b, channel, layer, value))
               }
+              onMatchEvidence={
+                gAligned
+                  ? (row, channel, record) =>
+                      setMatchEdit(projectedDecision(row, channel, record))
+                  : undefined
+              }
               onClearCell={(channel, row) =>
-                change((b) => clearTableCell(b, row, channel, layer))
+                change((b) => {
+                  if (gAligned && row.generated_id && channel !== "G") {
+                    for (const record of row.cells[channel])
+                      putDecision(b, {
+                        ...projectedDecision(row, channel, record),
+                        status: "none",
+                        reason: "人工解除与本条 G 的匹配",
+                        origin: "manual",
+                      });
+                  } else {
+                    const ids: string[] = row.generated_member_ids || [];
+                    const members = b.channels.G[layer].filter((record) =>
+                      ids.includes(record.id),
+                    );
+                    clearTableCell(
+                      b,
+                      members.length
+                        ? { ...row, cells: { ...row.cells, G: members } }
+                        : row,
+                      channel,
+                      layer,
+                    );
+                  }
+                })
               }
               onDeleteRow={(row) =>
                 change((b) => {
@@ -1978,6 +2139,7 @@ export function SsdResultsView({
         <MatchEditor
           bundle={matchBundle || draft}
           decision={matchEdit === true ? undefined : matchEdit}
+          binary={gAligned}
           onClose={() => setMatchEdit(null)}
           onSave={(value) => {
             const updated = change((bundle) => putDecision(bundle, value));

@@ -31,8 +31,10 @@ python tools/render_workflow_doc.py
 ## 触发条件
 
 结构化输入分支在 `workflow/planning.py::build_pipeline()` 中判定：`workflow_mode`
-为 `ssd`（默认），且 `input_directory()` 返回目录，且 `build_structured()` 在该目录下
-至少找到一个 `SysOperation.json`。三者任一不满足，不会报错，而是继续走文档抽取分支。
+为 `ssd` 时优先使用建档冻结的输入目录。`authoring_cases.discover()` 同时识别核心
+`cases/*/main-success.json`、单件 `authoring-case.json` 和原始 `SysOperation.json`。
+同用例优先已编制的核心输入，同优先级多份会在 prepare 报冲突。无结构化入口时继续文档抽取；
+发现了用例但指定范围无匹配会报错。
 
 ## 单个用例的推进顺序
 
@@ -48,7 +50,7 @@ FOOTER = """
 
 - 阶段定义与顺序：`src/scene_completion/workflow/ssd_stages.py`
 - 执行装配见 `src/scene_completion/workflow/ssd/pipeline.py`
-- 按阶段阅读代码及输入映射见[架构与代码导览](../architecture/code-guide.md#按顺序阅读-ssd)
+- 字段映射、命令、检查点与报告见[从同事材料到离线报告](../architecture/ssd-walkthrough.md)
 - 模型提示词与输出 Schema：`src/scene_completion/domain/ssd_contracts.py`
 - 缓存用的语义版本：`src/scene_completion/workflow/task_semantics.json`
 """
@@ -61,10 +63,10 @@ def render():
     sequence = " → ".join(CASE_SEQUENCE)
     lines = [HEADER.format(sequence=sequence)]
     lines.append("## 阶段总表\n")
-    lines.append("| 阶段 | 页面标签 | 类型 | 对应语义任务 | 依赖 |")
+    lines.append("| 阶段 | 页面标签 | 类型 | 默认命令模式的语义任务 | 依赖 |")
     lines.append("|---|---|---|---|---|")
     for name, stage in STAGES.items():
-        tasks = "、".join(stage.semantic_tasks) or "—"
+        tasks = "、".join(stage.default_tasks) or "—"
         deps = "、".join(stage.depends_on) or "（起点）"
         lines.append(f"| `{name}` | {stage.label} | {KIND_LABELS[stage.kind]} | {tasks} | {deps} |")
     lines.append("")
@@ -74,8 +76,10 @@ def render():
         lines.append(f"- **类型**：{KIND_LABELS[stage.kind]}")
         lines.append(f"- **读取**：{'；'.join(stage.reads)}")
         lines.append(f"- **产出**：{'；'.join(stage.writes)}")
-        semantic = "、".join(stage.semantic_tasks) or "不调用模型"
-        lines.append(f"- **语义任务**：{semantic}")
+        semantic = "、".join(stage.default_tasks) or "不调用模型"
+        lines.append(f"- **默认语义任务**：{semantic}")
+        if stage.compatible_tasks:
+            lines.append("- **其他输入配置的语义任务**：" + "、".join(stage.compatible_tasks))
         deps = "、".join(stage.depends_on) or "无（用例起点）"
         lines.append(f"- **依赖**：{deps}")
         lines.append(f"\n{stage.doc}\n")

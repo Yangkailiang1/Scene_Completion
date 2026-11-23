@@ -2,13 +2,14 @@
 
 from copy import deepcopy
 
-from scene_completion.domain.coverage import COVERED, review_statuses
+from scene_completion.domain.coverage import COVERED, GRAIN_POLICY, review_statuses, unassessed_gt
 
 
 def classify(bundle, matcher, statuses=None, *, include_records=True):
     statuses = statuses if statuses is not None else review_statuses(bundle, matcher)
     units, aliases = matcher._units(bundle, "scenarios")
-    edges = matcher._edges(bundle, "scenarios", units, aliases)["GT_G"]
+    all_edges = matcher._edges(bundle, "scenarios", units, aliases)
+    edges = all_edges["GT_G"]
     confirmed = {(a, b) for (a, b), s in edges.items() if s in COVERED}
     covered_truth = {a for a, _ in confirmed}
     covered_generated = {b for _, b in confirmed}
@@ -24,9 +25,23 @@ def classify(bundle, matcher, statuses=None, *, include_records=True):
     linked = {}
     for tid, gid in confirmed:
         linked.setdefault(gid, []).append(tid)
+    projected = {}
+    if bundle.get("coverage_policy") == GRAIN_POLICY:
+        from scene_completion.domain.ssd import g_grain
+
+        for row in g_grain.rows(bundle, "scenarios", units, aliases, all_edges, isolate=False):
+            if row.get("generated_id"):
+                projected["G", row["generated_id"]] = row["cells"]
+            elif row.get("truth_id"):
+                projected["GT", row["truth_id"]] = row["cells"]
 
     def cells(g=None, truth=None):
         exemplar = g or truth
+        aligned = projected.get(("G" if g else "GT", exemplar["id"]))
+        if aligned is not None:
+            return {
+                channel: [copy_record(row) for row in rows] for channel, rows in aligned.items()
+            }
         return {
             "G": [copy_record(g)] if g else [],
             "GT": [
@@ -54,24 +69,11 @@ def classify(bundle, matcher, statuses=None, *, include_records=True):
             groups["g_only"].append(row)
         else:
             excluded.append({"channel": "G", "id": gid, "reason": status["label"]})
-    incomplete = {
-        matcher.binding(r)
-        for r in bundle["channels"]["G"]["scenarios"]
-        if statuses[r["id"]]["reason"] in {"generation_pending", "inactive"}
-    }
-    identified = bundle.get(
-        "gt_identification_run_complete",
-        not any(r.get("needs_semantic") for r in bundle["channels"]["GT"].get("pending", [])),
-    )
-    generation = set(bundle.get("generation_pending", [])) | set(
-        bundle.get("scenario_generation", {}).get("pending_ids", [])
-    )
+    unassessed = unassessed_gt(bundle, matcher, units["GT"], statuses, undecided_truth)
     for tid, truth in units["GT"].items():
         if tid in covered_truth:
             continue
-        anchor = truth.get("step_id", truth.get("anchor_id"))
-        generated = anchor not in generation and matcher.binding(truth) not in incomplete
-        if tid in undecided_truth or not generated or not identified:
+        if tid in unassessed:
             excluded.append({"channel": "GT", "id": tid, "reason": "匹配或生成未完成"})
             continue
         groups["gt_only"].append(

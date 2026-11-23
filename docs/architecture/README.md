@@ -1,5 +1,6 @@
 # 架构与开发
 
+- [从同事材料到离线报告（流程图、字段、命令和排障）](ssd-walkthrough.md)
 - [职责、依赖图与三种兼容边界](code-guide.md)
 - [开发、测试与发布约定](development.md)
 - [唯一文件/模块迁移清单](module-map.json)
