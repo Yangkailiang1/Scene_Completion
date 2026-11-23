@@ -115,15 +115,16 @@ def _step_refs(raw, node, sources, file_name, pointer, root):
         found = source_origins.origin(document, wanted, None)
         if not found or found.get("match") == "pending":
             continue
-        refs.append(
+        refs.extend(
             {
                 "document_id": document["id"],
-                "start_line": found["start_line"],
-                "end_line": found["end_line"],
-                "quote": found["quote"],
+                "start_line": location["start_line"],
+                "end_line": location["end_line"],
+                "quote": location["quote"],
                 "kind": "origin",
-                "origin": found,
+                "origin": location,
             }
+            for location in source_origins.locations(found)
         )
     return refs
 

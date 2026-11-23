@@ -32,6 +32,7 @@ export type Party = {
   type: string;
   technology?: string;
   external?: boolean;
+  original_refs?: SourceRef[];
 };
 export type Field = {
   id: string;

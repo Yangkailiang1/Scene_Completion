@@ -802,7 +802,11 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         docs.append({"path": (place / "duplicate.md").relative_to(root).as_posix(), "role": "RR"})
     spec = originals / "document.md"
     spec.write_text(
-        "标题\n唯一的原文引文。\n" + "说明\n" * 18 + "异常原文跨行\n并指明参数错误。\n",
+        "标题\n唯一的原文引文。\n"
+        + "说明\n" * 18
+        + "异常原文跨行\n并指明参数错误。\n"
+        + "其余说明\n" * 4
+        + "异常原文跨行并指明参数错误。\n",
         encoding="utf8",
     )
     docs.append({"path": "originals/document.md", "role": "SR", "aliases": ["designDocument"]})
@@ -847,13 +851,14 @@ def test_named_originals_excel_ranges_and_duplicate_files_survive_conversion(tmp
         for ref in row["source_refs"]
         if ref.get("kind") == "origin"
     ]
-    assert any(
-        ref["origin"]["document"] == "originals/document.md"
-        and ref["start_line"] == 21
-        and ref["end_line"] == 22
-        and ref["quote"] == "异常原文跨行\n并指明参数错误。"
+    assert [
+        (ref["start_line"], ref["end_line"], ref["quote"])
         for ref in e_sources
-    )
+        if ref["origin"]["document"] == "originals/document.md"
+    ] == [
+        (21, 22, "异常原文跨行\n并指明参数错误。"),
+        (27, 27, "异常原文跨行并指明参数错误。"),
+    ]
     mall = case["steps"][0]["receiver"]
     assert mall["source_refs"][0]["start_line"] == 6000
     assert mall["original_refs"][0]["start_line"] == 2
@@ -948,9 +953,11 @@ def test_function_tree_uses_each_constraint_and_tag_citation(tmp_path):
     product_id = bundle["entities"][0]["attributes"][0]
     unique_rule = product_id["unresolved"][0]
     assert unique_rule["text"] == "唯一编号"
-    assert cited_lines(unique_rule["source_refs"]) == [1]
+    assert cited_lines(unique_rule["source_refs"]) == [1, 8]
     assert unique_rule["source_refs"][0]["origin"]["match"] == "located"
-    assert unique_rule["source_refs"][1]["json_pointer"].endswith("/constraints/0")
+    assert any(
+        ref.get("json_pointer", "").endswith("/constraints/0") for ref in unique_rule["source_refs"]
+    )
     assert cited_lines(
         next(a for a in product_id["atoms"] if a["operation"] == "required")["source_refs"]
     ) == [7]

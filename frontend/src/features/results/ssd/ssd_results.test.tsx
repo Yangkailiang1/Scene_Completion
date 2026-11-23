@@ -366,6 +366,42 @@ test("opens original Markdown and can switch between original RR and SR", async 
   });
   expect(screen.getByRole("heading", { name: "服务设计" })).toBeTruthy();
 });
+test("each relocated citation for a participant opens its own lines", async () => {
+  const bundle = fixture();
+  const document = bundle.documents.find((d) => d.id === "sr")!;
+  document.content = "# 服务设计\n商城负责处理请求。\n\n商城负责处理请求。";
+  bundle.steps[0].receiver.original_refs = [2, 4].map((line) => ({
+    document_id: "sr",
+    start_line: line,
+    end_line: line,
+    quote: "商城负责处理请求。",
+    kind: "origin",
+    origin: {
+      document: document.name,
+      start_line: line,
+      end_line: line,
+      match: "located",
+    },
+  }));
+  mockApi((path) => (path.endsWith("ssd-results") ? index : response(bundle)));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  await screen.findAllByText("数据范围");
+  fireEvent.click(
+    screen.getByText("数据属性、接口实体映射、步骤编辑及原文依据"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "接收方出处（2）" }));
+  const reader = screen.getByRole("dialog", { name: "原始需求与设计文档" });
+  const positions = within(reader).getByLabelText("来源位置");
+  const paragraphs = await within(reader).findAllByText("商城负责处理请求。");
+  expect(paragraphs[0].className).toContain("source-block-highlighted");
+  expect(paragraphs[1].className).not.toContain("source-block-highlighted");
+  fireEvent.change(positions, { target: { value: "1" } });
+  await waitFor(() => {
+    const [first, second] = within(reader).getAllByText("商城负责处理请求。");
+    expect(first.className).not.toContain("source-block-highlighted");
+    expect(second.className).toContain("source-block-highlighted");
+  });
+});
 test("Excel provenance opens as a worksheet and precisely highlights the cited cells", () => {
   const name = "原始测试.xlsx#测试用例";
   const content = Array.from({ length: 121 }, (_, i) =>

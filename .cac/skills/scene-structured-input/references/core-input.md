@@ -39,7 +39,7 @@
 `{"documents":[{"path":"spec-a.md","role":"RR","aliases":["rrSpec"]},{"path":"design-b.md","role":"SR","aliases":["srSpec"]},{"path":"testcase.xlsx","role":"test"}]}`。
 功能树中，接口字段和实体属性的每条 `constraints[]` 用自身的 `source.doc`、`line` 和 `quote` 定位。
 字符串标签和类型沿用所在字段的 `source`。若标签以 `{"name":"必填","source":{...}}` 提供，优先用标签自身的出处。
-`line` 为原件的全文件行号。引文与声明位置不符时，只在同一文件内凭唯一引文重定位，否则保留声明位置并标记待核对。
+`line` 为原件的全文件行号。声明位置无效或与引文不符时，使用 `quote` 在同一文件中全文定位。每个命中都有独立的实际行区间和查看入口。原件缺失或全文未找到引文时保留结构化出处和原因。
 
 `core-input convert` 默认输出 `analysis_profile=command-interaction-v3` 和 `interface_field_policy=sr-input-by-name-v1`。功能树的 SR 命令属性按接口 ID 和字段名挂载到 SysOperation 声明的主调用步，字段直接作为发送数据处理。无需推断字段位置或方向，原文行号及 Excel 坐标仍用于追溯。
 用例按三份材料的名称对齐。转换脚本按同用例的 SR apiId 建契约，合入可用 RR 方法与路径，用明确调用证据挂载。正式运行的 ssd-resolve 处理剩余的语义定位，仍无法唯一定位时挂到首步并保留回退理由。同用例同一实际命令只设一个主挂载，重复调用保留出处。实体约束和接口字段约束同时挂载，只有带明确映射及等价作用域的规则合并计分。接口字段在接口首次调用处展开。实体约束挂在第一个使用该实体的接口，缺少对应接口时挂在首次出现处。原始校验、响应和失败位置保留。

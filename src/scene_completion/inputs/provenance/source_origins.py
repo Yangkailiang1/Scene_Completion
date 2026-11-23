@@ -3,10 +3,9 @@
 Structured inputs (function tree, recovered use cases, structure models) cite
 their own JSON pointers. Those files also carry a declared line or an evidence
 id that belongs to the original specification. This module resolves such a
-declaration to a real line only when the quoted text supports it: an exact
-declared line wins, otherwise a unique quotation decides, otherwise the result
-is ``pending`` with a reason. Nothing is guessed from a filename or a nearest
-line, matching the review handoff rule.
+declaration to real lines supported by the quoted text. A verified declaration
+selects its own range. Searching the document can return several locations,
+each with its own citation. Missing quotations remain pending.
 """
 
 import re
@@ -316,38 +315,44 @@ def locate(document, quote, declared=None):
         span = None
     rows = document["lines"]
     if span and _verified(document, span, quote):
-        found, match = span, "exact"
+        hits, match = [span], "exact"
     else:
-        nearby = (
-            [row for row in rows if span[0] - 2 <= row["number"] <= span[1] + 2] if span else []
-        )
-        hits = _quotation_hits(nearby, quote)
-        if len(hits) != 1:
-            hits = _quotation_hits(rows, quote)
-            if not hits:
-                hits = _line_quote_hits(rows, quote)
-            if not hits and len(_normalized(quote)) >= 12:
-                # Some suppliers prepend a label or quote only part of a sentence.
-                hits = _substring_hits(document, quote)
-        found, match = (hits[0] if len(hits) == 1 else None), "located"
-    if found:
+        hits, match = _quotation_hits(rows, quote), "located"
+        if not hits:
+            hits = _line_quote_hits(rows, quote)
+        if not hits and len(_normalized(quote)) >= 12:
+            # Some suppliers prepend a label or quote only part of a sentence.
+            hits = _substring_hits(document, quote)
+        if span:
+            # Keep the nearby hit first for callers which open an initial location.
+            hits.sort(key=lambda hit: not (span[0] - 2 <= hit[0] <= hit[1] <= span[1] + 2))
+    if hits:
         by_number = {row["number"]: row["text"] for row in rows}
-        start, end = found
-        return {
-            "start_line": start,
-            "end_line": end,
-            "quote": "\n".join(by_number[n] for n in range(start, end + 1)),
-            "match": match,
-        }
+        first, *rest = [
+            {
+                "start_line": start,
+                "end_line": end,
+                "quote": "\n".join(by_number[n] for n in range(start, end + 1)),
+            }
+            for start, end in hits
+        ]
+        return {**first, "match": match, **({"additional_locations": rest} if rest else {})}
     return {
         "start_line": None,
         "end_line": None,
         "quote": str(quote or ""),
         "match": "pending",
-        **({"alternatives": sorted({start for start, _ in hits})} if hits else {}),
-        "reason": "原文未包含该引文，或同一引文出现多处，无法唯一定位"
-        + ("；已尝试声明行 " + str(span) if span else ""),
+        "reason": "原文未包含该引文" + ("；已尝试声明行 " + str(span) if span else ""),
     }
+
+
+def locations(origin):
+    """Return each location as its own citation with the same document identity."""
+    primary = {key: value for key, value in origin.items() if key != "additional_locations"}
+    return [
+        primary,
+        *({**primary, **location} for location in origin.get("additional_locations", [])),
+    ]
 
 
 def origin(document, quote, declared=None):

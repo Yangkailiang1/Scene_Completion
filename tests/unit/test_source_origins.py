@@ -3,8 +3,8 @@
 The supplied function tree cites ``rrSpec``/``srSpec`` with their own line
 numbers; those numbers disagreed with the shipped specification for most of
 the SR records. The resolver must never show a different line than the quoted
-text, so it verifies the declared line first and falls back to a unique
-quotation, otherwise reporting the record as untraced.
+text, so it verifies the declared line first and falls back to every matching
+quotation in that document.
 """
 
 import json
@@ -111,6 +111,10 @@ def test_citation_checks_nearby_lines_before_searching_the_whole_document(tmp_pa
     )
     assert result["end_line"] == 3
     assert result["quote"] == "① 顾客选择SKU\n和购买数量。"
+    assert [(r["start_line"], r["end_line"]) for r in source_origins.locations(result)] == [
+        (2, 3),
+        (12, 13),
+    ]
     invalid = sources.trace(
         {"document": document_ref, "start_line": 2, "end_line": 3, "quote": "顾客取消订单。"}
     )
@@ -140,27 +144,32 @@ def test_source_quote_recovers_far_or_malformed_lines_and_preserves_wrapping(tmp
     assert result["quote"] == original
 
 
-def test_ambiguous_wrapped_quote_does_not_fall_back_to_one_fragment(tmp_path):
+def test_repeated_wrapped_quote_keeps_each_full_match(tmp_path):
     text = "这是在同一个设计文档中重复出现的完整引文，内部软件单元 MallAdminService。"
     source = tmp_path / "SR.md"
     source.write_text(text + "\n" + text.replace("完整引文，", "完整引文，\n"), encoding="utf-8")
     [document] = source_origins.read_origin_document(source, "SR")
     result = source_origins.origin(document, text, "L9999")
-    assert result["match"] == "pending"
-    assert result["alternatives"] == [1, 2]
+    assert [
+        (r["start_line"], r["end_line"], r["match"]) for r in source_origins.locations(result)
+    ] == [(1, 1, "located"), (2, 3, "located")]
+    exact = source_origins.origin(document, text, "L1")
+    assert [(r["start_line"], r["match"]) for r in source_origins.locations(exact)] == [
+        (1, "exact")
+    ]
 
 
-def test_ambiguous_quotation_is_reported_not_guessed(tmp_path):
+def test_each_repeated_quotation_is_a_separate_located_citation(tmp_path):
     sr = documents(tmp_path)[1]
     docs = {
         **sr,
         "lines": sr["lines"] + [{"number": 9, "text": "- 成功响应：productId、name、price"}],
     }
-    # Two equally close occurrences: picking either one would be a guess.
     found = source_origins.origin(docs, "productId、name、price", "L7")
-    assert found["match"] == "pending"
-    assert found["start_line"] is None
-    assert "无法唯一定位" in found["reason"]
+    assert [(r["start_line"], r["match"]) for r in source_origins.locations(found)] == [
+        (5, "located"),
+        (9, "located"),
+    ]
 
 
 def test_function_id_tree_keeps_both_its_pointer_and_the_original_line(tmp_path):

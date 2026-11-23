@@ -244,6 +244,8 @@ class Sources:
         return self._original_refs(self.trace(ref) for ref in refs or [])
 
     def _original_refs(self, traces):
+        from scene_completion.inputs.provenance.source_origins import locations
+
         result = []
         for traced in traces:
             if not traced or traced.get("match") not in {"exact", "located"}:
@@ -253,15 +255,16 @@ class Sources:
                 None,
             )
             if doc:
-                result.append(
+                result.extend(
                     {
                         "document_id": doc["id"],
-                        "start_line": traced["start_line"],
-                        "end_line": traced["end_line"],
-                        "quote": traced["quote"],
+                        "start_line": origin["start_line"],
+                        "end_line": origin["end_line"],
+                        "quote": origin["quote"],
                         "kind": "test" if doc["role"] == "test" else "origin",
-                        "origin": traced,
+                        "origin": origin,
                     }
+                    for origin in locations(traced)
                 )
         return unique(result)
 

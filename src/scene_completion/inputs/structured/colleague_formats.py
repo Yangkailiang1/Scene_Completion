@@ -78,7 +78,9 @@ class Facts:
             document, quote, declared = source_origin(origin)
             target = source_origins.resolve_name(document, self.origins)
             found = source_origins.origin(target, quote, declared)
-            row["origin"] = found or {
+            if found:
+                return [{**row, "origin": item} for item in source_origins.locations(found)]
+            row["origin"] = {
                 "document": document,
                 "match": "pending",
                 "reason": "原文未提供，无法定位行号",
@@ -121,8 +123,11 @@ def constraints(rules, field, refs, origin=None, origins=None):
             )
             if found:
                 citations = [
-                    {**row, "origin": deepcopy(found)} if "origin" not in row else row
+                    {**row, "origin": item}
                     for row in citations
+                    for item in (
+                        [row["origin"]] if "origin" in row else source_origins.locations(found)
+                    )
                 ]
         out.append(
             {

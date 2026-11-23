@@ -1629,6 +1629,25 @@ export function SsdResultsView({
                     >
                       原始出处
                     </button>
+                    {activeStep.sender.original_refs?.length ? (
+                      <button
+                        onClick={() =>
+                          setSources(activeStep.sender.original_refs || [])
+                        }
+                      >
+                        发送方出处（{activeStep.sender.original_refs.length}）
+                      </button>
+                    ) : null}
+                    {activeStep.receiver.id !== activeStep.sender.id &&
+                    activeStep.receiver.original_refs?.length ? (
+                      <button
+                        onClick={() =>
+                          setSources(activeStep.receiver.original_refs || [])
+                        }
+                      >
+                        接收方出处（{activeStep.receiver.original_refs.length}）
+                      </button>
+                    ) : null}
                     {!readonly && (
                       <>
                         <button onClick={() => setStepEdit(copy(activeStep))}>
