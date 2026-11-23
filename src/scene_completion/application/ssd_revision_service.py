@@ -335,6 +335,110 @@ def _promote_pending(bundle):
         records["pending"] = pending
 
 
+def _validate_new_manual_mounts(current, updated):
+    """Check the objects and concern keys selected in the independent editor."""
+    old = {note.get("id") for note in current.get("review_notes", []) if isinstance(note, dict)}
+    notes = [
+        note
+        for note in updated.get("review_notes", [])
+        if isinstance(note, dict)
+        and note.get("decision") == "mounted"
+        and note.get("id") not in old
+    ]
+    if not notes:
+        return
+    from scene_completion.domain.concern_registry import default_registry
+    from scene_completion.domain.current_scope import current_registry
+
+    definitions = current_registry(updated.get("registry") or default_registry())["definitions"]
+    steps = {step["id"]: step for step in updated["steps"]}
+    entities = {entity["id"]: entity for entity in updated.get("entities", [])}
+    for note in notes:
+        channel = updated["channels"].get(note.get("channel"), {})
+        row = next(
+            (
+                row
+                for rows in (channel.get("scenarios", []), channel.get("concerns", []))
+                for row in rows
+                if row["id"] == note.get("record_id")
+            ),
+            None,
+        )
+        if not row or row["status"] != "active":
+            continue
+        step, key = steps.get(row.get("step_id")), row.get("key", "")
+        definition = definitions.get(key, {})
+        if (
+            not step
+            or step.get("binding_issue")
+            or definition.get("enabled") is False
+            or definition.get("kind") != "check"
+            or definition.get("scope", "interaction") != "interaction"
+            or definition.get("guard") == "storage_field"
+        ):
+            raise ValueError("人工挂载必须选择当前步骤及已启用的交互关注点")
+        target = row.get("target")
+        if target == "data":
+            entity_id, attribute, field_id = (
+                row.get("entity_id"),
+                row.get("attribute"),
+                row.get("field_id"),
+            )
+            field = next((field for field in step.get("data", []) if field["id"] == field_id), None)
+            entity = entities.get(entity_id)
+            declared = entity_id in step.get("entity_ids", []) or any(
+                anchor["step_id"] == step["id"]
+                and anchor["entity"] == entity_id
+                and (not attribute or anchor["attribute"] == attribute)
+                for anchor in updated.get("field_anchors", {}).get("units", [])
+            )
+            valid = (
+                field
+                and not field.get("conflicts")
+                and field.get("location") != "response"
+                and step["direction"] == "request"
+                and not entity_id
+                and key.startswith("api.data.")
+            ) or (
+                not field_id
+                and declared
+                and (
+                    entity and attribute in {a["name"] for a in entity["attributes"]}
+                    if attribute
+                    else key == "service.business_attribute_constraint"
+                )
+                and (key.startswith("api.data.") or key == "service.business_attribute_constraint")
+            )
+        else:
+            receiver, sender = step["receiver"], step["sender"]
+            call = (
+                step["direction"] == "request"
+                and step["kind"] != "action"
+                and sender["id"] != receiver["id"]
+                and receiver["type"] == "service"
+            )
+            if key.startswith("human."):
+                valid = target == "sender" and call and sender["type"] == "human"
+            elif key.startswith("service_relation."):
+                valid = target == "receiver" and call and sender["type"] == "service"
+            elif key == "service.base.availability":
+                valid = target == "receiver" and call and receiver.get("external")
+            else:
+                kinds = definition.get("operation_kinds", [])
+                tech = definition.get("technology")
+                valid = (
+                    target == "receiver"
+                    and receiver["type"] == "service"
+                    and not key.startswith("api.data.")
+                    and key != "service.business_attribute_constraint"
+                    and (not tech or receiver.get("technology") == tech)
+                    and (not kinds or set(kinds).intersection(step["operation"].get("kinds", [])))
+                )
+            valid = valid and not any(row.get(k) for k in ("entity_id", "attribute", "field_id"))
+        if not valid:
+            raise ValueError("人工挂载的对象与交互步骤或关注点不符")
+
+
 def save_revision(project, case_id, body):
     with repository.locked(project):
         state = repository.state(project, case_id)
@@ -354,6 +458,7 @@ def save_revision(project, case_id, body):
         if updated["coverage_policy"] == GRAIN_POLICY:
             for row in updated.get("decisions", []):
                 row["status"] = binary_status(row["status"])
+        _validate_new_manual_mounts(current, updated)
         _promote_pending(updated)
         if current["steps"] != updated["steps"]:
             from scene_completion.workflow.ssd.generate.fixed import generate_g

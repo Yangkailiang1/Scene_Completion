@@ -282,7 +282,11 @@ def _architecture(bundles):
                 element = {
                     **{k: party[k] for k in ("id", "name", "technology")},
                     "kind": kind,
-                    **{k: party[k] for k in ("classification_source", "source_refs") if k in party},
+                    **{
+                        k: party[k]
+                        for k in ("classification_source", "role", "source_refs")
+                        if k in party
+                    },
                 }
                 current = elements.get(party["id"])
                 if current and any(

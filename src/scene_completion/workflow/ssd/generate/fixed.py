@@ -184,6 +184,18 @@ def generate_g(bundle):
     owners = {}
     for unit in bundle.get("operation_units", []):
         owners.setdefault(unit["step_id"], []).append(unit)
+    external_calls = {}
+    if unit_profile and "operation_units" in bundle:
+        for step in sorted(bundle["steps"], key=lambda step: step["order"]):
+            receiver = step["receiver"]
+            if (
+                step["direction"] == "request"
+                and step["kind"] != "action"
+                and step["sender"]["id"] != receiver["id"]
+                and receiver["type"] == "service"
+                and receiver.get("external")
+            ):
+                external_calls.setdefault(receiver["id"], []).append(step)
     for step in bundle["steps"]:
         refs = step.get("source_refs", [])
         kinds = set(step["operation"].get("kinds", []))
@@ -329,6 +341,13 @@ def generate_g(bundle):
         if request and call and receiver["type"] == "service":
             if receiver.get("external") and (not unit_profile or "operation_units" not in bundle):
                 attach("service.base.availability")
+            calls = external_calls.get(receiver["id"], [])
+            if calls and calls[0]["id"] == step["id"]:
+                attach(
+                    "service.base.availability",
+                    source_refs=unique([ref for member in calls for ref in member["source_refs"]]),
+                    related_calls=[member["id"] for member in calls],
+                )
             if step["sender"]["type"] == "service":
                 for key in profiles["relation"]:
                     attach(key)
@@ -371,11 +390,6 @@ def generate_g(bundle):
                     continue
                 operations = set(unit["crud"])
                 if unit["kind"] == "external":
-                    attach(
-                        "service.base.availability",
-                        source_refs=unit["source_refs"],
-                        related_calls=unit["occurrences"],
-                    )
                     special = definitions["database.special_characters"]
                     if (
                         receiver.get("technology") == "database"

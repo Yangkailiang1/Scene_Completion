@@ -36,27 +36,56 @@ def _person(key, participants):
     manual = value.get("kind_override")
     actor_ref = None if manual else _actor_reference(key, name, value)
     kind = manual or ("external_actor" if actor_ref else value.get("kind"))
+    human = (
+        kind in {"human", "external_actor"}
+        or not manual
+        and value.get("element_type") in {"human", "actor"}
+        or kind == "external"
+        and name in {"顾客", "客户", "消费者", "商家", "用户", "管理员"}
+    )
+    role = value.get("role")
+    database_role = (
+        not human
+        and isinstance(role, str)
+        and bool(
+            re.fullmatch(
+                r"(?:(?:外部|内部|关系型|关系|存储)\s*)*数据库(?:服务)?"
+                r"|(?:(?:external|internal|relational)\s+)*database(?:\s+service)?",
+                role.strip(),
+                re.I,
+            )
+        )
+    )
     technology = value.get("technology")
-    if not technology and re.search(r"database|数据库", name, re.I):
+    classification = value.get("classification_source")
+    if not technology and database_role:
+        technology = "database"
+        classification = "participant.role"
+    if not technology and not human and re.search(r"database|数据库", name, re.I):
         technology = "database"
     if not technology and re.search(r"\bLLM\b|大语言模型|AI模型", name, re.I):
         technology = "llm"
     return {
         "id": str(key),
         "name": str(name),
-        "type": "human"
-        if kind in {"human", "external_actor"}
-        or not manual
-        and value.get("element_type") in {"human", "actor"}
-        or kind == "external"
-        and name in {"顾客", "客户", "消费者", "商家", "用户", "管理员"}
-        else "service",
+        "type": "human" if human else "service",
         "technology": technology,
-        "external": kind in {"external", "external_actor", "external_service"},
+        "external": kind in {"external", "external_actor", "external_service"}
+        or not kind
+        and database_role
+        and role.casefold().strip().startswith(("外部", "external ")),
         **(
             {"classification_source": "participant.source_refs", "source_refs": [actor_ref]}
             if actor_ref
-            else {}
+            else {
+                **({"classification_source": classification} if classification else {}),
+                **({"role": role} if isinstance(role, str) and role.strip() else {}),
+                **(
+                    {"source_refs": value["source_refs"]}
+                    if classification and value.get("source_refs")
+                    else {}
+                ),
+            }
         ),
     }
 

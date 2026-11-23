@@ -7,6 +7,7 @@ from scene_completion.domain.scenario_conditions import disjoint
 from scene_completion.domain.ssd import interface_fields, validation_scope
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
 from scene_completion.infrastructure.execution_events import emit
+from scene_completion.workflow.ssd.compare import independent_mount
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
 from scene_completion.workflow.ssd.shared import binding_targets, failure_context
 
@@ -455,12 +456,12 @@ def align(bundle, semantic):
                     owner = (
                         bundle["command_bindings"][command]["primary_step_id"] if command else None
                     )
+                    if not owner:
+                        continue
                     direct.append(
                         {
                             "part_id": part["id"],
-                            "reason": "有明确的请求校验异常，暂无相同的 G 场景"
-                            if owner
-                            else "概括性请求校验无法唯一定位接口",
+                            "reason": "有明确的请求校验异常，按原文的唯一接口挂载",
                             "matches": [],
                             "fallback": {
                                 "step_id": owner,
@@ -471,9 +472,7 @@ def align(bundle, semantic):
                                 "field_id": None,
                                 "operation_unit_id": None,
                                 "command_id": command,
-                            }
-                            if owner
-                            else None,
+                            },
                         }
                     )
                 elif part.get("validation_summary"):
@@ -489,7 +488,7 @@ def align(bundle, semantic):
                             ],
                         }
                     )
-                else:
+                elif part["candidates"]:
                     model_parts.append(part)
             inputs["parts"] = model_parts
             model_rows = (
@@ -498,6 +497,58 @@ def align(bundle, semantic):
                 else []
             )
             results = {row["part_id"]: row for row in direct + model_rows}
+            independent = []
+            for part in parts[offset : offset + 4]:
+                part_id = part["id"]
+                previous = results.get(part_id, {})
+                fallback = previous.get("fallback")
+                if fallback and fallback.get("command_id"):
+                    continue
+                if any(match["status"] != "none" for match in previous.get("matches", [])):
+                    continue
+                raw = owners[part_id][0]
+                options = independent_mount.options(
+                    bundle,
+                    raw,
+                    _allowed_keys(part, step_facts, part["failure_step_id"]),
+                    part["failure_step_id"],
+                    step_facts,
+                    entities,
+                    fields,
+                    units,
+                )
+                if (
+                    fallback
+                    and independent_mount.permitted(fallback, options, step_facts, units)[0]
+                ):
+                    continue
+                if fallback := independent_mount.confirmed_binding(raw, part, options):
+                    results[part_id] = {
+                        "part_id": part_id,
+                        "matches": previous.get("matches", []),
+                        "fallback": fallback,
+                        "reason": "原文确认失败步骤及唯一适用的挂载对象",
+                    }
+                elif options:
+                    independent.append({**part, "candidates": [], "mount_options": options})
+                else:
+                    results[part_id] = {
+                        "part_id": part_id,
+                        "matches": previous.get("matches", []),
+                        "fallback": None,
+                        "reason": "主成功流中缺少与该关注点及原文一致的步骤、对象或字段",
+                    }
+            if independent:
+                mount_inputs = {
+                    **inputs,
+                    "phase": "independent_mount",
+                    "definitions": evidence.definitions(bundle),
+                    "parts": independent,
+                }
+                mounted = validate_result(ALIGN, semantic(ALIGN, mount_inputs), mount_inputs)
+                for row in mounted["parts"]:
+                    previous = results.get(row["part_id"], {})
+                    results[row["part_id"]] = {**row, "matches": previous.get("matches", [])}
             for part_in_batch in parts[offset : offset + 4]:
                 row = results[part_in_batch["id"]]
                 raw, audit, part = owners[row["part_id"]]
@@ -686,6 +737,27 @@ def validate_result(task, result, inputs):
             raise ValueError("实际失败步骤须引用本用例主成功流并保留证据")
         row = _auth_alignment(row, part, steps, confirmed or actual)
         result["parts"][index] = row
+        if inputs.get("phase") == "independent_mount":
+            fallback = row.get("fallback")
+            usable, issue = (
+                independent_mount.permitted(
+                    fallback, part["mount_options"], steps, inputs.get("operation_units", [])
+                )
+                if fallback and fallback["step_id"] in steps
+                else (False, None)
+            )
+            if not usable:
+                row["fallback"] = None
+                reason = row["reason"]
+                if fallback:
+                    row["reason"] = issue or "提交的步骤、对象、字段或关注点超出独立挂载候选"
+                else:
+                    row["reason"] = "证据尚不足以确认具体交互步骤或挂载对象" + (
+                        f"。{reason}"
+                        if "候选为空" not in reason and "无可判定候选" not in reason
+                        else ""
+                    )
+            continue
         allowed = _allowed_keys(part, steps, confirmed or actual)
         if fallback := row.get("fallback"):
             if any(m["status"] != "none" for m in row["matches"]):

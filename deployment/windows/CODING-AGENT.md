@@ -145,6 +145,21 @@ scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" results --project
 4. **查实际失败位置**。以认证为例，人发起的请求与服务间请求分别用 `human.authentication` 和 `service_relation.authentication`。结合 `failure_step_hint`、原分支、主成功 SSD 和候选 G 核对。已有可信 G 匹配但实际失败步骤不明时，保留匹配并显示「实际失败步骤待定位」。检查能从记录打开原文并跳到高亮行。没有原文行号时回查冻结的行为模型分支及 JSON Pointer。GT 的测试出处与关联需求分别核对。
 5. **查单条异常**。`exception` 但 `bindings=[]` 或 `parts=[]` 时，该条应保留原条件和证据，单独待定位，同批有效记录应继续。若模型把 `human`、`service` 填进 `target`，检查修正依据。只有证据唯一时，可纠正为 `sender` 或 `receiver`；方向有歧义时留待定位。`entity` 和 `interface` 用于分别定位实体及接口字段。缺失、重复或越权引用的身份仍需校验。若旧包整批拒绝，记录版本、节点、失败批次和具体字段。
 
+「待定位／本轮不计分」中的「定位与挂载」默认提供独立挂载。选择交互步骤、挂载对象和启用的关注点，再应用到草稿。需要关联已有记录时切换到「匹配已有」。来源和实际失败位置随原记录保留，保存后才重算指标。
+
+若旧核心文件中 GaussDB 等外部数据库的 `technology` 为空，先确认原始 `SysOperation.json` 的参与者角色，再用新版重新转换到新的完整核心目录。明确的 `role: "外部数据库"` 可直接识别。核对 `architecture.json` 的相关参与者为 `external_service`、`technology: "database"`。在同一项目更新输入快照，保留已有修订，再仅运行目标用例。
+
+```bat
+scene.cmd core-input convert --input "%INPUT%" --output "%CORE%"
+scene.cmd core-input validate --input "%CORE%"
+scene.cmd --server "%BASE_URL%" input-bundle --project "%PROJECT_ID%" --directory "%CORE%" --dry-run
+scene.cmd --server "%BASE_URL%" input-bundle --project "%PROJECT_ID%" --directory "%CORE%" --adopt-partial
+scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" run --project "%PROJECT_ID%" --case "%CASE_ID%" --preview-supplied
+scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" run --project "%PROJECT_ID%" --supplied-only --case "%CASE_ID%" --wait
+```
+
+结果中核对实际数据库请求上的可用性及适用的数据库关注点。无 G 对应的 E／GT 若有充分出处，应保留为原通道的独立场景。仍待定位的条目应指出需要补充的证据或挂载对象。
+
 ## 6. 接管失败节点并继续等待
 
 先读 `app/.cac/skills/scene-terminal-recovery/SKILL.md`。主会话负责观察、判断和恢复。业务 JSON 修复使用节点独立上下文，源码故障和业务结果修复分开记。先查真实的节点和批次身份，再决定下一步。

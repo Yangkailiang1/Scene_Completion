@@ -70,9 +70,9 @@
     "interaction-normalize": "bd2b21e741ad3bd8338112b108ce85b2351b1db281bb14a6d1a58914aab914f4",
     "exception-scope": "4345f857024e98ba27f4270852c02e13dc686153a28a8b035f7aac3d9a49fc81",
     "existing-locations": "298ec9e54790ae477da09c0709b619607cd615ecb212e12e2c39f8068c4994ea",
-    "ssd-prepare": "v7-portable-source-references",
+    "ssd-prepare": "v8-declared-database-role",
     "ssd-resolve": "v2-failure-step-hints",
-    "ssd-compare": "v7-failure-step-hints",
+    "ssd-compare": "v8-independent-evidence-mount",
     "ssd-semantic-compare": "v2-binary-obligation",
     "ssd-generate": "c3707ecb641760199023ef717c3aefef59f1fbf494e8fe853fd79f61dc49f4f1",
     "project-structure": "92ec13bbe8864157697f0286fa177d8df3cb589603251df12a78b1d28444e9c4",
@@ -93,6 +93,7 @@
     "shared-services-merge": "41dd25d797ce45c758922c957b304259bd8df71866b2de729785ac8eedb1c1c1"
   },
   "components": {
-    "artifact-imports": "4006bf97293c3b5b9444d46e63a143e0df4b12cb746f15299bc752369c08f350"
+    "artifact-imports": "4006bf97293c3b5b9444d46e63a143e0df4b12cb746f15299bc752369c08f350",
+    "ssd-fixed-generation": "v2-external-call-availability"
   }
 }

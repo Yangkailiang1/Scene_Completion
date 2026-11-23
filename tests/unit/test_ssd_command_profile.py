@@ -59,6 +59,143 @@ def test_sr_commands_round_trip_uses_one_validation_anchor_and_two_bounds(tmp_pa
     assert not validate_core(output)["valid"]
 
 
+def test_external_database_role_survives_core_and_availability_does_not_need_crud(tmp_path):
+    from shutil import copytree
+
+    from scene_completion.workflow.ssd.resolve.operations import resolve
+
+    material = tmp_path / "supplier"
+    copytree(BROWSE, material)
+    path = next(material.rglob("SysOperation.json"))
+    behavior = json.loads(path.read_text(encoding="utf8"))
+    main = behavior["operations"]["browse_main_success"]
+    participant = "act-gaussdb4mysql"
+    del main["participant"]["CATALOG"]
+    main["participant"][participant] = {
+        "name": "Gaussdb4mysql",
+        "kind": "external",
+        "role": "外部数据库",
+    }
+    for kind in ("interaction", "action", "system_response"):
+        for node in main[kind]:
+            for field in ("sender", "receiver", "executor"):
+                if node.get(field) == "CATALOG":
+                    node[field] = participant
+    path.write_text(json.dumps(behavior, ensure_ascii=False), encoding="utf8")
+    core = tmp_path / "core"
+    assert convert(material, core, profile=COMMAND_OPERATION_PROFILE)["output"]
+    assert validate_core(core)["valid"]
+    elements = json.loads((core / "architecture.json").read_text(encoding="utf8"))["elements"]
+    db = next(e for e in elements if e["id"] == participant)
+    assert (db["kind"], db["technology"], db["classification_source"]) == (
+        "external_service",
+        "database",
+        "participant.role",
+    )
+    bundle = build_cases(core)[0]
+    resolve(bundle, None)
+    availability = "service.base.availability"
+    special = "database.special_characters"
+    for key in (availability, special):
+        assert [row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == key] == [
+            "B3"
+        ]
+    bundle["operation_units"] = []
+    assert [
+        row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == availability
+    ] == ["B3"]
+    bundle["steps"] = [step for step in bundle["steps"] if step["id"] != "B3"]
+    assert not any(row["key"] == availability for row in generate_g(bundle)["concerns"])
+
+
+def test_four_missing_g_candidates_use_verified_independent_placements():
+    from scene_completion.analysis.ssd import grounding
+    from scene_completion.domain.coverage import GRAIN_POLICY
+    from scene_completion.workflow.ssd.resolve.operations import resolve
+
+    bundle = build_cases(BROWSE, profile=COMMAND_OPERATION_PROFILE)[0]
+    resolve(bundle, None)
+    bundle["coverage_policy"] = GRAIN_POLICY
+    bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
+    samples = {
+        "实体字段格式不合法": (
+            "api.data.format",
+            {"entity_id": "Category", "attribute": "category_id", "failure_step_id": "B2"},
+        ),
+        "pageSize 超过上限": (
+            "api.data.range",
+            {"parameter": {"command_id": "BROWSE-GET", "name": "pageSize"}},
+        ),
+        "目录服务无法连接": ("service.base.availability", {}),
+        "认证信息无效": ("service_relation.authentication", {}),
+    }
+    for condition, (_, identity) in samples.items():
+        raw = {
+            "id": condition,
+            "extension_id": condition,
+            "condition": condition,
+            "expected": "返回相应错误",
+            "source_refs": [],
+            **identity,
+        }
+        bundle["channels"]["GT"]["pending"].append(
+            pending(raw["id"], condition, original=raw, needs_semantic=True)
+        )
+    calls = []
+
+    def model(task, inputs):
+        calls.append(task)
+        if task == grounding.CLASSIFY:
+            return {
+                "records": [
+                    {
+                        "record_id": r["id"],
+                        "kind": "exception",
+                        "reason": "有原文失败",
+                        "parts": [
+                            {
+                                "condition": r["condition"],
+                                "expected": r["expected"],
+                                "keys": [samples[r["condition"]][0]],
+                            }
+                        ],
+                    }
+                    for r in inputs["records"]
+                ]
+            }
+        assert task == grounding.ALIGN and inputs["phase"] == "independent_mount"
+        assert inputs["channel"] == "GT"
+        rows = []
+        for part in inputs["parts"]:
+            assert not part["candidates"]
+            name = part["condition"]
+            if name in {"pageSize 超过上限", "目录服务无法连接"}:
+                step = "B1" if name == "pageSize 超过上限" else "B3"
+                binding = next(c for c in part["mount_options"] if c["step_id"] == step)
+                reason = "由条件中的输入字段或服务名确认"
+            else:
+                assert name == "认证信息无效"
+                binding, reason = None, "本批G候选为空，无可判定候选"
+            rows.append(
+                {"part_id": part["id"], "matches": [], "fallback": binding, "reason": reason}
+            )
+        return {"parts": rows}
+
+    grounding.classify(bundle, model)
+    grounding.align(bundle, model)
+    assert calls == [grounding.CLASSIFY, grounding.ALIGN]
+    assert bundle["channels"]["G"]["scenarios"] == [] and bundle["decisions"] == []
+    scenes = {s["condition"]: s for s in bundle["channels"]["GT"]["scenarios"]}
+    assert {name: scene["step_id"] for name, scene in scenes.items()} == {
+        "实体字段格式不合法": "B2",
+        "pageSize 超过上限": "B1",
+        "目录服务无法连接": "B3",
+    }
+    [unresolved] = bundle["channels"]["GT"]["pending"]
+    assert unresolved["condition"] == "认证信息无效"
+    assert "具体交互步骤或挂载对象" in unresolved["reason"]
+
+
 def test_gt_field_binding_accepts_different_actual_step_and_retains_independent_failure():
     bundle = build_cases(BROWSE, profile=COMMAND_PROFILE)[0]
     assert len(bundle["channels"]["GT"]["pending"]) == 4
@@ -1069,6 +1206,20 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
 
     def align_auth(task, inputs):
         assert task == grounding.ALIGN
+        if inputs.get("phase") == "independent_mount":
+            [part] = inputs["parts"]
+            assert part["condition"] == "认证失败"
+            assert {c["step_id"] for c in part["mount_options"]} == {"B1", "B3"}
+            return {
+                "parts": [
+                    {
+                        "part_id": part["id"],
+                        "matches": [],
+                        "fallback": None,
+                        "reason": "无法核实哪一方发起认证",
+                    }
+                ]
+            }
         results = []
         for part in inputs["parts"]:
             condition = part["condition"]

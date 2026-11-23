@@ -39,6 +39,60 @@ def executor(root, semantic, *, mode="packets", client=None, mocks=None):
     )
 
 
+def test_manual_independent_mount_persists_with_original_identity_and_checks_object(tmp_path):
+    value = bundle()
+    value["steps"][0]["entity_ids"] = ["positive-entity"]
+    value["entities"][0]["attributes"] = [{"name": "quantity"}]
+    value["channels"]["G"] = empty_channel()
+    ssd_results.publish(tmp_path, value)
+    current = ssd_results.editor(tmp_path, "case")
+    edited = deepcopy(current["bundle"])
+    gt = edited["channels"]["GT"]
+    [pending_row] = gt["pending"]
+    gt["pending"] = []
+    concern = {
+        **pending_row,
+        "id": "manual-c",
+        "step_id": "step",
+        "target": "data",
+        "entity_id": "positive-entity",
+        "attribute": "quantity",
+        "key": "api.data.range",
+        "status": "active",
+        "origin": "manual",
+    }
+    scene = {
+        **concern,
+        "id": pending_row["id"],
+        "expected": "拒绝",
+        "concern_ids": ["manual-c"],
+    }
+    gt["concerns"].append(concern)
+    gt["scenarios"].append(scene)
+    edited["review_notes"] = [
+        {
+            "id": "review-mount",
+            "channel": "GT",
+            "record_id": scene["id"],
+            "decision": "mounted",
+            "reason": "核对了实体属性",
+        }
+    ]
+    submission = {"base_revision": current["revision"], "bundle": edited}
+    scene["attribute"] = "unrelated"
+    with pytest.raises(ValueError, match="对象与交互步骤"):
+        ssd_results.save_revision(tmp_path, "case", submission)
+    scene["attribute"] = "quantity"
+    saved = ssd_results.save_revision(tmp_path, "case", submission)
+    reloaded = ssd_results.editor(tmp_path, "case")
+    assert saved["revision"] == reloaded["revision"]
+    assert reloaded["bundle"]["channels"]["GT"]["scenarios"][-1] == scene
+    assert reloaded["bundle"]["channels"]["GT"]["pending"] == []
+    assert not reloaded["bundle"]["decisions"]
+    with pytest.raises(ssd_results.RevisionConflict):
+        ssd_results.save_revision(tmp_path, "case", submission)
+
+
 def test_packet_cache_then_model_reruns_only_semantic_stages(tmp_path):
     initial = bundle()
     calls = {stage: 0 for stage in ("ssd-prepare", "ssd-resolve", "ssd-compare")}

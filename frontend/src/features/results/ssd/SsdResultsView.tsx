@@ -510,7 +510,33 @@ export function SsdResultsView({
       : [];
   const sourceAudit = Object.entries(
     draft?.source_classifications || {},
-  ).flatMap(([channel, rows]) => rows.map((row) => ({ channel, ...row })));
+  ).flatMap(([channel, rows]) =>
+    rows.map((row) => {
+      const manual = (draft?.review_notes || []).find(
+        (note: {
+          channel: string;
+          record_id: string;
+          decision: string;
+          reason: string;
+        }) =>
+          note.channel === channel &&
+          note.record_id === row.record_id &&
+          note.decision === "mounted",
+      );
+      const active = draft?.channels[channel as Channel]?.scenarios.some(
+        (scene) => scene.id === row.record_id && scene.status === "active",
+      );
+      return manual && active
+        ? {
+            ...row,
+            channel,
+            kind: "exception",
+            reason: manual.reason,
+            rejected_bindings: [],
+          }
+        : { channel, ...row };
+    }),
+  );
   const sourceStates: Record<string, string> = {
     exception: "已挂载",
     normal: "正常备选",
@@ -1827,7 +1853,7 @@ export function SsdResultsView({
                 <h3>待定位／本轮不计分</h3>
                 <p>
                   这些记录尚未挂载到有效 SSD
-                  步骤。用「定位并匹配」选择已有步骤和关注点，或在记录编辑中指定新的挂载。不属于异常的待确认项可标记移除。
+                  步骤。用「定位与挂载」选择步骤、对象和框架关注点，也可匹配已有记录。不属于异常的待确认项可标记移除。
                 </p>
               </div>
             )}
@@ -2117,7 +2143,7 @@ export function SsdResultsView({
               return;
             setRecordEdit(null);
             setStepLayer(
-              kind === "concerns" || !choice.scenario
+              kind === "concerns" || (choice.target.channel && !choice.scenario)
                 ? "concerns"
                 : "scenarios",
             );

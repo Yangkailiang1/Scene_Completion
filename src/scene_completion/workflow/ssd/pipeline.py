@@ -125,9 +125,16 @@ def _task(ex, cid, stage, deps, fn, identity=None, *, verify_payload=None):
 
 
 def _tail(ex, cid, prepare):
+    from scene_completion.workflow.semantics import component_version
+
     resolved = _task(ex, cid, "ssd-resolve", [prepare], lambda d, r: _resolve(ex, d[prepare], r))
     generated = _task(
-        ex, cid, "ssd-generate", [resolved], lambda d, r: _generate(ex, d[resolved], r)
+        ex,
+        cid,
+        "ssd-generate",
+        [resolved],
+        lambda d, r: _generate(ex, d[resolved], r),
+        component_version("ssd-fixed-generation"),
     )
     _task(ex, cid, "ssd-compare", [generated], lambda d, r: _compare(ex, d[generated], r))
 

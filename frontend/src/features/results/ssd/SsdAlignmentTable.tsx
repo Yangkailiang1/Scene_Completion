@@ -698,10 +698,10 @@ export function SsdAlignmentTable({
                                 record.status === "unbound") && (
                                 <button
                                   className="ssd-match-link"
-                                  aria-label={`定位并匹配 ${channel} ${record.id}`}
+                                  aria-label={`定位与挂载 ${channel} ${record.id}`}
                                   onClick={() => onLocate(channel, record)}
                                 >
-                                  定位并匹配
+                                  定位与挂载
                                 </button>
                               )}
                             <details>

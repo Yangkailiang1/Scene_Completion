@@ -621,18 +621,19 @@ test("locating a pending GT record reuses the concern and drafts a cross-step ma
   const goToPending = () =>
     fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
   const locate = () =>
-    fireEvent.click(screen.getByLabelText("定位并匹配 GT t1"));
+    fireEvent.click(screen.getByLabelText("定位与挂载 GT t1"));
   await screen.findByLabelText("编辑 G g1");
   goToPending();
   locate();
-  const dialog = within(
-    screen.getByRole("dialog", { name: "定位并匹配已有关注点" }),
-  );
+  const dialog = within(screen.getByRole("dialog", { name: "定位与挂载" }));
   expect(
     dialog.getByRole<HTMLButtonElement>("button", { name: "应用到草稿" })
       .disabled,
   ).toBe(true);
-  fireEvent.change(dialog.getByLabelText("定位到已有步骤"), {
+  fireEvent.change(dialog.getByLabelText("挂载方式"), {
+    target: { value: "match" },
+  });
+  fireEvent.change(dialog.getByLabelText("挂载步骤"), {
     target: { value: "step2" },
   });
   expect(
@@ -657,7 +658,7 @@ test("locating a pending GT record reuses the concern and drafts a cross-step ma
   expect(
     within(moved.closest("tr")!).getByText(/GT_G · 部分匹配/),
   ).toBeTruthy();
-  expect(screen.queryByLabelText("定位并匹配 GT t1")).toBeNull();
+  expect(screen.queryByLabelText("定位与挂载 GT t1")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
   await waitFor(() => expect(saved?.base_revision).toBe(1));
   expect(saved.bundle.channels.GT.pending).toEqual([]);
@@ -707,17 +708,18 @@ test("a pending record can be located without asserting scenario coverage, and u
   const pending = () =>
     fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
   const locate = () =>
-    fireEvent.click(screen.getByLabelText("定位并匹配 GT t1"));
+    fireEvent.click(screen.getByLabelText("定位与挂载 GT t1"));
   await screen.findByLabelText("编辑 G g1");
   pending();
   locate();
   fireEvent.click(screen.getByRole("button", { name: "取消编辑" }));
   expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
   locate();
-  const dialog = within(
-    screen.getByRole("dialog", { name: "定位并匹配已有关注点" }),
-  );
-  fireEvent.change(dialog.getByLabelText("定位到已有步骤"), {
+  const dialog = within(screen.getByRole("dialog", { name: "定位与挂载" }));
+  fireEvent.change(dialog.getByLabelText("挂载方式"), {
+    target: { value: "match" },
+  });
+  fireEvent.change(dialog.getByLabelText("挂载步骤"), {
     target: { value: "step1" },
   });
   fireEvent.change(dialog.getByLabelText("匹配已有关注点"), {
@@ -729,11 +731,85 @@ test("a pending record can be located without asserting scenario coverage, and u
   );
   fireEvent.click(dialog.getByRole("button", { name: "应用到草稿" }));
   expect(screen.getByText(/匹配判定修改 1 条/)).toBeTruthy();
-  expect(screen.queryByLabelText("定位并匹配 GT t1")).toBeNull();
+  expect(screen.queryByLabelText("定位与挂载 GT t1")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "撤销草稿修改" }));
   pending();
-  expect(screen.getByLabelText("定位并匹配 GT t1")).toBeTruthy();
+  expect(screen.getByLabelText("定位与挂载 GT t1")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
+});
+
+test("independent mounting uses the selected entity attribute on a step without G", async () => {
+  const data = fixture();
+  data.registry = {
+    definitions: {
+      "api.data.range": { label: "数据范围", kind: "check" },
+      "human.authentication": { label: "身份认证", kind: "check" },
+    },
+  };
+  data.entities = [
+    { id: "Product", attributes: [{ name: "price", constraints: [] }] },
+  ];
+  data.steps.push({
+    ...data.steps[0],
+    id: "step2",
+    order: 2,
+    data: [],
+    operation: { name: "核对商品价格", kinds: [] },
+  });
+  data.channels.GT.pending[0] = {
+    ...data.channels.GT.pending[0],
+    condition: "商品价格超出范围",
+    source_refs: [ref],
+    original: { expected: "拒绝" },
+  };
+  let saved: any;
+  mockApi((path, init) => {
+    if (path.endsWith("/revisions")) {
+      saved = JSON.parse(String(init?.body));
+      return response(saved.bundle, 2);
+    }
+    if (path.includes("/editor?"))
+      return response(saved?.bundle ?? data, saved ? 2 : 1);
+  });
+  const first = render(<SsdResultsView project="P1" initialIndex={index} />);
+  await screen.findByLabelText("编辑 G g1");
+  fireEvent.click(screen.getByRole("button", { name: /待定位／本轮不计分/ }));
+  fireEvent.click(screen.getByLabelText("定位与挂载 GT t1"));
+  const dialog = within(screen.getByRole("dialog", { name: "定位与挂载" }));
+  expect(dialog.getByLabelText("挂载方式")).toHaveProperty("value", "mount");
+  fireEvent.change(dialog.getByLabelText("挂载步骤"), {
+    target: { value: "step2" },
+  });
+  fireEvent.change(dialog.getByLabelText("挂载对象"), {
+    target: { value: JSON.stringify(["Product", "price"]) },
+  });
+  expect(dialog.queryByRole("option", { name: "身份认证" })).toBeNull();
+  fireEvent.change(dialog.getByLabelText("框架关注点"), {
+    target: { value: "api.data.range" },
+  });
+  expect(dialog.getByLabelText("处理预期")).toHaveProperty("value", "拒绝");
+  fireEvent.click(dialog.getByRole("button", { name: "应用到草稿" }));
+  expect(screen.queryByLabelText("定位与挂载 GT t1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "保存修改并重算" }));
+  await waitFor(() => expect(saved?.base_revision).toBe(1));
+  expect(saved.bundle.channels.GT.pending).toEqual([]);
+  expect(saved.bundle.channels.GT.scenarios).toEqual([
+    expect.objectContaining({
+      id: "t1",
+      step_id: "step2",
+      entity_id: "Product",
+      attribute: "price",
+      key: "api.data.range",
+      source_refs: [ref],
+      status: "active",
+    }),
+  ]);
+  expect(saved.bundle.decisions).toEqual([]);
+  first.unmount();
+  invalidateResults();
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  await screen.findByLabelText("编辑 G g1");
+  expect(screen.getByRole("button", { name: /核对商品价格/ })).toBeTruthy();
 });
 
 test("409 keeps the draft instead of discarding a business correction", async () => {
