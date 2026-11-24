@@ -278,16 +278,23 @@ def build(views, legacy=None):
                 for (a, z), status in matches.items():
                     left_gid = mapped.get((source, key, left, kind, a))
                     right_gid = mapped.get((source, key, right, kind, z))
-                    if left_gid and right_gid:
-                        evidence.setdefault((kind, pair, left_gid, right_gid), []).append(
-                            {
-                                "status": status,
-                                "source": source,
-                                "case_id": key,
-                                "left_id": a,
-                                "right_id": z,
-                            }
-                        )
+                    if not left_gid or not right_gid:
+                        continue
+                    if matching.binding(groups[(left, kind, left_gid)]) != matching.binding(
+                        groups[(right, kind, right_gid)]
+                    ):
+                        # The case can compare different calls. A project decision is local
+                        # to one service; its cross-service evidence stays in the case.
+                        continue
+                    evidence.setdefault((kind, pair, left_gid, right_gid), []).append(
+                        {
+                            "status": status,
+                            "source": source,
+                            "case_id": key,
+                            "left_id": a,
+                            "right_id": z,
+                        }
+                    )
     for (c, kind, _), row in groups.items():
         if kind == "scenarios":
             row["concern_ids"] = [ident(c, "concerns", row["anchor_id"], "availability")]

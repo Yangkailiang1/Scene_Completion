@@ -10,10 +10,12 @@ from scene_completion.workflow.ssd.input_conversion.case_builder import build_ca
 from scene_completion.workflow.ssd.prepare.snapshot import pin_core
 
 
-def structured(ex, directory, case_id, file, problem):
+def structured(ex, directory, case_id, file, problem, test_claims=None):
     if problem:
         raise ValueError(problem)
-    bundles = build_cases(directory, [case_id], case_files=[file], generate=False)
+    bundles = build_cases(
+        directory, [case_id], case_files=[file], generate=False, test_claims=test_claims
+    )
     if len(bundles) != 1:
         raise ValueError("当前用例没有唯一可用的结构化执行输入")
     bundle = validate(bundles[0])

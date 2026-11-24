@@ -215,7 +215,10 @@ def restart_if_safe(service, rid, job):
             record = read_json(marker) if marker.exists() else {"count": 0}
             if record["count"] < 1:
                 write_json(marker, {**record, "count": record["count"] + 1})
-                service._start(rid, current.get("run_options", {}))
+                kwargs = {}
+                if key := current.get("shared_service_retry"):
+                    kwargs["shared_service_retry"] = key
+                service._start(rid, current.get("run_options", {}), **kwargs)
     except ValueError:
         return
 

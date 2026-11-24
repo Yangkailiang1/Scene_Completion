@@ -28,6 +28,9 @@ def _actor_reference(key, name, value):
     )
 
 
+DATABASE_PRODUCT = re.compile(r"(?<![a-z0-9])(?:gaussdb(?:\s*4\s*mysql)?|mysql)(?![a-z0-9])", re.I)
+
+
 def _person(key, participants):
     value = participants.get(key, {})
     if isinstance(value, str):
@@ -61,6 +64,9 @@ def _person(key, participants):
     if not technology and database_role:
         technology = "database"
         classification = "participant.role"
+    if not technology and not human and DATABASE_PRODUCT.search(name):
+        technology = "database"
+        classification = "participant.name"
     if not technology and not human and re.search(r"database|数据库", name, re.I):
         technology = "database"
     if not technology and re.search(r"\bLLM\b|大语言模型|AI模型", name, re.I):
@@ -72,8 +78,11 @@ def _person(key, participants):
         "technology": technology,
         "external": kind in {"external", "external_actor", "external_service"}
         or not kind
-        and database_role
-        and role.casefold().strip().startswith(("外部", "external ")),
+        and isinstance(role, str)
+        and (
+            (database_role and role.casefold().strip().startswith(("外部", "external ")))
+            or (technology == "database" and role.casefold().strip() in {"external", "外部"})
+        ),
         **({"classification_source": classification} if classification else {}),
         **(
             {"declared_kind": declared}

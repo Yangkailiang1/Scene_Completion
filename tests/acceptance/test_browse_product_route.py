@@ -42,6 +42,21 @@ class BrowseProductClient:
                     for unit in data["units"]
                 ]
             }
+        if task == "ssd-entity-inference":
+            assert not data["operations"]
+            assert all(rule["quote"] and rule["already_mapped"] for rule in data["constraints"])
+            return {
+                "operations": [],
+                "constraints": [
+                    {
+                        "rule_id": rule["id"],
+                        "state": "not_constraint",
+                        "reason": "该字段的引文与已挂载约束一致",
+                        "bindings": [],
+                    }
+                    for rule in data["constraints"]
+                ],
+            }
         if task == "ssd-generate":
             return {
                 "analyses": [

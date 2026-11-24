@@ -24,6 +24,7 @@ from scene_completion.inputs.provenance.ssd_sources import (
     entities_for,
 )
 from scene_completion.inputs.structured.case_names import candidates as case_candidates
+from scene_completion.inputs.structured.case_names import unnumbered
 from scene_completion.workflow.ssd.generate.fixed import generate_g
 from scene_completion.workflow.ssd.input_conversion import function_tree
 from scene_completion.workflow.ssd.input_conversion.provenance import (
@@ -72,7 +73,56 @@ def case_identity(file, directory, raw=None):
     }
 
 
-def build_cases(directory, case_ids=None, *, case_files=None, generate=True, profile=None):
+def recovered_test_claims(root, entries):
+    """Read only identities and GT links to detect conflicting inferred mappings."""
+    from scene_completion.inputs.structured import authoring_cases
+
+    claims = {}
+    for file, case, problem in entries:
+        if problem:
+            continue
+        try:
+            raw = json.loads(file.read_text(encoding="utf-8-sig"))
+            authored = authoring_cases.is_authoring(raw)
+            mapping = (raw.get("extension_mapping") or {}) if authored else {}
+            sidecar = file.with_name("extension-mapping.json")
+            if file.name == authoring_cases.MAIN_SUCCESS and sidecar.is_file():
+                mapping = json.loads(sidecar.read_text(encoding="utf-8-sig"))
+                if mapping.get("case_id") != case["id"]:
+                    continue
+            test_file = (root / (mapping.get("source") or "recovered_usecases.json")).resolve()
+            if not test_file.is_relative_to(root):
+                continue
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue  # Malformed siblings are isolated by their own prepare task.
+        claims[case["id"]] = {
+            "id": case["id"],
+            "name": case["name"],
+            "entity": raw.get("case_entity")
+            if authored
+            else (raw.get("resource") or file.parent.parent.name),
+            "source": test_file.relative_to(root).as_posix(),
+            "source_uc_id": mapping.get("source_uc_id"),
+        }
+    return claims
+
+
+def recovered_test_peers(claims, case_id):
+    current = claims.get(case_id)
+    if current is None:
+        return []
+    return [
+        peer
+        for pid, peer in claims.items()
+        if pid != case_id
+        and peer["source"] == current["source"]
+        and (peer["source_uc_id"] or unnumbered(peer["name"]) == unnumbered(current["name"]))
+    ]
+
+
+def build_cases(
+    directory, case_ids=None, *, case_files=None, generate=True, profile=None, test_claims=None
+):
     """Build independent bundles; an explicit file list isolates worker failures.
 
     Shared API/entity documents are read once, but only the selected SysOperation
@@ -100,6 +150,11 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
                 entries.append((file, None, None))
     if not entries:
         raise ValueError("目录中没有 SysOperation.json；原始输入须先转换为用例 SSD")
+    if test_claims is None:
+        all_entries = (
+            entries if case_files is None else authoring_cases.discover(root, case_identity)
+        )
+        test_claims = recovered_test_claims(root, all_entries)
     origins = origin_documents(root)
     sources = Sources(root, origins)
     tree_path = root / "功能树.json"
@@ -244,6 +299,7 @@ def build_cases(directory, case_ids=None, *, case_files=None, generate=True, pro
             if authored
             else (),
             mapping=raw.get("extension-mapping") if authored else None,
+            test_peers=recovered_test_peers(test_claims, case["id"]),
             mapping_source=(
                 (file.with_name("extension-mapping.json"), "")
                 if file.name == authoring_cases.MAIN_SUCCESS

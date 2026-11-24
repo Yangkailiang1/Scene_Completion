@@ -59,7 +59,13 @@ def test_sr_commands_round_trip_uses_one_validation_anchor_and_two_bounds(tmp_pa
     assert not validate_core(output)["valid"]
 
 
-def test_external_database_role_survives_core_and_availability_does_not_need_crud(tmp_path):
+@pytest.mark.parametrize(
+    ("role", "kind", "basis"),
+    [("外部数据库", "external", "participant.role"), ("external", None, "participant.name")],
+)
+def test_external_database_role_survives_core_and_availability_does_not_need_crud(
+    tmp_path, role, kind, basis
+):
     from shutil import copytree
 
     from scene_completion.workflow.ssd.resolve.operations import resolve
@@ -73,8 +79,8 @@ def test_external_database_role_survives_core_and_availability_does_not_need_cru
     del main["participant"]["CATALOG"]
     main["participant"][participant] = {
         "name": "Gaussdb4mysql",
-        "kind": "external",
-        "role": "外部数据库",
+        **({"kind": kind} if kind else {}),
+        "role": role,
     }
     for kind in ("interaction", "action", "system_response"):
         for node in main[kind]:
@@ -90,7 +96,7 @@ def test_external_database_role_survives_core_and_availability_does_not_need_cru
     assert (db["kind"], db["technology"], db["classification_source"]) == (
         "external_service",
         "database",
-        "participant.role",
+        basis,
     )
     bundle = build_cases(core)[0]
     resolve(bundle, None)
@@ -1702,8 +1708,7 @@ def test_resolve_classifies_each_participant_from_its_quotes_after_core_round_tr
     )
     people["CATALOG"].update(
         kind="internal",
-        technology="database",
-        source_refs=[{"document": "sr", "quote": "商城访问其边界之外的商品目录服务。"}],
+        source_refs=[{"document": "sr", "quote": "商品目录服务是商城边界之外的数据库服务。"}],
     )
     source.write_text(json.dumps(operation, ensure_ascii=False), encoding="utf8")
     core = tmp_path / "core"
@@ -1740,6 +1745,18 @@ def test_resolve_classifies_each_participant_from_its_quotes_after_core_round_tr
                 )
             ]
         }
+        assert rows["CATALOG"]["technology"] is None
+        decisions["participants"][-1]["technology"] = "database"
+        known_technology = deepcopy(packet["input"])
+        known_technology["participants"][-1]["technology"] = "database"
+        validate_result(packet["task"], decisions, known_technology)
+        known_technology["participants"][-1]["technology"] = "llm"
+        with pytest.raises(ValueError, match="服务补判数据库"):
+            validate_result(packet["task"], decisions, known_technology)
+        invalid_technology = deepcopy(decisions)
+        invalid_technology["participants"][1]["technology"] = "database"
+        with pytest.raises(ValueError, match="服务补判数据库"):
+            validate_result(packet["task"], invalid_technology, packet["input"])
         forged = deepcopy(decisions)
         forged["participants"][0]["source_ref_ids"] = [rows["U"]["source_refs"][0]["id"]]
         with pytest.raises(ValueError, match="自己的原文"):
@@ -1783,6 +1800,7 @@ def test_resolve_classifies_each_participant_from_its_quotes_after_core_round_tr
     resolved = _resolve(ex, bundle, {"case": bundle["case"]["id"]})
     assert calls == [("U", "MALL", "CATALOG")]
     assert resolved["steps"][0]["sender"]["type"] == "human"
+    assert resolved["steps"][2]["receiver"]["technology"] == "database"
     assert all(
         party["classification_source"] == "ssd-participant-classify"
         for step in resolved["steps"]
@@ -1836,3 +1854,147 @@ def test_participant_manual_override_and_missing_evidence_keep_script_type():
     assert not parties["manual"]["external"]
     assert parties["undecided"]["external"]
     assert parties["missing"]["external"]
+
+
+def test_verbatim_text_and_fragments_can_coexist_without_trusting_unverified_claims():
+    from scene_completion.workflow.ssd.resolve.classification import _verified_parts
+
+    key = "api.data.type"
+    sources = {
+        "condition": "请求参数校验失败",
+        "expected": "应拒绝请求",
+        "evidence": ["page=abc 同时提交了 pageSize=xyz", "网关拒绝调用并返回错误"],
+    }
+
+    def fragment(quote, index=0):
+        return {"field": "evidence", "quote": quote, "index": index}
+
+    parts, issues = _verified_parts(
+        [
+            {
+                "condition": "请求参数校验失败",
+                "condition_fragments": [fragment("此片段不存在")],
+                "expected": "返回错误",
+                "expected_fragments": [fragment("返回错误", 1)],
+                "keys": [key],
+            },
+            {
+                "condition": "page=abc; pageSize=xyz",
+                "condition_fragments": [fragment("page=abc"), fragment("pageSize=xyz")],
+                "expected": "",
+                "keys": [key],
+            },
+            {
+                "condition": "page=123；pageSize=xyz",
+                "condition_fragments": [fragment("page=abc"), fragment("pageSize=xyz")],
+                "expected": "",
+                "keys": [key],
+            },
+            {
+                "condition": "",
+                "condition_fragments": [fragment("page=abc", 1)],
+                "expected": "",
+                "keys": [key],
+            },
+        ],
+        sources,
+        {key: {}},
+    )
+    assert [p["condition"] for p in parts] == ["请求参数校验失败", "page=abc；pageSize=xyz"]
+    assert [p["quote"] for p in parts[0]["verified_excerpts"]] == [
+        "请求参数校验失败",
+        "返回错误",
+    ]
+    assert [p["quote"] for p in parts[1]["verified_excerpts"]] == ["page=abc", "pageSize=xyz"]
+    assert len(issues) == 2
+
+
+def test_function_tree_sends_each_rule_own_quote_to_entity_inference_and_mounts_new_detail(
+    tmp_path,
+):
+    from shutil import copytree
+
+    from scene_completion.analysis.validation import validate_result
+    from scene_completion.application.execution import Execution
+    from scene_completion.workflow.ssd.resolve.entity_semantics import infer
+
+    raw = tmp_path / "input"
+    copytree(BROWSE, raw)
+    quotes = ["keyword 格式合法，最多 64 个字符。", "keyword 格式合法，不能含空格。"]
+    (raw / "功能设计_spec.md").write_text("\n".join(quotes) + "\n", encoding="utf8")
+    tree = raw / "功能树.json"
+    value = json.loads(tree.read_text(encoding="utf8"))
+    layer = value["functions"][0]["srLayer"]
+    attributes = [attr for command in layer["commands"] for attr in command["attributes"]]
+    field = next(row for row in attributes if row["name"] == "keyword")
+    field["source"] = {"doc": "srSpec", "line": "L1", "quote": "只属于字段声明的引文"}
+    field["constraints"] = [
+        {"rule": "格式合法", "source": {"doc": "srSpec", "line": f"L{i}", "quote": q}}
+        for i, q in enumerate(quotes, 1)
+    ]
+    entity = next(row for row in layer["entities"] if row["entity"] == "Product")
+    entity["attributes"][0]["constraints"] = [
+        {
+            "rule": "唯一编号",
+            "source": {"doc": "srSpec", "line": "L60", "quote": '"productId": "P10001"'},
+        }
+    ]
+    tree.write_text(json.dumps(value, ensure_ascii=False), encoding="utf8")
+    core = tmp_path / "core"
+    convert(raw, core, profile=COMMAND_OPERATION_PROFILE)
+    [bundle] = build_cases(core, generate=False)
+    seen = {}
+
+    def model(received):
+        inputs = received["input"]
+        decisions = []
+        for row in inputs["constraints"]:
+            quote = row.get("quote")
+            bindings = []
+            if row["attribute"] == "keyword":
+                assert row["rule"] == "格式合法"
+                assert quote in quotes
+                assert row["entity"] == "BROWSE-GET"
+                assert any(
+                    atom["concern_key"] == "api.data.format" for atom in row["already_mapped"]
+                )
+                seen[quote] = row["id"]
+                bindings = [
+                    {
+                        "key": "api.data.length" if quote == quotes[0] else "api.data.format",
+                        "failure": "keyword长度 > 64" if quote == quotes[0] else "keyword含有空格",
+                        "applies_to": [],
+                    }
+                ]
+            if row["rule"] == "唯一编号":
+                assert quote == '"productId": "P10001"'
+                seen[quote] = row["id"]
+            decisions.append(
+                {
+                    "rule_id": row["id"],
+                    "state": "mapped" if bindings else "not_constraint",
+                    "reason": "原文给出明确约束" if bindings else "无额外可核实约束",
+                    "bindings": bindings,
+                }
+            )
+        return validate_result(
+            received["task"], {"operations": [], "constraints": decisions}, inputs
+        )
+
+    ex = Execution(tmp_path / "run", mocks={"ssd-entity-inference": model})
+    infer(bundle, lambda task, inputs: ex.semantic(task, inputs, {"case": bundle["case"]["id"]})[0])
+    assert seen.keys() == {*quotes, '"productId": "P10001"'}
+    assert len(set(seen.values())) == 3
+    [length] = [
+        scene
+        for scene in bundle["channels"]["G"]["scenarios"]
+        if scene["key"] == "api.data.length" and "keyword长度 > 64" in scene["condition"]
+    ]
+    assert length["step_id"] == "B1"
+    assert any(
+        ref["start_line"] == 1 and ref["quote"] == quotes[0] for ref in length["source_refs"]
+    )
+    assert any(
+        scene["key"] == "api.data.format" and "keyword含有空格" in scene["condition"]
+        for scene in bundle["channels"]["G"]["scenarios"]
+    )

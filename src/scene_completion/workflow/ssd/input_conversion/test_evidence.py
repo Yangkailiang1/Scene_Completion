@@ -11,7 +11,7 @@ from scene_completion.workflow.ssd.input_conversion.evidence_records import (
 )
 
 
-def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=None):
+def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=None, test_peers=()):
     from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, STRUCTURED_PROFILES
     from scene_completion.domain.ssd.construction import channel, pending
     from scene_completion.inputs.structured.case_names import candidates as case_candidates
@@ -50,6 +50,7 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
     name, case, prefix = None, {}, ""
     if path.exists():
         name = sources.add(path, "test")
+        bundle["test_source_path"] = path.relative_to(sources.root).as_posix()
         value = json.loads(path.read_text(encoding="utf-8-sig"))
         if isinstance(value, list):
             cases = value
@@ -57,13 +58,30 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
             key = next((k for k in ("usecases", "use_cases", "cases") if k in value), "usecases")
             cases, prefix = value.get(key, []), "/" + key
         source_id = (mapping or {}).get("source_uc_id") or bundle["case"]["id"]
+        conflicting_cases = []
         if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
+            source_uc_id = (mapping or {}).get("source_uc_id")
             found = case_candidates(
-                cases,
-                bundle["case"]["name"],
-                bundle.get("case_entity"),
-                explicit_id=(mapping or {}).get("source_uc_id"),
+                cases, bundle["case"]["name"], bundle.get("case_entity"), explicit_id=source_uc_id
             )
+            if not found and not source_uc_id:
+                found = case_candidates(
+                    cases,
+                    bundle["case"]["name"],
+                    bundle.get("case_entity"),
+                    allow_numbered_prefix=True,
+                )
+                if len(found) == 1:
+                    for peer in test_peers:
+                        peer_matches = case_candidates(
+                            cases,
+                            peer["name"],
+                            peer["entity"],
+                            explicit_id=peer["source_uc_id"],
+                            allow_numbered_prefix=True,
+                        )
+                        if len(peer_matches) == 1 and peer_matches[0][0] == found[0][0]:
+                            conflicting_cases.append(peer["id"])
         else:
             found = [(i, row) for i, row in enumerate(cases) if row.get("id") == source_id]
             if not found and not (mapping or {}).get("source_uc_id"):
@@ -72,18 +90,28 @@ def test_channel(bundle, sources, *, supplied=(), mapping=None, mapping_source=N
                     for i, row in enumerate(cases)
                     if row.get("name") == bundle["case"]["name"]
                 ]
-        if len(found) == 1:
+        if len(found) == 1 and not conflicting_cases:
             index, case = found[0]
             prefix += f"/{index}"
         elif not supplied and not mapped:
             result = channel()
+            reason = (
+                "同一测试用例被多个用例认领，请使用显式映射"
+                if conflicting_cases
+                else "测试用例无法唯一对应"
+            )
             result["pending"].append(
                 pending(
                     ident("GT-case", bundle["case"]["id"]),
-                    "测试用例无法唯一对应",
+                    reason,
                     [sources.ref(name)],
-                    reason="测试用例无法唯一对应",
+                    reason=reason,
                     candidates=[row.get("id") for _, row in found],
+                    **(
+                        {"conflicting_case_ids": sorted(conflicting_cases)}
+                        if conflicting_cases
+                        else {}
+                    ),
                 )
             )
             bundle["gt_source_available"] = False

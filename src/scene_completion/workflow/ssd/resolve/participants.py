@@ -30,6 +30,7 @@ def classify(bundle, semantic):
                     "kind": party.get("declared_kind"),
                     "role": party.get("role"),
                     "element_type": party.get("element_type"),
+                    "technology": party.get("technology"),
                     "source_refs": [{"id": key, "quote": quote} for key, quote in refs.items()],
                 }
             )
@@ -53,17 +54,29 @@ def classify(bundle, semantic):
             )
             if kind == "external_actor":
                 party["technology"] = None
+            elif row.get("technology") and not party.get("technology"):
+                party["technology"] = row["technology"]
 
 
 def validate_result(payload, inputs):
-    refs = {row["id"]: {ref["id"] for ref in row["source_refs"]} for row in inputs["participants"]}
+    participants = {row["id"]: row for row in inputs["participants"]}
     rows = payload["participants"]
-    if {row["participant_id"] for row in rows} != refs.keys() or len(rows) != len(refs):
+    if {row["participant_id"] for row in rows} != participants.keys() or len(rows) != len(
+        participants
+    ):
         raise ValueError("必须对本批每个参与者恰好返回一条判定")
     for row in rows:
         cites = set(row["source_ref_ids"])
-        if not cites <= refs[row["participant_id"]] or len(cites) != len(row["source_ref_ids"]):
+        participant = participants[row["participant_id"]]
+        if not cites <= {ref["id"] for ref in participant["source_refs"]} or len(cites) != len(
+            row["source_ref_ids"]
+        ):
             raise ValueError("参与者判定只能引用该参与者自己的原文编号且不得重复")
         if (row["kind"] is not None and not cites) or not row["reason"].strip():
             raise ValueError("明确的参与者类型必须引用原文，每条判定都须说明依据或缺口")
+        if (technology := row.get("technology")) and (
+            row["kind"] not in {"internal_service", "external_service"}
+            or participant.get("technology") not in {None, "", technology}
+        ):
+            raise ValueError("只可为缺少技术类型且有本方引文依据的服务补判数据库")
     return payload

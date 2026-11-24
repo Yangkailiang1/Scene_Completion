@@ -698,3 +698,85 @@ def test_finished_job_retains_dispatch_identity_and_case_selection(tmp_path, mon
     assert terminal["status"] == "complete"
     assert terminal["started_at"] == started_at and terminal["run_options"] == options
     service.pool.shutdown()
+
+
+def test_merge_only_rerun_uses_published_cases_without_model_configuration(tmp_path, capsys):
+    from scene_completion.application import ssd_revision_service
+    from scene_completion.application.local_workbench import LocalWorkbench
+    from scene_completion.infrastructure.storage import fingerprint, read_json
+    from scene_completion.workflow_core.storage import TaskStore
+    from tests.support.shared_services import service_case
+
+    service, rid, project_path = project(tmp_path)
+    run = project_path / "run"
+    original = service_case("case")
+    initial = ssd_revision_service.publish(project_path, original)
+    store = TaskStore(run)
+    parent = "case:ssd-compare"
+    target = "case:shared-services-merge"
+    payload = {"task": "ssd-compare", "payload": initial["bundle"]}
+    upstream = {
+        "case": "case",
+        "stage": "ssd-compare",
+        "status": "passed",
+        "identity": "previous-release",
+        "output_file": store.save_output(parent, "previous-release", payload),
+        "output_hash": fingerprint(payload),
+    }
+    store.state["tasks"] = {
+        parent: upstream,
+        target: {
+            "case": "case",
+            "stage": "shared-services-merge",
+            "status": "rejected",
+            "failure": {"error": "匹配必须引用同一项目锚点与关注点中的两方记录"},
+        },
+    }
+    store.save()
+    write_json(
+        run / "workflow_graph.json",
+        {
+            "nodes": [
+                {"id": key, "case": "case", "stage": row["stage"]}
+                for key, row in store.state["tasks"].items()
+            ]
+        },
+    )
+    write_json(run / "run_manifest.json", {"workflow": "ssd-case-v1", "complete": False})
+    write_json(
+        project_path / "job.json", {"status": "waiting", "run_options": {"case_ids": ["case"]}}
+    )
+
+    def forbid_model(*args):
+        pytest.fail("汇总恢复不能读取模型配置或创建模型")
+
+    service.worker = True
+    service.model_config = forbid_model
+    transport = LocalWorkbench.__new__(LocalWorkbench)
+    transport.service = service
+    try:
+        assert (
+            main(
+                [
+                    "--local",
+                    "rerun",
+                    "--project",
+                    rid,
+                    "--node",
+                    target,
+                    "--wait",
+                    "--poll",
+                    "0.2",
+                ],
+                client=transport,
+            )
+            == 0
+        )
+        events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        assert events[-1]["kind"] == "finished" and events[-1]["execution_complete"]
+        tasks = read_json(run / "workflow_tasks.json")["tasks"]
+        assert tasks[parent] == upstream
+        assert tasks[target]["status"] == "passed"
+        assert ssd_revision_service.editor(project_path, "case")["revision"] == initial["revision"]
+    finally:
+        service.pool.shutdown()

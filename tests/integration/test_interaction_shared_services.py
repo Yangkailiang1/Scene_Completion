@@ -250,3 +250,65 @@ def test_business_report_offline_controls_and_save_roundtrip(tmp_path, coverage_
         text=True,
     )
     assert json.loads(result.stdout)["saved_reopened"]
+
+
+@pytest.mark.parametrize("status", ["none", "partial", "full"])
+def test_cross_service_case_decisions_do_not_break_project_summary_or_export(tmp_path, status):
+    from scene_completion.domain.project_scopes.validation import validate
+
+    b = service_case("A", ("service_unavailable", "timeout"), service_id="MapService")
+    other = deepcopy(b["steps"][0])
+    other.update(id="database-step", order=2)
+    other["receiver"].update(id="GaussDB4MySQL", name="GaussDB4MySQL")
+    b["steps"].append(other)
+    for kind in ("concerns", "scenarios"):
+        for row in b["channels"]["E"][kind]:
+            if row["key"] == AVAILABILITY:
+                row["step_id"] = other["id"]
+    cross = {
+        "id": "cross-service",
+        "level": "scenario",
+        "pair": "G_E",
+        "left_id": "G-service_unavailable",
+        "right_id": "E-service_unavailable",
+        "status": status,
+        "origin": "manual",
+        "reason": "用例级跨步骤判定",
+    }
+    b["decisions"].append(cross)
+    b["decisions"].append(
+        {
+            **cross,
+            "id": "same-service",
+            "pair": "GT_G",
+            "left_id": "GT-timeout",
+            "right_id": "G-timeout",
+            "status": status,
+        }
+    )
+    # Test historical decisions directly, including statuses the current case validator
+    # may reject for new edits when the two steps have different bindings.
+    b = validate(build([{"bundle": b, "revision": 7}]))
+    assert len(b["anchors"]) == 2
+    assert len(b["channels"]["G"]["scenarios"]) == len(b["channels"]["E"]["scenarios"]) == 2
+    assert not any(d["pair"] == "G_E" for d in b["decisions"])
+    assert any(
+        d["pair"] == "GT_G"
+        and d["status"] == status
+        and any(m["left_id"] == "GT-timeout" for m in d["member_decisions"])
+        for d in b["decisions"]
+    )
+
+    if status == "none":
+        original = service_case("A")
+        original["steps"].append(other)
+        for kind in ("concerns", "scenarios"):
+            for row in original["channels"]["E"][kind]:
+                if row["key"] == AVAILABILITY:
+                    row["step_id"] = other["id"]
+        original["decisions"].append(cross)
+        cases.publish(tmp_path, original)
+        assert cases.editor(tmp_path, "A")["bundle"]["decisions"] == [cross]
+        assert len(shared.publish(tmp_path)["bundle"]["anchors"]) == 2
+        report = adoption.export_payload(tmp_path)
+        assert any(item["scope"] == "shared_services" for item in report["items"])

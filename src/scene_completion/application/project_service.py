@@ -415,7 +415,7 @@ class Workbench:
             preview.update(sr_interface_count=len(contracts), sr_api_pending=pending)
         return preview
 
-    def _start(self, rid, options=None):
+    def _start(self, rid, options=None, *, shared_service_retry=None):
         if self.review_only:
             raise ValueError("业务审核包只保存确认记录；请交回研发后重跑")
         rid = self.require_current_project(rid)
@@ -457,13 +457,14 @@ class Workbench:
         if "supplied_only" in options and type(options["supplied_only"]) is not bool:
             raise ValueError("仅运行已校验用例选项必须为布尔值")
         options.setdefault("case_ids", project.get("case_ids", []))
-        if options.get("supplied_only"):
+        if options.get("supplied_only") and not shared_service_retry:
             selected = options["case_ids"]
             if not self.supplied_case_preview(rid, selected)["accepted"]:
                 raise ValueError("没有通过正式校验的已有 SSD 用例")
-        config = self.model_config(rid)
-        if not self.client_factory and (not config["api_key"] or not config["base_url"]):
-            raise ValueError("请在.env或项目中配置模型地址和密钥")
+        if not shared_service_retry:
+            config = self.model_config(rid)
+            if not self.client_factory and (not config["api_key"] or not config["base_url"]):
+                raise ValueError("请在.env或项目中配置模型地址和密钥")
         local_worker = self.client_factory or self.worker
         with job_lock(p), self.lock:
             if user_hold(p):
@@ -471,6 +472,8 @@ class Workbench:
             if rid in self.active or live_job(read_job(p)):
                 raise ValueError("项目正在运行")
             dispatched = new_job(options)
+            if shared_service_retry:
+                dispatched["shared_service_retry"] = shared_service_retry
             if local_worker:
                 dispatched["pid"] = os.getpid()
             write_json(p / "job.json", dispatched)
@@ -512,53 +515,18 @@ class Workbench:
             current = read_job(p)
             if not same_run(current, job) or current.get("status") != "running":
                 return
-            from scene_completion.application.execution import Execution, build_pipeline
-            from scene_completion.application.model_factory import client_for
-            from scene_completion.inputs.documents.source_documents import (
-                read_project_documents,
-            )
             from scene_completion.workflow_core import run_lock
 
-            project = read_json(p / "project.json")
-            config = self.model_config(rid)
-            config.setdefault("supplement_tests", False)
-            config.setdefault("scenario_patterns", True)
-            from scene_completion.analysis.recommendation.pattern_settings import history, settings
-
-            config["review_mode"] = project["review_mode"]
-            config["run_root"] = str(p / "run")
             with run_lock(p / "run"):
                 current = read_job(p)
                 if not same_run(current, job) or current.get("status") != "running":
                     return
-                write_json(p / "run/pattern_settings_used.json", settings(p)["settings"])
-                write_json(p / "run/recommendation_history_used.json", history(p)["items"])
-                client = (
-                    self.client_factory(config, p / "run")
-                    if self.client_factory
-                    else client_for(config, p / "run")
-                )
-                options = job.get("run_options", {})
-                config["priority_cases"] = options.get("priority_cases", [])
-                ex = Execution(
-                    p / "run",
-                    mode="external",
-                    client=client,
-                    config=config,
-                    case_ids=options.get("case_ids", project.get("case_ids")),
-                    supplied_only=options.get("supplied_only", False),
-                )
-                self.gates[rid] = ex.gate
-                docs = {
-                    role: read_project_documents(
-                        p,
-                        project["sources"].get(role, []),
-                        "test" if role == "test" else "existing",
-                    )
-                    for role in ("RR", "SR", "AR", "test")
-                }
-                build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
-                manifest = ex.finish()
+                if key := job.get("shared_service_retry"):
+                    from scene_completion.workflow.ssd.shared_services.stage import retry_published
+
+                    manifest = retry_published(p / "run", key)
+                else:
+                    manifest = self._run_pipeline(rid, p, job)
             hold = user_hold(p)
             status = (
                 ("paused" if hold["action"] == "pause" else "interrupted")
@@ -600,6 +568,50 @@ class Workbench:
                 pass
             with self.lock:
                 self.active.discard(rid)
+
+    def _run_pipeline(self, rid, p, job):
+        from scene_completion.application.execution import Execution, build_pipeline
+        from scene_completion.application.model_factory import client_for
+        from scene_completion.inputs.documents.source_documents import (
+            read_project_documents,
+        )
+
+        project = read_json(p / "project.json")
+        config = self.model_config(rid)
+        config.setdefault("supplement_tests", False)
+        config.setdefault("scenario_patterns", True)
+        from scene_completion.analysis.recommendation.pattern_settings import history, settings
+
+        config["review_mode"] = project["review_mode"]
+        config["run_root"] = str(p / "run")
+        write_json(p / "run/pattern_settings_used.json", settings(p)["settings"])
+        write_json(p / "run/recommendation_history_used.json", history(p)["items"])
+        client = (
+            self.client_factory(config, p / "run")
+            if self.client_factory
+            else client_for(config, p / "run")
+        )
+        options = job.get("run_options", {})
+        config["priority_cases"] = options.get("priority_cases", [])
+        ex = Execution(
+            p / "run",
+            mode="external",
+            client=client,
+            config=config,
+            case_ids=options.get("case_ids", project.get("case_ids")),
+            supplied_only=options.get("supplied_only", False),
+        )
+        self.gates[rid] = ex.gate
+        docs = {
+            role: read_project_documents(
+                p,
+                project["sources"].get(role, []),
+                "test" if role == "test" else "existing",
+            )
+            for role in ("RR", "SR", "AR", "test")
+        }
+        build_pipeline(ex, docs["RR"], docs["SR"], docs["test"], ar=docs["AR"])
+        return ex.finish()
 
     def execution_status(self, rid):
         p = self.run_dir(rid)

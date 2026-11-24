@@ -150,6 +150,8 @@ def build_structured(ex, directory):
     from scene_completion.workflow.ssd.input_conversion.case_builder import (
         _input_root,
         case_identity,
+        recovered_test_claims,
+        recovered_test_peers,
     )
     from scene_completion.workflow.ssd.prepare import stage as prepare_stage
     from scene_completion.workflow.ssd.prepare.snapshot import verify_core_snapshot
@@ -159,6 +161,7 @@ def build_structured(ex, directory):
     if not entries:
         return False
     source_files = [p for p in sorted(directory.rglob("*")) if p.is_file()]
+    test_claims = recovered_test_claims(directory, entries)
     ex.manifest.update(
         workflow="ssd-case-v1",
         evaluation_scope="all",
@@ -181,7 +184,7 @@ def build_structured(ex, directory):
         selected.append(cid)
 
         def prepare(_, record, cid=cid, file=file, problem=problem):
-            return prepare_stage.structured(ex, directory, cid, file, problem)
+            return prepare_stage.structured(ex, directory, cid, file, problem, test_claims)
 
         identity = [
             (str(p.relative_to(directory)), fingerprint(p.read_bytes().hex()))
@@ -195,7 +198,7 @@ def build_structured(ex, directory):
             "ssd-prepare",
             [],
             prepare,
-            identity,
+            [identity, recovered_test_peers(test_claims, cid)],
             verify_payload=lambda bundle: verify_core_snapshot(ex.root, bundle),
         )
         _tail(ex, cid, key)
@@ -373,35 +376,10 @@ def finish(ex, result):
                 )
                 break
     progress(ex)
-    summary = ssd_results.index(ex.root.parent)
     from scene_completion.application import shared_service_service
 
     shared_service_service.publish(ex.root.parent)
-    project_summary = shared_service_service.index(ex.root.parent)
-    pending = sum(c["pending_count"] for c in summary["cases"])
-    pending += sum(s.get("pending_count", 0) for s in project_summary["scopes"])
-    pending += ex.manifest.get("test_import_pending_count", 0)
-    pending += sum(
-        g.get("status") != "confirmed" for g in ex.manifest.get("case_correspondence", [])
-    )
-    pending += sum(
-        g.get("status") != "confirmed" for g in ex.manifest.get("test_case_correspondence", [])
-    )
-    ex.manifest.update(
-        execution_complete=result["complete"],
-        complete=result["complete"] and not pending,
-        analysis_complete=result["complete"],
-        pending_count=pending,
-        global_analysis={
-            "complete": False,
-            "enabled": False,
-            "scopes": [],
-        },
-        shared_services=project_summary["scopes"],
-        recommendation={"enabled": False},
-        metrics=project_summary["metrics"]["overall"]["concern"],
-        metrics_by_scope=project_summary["metrics"],
-    )
+    update_report_manifest(ex.root.parent, ex.manifest, complete=result["complete"])
     write_json(ex.root / "run_manifest.json", ex.manifest)
     path = ex.root / "execution_sessions.json"
     sessions = read_json(path)
@@ -417,3 +395,33 @@ def finish(ex, result):
             )
     write_json(path, sessions)
     return ex.manifest
+
+
+def update_report_manifest(project, manifest, *, complete):
+    """Recalculate publication status over the current case and service revisions."""
+    summary = ssd_results.index(project)
+    from scene_completion.application import shared_service_service
+
+    project_summary = shared_service_service.index(project)
+    pending = sum(c["pending_count"] for c in summary["cases"])
+    pending += sum(s.get("pending_count", 0) for s in project_summary["scopes"])
+    pending += manifest.get("test_import_pending_count", 0)
+    pending += sum(g.get("status") != "confirmed" for g in manifest.get("case_correspondence", []))
+    pending += sum(
+        g.get("status") != "confirmed" for g in manifest.get("test_case_correspondence", [])
+    )
+    manifest.update(
+        execution_complete=complete,
+        complete=complete and not pending,
+        analysis_complete=complete,
+        pending_count=pending,
+        global_analysis={
+            "complete": False,
+            "enabled": False,
+            "scopes": [],
+        },
+        shared_services=project_summary["scopes"],
+        recommendation={"enabled": False},
+        metrics=project_summary["metrics"]["overall"]["concern"],
+        metrics_by_scope=project_summary["metrics"],
+    )

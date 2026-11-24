@@ -11,6 +11,7 @@ from scene_completion.workflow.ssd.input_conversion.case_builder import (
     _input_root,
     build_cases,
     case_identity,
+    recovered_test_claims,
 )
 from scene_completion.workflow.ssd.input_conversion.core_files import write_core
 from scene_completion.workflow.ssd.input_conversion.core_validation import (
@@ -76,6 +77,7 @@ def _issue(kind, reason, **location):
 
 def _read_cases(root, selections, profile=None):
     entries = list(discover(root, case_identity))
+    test_claims = recovered_test_claims(root, entries)
     selected = set(selections or [])
     seen = set()
     issues, bundles = [], []
@@ -87,7 +89,12 @@ def _read_cases(root, selections, profile=None):
             try:
                 bundle = validate(
                     build_cases(
-                        root, [case["id"]], case_files=[file], generate=False, profile=profile
+                        root,
+                        [case["id"]],
+                        case_files=[file],
+                        generate=False,
+                        profile=profile,
+                        test_claims=test_claims,
                     )[0]
                 )
             except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as exc:
@@ -166,6 +173,7 @@ def _needs(bundle):
                 step_id=row.get("step_id"),
                 condition=row["condition"],
                 evidence=row.get("source_refs", []),
+                **{key: row[key] for key in ("candidates", "conflicting_case_ids") if key in row},
             )
 
 

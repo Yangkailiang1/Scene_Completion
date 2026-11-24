@@ -155,24 +155,24 @@ def classify(bundle, semantic):
 
 
 def _excerpt(part, source, field):
+    submitted = part[field]
     fragments = part.get(field + "_fragments")
-    if fragments is None:
-        text = part[field]
-        if not text:
-            return text, []
-        if text.strip() and text in source[field]:
-            return text, [{"field": field, "index": None, "quote": text}]
+    if submitted.strip():
+        if submitted in source[field]:
+            return submitted, [{"field": field, "index": None, "quote": submitted}]
         matches = [
-            {"field": "evidence", "index": index, "quote": text}
+            {"field": "evidence", "index": index, "quote": submitted}
             for index, item in enumerate(source.get("evidence", []))
-            if text.strip() and isinstance(item, str) and text in item
+            if isinstance(item, str) and submitted in item
         ]
-        if not matches:
-            raise ValueError("异常摘录须逐字出现在本条记录的原字段或证据中")
-        return text, matches
+        if matches:
+            return submitted, matches
 
-    if not fragments or part[field]:
-        raise ValueError("提供摘录片段时，对应文本留空并至少提供一条逐字摘录")
+    if not fragments:
+        if not submitted.strip():
+            return "", []
+        raise ValueError("异常摘录须逐字出现在本条记录的原字段或证据中")
+
     for fragment in fragments:
         origin, index, quote = (fragment[key] for key in ("field", "index", "quote"))
         if origin == "evidence":
@@ -182,7 +182,14 @@ def _excerpt(part, source, field):
             text = source[origin] if index is None else None
         if not isinstance(text, str) or not quote.strip() or quote not in text:
             raise ValueError("摘录片段未逐字出现在指定的本条来源")
-    return "；".join(f["quote"] for f in fragments), fragments
+    quotes = [fragment["quote"] for fragment in fragments]
+    joined = "；".join(quotes)
+    # Only the boundaries inserted by the model may differ; keep each quote literal.
+    if submitted and not re.fullmatch(
+        r"\s*[;；]?\s*".join(re.escape(quote) for quote in quotes), submitted
+    ):
+        raise ValueError("全文与已核验的摘录片段不一致")
+    return joined, fragments
 
 
 def _verified_parts(parts, source, definitions, *, evidence_items=()):

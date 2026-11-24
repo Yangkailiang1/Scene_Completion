@@ -63,4 +63,6 @@ def _rerun_locked(service, rid, body, project):
         from scene_completion.infrastructure.code_retry import request
 
         request(project / "run", key, failure)
+    if key.endswith(":shared-services-merge") and not body.get("text"):
+        return service._start(rid, options, shared_service_retry=key)
     return service._start(rid, options)

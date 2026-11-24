@@ -43,7 +43,7 @@ if not exist "%DELIVERY%" mkdir "%DELIVERY%"
 | `recovered_usecases.json` | 按用例 `name` 对齐，逐条保留 `extensions[].id`、失败条件、预期和证据。源编号可与行为模型和功能树不同。 |
 | 原始 RR／SR Markdown、测试 Markdown 或 XLSX | 使用用户逐份指定的原件。复制到输入目录并在 `source-documents.json` 登记。用文件名、相对路径或别名对照结构化引用。 |
 
-用 `SysOperation.use_case`、功能树 `functions[].name` 和测试逆向用例 `name` 对齐三份材料。原始编号分别保留。遇到同名用例，结合实体目录和已确认映射消歧。缺唯一主成功路径、结构化文件损坏或出现两份冲突的执行输入时，记录候选及证据，暂停受影响用例。
+用 `SysOperation.use_case`、功能树 `functions[].name` 和测试逆向用例 `name` 对齐三份材料。原始编号分别保留。GT 先按显式 `source_uc_id` 或完整名称定位；完整名称无命中时可忽略名称开头的 `SC001-UC003` 格式编号。遇到同名用例，结合实体目录消歧。多个用例仍指向同一测试来源时，在 `extension-mapping.json` 明确登记用例映射。缺唯一主成功路径、结构化文件损坏或出现两份冲突的执行输入时，记录候选及证据，暂停受影响用例。
 
 将原件复制到例如 `source\originals\`，在 `source\source-documents.json` 登记输入目录内的相对路径、角色和供应方使用的别名。下面的文件名和别名须替换成实际材料中的值。
 
@@ -61,8 +61,8 @@ if not exist "%DELIVERY%" mkdir "%DELIVERY%"
 - 有清单时，只从已经登记的文件追溯。`structure_model_fusion/RR` 或 `SR` 下的派生副本通常留作中间材料。供应方在 `source_refs` 写了绝对路径时，保留该引用，仍把原件复制到输入目录并登记相对路径。程序可用唯一的目录后缀或文件名识别原件。同名仍无法区分时，把供应方原路径作为该原件的唯一别名登记。
 - Markdown 定位使用原件全文件行号，例如 `L1726-L1726` 或 `start_line/end_line`。声明位置与引文有偏差时，程序用 `quote` 在同一文件检索，附近命中优先显示。缺少行号或行号无效时直接检索。全文检索支持原文换行，每个命中分别保留实际行号，都可以在出处列表中打开。Excel 使用工作表和标准范围，例如 `测试用例!A120:O120`，后一段的 `O` 是列名。缺原件、坐标无效或引文无法核实时，记录文件、位置和受影响记录。
 - `SysOperation.json` 提供步骤及发送方、接收方。当前结构化流程将 `srLayer.commands[].attributes` 视为同一接口发送的数据，只使用接口 ID 和字段名定位。直接使用功能树的字段名、类型、约束、标签及其出处，无需补写字段的 `location` 或 `direction`。Excel 或 Markdown 的原文定位仍照原样登记。
-- 功能树的每条 `constraints[]` 用该约束自己的 `source.doc`、`line` 和 `quote`。有独立出处的标签保留自身来源，例如 `{"name":"必填","source":{...}}`；字符串标签或类型使用字段声明的来源。接口命令出处用于关联调用，字段约束出处用于证明约束。
-- 人类 Actor、外部服务、内部服务按参与者声明和确切原文区分。转换把主成功流参与者的 `name/role/kind/element_type` 及 `participant.source_refs[].quote` 保留给正式 `ssd-resolve`。有引文的参与者先由模型核对，同一引文提到的依赖或适配器按自己的声明识别。人工 `kind_override` 优先，缺少引文或模型明确说明引文不足时保留脚本分类。旧核心文件缺少参与者引文时，从保留的供应方输入转换到新目录，再按现有升级流程核对。例如 `actor-001|AI原生应用开发者|actor|主(人)|` 可用于确认该开发者是外部人类 Actor；同一引文中提到的服务仍按服务自己的声明处理。人工更正须带确切证据。明确是数据库的服务另保留 `technology=database`。
+- 功能树的每条 `constraints[]` 用该约束自己的 `source.doc`、`line` 和 `quote`。有独立出处的标签保留自身来源，例如 `{"name":"必填","source":{...}}`；字符串标签或类型使用字段声明的来源。字段约束的 `rule` 和它自己的 `source.quote` 会一起送给 `ssd-entity-inference`，用于解释未识别的规则或补充引文明确提供的细节。接口命令出处用于关联调用。
+- 人类 Actor、外部服务、内部服务按参与者声明和确切原文区分。转换把主成功流参与者的 `name/role/kind/element_type` 及 `participant.source_refs[].quote` 保留给正式 `ssd-resolve`。有引文的参与者先由模型核对，同一引文提到的依赖或适配器按自己的声明识别。人工 `kind_override` 优先，缺少引文或模型明确说明引文不足时保留脚本分类。旧核心文件缺少参与者引文时，从保留的供应方输入转换到新目录，再按现有升级流程核对。例如 `actor-001|AI原生应用开发者|actor|主(人)|` 可用于确认该开发者是外部人类 Actor；同一引文中提到的服务仍按服务自己的声明处理。人工更正须带确切证据。明确的数据库产品名（例如 `GaussDB4MySQL`）由脚本识别。其他服务可在技术类型缺失时依据自己的参与者引文补判 `technology=database`。
 
 ## 3. 盘点、转换并核对核心 JSON
 
@@ -179,7 +179,7 @@ scene.cmd --local --data-dir "%DATA%" --env-file "%SCENE_ENV%" repair-export --p
 - **模型业务 JSON 交接**。仅编辑导出文件的 `payload` 和 `note`。note 写具体修改和证据。保留冻结输入、Schema、节点身份、批次身份、短编号映射和版本字段。生成节点只使用正向材料，E、GT 各用本方来源，比较节点使用获授权的指定两侧。补交须保留固定模板、合法字段和锚点，未确认事实按契约留待确认。
 - **`ssd-entity-inference` 批次误带操作判定**。实际失败批次的冻结 `input.operations` 为 `[]` 时，补交的 `payload.operations` 也填 `[]`。保留并逐条核对 `payload.constraints`，兼顾规则 ID、关注点和失败条件。若冻结输入列出了待判定的操作 ID，逐项提交对应判定。
 - **证据分类及认证对齐**。逐项核对本批来源和原文片段。`ssd-evidence-classify` 的 `condition`／`expected` 可直接复制同一条记录的连续证据原文。非连续摘录对应字段留空，使用 `condition_fragments`／`expected_fragments`，填写 `field=evidence`、本条冻结任务的零基 `index` 和逐字 `quote`。缺少预期依据时留空。不要改字段名大小写、枚举值或阈值。无效片段单条待复核。`ssd-ground-align` 的每条 `parts[i]` 和每条 `matches[j]` 各自填写 `reason`。认证候选和独立挂载使用同一条实际请求，依据不足时保留待定位。`ssd-generate` 的问题引用诊断可在 `run/question_rejections/` 核对。
-- **脚本或调度故障**。诊断为 `code_failure` 时检查堆栈、检查点和复现入口。修改源码须在授权范围内，完成针对性验证，然后执行下面的 `rerun --wait`。若 `ssd-prepare` 报核心快照写入失败，记录诊断中的 `operation`、`relative_path`、`winerror` 和 `retries`。工作流会复用可用的快照，正式产物由工作流执行和发布。
+- **脚本或调度故障**。诊断为 `code_failure` 时检查堆栈、检查点和复现入口。修改源码须在授权范围内，完成针对性验证，然后执行下面的 `rerun --wait`。仅 `shared-services-merge` 失败且该用例已有通过并发布的三方比较时，对汇总节点执行 `rerun --wait`。该命令复用已保存的用例结果，无需模型配置。若 `ssd-prepare` 报核心快照写入失败，记录诊断中的 `operation`、`relative_path`、`winerror` 和 `retries`。工作流会复用可用的快照，正式产物由工作流执行和发布。
 - **业务、额度与在途请求**。需要业务裁决、额度不足或已有请求用量未决时，报告确定的阻塞、影响范围及需用户确认的事项。保留请求和账本记录，核对后再恢复。用量未知的请求不盲目重发。
 
 修复脚本或文件系统故障后，使用下面的命令派发并等待该轮结束。重跑保留包含目标节点的上轮用例范围。旧记录缺少范围时，用例节点按其所属用例恢复。超时只结束 CLI 等待，通过 `status` 或 `events` 查看仍在运行的 worker。

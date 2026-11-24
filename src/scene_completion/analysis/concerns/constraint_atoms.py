@@ -395,7 +395,8 @@ def normalize_rules(
 
     Returns ``{"items": [...], "payload": [...], "unresolved": [...]}``.
     ``payload`` holds field-shape facts that are not checks on this attribute.
-    ``unresolved`` keeps anything the fast path could not classify.
+    ``unresolved`` keeps rules the fast path cannot classify and additional
+    wording the rule's own source quotes may clarify.
     """
     tags = tags or []
     out = {"version": VERSION, "items": [], "payload": [], "unresolved": []}
@@ -427,6 +428,14 @@ def normalize_rules(
             continue
         text = rule.strip()
         original = record if isinstance(record, dict) else {"rule": text, "error": None}
+        source = original.get("source")
+        quote = source.get("quote") if isinstance(source, dict) else None
+        evidence = {
+            "field": field,
+            "error": original.get("error"),
+            "source_refs": deepcopy(refs),
+            **({"quote": quote} if isinstance(quote, str) and quote.strip() else {}),
+        }
         if rule_refs is not None and re.fullmatch(
             rf"(?:更新时)?(?:{re.escape(field)}|状态|该字段)?(?:不可修改|不允许修改|不得修改|不可变|只读)[。.]?",
             _compact(text).replace("`", ""),
@@ -516,30 +525,33 @@ def normalize_rules(
                         "边界引用符号" + symbol + "，具体取值需结合该属性确定",
                     )
                 )
-        if entity_only and any(item["operation"] == "unique" for item in produced):
+        semantic_unique = entity_only and any(item["operation"] == "unique" for item in produced)
+        review_quote = (
+            bool(produced)
+            and not semantic_unique
+            and entity_only
+            and rule_refs is not None
+            and bool(evidence.get("quote"))
+            and _compact(quote).strip("。.;；") != _compact(rule).strip("。.;；")
+        )
+        if semantic_unique:
             produced = [item for item in produced if item["operation"] != "unique"]
+
+        if semantic_unique or not produced or review_quote:
             out["unresolved"].append(
                 {
-                    "text": rule,
-                    "field": field,
-                    "error": original.get("error"),
-                    "source_refs": deepcopy(refs),
-                    "reason": "唯一性规则需确定业务作用域",
+                    "text": rule if evidence.get("quote") or semantic_unique else text,
+                    **evidence,
+                    "reason": (
+                        "唯一性规则需确定业务作用域"
+                        if semantic_unique
+                        else "核对引文是否补充了约束细节"
+                        if review_quote
+                        else "未匹配到确定性约束模式，需语义规范化"
+                    ),
+                    **({"already_mapped": True} if review_quote else {}),
                 }
             )
-            if not produced:
-                continue
-        if not produced:
-            out["unresolved"].append(
-                {
-                    "text": text,
-                    "field": field,
-                    "error": original.get("error"),
-                    "source_refs": deepcopy(refs),
-                    "reason": "未匹配到确定性约束模式，需语义规范化",
-                }
-            )
-            continue
         out["items"].extend(produced)
     unique = {}
     for item in out["items"]:

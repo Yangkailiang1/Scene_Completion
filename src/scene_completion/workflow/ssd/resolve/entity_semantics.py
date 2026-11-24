@@ -96,11 +96,40 @@ def _unresolved(bundle):
         for f in s.get("data", [])
         if f.get("command_id")
     )
-    return {
-        ident("rule", owner, attr.get("id", attr["name"]), rule["text"]): (owner, attr, rule)
-        for owner, attr in fields
-        for rule in attr.get("unresolved", [])
-    }
+    result = {}
+    for owner, attr in fields:
+        for rule in attr.get("unresolved", []):
+            quote = [rule["quote"]] if rule.get("quote") else []
+            rid = ident("rule", owner, attr.get("id", attr["name"]), rule["text"], *quote)
+            result.setdefault(rid, (owner, attr, deepcopy(rule)))
+            saved = result[rid][2]
+            saved["source_refs"] = unique(saved["source_refs"] + rule["source_refs"])
+    return result
+
+
+def _constraint_input(rid, owner, attr, rule):
+    row = {"id": rid, "entity": owner, "attribute": attr["name"], "rule": rule["text"]}
+    if quote := rule.get("quote"):
+        row["quote"] = quote
+    if rule.get("already_mapped"):
+        row["already_mapped"] = [
+            {
+                key: atom[key]
+                for key in (
+                    "concern_key",
+                    "operation",
+                    "value",
+                    "value_pending",
+                    "failure_condition",
+                    "exclusive",
+                    "applicable_operations",
+                )
+                if key in atom
+            }
+            for atom in attr.get("atoms", [])
+            if atom.get("operation") != "semantic"
+        ]
+    return row
 
 
 def infer(bundle, semantic):
@@ -130,8 +159,7 @@ def infer(bundle, semantic):
             **context,
             "operations": list(steps) if offset == 0 else [],
             "constraints": [
-                {"id": rid, "entity": entity, "attribute": attr["name"], "rule": rule["text"]}
-                for rid, (entity, attr, rule) in batch
+                _constraint_input(rid, entity, attr, rule) for rid, (entity, attr, rule) in batch
             ],
         }
         if not (inputs["operations"] or inputs["constraints"]):
