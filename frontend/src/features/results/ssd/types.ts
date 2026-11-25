@@ -92,6 +92,12 @@ export type Observation = {
   expected?: string;
   concern_ids?: string[];
   applicable_operations?: string[];
+  resource_reference?: {
+    command_id: string;
+    parameter_name: string;
+    role: "target" | "parent" | "ancestor" | "dependency" | "unknown";
+    reason: string;
+  };
   status: string;
   source_refs: SourceRef[];
   rule_id?: string;

@@ -3,11 +3,17 @@
 import re
 
 from scene_completion.domain.coverage import GRAIN_POLICY
-from scene_completion.domain.ssd import interface_fields, validation_scope
+from scene_completion.domain.ssd import (
+    actor_security,
+    interface_fields,
+    llm_responses,
+    validation_scope,
+)
 from scene_completion.domain.ssd.construction import unique
+from scene_completion.domain.ssd.path_resources import path_parameters
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
-from scene_completion.workflow.ssd.shared.failure_context import explicit_failure
+from scene_completion.workflow.ssd.shared.failure_context import explicit_failure, service_security
 
 CLASSIFY = "ssd-evidence-classify"
 
@@ -35,7 +41,22 @@ def classify(bundle, semantic):
             named = bundle.get("interface_field_policy") == interface_fields.INPUT_FIELD_POLICY
             if named:
                 inputs["interface_field_policy"] = interface_fields.INPUT_FIELD_POLICY
+            if "path_resource_checks" in bundle:
+                inputs["resource_routes"] = [
+                    {
+                        "command_id": command["id"],
+                        "path": command["path"],
+                        "parameters": names,
+                        "crud": link["crud"],
+                        "step_id": link["primary_step_id"],
+                    }
+                    for command in bundle["commands"]
+                    if (names := path_parameters(command["path"]))
+                    and (link := bundle["command_bindings"].get(command["id"]))
+                    and link.get("binding_source") != "step1_fallback"
+                ]
             records = {row["id"]: row for row in inputs["records"]}
+            steps = {step["id"]: step for step in inputs["steps"]}
             direct, remaining = [], []
             g_aligned = bundle.get("coverage_policy") == GRAIN_POLICY
 
@@ -51,22 +72,40 @@ def classify(bundle, semantic):
                 )
 
             for source in records.values():
-                if named and (
-                    source["source_kind"] == "out_of_scope"
-                    or interface_fields.output_only(source["condition"])
+                condition = source["condition"]
+                failure, keys = explicit_failure(condition, source["expected"])
+                outside_security = source.get("declared_key") in actor_security.SERVICE_KEYS or (
+                    keys & actor_security.HUMAN_KEYS
+                    and service_security(steps, source["failure_step_id"])
+                )
+                response_context = llm_responses.KEY in inputs[
+                    "definitions"
+                ] and llm_responses.placements(
+                    bundle, condition, source["failure_step_id"], context=source["evidence"]
+                )
+                llm_failure = llm_responses.failure_variant(condition) if response_context else None
+                if outside_security or (
+                    named
+                    and (
+                        source["source_kind"] == "out_of_scope"
+                        or (not response_context and interface_fields.output_only(condition))
+                    )
                 ):
                     direct.append(
                         {
                             "record_id": source["id"],
                             "kind": "out_of_scope",
-                            "reason": "该来源已标记范围外"
+                            "reason": actor_security.OUT_OF_SCOPE
+                            if outside_security
+                            else "该来源已标记范围外"
                             if source["source_kind"] == "out_of_scope"
                             else "条件只涉及返回值异常",
                             "parts": [],
                         }
                     )
                     continue
-                failure, keys = explicit_failure(source["condition"], source["expected"])
+                if llm_failure:
+                    failure, keys = llm_failure, {llm_responses.KEY}
                 keys = sorted(keys & inputs["definitions"].keys())
                 part = (
                     {"condition": source["condition"], "expected": source["expected"], "keys": keys}
@@ -100,10 +139,27 @@ def classify(bundle, semantic):
                 parts, issues = _verified_parts(
                     decision["parts"],
                     records[decision["record_id"]],
-                    inputs["definitions"],
+                    inputs["definitions"] | dict.fromkeys(actor_security.SERVICE_KEYS),
                     evidence_items=evidence.evidence_items(raw),
                 )
                 source = records[decision["record_id"]]
+                excluded = []
+                outside_keys = actor_security.SERVICE_KEYS
+                if service_security(steps, source["failure_step_id"]):
+                    outside_keys = outside_keys | actor_security.HUMAN_KEYS
+                kept = []
+                for part in parts:
+                    if outside := set(part["keys"]) & outside_keys:
+                        excluded.append({**part, "keys": sorted(outside)})
+                    if keys := sorted(set(part["keys"]) - outside):
+                        kept.append({**part, "keys": keys})
+                parts = kept
+                if excluded and not parts and not issues:
+                    decision = {
+                        **decision,
+                        "kind": "out_of_scope",
+                        "reason": actor_security.OUT_OF_SCOPE,
+                    }
                 if g_aligned and decision["kind"] == "exception":
                     conditions = {part["condition"] for part in parts}
                     # A colon introduces a scope for the examples that follow. Only
@@ -111,7 +167,19 @@ def classify(bundle, semantic):
                     for text in re.split(r"[；;\n]+", source["condition"]):
                         condition = text.strip()
                         part = summary_part(condition, source["expected"])
-                        if part and condition not in conditions:
+                        if (
+                            part
+                            and condition not in conditions
+                            and not (
+                                llm_responses.failure_variant(condition)
+                                and llm_responses.placements(
+                                    bundle,
+                                    condition,
+                                    source["failure_step_id"],
+                                    context=source["evidence"],
+                                )
+                            )
+                        ):
                             verified, _ = _verified_parts([part], source, inputs["definitions"])
                             parts.extend(verified)
                             conditions.add(condition)
@@ -119,7 +187,8 @@ def classify(bundle, semantic):
                     inbound = [
                         part
                         for part in parts
-                        if not interface_fields.output_only(part["condition"])
+                        if llm_responses.KEY in part["keys"]
+                        or not interface_fields.output_only(part["condition"])
                     ]
                     if not inbound and not issues:
                         decision = {
@@ -132,6 +201,7 @@ def classify(bundle, semantic):
                     {
                         **decision,
                         "parts": parts,
+                        **({"scope_exclusions": excluded} if excluded else {}),
                         "pending_parts": issues,
                         **(
                             {"submitted_parts": decision["parts"]}

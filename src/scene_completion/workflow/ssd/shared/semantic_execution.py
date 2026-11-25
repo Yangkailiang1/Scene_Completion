@@ -35,6 +35,7 @@ def _semantic_cache_identity(ex, stage):
                         "ssd-bind",
                         "ssd-participant-classify",
                         "ssd-operation-units",
+                        "ssd-create-path-roles",
                         "ssd-entity-inference",
                         "ssd-entity-classify",
                         "ssd-command-classify",

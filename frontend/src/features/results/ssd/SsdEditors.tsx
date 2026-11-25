@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
+import { securityMountAllowed } from "../../../shared/actorSecurity";
 import { documentChoices, documentLines } from "../shared/provenance";
 import {
   fieldLabel,
@@ -816,9 +817,10 @@ export function ObservationEditor({
           ["", "选择框架关注点"],
           ...Object.entries(definitions)
             .filter(
-              ([, d]: any) =>
+              ([key, d]: any) =>
                 (d.kind || "check") === "check" &&
                 d.enabled !== false &&
+                securityMountAllowed(key, value.target || "receiver", step) &&
                 (d.scope || "interaction") === "interaction",
             )
             .map(

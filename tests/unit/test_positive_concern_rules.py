@@ -265,7 +265,9 @@ def test_inverse_resource_check_uses_own_explicit_step_and_positive_CRUD_family(
     assert item["classification_origin"] == "service.query_retrieval.resource_existence"
 
 
-def test_inverse_isolation_needs_own_failure_and_explicit_access_boundary_not_enum():
+def test_inverse_isolation_needs_own_failure_and_explicit_access_boundary_not_enum(
+    historical_service_security_registry,
+):
     x = inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["sender"].update(name="Platform", position="内部服务")

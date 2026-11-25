@@ -110,6 +110,13 @@ def validate_result(task, payload, inputs):
 
         validate(task, payload)
         return validate_units(payload, inputs)
+    if task == "ssd-create-path-roles":
+        from scene_completion.workflow.ssd.resolve.path_roles import (
+            validate_result as validate_roles,
+        )
+
+        validate(task, payload)
+        return validate_roles(payload, inputs)
     if task in {"ssd-entity-inference", "ssd-entity-classify", "ssd-command-classify"}:
         from scene_completion.workflow.ssd.resolve.entity_semantics import (
             validate_result as validate_entity,

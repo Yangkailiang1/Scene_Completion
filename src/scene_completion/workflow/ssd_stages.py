@@ -88,6 +88,7 @@ STAGES = {
         semantic_tasks=(
             "ssd-participant-classify",
             "ssd-operation-units",
+            "ssd-create-path-roles",
             "ssd-entity-inference",
             "ssd-evidence-classify",
         ),

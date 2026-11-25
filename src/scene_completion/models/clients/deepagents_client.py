@@ -183,6 +183,7 @@ class DeepAgentsClient(SemanticClient):
         entity_task = packet["task"] in {
             "ssd-participant-classify",
             "ssd-operation-units",
+            "ssd-create-path-roles",
             "ssd-entity-inference",
             "ssd-entity-classify",
             "ssd-command-classify",

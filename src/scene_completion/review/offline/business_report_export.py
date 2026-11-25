@@ -3,6 +3,7 @@
 from scene_completion.domain.concern_registry import registry
 from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.current_scope import allowed
+from scene_completion.domain.ssd import path_resources
 from scene_completion.review.offline import adoption
 from scene_completion.review.offline._teacher_report_template import TEMPLATE, TITLE
 from scene_completion.review.offline.ssd_review import _safe_json
@@ -88,6 +89,10 @@ def _scenario_text(primary, cells, steps, service, catalog, *, aligned):
         ]
         context = "\n".join(dict.fromkeys(item["text"] for item in evidence))
     condition = primary.get("condition") or primary.get("label") or ""
+    if reference := primary.get("resource_reference"):
+        identity = path_resources.label(reference)
+        if identity not in condition:
+            condition = f"{identity} · {condition}"
     return "\n".join(
         line
         for line in (

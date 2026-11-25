@@ -24,10 +24,11 @@ def _resolve(ex, bundle, record):
     executor = semantic if _semantic_available(ex) else None
     participants.classify(bundle, executor)
     if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
-        from scene_completion.workflow.ssd.resolve import classification, operations
+        from scene_completion.workflow.ssd.resolve import classification, operations, path_roles
 
         bundle["coverage_policy"] = GRAIN_POLICY
         operations.resolve(bundle, executor)
+        path_roles.resolve(bundle, executor)
     entity_semantics.infer(bundle, executor)
     if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
         classification.classify(bundle, executor)

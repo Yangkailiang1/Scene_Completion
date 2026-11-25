@@ -88,9 +88,14 @@ def _editable(bundle):
 
 def _baseline_report(bundle):
     from scene_completion.domain.current_scope import POLICY, case_report
+    from scene_completion.domain.ssd.actor_security import SERVICE_KEYS
 
     if bundle.get("analysis_policy", bundle.get("registry", {}).get("analysis_policy")) == POLICY:
-        return case_report(bundle)
+        definitions = bundle.get("registry", {}).get("definitions", {})
+        historical = any(
+            definitions.get(key, {}).get("enabled", key in definitions) for key in SERVICE_KEYS
+        )
+        return case_report(bundle, historical_security=historical)
     return analyze(bundle)
 
 
@@ -153,6 +158,16 @@ def publish(project, bundle):
             from scene_completion.application.ssd_input_field_migration import rebase
 
             overrides = rebase(state["baseline"], baseline, overrides)
+        resource_upgrade = "path_resource_checks" in baseline and (
+            baseline["path_resource_checks"] != previous.get("path_resource_checks")
+        )
+        if resource_upgrade:
+            from scene_completion.application.ssd_resource_migration import (
+                rebase as rebase_resources,
+            )
+
+            overrides = rebase_resources(state["baseline"], baseline, overrides)
+        upgrading = upgrading or resource_upgrade
         effective = {**baseline, **_patch(_editable(baseline), overrides, issues)}
         if baseline.get("coverage_policy") == GRAIN_POLICY:
             effective["coverage_policy"] = GRAIN_POLICY
@@ -335,6 +350,31 @@ def _promote_pending(bundle):
         records["pending"] = pending
 
 
+def _validate_security_edits(current, updated):
+    from scene_completion.domain.ssd import actor_security
+
+    steps = {step["id"]: step for step in updated["steps"]}
+    for channel, records in updated["channels"].items():
+        for kind in ("concerns", "scenarios", "pending"):
+            previous = {row["id"]: row for row in current["channels"][channel][kind]}
+            for row in records.get(kind, []):
+                if previous.get(row["id"]) == row:
+                    continue
+                key = row.get("key")
+                if key in actor_security.SERVICE_KEYS:
+                    raise ValueError(actor_security.OUT_OF_SCOPE)
+                if (
+                    key in actor_security.HUMAN_KEYS
+                    and row.get("status") == "active"
+                    and not (
+                        actor_security.in_scope(
+                            key, row.get("target"), steps.get(row.get("step_id"))
+                        )
+                    )
+                ):
+                    raise ValueError("身份认证和权限控制必须挂载在人类 Actor 发起请求的发送方")
+
+
 def _validate_new_manual_mounts(current, updated):
     """Check the objects and concern keys selected in the independent editor."""
     old = {note.get("id") for note in current.get("review_notes", []) if isinstance(note, dict)}
@@ -455,6 +495,7 @@ def save_revision(project, case_id, body):
             if submitted.get(key) != current.get(key):
                 raise ValueError("不可改写用例身份、版本或原始文档")
         updated = {**current, **_editable(submitted)}
+        _validate_security_edits(current, updated)
         updated["coverage_policy"] = (
             GRAIN_POLICY if current.get("coverage_policy") == GRAIN_POLICY else POLICY
         )

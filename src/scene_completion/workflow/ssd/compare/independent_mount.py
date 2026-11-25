@@ -3,9 +3,18 @@
 import re
 
 from scene_completion.domain.current_scope import AVAILABILITY, current_registry
-from scene_completion.domain.ssd import external_databases, interface_fields
+from scene_completion.domain.ssd import (
+    actor_security,
+    external_databases,
+    interface_fields,
+    llm_responses,
+)
 from scene_completion.workflow.ssd.resolve.entity_semantics import ENTITY_KEYS
-from scene_completion.workflow.ssd.resolve.operations import functional
+from scene_completion.workflow.ssd.resolve.operations import (
+    functional,
+    functional_owner,
+    in_operation_scope,
+)
 from scene_completion.workflow.ssd.shared import binding_targets, failure_context
 
 
@@ -36,7 +45,20 @@ def database_anchors(bundle, source, actual):
     return {ident: anchor for ident, anchor in anchors.items() if ident in selected}
 
 
-def options(bundle, source, keys, actual, steps, entities, fields, units, *, failure=None):
+def options(
+    bundle,
+    source,
+    keys,
+    actual,
+    steps,
+    entities,
+    fields,
+    units,
+    *,
+    failure=None,
+    condition=None,
+    context=(),
+):
     definitions = current_registry(bundle["registry"])["definitions"]
     anchors = {}
     for unit in bundle.get("field_anchors", {}).get("units", []):
@@ -86,6 +108,13 @@ def options(bundle, source, keys, actual, steps, entities, fields, units, *, fai
         )
 
     database_only = failure in {"database_access", "database_unavailable"}
+    if llm_responses.KEY in keys and definitions.get(llm_responses.KEY, {}).get("enabled", True):
+        text = condition or source["condition"]
+        if llm_responses.failure_variant(text):
+            for step, target in llm_responses.placements(
+                bundle, text, actual, context=[source["condition"], *context]
+            ):
+                add(step["id"], llm_responses.KEY, target)
     database_keys = {AVAILABILITY, "database.special_characters"} & keys
     if database_keys:
         for step, target in database_anchors(bundle, source, actual).values():
@@ -94,10 +123,25 @@ def options(bundle, source, keys, actual, steps, entities, fields, units, *, fai
                 if definition.get("enabled", True) and definition.get("kind") == "check":
                     add(step["id"], key, target)
 
+    for unit in units:
+        if not unit.get("external_crud_owner") or not in_operation_scope(
+            unit, actual, explicit_command
+        ):
+            continue
+        for key in sorted(keys):
+            definition = definitions.get(key, {})
+            if (
+                functional(key)
+                and definition.get("enabled", True)
+                and definition.get("kind") == "check"
+                and set(unit["crud"]).intersection(definition["operation_kinds"])
+            ):
+                add(unit["step_id"], key, "receiver", unit_id=unit["id"])
+
     for sid, step in steps.items():
         if (actual or explicit_command) and sid not in related:
             continue
-        request = failure_context.auth_request(step)
+        caller = failure_context.request_actor(step)
         for key in sorted(keys):
             definition = definitions.get(key, {})
             if not definition.get("enabled", True) or definition.get("kind") != "check":
@@ -125,16 +169,18 @@ def options(bundle, source, keys, actual, steps, entities, fields, units, *, fai
                         and (not declared_field or field["id"] in matches)
                     ):
                         add(sid, key, "interface", field_id=field["id"])
-            elif key.startswith("human.") and request == "human.authentication":
+            elif key.startswith("human.") and caller == "human":
                 add(sid, key, "sender")
             elif (
-                key.startswith("service_relation.") and request == "service_relation.authentication"
+                key.startswith("service_relation.")
+                and key not in actor_security.SERVICE_KEYS
+                and caller == "service"
             ):
                 add(sid, key, "receiver")
             elif (
                 key == AVAILABILITY
                 and not database_only
-                and request
+                and caller
                 and step["receiver_external"]
                 and step["receiver_technology"] != "database"
             ):
@@ -148,7 +194,8 @@ def options(bundle, source, keys, actual, steps, entities, fields, units, *, fai
             elif functional(key):
                 for unit in units:
                     if (
-                        not unit.get("functional_owner_id")
+                        functional_owner(unit)
+                        and not unit.get("external_crud_owner")
                         and sid in unit["related_steps"]
                         and step["receiver_id"] == unit["receiver_id"]
                         and set(unit["crud"]).intersection(definition["operation_kinds"])

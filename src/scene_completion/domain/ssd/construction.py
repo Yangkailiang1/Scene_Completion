@@ -1,6 +1,7 @@
 """Stable SSD record identities and concern/scenario construction."""
 
 from scene_completion.domain.concern_registry import default_registry
+from scene_completion.domain.ssd import actor_security, path_resources
 from scene_completion.infrastructure.identity import fingerprint
 
 
@@ -43,12 +44,14 @@ def add_concern(
     attribute=None,
     obligation_scope=None,
     operation_unit_id=None,
+    resource_reference=None,
 ):
     definitions = bundle.get("registry", default_registry())["definitions"]
     if (
         key not in definitions
         or not definitions[key].get("enabled", True)
         or key.startswith("global.")
+        or not actor_security.in_scope(key, target, step)
     ):
         return None
     # Entity attributes are distinct concerns: two constrained attributes of the
@@ -64,6 +67,7 @@ def add_concern(
         attribute,
         *([sorted(obligation_scope)] if obligation_scope else []),
         *([operation_unit_id] if operation_unit_id else []),
+        *path_resources.identity({"resource_reference": resource_reference}),
     )
     previous = next((c for c in output["concerns"] if c["id"] == cid), None)
     if previous:
@@ -86,6 +90,8 @@ def add_concern(
         value["unit_id"] = ident("unit", bundle["case"]["id"], entity, attribute, key)
     if operation_unit_id:
         value["operation_unit_id"] = operation_unit_id
+    if resource_reference:
+        value["resource_reference"] = resource_reference
     if obligation_scope:
         value["obligation_scope"] = sorted(obligation_scope)
     if rule_id:
@@ -107,7 +113,13 @@ def add_scenario(output, concern, condition, expected, refs, identity=None):
         **{k: concern.get(k) for k in ("step_id", "target", "key", "field_id", "entity_id")},
         **{
             k: concern[k]
-            for k in ("attribute", "unit_id", "obligation_scope", "operation_unit_id")
+            for k in (
+                "attribute",
+                "unit_id",
+                "obligation_scope",
+                "operation_unit_id",
+                "resource_reference",
+            )
             if k in concern
         },
         "condition": condition,

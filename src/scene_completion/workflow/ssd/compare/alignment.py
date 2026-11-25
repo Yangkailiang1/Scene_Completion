@@ -5,11 +5,17 @@ import re
 from scene_completion.domain.coverage import GRAIN_POLICY, binary_status
 from scene_completion.domain.current_scope import AVAILABILITY
 from scene_completion.domain.scenario_conditions import disjoint
-from scene_completion.domain.ssd import interface_fields, validation_scope
+from scene_completion.domain.ssd import (
+    actor_security,
+    interface_fields,
+    llm_responses,
+    validation_scope,
+)
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
 from scene_completion.infrastructure.execution_events import emit
-from scene_completion.workflow.ssd.compare import independent_mount
+from scene_completion.workflow.ssd.compare import independent_mount, resource_alignment
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
+from scene_completion.workflow.ssd.resolve.operations import in_operation_scope
 from scene_completion.workflow.ssd.shared import binding_targets, failure_context
 
 ALIGN = "ssd-ground-align"
@@ -58,12 +64,13 @@ def _summary_command(bundle, raw, actual):
 
 
 def _allowed_keys(part, steps, actual):
-    keys = set(part["keys"])
-    if keys & failure_context.AUTH_KEYS:
-        requests = failure_context.auth_requests(steps, actual)
-        keys = (keys - failure_context.AUTH_KEYS) | (
-            set(requests.values()) if actual else failure_context.AUTH_KEYS
-        )
+    keys = set(part["keys"]) - actor_security.SERVICE_KEYS
+    if (
+        actual
+        and keys & actor_security.HUMAN_KEYS
+        and not failure_context.auth_requests(steps, actual)
+    ):
+        keys -= actor_security.HUMAN_KEYS
     return keys
 
 
@@ -95,6 +102,22 @@ def _candidates(bundle, raw, part, step_facts):
         )
     keys = _allowed_keys(part, step_facts, actual)
     failure = part.get("explicit_failure")
+    llm_variant = (
+        llm_responses.failure_variant(part["condition"]) if llm_responses.KEY in keys else None
+    )
+    llm_anchors = (
+        {
+            (step["id"], role)
+            for step, role in llm_responses.placements(
+                bundle,
+                part["condition"],
+                actual,
+                context=[raw["condition"], *part["source_evidence"]],
+            )
+        }
+        if llm_variant
+        else set()
+    )
     database_only = failure in {"database_access", "database_unavailable"}
     database_steps = (
         {
@@ -140,6 +163,26 @@ def _candidates(bundle, raw, part, step_facts):
     for scenario in bundle["channels"]["G"]["scenarios"]:
         if scenario["status"] != "active":
             continue
+        if not resource_alignment.compatible(part, scenario):
+            continue
+        if not actor_security.in_scope(
+            scenario["key"], scenario["target"], steps[scenario["step_id"]]
+        ):
+            continue
+        if scenario["key"] == llm_responses.KEY:
+            step_id, role = scenario["step_id"], scenario["target"]
+            if (step_id, role) in llm_anchors and scenario.get("variant_id") == llm_variant:
+                yield {
+                    **{
+                        key: scenario[key]
+                        for key in ("id", "condition", "expected", "step_id", "target", "key")
+                    },
+                    "receiver": steps[step_id]["receiver"]["name"],
+                    "sender": steps[step_id]["sender"]["name"],
+                    "sender_kind": step_facts[step_id]["sender_kind"],
+                    "concern_keys": [llm_responses.KEY],
+                }
+            continue
         if failure == "missing_credential" and scenario.get("variant_id") != failure:
             continue
         if database_only and (
@@ -165,14 +208,13 @@ def _candidates(bundle, raw, part, step_facts):
             continue
         if (
             actual
-            and scenario["key"] in failure_context.AUTH_KEYS
-            and (
-                auth_requests.get(scenario.get("call_step_id") or scenario["step_id"])
-                != scenario["key"]
-            )
+            and scenario["key"] in actor_security.HUMAN_KEYS
+            and (scenario.get("call_step_id") or scenario["step_id"]) not in auth_requests
         ):
             continue
         unit = units.get(scenario.get("operation_unit_id"), {})
+        if not in_operation_scope(unit, actual, interface_fields.command_id(raw)):
+            continue
         target = steps[scenario["step_id"]]
         receiver = target["receiver"]["id"]
         field = fields.get(scenario.get("field_id"))
@@ -270,6 +312,8 @@ def _candidates(bundle, raw, part, step_facts):
                     "call_step_id",
                     "concern_keys",
                     "operation_unit_id",
+                    "resource_reference",
+                    "resource_failure",
                 )
                 if k in scenario
             },
@@ -349,6 +393,7 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         attribute=primary.get("attribute"),
         obligation_scope=primary.get("obligation_scope"),
         operation_unit_id=primary.get("operation_unit_id"),
+        resource_reference=primary.get("resource_reference"),
         condition=part["condition"],
         refs=raw["source_refs"],
     )
@@ -364,6 +409,10 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         )
     if part.get("validation_summary"):
         scene["validation_summary"] = part["validation_summary"]
+    if primary["key"] == llm_responses.KEY and primary.get("variant_id"):
+        scene["variant_id"] = primary["variant_id"]
+    if primary.get("resource_failure"):
+        scene["resource_failure"] = primary["resource_failure"]
     failure_context.annotate(scene, location, location.get("failure_step_reason"))
     if raw.get("extension_id"):
         scene.setdefault("extension_id", raw["extension_id"])
@@ -445,10 +494,14 @@ def align(bundle, semantic):
                 )
                 if failure and keys.intersection(part["keys"]):
                     part["explicit_failure"] = failure
-                if bundle.get("coverage_policy") == GRAIN_POLICY:
+                if llm_responses.KEY in part["keys"]:
+                    if variant := llm_responses.failure_variant(part["condition"]):
+                        part["explicit_failure"] = variant
+                elif bundle.get("coverage_policy") == GRAIN_POLICY:
                     scope = validation_scope.summary_kind(part["condition"])
                     if scope:
                         part["validation_summary"] = scope
+                resource_alignment.prepare(bundle, original, part)
                 part["candidates"] = list(_candidates(bundle, original, part, step_facts))
                 excerpts = detail.get("verified_excerpts") or []
                 refs = unique(
@@ -483,19 +536,23 @@ def align(bundle, semantic):
 
             def mount_options(part):
                 part_id = part["id"]
-                if part_id not in options_by_id:
-                    options_by_id[part_id] = independent_mount.options(
+                actual = part["failure_step_id"]
+                cache_key = (part_id, actual)
+                if cache_key not in options_by_id:
+                    options_by_id[cache_key] = independent_mount.options(
                         bundle,
                         owners[part_id][0],
-                        _allowed_keys(part, step_facts, part["failure_step_id"]),
-                        part["failure_step_id"],
+                        _allowed_keys(part, step_facts, actual),
+                        actual,
                         step_facts,
                         entities,
                         fields,
                         units,
                         failure=part.get("explicit_failure"),
+                        condition=part["condition"],
+                        context=part["source_evidence"],
                     )
-                return options_by_id[part_id]
+                return options_by_id[cache_key]
 
             for part in inputs["parts"]:
                 if part.get("validation_summary") and not part["candidates"]:
@@ -578,11 +635,36 @@ def align(bundle, semantic):
                 part_id = part["id"]
                 previous = results.get(part_id, {})
                 fallback = previous.get("fallback")
-                if fallback and fallback.get("command_id"):
+                if part.get("resource_issue"):
+                    results[part_id] = {
+                        "part_id": part_id,
+                        "matches": [],
+                        "fallback": None,
+                        "reason": part["resource_issue"],
+                    }
                     continue
                 if any(match["status"] != "none" for match in previous.get("matches", [])):
                     continue
+                if check := part.get("resource_check"):
+                    actual = part["failure_step_id"] or previous.get("failure_step_id")
+                    usable = resource_alignment.in_scope(bundle, check, actual)
+                    results[part_id] = {
+                        **previous,
+                        "part_id": part_id,
+                        "matches": previous.get("matches", []),
+                        "fallback": resource_alignment.fallback(check) if usable else None,
+                        "reason": (
+                            "原文已指明路径参数与失败条件，独立挂载到该接口的资源检查"
+                            if usable
+                            else "实际失败步骤与路径参数所属接口不一致"
+                        ),
+                    }
+                    continue
+                if fallback and fallback.get("command_id"):
+                    continue
                 raw = owners[part_id][0]
+                if previous.get("failure_step_id") and not part["failure_step_id"]:
+                    part = {**part, "failure_step_id": previous["failure_step_id"]}
                 options = mount_options(part)
                 if (
                     fallback
@@ -591,6 +673,7 @@ def align(bundle, semantic):
                     continue
                 if fallback := independent_mount.confirmed_binding(raw, part, options):
                     results[part_id] = {
+                        **previous,
                         "part_id": part_id,
                         "matches": previous.get("matches", []),
                         "fallback": fallback,
@@ -600,6 +683,7 @@ def align(bundle, semantic):
                     independent.append({**part, "candidates": [], "mount_options": options})
                 else:
                     results[part_id] = {
+                        **previous,
                         "part_id": part_id,
                         "matches": previous.get("matches", []),
                         "fallback": None,
@@ -622,7 +706,15 @@ def align(bundle, semantic):
                 mounted = validate_result(ALIGN, semantic(ALIGN, mount_inputs), mount_inputs)
                 for row in mounted["parts"]:
                     previous = results.get(row["part_id"], {})
-                    results[row["part_id"]] = {**row, "matches": previous.get("matches", [])}
+                    results[row["part_id"]] = {
+                        **previous,
+                        **row,
+                        "matches": previous.get("matches", []),
+                        "failure_step_id": row.get("failure_step_id")
+                        or previous.get("failure_step_id"),
+                        "failure_step_reason": row.get("failure_step_reason")
+                        or previous.get("failure_step_reason"),
+                    }
             for part_in_batch in parts[offset : offset + 4]:
                 row = results[part_in_batch["id"]]
                 raw, audit, part = owners[row["part_id"]]
@@ -634,7 +726,26 @@ def align(bundle, semantic):
                     "failure_step_reason": row.get("failure_step_reason")
                     or (None if part["failure_step_id"] else row["reason"]),
                 }
+                if set(
+                    part["keys"]
+                ) <= actor_security.HUMAN_KEYS and failure_context.service_security(
+                    step_facts, location["failure_step_id"]
+                ):
+                    audit.setdefault("scope_exclusions", []).append(
+                        {"condition": part["condition"], "keys": part["keys"], **location}
+                    )
+                    continue
                 if selected:
+                    if part.get("resource_check") and not resource_alignment.in_scope(
+                        bundle, part["resource_check"], location["failure_step_id"]
+                    ):
+                        audit["rejected_bindings"].append(
+                            {
+                                "reason": "实际失败步骤与路径参数所属接口不一致",
+                                "condition": part["condition"],
+                            }
+                        )
+                        continue
                     record_id = _add_matches(
                         bundle, channel, raw, part, selected, matches, location
                     )
@@ -653,6 +764,7 @@ def align(bundle, semantic):
                         **fallback,
                         "condition": part["condition"],
                         "expected": part["expected"],
+                        "resource_failure": part.get("resource_failure"),
                     }
                     issue = evidence._binding_issue(binding, step_facts, entities, fields)
                     if (
@@ -691,6 +803,8 @@ def align(bundle, semantic):
                                 if part.get("validation_summary"):
                                     scene["validation_summary"] = part["validation_summary"]
                                     scene["command_id"] = fallback["command_id"]
+                                if fallback["key"] == llm_responses.KEY:
+                                    scene["variant_id"] = part["explicit_failure"]
                                 for target, match in matches:
                                     _decision(
                                         bundle,
@@ -719,6 +833,8 @@ def align(bundle, semantic):
         output["pending"] = [r for r in output["pending"] if r["id"] not in resolved]
         for audit in (a for a in audits if a["record_id"] in exception_ids):
             failures = audit["rejected_bindings"]
+            if audit.get("scope_exclusions") and not failures and not audit["bindings"]:
+                audit.update(kind="out_of_scope", reason=actor_security.OUT_OF_SCOPE)
             if failures:
                 row = incoming[audit["record_id"]]
                 row.update(
@@ -743,44 +859,41 @@ def strip_align_summary(result):
 
 def _auth_alignment(row, part, steps, actual):
     """Check candidate and fallback against the same concrete request boundary."""
-    if not set(part["keys"]) & failure_context.AUTH_KEYS:
+    security_keys = actor_security.HUMAN_KEYS | actor_security.SERVICE_KEYS
+    if (
+        not set(part["keys"]) & security_keys
+        and (row.get("fallback") or {}).get("key") not in security_keys
+    ):
         return row
     requests = failure_context.auth_requests(steps, actual)
     candidates = {candidate["id"]: candidate for candidate in part["candidates"]}
     chosen = [
         candidates[m["candidate_id"]]
         for m in row["matches"]
-        if m["status"] != "none"
-        and candidates[m["candidate_id"]]["key"] in failure_context.AUTH_KEYS
+        if m["status"] != "none" and candidates[m["candidate_id"]]["key"] in security_keys
     ]
     calls = {g.get("call_step_id") or g.get("step_id") for g in chosen}
     conflict = len(calls) > 1 or any(
-        (requests if actual else failure_context.auth_requests(steps, call)).get(call) != g["key"]
+        g["key"] in actor_security.SERVICE_KEYS
+        or g["target"] != "sender"
+        or call not in (requests if actual else failure_context.auth_requests(steps, call))
         for g in chosen
         for call in [g.get("call_step_id") or g.get("step_id")]
     )
     fallback = row.get("fallback")
-    if fallback and fallback["key"] in failure_context.AUTH_KEYS:
+    if fallback and fallback["key"] in security_keys:
         call = fallback["step_id"]
-        key = (requests if actual else failure_context.auth_requests(steps, call)).get(call)
-        target = "sender" if key == "human.authentication" else "receiver"
-        role = "human" if target == "sender" else "service"
-        if key and fallback["key"] == key and fallback["target"] in {target, role}:
-            # Keep verified role aliases for the existing correction audit.
-            return row
-        if actual and key and not any(m["status"] != "none" for m in row["matches"]):
-            return {
-                **row,
-                "fallback": {**fallback, "key": key, "target": target},
-                "reason": f"{row['reason']}。按已定位请求 {call} 的调用角色统一认证键和挂载方向",
-            }
-        conflict = True
+        conflict = conflict or (
+            fallback["key"] not in set(part["keys"]) & actor_security.HUMAN_KEYS
+            or fallback["target"] not in {"sender", "human"}
+            or call not in (requests if actual else failure_context.auth_requests(steps, call))
+        )
     if conflict:
         return {
             **row,
             "matches": [{**m, "status": "none"} for m in row["matches"]],
             "fallback": None,
-            "reason": "认证异常的候选或挂载未对齐同一调用边界，待定位",
+            "reason": "身份或权限异常的候选或挂载未对齐同一人类 Actor 请求边界，待定位",
         }
     return row
 
@@ -788,6 +901,7 @@ def _auth_alignment(row, part, steps, actual):
 def validate_result(task, result, inputs):
     parts = {p["id"]: p for p in inputs["parts"]}
     steps = {s["id"]: s for s in inputs["steps"]}
+    units = {unit["id"]: unit for unit in inputs.get("operation_units", [])}
     evidence._exact(result["parts"], "part_id", parts)
     for index, row in enumerate(result["parts"]):
         part = parts[row["part_id"]]
@@ -810,6 +924,11 @@ def validate_result(task, result, inputs):
         ):
             raise ValueError("实际失败步骤须引用本用例主成功流并保留证据")
         row = _auth_alignment(row, part, steps, confirmed or actual)
+        candidates = {candidate["id"]: candidate for candidate in part["candidates"]}
+        for match in row["matches"]:
+            unit = units.get(candidates[match["candidate_id"]].get("operation_unit_id"), {})
+            if match["status"] != "none" and not in_operation_scope(unit, confirmed or actual):
+                match.update(status="none", reason="实际失败步骤不属于该外部服务的同类 CRUD 调用")
         result["parts"][index] = row
         if inputs.get("phase") == "independent_mount":
             fallback = row.get("fallback")
@@ -843,12 +962,11 @@ def validate_result(task, result, inputs):
             )
             if (
                 fallback
-                and fallback["key"] in failure_context.AUTH_KEYS
+                and fallback["key"] in actor_security.HUMAN_KEYS
                 and (
-                    failure_context.auth_request(steps[fallback["step_id"]]) != fallback["key"]
-                    or fallback["target"]
-                    != ("sender" if fallback["key"] == "human.authentication" else "receiver")
+                    not failure_context.auth_request(steps[fallback["step_id"]])
+                    or fallback["target"] != "sender"
                 )
             ):
-                raise ValueError("认证异常的挂载与调用角色不符")
+                raise ValueError("身份或权限异常的挂载与人类 Actor 请求边界不符")
     return result

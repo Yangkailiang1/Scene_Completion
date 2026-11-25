@@ -4,7 +4,7 @@ from copy import deepcopy
 
 from scene_completion.application import ssd_revision_service as ssd_results
 from scene_completion.domain.coverage import GRAIN_POLICY, binary_status
-from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE
+from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, filtered
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure.storage import fingerprint
@@ -39,7 +39,7 @@ def _compare_pairs(ex, bundle, record):
     bundle = deepcopy(bundle)
     if not _semantic_available(ex):
         return ssd_validation.validate(bundle)
-    candidates = ssd_matching.semantic_candidates(bundle)
+    candidates = ssd_matching.semantic_candidates(filtered(bundle, isolate=False))
     for pair, (a, b) in ssd_matching.PAIRS.items():
         left = {r["id"]: r for r in bundle["channels"][a]["scenarios"]}
         right = {r["id"]: r for r in bundle["channels"][b]["scenarios"]}

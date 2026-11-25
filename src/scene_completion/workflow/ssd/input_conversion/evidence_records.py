@@ -3,6 +3,7 @@
 import re
 from copy import deepcopy
 
+from scene_completion.domain.ssd import actor_security
 from scene_completion.domain.ssd.construction import ident
 
 
@@ -299,6 +300,8 @@ def recognize_records(bundle, records, channel_name):
             record["source_refs"],
         )
         rid = record["id"]
+        if record.get("concern_key") in actor_security.SERVICE_KEYS:
+            continue
         if record.get("scenario_type") in {"normal", "main", "alternative", "optional"}:
             continue
         if record.get("scenario_type") == "out_of_scope":
@@ -400,22 +403,24 @@ def recognize_records(bundle, records, channel_name):
                 else None
             )
         occurrence = step
-        if family and family.startswith("human.") and step["kind"] == "action":
+        if family in actor_security.HUMAN_KEYS and not actor_security.human_request(step):
+            linked = {step.get("parent_id"), *step.get("validates", [])} - {None}
             triggers = [
                 candidate
                 for candidate in bundle["steps"]
-                if candidate["kind"] == "interaction"
-                and candidate["direction"] == "request"
-                and candidate["sender"]["type"] == "human"
-                and candidate["order"] < step["order"]
+                if candidate["id"] in linked and actor_security.human_request(candidate)
             ]
             if len(triggers) == 1:
                 step = triggers[0]
-        if (
-            family in {"human.authentication", "human.authorization"}
-            and step["sender"]["type"] == "service"
-        ):
-            family = family.replace("human.", "service_relation.")
+            elif linked or step["kind"] != "action":
+                continue
+            else:
+                output["pending"].append(
+                    pending(
+                        rid, condition, refs, reason="缺少对应的人类 Actor 请求", original=record
+                    )
+                )
+                continue
         if not family:
             output["pending"].append(
                 pending(

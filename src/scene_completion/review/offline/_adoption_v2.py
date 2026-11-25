@@ -279,6 +279,12 @@ def _inspect(project, item, decisions):
     )
     applied = any(r.get("id") == feedback_id for r in current["bundle"].get("review_feedback", []))
     if (
+        scope == "interaction"
+        and not applied
+        and set(current.get("scope_excluded_ids", ())) & {row.get("g_id") for row in selected}
+    ):
+        conflicts.append("部分场景已退出当前关注点范围，请重新导出审核报告")
+    if (
         selected
         and not applied
         and scope == "shared_services"

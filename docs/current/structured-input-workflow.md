@@ -31,7 +31,7 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 | 阶段 | 页面标签 | 类型 | 默认命令模式的语义任务 | 依赖 |
 |---|---|---|---|---|
 | `ssd-prepare` | 建立 SSD 与三方结果 | 脚本（不调用模型） | — | （起点） |
-| `ssd-resolve` | 参与者与操作判定、约束挂载与独立识别 | 模型调用 | ssd-participant-classify、ssd-operation-units、ssd-entity-inference、ssd-evidence-classify | ssd-prepare |
+| `ssd-resolve` | 参与者与操作判定、约束挂载与独立识别 | 模型调用 | ssd-participant-classify、ssd-operation-units、ssd-create-path-roles、ssd-entity-inference、ssd-evidence-classify | ssd-prepare |
 | `ssd-generate` | 展开参考异常与业务场景 | 模型调用 | ssd-generate | ssd-resolve |
 | `ssd-compare` | 三方比较与发布 | 模型调用＋脚本合并 | ssd-ground-align、ssd-semantic-compare | ssd-generate |
 | `shared-services-merge` | 合并共用外部服务（脚本） | 脚本（不调用模型） | — | ssd-compare |
@@ -53,7 +53,7 @@ ssd-prepare → ssd-resolve → ssd-generate → ssd-compare
 - **类型**：模型调用
 - **读取**：正向主成功事件流、功能树实体约束；E/GT 各自的原始记录
 - **产出**：操作单元、CRUD、字段与实体约束挂载；E/GT 各自的来源分类与待定位部分
-- **默认语义任务**：ssd-participant-classify、ssd-operation-units、ssd-entity-inference、ssd-evidence-classify
+- **默认语义任务**：ssd-participant-classify、ssd-operation-units、ssd-create-path-roles、ssd-entity-inference、ssd-evidence-classify
 - **其他输入配置的语义任务**：ssd-entity-classify、ssd-command-classify、ssd-bind、ssd-resolve
 - **依赖**：ssd-prepare
 

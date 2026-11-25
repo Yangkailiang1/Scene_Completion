@@ -10,6 +10,7 @@ CHECKER_TASKS = {
     "ssd-ground-align",
     "ssd-participant-classify",
     "ssd-operation-units",
+    "ssd-create-path-roles",
     "ssd-semantic-compare",
     "test-additional-concerns",
     "existing-concerns",

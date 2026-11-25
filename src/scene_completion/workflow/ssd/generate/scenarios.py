@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, ENTITY_PROFILE
 from scene_completion.domain.ssd.construction import add_scenario, ident
+from scene_completion.domain.ssd.llm_responses import KEY as LLM_RESPONSE_KEY
 from scene_completion.infrastructure.identity import fingerprint
 
 VERSION = "ssd-scenario-analysis-v1"
@@ -135,6 +136,8 @@ def batches(bundle, limit=32):
                             "template_id",
                             "variant_id",
                             "template_version",
+                            "resource_reference",
+                            "resource_failure",
                         )
                         if k in r
                     }
@@ -167,11 +170,15 @@ def validate_result(payload, inputs):
         raise ValueError("场景分析必须逐项覆盖本批全部固定模板，不能遗漏、重复或新增模板ID")
     if any(not r["analysis"].strip() for r in payload["analyses"]):
         raise ValueError("每个固定场景必须提供非空的业务分析")
-    concerns = {r["id"] for r in inputs["concerns"]}
+    concerns = {r["id"]: r for r in inputs["concerns"]}
     seen = {(r["concern_id"], _condition(r["condition"])) for r in inputs["all_failure_conditions"]}
     for item in payload["supplements"]:
         if item["concern_id"] not in concerns:
             raise ValueError("补充场景只能引用本步骤已挂载的关注点")
+        if concerns[item["concern_id"]].get("key") == LLM_RESPONSE_KEY:
+            raise ValueError("外部大模型响应解析场景只使用按响应契约选定的固定模板")
+        if concerns[item["concern_id"]].get("rule_id", "").startswith("crud-resource-v1:"):
+            raise ValueError("CRUD 资源检查只对按路径与约束确定的失败条件填写分析")
         if any(not item[k].strip() for k in ("condition", "expected", "analysis")):
             raise ValueError("补充场景必须包含失败条件、预期处理和业务分析")
         key = (item["concern_id"], _condition(item["condition"]))

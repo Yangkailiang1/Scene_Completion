@@ -4,8 +4,9 @@ import re
 from collections.abc import Mapping
 
 from scene_completion.domain.current_scope import AVAILABILITY
+from scene_completion.domain.ssd import actor_security
 
-AUTH_KEYS = {"human.authentication", "service_relation.authentication"}
+AUTH_KEYS = {actor_security.AUTHENTICATION}
 
 
 def explicit_failure(condition, expected):
@@ -121,28 +122,43 @@ def branch_context(source):
     return context
 
 
-def auth_request(step):
-    if (
-        step["direction"] != "request"
-        or step["sender_id"] == step["receiver_id"]
-        or step["receiver_kind"] != "service"
-    ):
-        return None
-    if step["sender_kind"] == "human":
-        return "human.authentication"
-    return "service_relation.authentication"
+def request_actor(step):
+    return actor_security.request_actor(
+        step["direction"],
+        step["kind"],
+        step["sender_id"],
+        step["sender_kind"],
+        step["receiver_id"],
+        step["receiver_kind"],
+    )
 
 
-def auth_requests(steps, step_id):
+def request_actors(steps, step_id):
     step = steps.get(step_id)
     if not step:
         return {}
-    if key := auth_request(step):
-        return {step_id: key}
+    if actor := request_actor(step):
+        return {step_id: actor}
     related = [
         steps[ref] for ref in [step.get("parent_id"), *step.get("validates", [])] if ref in steps
     ]
-    return {item["id"]: key for item in related if (key := auth_request(item))}
+    return {item["id"]: actor for item in related if (actor := request_actor(item))}
+
+
+def auth_request(step):
+    return actor_security.AUTHENTICATION if request_actor(step) == "human" else None
+
+
+def auth_requests(steps, step_id):
+    return {
+        step_id: actor_security.AUTHENTICATION
+        for step_id, actor in request_actors(steps, step_id).items()
+        if actor == "human"
+    }
+
+
+def service_security(steps, step_id):
+    return set(request_actors(steps, step_id).values()) == {"service"}
 
 
 def annotate(scene, loc, reason=None):

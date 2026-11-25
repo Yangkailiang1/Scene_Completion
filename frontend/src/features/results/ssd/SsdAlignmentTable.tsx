@@ -270,6 +270,23 @@ export function SsdAlignmentTable({
     const unit = bundle.operation_units?.find(
       (item) => item.id === record.operation_unit_id,
     );
+    if (record.resource_reference) {
+      const reference = record.resource_reference;
+      const roles = {
+        target: "操作目标",
+        parent: "父对象",
+        ancestor: "祖先对象",
+        dependency: "依赖对象",
+        unknown: "引用对象",
+      };
+      return [
+        reference.command_id,
+        unit?.name,
+        `${roles[reference.role]} ${reference.parameter_name}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+    }
     if (unit) return [unit.command_id, unit.name].filter(Boolean).join(" · ");
     if (record.entity_id && record.attribute)
       return `${record.entity_id}.${record.attribute}`;

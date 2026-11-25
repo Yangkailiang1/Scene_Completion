@@ -174,13 +174,18 @@ def generate_g(bundle):
     """Attach registry rules to positive facts only, without source-evidence gates."""
     output = channel()
     from scene_completion.domain.current_scope import current_registry
-    from scene_completion.domain.ssd import external_databases
+    from scene_completion.domain.ssd import (
+        actor_security,
+        external_databases,
+        llm_responses,
+        path_resources,
+    )
 
     registry = current_registry(bundle.get("registry") or default_registry())
     definitions, profiles = registry["definitions"], registry["profiles"]
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     unit_profile = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
-    from scene_completion.workflow.ssd.resolve.operations import functional_family
+    from scene_completion.workflow.ssd.resolve.operations import functional_family, functional_owner
 
     owners = {}
     for unit in bundle.get("operation_units", []):
@@ -190,6 +195,11 @@ def generate_g(bundle):
     for appearances in external_databases.occurrences(bundle["steps"]).values():
         first, target = appearances[0]
         database_anchors.setdefault(first["id"], []).append((target, appearances))
+    llm_anchors = {}
+    if llm_responses.KEY in profiles["technology"].get("llm", []):
+        for members in llm_responses.occurrences(bundle["steps"]).values():
+            first, target = llm_responses.anchor(members)
+            llm_anchors.setdefault(first["id"], []).append((target, members))
     if unit_profile and "operation_units" in bundle:
         for step in sorted(bundle["steps"], key=lambda step: step["order"]):
             receiver = step["receiver"]
@@ -222,6 +232,7 @@ def generate_g(bundle):
             operation_unit_id=None,
             functional_keys=(),
             related_calls=(),
+            template_variants=None,
         ):
             definition = definitions.get(key, {})
             if (
@@ -251,6 +262,8 @@ def generate_g(bundle):
                     concern["related_call_step_ids"] = list(related_calls)
                 scenario_refs = source_refs if source_refs is not None else refs
                 templates = templates_for(key)
+                if template_variants is not None:
+                    templates = [t for t in templates if t["variant_id"] in template_variants]
                 if functional_keys:
                     concern["concern_keys"] = list(functional_keys)
                     concern["applicable_operations"] = sorted(
@@ -341,6 +354,18 @@ def generate_g(bundle):
                             scene["related_call_step_ids"] = list(related_calls)
             return concern
 
+        for target, members in llm_anchors.get(step["id"], []):
+            variants, contract_refs = llm_responses.contract(members)
+            attach(
+                llm_responses.KEY,
+                target,
+                source_refs=unique(
+                    contract_refs + [ref for member, _ in members for ref in member["source_refs"]]
+                ),
+                related_calls=[member["id"] for member, _ in members],
+                template_variants=variants,
+            )
+
         for target, appearances in database_anchors.get(step["id"], []):
             database_refs = unique(
                 [ref for occurrence, _ in appearances for ref in occurrence.get("source_refs", [])]
@@ -360,7 +385,7 @@ def generate_g(bundle):
                     related_calls=related,
                 )
 
-        if request and call and step["sender"]["type"] == "human":
+        if actor_security.human_request(step):
             for key in profiles["human"]:
                 attach(key, "sender")
         if request and call and receiver["type"] == "service":
@@ -413,7 +438,7 @@ def generate_g(bundle):
                         )
         if unit_profile and receiver["type"] == "service":
             for unit in owners.get(step["id"], []):
-                if unit.get("functional_owner_id"):
+                if not functional_owner(unit):
                     continue
                 operations = set(unit["crud"])
                 checks = {}
@@ -427,6 +452,10 @@ def generate_g(bundle):
                     for key in keys:
                         if (
                             key != "service.query_retrieval.data_visibility"
+                            and not (
+                                "operation_call_units" in bundle
+                                and path_resources.is_existence(key)
+                            )
                             and operations.intersection(definitions[key]["operation_kinds"])
                         ):
                             checks.setdefault(functional_family(key), []).append(key)
@@ -494,15 +523,26 @@ def generate_g(bundle):
                             condition=condition,
                             source_refs=source_refs,
                         )
-    _attach_entity_units(bundle, output, definitions)
+    moved_atoms = set()
+    if unit_profile:
+        from scene_completion.workflow.ssd.generate.resource_existence import generate
+
+        enabled = {
+            key
+            for keys in profiles["functional"].values()
+            for key in keys
+            if definitions[key].get("enabled", True)
+        }
+        moved_atoms = generate(bundle, output, enabled)
+    _attach_entity_units(bundle, output, definitions, moved_atoms)
     if bundle.get("analysis_profile") in COMMAND_PROFILES:
         from scene_completion.workflow.ssd.generate.command_fields import generate_fields
 
-        generate_fields(bundle, output)
+        generate_fields(bundle, output, moved_atoms)
     return output
 
 
-def _attach_entity_units(bundle, output, definitions):
+def _attach_entity_units(bundle, output, definitions, moved_atoms):
     """Mount each constrained entity attribute at its one anchored step.
 
     The concern belongs to the entity attribute, not to a message field: a query
@@ -525,18 +565,18 @@ def _attach_entity_units(bundle, output, definitions):
         context_step = next(
             (s for s in bundle["steps"] if s["id"] == unit.get("operation_step_id")), step
         )
-        if not any(
-            _unit_applies({**unit, **atom}, context_step) for atom in unit.get("atoms") or [unit]
-        ):
+        atoms = [
+            atom
+            for atom in unit.get("atoms") or [unit]
+            if id(atom) not in moved_atoms and _unit_applies({**unit, **atom}, context_step)
+        ]
+        if not atoms:
             # A rule that only governs editing must not be re-checked by an
             # operation that merely touches the same entity.
             continue
         refs = unit.get("source_refs") or step.get("source_refs", [])
         if bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE:
-            refs = (
-                unique([ref for atom in unit.get("atoms") or [unit] for ref in atom["source_refs"]])
-                or refs
-            )
+            refs = unique([ref for atom in atoms for ref in atom["source_refs"]]) or refs
         concern = add_concern(
             output,
             bundle,
@@ -563,10 +603,8 @@ def _attach_entity_units(bundle, output, definitions):
             if templates
             else {}
         )
-        for atom in unit.get("atoms") or [unit]:
+        for atom in atoms:
             projected = {**unit, **atom, "atoms": []}
-            if not _unit_applies(projected, context_step):
-                continue
             variant = (
                 next((t for t in templates if t["variant_id"] == "immutable_attribute"), template)
                 if atom.get("operation") == "immutable"

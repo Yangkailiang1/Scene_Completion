@@ -109,7 +109,7 @@ def test_direction_location_path_and_actual_occurrence_are_all_distinct():
     assert len(ids) == len(set(ids))
 
 
-def test_relation_is_specific_operation_not_a_fifth_element():
+def test_relation_is_specific_operation_not_a_fifth_element(historical_service_security_registry):
     x = memory_inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["sender"].update(name="Caller", position="内部服务")

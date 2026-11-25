@@ -3,7 +3,9 @@
 from jsonschema import Draft202012Validator
 
 from scene_completion.domain.contracts import schema
-from scene_completion.workflow.ssd.shared.failure_context import auth_request
+from scene_completion.domain.ssd import actor_security, llm_responses
+from scene_completion.workflow.ssd.resolve.operations import functional_owner
+from scene_completion.workflow.ssd.shared.failure_context import request_actor
 
 ROLE_WORDS = {"human", "service"}
 
@@ -49,9 +51,12 @@ def resolve(binding, steps, operation_units=()):
     step = steps[binding["step_id"]]
     key = binding["key"]
     direction = None
-    call = auth_request(step)
+    caller = request_actor(step)
     participant = not any(binding.get(field) for field in ("entity_id", "attribute", "field_id"))
     databases = step.get("external_database_roles", {})
+    models = step.get("external_llm_roles", {})
+    if participant and role == "service" and key == llm_responses.KEY and len(models) == 1:
+        direction = next(iter(models))
     if (
         participant
         and role == "service"
@@ -63,15 +68,14 @@ def resolve(binding, steps, operation_units=()):
         and len(databases) == 1
     ):
         direction = next(iter(databases))
-    if (
-        participant
-        and role == "human"
-        and call == "human.authentication"
-        and key.startswith("human.")
-    ):
+    if participant and role == "human" and caller == "human" and key.startswith("human."):
         direction = "sender"
-    if participant and role == "service" and call and not direction:
-        if call == "service_relation.authentication" and key.startswith("service_relation."):
+    if participant and role == "service" and caller and not direction:
+        if (
+            caller == "service"
+            and key.startswith("service_relation.")
+            and key not in actor_security.SERVICE_KEYS
+        ):
             direction = "receiver"
         elif key == "service.base.availability" and step.get("receiver_external"):
             direction = "receiver"
@@ -81,7 +85,7 @@ def resolve(binding, steps, operation_units=()):
             related = [
                 unit
                 for unit in operation_units
-                if not unit.get("functional_owner_id")
+                if functional_owner(unit)
                 and step["id"] in unit.get("related_steps", [])
                 and unit.get("crud")
             ]

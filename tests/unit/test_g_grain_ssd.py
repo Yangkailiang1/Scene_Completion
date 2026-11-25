@@ -26,11 +26,9 @@ def test_validation_summaries_align_to_g_and_keep_other_tests_independent(tmp_pa
     unrelated = steps[bundle["command_bindings"]["CATALOG-SEARCH"]["primary_step_id"]]
     fields = {f["wire_name"]: f for f in request["data"] if f.get("wire_name")}
 
-    def generated(step, key, condition, field=None):
+    def generated(step, key, condition, field=None, *, target="receiver"):
         out = bundle["channels"]["G"]
-        concern = add_concern(
-            out, bundle, "G", step, key, "data" if field else "receiver", field=field
-        )
+        concern = add_concern(out, bundle, "G", step, key, "data" if field else target, field=field)
         return add_scenario(out, concern, condition, "拒绝", [])
 
     low = generated(request, "api.data.range", "pageSize < 1", fields["pageSize"])
@@ -42,7 +40,7 @@ def test_validation_summaries_align_to_g_and_keep_other_tests_independent(tmp_pa
         if f.get("command_id") == "CATALOG-SEARCH" and "location" not in f
     )
     other = generated(unrelated, "api.data.format", "另一个接口字段格式非法", other_field)
-    generated(request, "human.authentication", "凭证缺失")
+    generated(request, "human.authentication", "凭证缺失", target="sender")
 
     def source(identifier, condition, line, *, api="BROWSE-GET", fail="B2"):
         ref = {"document_id": "evidence", "start_line": line, "end_line": line, "quote": condition}

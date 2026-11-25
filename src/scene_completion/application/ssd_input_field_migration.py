@@ -65,6 +65,10 @@ def rebase(previous, baseline, overrides):
                 )
             )
 
+    return rewrite_overrides(overrides, rename, legacy_fields=old_field_ids)
+
+
+def rewrite_overrides(overrides, rename, *, legacy_fields=()):
     def rewrite(value, identity=False, field_list=False, field_row=False):
         if isinstance(value, str):
             return rename.get(value, value) if identity else value
@@ -74,12 +78,12 @@ def rebase(previous, baseline, overrides):
             return value
         result = {}
         for key, current in value.items():
-            if (field_row or value.get("id") in old_field_ids) and key in {"location", "direction"}:
+            if (field_row or value.get("id") in legacy_fields) and key in {"location", "direction"}:
                 continue
             if key == "$records":
                 result[key] = {
                     rename.get(ident, ident): rewrite(
-                        row, field_row=field_list and ident in old_field_ids
+                        row, field_row=field_list and ident in legacy_fields
                     )
                     for ident, row in current.items()
                 }

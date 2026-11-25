@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from scene_completion.domain.ssd import actor_security
 from scene_completion.infrastructure.identity import fingerprint
 
 POLICY = "interaction-shared-services-v1"
@@ -32,12 +33,17 @@ def current_registry(value):
     result["definitions"][AVAILABILITY]["description"] = (
         "在实际外部服务交互生成可用性关注点，项目汇总按服务身份与故障类型合并，保留全部调用出处。"
     )
-    for key in RETIRED:
+    for key in RETIRED | actor_security.SERVICE_KEYS:
         if key in result["definitions"]:
             result["definitions"][key]["enabled"] = False
     result["profiles"]["base"] = list(
         dict.fromkeys([*result["profiles"].get("base", []), AVAILABILITY])
     )
+    result["profiles"]["relation"] = [
+        key
+        for key in result["profiles"].get("relation", [])
+        if key not in actor_security.SERVICE_KEYS
+    ]
     result["profiles"]["business_chain"] = []
     result["profiles"]["architecture"] = []
     result["scopes"] = {"interaction": "交互级关注点"}
@@ -49,7 +55,26 @@ def current_registry(value):
     return result
 
 
-def filtered(bundle, *, ordinary=False, isolate=True):
+def excluded_ids(bundle):
+    steps = {step["id"]: step for step in bundle["steps"]}
+    return {
+        row["id"]
+        for data in bundle["channels"].values()
+        for kind in ("concerns", "scenarios", "pending")
+        for row in data.get(kind, [])
+        if not allowed(row)
+        or (
+            row.get("key") in actor_security.SERVICE_KEYS
+            or kind != "pending"
+            and row.get("status") == "active"
+            and not actor_security.in_scope(
+                row.get("key"), row.get("target"), steps.get(row.get("step_id"))
+            )
+        )
+    }
+
+
+def filtered(bundle, *, ordinary=False, isolate=True, historical_security=False):
     result = (
         deepcopy(bundle)
         if isolate
@@ -63,12 +88,15 @@ def filtered(bundle, *, ordinary=False, isolate=True):
             ),
         }
     )
+    excluded = set() if historical_security else excluded_ids(bundle)
     for data in result["channels"].values():
         for kind in ("concerns", "scenarios", "pending"):
             data[kind] = [
                 r
                 for r in data.get(kind, [])
-                if allowed(r) and (not ordinary or r.get("key") != AVAILABILITY)
+                if allowed(r)
+                and r["id"] not in excluded
+                and (not ordinary or r.get("key") != AVAILABILITY)
             ]
     ids = {
         c: {k: {r["id"] for r in d[k]} for k in ("concerns", "scenarios", "pending")}
@@ -101,16 +129,16 @@ def filtered(bundle, *, ordinary=False, isolate=True):
         for data in bundle["channels"].values()
         for kind in ("concerns", "scenarios", "pending")
         for r in data.get(kind, [])
-        if not allowed(r)
+        if not allowed(r) or r.get("id") in excluded
     ]
     result["analysis_policy"] = POLICY
     return result
 
 
-def case_report(bundle):
+def case_report(bundle, *, historical_security=False):
     from scene_completion.domain.ssd.metrics import analyze
 
-    full = filtered(bundle, isolate=False)
+    full = filtered(bundle, isolate=False, historical_security=historical_security)
     result = analyze(full)
     if any(
         r.get("key") == AVAILABILITY
@@ -118,7 +146,9 @@ def case_report(bundle):
         for kind in ("concerns", "scenarios", "pending")
         for r in data[kind]
     ):
-        ordinary = analyze(filtered(bundle, ordinary=True, isolate=False))
+        ordinary = analyze(
+            filtered(bundle, ordinary=True, isolate=False, historical_security=historical_security)
+        )
         for key in ("metrics", "metrics_by_level", "scenario_diagnostic"):
             result[key] = ordinary[key]
     result["analysis_policy"] = POLICY

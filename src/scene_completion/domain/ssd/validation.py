@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 
+from scene_completion.domain.ssd import path_resources
 from scene_completion.domain.ssd.matching import PAIRS, semantic_candidates
 
 VERSION = "ssd-case-v1"
@@ -50,6 +51,11 @@ def validate(bundle):
         for ref in step.get("validates", []):
             if ref not in step_map or ids.index(ref) >= n - 1:
                 raise ValueError("本地检查必须引用前面的步骤")
+    path_checks = {
+        (check["key"], check["operation_unit_id"], path_resources.identity(check), check["step_id"])
+        for check in value.get("path_resource_checks", [])
+        if check["resource_reference"]
+    }
     for channel in ("G", "E", "GT"):
         data = value["channels"][channel]
         for kind in ("concerns", "scenarios", "pending"):
@@ -78,6 +84,22 @@ def validate(bundle):
                 if row.get("target") not in {"sender", "data", "receiver"}:
                     row["status"] = "unbound"
                     row["binding_issue"] = "请选择发送方、数据或接收方"
+                if (
+                    row.get("resource_reference")
+                    and "path_resource_checks" in value
+                    and (
+                        row.get("target") != "receiver"
+                        or (
+                            row.get("key"),
+                            row.get("operation_unit_id"),
+                            path_resources.identity(row),
+                            row.get("step_id"),
+                        )
+                        not in path_checks
+                    )
+                ):
+                    row["status"] = "unbound"
+                    row["binding_issue"] = "接口路径、CRUD 或主挂载步已变更，请重新挂载"
                 if str(row.get("key", "")).startswith("global."):
                     raise ValueError("本轮不纳入全局关注点")
                 if kind == "scenarios" and (

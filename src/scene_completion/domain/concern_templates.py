@@ -7,6 +7,8 @@ are instantiated by deterministic rules from the actual positive contract.
 
 from copy import deepcopy
 
+from scene_completion.domain.ssd import llm_responses
+
 TEMPLATE_VERSION = "three-scope-reference-v1"
 
 _AUTHENTICATION = [
@@ -199,6 +201,26 @@ _VARIANTS = {
             "存量内容不符",
             "存量记录内容不满足存储模型要求",
             "识别并按约定处理无效记录",
+        ),
+    ],
+    llm_responses.KEY: [
+        (
+            llm_responses.GENERIC,
+            "响应无法解析",
+            "外部大模型返回的响应无法解析",
+            "按约定处理解析失败，避免将无法解析的响应作为成功结果使用",
+        ),
+        (
+            llm_responses.JSON,
+            "响应 JSON 解析失败",
+            "外部大模型返回的响应不符合约定的 JSON 语法，无法解析",
+            "按约定处理无效响应，避免使用解析失败的数据",
+        ),
+        (
+            llm_responses.REQUIRED,
+            "响应缺少必填字段",
+            "外部大模型响应缺少响应契约规定的必填字段",
+            "按约定处理不完整的响应，避免使用缺少必填字段的数据",
         ),
     ],
     "llm.grounding": [

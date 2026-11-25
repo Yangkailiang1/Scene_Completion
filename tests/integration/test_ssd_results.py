@@ -226,13 +226,19 @@ def test_remove_action_keeps_orphaned_source_records_visible(tmp_path, mini_case
     bundle = deepcopy(first["bundle"])
     action = next(s for s in bundle["steps"] if s["kind"] == "action")
     concern = deepcopy(bundle["channels"]["E"]["concerns"][0])
-    concern.update(id="human-local-concern", step_id=action["id"], field_id=None)
+    concern.update(
+        id="local-business-concern",
+        step_id=action["id"],
+        key="service.business_attribute_constraint",
+        target="data",
+        field_id=None,
+    )
     bundle["channels"]["E"]["concerns"].append(concern)
     second = save(tmp_path, first, bundle)
     removed = deepcopy(second["bundle"])
     removed["steps"] = [s for s in removed["steps"] if s["id"] != action["id"]]
     third = save(tmp_path, second, removed)
-    orphan = get_record(third["bundle"], "E", "human-local-concern")
+    orphan = get_record(third["bundle"], "E", "local-business-concern")
     assert orphan["status"] == "unbound"
     assert orphan["binding_issue"]
     assert any(

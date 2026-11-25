@@ -9,6 +9,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { SsdResultsView } from "./SsdResultsView";
 import { invalidateResults } from "../shared/resultRequests";
 import { SsdSourceDialog } from "./SsdSourceDialog";
+import { LocateObservation } from "./LocateObservation";
 import { ResultsView } from "../ResultsView";
 import { type Bundle } from "./types";
 
@@ -774,6 +775,99 @@ test("a pending record can be located without asserting scenario coverage, and u
   expect(screen.queryByRole("button", { name: "保存修改并重算" })).toBeNull();
 });
 
+test("manual identity and authorization options belong to the human sender", () => {
+  const data = fixture();
+  data.registry = {
+    definitions: {
+      "human.authentication": { label: "身份认证", kind: "check" },
+      "human.authorization": { label: "权限控制", kind: "check" },
+      "service_relation.authentication": {
+        label: "调用方身份认证",
+        kind: "check",
+      },
+      "service_relation.authorization": { label: "调用授权", kind: "check" },
+    },
+  };
+  const first = data.steps[0];
+  data.steps.push({
+    ...first,
+    id: "service-call",
+    order: 2,
+    sender: first.receiver,
+    receiver: { id: "directory", name: "商品目录服务", type: "service" },
+  });
+  render(
+    <LocateObservation
+      bundle={data}
+      channel="GT"
+      kind="scenarios"
+      item={data.channels.GT.pending[0]}
+      excludedIds={new Set()}
+      onClose={vi.fn()}
+      onSave={vi.fn()}
+    />,
+  );
+  const step = screen.getByLabelText("挂载步骤");
+  fireEvent.change(step, { target: { value: "step1" } });
+  fireEvent.change(screen.getByLabelText("挂载对象"), {
+    target: { value: "sender" },
+  });
+  expect(screen.getByRole("option", { name: "身份认证" })).toBeTruthy();
+  expect(screen.getByRole("option", { name: "权限控制" })).toBeTruthy();
+  fireEvent.change(step, { target: { value: "service-call" } });
+  for (const target of ["sender", "receiver"]) {
+    fireEvent.change(screen.getByLabelText("挂载对象"), {
+      target: { value: target },
+    });
+    expect(
+      screen.queryByRole("option", { name: /身份认证|权限控制|调用授权/ }),
+    ).toBeNull();
+  }
+});
+
+test("LLM response parsing can be manually mounted on the external response sender", () => {
+  const data = fixture();
+  const key = "llm.response_parsing_failure";
+  data.registry = {
+    definitions: {
+      [key]: { label: "响应解析失败", kind: "check", technology: "llm" },
+    },
+  };
+  const base = data.steps[0];
+  data.steps.push({
+    ...base,
+    id: "model-return",
+    order: 2,
+    direction: "return",
+    sender: {
+      id: "remote",
+      name: "外部模型",
+      type: "service",
+      technology: "llm",
+      external: true,
+    },
+  });
+  render(
+    <LocateObservation
+      bundle={data}
+      channel="GT"
+      kind="scenarios"
+      item={data.channels.GT.pending[0]}
+      excludedIds={new Set()}
+      onClose={vi.fn()}
+      onSave={vi.fn()}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("挂载步骤"), {
+    target: { value: "model-return" },
+  });
+  const object = screen.getByLabelText("挂载对象");
+  fireEvent.change(object, { target: { value: "receiver" } });
+  expect(screen.queryByRole("option", { name: "响应解析失败" })).toBeNull();
+  fireEvent.change(object, { target: { value: "sender" } });
+  expect(screen.getByRole("option", { name: "响应解析失败" })).toBeTruthy();
+});
+
 test("independent mounting uses the selected entity attribute on a step without G", async () => {
   const data = fixture();
   data.registry = {
@@ -1409,4 +1503,26 @@ test("shows the SR command and field name when transport location is absent", as
   expect(within(table).getByText("CATALOG-GET")).toBeTruthy();
   expect(within(table).getByText("pageSize")).toBeTruthy();
   expect(within(table).getByText(/pageSize <= 100/)).toBeTruthy();
+});
+
+test("shows the command and role of a CRUD path resource", async () => {
+  const bundle = fixture();
+  Object.assign(bundle.channels.G.concerns[0], {
+    target: "receiver",
+    key: "service.query_retrieval.resource_existence",
+    label: "资源存在性",
+    field_id: null,
+    condition: "父对象不存在",
+    resource_reference: {
+      command_id: "CATALOG-GET",
+      parameter_name: "categoryId",
+      role: "parent",
+      reason: "依据接口路径层级",
+    },
+  });
+  mockApi((path) => (path.endsWith("ssd-results") ? index : response(bundle)));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  expect(
+    await screen.findByText("CATALOG-GET · 父对象 categoryId"),
+  ).toBeTruthy();
 });

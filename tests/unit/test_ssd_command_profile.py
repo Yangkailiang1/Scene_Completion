@@ -216,6 +216,76 @@ def test_return_only_database_and_literal_e_gt_are_mounted(target, with_g):
     assert merged["channels"]["GT"]["pending"] == []
 
 
+def test_human_security_is_the_only_identity_scope_in_current_results(tmp_path):
+    from scene_completion.application import ssd_revision_service as results
+    from scene_completion.domain.ssd.actor_security import HUMAN_KEYS, SERVICE_KEYS
+    from scene_completion.review.offline import adoption
+
+    bundle = build_cases(BROWSE, profile=COMMAND_OPERATION_PROFILE)[0]
+    registry = bundle["registry"]
+    # A project pinned to the previous registry still runs the current workflow.
+    registry["profiles"]["relation"] = sorted(SERVICE_KEYS)
+    for key in SERVICE_KEYS:
+        registry["definitions"][key]["enabled"] = True
+    bundle["channels"]["G"] = generated = generate_g(bundle)
+    people = [row for row in generated["concerns"] if row["key"] in HUMAN_KEYS]
+    assert {(r["step_id"], r["target"], r["key"]) for r in people} == {
+        ("B1", "sender", key) for key in HUMAN_KEYS
+    }
+    assert not any(row["key"] in SERVICE_KEYS for row in generated["scenarios"])
+    assert any(row["key"] == "service.base.availability" for row in generated["scenarios"])
+
+    # Simulate a previously published service-security row and its original evidence.
+    legacy = {
+        **people[0],
+        "id": "legacy-service-auth",
+        "step_id": "B3",
+        "target": "receiver",
+        "key": "service_relation.authentication",
+    }
+    generated["concerns"].append(legacy)
+    generated["scenarios"].append(
+        {
+            **legacy,
+            "id": "legacy-service-scene",
+            "concern_ids": [legacy["id"]],
+            "condition": "目录服务拒绝凭证",
+            "expected": "服务请求失败",
+        }
+    )
+    saved = results.publish(tmp_path, bundle)
+    case_id = bundle["case"]["id"]
+    view = results.editor(tmp_path, case_id)
+    assert {legacy["id"], "legacy-service-scene"} <= set(view["scope_excluded_ids"])
+    assert "legacy-service-scene" not in view["review_statuses"]
+    original = results.editor(tmp_path, case_id, "original")
+    assert any(row["key"] == legacy["key"] for row in original["comparison"]["scenarios"])
+    historical = results.editor(tmp_path, case_id, saved["revision"])
+    assert any(
+        row["id"] == legacy["id"] for row in historical["bundle"]["channels"]["G"]["concerns"]
+    )
+    [item] = adoption.export_payload(tmp_path, {"scopes": ["interaction"]})["items"]
+    assert "legacy-service-scene" in item["reference_excluded_ids"]
+    assert not any(
+        r["key"] in SERVICE_KEYS
+        for rows in item["categories"].values()
+        for row in rows
+        for r in row["cells"]["G"]
+    )
+
+    submitted = deepcopy(view["bundle"])
+    submitted["channels"]["G"]["concerns"].append({**legacy, "id": "manual-service-auth"})
+    with pytest.raises(ValueError, match="不在当前关注点范围"):
+        results.save_revision(
+            tmp_path, case_id, {"base_revision": saved["revision"], "bundle": submitted}
+        )
+    submitted["channels"]["G"]["concerns"][-1].update(key="human.authorization")
+    with pytest.raises(ValueError, match="人类 Actor"):
+        results.save_revision(
+            tmp_path, case_id, {"base_revision": saved["revision"], "bundle": submitted}
+        )
+
+
 def test_four_missing_g_candidates_use_verified_independent_placements():
     from scene_completion.analysis.ssd import grounding
     from scene_completion.domain.coverage import GRAIN_POLICY
@@ -235,7 +305,7 @@ def test_four_missing_g_candidates_use_verified_independent_placements():
             {"parameter": {"command_id": "BROWSE-GET", "name": "pageSize"}},
         ),
         "目录服务无法连接": ("service.base.availability", {}),
-        "认证信息无效": ("service_relation.authentication", {}),
+        "认证信息无效": ("human.authentication", {}),
     }
     for condition, (_, identity) in samples.items():
         raw = {
@@ -446,6 +516,118 @@ def test_legacy_command_revision_keeps_historical_anchor():
         for s in bundle["channels"]["G"]["scenarios"]
         if s["condition"] == "pageSize > 100"
     ] == ["B2"]
+
+
+def test_external_crud_anchors_and_evidence_follow_actual_operation():
+    from scene_completion.domain.coverage import GRAIN_POLICY
+    from scene_completion.workflow.ssd.compare import alignment, independent_mount
+    from scene_completion.workflow.ssd.resolve import entity_semantics, operations
+
+    bundle = build_cases(BROWSE, profile=COMMAND_OPERATION_PROFILE)[0]
+    bundle["coverage_policy"] = GRAIN_POLICY
+    request = next(step for step in bundle["steps"] if step["id"] == "B3")
+    start = max(step["order"] for step in bundle["steps"])
+    for offset, (sid, text) in enumerate(
+        (("D1", "删除商品目录记录"), ("U1", "更新商品目录"), ("D2", "再次删除商品目录记录")), 1
+    ):
+        bundle["steps"].append(
+            {
+                **{
+                    key: deepcopy(request[key])
+                    for key in (
+                        "kind",
+                        "direction",
+                        "sender",
+                        "receiver",
+                        "layer",
+                        "entity_ids",
+                    )
+                },
+                "id": sid,
+                "order": start + offset,
+                "description": text,
+                "source_refs": [],
+                "data": [],
+                "api_id": None,
+                "operation": {"name": text, "kinds": [], "kinds_source": "inferred"},
+            }
+        )
+
+    def classify_operations(task, inputs):
+        assert task == operations.TASK
+        records = []
+        for unit in inputs["units"]:
+            sid = unit["step_id"]
+            if unit["kind"] == "external":
+                assert unit["candidates"] == [sid]
+            records.append(
+                {
+                    "unit_id": unit["id"],
+                    "step_id": sid,
+                    "crud": [{"D1": "delete", "D2": "delete", "U1": "update"}.get(sid, "read")],
+                    "reason": "按该次调用的实际业务操作",
+                }
+            )
+        return operations.validate_result({"operations": records}, inputs)
+
+    operations.resolve(bundle, classify_operations)
+    bundle["channels"]["G"] = generate_g(bundle)
+    units = [unit for unit in bundle["operation_units"] if unit.get("external_crud_owner")]
+    assert {(u["step_id"], tuple(u["crud"]), tuple(u["occurrences"])) for u in units} == {
+        ("B3", ("read",), ("B3",)),
+        ("D1", ("delete",), ("D1", "D2")),
+        ("U1", ("update",), ("U1",)),
+    }
+    deletion = "service.crud.delete.idempotency"
+    assert {
+        (r["step_id"], r["key"])
+        for r in bundle["channels"]["G"]["scenarios"]
+        if r["key"].endswith(".idempotency")
+    } == {
+        ("D1", deletion),
+        ("U1", "service.crud.update.idempotency"),
+    }
+    steps = {step["id"]: step for step in entity_semantics._steps(bundle)}
+    source = {"condition": "重复删除产生额外影响"}
+    for actual, expected in (("B1", []), ("B3", []), ("U1", []), ("D2", ["D1"])):
+        part = {"keys": [deletion], "failure_step_id": actual, "condition": source["condition"]}
+        candidates = alignment._candidates(bundle, source, part, steps)
+        assert [g["step_id"] for g in candidates] == expected
+        mounts = independent_mount.options(
+            bundle, source, {deletion}, actual, steps, {}, {}, bundle["operation_units"]
+        )
+        assert [row["step_id"] for row in mounts] == expected
+    part = {
+        "id": "uncertain-delete",
+        "keys": [deletion],
+        "failure_step_id": None,
+        "condition": source["condition"],
+    }
+    part["candidates"] = list(alignment._candidates(bundle, source, part, steps))
+    [candidate] = part["candidates"]
+    reply = {
+        "part_id": part["id"],
+        "matches": [{"candidate_id": candidate["id"], "status": "full", "reason": "故障文字相似"}],
+        "reason": "由证据定位请求",
+        "failure_step_id": "B3",
+        "failure_step_reason": "实际失败的是查询步骤",
+        "fallback": None,
+    }
+    validated = alignment.validate_result(
+        alignment.ALIGN,
+        {"parts": [reply]},
+        {"parts": [part], "steps": list(steps.values()), "operation_units": units},
+    )
+    assert validated["parts"][0]["matches"][0]["status"] == "none"
+
+    edited = deepcopy(bundle)
+    edited["steps"] = [step for step in edited["steps"] if step["id"] != "D1"]
+    operations.rebind(edited, bundle)
+    assert [
+        (s["step_id"], s["related_call_step_ids"])
+        for s in generate_g(edited)["scenarios"]
+        if s["key"] == deletion
+    ] == [("D2", ["D2"])]
 
 
 def test_repeated_interface_is_a_source_link_after_core_round_trip(tmp_path):
@@ -661,19 +843,20 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     assert any(row.get("applicable_operations") == ["create", "update"] for row in g)
     resources = [
         row
-        for row in bundle["channels"]["G"]["concerns"]
-        if row["step_id"] == "D1" and row.get("applicable_operations") == ["create", "read"]
+        for row in bundle["channels"]["G"]["scenarios"]
+        if row["step_id"] == "D1" and row["key"].endswith(".resource_existence")
     ]
-    assert len(resources) == 1
-    assert set(resources[0]["concern_keys"]) == {
-        "service.query_retrieval.resource_existence",
-        "service.crud.create.resource_existence",
-    }
+    assert [(row["key"], row["resource_failure"]) for row in resources] == [
+        ("service.crud.create.resource_existence", "already_exists")
+    ]
     for concern in ("service.base.availability", "database.special_characters"):
         assert [
             s["step_id"] for s in bundle["channels"]["G"]["concerns"] if s["key"] == concern
         ] == ["D1"]
-    assert not any(step["operation"]["kinds"] for step in bundle["steps"][2:])
+    assert [step["operation"]["kinds"] for step in bundle["steps"][2:]] == [
+        ["create", "read"],
+        ["create", "read"],
+    ]
 
     selected = next(u for u in units if u.get("command_id") == a)
 
@@ -1225,7 +1408,7 @@ def test_ground_align_uses_one_request_for_auth_fallback_and_validates_reason_pa
     service = "service_relation.authentication"
     inputs = {
         "steps": steps,
-        "parts": [{"id": "p1", "keys": [service], "candidates": [], "failure_step_id": "B2"}],
+        "parts": [{"id": "p1", "keys": [human], "candidates": [], "failure_step_id": "B2"}],
     }
     row = {
         "part_id": "p1",
@@ -1233,8 +1416,8 @@ def test_ground_align_uses_one_request_for_auth_fallback_and_validates_reason_pa
         "reason": "入口请求校验失败",
         "fallback": {
             "step_id": "B1",
-            "key": service,
-            "target": "receiver",
+            "key": human,
+            "target": "sender",
             "entity_id": None,
             "attribute": None,
             "field_id": None,
@@ -1246,6 +1429,8 @@ def test_ground_align_uses_one_request_for_auth_fallback_and_validates_reason_pa
     assert set(result) == {"parts"}
     fallback = result["parts"][0]["fallback"]
     assert (fallback["step_id"], fallback["key"], fallback["target"]) == ("B1", human, "sender")
+    retired = {**row, "fallback": {**row["fallback"], "key": service, "target": "receiver"}}
+    assert validate_result(task, {"parts": [retired]}, inputs)["parts"][0]["fallback"] is None
     wrong = {**row, "fallback": {**row["fallback"], "step_id": "B3"}}
     rejected = validate_result(task, {"parts": [wrong]}, inputs)["parts"][0]
     assert rejected["fallback"] is None and "待定位" in rejected["reason"]
@@ -1309,14 +1494,9 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
     bundle["channels"]["E"]["pending"] = [r for r in pending_rows if "认证" in r["condition"]]
 
     human_step = next(s for s in bundle["steps"] if s["id"] == "B1")
-    service_step = next(s for s in bundle["steps"] if s["id"] == "B3")
     bundle["channels"]["G"] = generated = channel()
     human = add_concern(generated, bundle, "G", human_step, "human.authentication", "sender")
-    service = add_concern(
-        generated, bundle, "G", service_step, "service_relation.authentication", "receiver"
-    )
     human_id = add_scenario(generated, human, "调用方认证失败", "拒绝认证失败的请求", [])["id"]
-    service_id = add_scenario(generated, service, "调用方认证失败", "拒绝认证失败的请求", [])["id"]
 
     def classify_auth(task, inputs):
         assert task == grounding.CLASSIFY
@@ -1345,7 +1525,7 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
                         {
                             "condition": row["condition"],
                             "expected": row["expected"],
-                            "keys": ["service_relation.authentication"],
+                            "keys": ["human.authentication"],
                         }
                     ],
                 }
@@ -1359,7 +1539,7 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
         if inputs.get("phase") == "independent_mount":
             [part] = inputs["parts"]
             assert part["condition"] == "认证失败"
-            assert {c["step_id"] for c in part["mount_options"]} == {"B1", "B3"}
+            assert {c["step_id"] for c in part["mount_options"]} == {"B1"}
             return {
                 "parts": [
                     {
@@ -1375,7 +1555,7 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
             condition = part["condition"]
             actual = "B2" if condition.startswith(("入口", "已声明")) else None
             ids = {g["id"] for g in part["candidates"]}
-            assert ids == ({human_id} if condition.startswith("已声明") else {human_id, service_id})
+            assert ids == {human_id}
             confirmed = condition != "认证失败"
             matches = [
                 {
@@ -1402,11 +1582,18 @@ def test_authentication_alignment_preserves_branch_and_distinguishes_actual_fail
                     )
                 ambiguous = grounding.validate_result(
                     task,
-                    {"parts": [{**row, "matches": [{**m, "status": "full"} for m in matches]}]},
+                    {
+                        "parts": [
+                            {**row, "failure_step_id": "B3", "failure_step_reason": "服务间调用"}
+                        ]
+                    },
                     {**inputs, "parts": [part]},
                 )["parts"][0]
                 assert {m["status"] for m in ambiguous["matches"]} == {"none"}
-                assert "同一调用边界" in ambiguous["reason"] and ambiguous["fallback"] is None
+                assert (
+                    "同一人类 Actor 请求边界" in ambiguous["reason"]
+                    and ambiguous["fallback"] is None
+                )
             if condition.startswith("已声明"):
                 with pytest.raises(ValueError, match="主成功流"):
                     grounding.validate_result(
@@ -1596,7 +1783,7 @@ def test_source_manifest_is_authoritative_and_legacy_copies_are_content_checked(
 
 
 @pytest.mark.parametrize("profile", [COMMAND_PROFILE, COMMAND_OPERATION_PROFILE])
-def test_participant_aliases_mount_five_and_keep_one_record_pending(profile):
+def test_participant_aliases_mount_human_and_exclude_two_service_security_items(profile):
     from scene_completion.analysis.ssd import grounding
     from scene_completion.analysis.validation import validate_result
 
@@ -1604,15 +1791,17 @@ def test_participant_aliases_mount_five_and_keep_one_record_pending(profile):
     bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
     facts = {
         "GT1": ("B1", "human.authentication", "human"),
-        "GT2": ("B3", "service_relation.authentication", "service"),
+        "GT2": ("B3", "human.authentication", "sender"),
         "GT3": ("B1", "human.authorization", "sender"),
-        "GT4": ("B3", "service_relation.authorization", "receiver"),
+        "GT4": ("B3", "human.authorization", "sender"),
         "GT5": ("B2", "service.base.availability", "service"),
         "GT6": ("B1", "human.authentication", "sender"),
     }
     for rid in facts:
         condition = f"条件 {rid}"
         original = {"id": rid, "condition": condition, "source_refs": [], "extension_id": rid}
+        if rid in {"GT2", "GT4"}:
+            original["failure_step_id"] = "B3"
         bundle["channels"]["GT"]["pending"].append(
             pending(rid, condition, original=original, needs_semantic=True)
         )
@@ -1666,14 +1855,13 @@ def test_participant_aliases_mount_five_and_keep_one_record_pending(profile):
         classify(bundle, execute)
     gt = bundle["channels"]["GT"]
     scenes = {r["extension_id"]: r for r in gt["scenarios"]}
-    assert set(scenes) == {"GT1", "GT2", "GT3", "GT4", "GT6"}
+    assert set(scenes) == {"GT1", "GT3", "GT6"}
     assert scenes["GT1"]["target"] == "sender"
-    assert scenes["GT2"]["target"] == "receiver"
     (unlocated,) = gt["pending"]
     assert unlocated["id"] == "GT5" and "未唯一确定挂载方向" in unlocated["reason"]
     audit = {r["source_id"]: r for r in bundle["source_classifications"]["GT"]}
     assert audit["GT1"]["target_corrections"][0]["original_target"] == "human"
-    assert audit["GT2"]["target_corrections"][0]["original_target"] == "service"
+    assert audit["GT2"]["kind"] == audit["GT4"]["kind"] == "out_of_scope"
     assert audit["GT5"]["kind"] == "pending"
 
 

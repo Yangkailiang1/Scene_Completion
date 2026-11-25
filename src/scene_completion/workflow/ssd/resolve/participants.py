@@ -78,5 +78,5 @@ def validate_result(payload, inputs):
             row["kind"] not in {"internal_service", "external_service"}
             or participant.get("technology") not in {None, "", technology}
         ):
-            raise ValueError("只可为缺少技术类型且有本方引文依据的服务补判数据库")
+            raise ValueError("只可为缺少技术类型且有本方引文依据的服务补判数据库或大模型")
     return payload

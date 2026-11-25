@@ -190,7 +190,7 @@
         "read"
       ],
       "technology": null,
-      "description": "资源存在性",
+      "description": "查询指定对象时，该对象或路径引用的父级资源不存在。查询集合合法返回空列表时不计异常。",
       "scope": "interaction"
     },
     "service.query_retrieval.data_visibility": {
@@ -314,6 +314,20 @@
       ],
       "technology": "database",
       "description": "关联完整性",
+      "scope": "interaction"
+    },
+    "llm.response_parsing_failure": {
+      "key": "llm.response_parsing_failure",
+      "label": "响应解析失败",
+      "layer": "technology",
+      "group": "llm",
+      "parents": [],
+      "guard": "response_parsing_failure",
+      "kind": "check",
+      "failure_family": "llm.response_parsing_failure",
+      "operation_kinds": [],
+      "technology": "llm",
+      "description": "实际调用的外部大模型响应无法解析，或响应缺少契约要求的必填字段。输入格式错误、调用超时和语义错误属于其他失败。",
       "scope": "interaction"
     },
     "llm.grounding": {
@@ -556,7 +570,7 @@
         "create"
       ],
       "technology": null,
-      "description": "创建业务实体时的对象资源存在性",
+      "description": "待创建的对象已经存在，或创建操作所需的父对象、祖先对象或其他路径依赖不存在。",
       "scope": "interaction"
     },
     "service.crud.update.concurrency_consistency": {
@@ -605,7 +619,7 @@
         "update"
       ],
       "technology": null,
-      "description": "更新业务实体时的对象资源存在性",
+      "description": "更新的目标对象不存在，或操作依赖的路径资源不存在。按具体对象保留独立的状态失败条件。",
       "scope": "interaction"
     },
     "service.crud.delete.concurrency_consistency": {
@@ -654,7 +668,7 @@
         "delete"
       ],
       "technology": null,
-      "description": "删除业务实体时的对象资源存在性",
+      "description": "删除的目标对象不存在，或操作依赖的路径资源不存在。按具体对象保留独立的状态失败条件。",
       "scope": "interaction"
     },
     "service_relation.data_isolation": {
@@ -726,7 +740,7 @@
       "failure_family": "api.data.validity",
       "operation_kinds": [],
       "technology": null,
-      "description": "输入字段引用的业务资源须在本次操作及归属范围中存在且有效。需要明确引用关系与有效性规则；不按Id字段名称推断，不与格式、枚举或笼统合法性混同；只检查请求方向。",
+      "description": "普通请求字段或实体属性引用的业务对象须在实际操作及归属范围内存在且有效。需要明确引用关系与有效性规则，不按 ID 名推断。接口路径占位符指向的对象归第二层 CRUD 资源存在性。字段格式、枚举及长度有各自的关注点。",
       "scope": "interaction"
     },
     "database.special_characters": {
@@ -840,6 +854,7 @@
         "database.storage_validity"
       ],
       "llm": [
+        "llm.response_parsing_failure",
         "llm.grounding",
         "llm.instruction_following",
         "llm.context_sufficiency",
@@ -863,7 +878,7 @@
       "service.base.availability"
     ]
   },
-  "hash": "efe19f8ecc848c572d6c452298c2f7bc787dc52a76ab860039bd0058936bf67e",
+  "hash": "0e104e7b9fe994d95b4c0df72cd501a1ff82cb0e8f26fb507d6b687c41cf1b63",
   "taxonomy_note": "三范围：交互（数据、CRUD、业务与技术扩展）、业务链路（隔离、一致性、顺序、级联）、项目架构（外部服务可用性）。历史定义保留但不重复启用。",
   "framework_policies": {
     "sr_internal_rud_idempotency": {

@@ -22,7 +22,7 @@ def signature(atom):
     )
 
 
-def generate_fields(bundle, output):
+def generate_fields(bundle, output, moved_atoms):
     """Attach one concern per field/family and merge only fully equivalent atom sets."""
     from scene_completion.domain.concern_templates import scenario_metadata
     from scene_completion.workflow.ssd.generate.fixed import _atom_condition
@@ -47,7 +47,7 @@ def generate_fields(bundle, output):
             binding = bundle["command_bindings"][field["command_id"]]
             for atom in field["atoms"]:
                 operations = atom.get("applicable_operations") or []
-                if (
+                if id(atom) in moved_atoms or (
                     precise_sources
                     and operations
                     and not set(operations).intersection(binding.get("crud", []))
@@ -77,7 +77,8 @@ def generate_fields(bundle, output):
                         if first_call
                         else u["step_id"] == step["id"] and not u.get("obligation_scope")
                     )
-                    and atoms_identity == {signature(a) for a in u["atoms"]}
+                    and atoms_identity
+                    == {signature(a) for a in u["atoms"] if id(a) not in moved_atoms}
                 ]
                 mapped = next(
                     (

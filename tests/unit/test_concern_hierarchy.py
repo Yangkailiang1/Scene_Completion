@@ -540,7 +540,7 @@ def test_report_distinguishes_applicable_pending_and_inapplicable(tmp_path):
     )
     text = (tmp_path / "concern-match.md").read_text()
     assert "适用" in text and "待确认" in text and "不适用" in text and "继承路径" in text
-    assert "调用方身份认证" in text
+    assert "身份认证" in text and "调用方身份认证" not in text
 
 
 @pytest.mark.parametrize("position", ["内部服务", "外部Actor（系统）", "内部数据库", "AI模型"])
@@ -572,7 +572,7 @@ def test_all_five_functions_are_open_to_internal_external_and_technical_services
     assert all(m["functional_types"] == [function] for m in rows)
 
 
-def test_callback_authentication_belongs_to_the_actual_caller_of_the_local_service():
+def test_service_callback_authentication_is_outside_current_scope():
     x = memory_inputs()
     i = x["sr-ssd"]["interactions"][0]
     i["sender"].update(name="ExternalLLM", position="外部Actor（系统）")
@@ -591,7 +591,7 @@ def test_callback_authentication_belongs_to_the_actual_caller_of_the_local_servi
     assert (
         auth["object"] == "ExternalLLM"
         and auth["service"] == "LocalService"
-        and auth["status"] == "applicable"
+        and auth["status"] == "not_applicable"
     )
     assert not any(m["concern_key"].startswith("llm.") for m in rows)
 

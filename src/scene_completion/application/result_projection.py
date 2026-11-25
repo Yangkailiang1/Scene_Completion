@@ -36,7 +36,7 @@ def identification_proof(project, bundle):
     return None, None
 
 
-CASE_REPORT_VERSION = "current-case-report-v1"
+CASE_REPORT_VERSION = "current-case-report-v2-human-security"
 
 
 @lru_cache(maxsize=12)
@@ -64,6 +64,10 @@ def review_proof(project, bundle, matching):
         complete = False
     if complete is not None:
         bundle = {**bundle, "gt_identification_run_complete": complete}
+    if bundle.get("version") == "ssd-case-v1":
+        from scene_completion.domain.current_scope import filtered
+
+        bundle = filtered(bundle, isolate=False)
     return review_statuses(bundle, matching), {"complete": complete, "source": proof}
 
 
@@ -71,15 +75,9 @@ def current_view(project, view, matching, *, compact=False):
     local = view["bundle"]
     if local.get("version") == "ssd-case-v1":
         view = {**view, **stored_case_report(project, view, isolate=not compact)}
-        from scene_completion.domain.current_scope import allowed
+        from scene_completion.domain.current_scope import excluded_ids
 
-        view["scope_excluded_ids"] = [
-            r["id"]
-            for data in local["channels"].values()
-            for kind in ("concerns", "scenarios", "pending")
-            for r in data.get(kind, [])
-            if not allowed(r)
-        ]
+        view["scope_excluded_ids"] = sorted(excluded_ids(local))
     statuses, proof = review_proof(project, local, matching)
     view["review_statuses"] = statuses
     view["identification_proof"] = proof

@@ -5,6 +5,8 @@ import unicodedata
 
 from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.scenario_conditions import disjoint
+from scene_completion.domain.ssd import path_resources
+from scene_completion.domain.ssd.llm_responses import different_failures
 from scene_completion.domain.ssd.validation_scope import compatible
 
 PAIRS = {"G_E": ("G", "E"), "GT_G": ("GT", "G"), "GT_E": ("GT", "E")}
@@ -27,12 +29,19 @@ def display_binding(row):
         row.get("attribute") or "",
         *row.get("obligation_scope", []),
         *([row["operation_unit_id"]] if row.get("operation_unit_id") else []),
+        *path_resources.identity(row),
     )
 
 
 def binding(row):
     if row.get("operation_unit_id"):
-        return ("operation", row["operation_unit_id"], row.get("target"), row.get("key"))
+        return (
+            "operation",
+            row["operation_unit_id"],
+            row.get("target"),
+            row.get("key"),
+            *path_resources.identity(row),
+        )
     if row.get("entity_id") and row.get("attribute") and not row.get("field_id"):
         return (
             "entity",
@@ -66,6 +75,8 @@ def semantic_candidates(bundle):
                         )
                     )
                     and not disjoint(left_condition, right_condition)
+                    and not different_failures(left, right)
+                    and not path_resources.different_failures(left, right)
                     and (
                         bundle.get("coverage_policy") != GRAIN_POLICY
                         or compatible(left_condition, right_condition)

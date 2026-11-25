@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { retiredServiceSecurity } from "../../shared/actorSecurity";
 import { api, fileUrl, projectUrl } from "../../shared/api";
 import { ConcernTree } from "./ConcernTree";
 import { scopeNames, type AnalysisScope } from "../results/project/types";
@@ -175,8 +176,12 @@ export function ConcernManager({
       setBusy(false);
     }
   }
-  const defs = view?.registry.definitions || {},
-    readOnly = view?.read_only;
+  const readOnly = view?.read_only;
+  const defs = Object.fromEntries(
+    Object.entries(view?.registry.definitions || {}).filter(
+      ([key]) => readOnly || !retiredServiceSecurity.has(key),
+    ),
+  ) as Record<string, any>;
   return (
     <div className="management-view concern-manager">
       <div

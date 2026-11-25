@@ -70,15 +70,14 @@ def test_external_availability_is_generated_at_actual_external_call():
     )
 
 
-def test_declared_service_caller_identity_without_token_mechanism_generates_scene():
+def test_declared_service_caller_identity_is_not_generated_in_current_scope():
     x, i = internal()
     identified(
         x, i, "service_relation.authentication", "调用方身份必须为Platform", "authentication"
     )
     g = generated(applicability(x))["scenarios"]
     rows = [s for s in g if s["concern_key"] == "service_relation.authentication"]
-    assert len(rows) == 1 and "Platform" in rows[0]["cause"]
-    assert not rows[0]["executable"] and rows[0]["resolution"] == "conditional"
+    assert rows == []
     assert not any("签名" in s["cause"] or "过期" in s["cause"] for s in rows)
 
 
@@ -503,7 +502,9 @@ def test_response_rule_survives_partition_and_context_compaction():
     assert compacted["fused-ssd"]["interactions"][0]["direction"] == "return"
 
 
-def test_single_operation_sequence_alias_does_not_duplicate_bindings():
+def test_single_operation_sequence_alias_does_not_duplicate_bindings(
+    historical_service_security_registry,
+):
     x, i = internal()
     i["operation"]["sequence"] = [i["operation"]["name"]]
     raw = {

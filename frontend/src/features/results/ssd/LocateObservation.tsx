@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { securityMountAllowed } from "../../../shared/actorSecurity";
 import { putDecision } from "../shared/matchDraft";
 import { putTableRecord } from "../shared/tableEditing";
 import { Modal, Select, Text } from "./SsdEditors";
@@ -268,6 +269,7 @@ function applicable(
   const { target, field_id, attribute, entity_id } = object.binding;
   if (
     definition.enabled === false ||
+    !securityMountAllowed(key, target, step) ||
     definition.guard === "storage_field" ||
     (definition.kind || "check") !== "check" ||
     ((definition.scope || "interaction") !== "interaction" &&
@@ -287,6 +289,16 @@ function applicable(
   if (key.startsWith("human."))
     return call && target === "sender" && step.sender.type === "human";
   const party = target === "sender" ? step.sender : step.receiver;
+  if (key === "llm.response_parsing_failure")
+    return (
+      party.type === "service" &&
+      !!party.external &&
+      party.technology === "llm" &&
+      step.kind !== "action" &&
+      step.sender.id !== step.receiver.id &&
+      ((target === "receiver" && step.direction === "request") ||
+        (target === "sender" && step.direction === "return"))
+    );
   if (
     party.type === "service" &&
     party.external &&

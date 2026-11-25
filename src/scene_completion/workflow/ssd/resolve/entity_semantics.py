@@ -3,6 +3,7 @@
 from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
+from scene_completion.domain.ssd import actor_security, llm_responses
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -34,6 +35,7 @@ def definitions(bundle):
         key: definition["description"]
         for key, definition in bundle["registry"]["definitions"].items()
         if definition.get("enabled", True)
+        and key not in actor_security.SERVICE_KEYS
         and definition.get("kind") == "check"
         and definition.get("scope", "interaction") == "interaction"
         and (
@@ -44,6 +46,7 @@ def definitions(bundle):
                 "service.query_retrieval.resource_existence",
                 "service.base.availability",
                 "database.special_characters",
+                llm_responses.KEY,
             }
         )
     }
@@ -71,6 +74,11 @@ def _steps(bundle):
             **(
                 {"external_database_roles": databases}
                 if (databases := {role: party["id"] for role, party in database_roles(s).items()})
+                else {}
+            ),
+            **(
+                {"external_llm_roles": models}
+                if (models := {role: party["id"] for role, party in llm_responses.roles(s).items()})
                 else {}
             ),
             "crud": s["operation"].get("kinds", []),
@@ -257,6 +265,7 @@ def _record(bundle, row):
         "id": row["id"],
         "name": source.get("original_id"),
         "source_kind": source.get("scenario_type"),
+        **({"declared_key": key} if (key := source.get("concern_key")) else {}),
         "condition": source["condition"],
         "expected": source.get("expected") or "",
         **failure_context.location(bundle, source),
@@ -272,6 +281,12 @@ def _binding_issue(binding, steps, entities, fields):
     entity = binding["entity_id"]
     attribute = binding["attribute"]
     field_id = binding.get("field_id")
+    if key in actor_security.SERVICE_KEYS:
+        return actor_security.OUT_OF_SCOPE
+    if key in actor_security.HUMAN_KEYS and (
+        not failure_context.auth_request(step) or binding["target"] != "sender"
+    ):
+        return "身份认证和权限控制必须挂载在人类 Actor 发起请求的发送方"
     if binding["target"] == "interface":
         field = fields.get(field_id)
         if key not in ENTITY_KEYS or not field or entity is not None or attribute is not None:
@@ -291,6 +306,8 @@ def _binding_issue(binding, steps, entities, fields):
         or (binding["target"] == "receiver" and step["receiver_technology"] == "database")
     ):
         return "异常无法定位到明确的数据库操作"
+    if key == llm_responses.KEY and binding["target"] not in step.get("external_llm_roles", {}):
+        return "响应解析异常无法定位到实际调用的外部大模型"
     if key == "service.base.availability" and not (
         database_target
         or (
@@ -380,6 +397,7 @@ def classify(bundle, semantic):
                     "source_refs": source["source_refs"],
                 }
                 accepted, rejected, corrections = [], [], []
+                excluded = []
                 for submitted in result["bindings"]:
                     binding, note = binding_targets.resolve(submitted, step_facts, units or [])
                     if binding is None:
@@ -387,6 +405,13 @@ def classify(bundle, semantic):
                         continue
                     if note:
                         corrections.append(note)
+                    if binding[
+                        "key"
+                    ] in actor_security.HUMAN_KEYS and failure_context.service_security(
+                        step_facts, _occurrence(bundle, source) or binding["step_id"]
+                    ):
+                        excluded.append(binding)
+                        continue
                     issue = _binding_issue(binding, step_facts, inputs["entities"], fields)
                     if not issue:
                         issue = _mount(bundle, channel, output, source, binding, result["reason"])
@@ -395,6 +420,10 @@ def classify(bundle, semantic):
                     else:
                         accepted.append(binding)
                 audit["bindings"] = accepted
+                if excluded:
+                    audit["scope_exclusions"] = excluded
+                    if not accepted and not rejected:
+                        audit.update(kind="out_of_scope", reason=actor_security.OUT_OF_SCOPE)
                 if corrections:
                     audit["target_corrections"] = corrections
                 if rejected:
@@ -436,26 +465,29 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
             entity, attribute, field = alias["entity_id"], alias["attribute"], None
             field_id = None
     target = "data" if binding["target"] in {"entity", "interface"} else binding["target"]
+    resource_reference = binding.get("resource_reference")
     operation_unit_id = None
     if bundle.get("operation_units") is not None and target == "receiver":
-        from scene_completion.workflow.ssd.resolve.operations import functional
+        from scene_completion.domain.ssd.interface_fields import command_id
+        from scene_completion.workflow.ssd.resolve.operations import (
+            functional,
+            functional_owner,
+            in_operation_scope,
+        )
 
         if functional(key):
             operations = set(bundle["registry"]["definitions"][key]["operation_kinds"])
             stated = binding.get("operation_unit_id")
-            stated = next(
-                (
-                    unit["functional_owner_id"]
-                    for unit in bundle["operation_units"]
-                    if unit["id"] == stated and unit.get("functional_owner_id")
-                ),
-                stated,
-            )
+            unit = next((u for u in bundle["operation_units"] if u["id"] == stated), {})
+            stated_ids = unit.get("functional_owner_ids") or [
+                unit.get("functional_owner_id") or stated
+            ]
             hits = [
                 unit
                 for unit in bundle["operation_units"]
-                if not unit.get("functional_owner_id")
-                and (not stated or stated == unit["id"])
+                if functional_owner(unit)
+                and (not stated or unit["id"] in stated_ids)
+                and in_operation_scope(unit, actual, command_id(source))
                 and (actual in unit["related_steps"] or binding["step_id"] in unit["related_steps"])
                 and operations.intersection(unit["crud"])
             ]
@@ -472,6 +504,7 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
         and c.get("field_id") == field_id
         and c.get("entity_id") == entity
         and c.get("attribute") == attribute
+        and c.get("resource_reference") == resource_reference
         and ((entity and attribute) or c["step_id"] == mapped_step)
         and (
             not c.get("obligation_scope")
@@ -519,10 +552,16 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
         refs=refs,
         obligation_scope=g.get("obligation_scope") if g else None,
         operation_unit_id=operation_unit_id,
+        resource_reference=resource_reference,
     )
     if concern is None:
         return "关注点在当前规则中未启用"
     scene = add_scenario(output, concern, binding["condition"], binding["expected"], refs)
+    if resource_reference:
+        scene.update(
+            command_id=resource_reference["command_id"],
+            resource_failure=binding["resource_failure"],
+        )
     scene["source_record_ids"] = list(
         dict.fromkeys([*scene.get("source_record_ids", []), source["id"]])
     )
@@ -623,9 +662,25 @@ def validate_result(task, value, inputs):
     validate_source_batch(task, value, inputs)
     steps = {s["id"]: s for s in inputs["steps"]}
     records = [pending_without_details(row, "bindings", "具体挂载") for row in value["records"]]
-    for row in records:
+    for index, row in enumerate(records):
         _validate_bindings(row, "kind", "exception")
-        for b in row["bindings"]:
+        retained = [
+            binding
+            for binding in row["bindings"]
+            if binding["key"] not in actor_security.SERVICE_KEYS
+        ]
+        if len(retained) != len(row["bindings"]):
+            records[index] = (
+                {**row, "bindings": retained}
+                if retained
+                else {
+                    **row,
+                    "bindings": [],
+                    "kind": "out_of_scope",
+                    "reason": actor_security.OUT_OF_SCOPE,
+                }
+            )
+        for b in retained:
             if (
                 b["step_id"] not in steps
                 or b["key"] not in inputs["definitions"]
