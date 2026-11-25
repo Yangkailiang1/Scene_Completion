@@ -507,7 +507,7 @@
     },
     "service.business_attribute_constraint": {
       "key": "service.business_attribute_constraint",
-      "label": "业务实体属性约束",
+      "label": "字段约束",
       "layer": "base",
       "group": "business_attribute",
       "parents": [],
@@ -878,7 +878,7 @@
       "service.base.availability"
     ]
   },
-  "hash": "0e104e7b9fe994d95b4c0df72cd501a1ff82cb0e8f26fb507d6b687c41cf1b63",
+  "hash": "16aeaae3906820f89a1bc7f569ddec5232c99cf1e262e6c31df7574ff469a83f",
   "taxonomy_note": "三范围：交互（数据、CRUD、业务与技术扩展）、业务链路（隔离、一致性、顺序、级联）、项目架构（外部服务可用性）。历史定义保留但不重复启用。",
   "framework_policies": {
     "sr_internal_rud_idempotency": {

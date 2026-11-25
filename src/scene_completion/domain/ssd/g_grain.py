@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from scene_completion.domain.coverage import COVERED
 from scene_completion.domain.scenario_conditions import disjoint
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.matching import display_binding
 from scene_completion.domain.ssd.validation_scope import compatible
 from scene_completion.infrastructure.identity import fingerprint
@@ -39,6 +40,11 @@ def counts(units, edges, *, scenarios, undecided=()):
                     not scenarios
                     or (
                         not disjoint(test.get("condition"), units["E"][eid].get("condition"))
+                        and not concern_policy.different_subtypes(test, units["E"][eid])
+                        and (
+                            edges["GT_E"].get((tid, eid)) in COVERED
+                            or test.get("failure_subtype") == units["E"][eid].get("failure_subtype")
+                        )
                         and compatible(test.get("condition"), units["E"][eid].get("condition"))
                     )
                 )

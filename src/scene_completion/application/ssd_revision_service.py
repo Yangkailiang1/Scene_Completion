@@ -4,6 +4,7 @@ import time
 from copy import deepcopy
 
 from scene_completion.domain.coverage import GRAIN_POLICY, POLICY, binary_status
+from scene_completion.domain.ssd import concern_policy, interface_fields
 from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.domain.ssd.matching import PAIRS, binding
 from scene_completion.domain.ssd.metrics import _rate, analyze
@@ -167,7 +168,34 @@ def publish(project, bundle):
             )
 
             overrides = rebase_resources(state["baseline"], baseline, overrides)
-        upgrading = upgrading or resource_upgrade
+        compact_upgrade = concern_policy.applies(baseline) and not concern_policy.applies(previous)
+        upgrading = upgrading or resource_upgrade or compact_upgrade
+        if compact_upgrade:
+            # A narrow old verdict cannot approve the combined G failure.
+            # Preserve the original edits and judgments for explicit reassignment.
+            for kind in ("concerns", "scenarios"):
+                retained = {row["id"] for row in baseline["channels"]["G"][kind]}
+                changes = (
+                    overrides.get("channels", {}).get("G", {}).get(kind, {}).get("$records", {})
+                )
+                for old in state["baseline"]["channels"]["G"].get(kind, []):
+                    if (
+                        old["id"] in changes
+                        and changes[old["id"]].get("delete")
+                        and old["id"] not in retained
+                        and (
+                            kind == "scenarios"
+                            and concern_policy.fixed_only(old["key"])
+                            or not concern_policy.enabled(old["key"])
+                        )
+                    ):
+                        issues.append(
+                            {
+                                "id": old["id"],
+                                "reason": "原场景粒度或范围已改变，人工删除待复核",
+                                "previous_record": old,
+                            }
+                        )
         effective = {**baseline, **_patch(_editable(baseline), overrides, issues)}
         if baseline.get("coverage_policy") == GRAIN_POLICY:
             effective["coverage_policy"] = GRAIN_POLICY
@@ -363,6 +391,17 @@ def _validate_security_edits(current, updated):
                 key = row.get("key")
                 if key in actor_security.SERVICE_KEYS:
                     raise ValueError(actor_security.OUT_OF_SCOPE)
+                if (
+                    concern_policy.applies(current)
+                    and key
+                    and row.get("status") == "active"
+                    and (
+                        not concern_policy.enabled(key)
+                        or key == concern_policy.FIELD
+                        and interface_fields.output_only(row.get("condition"))
+                    )
+                ):
+                    raise ValueError("该记录不在当前 SSD 关注点范围内")
                 if (
                     key in actor_security.HUMAN_KEYS
                     and row.get("status") == "active"

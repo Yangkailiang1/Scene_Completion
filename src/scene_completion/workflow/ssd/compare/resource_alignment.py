@@ -2,7 +2,7 @@
 
 import re
 
-from scene_completion.domain.ssd import interface_fields
+from scene_completion.domain.ssd import concern_policy, interface_fields
 from scene_completion.domain.ssd import path_resources as paths
 
 
@@ -12,10 +12,15 @@ def _same_parameter(name, field, condition):
 
 def prepare(bundle, raw, part):
     kind = paths.failure(part["condition"])
+    field_only = set(part["keys"]) == {concern_policy.FIELD}
     if (
         not kind
         or "path_resource_checks" not in bundle
-        or not ({paths.VALIDITY, *paths.KEYS.values()} & set(part["keys"]))
+        or not (
+            {paths.VALIDITY, *paths.KEYS.values()} & set(part["keys"])
+            or kind == "already_exists"
+            and concern_policy.FIELD in part["keys"]
+        )
     ):
         return
     actual = part["failure_step_id"]
@@ -57,6 +62,8 @@ def prepare(bundle, raw, part):
         elif re.search(r"目标|要(?:删除|更新|创建|查询)的对象|指定的(?:资源|对象)|重复创建", label):
             role = "target"
     if not named_routes and not role:
+        if field_only:
+            return
         if field:
             part["keys"] = [key for key in part["keys"] if not paths.is_existence(key)]
             definition = bundle["registry"]["definitions"].get(paths.VALIDITY, {})
@@ -76,6 +83,8 @@ def prepare(bundle, raw, part):
         return
     choices = []
     for check in bundle["path_resource_checks"]:
+        if field_only and check.get("canonical_key") != concern_policy.FIELD:
+            continue
         ref = check["resource_reference"]
         if not ref:
             continue
@@ -89,8 +98,12 @@ def prepare(bundle, raw, part):
             choices.append(check)
     keyed = [check for check in choices if check["key"] in part["keys"]]
     choices = keyed or choices
+    if field_only and not choices:
+        return
     if len(choices) == 1 and len(named_routes) <= 1:
-        part.update(keys=[choices[0]["key"]], resource_check=choices[0], resource_failure=kind)
+        check = choices[0]
+        key = check.get("canonical_key") or check["key"]
+        part.update(keys=[key], resource_check=check, resource_failure=kind)
     elif named_routes or choices or role in {"parent", "ancestor"}:
         part["resource_issue"] = "无法唯一判定路径参数对应的接口、CRUD 或资源角色"
 
@@ -102,7 +115,7 @@ def compatible(part, scenario):
         return (
             paths.identity(scenario) == paths.identity(check)
             and scenario.get("operation_unit_id") == check["operation_unit_id"]
-            and scenario["key"] == check["key"]
+            and scenario["key"] == (check.get("canonical_key") or check["key"])
             and scenario.get("resource_failure") == part["resource_failure"]
         )
     key = next((key for key in part["keys"] if paths.is_existence(key)), "")

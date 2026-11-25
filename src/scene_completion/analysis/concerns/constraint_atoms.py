@@ -111,6 +111,26 @@ def _enum_values(text):
     return [v.strip() for v in re.split(r"[|,，、]", text) if v.strip()]
 
 
+def _size(clause, field, refs):
+    bound = re.search(
+        r"(?:<=|≤|不超过|最大(?:为)?|最多|上限(?:为|是|[:：])?)\s*"
+        + NUMERIC
+        + r"\s*(GiB|MiB|KiB|GB|MB|KB|bytes?|B|字节)",
+        clause,
+        re.I,
+    )
+    return _item(
+        OPERATION_CONCERNS["size"],
+        "max_size",
+        _number(bound[1]) if bound else None,
+        "explicit",
+        refs,
+        field,
+        unit=bound[2] if bound else None,
+        value_pending=None if bound else "原文未给出大小上限及单位",
+    )
+
+
 def _clause_items(clause, field, refs, state_tag):
     """Normalize one clause; return the produced items (possibly empty)."""
     text = clause.strip()
@@ -163,7 +183,17 @@ def _clause_items(clause, field, refs, state_tag):
         ]
 
     if re.fullmatch(r"(?:必填|非空|不能为空|不可为空)", text):
-        return [_item(OPERATION_CONCERNS["required"], "required", True, "explicit", refs, field)]
+        return [
+            _item(
+                OPERATION_CONCERNS["required"],
+                "required",
+                True,
+                "explicit",
+                refs,
+                field,
+                nonempty=True if text != "必填" else None,
+            )
+        ]
 
     # A closed interval written as 1 <= x <= 100, 1 <= field <= 100, or against
     # a differently-cased spelling of the declared field name.
@@ -231,17 +261,7 @@ def _clause_items(clause, field, refs, state_tag):
     if re.search(r"格式|合法格式|URL|邮箱|email", text, re.I):
         items = [_item(OPERATION_CONCERNS["format"], "format", text, "explicit", refs, field)]
         if re.search(r"大小|字节|(?:MB|KB|bytes)", text, re.I):
-            items.append(
-                _item(
-                    OPERATION_CONCERNS["size"],
-                    "max_size",
-                    None,
-                    "explicit",
-                    refs,
-                    field,
-                    value_pending="原文未给出大小上限数值",
-                )
-            )
+            items.append(_size(text, field, refs))
         return items
     if re.search(r"长度|字符数|字符", text):
         span = re.search(r"(\d+)\s*(?:-|~|～|至|到)\s*(\d+)", text)
@@ -286,24 +306,8 @@ def _clause_items(clause, field, refs, state_tag):
                 value_pending=pending,
             )
         ]
-    if re.search(r"大小|字节|(?:MB|KB|bytes)", text, re.I):
-        value = None
-        pending = "原文未给出大小上限数值"
-        bound = re.search(r"(?:<=|≤)\s*(\d+)", compact)
-        if bound:
-            value = int(bound[1])
-            pending = None
-        return [
-            _item(
-                OPERATION_CONCERNS["size"],
-                "max_size",
-                value,
-                "explicit",
-                refs,
-                field,
-                value_pending=pending,
-            )
-        ]
+    if re.search(r"大小|字节|(?:[KMG]i?B|bytes)", text, re.I):
+        return [_size(text, field, refs)]
     # Uniqueness must be the rule's subject. "repeated requests do not change
     # the value" describes behaviour, not a uniqueness requirement on the field.
     if (
@@ -556,9 +560,17 @@ def normalize_rules(
     unique = {}
     for item in out["items"]:
         identity = fingerprint(
-            [item["concern_key"], item["operation"], item["value"], item.get("exclusive")]
+            [
+                item["concern_key"],
+                item["operation"],
+                item["value"],
+                item.get("exclusive"),
+                item.get("unit"),
+            ]
         )
         first = unique.setdefault(identity, item)
+        if item.get("nonempty"):
+            first["nonempty"] = True
         if first is not item and rule_refs is not None:
             first["source_refs"] = list(
                 {
@@ -590,7 +602,7 @@ def validate_atoms(value, inputs):
                 raise ValueError("数值边界必须是数字：")
     for relation in value.get("relations", []):
         if relation["concern_key"] != "service.business_attribute_constraint":
-            raise ValueError("跨字段关系必须使用业务实体属性约束")
+            raise ValueError("跨字段关系必须使用字段约束")
         unknown = [f for f in relation.get("fields", []) if f not in allowed]
         if unknown:
             raise ValueError("跨字段关系引用了本实体之外的属性：" + ", ".join(unknown))

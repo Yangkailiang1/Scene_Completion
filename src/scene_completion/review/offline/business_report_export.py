@@ -2,8 +2,8 @@
 
 from scene_completion.domain.concern_registry import registry
 from scene_completion.domain.coverage import GRAIN_POLICY
-from scene_completion.domain.current_scope import allowed
-from scene_completion.domain.ssd import path_resources
+from scene_completion.domain.current_scope import allowed, current_registry
+from scene_completion.domain.ssd import concern_policy, path_resources
 from scene_completion.review.offline import adoption
 from scene_completion.review.offline._teacher_report_template import TEMPLATE, TITLE
 from scene_completion.review.offline.ssd_review import _safe_json
@@ -116,6 +116,11 @@ def _scene(row, category, definitions, concerns, steps, services, catalog, *, al
         "step_evidence": step_evidence,
         "classification": row["classification_reason"],
         "links": row["links"],
+        **(
+            {"failure_variants": primary["failure_variants"]}
+            if primary.get("failure_variants")
+            else {}
+        ),
         "evidence": {
             channel: [
                 {
@@ -218,6 +223,8 @@ def export_html(project, body=None):
             if case["id"] not in published
         )
     groups.sort(key=lambda group: group["case_id"] is None)
+    consolidated = any(concern_policy.applies(item["bundle"]) for item in snapshot["items"])
+    definitions = current_registry(registry(), consolidated=consolidated)["definitions"]
     payload = {
         "format": FORMAT,
         "report": {
@@ -226,7 +233,7 @@ def export_html(project, body=None):
             "groups": groups,
             "concern_options": {
                 key: definition["label"]
-                for key, definition in registry()["definitions"].items()
+                for key, definition in definitions.items()
                 if definition.get("enabled", True)
                 and definition.get("kind", "check") == "check"
                 and definition.get("scope", "interaction") == "interaction"

@@ -60,7 +60,7 @@ function concernPath(
         : key === "service.base.response_contract"
           ? "输出数据"
           : group === "business_attribute"
-            ? "业务实体属性约束"
+            ? definition.label || "字段约束"
             : "外部Service调用";
     return [...base, "第一层：基础关注点", label].join(" › ");
   }
@@ -72,7 +72,8 @@ function concernPath(
         [
           "service.base.request_data",
           "service.base.response_contract",
-        ].includes(id)
+        ].includes(id) &&
+        definitions[id]?.enabled !== false
       )
         found.add(id);
       (definitions[id]?.parents || []).forEach((parent: string) =>
@@ -726,6 +727,14 @@ export function SsdAlignmentTable({
                                 记录详情{readonly ? "" : "与更多操作"}
                               </summary>
                               <small>{record.id}</small>
+                              {record.failure_variants && (
+                                <p>
+                                  失败类型明细 ·{" "}
+                                  {Object.values(record.failure_variants).join(
+                                    "、",
+                                  )}
+                                </p>
+                              )}
                               <p>
                                 挂载：
                                 {getTargetLabel?.(record) ||

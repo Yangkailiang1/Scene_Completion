@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from scene_completion.domain.ssd import actor_security
+from scene_completion.domain.ssd import actor_security, concern_policy, interface_fields
 from scene_completion.infrastructure.identity import fingerprint
 
 POLICY = "interaction-shared-services-v1"
@@ -27,7 +27,7 @@ def allowed(row):
     return row.get("key") not in RETIRED and not str(row.get("key", "")).startswith("global.")
 
 
-def current_registry(value):
+def current_registry(value, *, consolidated=False):
     result = deepcopy(value)
     result["definitions"][AVAILABILITY]["scope"] = "interaction"
     result["definitions"][AVAILABILITY]["description"] = (
@@ -47,6 +47,14 @@ def current_registry(value):
     result["profiles"]["business_chain"] = []
     result["profiles"]["architecture"] = []
     result["scopes"] = {"interaction": "交互级关注点"}
+    if consolidated:
+        from scene_completion.domain.concern_templates import reference_catalog
+
+        for key, definition in result["definitions"].items():
+            if not concern_policy.enabled(key):
+                definition["enabled"] = False
+        result["definitions"][concern_policy.FIELD]["label"] = "字段约束"
+        result["reference_templates"] = reference_catalog(consolidated=True)
     result["taxonomy_note"] = (
         "交互关注点；外部服务在调用处生成、按服务与故障合并；业务链路退出当前范围。"
     )
@@ -63,6 +71,15 @@ def excluded_ids(bundle):
         for kind in ("concerns", "scenarios", "pending")
         for row in data.get(kind, [])
         if not allowed(row)
+        or (
+            concern_policy.applies(bundle)
+            and row.get("key")
+            and (
+                not concern_policy.enabled(row["key"])
+                or row["key"] == concern_policy.FIELD
+                and interface_fields.output_only(row.get("condition"))
+            )
+        )
         or (
             row.get("key") in actor_security.SERVICE_KEYS
             or kind != "pending"

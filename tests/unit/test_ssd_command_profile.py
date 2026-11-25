@@ -205,9 +205,10 @@ def test_return_only_database_and_literal_e_gt_are_mounted(target, with_g):
     if with_g:
         canonical = {r["id"]: r["variant_id"] for r in generated["scenarios"]}
         assert {canonical[d["right_id"]] for d in matched} == {
-            "missing_credential",
+            "authentication_failed",
             "service_unavailable",
         }
+        assert truth["human.authentication"]["failure_subtype"] == "missing_credential"
 
     merged = build([{"bundle": bundle, "revision": 1}])
     [anchor] = merged["anchors"]

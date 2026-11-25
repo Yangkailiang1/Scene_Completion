@@ -65,7 +65,7 @@ def _atom_row(atom):
         "value_pending": atom.get("value_pending"),
         **{
             k: atom[k]
-            for k in ("exclusive", "failure_condition", "applicable_operations")
+            for k in ("exclusive", "failure_condition", "applicable_operations", "unit", "nonempty")
             if k in atom
         },
         "source_refs": deepcopy(atom.get("source_refs") or []),

@@ -17,6 +17,12 @@ def summary_kind(condition):
     )
     text = text.strip("。.!！")
     if re.fullmatch(
+        r"(?:(?:必填)?(?:请求体|请求报文|body)(?:未提供(?:或为空)?|缺失|为空|空)|"
+        r"(?:缺少|未提供)(?:必填)?(?:请求体|请求报文|body)|空(?:请求体|请求报文))",
+        text,
+    ):
+        return "missing_body"
+    if re.fullmatch(
         r"(?:(?:请求体|请求报文|body)[:：]?)?(?:非法json(?:校验(?:格式)?(?:失败|不通过))?|"
         r"json(?:语法(?:错误|非法)|(?:解析|反序列化)(?:失败|错误|不通过)|报文格式(?:错误|非法)|格式(?:错误|非法))|"
         r"(?:无法|不能)解析json|不是(?:合法|有效)(?:的)?json)",
@@ -34,12 +40,16 @@ def summary_kind(condition):
 
 
 def keys_for(summary):
-    return REQUEST_KEYS if summary == "request_validation" else {"api.data.format"}
+    if summary == "request_validation":
+        return REQUEST_KEYS
+    return {"api.data.completeness"} if summary == "missing_body" else {"api.data.format"}
 
 
 def applies(summary, scenario, field, fields, command, aliases, *, field_policy=None):
     named = field_policy == INPUT_FIELD_POLICY
     generated = summary_kind(scenario.get("condition"))
+    if summary == "missing_body":
+        return generated == "missing_body"
     if summary == "json_syntax":
         return (
             generated == "json_syntax"
@@ -61,6 +71,8 @@ def applies(summary, scenario, field, fields, command, aliases, *, field_policy=
         )
     if generated == "json_syntax" or scenario.get("key") not in keys_for(summary):
         return False
+    if generated == "missing_body":
+        return summary == "request_validation"
     if field:
         return named or field.get("direction") == "request"
     if not (scenario.get("entity_id") and scenario.get("attribute")):
@@ -77,4 +89,8 @@ def applies(summary, scenario, field, fields, command, aliases, *, field_policy=
 
 def compatible(left, right):
     """Recognized JSON syntax failures cannot match a field validation failure."""
-    return (summary_kind(left) == "json_syntax") == (summary_kind(right) == "json_syntax")
+    a, b = summary_kind(left), summary_kind(right)
+    if {a, b} == {"missing_body", "request_validation"}:
+        return True
+    separate = {"json_syntax", "missing_body"}
+    return a == b if a in separate or b in separate else True

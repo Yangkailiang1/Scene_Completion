@@ -70,11 +70,11 @@
     "interaction-normalize": "bd2b21e741ad3bd8338112b108ce85b2351b1db281bb14a6d1a58914aab914f4",
     "exception-scope": "4345f857024e98ba27f4270852c02e13dc686153a28a8b035f7aac3d9a49fc81",
     "existing-locations": "298ec9e54790ae477da09c0709b619607cd615ecb212e12e2c39f8068c4994ea",
-    "ssd-prepare": "v15-human-actor-security",
-    "ssd-resolve": "v10-path-resource-roles",
-    "ssd-compare": "v13-path-resource-identity",
-    "ssd-semantic-compare": "v2-binary-obligation",
-    "ssd-generate": "v2-external-llm-response-templates-path-resources",
+    "ssd-prepare": "v16-consolidated-concerns",
+    "ssd-resolve": "v11-input-only-concerns",
+    "ssd-compare": "v14-consolidated-evidence",
+    "ssd-semantic-compare": "v3-distinct-failure-subtypes",
+    "ssd-generate": "v3-consolidated-fixed-templates",
     "project-structure": "92ec13bbe8864157697f0286fa177d8df3cb589603251df12a78b1d28444e9c4",
     "project-scope-identify": "fad188830d174b0d0409112394d3bbf1129529ab4a3e8dba4ee11c812a657947",
     "project-scope-generate": "1980b8ad98dd93bd355ec6dfafd98401cdc0c1fecfd808029b07bcfcaa201ec4",
@@ -86,8 +86,8 @@
     "ssd-participant-classify": "v3-evidenced-participant-technology",
     "ssd-operation-units": "v3-per-external-call",
     "ssd-create-path-roles": "v1-positive-evidence",
-    "ssd-evidence-classify": "v10-human-actor-security-path-resources",
-    "ssd-ground-align": "v8-human-actor-security-path-resources",
+    "ssd-evidence-classify": "v11-consolidated-scope",
+    "ssd-ground-align": "v9-consolidated-failures",
     "ssd-entity-inference": "v2-quote-backed-constraint-inference",
     "ssd-command-classify": "v5-human-actor-security",
     "ssd-entity-classify": "v4-human-actor-security",
@@ -96,7 +96,7 @@
   },
   "components": {
     "artifact-imports": "4006bf97293c3b5b9444d46e63a143e0df4b12cb746f15299bc752369c08f350",
-    "ssd-fixed-generation": "v7-path-resource-obligations",
+    "ssd-fixed-generation": "v8-consolidated-scenarios",
     "ssd-shared-services": "v3-service-local-member-decisions"
   }
 }

@@ -49,7 +49,7 @@ def paths(key, definitions, direction=None):
             if key == "service.base.request_data"
             else "输出数据"
             if key == "service.base.response_contract"
-            else "业务实体属性约束"
+            else d.get("label", "字段约束")
             if group == "business_attribute"
             else "外部Service调用"
         )
@@ -65,7 +65,8 @@ def paths(key, definitions, direction=None):
             if k in seen:
                 return
             if k in roots:
-                found.add(k)
+                if definitions.get(k, {}).get("enabled", True):
+                    found.add(k)
             for parent in definitions.get(k, {}).get("parents", []):
                 visit(parent, seen | {k})
 

@@ -5,6 +5,7 @@ import re
 from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.ssd import (
     actor_security,
+    concern_policy,
     interface_fields,
     llm_responses,
     validation_scope,
@@ -22,6 +23,7 @@ def classify(bundle, semantic):
     if not semantic:
         return
     audits = bundle.setdefault("source_classifications", {})
+    consolidated = concern_policy.applies(bundle)
     for channel in ("E", "GT"):
         rows = [
             r
@@ -41,6 +43,8 @@ def classify(bundle, semantic):
             named = bundle.get("interface_field_policy") == interface_fields.INPUT_FIELD_POLICY
             if named:
                 inputs["interface_field_policy"] = interface_fields.INPUT_FIELD_POLICY
+            if consolidated:
+                inputs["scenario_policy"] = concern_policy.VERSION
             if "path_resource_checks" in bundle:
                 inputs["resource_routes"] = [
                     {
@@ -183,7 +187,7 @@ def classify(bundle, semantic):
                             verified, _ = _verified_parts([part], source, inputs["definitions"])
                             parts.extend(verified)
                             conditions.add(condition)
-                if named and parts:
+                if (named or consolidated) and parts:
                     inbound = [
                         part
                         for part in parts
@@ -197,6 +201,33 @@ def classify(bundle, semantic):
                             "reason": "拆分后的失败条件只涉及返回值异常",
                         }
                     parts = inbound
+                if consolidated and parts:
+                    retained = []
+                    for part in parts:
+                        if concern_policy.removed_concurrency(part["condition"]):
+                            keys = [
+                                key
+                                for key in part["keys"]
+                                if not key.endswith(".concurrency_consistency")
+                            ]
+                            if keys != part["keys"]:
+                                excluded.append(
+                                    {
+                                        "condition": part["condition"],
+                                        "reason": "关联资源被并发删除独立场景已停用",
+                                    }
+                                )
+                            if not keys:
+                                continue
+                            part = {**part, "keys": keys}
+                        retained.append(part)
+                    if not retained and not issues:
+                        decision = {
+                            **decision,
+                            "kind": "out_of_scope",
+                            "reason": "关联资源被并发删除独立场景已停用",
+                        }
+                    parts = retained
                 audits[channel].append(
                     {
                         **decision,

@@ -92,6 +92,8 @@ export type Observation = {
   expected?: string;
   concern_ids?: string[];
   applicable_operations?: string[];
+  failure_variants?: Record<string, string>;
+  failure_subtype?: string;
   resource_reference?: {
     command_id: string;
     parameter_name: string;

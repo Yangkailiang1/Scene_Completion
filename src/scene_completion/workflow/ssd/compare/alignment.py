@@ -7,6 +7,7 @@ from scene_completion.domain.current_scope import AVAILABILITY
 from scene_completion.domain.scenario_conditions import disjoint
 from scene_completion.domain.ssd import (
     actor_security,
+    concern_policy,
     interface_fields,
     llm_responses,
     validation_scope,
@@ -33,7 +34,7 @@ def _uses_step(link, step_id):
     )
 
 
-def _summary_command(bundle, raw, actual):
+def _summary_command(bundle, raw, actual, *, allow_external=False):
     """Use only a uniquely identified inbound command for broad evidence."""
     bindings = bundle.get("command_bindings", {})
     step = next((s for s in bundle["steps"] if s["id"] == actual), {})
@@ -42,7 +43,8 @@ def _summary_command(bundle, raw, actual):
     if not named and (raw.get("parameter") or {}).get("direction") in {"response", "return"}:
         return None
     if (
-        receiver.get("external")
+        not allow_external
+        and receiver.get("external")
         and receiver.get("type") == "service"
         and step.get("kind") != "action"
     ):
@@ -130,11 +132,22 @@ def _candidates(bundle, raw, part, step_facts):
     scope = part.get("validation_summary")
     if scope:
         keys = validation_scope.keys_for(scope)
-        command = _summary_command(bundle, raw, actual)
+        command = _summary_command(bundle, raw, actual, allow_external=scope == "missing_body")
         if command is None:
             return
         source_commands = {command}
     auth_requests = failure_context.auth_requests(step_facts, actual)
+    consolidated = concern_policy.applies(bundle)
+    special_anchors = (
+        {
+            (step["id"], target)
+            for step, target in independent_mount.special_character_anchors(
+                bundle, {**raw, "condition": part["condition"]}, actual
+            )
+        }
+        if consolidated and concern_policy.DATABASE in keys
+        else set()
+    )
     parameter = raw.get("parameter") or {}
     direction = "response" if parameter.get("direction") == "return" else parameter.get("direction")
     names = {
@@ -183,7 +196,25 @@ def _candidates(bundle, raw, part, step_facts):
                     "concern_keys": [llm_responses.KEY],
                 }
             continue
-        if failure == "missing_credential" and scenario.get("variant_id") != failure:
+        if failure == "missing_credential" and (
+            scenario.get("key") != concern_policy.AUTH
+            or failure not in scenario.get("failure_variants", {})
+            and scenario.get("variant_id") != failure
+        ):
+            continue
+        if (
+            consolidated
+            and scenario["key"] == concern_policy.DATABASE
+            and (scenario["step_id"], scenario["target"]) not in special_anchors
+        ):
+            continue
+        if (
+            consolidated
+            and scenario["key"] == concern_policy.AUTH
+            and "failure_variants" in scenario
+            and (subtype := concern_policy.subtype(concern_policy.AUTH, part["condition"]))
+            and subtype not in scenario.get("failure_variants", {})
+        ):
             continue
         if database_only and (
             (scenario["step_id"], scenario["target"]) not in database_steps
@@ -247,7 +278,12 @@ def _candidates(bundle, raw, part, step_facts):
             and validation_scope.summary_kind(scenario["condition"]) == "json_syntax"
         ):
             continue
-        if external and not database_only and receiver != external:
+        if (
+            external
+            and not database_only
+            and scenario["key"] != concern_policy.DATABASE
+            and receiver != external
+        ):
             continue
         if cmd and source_commands and cmd not in source_commands:
             continue
@@ -314,6 +350,7 @@ def _candidates(bundle, raw, part, step_facts):
                     "operation_unit_id",
                     "resource_reference",
                     "resource_failure",
+                    "failure_variants",
                 )
                 if k in scenario
             },
@@ -413,6 +450,10 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         scene["variant_id"] = primary["variant_id"]
     if primary.get("resource_failure"):
         scene["resource_failure"] = primary["resource_failure"]
+    if concern_policy.applies(bundle) and (
+        subtype := concern_policy.subtype(primary["key"], part["condition"])
+    ):
+        scene["failure_subtype"] = subtype
     failure_context.annotate(scene, location, location.get("failure_step_reason"))
     if raw.get("extension_id"):
         scene.setdefault("extension_id", raw["extension_id"])
@@ -530,6 +571,11 @@ def align(bundle, semantic):
                     if bundle.get("coverage_policy") == GRAIN_POLICY
                     else {}
                 ),
+                **(
+                    {"scenario_policy": concern_policy.VERSION}
+                    if concern_policy.applies(bundle)
+                    else {}
+                ),
             }
             direct, model_parts = [], []
             options_by_id = {}
@@ -557,7 +603,12 @@ def align(bundle, semantic):
             for part in inputs["parts"]:
                 if part.get("validation_summary") and not part["candidates"]:
                     raw = owners[part["id"]][0]
-                    command = _summary_command(bundle, raw, part["failure_step_id"])
+                    command = _summary_command(
+                        bundle,
+                        raw,
+                        part["failure_step_id"],
+                        allow_external=part["validation_summary"] == "missing_body",
+                    )
                     owner = (
                         bundle["command_bindings"][command]["primary_step_id"] if command else None
                     )

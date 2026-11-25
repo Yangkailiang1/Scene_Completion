@@ -8,6 +8,7 @@ reply (``SCHEMAS``).
 from copy import deepcopy
 
 from scene_completion.domain.coverage import GRAIN_POLICY
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 
 STRING = {"type": "string"}
@@ -488,6 +489,23 @@ def packet(task, inputs, case_ids):
             "根据失败步骤和服务身份区分外部大模型、普通服务及调用方的请求。"
             "非法输入后系统返回错误仍是输入校验。含两类条件时独立摘录输入失败，保留测试原文。"
         )
+    if concern_policy.applies(inputs):
+        if task == "ssd-generate":
+            instructions += (
+                "\n身份认证、数据库特殊字符和 CRUD 并发冲突均只写固定场景分析。"
+                "failure_variants 是同一场景的明细，不为这三类提交 supplements。"
+            )
+        elif task == "ssd-ground-align" and inputs.get("phase") != "independent_mount":
+            instructions += (
+                "\n候选的 failure_variants 是一个场景内的具体失败类型。"
+                "证据明确验证其中一个类型且属于同一调用边界时判覆盖，只说明实际证实的子条件。"
+                "入口拒绝特殊字符属于输入校验，数据库存储、查询或执行错误才属数据库特殊字符。"
+            )
+        elif task == "ssd-evidence-classify":
+            instructions += (
+                "\n字段唯一性、重名和不可修改归 service.business_attribute_constraint。"
+                "纯返回业务属性异常归范围外。关联资源被并发删除只有在确实导致当前对象并发操作结果冲突时才归并发一致性。"
+            )
     if inputs.get("coverage_policy") == GRAIN_POLICY:
         if task == "ssd-ground-align":
             instructions = instructions.replace(

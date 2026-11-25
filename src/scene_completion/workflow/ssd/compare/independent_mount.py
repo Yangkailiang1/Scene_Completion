@@ -5,6 +5,7 @@ import re
 from scene_completion.domain.current_scope import AVAILABILITY, current_registry
 from scene_completion.domain.ssd import (
     actor_security,
+    concern_policy,
     external_databases,
     interface_fields,
     llm_responses,
@@ -43,6 +44,35 @@ def database_anchors(bundle, source, actual):
     else:
         selected = named or at_actual or anchors.keys()
     return {ident: anchor for ident, anchor in anchors.items() if ident in selected}
+
+
+def special_character_anchors(bundle, source, actual):
+    """Require the actual database boundary or positive evidence naming the database."""
+    anchors = database_anchors(bundle, source, actual)
+    actual_step = next((s for s in bundle["steps"] if s["id"] == actual), None)
+    if actual_step:
+        roles = external_databases.roles(actual_step)
+        confirmed = {party["id"] for party in roles.values()}
+        result = [anchor for ident, anchor in anchors.items() if ident in confirmed]
+        receiver = actual_step["receiver"]
+        if receiver.get("technology") == "database" and not receiver.get("external"):
+            result.append((actual_step, "receiver"))
+        return result
+    text = source["condition"]
+    named = [
+        (step, target)
+        for step, target in anchors.values()
+        if any(
+            re.search(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])", text, re.I)
+            for name in (step[target]["id"], step[target]["name"])
+            if name and name != "数据库"
+        )
+    ]
+    if named:
+        return named
+    if len(anchors) == 1 and re.search(r"数据库.{0,18}(?:写入|存储|读取|查询|处理|执行)", text):
+        return list(anchors.values())
+    return []
 
 
 def options(
@@ -115,13 +145,25 @@ def options(
                 bundle, text, actual, context=[source["condition"], *context]
             ):
                 add(step["id"], llm_responses.KEY, target)
-    database_keys = {AVAILABILITY, "database.special_characters"} & keys
+    consolidated = concern_policy.applies(bundle)
+    database_keys = (
+        {AVAILABILITY} & keys if consolidated else {AVAILABILITY, concern_policy.DATABASE} & keys
+    )
     if database_keys:
         for step, target in database_anchors(bundle, source, actual).values():
             for key in sorted(database_keys):
                 definition = definitions.get(key, {})
                 if definition.get("enabled", True) and definition.get("kind") == "check":
                     add(step["id"], key, target)
+    if (
+        consolidated
+        and concern_policy.DATABASE in keys
+        and definitions.get(concern_policy.DATABASE, {}).get("enabled", True)
+    ):
+        for step, target in special_character_anchors(
+            bundle, {**source, "condition": condition or source["condition"]}, actual
+        ):
+            add(step["id"], concern_policy.DATABASE, target)
 
     for unit in units:
         if not unit.get("external_crud_owner") or not in_operation_scope(
@@ -170,6 +212,16 @@ def options(
                     ):
                         add(sid, key, "interface", field_id=field["id"])
             elif key.startswith("human.") and caller == "human":
+                if (
+                    consolidated
+                    and key == concern_policy.AUTH
+                    and concern_policy.subtype(key, condition or source["condition"])
+                    == "missing_credential"
+                    and concern_policy.optional_auth(
+                        bundle, next(s for s in bundle["steps"] if s["id"] == sid)
+                    )
+                ):
+                    continue
                 add(sid, key, "sender")
             elif (
                 key.startswith("service_relation.")
@@ -186,7 +238,8 @@ def options(
             ):
                 add(sid, key, "receiver")
             elif (
-                key == "database.special_characters"
+                not consolidated
+                and key == "database.special_characters"
                 and step["receiver_technology"] == "database"
                 and not step["receiver_external"]
             ):

@@ -4,6 +4,7 @@ import re
 from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, ENTITY_PROFILE
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.construction import add_scenario, ident
 from scene_completion.domain.ssd.llm_responses import KEY as LLM_RESPONSE_KEY
 from scene_completion.infrastructure.identity import fingerprint
@@ -101,6 +102,11 @@ def batches(bundle, limit=32):
             scoped = [concerns[cid] for cid in sorted(ids)]
             yield {
                 **step_context(bundle, step),
+                **(
+                    {"scenario_policy": concern_policy.VERSION}
+                    if concern_policy.applies(bundle)
+                    else {}
+                ),
                 "concerns": _positive(scoped),
                 **(
                     {
@@ -138,6 +144,7 @@ def batches(bundle, limit=32):
                             "template_version",
                             "resource_reference",
                             "resource_failure",
+                            "failure_variants",
                         )
                         if k in r
                     }
@@ -177,6 +184,10 @@ def validate_result(payload, inputs):
             raise ValueError("补充场景只能引用本步骤已挂载的关注点")
         if concerns[item["concern_id"]].get("key") == LLM_RESPONSE_KEY:
             raise ValueError("外部大模型响应解析场景只使用按响应契约选定的固定模板")
+        if concern_policy.applies(inputs) and concern_policy.fixed_only(
+            concerns[item["concern_id"]]["key"]
+        ):
+            raise ValueError("合并后的认证、数据库特殊字符及并发场景只填写固定场景分析")
         if concerns[item["concern_id"]].get("rule_id", "").startswith("crud-resource-v1:"):
             raise ValueError("CRUD 资源检查只对按路径与约束确定的失败条件填写分析")
         if any(not item[k].strip() for k in ("condition", "expected", "analysis")):

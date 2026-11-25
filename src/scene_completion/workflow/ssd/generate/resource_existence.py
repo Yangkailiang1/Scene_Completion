@@ -3,6 +3,7 @@
 import re
 
 from scene_completion.domain.concern_templates import scenario_metadata
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd import path_resources as paths
 from scene_completion.domain.ssd.construction import (
     add_concern,
@@ -61,8 +62,35 @@ def _atoms(bundle, checks, enabled_keys):
         ref = check["resource_reference"]
         by_field.setdefault((ref["command_id"], ref["parameter_name"]), []).append(check)
     moved = set()
+    consolidated = concern_policy.applies(bundle) and bundle["registry"]["definitions"].get(
+        concern_policy.FIELD, {}
+    ).get("enabled", True)
 
     def absorb(atom, targets, key):
+        # The exact creation path parameter is the resource identity.
+        # A separate name/business-key rule stays on its own field.
+        if (
+            consolidated
+            and key == concern_policy.FIELD
+            and atom.get("applicable_operations") == ["create"]
+        ):
+            choices = [
+                check
+                for check in targets
+                if check["default_failure"] == "already_exists"
+                and re.fullmatch(
+                    r"\s*(?:创建目标\s*)?"
+                    + re.escape(check["resource_reference"]["parameter_name"])
+                    + r"\s*(?:已存在|已经存在)[。.]?\s*",
+                    atom.get("failure_condition") or "",
+                    re.I,
+                )
+            ]
+            if len(choices) == 1:
+                choices[0]["canonical_key"] = concern_policy.FIELD
+                choices[0]["variants"]["already_exists"].extend(atom["source_refs"])
+                moved.add(id(atom))
+            return
         variants = paths.atom_failures({**atom, "concern_key": key})
         eligible = [
             check
@@ -151,7 +179,7 @@ def generate(bundle, output, enabled_keys):
     for check in checks:
         unit = units[check["operation_unit_id"]]
         ref = check["resource_reference"]
-        key = check["key"]
+        key = check.get("canonical_key") or check["key"]
         noun = paths.label(ref) if ref else "操作目标"
         call_refs = (
             unique(
@@ -187,6 +215,8 @@ def generate(bundle, output, enabled_keys):
         }
         if check["command_id"]:
             details["command_id"] = check["command_id"]
+        if key != check["key"]:
+            details["concern_keys"] = [key, check["key"]]
         concern.update(details)
         for variant, evidence in check["variants"].items():
             condition = noun + paths.FAILURES[variant]

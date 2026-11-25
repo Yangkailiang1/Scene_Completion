@@ -7,7 +7,7 @@ are instantiated by deterministic rules from the actual positive contract.
 
 from copy import deepcopy
 
-from scene_completion.domain.ssd import llm_responses
+from scene_completion.domain.ssd import concern_policy, llm_responses
 
 TEMPLATE_VERSION = "three-scope-reference-v1"
 
@@ -379,17 +379,47 @@ def scenario_metadata(key, variant_id="derived_constraint", origin="deterministi
     }
 
 
-def templates_for(key):
+def templates_for(key, *, consolidated=False):
+    variants = _VARIANTS.get(key, [])
+    if consolidated:
+        if key == concern_policy.AUTH:
+            variants = [
+                (
+                    "authentication_failed",
+                    "身份认证失败",
+                    "调用方未能通过身份认证",
+                    "按约定拒绝未通过身份认证的请求",
+                )
+            ]
+        elif key == concern_policy.DATABASE:
+            variants = [
+                (
+                    "special_characters",
+                    "特殊字符处理异常",
+                    "数据库未按约定安全、正确地处理特殊字符",
+                    "按字段约定安全、正确地处理特殊字符",
+                )
+            ]
+        elif key.endswith(".concurrency_consistency"):
+            variants = [variant for variant in variants if variant[0] == "concurrent_conflict"]
     return [
         {
             **scenario_metadata(key, variant, "reference_template"),
             "label": label,
             "condition": condition,
             "expected": expected,
+            **(
+                {"template_version": concern_policy.VERSION}
+                if consolidated and concern_policy.fixed_only(key)
+                else {}
+            ),
         }
-        for variant, label, condition, expected in deepcopy(_VARIANTS.get(key, []))
+        for variant, label, condition, expected in deepcopy(variants)
     ]
 
 
-def reference_catalog():
-    return {"version": TEMPLATE_VERSION, "by_key": {key: templates_for(key) for key in _VARIANTS}}
+def reference_catalog(*, consolidated=False):
+    return {
+        "version": concern_policy.VERSION if consolidated else TEMPLATE_VERSION,
+        "by_key": {key: templates_for(key, consolidated=consolidated) for key in _VARIANTS},
+    }

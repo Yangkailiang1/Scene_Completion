@@ -52,9 +52,10 @@ def validate(bundle):
             if ref not in step_map or ids.index(ref) >= n - 1:
                 raise ValueError("本地检查必须引用前面的步骤")
     path_checks = {
-        (check["key"], check["operation_unit_id"], path_resources.identity(check), check["step_id"])
+        (key, check["operation_unit_id"], path_resources.identity(check), check["step_id"])
         for check in value.get("path_resource_checks", [])
         if check["resource_reference"]
+        for key in (check["key"], check.get("canonical_key"))
     }
     for channel in ("G", "E", "GT"):
         data = value["channels"][channel]

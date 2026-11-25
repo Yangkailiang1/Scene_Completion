@@ -10,6 +10,7 @@ from scene_completion.domain.current_scope import (
     COMMAND_PROFILES,
     STRUCTURED_PROFILES,
 )
+from scene_completion.domain.ssd import concern_policy, path_resources
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -178,10 +179,12 @@ def generate_g(bundle):
         actor_security,
         external_databases,
         llm_responses,
-        path_resources,
     )
 
-    registry = current_registry(bundle.get("registry") or default_registry())
+    consolidated = concern_policy.applies(bundle)
+    registry = current_registry(
+        bundle.get("registry") or default_registry(), consolidated=consolidated
+    )
     definitions, profiles = registry["definitions"], registry["profiles"]
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
     unit_profile = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
@@ -261,7 +264,7 @@ def generate_g(bundle):
                 if related_calls:
                     concern["related_call_step_ids"] = list(related_calls)
                 scenario_refs = source_refs if source_refs is not None else refs
-                templates = templates_for(key)
+                templates = templates_for(key, consolidated=consolidated)
                 if template_variants is not None:
                     templates = [t for t in templates if t["variant_id"] in template_variants]
                 if functional_keys:
@@ -275,7 +278,7 @@ def generate_g(bundle):
                     )
                     variants = {}
                     for k in functional_keys:
-                        for template in templates_for(k):
+                        for template in templates_for(k, consolidated=consolidated):
                             identity = (
                                 template["variant_id"],
                                 re.sub(r"创建|更新|删除", "操作", template["condition"], count=1),
@@ -310,11 +313,7 @@ def generate_g(bundle):
                             bundle.get("analysis_profile") in COMMAND_PROFILES
                             and key == "human.authentication"
                             and template["variant_id"] == "missing_credential"
-                            and any(
-                                c["id"] == step["operation"].get("command_id")
-                                and c.get("authentication") == "optional"
-                                for c in bundle["commands"]
-                            )
+                            and concern_policy.optional_auth(bundle, step)
                         ):
                             continue
                         scene = add_scenario(
@@ -352,6 +351,13 @@ def generate_g(bundle):
                                 )
                         if related_calls:
                             scene["related_call_step_ids"] = list(related_calls)
+                        if consolidated and (details := concern_policy.details(key)):
+                            scene["failure_variants"] = {
+                                variant: text
+                                for variant, text in details.items()
+                                if variant != "missing_credential"
+                                or not concern_policy.optional_auth(bundle, step)
+                            }
             return concern
 
         for target, members in llm_anchors.get(step["id"], []):
@@ -505,7 +511,7 @@ def generate_g(bundle):
                     condition=condition,
                     source_refs=source_refs,
                 )
-        if not request:
+        if not request and not consolidated:
             business = [
                 (condition, source_refs)
                 for field in step["data"]
@@ -551,6 +557,7 @@ def _attach_entity_units(bundle, output, definitions, moved_atoms):
     entities it declares, and an attribute declared on several messages stays a
     single concern on the one anchored step.
     """
+    consolidated = concern_policy.applies(bundle)
     for unit in (bundle.get("field_anchors") or {}).get("units", []):
         key = unit["concern_key"]
         definition = definitions.get(key, {})
@@ -610,22 +617,29 @@ def _attach_entity_units(bundle, output, definitions, moved_atoms):
                 if atom.get("operation") == "immutable"
                 else template
             )
-            condition = unit["attribute"] + "：" + _atom_condition(projected)
-            scene = add_scenario(
-                output,
-                concern,
-                condition,
-                variant.get("expected", ""),
-                atom.get("source_refs") or unit.get("source_refs") or step.get("source_refs", []),
-            )
-            scene.update(
-                **{
-                    k: variant[k]
-                    for k in ("template_id", "variant_id", "template_version", "generation_origin")
-                    if k in variant
-                },
-                scope="interaction",
-            )
+            for condition in _atom_conditions(projected, consolidated):
+                scene = add_scenario(
+                    output,
+                    concern,
+                    unit["attribute"] + "：" + condition,
+                    variant.get("expected", ""),
+                    atom.get("source_refs")
+                    or unit.get("source_refs")
+                    or step.get("source_refs", []),
+                )
+                scene.update(
+                    **{
+                        k: variant[k]
+                        for k in (
+                            "template_id",
+                            "variant_id",
+                            "template_version",
+                            "generation_origin",
+                        )
+                        if k in variant
+                    },
+                    scope="interaction",
+                )
 
 
 EDIT_ONLY_OPERATIONS = {"conditional_range", "state_equals"}
@@ -730,3 +744,19 @@ def _atom_condition(unit):
     if label:
         return name + label
     return name + "不满足声明约束"
+
+
+def _atom_conditions(atom, consolidated):
+    if consolidated:
+        name = atom["attribute"]
+        if atom["operation"] == "max_size" and atom.get("unit") and atom.get("value") is not None:
+            return [f"{name}大小 > {atom['value']} {atom['unit']}"]
+        if atom["operation"] == "required" and atom.get("nonempty"):
+            return [name + "缺失或为空"]
+        if atom["operation"] == "validity":
+            variants = path_resources.atom_failures(atom)
+            if variants:
+                return [
+                    name + "引用的业务对象" + path_resources.FAILURES[v] for v in sorted(variants)
+                ]
+    return [_atom_condition(atom)]

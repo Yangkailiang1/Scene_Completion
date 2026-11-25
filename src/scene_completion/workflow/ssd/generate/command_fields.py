@@ -1,9 +1,13 @@
 """Generate and deduplicate positive command field obligations."""
 
+import re
+
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, FIRST_CALL_PROFILES
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
+    ident,
     unique,
 )
 from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
@@ -17,6 +21,8 @@ def signature(atom):
             atom.get("value"),
             bool(atom.get("exclusive")),
             atom.get("failure_condition"),
+            atom.get("unit"),
+            bool(atom.get("nonempty")),
             sorted(atom.get("applicable_operations") or []),
         ]
     )
@@ -25,12 +31,15 @@ def signature(atom):
 def generate_fields(bundle, output, moved_atoms):
     """Attach one concern per field/family and merge only fully equivalent atom sets."""
     from scene_completion.domain.concern_templates import scenario_metadata
-    from scene_completion.workflow.ssd.generate.fixed import _atom_condition
+    from scene_completion.workflow.ssd.generate.fixed import _atom_conditions
 
     aliases = {}
     directions = {}
     input_fields = bundle.get("interface_field_policy") == INPUT_FIELD_POLICY
     precise_sources = bundle.get("analysis_profile") == COMMAND_OPERATION_PROFILE
+    consolidated = concern_policy.applies(bundle)
+    if consolidated:
+        _required_bodies(bundle, output)
     for step in bundle["steps"]:
         for field in step["data"]:
             explicit = field.get("entity_binding") or {}
@@ -46,6 +55,12 @@ def generate_fields(bundle, output, moved_atoms):
             obligations = {}
             binding = bundle["command_bindings"][field["command_id"]]
             for atom in field["atoms"]:
+                if (
+                    consolidated
+                    and atom["operation"] == "required"
+                    and field.get("wire_name") in _BODY_NAMES
+                ):
+                    continue
                 operations = atom.get("applicable_operations") or []
                 if id(atom) in moved_atoms or (
                     precise_sources
@@ -107,9 +122,12 @@ def generate_fields(bundle, output, moved_atoms):
                                     ref
                                     for atom in atoms
                                     if scene["condition"]
-                                    == attribute
-                                    + "："
-                                    + _atom_condition({**atom, "attribute": attribute})
+                                    in {
+                                        attribute + "：" + condition
+                                        for condition in _atom_conditions(
+                                            {**atom, "attribute": attribute}, consolidated
+                                        )
+                                    }
                                     for ref in atom["source_refs"]
                                 ]
                                 if precise_sources
@@ -134,13 +152,75 @@ def generate_fields(bundle, output, moved_atoms):
                     continue
                 _record_command_sources(concern, field)
                 for atom in atoms:
-                    condition = _atom_condition({**atom, "attribute": field["wire_name"]})
-                    scene = add_scenario(output, concern, condition, "", atom["source_refs"])
-                    scene.update(
-                        scenario_metadata(key, atom["operation"], "deterministic_constraint"),
-                    )
-                    _record_command_sources(scene, field)
+                    for condition in _atom_conditions(
+                        {**atom, "attribute": field["wire_name"]}, consolidated
+                    ):
+                        scene = add_scenario(output, concern, condition, "", atom["source_refs"])
+                        scene.update(
+                            scenario_metadata(key, atom["operation"], "deterministic_constraint"),
+                        )
+                        _record_command_sources(scene, field)
     bundle["command_aliases"] = aliases
+
+
+_BODY_NAMES = {"body", "$body", "requestBody", "请求体", "请求报文"}
+_BODY_REQUIRED = re.compile(
+    r"(?:必须(?:提供|传入|包含)|不可缺少|不得省略)(?:非空)?(?:请求体|请求报文)"
+    r"|(?:请求体|请求报文)(?:为必填|必填|不得为空|不能为空|不可为空|不允许为空)"
+)
+
+
+def _required_bodies(bundle, output):
+    """An explicit whole-body obligation owns one scenario per command."""
+    from scene_completion.domain.concern_templates import scenario_metadata
+
+    steps = {step["id"]: step for step in bundle["steps"]}
+    for command in bundle["commands"]:
+        command_id = command["id"]
+        binding = bundle["command_bindings"].get(command_id)
+        if not binding or binding.get("binding_source") == "step1_fallback":
+            continue
+        step = steps.get(binding["primary_step_id"])
+        if not step or step["direction"] != "request":
+            continue
+        refs = unique(command["source_refs"] + step["source_refs"])
+        body_atoms = [
+            atom
+            for field in step["data"]
+            if field.get("command_id") == command_id
+            and field["wire_name"] in _BODY_NAMES
+            and not field.get("conflicts")
+            for atom in field["atoms"]
+            if atom["operation"] == "required"
+        ]
+        text = [str(command.get("quote") or ""), *(r.get("quote") or "" for r in refs)]
+        if not (body_atoms or any(_BODY_REQUIRED.search(quote) for quote in text)):
+            continue
+        body_refs = [ref for atom in body_atoms for ref in atom["source_refs"]]
+        concern = add_concern(
+            output,
+            bundle,
+            "G",
+            step,
+            concern_policy.COMPLETENESS,
+            "receiver",
+            condition="请求体完整性",
+            refs=unique(body_refs + refs),
+            operation_unit_id=ident("operation-unit", bundle["case"]["id"], "command", command_id),
+        )
+        if concern:
+            concern["command_id"] = command_id
+            scene = add_scenario(
+                output,
+                concern,
+                "必填请求体未提供或为空",
+                "按接口约定处理缺少请求体的输入",
+                concern["source_refs"],
+            )
+            scene.update(
+                command_id=command_id,
+                **scenario_metadata(concern_policy.COMPLETENESS, "empty_body"),
+            )
 
 
 def _record_command_sources(record, field, *, include_primary=True):

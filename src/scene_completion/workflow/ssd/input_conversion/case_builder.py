@@ -9,7 +9,9 @@ from scene_completion.domain.current_scope import (
     COMMAND_OPERATION_PROFILE,
     COMMAND_PROFILES,
     STRUCTURED_PROFILES,
+    current_registry,
 )
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.construction import (
     channel,
     ident,
@@ -206,7 +208,10 @@ def build_cases(
             "case": case,
             **({"analysis_profile": active_profile} if active_profile else {}),
             **(
-                {"interface_field_policy": INPUT_FIELD_POLICY}
+                {
+                    "interface_field_policy": INPUT_FIELD_POLICY,
+                    "scenario_policy": concern_policy.VERSION,
+                }
                 if active_profile == COMMAND_OPERATION_PROFILE
                 else {}
             ),
@@ -232,7 +237,9 @@ def build_cases(
             # Retain the project catalogue so a reviewer can select another
             # declared API. G still uses only the actual step's bound fields.
             "apis": [] if entity_only else deepcopy(list(local_contracts.values())),
-            "registry": default_registry(),
+            "registry": current_registry(default_registry(), consolidated=True)
+            if active_profile == COMMAND_OPERATION_PROFILE
+            else default_registry(),
             "rule_version": RULE_VERSION,
         }
         if active_profile == COMMAND_OPERATION_PROFILE and len(tree_hits) != 1:

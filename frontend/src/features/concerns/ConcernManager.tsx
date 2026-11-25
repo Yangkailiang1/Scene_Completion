@@ -5,8 +5,8 @@ import { ConcernTree } from "./ConcernTree";
 import { scopeNames, type AnalysisScope } from "../results/project/types";
 const layers: Record<string, string> = {
   human: "人类Actor",
-  base: "第一层：基础与业务实体属性",
-  shared: "第一层：输入／输出数据",
+  base: "第一层：基础与字段约束",
+  shared: "第一层：输入数据",
   functional: "第二层：功能类型关注点／第三层业务",
   technology: "第四层：技术扩展",
   relation: "Service之间",
@@ -16,7 +16,7 @@ const groups: Record<string, Record<string, string>> = {
   human: { human: "身份与权限" },
   base: {
     service_base: "基础数据及外部服务",
-    business_attribute: "业务实体属性约束",
+    business_attribute: "字段约束",
   },
   shared: { api_data: "数据关注点" },
   functional: {
@@ -177,6 +177,11 @@ export function ConcernManager({
     }
   }
   const readOnly = view?.read_only;
+  const suspended = new Set<string>(view?.ssd_suspended_keys || []);
+  const templates =
+    view?.ssd_templates?.[form?.key] ||
+    view?.registry?.reference_templates?.by_key?.[form?.key] ||
+    [];
   const defs = Object.fromEntries(
     Object.entries(view?.registry.definitions || {}).filter(
       ([key]) => readOnly || !retiredServiceSecurity.has(key),
@@ -294,7 +299,8 @@ export function ConcernManager({
                         "service_relation.data_isolation",
                         "service_relation.cross_service_consistency",
                       ].includes(key))) &&
-                  (showDeleted || d.enabled !== false) &&
+                  (showDeleted ||
+                    (d.enabled !== false && !suspended.has(key))) &&
                   (!readOnly && key === "service.base.availability"
                     ? "interaction"
                     : d.scope ||
@@ -396,35 +402,29 @@ export function ConcernManager({
                         placeholder="说明检查什么、不包含什么，以及适用条件"
                       />
                     </label>
-                    {view.registry.reference_templates?.by_key?.[form.key]
-                      ?.length > 0 && (
+                    {suspended.has(form.key) && (
+                      <p className="muted">当前 SSD 流程暂停该关注点。</p>
+                    )}
+                    {templates.length > 0 && (
                       <details>
                         <summary>
                           固定异常参考模板（
-                          {
-                            view.registry.reference_templates.by_key[form.key]
-                              .length
-                          }{" "}
-                          项）
+                          {templates.length} 项）
                         </summary>
-                        <p>
-                          各模板项独立保留；生成时可补充具体场景说明，不会替换固定失败条件。
-                        </p>
-                        {view.registry.reference_templates.by_key[form.key].map(
-                          (template: any) => (
-                            <article
-                              key={`${template.template_id}:${template.variant_id}`}
-                            >
-                              <strong>{template.label}</strong>
-                              <p>{template.condition}</p>
-                              <p>预期：{template.expected}</p>
-                              <small>
-                                {template.template_id} / {template.variant_id} ·{" "}
-                                {template.template_version}
-                              </small>
-                            </article>
-                          ),
-                        )}
+                        <p>固定场景按模板保留，业务分析结合当前用例生成。</p>
+                        {templates.map((template: any) => (
+                          <article
+                            key={`${template.template_id}:${template.variant_id}`}
+                          >
+                            <strong>{template.label}</strong>
+                            <p>{template.condition}</p>
+                            <p>预期：{template.expected}</p>
+                            <small>
+                              {template.template_id} / {template.variant_id} ·{" "}
+                              {template.template_version}
+                            </small>
+                          </article>
+                        ))}
                       </details>
                     )}
                     <div className="form-columns">

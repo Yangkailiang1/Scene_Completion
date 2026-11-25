@@ -3,7 +3,7 @@
 from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
-from scene_completion.domain.ssd import actor_security, llm_responses
+from scene_completion.domain.ssd import actor_security, concern_policy, llm_responses
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -36,6 +36,7 @@ def definitions(bundle):
         for key, definition in bundle["registry"]["definitions"].items()
         if definition.get("enabled", True)
         and key not in actor_security.SERVICE_KEYS
+        and (not concern_policy.applies(bundle) or key in concern_policy.ACTIVE_CHECKS)
         and definition.get("kind") == "check"
         and definition.get("scope", "interaction") == "interaction"
         and (
@@ -131,6 +132,8 @@ def _constraint_input(rid, owner, attr, rule):
                     "failure_condition",
                     "exclusive",
                     "applicable_operations",
+                    "unit",
+                    "nonempty",
                 )
                 if key in atom
             }
@@ -557,6 +560,10 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
     if concern is None:
         return "关注点在当前规则中未启用"
     scene = add_scenario(output, concern, binding["condition"], binding["expected"], refs)
+    if concern_policy.applies(bundle) and (
+        subtype := concern_policy.subtype(key, scene["condition"])
+    ):
+        scene["failure_subtype"] = subtype
     if resource_reference:
         scene.update(
             command_id=resource_reference["command_id"],

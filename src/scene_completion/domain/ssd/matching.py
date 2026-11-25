@@ -5,7 +5,7 @@ import unicodedata
 
 from scene_completion.domain.coverage import GRAIN_POLICY
 from scene_completion.domain.scenario_conditions import disjoint
-from scene_completion.domain.ssd import path_resources
+from scene_completion.domain.ssd import concern_policy, path_resources
 from scene_completion.domain.ssd.llm_responses import different_failures
 from scene_completion.domain.ssd.validation_scope import compatible
 
@@ -77,6 +77,7 @@ def semantic_candidates(bundle):
                     and not disjoint(left_condition, right_condition)
                     and not different_failures(left, right)
                     and not path_resources.different_failures(left, right)
+                    and not concern_policy.different_subtypes(left, right)
                     and (
                         bundle.get("coverage_policy") != GRAIN_POLICY
                         or compatible(left_condition, right_condition)

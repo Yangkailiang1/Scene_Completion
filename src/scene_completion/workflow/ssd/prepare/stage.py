@@ -3,6 +3,8 @@
 from copy import deepcopy
 
 from scene_completion.application import ssd_revision_service
+from scene_completion.domain.current_scope import current_registry
+from scene_completion.domain.ssd import concern_policy
 from scene_completion.domain.ssd.validation import validate
 from scene_completion.inputs.documents.ssd_adapter import normalize_extracted_case
 from scene_completion.workflow.ssd.generate.fixed import generate_g
@@ -21,7 +23,9 @@ def structured(ex, directory, case_id, file, problem, test_claims=None):
     bundle = validate(bundles[0])
     # Pin the exact model-independent core used for all downstream stages.
     bundle["core_snapshot"] = pin_core(ex.root, directory, bundle)
-    bundle["registry"] = deepcopy(ex.registry_snapshot)
+    bundle["registry"] = current_registry(
+        ex.registry_snapshot, consolidated=concern_policy.applies(bundle)
+    )
     bundle["analysis_policy"] = ex.registry_snapshot["analysis_policy"]
     bundle["channels"]["G"] = generate_g(bundle)
     ssd_revision_service.publish(ex.root.parent, bundle)

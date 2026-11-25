@@ -87,10 +87,29 @@ def registry_view(project, version=None):
         and read_json(p.parent / "run_manifest.json").get("registry_hash") == selected["hash"]
     ]
     from scene_completion.domain.concern_presentation import presentation
+    from scene_completion.domain.current_scope import current_registry
+    from scene_completion.domain.ssd import concern_policy
+
+    live = not version or version == current["hash"]
+    effective = current_registry(selected, consolidated=True) if live else selected
 
     return {
-        "presentation": presentation(selected["definitions"]),
+        "presentation": presentation(effective["definitions"]),
         "registry": selected,
+        **(
+            {
+                "ssd_suspended_keys": [
+                    key for key in selected["definitions"] if not concern_policy.enabled(key)
+                ],
+                "ssd_templates": {
+                    key: rows
+                    for key, rows in effective["reference_templates"]["by_key"].items()
+                    if concern_policy.enabled(key) and concern_policy.fixed_only(key)
+                },
+            }
+            if live
+            else {}
+        ),
         "current_hash": current["hash"],
         "revision": max([v["revision"] for v in versions] or [0]),
         "reports": reports,

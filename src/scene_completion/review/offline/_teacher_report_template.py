@@ -272,6 +272,16 @@ function sceneEdit(group,scene){
  const wrapper=el('div',undefined,'scene-edit');
  wrapper.dataset.sceneId=scene.id;
  wrapper.append(fittedEditor(input(group,scene,'text',editorFields.text,scene.text)),evidence(group,scene));
+ if(scene.failure_variants){
+  const details=el('details',undefined,'scene-evidence');
+  details.append(el('summary','失败类型明细'),el('p',Object.values(scene.failure_variants).join('、')));
+  for(const channel of ['E','GT']){
+   for(const record of scene.evidence[channel]||[]){
+    details.append(el('p',channels[channel]+' · '+record.condition));
+   }
+  }
+  wrapper.append(details);
+ }
  return wrapper;
 }
 function concernOf(group,scene){
