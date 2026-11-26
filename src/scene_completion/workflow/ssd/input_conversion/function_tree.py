@@ -119,6 +119,7 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
                     entity_only=True,
                     rule_refs=rule_refs,
                     tag_refs=tag_refs,
+                    character_rules=True,
                 )
             else:
                 tags = row.get("tags") or []
@@ -151,6 +152,17 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
                     "name": name,
                     "wire_name": row.get("wire_name") or name,
                     **({"location": location} if not direct else {}),
+                    **(
+                        {"declared_name_location": hint}
+                        if direct
+                        and (hint := _location(row))
+                        in {"path", "body", "query", "header", "response"}
+                        and (
+                            field_name(row["name"]).rsplit(".", 1)[-1] == "name"
+                            or (row.get("entity_binding") or {}).get("attribute") == "name"
+                        )
+                        else {}
+                    ),
                     "type": row.get("type"),
                     "entity_binding": row.get("entity_binding"),
                     "required": True if "必填" in tags else None,
@@ -190,6 +202,17 @@ def catalogue(sources, tree, path, case_id, case_name, *, selected=None):
 
 
 def _merge_input_fields(fields):
+    positions = {}
+    for field in fields:
+        if location := field.get("declared_name_location"):
+            positions.setdefault(field["name"], set()).add(location)
+    for field in fields:
+        name = field["name"]
+        if len(positions.get(name, ())) > 1:
+            if location := field.get("declared_name_location"):
+                field["name"] = location + "." + name
+            else:
+                field.setdefault("conflicts", []).append("同名名称字段的输入位置待确认")
     by_name = {}
     for field in fields:
         current = by_name.setdefault(field["name"], field)

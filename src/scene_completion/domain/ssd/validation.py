@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from scene_completion.domain.ssd import path_resources
+from scene_completion.domain.ssd import input_concerns, path_resources
 from scene_completion.domain.ssd.matching import PAIRS, semantic_candidates
 
 VERSION = "ssd-case-v1"
@@ -57,6 +57,11 @@ def validate(bundle):
         if check["resource_reference"]
         for key in (check["key"], check.get("canonical_key"))
     }
+    routes = {
+        command["id"]: path_resources.path_parameters(command.get("path"))
+        for command in value.get("commands", [])
+    }
+    command_bindings = value.get("command_bindings", {})
     for channel in ("G", "E", "GT"):
         data = value["channels"][channel]
         for kind in ("concerns", "scenarios", "pending"):
@@ -69,6 +74,12 @@ def validate(bundle):
             if len(set(record_ids)) != len(record_ids):
                 raise ValueError("通道内记录 ID 重复")
         concern_ids = {c["id"] for c in data["concerns"]}
+        if input_concerns.applies(value):
+            concern_ids.update(
+                input_concerns.group_id(value, channel, row["step_id"], row["key"])
+                for row in data["concerns"]
+                if input_concerns.eligible(row)
+            )
         for kind in ("concerns", "scenarios"):
             for row in data[kind]:
                 if row.get("status") not in {"active", "pending", "unbound"}:
@@ -101,6 +112,19 @@ def validate(bundle):
                 ):
                     row["status"] = "unbound"
                     row["binding_issue"] = "接口路径、CRUD 或主挂载步已变更，请重新挂载"
+                if path_input := row.get("path_input"):
+                    command = path_input.get("command_id")
+                    names = routes.get(command, [])
+                    parameter = path_input.get("parameter")
+                    if (
+                        row["target"] != "data"
+                        or not names
+                        or row["step_id"]
+                        != command_bindings.get(command, {}).get("primary_step_id")
+                        or (parameter is not None and parameter not in names)
+                    ):
+                        row["status"] = "unbound"
+                        row["binding_issue"] = "SR 接口路径、参数或主挂载步已变更，请重新挂载"
                 if str(row.get("key", "")).startswith("global."):
                     raise ValueError("本轮不纳入全局关注点")
                 if kind == "scenarios" and (
@@ -108,6 +132,7 @@ def validate(bundle):
                 ):
                     row["status"] = "unbound"
                     row["binding_issue"] = "关联关注点已移除，请重新挂载"
+    input_concerns.group_bundle(value, PAIRS)
     for decision in value.get("decisions", []):
         if (
             decision.get("pair") not in PAIRS

@@ -94,6 +94,8 @@ export type Observation = {
   applicable_operations?: string[];
   failure_variants?: Record<string, string>;
   failure_subtype?: string;
+  input_group?: boolean;
+  path_input?: { command_id: string; parameter?: string };
   resource_reference?: {
     command_id: string;
     parameter_name: string;
@@ -130,6 +132,7 @@ export type Bundle = {
   documents: SourceDocument[];
   analysis_profile?: string;
   interface_field_policy?: string;
+  input_concern_policy?: string;
   command_bindings?: Record<
     string,
     {

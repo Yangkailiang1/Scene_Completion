@@ -5,8 +5,9 @@ import pytest
 
 from scene_completion.analysis.concerns.constraint_atoms import normalize_rules
 from scene_completion.application import ssd_revision_service as revisions
+from scene_completion.domain.concern_registry import default_registry
 from scene_completion.domain.coverage import GRAIN_POLICY
-from scene_completion.domain.current_scope import case_report
+from scene_completion.domain.current_scope import case_report, current_registry
 from scene_completion.domain.ssd import concern_policy as policy
 from scene_completion.domain.ssd.construction import channel, pending
 from scene_completion.review.offline.business_report_export import export_html
@@ -118,6 +119,8 @@ def _run_evidence(bundle):
 
 
 def test_auth_and_database_evidence_fold_into_one_row_each(tmp_path, bundle):
+    bundle["scenario_policy"] = policy.LEGACY_VERSION
+    bundle["registry"] = current_registry(default_registry(), consolidated=True, path_policy=False)
     database = {
         "id": "db",
         "name": "CatalogDB",

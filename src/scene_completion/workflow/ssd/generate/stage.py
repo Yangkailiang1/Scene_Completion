@@ -30,8 +30,7 @@ def _generate(ex, bundle, record):
                 continue
             source = known.get(row["id"], {})
             if source.get("analysis") and all(
-                source.get(k) == row.get(k)
-                for k in ("condition", "expected", "template_version", "concern_ids")
+                source.get(k) == row.get(k) for k in ("condition", "expected", "template_version")
             ):
                 for key in (
                     "analysis",

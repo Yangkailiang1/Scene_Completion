@@ -45,6 +45,7 @@ def add_concern(
     obligation_scope=None,
     operation_unit_id=None,
     resource_reference=None,
+    path_input=None,
 ):
     definitions = bundle.get("registry", default_registry())["definitions"]
     if (
@@ -68,6 +69,7 @@ def add_concern(
         *([sorted(obligation_scope)] if obligation_scope else []),
         *([operation_unit_id] if operation_unit_id else []),
         *path_resources.identity({"resource_reference": resource_reference}),
+        *([path_input] if path_input else []),
     )
     previous = next((c for c in output["concerns"] if c["id"] == cid), None)
     if previous:
@@ -92,6 +94,8 @@ def add_concern(
         value["operation_unit_id"] = operation_unit_id
     if resource_reference:
         value["resource_reference"] = resource_reference
+    if path_input:
+        value["path_input"] = path_input
     if obligation_scope:
         value["obligation_scope"] = sorted(obligation_scope)
     if rule_id:
@@ -119,6 +123,7 @@ def add_scenario(output, concern, condition, expected, refs, identity=None):
                 "obligation_scope",
                 "operation_unit_id",
                 "resource_reference",
+                "path_input",
             )
             if k in concern
         },

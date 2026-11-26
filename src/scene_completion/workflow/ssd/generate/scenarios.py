@@ -103,7 +103,7 @@ def batches(bundle, limit=32):
             yield {
                 **step_context(bundle, step),
                 **(
-                    {"scenario_policy": concern_policy.VERSION}
+                    {"scenario_policy": bundle["scenario_policy"]}
                     if concern_policy.applies(bundle)
                     else {}
                 ),
@@ -188,6 +188,10 @@ def validate_result(payload, inputs):
             concerns[item["concern_id"]]["key"]
         ):
             raise ValueError("合并后的认证、数据库特殊字符及并发场景只填写固定场景分析")
+        if concerns[item["concern_id"]].get("input_group"):
+            raise ValueError("数据类补充须先确认具体字段及约束，再生成场景")
+        if concerns[item["concern_id"]].get("path_input"):
+            raise ValueError("路径参数只填写按接口模板生成的固定场景分析")
         if concerns[item["concern_id"]].get("rule_id", "").startswith("crud-resource-v1:"):
             raise ValueError("CRUD 资源检查只对按路径与约束确定的失败条件填写分析")
         if any(not item[k].strip() for k in ("condition", "expected", "analysis")):

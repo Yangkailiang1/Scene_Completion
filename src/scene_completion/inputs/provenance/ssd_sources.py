@@ -667,6 +667,7 @@ def entities_for(
                         entity_only=entity_only,
                         rule_refs=rule_refs,
                         tag_refs=tag_refs,
+                        character_rules=selected is not None,
                     )
                     simple_constraints = []
                     for index, rule in enumerate(rules):

@@ -24,7 +24,10 @@ def structured(ex, directory, case_id, file, problem, test_claims=None):
     # Pin the exact model-independent core used for all downstream stages.
     bundle["core_snapshot"] = pin_core(ex.root, directory, bundle)
     bundle["registry"] = current_registry(
-        ex.registry_snapshot, consolidated=concern_policy.applies(bundle)
+        ex.registry_snapshot,
+        consolidated=concern_policy.applies(bundle),
+        path_policy=concern_policy.path_inputs(bundle),
+        name_characters=concern_policy.name_characters(bundle),
     )
     bundle["analysis_policy"] = ex.registry_snapshot["analysis_policy"]
     bundle["channels"]["G"] = generate_g(bundle)

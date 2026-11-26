@@ -303,6 +303,8 @@ ENTITY_INSTRUCTIONS = {
         "每个 unit_id 返回一次。接口从该单位的 candidates 中选唯一实际调用步骤，已有 step_id 保持原样；无法确定填 null。"
         "结合操作语义、接口名和方法分析该单位的实际 CRUD，可多项；POST 并不一定是创建，转发校验不算独立操作。"
         "无接口的外部服务单位只有一个调用候选，只判断该次调用的实际 CRUD。"
+        "entity_name_input 单位也只有一个交互。结合用例名称、该步实际操作和参与实体判断创建；"
+        "纯转发、校验、展示和查询不是创建，不能仅凭用例名或 POST 推断。无法确认时 step_id 填 null。"
         "同一服务的其他调用可供理解上下文，不能把其他步骤发生的增删改查合到本单位。"
         "该单位的 reason 写具体证据，不能虚构调用、参数或文档。"
     ),
@@ -406,9 +408,18 @@ ssd-semantic-compare：对pairs中每一对恰好返回一次，不得新增、�
 partial仅供诊断。不能根据G补E或GT，不能根据E/GT补G。"""
 
 
+MATCH_REASON_INSTRUCTIONS = (
+    "\n逐项核对 status 与该项 reason。判 none 时说明失败条件、预期或调用边界的差异；"
+    "判 full 时说明为何两个场景是同一失败义务。只描述同一请求或责任对象不代表覆盖。"
+)
+
+
 def instructions_for(task):
     if task in ENTITY_INSTRUCTIONS:
-        return ENTITY_INSTRUCTIONS[task]
+        instructions = ENTITY_INSTRUCTIONS[task]
+        return (
+            instructions + MATCH_REASON_INSTRUCTIONS if task == "ssd-ground-align" else instructions
+        )
     if task == "ssd-bind":
         return (
             INSTRUCTIONS
@@ -416,9 +427,12 @@ def instructions_for(task):
             + "ssd-bind：所有输出仅使用输入的S步骤/F字段/A接口/L原文短编号。operations只补充未确定的实际CRUD，POST不能直接视为创建，结合业务操作语义；不改人工或声明操作。field_links只关联已有字段与已有接口属性，api_id、location、name三者必须与输入apis.fields某一项逐字一致，不新增报文字段，不混请求/返回/存储。RR中的Authorization不能关联到未声明Authorization的SR接口；RR字段有正向原文约束时可使用field_definitions直接补齐，不必填写field_links，也不代表RR实际调用SR接口，工具不会伪造RR API。field_definitions只从positive_lines中明示的规则提取类型、必填、格式、长度、范围等，必须引用准确L编号；不输出无依据的空占位行，不虚构阈值，不把其他用例规则复制过来。已有字段声明优先，无法确定或没有约束不编造，pending写具体步骤与缺口。"
         )
     if task == "ssd-semantic-compare":
-        return INSTRUCTIONS.replace(
-            "partial仅供诊断。",
-            "partial仅在真实覆盖或条件有重叠时返回，full和partial最终均计覆盖。互斥具体数值（如pageSize=0与pageSize=101）、下界与上界失败应为none；同字段、同关注点、同错误码不构成覆盖。保留reason中的差异。",
+        return (
+            INSTRUCTIONS.replace(
+                "partial仅供诊断。",
+                "partial仅在真实覆盖或条件有重叠时返回，full和partial最终均计覆盖。互斥具体数值（如pageSize=0与pageSize=101）、下界与上界失败应为none；同字段、同关注点、同错误码不构成覆盖。保留reason中的差异。",
+            )
+            + MATCH_REASON_INSTRUCTIONS
         )
     return INSTRUCTIONS
 
@@ -458,6 +472,13 @@ def packet(task, inputs, case_ids):
 
     schema = output_schema(task, inputs)
     instructions = instructions_for(task)
+    if task == "ssd-generate" and any(
+        concern.get("input_group") for concern in inputs.get("concerns", [])
+    ):
+        instructions += (
+            "\n输入数据关注点按类型归组，具体字段与失败条件保留在 templates。"
+            "这些关注点只填写已有场景的分析；额外字段约束由前置约束解析确认。"
+        )
     if task == "ssd-generate" and any(
         concern.get("rule_id", "").startswith("crud-resource-v1:")
         for concern in inputs.get("concerns", [])
@@ -499,12 +520,47 @@ def packet(task, inputs, case_ids):
             instructions += (
                 "\n候选的 failure_variants 是一个场景内的具体失败类型。"
                 "证据明确验证其中一个类型且属于同一调用边界时判覆盖，只说明实际证实的子条件。"
-                "入口拒绝特殊字符属于输入校验，数据库存储、查询或执行错误才属数据库特殊字符。"
             )
         elif task == "ssd-evidence-classify":
             instructions += (
                 "\n字段唯一性、重名和不可修改归 service.business_attribute_constraint。"
                 "纯返回业务属性异常归范围外。关联资源被并发删除只有在确实导致当前对象并发操作结果冲突时才归并发一致性。"
+            )
+    if (
+        inputs.get("scenario_policy") == concern_policy.LEGACY_VERSION
+        and task == "ssd-ground-align"
+    ):
+        instructions += "\n入口拒绝特殊字符属于输入校验，数据库自身处理错误属数据库特殊字符。"
+    if concern_policy.path_inputs(inputs):
+        if task == "ssd-evidence-classify":
+            instructions += (
+                "\n普通输入违反声明的允许字符、禁止字符或字符集正则归字段约束。"
+                "步骤在查库附近仍按证据区分入参被拒与实际数据库处理失败。"
+                "数据库自身的字符处理故障归范围外。路径占位符为空或缺失归数据完整性，"
+                "包含非法字符归 api.data.path_special_characters。"
+            )
+        elif task == "ssd-ground-align" and inputs.get("phase") != "independent_mount":
+            instructions += (
+                "\n含 path_input 的候选已通过关注点层匹配，请独立判断每个参数和失败类别。"
+                "没有明确适用于所有路径参数的原文时，宽泛的总述不能证明每个参数都测试过。"
+                "按具体测试证据判断 full 或 none，空值、非法字符和资源不存在分别比较。"
+                "路径候选的归属已固定，fallback 填 null。"
+                "字段字符规则候选可跨同一业务输入的校验与查库步骤。结合预期判断是否是同一输入拒绝，"
+                "区分数据库自身处理失败。"
+            )
+        elif task == "ssd-generate":
+            instructions += "\n路径参数完整性与特殊字符只分析已生成的固定场景。"
+    if concern_policy.name_characters(inputs):
+        if task == "ssd-evidence-classify":
+            instructions += (
+                "\n创建操作的 name 输入含特殊字符时（如 SQL 注入特征、HTML 脚本内容、路径穿越特征），"
+                "使用 api.data.path_special_characters。普通的名称正则或字符集违规仍归字段约束。"
+                "实际数据库处理失败或只涉及输出的异常不归这两类。"
+            )
+        elif task == "ssd-ground-align" and inputs.get("phase") != "independent_mount":
+            instructions += (
+                "\nname_character_input 表示实际创建操作的名称输入。分别判断特殊字符风险与明示正则，"
+                "证据分别支持时才可以同时覆盖两类场景。区分同名路径占位符和请求体参数。"
             )
     if inputs.get("coverage_policy") == GRAIN_POLICY:
         if task == "ssd-ground-align":
@@ -513,10 +569,23 @@ def packet(task, inputs, case_ids):
                 "同一失败义务且条件相同或原文明确涵盖候选时判full；否则判none。",
             ).replace("有full或partial时", "有full时")
         if task == "ssd-semantic-compare":
-            instructions = INSTRUCTIONS.split("partial仅供诊断。")[0] + (
-                "只返回full或none。证据支持同一失败义务时判full；"
-                "互斥条件、不同边界、不同字段或操作判none。"
-                "非法JSON只匹配请求体解析失败。不能根据G补E或GT，不能根据E/GT补G。"
+            instructions = (
+                INSTRUCTIONS.split("partial仅供诊断。")[0]
+                + (
+                    "只返回full或none。证据支持同一失败义务时判full；"
+                    "互斥条件、不同边界、不同字段或操作判none。"
+                    "非法JSON只匹配请求体解析失败。不能根据G补E或GT，不能根据E/GT补G。"
+                )
+                + MATCH_REASON_INSTRUCTIONS
+            )
+    if task in {"ssd-ground-align", "ssd-semantic-compare"}:
+        if inputs.get("decision_recheck"):
+            instructions += "\n仅重新判断本批的冲突候选，提交前检查每项状态与理由是否一致。"
+        if task == "ssd-ground-align" and any(
+            part.get("has_confirmed_match") for part in inputs.get("parts", [])
+        ):
+            instructions += (
+                "\nhas_confirmed_match=true 的部分已有脚本确认配对，fallback 固定为 null。"
             )
     return {
         "protocol": "scene-workflow-v5",

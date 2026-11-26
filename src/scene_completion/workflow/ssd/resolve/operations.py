@@ -1,5 +1,6 @@
 """Resolve actual calls and select the first occurrence of each external CRUD."""
 
+from scene_completion.domain.ssd import concern_policy, name_inputs
 from scene_completion.domain.ssd.construction import ident, pending, unique
 from scene_completion.domain.ssd_contracts import CRUD
 from scene_completion.workflow.ssd.shared.command_bindings import associate_entities, attach
@@ -138,7 +139,65 @@ def resolve(bundle, semantic):
             }
         )
     attach(bundle, commands, placements)
+    _resolve_entity_name_operations(bundle, steps, resolved, semantic)
     _publish_call_units(bundle, resolved)
+
+
+def _resolve_entity_name_operations(bundle, steps, resolved, semantic):
+    if not concern_policy.name_characters(bundle):
+        return
+    bound = {
+        sid
+        for link in bundle["command_bindings"].values()
+        if link.get("binding_source") != "step1_fallback"
+        for sid in link["occurrences"] + link.get("validation_step_ids", [])
+    } | {row["step_id"] for row in resolved if not row.get("command_id")}
+    candidates = [
+        step
+        for step in steps
+        if step["id"] not in bound
+        and step["direction"] == "request"
+        and name_inputs.entity_names(bundle, step["entity_ids"])
+    ]
+    confirmed, units = {}, []
+    case = bundle["case"]
+    for step in candidates:
+        sid = step["id"]
+        operation = step["operation"]
+        if operation.get("kinds_source") in {"manual", "declared"}:
+            confirmed[sid] = {
+                "context": name_inputs.operation_context(step),
+                "crud": operation.get("kinds", []),
+                "reason": operation.get("reason") or "交互已有明确的业务操作声明",
+            }
+        else:
+            units.append(
+                _unit(
+                    case["id"],
+                    ("entity-name-input", sid),
+                    [sid],
+                    kind="entity_name_input",
+                    step_id=sid,
+                    name=operation["name"],
+                )
+            )
+    if semantic:
+        by_id = {step["id"]: step for step in candidates}
+        for offset in range(0, len(units), 20):
+            packet = {
+                "case": case,
+                "steps": [_notes(s) for s in steps],
+                "units": units[offset : offset + 20],
+            }
+            result = validate_result(semantic(TASK, packet), packet)
+            for row in result["operations"]:
+                if sid := row["step_id"]:
+                    confirmed[sid] = {
+                        "context": name_inputs.operation_context(by_id[sid]),
+                        "crud": row["crud"],
+                        "reason": row["reason"],
+                    }
+    bundle["name_input_operations"] = confirmed
 
 
 def _publish_call_units(bundle, resolved):
@@ -329,6 +388,15 @@ def rebind(bundle, previous):
             "reason": link.get("reason", ""),
         }
     attach(bundle, commands, placements)
+    if concern_policy.name_characters(bundle):
+        confirmed = bundle.setdefault("name_input_operations", {})
+        for sid, step in steps.items():
+            if step["operation"].get("kinds_source") == "manual":
+                confirmed[sid] = {
+                    "context": name_inputs.operation_context(step),
+                    "crud": step["operation"]["kinds"],
+                    "reason": "人工修订",
+                }
     if "operation_call_units" in bundle:
         _rebind_calls(bundle, previous_steps, commands)
         return

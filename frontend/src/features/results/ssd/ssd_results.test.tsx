@@ -1076,7 +1076,14 @@ test("incomplete semantic comparisons are visible and can be manually adjudicate
     },
   ];
   bundle.semantic_pending = [
-    { pair: "G_E", left_id: "gs1", right_id: "es1", step_id: "step1" },
+    {
+      pair: "G_E",
+      left_id: "gs1",
+      right_id: "es1",
+      step_id: "step1",
+      conflict: true,
+      reason: "匹配未完成：模型状态与判定理由矛盾，待复核",
+    },
   ];
   mockApi(() => ({
     ...response(bundle),
@@ -1096,6 +1103,7 @@ test("incomplete semantic comparisons are visible and can be manually adjudicate
   expect(screen.getByText(/未完成的语义比较不视为已判定不匹配/)).toBeTruthy();
   fireEvent.click(screen.getByText(/尚未完成的语义比较（1 对）/));
   expect(screen.getByText("方法生成：生成条件")).toBeTruthy();
+  expect(screen.getByText(/模型状态与判定理由矛盾/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "查看详情" }));
   expect(
     (screen.getByLabelText("方法生成记录") as HTMLSelectElement).value,
@@ -1525,4 +1533,75 @@ test("shows the command and role of a CRUD path resource", async () => {
   expect(
     await screen.findByText("CATALOG-GET · 父对象 categoryId"),
   ).toBeTruthy();
+});
+
+test("shows a generated path parameter without a declared interface field", async () => {
+  const bundle = fixture();
+  Object.assign(bundle.channels.G.concerns[0], {
+    target: "data",
+    key: "api.data.completeness",
+    field_id: null,
+    label: "数据完整性",
+    condition: "路径参数 {categoryId} 缺失或为空",
+    path_input: { command_id: "CATALOG-GET", parameter: "categoryId" },
+  });
+  mockApi((path) => (path.endsWith("ssd-results") ? index : response(bundle)));
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  expect(
+    await screen.findByText("CATALOG-GET · 路径参数 {categoryId}"),
+  ).toBeTruthy();
+});
+
+test("grouped input concerns show child counts and drill down to each field scene", async () => {
+  const bundle = fixture();
+  bundle.input_concern_policy = "interaction-input-types-v1";
+  const parent = bundle.channels.G.concerns[0];
+  Object.assign(parent, {
+    input_group: true,
+    field_id: null,
+    condition: "数据范围",
+  });
+  bundle.steps[0].data.push({
+    ...bundle.steps[0].data[0],
+    id: "field2",
+    name: "maxPrice",
+  });
+  const scenes = ["pageSize 大于上限", "maxPrice 大于上限"].map(
+    (condition, index) => ({
+      ...parent,
+      input_group: undefined,
+      id: `scene-${index}`,
+      field_id: `field${index + 1}`,
+      concern_ids: [parent.id],
+      condition,
+    }),
+  );
+  bundle.channels.G.scenarios = scenes;
+  const initial = response(bundle);
+  const comparison = {
+    ...initial.comparison,
+    scenarios: scenes.map((scene) => ({
+      id: `row-${scene.id}`,
+      generated_id: scene.id,
+      step_id: scene.step_id,
+      target: scene.target,
+      key: scene.key,
+      status: "single",
+      reason: "按场景归组",
+      cells: { G: [scene], GT: [], E: [] },
+    })),
+  };
+  mockApi((path) =>
+    path.endsWith("ssd-results") ? index : { ...initial, comparison },
+  );
+  render(<SsdResultsView project="P1" initialIndex={index} />);
+  expect(await screen.findByText("本交互输入")).toBeTruthy();
+  const button = await screen.findByRole("button", {
+    name: /查看场景.*G 2/,
+  });
+  fireEvent.click(button);
+  expect(
+    (await screen.findAllByText("pageSize 大于上限")).length,
+  ).toBeGreaterThan(0);
+  expect(screen.getAllByText("maxPrice 大于上限").length).toBeGreaterThan(0);
 });

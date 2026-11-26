@@ -1,9 +1,16 @@
 """Channel-isolated semantic inference and canonical entity obligation alignment."""
 
+import re
+import unicodedata
 from copy import deepcopy
 
 from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, COMMAND_PROFILES
-from scene_completion.domain.ssd import actor_security, concern_policy, llm_responses
+from scene_completion.domain.ssd import (
+    actor_security,
+    concern_policy,
+    input_concerns,
+    llm_responses,
+)
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -36,7 +43,11 @@ def definitions(bundle):
         for key, definition in bundle["registry"]["definitions"].items()
         if definition.get("enabled", True)
         and key not in actor_security.SERVICE_KEYS
-        and (not concern_policy.applies(bundle) or key in concern_policy.ACTIVE_CHECKS)
+        and (
+            not concern_policy.applies(bundle)
+            or key != "service.base.request_data"
+            and concern_policy.enabled(key, path_policy=concern_policy.path_inputs(bundle))
+        )
         and definition.get("kind") == "check"
         and definition.get("scope", "interaction") == "interaction"
         and (
@@ -47,6 +58,7 @@ def definitions(bundle):
                 "service.query_retrieval.resource_existence",
                 "service.base.availability",
                 "database.special_characters",
+                concern_policy.PATH_CHARACTERS,
                 llm_responses.KEY,
             }
         )
@@ -214,9 +226,79 @@ def infer(bundle, semantic):
                 }
                 for binding in row["bindings"]
             )
+    if input_concerns.applies(bundle):
+        _merge_input_atoms(bundle)
     bundle["field_anchors"] = anchors(bundle)
     bundle["contract_binding_pending"] = unresolved + bundle["field_anchors"]["pending"]
     bundle["channels"]["G"] = generate_g(bundle)
+
+
+def _merge_input_atoms(bundle):
+    """Keep one copy of each proven field obligation and join its references."""
+    from scene_completion.workflow.ssd.generate.fixed import _atom_conditions
+
+    def text(value):
+        return re.sub(r"[\s`。]", "", unicodedata.normalize("NFKC", value)).casefold()
+
+    def scope(atom):
+        return tuple(sorted(atom.get("applicable_operations") or []))
+
+    scopes = [attr for entity in bundle.get("entities", []) for attr in entity["attributes"]]
+    scopes.extend(field for step in bundle["steps"] for field in step.get("data", []))
+    for field in scopes:
+        name = field.get("wire_name") or field["name"]
+        subject = rf"(?:字段|参数)?(?:{re.escape(name)}|该字段|该参数)?"
+        atoms, same = [], {}
+        for atom in field.get("atoms", []):
+            if atom.get("concern_key") != "api.data.completeness":
+                atoms.append(atom)
+                continue
+            operation = atom.get("operation")
+            if operation == "semantic":
+                failure = text(atom.get("failure_condition") or "")
+                missing = re.fullmatch(
+                    subject
+                    + r"(?:未提供|未传入|未填写|缺失|缺少)(?:或为空)?"
+                    + r"|(?:未提供|未传入|未填写|缺少)"
+                    + subject,
+                    failure,
+                    re.I,
+                )
+                if missing:
+                    atom = {**atom, "operation": "required", "value": True}
+                    atom.pop("failure_condition", None)
+                    if "为空" in failure:
+                        atom["nonempty"] = True
+                    operation = "required"
+            if operation == "required" and not atom.get("failure_condition"):
+                applying_to = scope(atom)
+                if applying_to in same:
+                    known = same[applying_to]
+                    known["source_refs"] = unique(known["source_refs"] + atom["source_refs"])
+                    if atom.get("nonempty"):
+                        known["nonempty"] = True
+                    continue
+                same[applying_to] = atom = {**atom}
+            atoms.append(atom)
+        deterministic = {}
+        for atom in atoms:
+            if atom.get("operation") != "semantic":
+                conditions = _atom_conditions({**atom, "attribute": name}, True)
+                for condition in conditions:
+                    identity = atom["concern_key"], scope(atom), text(condition)
+                    deterministic[identity] = atom
+        kept = []
+        for atom in atoms:
+            if atom.get("operation") == "semantic":
+                identity = atom["concern_key"], scope(atom), text(atom["failure_condition"])
+                if identity in deterministic:
+                    existing = deterministic[identity]
+                    existing["source_refs"] = unique(existing["source_refs"] + atom["source_refs"])
+                    continue
+                deterministic[identity] = atom
+            kept.append(atom)
+        if "atoms" in field:
+            field["atoms"] = kept
 
 
 def _occurrence(bundle, source):
@@ -498,9 +580,21 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
                 return "无法唯一对齐到已挂载的接口或外部服务 CRUD"
             operation_unit_id = hits[0]["id"]
             mapped_step = hits[0]["step_id"]
+    from scene_completion.domain.ssd.matching import binding as matching_binding
+
+    generated = bundle["channels"]["G"]
+    anchors = generated["concerns"]
+    if input_concerns.applies(bundle) and key in input_concerns.KEYS:
+        anchors = list(
+            {
+                (matching_binding(row), row["step_id"]): row
+                for row in generated["scenarios"]
+                if input_concerns.eligible(row)
+            }.values()
+        )
     candidates = [
         c
-        for c in bundle["channels"]["G"]["concerns"]
+        for c in anchors
         if key in {c["key"], *c.get("concern_keys", [])}
         and c["target"] == target
         and c.get("operation_unit_id") == operation_unit_id
@@ -532,7 +626,7 @@ def _mount(bundle, channel, output, source, binding, reason, *, location=None):
         and attribute
         and any(
             c["key"] == key and c.get("entity_id") == entity and c.get("attribute") == attribute
-            for c in bundle["channels"]["G"]["concerns"]
+            for c in anchors
         )
     ):
         return "无法唯一判定实体约束作用域"

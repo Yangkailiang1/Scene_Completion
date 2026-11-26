@@ -27,7 +27,7 @@ def allowed(row):
     return row.get("key") not in RETIRED and not str(row.get("key", "")).startswith("global.")
 
 
-def current_registry(value, *, consolidated=False):
+def current_registry(value, *, consolidated=False, path_policy=True, name_characters=True):
     result = deepcopy(value)
     result["definitions"][AVAILABILITY]["scope"] = "interaction"
     result["definitions"][AVAILABILITY]["description"] = (
@@ -48,13 +48,37 @@ def current_registry(value, *, consolidated=False):
     result["profiles"]["architecture"] = []
     result["scopes"] = {"interaction": "交互级关注点"}
     if consolidated:
-        from scene_completion.domain.concern_templates import reference_catalog
+        from scene_completion.domain.concern_templates import reference_catalog, scenario_metadata
 
+        if path_policy:
+            from scene_completion.domain.concern_registry import default_registry
+
+            key = concern_policy.PATH_CHARACTERS
+            if key not in result["definitions"]:
+                result["definitions"][key] = deepcopy(default_registry()["definitions"][key])
+            if name_characters:
+                result["definitions"][key].update(
+                    label="特殊字符",
+                    description="检查路径占位符及 CREATE 操作的 name 输入是否包含需安全处理的特殊字符。",
+                )
         for key, definition in result["definitions"].items():
-            if not concern_policy.enabled(key):
+            if not concern_policy.enabled(key, path_policy=path_policy):
                 definition["enabled"] = False
         result["definitions"][concern_policy.FIELD]["label"] = "字段约束"
         result["reference_templates"] = reference_catalog(consolidated=True)
+        if path_policy and name_characters:
+            result["reference_templates"]["by_key"][concern_policy.PATH_CHARACTERS].append(
+                {
+                    **scenario_metadata(
+                        concern_policy.PATH_CHARACTERS,
+                        "create_name_characters",
+                        "reference_template",
+                    ),
+                    "label": "创建时名称含特殊字符",
+                    "condition": "创建操作的 name 输入包含需安全处理的特殊字符",
+                    "expected": "按输入约定安全处理，避免将数据解释为指令或路径",
+                }
+            )
     result["taxonomy_note"] = (
         "交互关注点；外部服务在调用处生成、按服务与故障合并；业务链路退出当前范围。"
     )
@@ -75,7 +99,9 @@ def excluded_ids(bundle):
             concern_policy.applies(bundle)
             and row.get("key")
             and (
-                not concern_policy.enabled(row["key"])
+                not concern_policy.enabled(
+                    row["key"], path_policy=concern_policy.path_inputs(bundle)
+                )
                 or row["key"] == concern_policy.FIELD
                 and interface_fields.output_only(row.get("condition"))
             )

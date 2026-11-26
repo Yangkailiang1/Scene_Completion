@@ -122,7 +122,7 @@ flowchart TD
 | ④ [compare/stage._compare](../../src/scene_completion/workflow/ssd/compare/stage.py) | `alignment.align` 分别将本方已分类部分对齐最终 G，可一条对多个适用义务。有证据的独立义务可单独挂载，未明保留待定位。脚本复用有效机器判定，剩余候选分批比较；发布基线后按需复核人工修订 | 查每个 part 的候选、`matches`、`fallback`、`reason` 与实际失败步。接口校验总述限同命令，格式与报文解析分开，范围按上下界区分。版本冲突查 `base_revision` 和当前修订 |
 | ⑤ [shared_services/stage._project_scopes](../../src/scene_completion/workflow/ssd/shared_services/stage.py) | 每个用例 compare 完成即触发，脚本读取已发布的用例，将实际外部调用按服务身份、故障类型在三方分别归并。保存成员用例、步骤、证据与判定，计入项目一次 | 查 [shared_service_service.publish](../../src/scene_completion/application/shared_service_service.py) 和 `domain/shared_services/aggregation.py`，对照 `shared_service_results/`。其他用例可继续推进 |
 
-内部接口的第二层「功能类型关注点」按主调用挂一次，幂等场景按义务去重。外部服务也判操作，同用例多次调用汇到入口调用并保存各次证据。第三层暂停；数据库第四层保留特殊字符规则，存量数据有效性暂缓。项目的业务链路和架构从历史投影读取。规则范围详见[当前 SSD 说明](../current/ssd-case-workflow.md)。
+内部接口的第二层「功能类型关注点」按主调用挂一次，幂等场景按义务去重。外部服务也判操作，同用例多次调用汇到入口调用并保存各次证据。第三层暂停；第一层按字段约束和路径参数规则识别输入字符异常；第四层保留外部大模型响应解析，存量数据有效性暂缓。项目的业务链路和架构从历史投影读取。规则范围详见[当前 SSD 说明](../current/ssd-case-workflow.md)。
 
 ## 3. 从已发布结果进入工作台和 HTML
 

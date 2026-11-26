@@ -7,6 +7,7 @@ export function MatchPairCard({
   bundle,
   changed,
   title,
+  pendingReason,
   readonly,
   onToggle,
   onDetails,
@@ -15,6 +16,7 @@ export function MatchPairCard({
   bundle: any;
   changed: boolean;
   title?: string;
+  pendingReason?: string;
   readonly: boolean;
   onToggle: (pair: Decision) => void;
   onDetails: (pair: Decision) => void;
@@ -22,12 +24,15 @@ export function MatchPairCard({
   const current = findDecision(bundle, pair);
   const [left, right] = pair.pair.split("_") as (keyof typeof channelLabels)[];
   const field = pair.level === "concern" ? "concerns" : "scenarios";
-  const a = bundle.channels[left]?.[field].find(
-    (r: any) => r.id === pair.left_id,
-  );
-  const b = bundle.channels[right]?.[field].find(
-    (r: any) => r.id === pair.right_id,
-  );
+  function record(channel: keyof typeof channelLabels, id: string) {
+    return (
+      bundle.channels[channel]?.[field].find((r: any) => r.id === id) ||
+      (pendingReason &&
+        bundle.channels[channel]?.pending?.find((r: any) => r.id === id))
+    );
+  }
+  const a = record(left, pair.left_id);
+  const b = record(right, pair.right_id);
   const valid = a?.status === "active" && b?.status === "active";
   return (
     <article
@@ -50,7 +55,9 @@ export function MatchPairCard({
         {decisionLabel(current?.status)}
         {changed ? " · 未保存" : current ? " · 已保存" : ""}
       </p>
-      {current?.reason && <p className="ssd-pair-reason">{current.reason}</p>}
+      {(current?.reason || pendingReason) && (
+        <p className="ssd-pair-reason">{current?.reason || pendingReason}</p>
+      )}
       {!valid && (
         <p className="muted">记录已变更或待重新挂载，请在详情核对。</p>
       )}

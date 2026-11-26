@@ -37,6 +37,14 @@ _VARIANTS = {
         ),
         ("empty_body", "请求体为空", "要求请求体的调用未提供请求体内容", "拒绝空请求体"),
     ],
+    concern_policy.PATH_CHARACTERS: [
+        (
+            "path_special_characters",
+            "路径参数包含特殊字符",
+            "路径占位符的值包含不符合约定的特殊字符",
+            "按接口约定处理无效路径参数",
+        )
+    ],
     "api.data.type": [("wrong_type", "数据类型不符", "字段类型与接口定义不符", "识别类型不匹配")],
     "api.data.format": [
         ("invalid_format", "数据格式不符", "字段不满足声明的格式规范", "识别格式不匹配")

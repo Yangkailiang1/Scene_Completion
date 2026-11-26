@@ -102,10 +102,9 @@ def test_external_database_role_survives_core_and_availability_does_not_need_cru
     resolve(bundle, None)
     availability = "service.base.availability"
     special = "database.special_characters"
-    for key in (availability, special):
-        assert [row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == key] == [
-            "B3"
-        ]
+    concerns = generate_g(bundle)["concerns"]
+    assert [row["step_id"] for row in concerns if row["key"] == availability] == ["B3"]
+    assert not any(row["key"] == special for row in concerns)
     bundle["operation_units"] = []
     assert [
         row["step_id"] for row in generate_g(bundle)["concerns"] if row["key"] == availability
@@ -159,7 +158,8 @@ def test_return_only_database_and_literal_e_gt_are_mounted(target, with_g):
     bundle["coverage_policy"] = GRAIN_POLICY
     bundle["channels"] = {name: channel() for name in ("E", "G", "GT")}
     generated = generate_g(bundle)
-    keys = {"service.base.availability", "database.special_characters"}
+    keys = {"service.base.availability"}
+    assert not any(r["key"] == "database.special_characters" for r in generated["concerns"])
     db_concerns = [r for r in generated["concerns"] if r["key"] in keys]
     assert {(r["key"], r["target"], r["step_id"]) for r in db_concerns} == {
         (key, target, "N0005") for key in keys
@@ -850,10 +850,9 @@ def test_split_commands_name_alignment_and_operation_audit(tmp_path):
     assert [(row["key"], row["resource_failure"]) for row in resources] == [
         ("service.crud.create.resource_existence", "already_exists")
     ]
-    for concern in ("service.base.availability", "database.special_characters"):
-        assert [
-            s["step_id"] for s in bundle["channels"]["G"]["concerns"] if s["key"] == concern
-        ] == ["D1"]
+    concerns = bundle["channels"]["G"]["concerns"]
+    assert [s["step_id"] for s in concerns if s["key"] == "service.base.availability"] == ["D1"]
+    assert not any(s["key"] == "database.special_characters" for s in concerns)
     assert [step["operation"]["kinds"] for step in bundle["steps"][2:]] == [
         ["create", "read"],
         ["create", "read"],
@@ -1999,9 +1998,8 @@ def test_resolve_classifies_each_participant_from_its_quotes_after_core_round_tr
         row["key"] == "service.base.availability" and row["step_id"] == "B3"
         for row in resolved["channels"]["G"]["concerns"]
     )
-    assert any(
-        row["key"] == "database.special_characters" and row["step_id"] == "B3"
-        for row in resolved["channels"]["G"]["concerns"]
+    assert not any(
+        row["key"] == "database.special_characters" for row in resolved["channels"]["G"]["concerns"]
     )
 
 

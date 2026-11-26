@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 
 from scene_completion.domain.coverage import GRAIN_POLICY, POLICY, binary_status
-from scene_completion.domain.ssd import concern_policy, interface_fields
+from scene_completion.domain.ssd import concern_policy, input_concerns, interface_fields
 from scene_completion.domain.ssd.interface_fields import INPUT_FIELD_POLICY
 from scene_completion.domain.ssd.matching import PAIRS, binding
 from scene_completion.domain.ssd.metrics import _rate, analyze
@@ -139,6 +139,60 @@ def _store(project, bundle, baseline, revision, history, overrides, reason, prev
     return saved
 
 
+def _input_group_overrides(old_baseline, previous, overrides, issues):
+    from scene_completion.application.ssd_input_field_migration import rewrite_overrides
+
+    result = deepcopy(overrides)
+    old_groups = {}
+    for channel in ("G", "E", "GT"):
+        records = {
+            row["id"]: row
+            for snapshot in (old_baseline, previous)
+            for row in snapshot["channels"][channel]["concerns"]
+            if input_concerns.eligible(row)
+        }
+        for row in records.values():
+            old_groups[row["id"]] = input_concerns.group_id(
+                previous, channel, row["step_id"], row["key"]
+            )
+        changes = result.get("channels", {}).get(channel, {})
+        focus = changes.get("concerns", {}).get("$records", {})
+        for row in records.values():
+            if row["id"] in old_groups and row["id"] in focus:
+                issues.append(
+                    {
+                        "id": row["id"],
+                        "input_concern_migration": True,
+                        "previous_record": row,
+                        "reason": "旧字段级关注点的修订须在新归组上重新核对",
+                    }
+                )
+                # Keep independently authored findings as source evidence for the group.
+                if "replace" not in focus[row["id"]]:
+                    del focus[row["id"]]
+        if "scenarios" in changes:
+            changes["scenarios"] = rewrite_overrides(changes["scenarios"], old_groups)
+    decisions = result.get("decisions", {}).get("$records", {})
+    old_decisions = [
+        row
+        for row in previous.get("decisions", [])
+        if row["level"] == "concern"
+        and row.get("origin") in {"manual", "business_review"}
+        and (row["left_id"] in old_groups or row["right_id"] in old_groups)
+    ]
+    for row in old_decisions:
+        decisions.pop(row["id"], None)
+        issues.append(
+            {
+                "id": row["id"],
+                "input_concern_migration": True,
+                "previous_decision": row,
+                "reason": "旧字段级关注点判定须在新归组上重新核对",
+            }
+        )
+    return result
+
+
 def publish(project, bundle):
     baseline = validate(bundle)
     cid = baseline["case"]["id"]
@@ -151,6 +205,12 @@ def publish(project, bundle):
         issues = []
         overrides = state["overrides"]
         previous = editor(project, cid)["bundle"]
+        issues.extend(
+            issue
+            for issue in previous.get("revision_issues", [])
+            if issue.get("input_concern_migration")
+        )
+        input_upgrade = input_concerns.applies(baseline) and not input_concerns.applies(previous)
         upgrading = (
             baseline.get("interface_field_policy") == INPUT_FIELD_POLICY
             and previous.get("interface_field_policy") != INPUT_FIELD_POLICY
@@ -169,8 +229,15 @@ def publish(project, bundle):
 
             overrides = rebase_resources(state["baseline"], baseline, overrides)
         compact_upgrade = concern_policy.applies(baseline) and not concern_policy.applies(previous)
-        upgrading = upgrading or resource_upgrade or compact_upgrade
-        if compact_upgrade:
+        path_upgrade = concern_policy.path_inputs(baseline) and not concern_policy.path_inputs(
+            previous
+        )
+        if input_upgrade:
+            overrides = _input_group_overrides(state["baseline"], previous, overrides, issues)
+        upgrading = (
+            upgrading or resource_upgrade or compact_upgrade or path_upgrade or input_upgrade
+        )
+        if compact_upgrade or path_upgrade:
             # A narrow old verdict cannot approve the combined G failure.
             # Preserve the original edits and judgments for explicit reassignment.
             for kind in ("concerns", "scenarios"):
@@ -186,7 +253,9 @@ def publish(project, bundle):
                         and (
                             kind == "scenarios"
                             and concern_policy.fixed_only(old["key"])
-                            or not concern_policy.enabled(old["key"])
+                            or not concern_policy.enabled(
+                                old["key"], path_policy=concern_policy.path_inputs(baseline)
+                            )
                         )
                     ):
                         issues.append(
@@ -396,7 +465,9 @@ def _validate_security_edits(current, updated):
                     and key
                     and row.get("status") == "active"
                     and (
-                        not concern_policy.enabled(key)
+                        not concern_policy.enabled(
+                            key, path_policy=concern_policy.path_inputs(current)
+                        )
                         or key == concern_policy.FIELD
                         and interface_fields.output_only(row.get("condition"))
                     )
@@ -478,7 +549,11 @@ def _validate_new_manual_mounts(current, updated):
                 and field.get("location") != "response"
                 and step["direction"] == "request"
                 and not entity_id
-                and key.startswith("api.data.")
+                and (
+                    key.startswith("api.data.")
+                    or input_concerns.applies(updated)
+                    and key == concern_policy.FIELD
+                )
             ) or (
                 not field_id
                 and declared

@@ -200,7 +200,9 @@ def options(
                                 or (entity, attribute) in anchors.get(sid, ())
                             ):
                                 add(sid, key, "entity", entity, attribute)
-                if source.get("entity_id") or key == "service.business_attribute_constraint":
+                if source.get("entity_id") or (
+                    key == concern_policy.FIELD and not concern_policy.path_inputs(bundle)
+                ):
                     continue
                 for field in fields.values():
                     if (

@@ -8,6 +8,7 @@ from scene_completion.domain.current_scope import COMMAND_OPERATION_PROFILE, fil
 from scene_completion.domain.ssd import matching as ssd_matching
 from scene_completion.domain.ssd import validation as ssd_validation
 from scene_completion.infrastructure.storage import fingerprint
+from scene_completion.workflow.ssd.compare import decision_review
 from scene_completion.workflow.ssd.generate.stage import _generate
 from scene_completion.workflow.ssd.shared.machine_history import _machine_baselines
 from scene_completion.workflow.ssd.shared.semantic_execution import (
@@ -44,7 +45,9 @@ def _compare_pairs(ex, bundle, record):
         left = {r["id"]: r for r in bundle["channels"][a]["scenarios"]}
         right = {r["id"]: r for r in bundle["channels"][b]["scenarios"]}
         pairs = [
-            (left[p["left_id"]], right[p["right_id"]]) for p in candidates if p["pair"] == pair
+            (left[p["left_id"]], right[p["right_id"]])
+            for p in candidates
+            if p["pair"] == pair and not p.get("conflict")
         ]
         for offset in range(0, len(pairs), 24):
             batch = pairs[offset : offset + 24]
@@ -53,25 +56,33 @@ def _compare_pairs(ex, bundle, record):
                 for comparison in projected:
                     for side in ("left", "right"):
                         comparison[side] = {
-                            k: v for k, v in comparison[side].items() if k != "aligned_concern_ids"
+                            k: v
+                            for k, v in comparison[side].items()
+                            if k not in {"aligned_concern_ids", "aligned_scenario_ids"}
                         }
-            result, _ = ex.semantic(
-                "ssd-semantic-compare",
-                {
-                    "pair": pair,
-                    "pairs": projected,
-                    **(
-                        {"coverage_policy": GRAIN_POLICY}
-                        if bundle.get("coverage_policy") == GRAIN_POLICY
-                        else {}
-                    ),
-                },
-                record,
-            )
-            expected = {(x["id"], y["id"]) for x, y in batch}
-            actual = {(d["left_id"], d["right_id"]) for d in result["decisions"]}
-            if actual != expected or len(actual) != len(result["decisions"]):
-                raise ValueError("语义比较必须逐对返回全部候选，不能新增或遗漏")
+            inputs = {
+                "pair": pair,
+                "pairs": projected,
+                **(
+                    {"coverage_policy": GRAIN_POLICY}
+                    if bundle.get("coverage_policy") == GRAIN_POLICY
+                    else {}
+                ),
+            }
+
+            def semantic(task, packet):
+                result, _ = ex.semantic(task, packet, record)
+                expected = {(p["left"]["id"], p["right"]["id"]) for p in packet["pairs"]}
+                actual = {(d["left_id"], d["right_id"]) for d in result["decisions"]}
+                if actual != expected or len(actual) != len(result["decisions"]):
+                    raise ValueError("语义比较必须逐对返回全部候选，不能新增或遗漏")
+                return result
+
+            first = semantic("ssd-semantic-compare", inputs)
+            accepted, unresolved = decision_review.compare_pairs(semantic, inputs, first)
+            for left_id, right_id in sorted(unresolved):
+                anchor = (right[right_id] if pair == "GT_G" else left[left_id])["step_id"]
+                decision_review.record_conflict(bundle, pair, left_id, right_id, anchor)
             bundle.setdefault("decisions", []).extend(
                 {
                     **d,
@@ -85,7 +96,7 @@ def _compare_pairs(ex, bundle, record):
                         else {}
                     ),
                 }
-                for d in result["decisions"]
+                for d in accepted
             )
     return ssd_validation.validate(bundle)
 
@@ -104,6 +115,7 @@ def _reuse_machine_decisions(ex, bundle, semantic_identity):
     existing = {
         (d["level"], d["pair"], d["left_id"], d["right_id"]) for d in bundle.get("decisions", [])
     }
+    deferred = ssd_matching.conflicting_pairs(bundle)
     for baseline in _machine_baselines(ex, bundle["case"]["id"]):
         if not baseline or baseline.get("semantic_comparison_identity") != semantic_identity:
             continue
@@ -114,7 +126,12 @@ def _reuse_machine_decisions(ex, bundle, semantic_identity):
                 decision["left_id"],
                 decision["right_id"],
             )
-            if identity in existing or decision.get("origin") != "auto":
+            if (
+                identity in existing
+                or decision.get("origin") != "auto"
+                or decision["level"] == "scenario"
+                and identity[1:] in deferred
+            ):
                 continue
             a, b = ssd_matching.PAIRS[decision["pair"]]
             kind = "scenarios" if decision["level"] == "scenario" else "concerns"

@@ -60,6 +60,22 @@
       "description": "必填数据缺失或请求体为空",
       "scope": "interaction"
     },
+    "api.data.path_special_characters": {
+      "key": "api.data.path_special_characters",
+      "label": "路径参数特殊字符",
+      "layer": "shared",
+      "group": "api_data",
+      "parents": [
+        "service.base.request_data"
+      ],
+      "guard": null,
+      "kind": "check",
+      "failure_family": "api.data.path_special_characters",
+      "operation_kinds": [],
+      "technology": null,
+      "description": "检查 SR 接口路径占位符是否含不符合约定的特殊字符。每个接口一个关注点，每个路径参数一条场景。",
+      "scope": "interaction"
+    },
     "api.data.format": {
       "key": "api.data.format",
       "label": "数据格式",
@@ -521,7 +537,7 @@
         "delete"
       ],
       "technology": null,
-      "description": "实体属性的重名、状态不可修改、跨属性类型兼容等明示业务规则",
+      "description": "实体属性的重名、状态不可修改、跨属性类型兼容等明示业务规则，以及普通输入字段声明的允许字符、禁用字符和字符集正则",
       "scope": "interaction"
     },
     "service.crud.create.concurrency_consistency": {
@@ -878,7 +894,7 @@
       "service.base.availability"
     ]
   },
-  "hash": "16aeaae3906820f89a1bc7f569ddec5232c99cf1e262e6c31df7574ff469a83f",
+  "hash": "a345952980ad17980f9ede5349673eda8c14c8ca93f103941290a3e406d57025",
   "taxonomy_note": "三范围：交互（数据、CRUD、业务与技术扩展）、业务链路（隔离、一致性、顺序、级联）、项目架构（外部服务可用性）。历史定义保留但不重复启用。",
   "framework_policies": {
     "sr_internal_rud_idempotency": {

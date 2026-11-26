@@ -34,6 +34,10 @@ def display_binding(row):
 
 
 def binding(row):
+    if row.get("input_group"):
+        return ("input_group", row["step_id"], row["key"])
+    if path_input := row.get("path_input"):
+        return ("path_input", path_input["command_id"], path_input.get("parameter"), row["key"])
     if row.get("operation_unit_id"):
         return (
             "operation",
@@ -53,9 +57,31 @@ def binding(row):
     return display_binding(row)
 
 
+def _different_path_inputs(left, right):
+    a, b = left.get("path_input"), right.get("path_input")
+    return (
+        a
+        and b
+        and (
+            a["command_id"] != b["command_id"]
+            or a.get("parameter")
+            and b.get("parameter")
+            and a["parameter"] != b["parameter"]
+        )
+    )
+
+
 def semantic_candidates(bundle):
     """Unreviewed wording differences within one concern anchor, without guesswork."""
+    conflicts = conflicting_pairs(bundle)
     candidates = []
+    groups = {row["id"] for row in bundle["channels"]["G"]["concerns"] if row.get("input_group")}
+
+    def alignment(row):
+        return set(row.get("aligned_concern_ids", [])) - groups | set(
+            row.get("aligned_scenario_ids", [])
+        )
+
     for pair, (a, b) in PAIRS.items():
         decided = {
             (d["left_id"], d["right_id"])
@@ -70,10 +96,9 @@ def semantic_candidates(bundle):
                     and (
                         binding(left) == binding(right)
                         or pair == "GT_E"
-                        and set(left.get("aligned_concern_ids", [])).intersection(
-                            right.get("aligned_concern_ids", [])
-                        )
+                        and alignment(left).intersection(alignment(right))
                     )
+                    and not _different_path_inputs(left, right)
                     and not disjoint(left_condition, right_condition)
                     and not different_failures(left, right)
                     and not path_resources.different_failures(left, right)
@@ -83,8 +108,8 @@ def semantic_candidates(bundle):
                         or compatible(left_condition, right_condition)
                     )
                     and (left["id"], right["id"]) not in decided
-                    and (_text(left.get("condition")), _text(left.get("expected")))
-                    != (_text(right.get("condition")), _text(right.get("expected")))
+                    and (pair, left["id"], right["id"]) not in conflicts
+                    and not same_failure_text(left, right, require_text=False)
                 ):
                     candidates.append(
                         {
@@ -94,7 +119,40 @@ def semantic_candidates(bundle):
                             "step_id": left.get("step_id"),
                         }
                     )
-    return candidates
+    return [*candidates, *conflicts.values()]
+
+
+def conflicting_pairs(bundle):
+    conflicts = bundle.get("matching_conflicts", [])
+    if not conflicts:
+        return {}
+    records = {
+        channel: {r["id"] for r in data["scenarios"] if r["status"] == "active"}
+        | {r["id"] for r in data.get("pending", [])}
+        for channel, data in bundle["channels"].items()
+    }
+    decided = {
+        (d["pair"], d["left_id"], d["right_id"])
+        for d in bundle.get("decisions", [])
+        if d["level"] == "scenario"
+    }
+    return {
+        (item["pair"], item["left_id"], item["right_id"]): item
+        for item in conflicts
+        if (item["pair"], item["left_id"], item["right_id"]) not in decided
+        and item["left_id"] in records[PAIRS[item["pair"]][0]]
+        and item["right_id"] in records[PAIRS[item["pair"]][1]]
+    }
+
+
+def same_failure_text(left, right, *, require_text=True):
+    condition = _text(left.get("condition") or "")
+    expected = _text(left.get("expected") or "")
+    return (
+        (not require_text or bool(condition and expected))
+        and condition == _text(right.get("condition") or "")
+        and expected == _text(right.get("expected") or "")
+    )
 
 
 def _text(text):
@@ -121,15 +179,26 @@ def _units(bundle, kind):
 def _edges(bundle, kind, units, aliases):
     edges = {}
     level = "concern" if kind == "concerns" else "scenario"
+    deferred = (
+        {
+            (pair, aliases[PAIRS[pair][0]].get(left), aliases[PAIRS[pair][1]].get(right))
+            for pair, left, right in conflicting_pairs(bundle)
+        }
+        if level == "scenario"
+        else set()
+    )
     for pair, (a, b) in PAIRS.items():
         matches = {}
         for x in units[a].values():
             for y in units[b].values():
-                if binding(x) != binding(y):
+                if binding(x) != binding(y) or (pair, x["id"], y["id"]) in deferred:
                     continue
                 exact = kind == "concerns" or (
-                    _text(x.get("condition")) == _text(y.get("condition"))
-                    and _text(x.get("expected")) == _text(y.get("expected"))
+                    not _different_path_inputs(x, y)
+                    and not different_failures(x, y)
+                    and not path_resources.different_failures(x, y)
+                    and not concern_policy.different_subtypes(x, y)
+                    and same_failure_text(x, y, require_text=False)
                 )
                 if exact:
                     matches[(x["id"], y["id"])] = "full"

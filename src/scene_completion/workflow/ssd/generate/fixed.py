@@ -10,7 +10,7 @@ from scene_completion.domain.current_scope import (
     COMMAND_PROFILES,
     STRUCTURED_PROFILES,
 )
-from scene_completion.domain.ssd import concern_policy, path_resources
+from scene_completion.domain.ssd import concern_policy, input_concerns, path_resources
 from scene_completion.domain.ssd.construction import (
     add_concern,
     add_scenario,
@@ -183,7 +183,10 @@ def generate_g(bundle):
 
     consolidated = concern_policy.applies(bundle)
     registry = current_registry(
-        bundle.get("registry") or default_registry(), consolidated=consolidated
+        bundle.get("registry") or default_registry(),
+        consolidated=consolidated,
+        path_policy=concern_policy.path_inputs(bundle),
+        name_characters=concern_policy.name_characters(bundle),
     )
     definitions, profiles = registry["definitions"], registry["profiles"]
     entity_only = bundle.get("analysis_profile") in STRUCTURED_PROFILES
@@ -383,7 +386,9 @@ def generate_g(bundle):
                 source_refs=database_refs,
                 related_calls=related,
             )
-            if "database.special_characters" in profiles["technology"].get("database", []):
+            if definitions[concern_policy.DATABASE].get(
+                "enabled", True
+            ) and concern_policy.DATABASE in profiles["technology"].get("database", []):
                 attach(
                     "database.special_characters",
                     target,
@@ -545,6 +550,17 @@ def generate_g(bundle):
         from scene_completion.workflow.ssd.generate.command_fields import generate_fields
 
         generate_fields(bundle, output, moved_atoms)
+        if concern_policy.path_inputs(bundle):
+            from scene_completion.workflow.ssd.generate.path_inputs import generate
+
+            generate({**bundle, "registry": registry}, output)
+        if concern_policy.name_characters(bundle):
+            from scene_completion.workflow.ssd.generate.name_inputs import (
+                generate as generate_names,
+            )
+
+            generate_names({**bundle, "registry": registry}, output)
+    input_concerns.group_channel(bundle, "G", output)
     return output
 
 
@@ -640,6 +656,8 @@ def _attach_entity_units(bundle, output, definitions, moved_atoms):
                     },
                     scope="interaction",
                 )
+                if projected["operation"] == "character_set":
+                    scene["input_character_rule"] = projected["value"]
 
 
 EDIT_ONLY_OPERATIONS = {"conditional_range", "state_equals"}
@@ -749,6 +767,8 @@ def _atom_condition(unit):
 def _atom_conditions(atom, consolidated):
     if consolidated:
         name = atom["attribute"]
+        if atom["operation"] == "character_set":
+            return [f"{name} 包含不符合字段字符规则的字符（{atom['value']}）"]
         if atom["operation"] == "max_size" and atom.get("unit") and atom.get("value") is not None:
             return [f"{name}大小 > {atom['value']} {atom['unit']}"]
         if atom["operation"] == "required" and atom.get("nonempty"):

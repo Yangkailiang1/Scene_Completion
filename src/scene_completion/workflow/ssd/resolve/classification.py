@@ -14,12 +14,15 @@ from scene_completion.domain.ssd.construction import unique
 from scene_completion.domain.ssd.path_resources import path_parameters
 from scene_completion.infrastructure.execution_events import emit
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
+from scene_completion.workflow.ssd.shared import authentication_evidence
 from scene_completion.workflow.ssd.shared.failure_context import explicit_failure, service_security
 
 CLASSIFY = "ssd-evidence-classify"
 
 
 def classify(bundle, semantic):
+    from scene_completion.domain.ssd import path_inputs
+
     if not semantic:
         return
     audits = bundle.setdefault("source_classifications", {})
@@ -44,7 +47,9 @@ def classify(bundle, semantic):
             if named:
                 inputs["interface_field_policy"] = interface_fields.INPUT_FIELD_POLICY
             if consolidated:
-                inputs["scenario_policy"] = concern_policy.VERSION
+                inputs["scenario_policy"] = bundle["scenario_policy"]
+            if concern_policy.name_characters(bundle):
+                inputs["name_character_policy"] = bundle["name_character_policy"]
             if "path_resource_checks" in bundle:
                 inputs["resource_routes"] = [
                     {
@@ -78,6 +83,54 @@ def classify(bundle, semantic):
             for source in records.values():
                 condition = source["condition"]
                 failure, keys = explicit_failure(condition, source["expected"])
+                explicit_auth = g_aligned and authentication_evidence.explicit_variants(
+                    condition, source["expected"]
+                )
+                if explicit_auth and source["source_kind"] not in {
+                    "out_of_scope",
+                    "normal",
+                    "main",
+                    "alternative",
+                }:
+                    failure, keys = "authentication_failure", {actor_security.AUTHENTICATION}
+                if concern_policy.path_inputs(bundle) and path_inputs.database_failure(condition):
+                    direct.append(
+                        {
+                            "record_id": source["id"],
+                            "kind": "out_of_scope",
+                            "reason": "数据库本身的特殊字符处理已退出当前范围",
+                            "parts": [],
+                        }
+                    )
+                    continue
+                if (
+                    concern_policy.path_inputs(bundle)
+                    and not (
+                        concern_policy.name_characters(bundle)
+                        and path_inputs.injection_risk(condition)
+                        and path_inputs.declared_character_rule(condition + source["expected"])
+                    )
+                    and source["source_kind"]
+                    not in {"out_of_scope", "normal", "main", "alternative"}
+                    and (
+                        path_keys := path_inputs.path_keys(condition) & inputs["definitions"].keys()
+                    )
+                ):
+                    direct.append(
+                        {
+                            "record_id": source["id"],
+                            "kind": "exception",
+                            "reason": "原文描述路径参数空值或特殊字符",
+                            "parts": [
+                                {
+                                    "condition": condition,
+                                    "expected": source["expected"],
+                                    "keys": sorted(path_keys),
+                                }
+                            ],
+                        }
+                    )
+                    continue
                 outside_security = source.get("declared_key") in actor_security.SERVICE_KEYS or (
                     keys & actor_security.HUMAN_KEYS
                     and service_security(steps, source["failure_step_id"])

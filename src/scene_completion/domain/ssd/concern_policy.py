@@ -4,11 +4,14 @@ import re
 
 from scene_completion.domain.ssd import actor_security
 
-VERSION = "ssd-input-and-consolidated-scenarios-v1"
+LEGACY_VERSION = "ssd-input-and-consolidated-scenarios-v1"
+VERSION = "ssd-input-and-consolidated-scenarios-v2"
+NAME_CHARACTERS_VERSION = "ssd-create-name-characters-v1"
 AUTH = actor_security.AUTHENTICATION
 DATABASE = "database.special_characters"
 FIELD = "service.business_attribute_constraint"
 COMPLETENESS = "api.data.completeness"
+PATH_CHARACTERS = "api.data.path_special_characters"
 
 AUTH_DETAILS = {
     "missing_credential": "未提供凭证",
@@ -28,7 +31,7 @@ ACTIVE_CHECKS = {
     "human.authorization",
     "service.base.availability",
     FIELD,
-    DATABASE,
+    PATH_CHARACTERS,
     "llm.response_parsing_failure",
     "service.query_retrieval.resource_existence",
     *(
@@ -44,15 +47,27 @@ ACTIVE_CHECKS = {
 
 
 def applies(bundle):
+    return bundle.get("scenario_policy") in {LEGACY_VERSION, VERSION}
+
+
+def path_inputs(bundle):
     return bundle.get("scenario_policy") == VERSION
 
 
-def enabled(key):
+def name_characters(bundle):
+    return bundle.get("name_character_policy") == NAME_CHARACTERS_VERSION
+
+
+def enabled(key, *, path_policy=True):
+    if key == DATABASE:
+        return not path_policy
+    if key == PATH_CHARACTERS:
+        return path_policy
     return key == "service.base.request_data" or key in ACTIVE_CHECKS
 
 
 def fixed_only(key):
-    return key in {AUTH, DATABASE} or key.endswith(".concurrency_consistency")
+    return key in {AUTH, DATABASE, PATH_CHARACTERS} or key.endswith(".concurrency_consistency")
 
 
 def details(key):

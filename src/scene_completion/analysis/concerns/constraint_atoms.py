@@ -131,7 +131,24 @@ def _size(clause, field, refs):
     )
 
 
-def _clause_items(clause, field, refs, state_tag):
+def _character_rule(text):
+    """Recognize declared character sets separately from semantic formats."""
+    if re.search(r"日期|时间格式|邮箱|email|网址|URL|手机号|电话号码", text, re.I):
+        return False
+    return bool(
+        re.search(
+            r"(?:允许|只能(?:由|包含)|仅限).{0,24}(?:字母|汉字|中文|数字|下划线|指定字符)"
+            r"|允许.{0,4}(?:的)?字符(?:集|包括|为|有)"
+            r"|(?:不得|禁止|不能|不允许).{0,12}(?:含|出现).{0,16}字符"
+            r"|(?:字符集|字符白名单|字符黑名单)"
+            r"|(?:\^|正则.{0,16})\[[^\]\n]+\](?:[+*?]|\{[0-9,]+\}|\$)|\[[^\]\n]+\][+*]\$",
+            text,
+            re.I,
+        )
+    )
+
+
+def _clause_items(clause, field, refs, state_tag, *, character_rules=False):
     """Normalize one clause; return the produced items (possibly empty)."""
     text = clause.strip()
     compact = _compact(text)
@@ -258,6 +275,10 @@ def _clause_items(clause, field, refs, state_tag):
                 )
             ]
 
+    if character_rules and _character_rule(text):
+        return [
+            _item(OPERATION_CONCERNS["business"], "character_set", text, "explicit", refs, field)
+        ]
     if re.search(r"格式|合法格式|URL|邮箱|email", text, re.I):
         items = [_item(OPERATION_CONCERNS["format"], "format", text, "explicit", refs, field)]
         if re.search(r"大小|字节|(?:MB|KB|bytes)", text, re.I):
@@ -394,6 +415,7 @@ def normalize_rules(
     entity_only=False,
     rule_refs=None,
     tag_refs=None,
+    character_rules=False,
 ):
     """Normalize declared rules for one attribute into concerns.
 
@@ -498,10 +520,14 @@ def normalize_rules(
         if re.fullmatch(
             NUMERIC + r"\s*<=\s*(?:" + re.escape(field) + r")?\s*<=\s*" + NUMERIC, _compact(text)
         ):
-            produced.extend(_clause_items(text, field, refs, state_tag))
+            produced.extend(
+                _clause_items(text, field, refs, state_tag, character_rules=character_rules)
+            )
         else:
             for clause in _split_clauses(text):
-                produced.extend(_clause_items(clause, field, refs, state_tag))
+                produced.extend(
+                    _clause_items(clause, field, refs, state_tag, character_rules=character_rules)
+                )
         if not produced and note:
             # The annotation itself may carry a comparison against another attribute.
             symbol, operation = _symbolic_bounds(note, field)
@@ -527,6 +553,25 @@ def normalize_rules(
                         field,
                         refs,
                         "边界引用符号" + symbol + "，具体取值需结合该属性确定",
+                    )
+                )
+        if character_rules and quote and re.search(r"正则|字符", rule) and _character_rule(quote):
+            if not any(item["operation"] == "character_set" for item in produced):
+                produced = [
+                    item
+                    for item in produced
+                    if item["operation"] not in {"format", "max_length"}
+                    or not item.get("value_pending")
+                    and item["operation"] == "max_length"
+                ]
+                produced.append(
+                    _item(
+                        OPERATION_CONCERNS["business"],
+                        "character_set",
+                        quote,
+                        "explicit",
+                        refs,
+                        field,
                     )
                 )
         semantic_unique = entity_only and any(item["operation"] == "unique" for item in produced)

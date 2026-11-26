@@ -11,7 +11,7 @@ from scene_completion.domain.current_scope import (
     STRUCTURED_PROFILES,
     current_registry,
 )
-from scene_completion.domain.ssd import concern_policy
+from scene_completion.domain.ssd import concern_policy, input_concerns
 from scene_completion.domain.ssd.construction import (
     channel,
     ident,
@@ -211,6 +211,8 @@ def build_cases(
                 {
                     "interface_field_policy": INPUT_FIELD_POLICY,
                     "scenario_policy": concern_policy.VERSION,
+                    "input_concern_policy": input_concerns.VERSION,
+                    "name_character_policy": concern_policy.NAME_CHARACTERS_VERSION,
                 }
                 if active_profile == COMMAND_OPERATION_PROFILE
                 else {}

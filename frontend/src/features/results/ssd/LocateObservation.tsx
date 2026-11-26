@@ -28,6 +28,7 @@ const bindingFields = [
   "unit_id",
   "obligation_scope",
   "operation_unit_id",
+  "path_input",
   "command_id",
   "call_step_id",
   "validation_step_ids",
@@ -36,6 +37,11 @@ const bindingFields = [
 ];
 
 function sameBinding(a: Observation, b: Observation) {
+  if (
+    a.path_input?.command_id !== b.path_input?.command_id ||
+    a.path_input?.parameter !== b.path_input?.parameter
+  )
+    return false;
   return [
     "step_id",
     "target",
@@ -87,7 +93,11 @@ export function locateObservation(
     ...new Set([...(item.source_record_ids || []), item.id]),
   ];
   const existing = records.concerns.find(
-    (row) => row.id !== item.id && sameBinding(row, mounted),
+    (row) =>
+      row.id !== item.id &&
+      (row.input_group
+        ? row.step_id === mounted.step_id && row.key === mounted.key
+        : sameBinding(row, mounted)),
   );
   const concern: Observation = existing
     ? {
@@ -104,6 +114,7 @@ export function locateObservation(
       }
     : {
         ...mounted,
+        ...(target.record.input_group ? { input_group: true } : {}),
         id: kind === "concerns" ? item.id : uid("concern"),
         condition: kind === "concerns" ? condition : mounted.label || condition,
       };
@@ -125,12 +136,23 @@ export function locateObservation(
         ];
   }
   putTableRecord(bundle, channel, "concerns", concern);
-  if (kind !== "concerns")
-    putTableRecord(bundle, channel, "scenarios", {
+  if (kind !== "concerns") {
+    const scene: Observation = {
       ...mounted,
       expected,
       concern_ids: [concern.id],
-    });
+    };
+    delete scene.input_group;
+    if (target.record.input_group && scenario) {
+      for (const key of bindingFields) {
+        delete scene[key];
+        if (scenario[key] != null) scene[key] = scenario[key];
+      }
+    } else if (scenario?.path_input) {
+      scene.path_input = scenario.path_input;
+    }
+    putTableRecord(bundle, channel, "scenarios", scene);
+  }
 
   bundle.decisions = bundle.decisions.filter((decision) => {
     const movedLevel = kind === "concerns" ? "concern" : "scenario";
@@ -175,6 +197,11 @@ export function locateObservation(
 }
 
 function describeObject(record: Observation, step: Step, bundle: Bundle) {
+  if (record.input_group) return "本交互输入";
+  if (record.path_input) {
+    const { command_id, parameter } = record.path_input;
+    return `${command_id} · 路径参数${parameter ? ` {${parameter}}` : ""}`;
+  }
   const operation = bundle.operation_units?.find(
     (unit) => unit.id === record.operation_unit_id,
   );
@@ -265,6 +292,7 @@ function applicable(
   key: string,
   step: Step,
   object: MountObject,
+  groupedInput: boolean,
 ) {
   const { target, field_id, attribute, entity_id } = object.binding;
   if (
@@ -279,7 +307,8 @@ function applicable(
   if (target === "data")
     return (
       ((field_id || attribute) && key.startsWith("api.data.")) ||
-      (!!entity_id && key === "service.business_attribute_constraint")
+      ((!!entity_id || (groupedInput && !!field_id)) &&
+        key === "service.business_attribute_constraint")
     );
   const call =
     step.direction === "request" &&
@@ -400,7 +429,14 @@ export function LocateObservation({
   const definitions =
     step && object
       ? Object.entries(bundle.registry?.definitions || {}).filter(
-          ([key, definition]) => applicable(definition, key, step, object),
+          ([key, definition]) =>
+            applicable(
+              definition,
+              key,
+              step,
+              object,
+              bundle.input_concern_policy === "interaction-input-types-v1",
+            ),
         )
       : [];
   const definition = definitions.find(([key]) => key === concernKey)?.[1] as

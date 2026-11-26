@@ -266,11 +266,29 @@ export function SsdAlignmentTable({
       }
     }
   }
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (layer === "concerns") {
+      for (const channel of channels) {
+        for (const scene of bundle.channels?.[channel]?.scenarios || []) {
+          if (scene.status !== "active") continue;
+          for (const id of scene.concern_ids || [])
+            counts.set(id, (counts.get(id) || 0) + 1);
+        }
+      }
+    }
+    return counts;
+  }, [bundle.channels, layer]);
   function objectName(record: Observation) {
     if (getObjectName) return getObjectName(record);
+    if (record.input_group) return "本交互输入";
     const unit = bundle.operation_units?.find(
       (item) => item.id === record.operation_unit_id,
     );
+    if (record.path_input) {
+      const { command_id, parameter } = record.path_input;
+      return `${command_id} · 路径参数${parameter ? ` {${parameter}}` : ""}`;
+    }
     if (record.resource_reference) {
       const reference = record.resource_reference;
       const roles = {
@@ -936,7 +954,21 @@ export function SsdAlignmentTable({
                         className="concern-drilldown"
                         onClick={() => onScenarios(row)}
                       >
-                        查看该关注点的场景 →
+                        {bindings.some((record) => record.input_group)
+                          ? `查看场景（${channels
+                              .filter(
+                                (channel) => row.cells[channel].length > 0,
+                              )
+                              .map(
+                                (channel) =>
+                                  `${channel} ${row.cells[channel].reduce(
+                                    (count: number, record: Observation) =>
+                                      count + (childCounts.get(record.id) || 0),
+                                    0,
+                                  )}`,
+                              )
+                              .join(" · ")}） →`
+                          : "查看该关注点的场景 →"}
                       </button>
                     )}
                     {!readonly && onDeleteRow && !row.generated_id && (

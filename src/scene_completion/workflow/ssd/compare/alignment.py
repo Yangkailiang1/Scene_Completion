@@ -8,16 +8,26 @@ from scene_completion.domain.scenario_conditions import disjoint
 from scene_completion.domain.ssd import (
     actor_security,
     concern_policy,
+    input_concerns,
     interface_fields,
     llm_responses,
     validation_scope,
 )
 from scene_completion.domain.ssd.construction import add_concern, add_scenario, ident, unique
+from scene_completion.domain.ssd.matching import same_failure_text
 from scene_completion.infrastructure.execution_events import emit
-from scene_completion.workflow.ssd.compare import independent_mount, resource_alignment
+from scene_completion.workflow.ssd.compare import (
+    decision_review,
+    independent_mount,
+    resource_alignment,
+)
 from scene_completion.workflow.ssd.resolve import entity_semantics as evidence
 from scene_completion.workflow.ssd.resolve.operations import in_operation_scope
-from scene_completion.workflow.ssd.shared import binding_targets, failure_context
+from scene_completion.workflow.ssd.shared import (
+    authentication_evidence,
+    binding_targets,
+    failure_context,
+)
 
 ALIGN = "ssd-ground-align"
 
@@ -76,7 +86,10 @@ def _allowed_keys(part, steps, actual):
     return keys
 
 
-def _candidates(bundle, raw, part, step_facts):
+def _candidates(bundle, raw, part, step_facts, name_ids=()):
+    from scene_completion.domain.ssd.path_inputs import character_failure
+    from scene_completion.workflow.ssd.compare import path_alignment
+
     actual = part["failure_step_id"]
     bindings = bundle.get("command_bindings", {})
     steps = {s["id"]: s for s in bundle["steps"]}
@@ -103,6 +116,18 @@ def _candidates(bundle, raw, part, step_facts):
             bindings, actual or raw.get("step_ref"), interface_fields.command_id(raw)
         )
     keys = _allowed_keys(part, step_facts, actual)
+    character_evidence = concern_policy.path_inputs(bundle) and bool(
+        keys & {concern_policy.FIELD, "api.data.format"}
+    )
+    explicit_characters = character_evidence and character_failure(part["condition"])
+    field_character_ids = (
+        path_alignment.field_character_candidates(
+            bundle, raw, part, bundle["channels"]["G"]["scenarios"], fields
+        )
+        if explicit_characters or character_evidence and "正则" in part["condition"]
+        else set()
+    )
+    character_ids = set(field_character_ids) | set(name_ids)
     failure = part.get("explicit_failure")
     llm_variant = (
         llm_responses.failure_variant(part["condition"]) if llm_responses.KEY in keys else None
@@ -174,7 +199,19 @@ def _candidates(bundle, raw, part, step_facts):
     )
     names = {name.casefold() for name in names}
     for scenario in bundle["channels"]["G"]["scenarios"]:
-        if scenario["status"] != "active":
+        if scenario["status"] != "active" or (
+            concern_policy.path_inputs(bundle)
+            and (
+                scenario.get("path_input")
+                and scenario["id"] not in name_ids
+                or scenario["key"] == concern_policy.DATABASE
+            )
+        ):
+            continue
+        if scenario.get("name_character_input") and scenario["id"] not in name_ids:
+            continue
+        character_cross_step = scenario["id"] in character_ids
+        if (explicit_characters or character_ids) and not character_cross_step:
             continue
         if not resource_alignment.compatible(part, scenario):
             continue
@@ -233,7 +270,7 @@ def _candidates(bundle, raw, part, step_facts):
             for cid in scenario["concern_ids"]:
                 if cid in concerns:
                     scenario_keys.update(_keys(concerns[cid]))
-        if not keys.intersection(scenario_keys) or disjoint(
+        if (not character_cross_step and not keys.intersection(scenario_keys)) or disjoint(
             part["condition"], scenario["condition"]
         ):
             continue
@@ -281,11 +318,12 @@ def _candidates(bundle, raw, part, step_facts):
         if (
             external
             and not database_only
+            and not character_cross_step
             and scenario["key"] != concern_policy.DATABASE
             and receiver != external
         ):
             continue
-        if cmd and source_commands and cmd not in source_commands:
+        if not character_cross_step and cmd and source_commands and cmd not in source_commands:
             continue
         if raw.get("entity_id") and scenario.get("entity_id") not in {None, raw["entity_id"]}:
             continue
@@ -301,19 +339,26 @@ def _candidates(bundle, raw, part, step_facts):
             if named:
                 if (
                     field.get("conflicts")
-                    or cmd not in source_commands
+                    or not character_cross_step
+                    and cmd not in source_commands
                     or declared_field
                     and field["id"] not in field_ids
+                    and scenario["id"] not in name_ids
                     or names
                     and not declared_field
+                    and not character_cross_step
                     and (field.get("wire_name") or field["name"]).casefold() not in names
                 ):
                     continue
-                if len(source_commands) > 1 and any(
-                    other["id"] != field["id"]
-                    and other.get("command_id") in source_commands
-                    and other["name"] == field["name"]
-                    for other in fields.values()
+                if (
+                    not character_cross_step
+                    and len(source_commands) > 1
+                    and any(
+                        other["id"] != field["id"]
+                        and other.get("command_id") in source_commands
+                        and other["name"] == field["name"]
+                        for other in fields.values()
+                    )
                 ):
                     continue
             elif (
@@ -322,7 +367,12 @@ def _candidates(bundle, raw, part, step_facts):
                 or (direction and field.get("direction") != direction)
             ):
                 continue
-        elif named and declared_field and scenario.get("entity_id"):
+        elif (
+            named
+            and declared_field
+            and scenario.get("entity_id")
+            and scenario["id"] not in name_ids
+        ):
             if not any(
                 (alias := bundle.get("command_aliases", {}).get(fid, {}).get(scenario["key"]))
                 and (alias["entity_id"], alias["attribute"])
@@ -351,6 +401,10 @@ def _candidates(bundle, raw, part, step_facts):
                     "resource_reference",
                     "resource_failure",
                     "failure_variants",
+                    "variant_id",
+                    "input_character_rule",
+                    "name_character_input",
+                    "path_input",
                 )
                 if k in scenario
             },
@@ -408,18 +462,13 @@ def _decision(bundle, channel, level, source, generated, status, reason):
         existing.update(value)
 
 
-def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
-    output = bundle["channels"][channel]
-    order = {s["id"]: s["order"] for s in bundle["steps"]}
-    actual = location["failure_step_id"]
-    primary = min(
-        (scene for scene, _ in selected),
-        key=lambda scene: (scene["step_id"] != actual, order[scene["step_id"]], scene["id"]),
-    )
+def _source_concern(bundle, channel, raw, part, primary):
     step = next(s for s in bundle["steps"] if s["id"] == primary["step_id"])
+    if primary.get("input_group"):
+        return input_concerns.add_group(bundle, channel, step, primary["key"], raw["source_refs"])
     field = next((f for f in step["data"] if f["id"] == primary.get("field_id")), None)
-    concern = add_concern(
-        output,
+    return add_concern(
+        bundle["channels"][channel],
         bundle,
         channel,
         step,
@@ -431,10 +480,95 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         obligation_scope=primary.get("obligation_scope"),
         operation_unit_id=primary.get("operation_unit_id"),
         resource_reference=primary.get("resource_reference"),
+        path_input=primary.get("path_input"),
         condition=part["condition"],
         refs=raw["source_refs"],
     )
-    scene = add_scenario(output, concern, part["condition"], part["expected"], raw["source_refs"])
+
+
+def _input_focus(bundle, channel, raw, part):
+    keys = set(part["keys"])
+    if len(keys) != 1 or not keys <= input_concerns.KEYS or part.get("resource_check"):
+        return
+    key = next(iter(keys))
+    candidates = {
+        row["step_id"]
+        for row in part["candidates"]
+        if row["key"] == key and row["target"] in {"data", "receiver"}
+    }
+    if not candidates:
+        actual = part["failure_step_id"]
+        hint = actual or raw.get("step_ref")
+        command = (
+            _summary_command(bundle, raw, hint, allow_external=True)
+            if hint or interface_fields.command_id(raw)
+            else None
+        )
+        if command:
+            candidates = {bundle["command_bindings"][command]["primary_step_id"]}
+        elif actual and not interface_fields.command_id(raw):
+            # A local validator with several parent requests is still ambiguous.
+            step = next(s for s in bundle["steps"] if s["id"] == actual)
+            candidates = {
+                s for s in (step.get("validates") or [actual]) if step["direction"] != "return"
+            }
+    if len(candidates) == 1:
+        step = next(s for s in bundle["steps"] if s["id"] in candidates)
+        input_concerns.add_group(bundle, channel, step, key, raw["source_refs"])
+
+
+def _path_concerns(bundle, channel, raw, part, candidates):
+    groups = {cid for scene in candidates for cid in scene["concern_ids"]}
+    for generated in bundle["channels"]["G"]["concerns"]:
+        if generated["id"] in groups:
+            row = _source_concern(bundle, channel, raw, part, generated)
+            _decision(
+                bundle,
+                channel,
+                "concern",
+                row["id"],
+                generated["id"],
+                "full",
+                "测试来源涉及同一 SR 接口的路径参数及对应校验类别",
+            )
+
+
+def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
+    output = bundle["channels"][channel]
+    order = {s["id"]: s["order"] for s in bundle["steps"]}
+    actual = location["failure_step_id"]
+    primary = min(
+        (scene for scene, _ in selected),
+        key=lambda scene: (scene["step_id"] != actual, order[scene["step_id"]], scene["id"]),
+    )
+    parent = primary
+    if primary.get("path_input") and not input_concerns.applies(bundle):
+        parent = next(
+            c for c in bundle["channels"]["G"]["concerns"] if c["id"] in primary["concern_ids"]
+        )
+    concern = _source_concern(bundle, channel, raw, part, parent)
+    identity = (
+        ident(
+            "path-source",
+            channel,
+            bundle["case"]["id"],
+            primary["path_input"]["command_id"],
+            part["condition"],
+            part["expected"],
+        )
+        if primary.get("path_input")
+        else None
+    )
+    scene = add_scenario(
+        output, concern, part["condition"], part["expected"], raw["source_refs"], identity
+    )
+    if primary.get("path_input"):
+        # One source row can link to several path obligations. Its binding must not
+        # grant matches automatically when later comparing other source records.
+        scene["path_input"] = {
+            "command_id": primary["path_input"]["command_id"],
+            **({"parameter": part["path_parameter"]} if part.get("path_parameter") else {}),
+        }
     scene["source_record_ids"] = unique([*scene.get("source_record_ids", []), raw["id"]])
     scene["identification_reason"] = part["classification_reason"]
     if raw.get("verified_excerpts"):
@@ -446,6 +580,8 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         )
     if part.get("validation_summary"):
         scene["validation_summary"] = part["validation_summary"]
+    if primary.get("name_character_input"):
+        scene["name_character_input"] = primary["name_character_input"]
     if primary["key"] == llm_responses.KEY and primary.get("variant_id"):
         scene["variant_id"] = primary["variant_id"]
     if primary.get("resource_failure"):
@@ -467,6 +603,7 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
     ):
         if primary.get(key):
             scene[key] = primary[key]
+    parents = {row["id"]: row for row in bundle["channels"]["G"]["concerns"]}
     for generated, match in all_matches:
         _decision(
             bundle,
@@ -479,11 +616,21 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
         )
         if match["status"] in {"full", "partial"}:
             for concern_id in generated["concern_ids"]:
+                parent = parents[concern_id]
+                if parent.get("input_group"):
+                    source_parent = _source_concern(bundle, channel, raw, part, parent)
+                    if scene["step_id"] == source_parent["step_id"]:
+                        scene["concern_ids"] = unique([*scene["concern_ids"], source_parent["id"]])
+                    scene["aligned_scenario_ids"] = unique(
+                        [*scene.get("aligned_scenario_ids", []), generated["id"]]
+                    )
+                else:
+                    source_parent = concern
                 _decision(
                     bundle,
                     channel,
                     "concern",
-                    concern["id"],
+                    source_parent["id"],
                     concern_id,
                     match["status"],
                     match["reason"],
@@ -494,7 +641,152 @@ def _add_matches(bundle, channel, raw, part, selected, all_matches, location):
     return scene["id"]
 
 
+def _fast_match(bundle, part, candidate, raw, steps):
+    actual = part["failure_step_id"]
+    explicit_command = interface_fields.command_id(raw)
+    candidate_command = candidate.get("command_id")
+    if explicit_command and (
+        candidate_command
+        and explicit_command != candidate_command
+        or candidate.get("path_input")
+        and explicit_command != candidate["path_input"]["command_id"]
+    ):
+        return None
+    if candidate["key"] == actor_security.AUTHENTICATION:
+        call = candidate.get("call_step_id") or candidate["step_id"]
+        requests = failure_context.auth_requests(steps, actual)
+        confirmed = set(requests) == {call}
+        if not actual and not part.get("failure_step_hint"):
+            if explicit_command:
+                confirmed = bool(failure_context.auth_request(steps[call]))
+            elif part.get("explicit_failure") == "missing_credential":
+                # Preserve the existing narrow missing-header/401 inference in cases
+                # with exactly one possible human request and no conflicting hint.
+                confirmed = {
+                    sid for sid, step in steps.items() if failure_context.auth_request(step)
+                } == {call}
+        if explicit_command:
+            link = bundle.get("command_bindings", {}).get(explicit_command, {})
+            confirmed = confirmed and link.get("primary_step_id") == call
+        variants = authentication_evidence.generated_variants(candidate)
+        if (
+            confirmed
+            and candidate["target"] == "sender"
+            and actor_security.AUTHENTICATION in part["keys"]
+            and variants
+            and (
+                explicit := authentication_evidence.explicit_variants(
+                    part["condition"], part["expected"]
+                )
+            )
+        ):
+            if not explicit & variants:
+                return "none", "同一人类请求，但生成场景不包含原文明确的凭证失败类型"
+            if explicit <= variants and authentication_evidence.equivalent_outcome(
+                part["condition"] + " " + part["expected"], candidate
+            ):
+                return "full", "同一人类 Actor 请求，凭证失败类型及拒绝认证的预期一致"
+        return None
+    # Exact text is sufficient only after fixing the obligation and actual boundary.
+    if not actual or candidate["step_id"] != actual or candidate["key"] not in part["keys"]:
+        return None
+    if set(part["keys"]) & (actor_security.HUMAN_KEYS | actor_security.SERVICE_KEYS):
+        return None
+    if candidate.get("path_input") and (
+        not part.get("path_parameter")
+        or part["path_parameter"] != candidate["path_input"].get("parameter")
+    ):
+        return None
+    if field := candidate.get("field_id"):
+        declared_field = raw.get("field_id")
+        if not declared_field and (
+            (raw.get("parameter") or {}).get("name") or raw.get("field_name")
+        ):
+            available = {
+                value["id"] for _, value in interface_fields.candidates(bundle, actual, raw)
+            }
+            if len(available) == 1:
+                declared_field = next(iter(available))
+        if field != declared_field:
+            return None
+    for key in (
+        "entity_id",
+        "attribute",
+        "operation_unit_id",
+        "resource_reference",
+        "resource_failure",
+    ):
+        if candidate.get(key) and raw.get(key) != candidate[key]:
+            return None
+    if raw.get("target") and raw["target"] != candidate["target"]:
+        return None
+    if same_failure_text(part, candidate):
+        return "full", "已确认同一挂载对象，原文失败条件和预期一致"
+    return None
+
+
+def _model_matches(semantic, inputs):
+    def run(task, packet):
+        return validate_result(task, semantic(task, packet), packet)
+
+    first = run(ALIGN, inputs)["parts"]
+    conflicts = {
+        row["part_id"]: {
+            m["candidate_id"] for m in row["matches"] if decision_review.contradictory(m)
+        }
+        for row in first
+    }
+    if not any(conflicts.values()):
+        return first
+    narrowed = [
+        {
+            **part,
+            "candidates": [c for c in part["candidates"] if c["id"] in conflicts[part["id"]]],
+        }
+        for part in inputs["parts"]
+        if conflicts[part["id"]]
+    ]
+    corrected = decision_review.retry(run, ALIGN, {**inputs, "parts": narrowed})
+    repaired = {row["part_id"]: row for row in (corrected or {}).get("parts", [])}
+    for row in first:
+        conflict_ids = conflicts[row["part_id"]]
+        if not conflict_ids:
+            continue
+        retry_row = repaired.get(row["part_id"], {})
+        valid = {
+            m["candidate_id"]: m
+            for m in retry_row.get("matches", [])
+            if not decision_review.contradictory(m)
+        }
+        # Keep the accepted explanation and location. A narrowed retry cannot
+        # change which request the other, already judged candidates refer to.
+        actual = row.get("failure_step_id")
+        retry_actual = retry_row.get("failure_step_id")
+        if actual and retry_actual and actual != retry_actual:
+            valid = {}
+        elif retry_actual and not any(
+            m["status"] != "none" and m["candidate_id"] not in conflict_ids for m in row["matches"]
+        ):
+            row.update(
+                failure_step_id=retry_actual,
+                failure_step_reason=retry_row["failure_step_reason"],
+            )
+        if valid:
+            row["reason"] = retry_row["reason"]
+        row["matches"] = [
+            valid.get(m["candidate_id"], m)
+            for m in row["matches"]
+            if m["candidate_id"] not in conflict_ids or m["candidate_id"] in valid
+        ]
+        if unresolved := sorted(conflict_ids - valid.keys()):
+            row["conflicts"] = unresolved
+        row["fallback"] = None
+    return first
+
+
 def align(bundle, semantic):
+    from scene_completion.workflow.ssd.compare import path_alignment
+
     if not semantic:
         return
     step_facts = {s["id"]: s for s in evidence._steps(bundle)}
@@ -542,8 +834,55 @@ def align(bundle, semantic):
                     scope = validation_scope.summary_kind(part["condition"])
                     if scope:
                         part["validation_summary"] = scope
-                resource_alignment.prepare(bundle, original, part)
-                part["candidates"] = list(_candidates(bundle, original, part, step_facts))
+                name_candidates, name_issue = path_alignment.name_character_candidates(
+                    bundle, original, part, generated
+                )
+                path_candidates, path_issue = (
+                    path_alignment.candidates(bundle, original, part, generated)
+                    if concern_policy.path_inputs(bundle)
+                    and name_candidates is None
+                    and not part.get("name_rule_only")
+                    else (None, None)
+                )
+                if name_issue:
+                    part.update(candidates=[], path_candidates=True, path_issue=name_issue)
+                elif path_candidates is None:
+                    resource_alignment.prepare(bundle, original, part)
+                    part["candidates"] = list(
+                        _candidates(
+                            bundle,
+                            original,
+                            part,
+                            step_facts,
+                            name_ids={scene["id"] for scene in name_candidates or []},
+                        )
+                    )
+                    if name_candidates:
+                        [name_candidate] = name_candidates
+                        part["name_candidate_id"] = name_candidate["id"]
+                        if path_input := name_candidate.get("path_input"):
+                            part["path_parameter"] = path_input["parameter"]
+                else:
+                    names = {scene["path_input"]["parameter"] for scene in path_candidates}
+                    if len(names) == 1:
+                        part["path_parameter"] = next(iter(names))
+                    part["path_issue"] = path_issue
+                    part["path_candidates"] = True
+                    part["candidates"] = [
+                        {
+                            key: scene[key]
+                            for key in (
+                                "id",
+                                "condition",
+                                "expected",
+                                "step_id",
+                                "target",
+                                "key",
+                                "path_input",
+                            )
+                        }
+                        for scene in path_candidates
+                    ]
                 excerpts = detail.get("verified_excerpts") or []
                 refs = unique(
                     [
@@ -556,6 +895,10 @@ def align(bundle, semantic):
                     audit,
                     part,
                 )
+                if path_candidates:
+                    _path_concerns(bundle, channel, owners[part["id"]][0], part, path_candidates)
+                elif path_candidates is None and input_concerns.applies(bundle):
+                    _input_focus(bundle, channel, owners[part["id"]][0], part)
                 parts.append(part)
         for offset in range(0, len(parts), 4):
             inputs = {
@@ -567,17 +910,23 @@ def align(bundle, semantic):
                 "operation_units": units,
                 "parts": parts[offset : offset + 4],
                 **(
+                    {"name_character_policy": bundle["name_character_policy"]}
+                    if concern_policy.name_characters(bundle)
+                    else {}
+                ),
+                **(
                     {"coverage_policy": GRAIN_POLICY}
                     if bundle.get("coverage_policy") == GRAIN_POLICY
                     else {}
                 ),
                 **(
-                    {"scenario_policy": concern_policy.VERSION}
+                    {"scenario_policy": bundle["scenario_policy"]}
                     if concern_policy.applies(bundle)
                     else {}
                 ),
             }
             direct, model_parts = [], []
+            deterministic = {}
             options_by_id = {}
 
             def mount_options(part):
@@ -601,7 +950,55 @@ def align(bundle, semantic):
                 return options_by_id[cache_key]
 
             for part in inputs["parts"]:
-                if part.get("validation_summary") and not part["candidates"]:
+                if bundle.get("coverage_policy") == GRAIN_POLICY and not part.get(
+                    "validation_summary"
+                ):
+                    matches = [
+                        {"candidate_id": candidate["id"], "status": result[0], "reason": result[1]}
+                        for candidate in part["candidates"]
+                        if (
+                            result := _fast_match(
+                                bundle, part, candidate, owners[part["id"]][0], step_facts
+                            )
+                        )
+                    ]
+                    if matches:
+                        deterministic[part["id"]] = matches
+                        decided = {m["candidate_id"] for m in matches}
+                        remaining = [c for c in part["candidates"] if c["id"] not in decided]
+                        if remaining:
+                            model_parts.append(
+                                {
+                                    **part,
+                                    "candidates": remaining,
+                                    "has_confirmed_match": any(
+                                        m["status"] == "full" for m in matches
+                                    ),
+                                }
+                            )
+                        else:
+                            direct.append(
+                                {
+                                    "part_id": part["id"],
+                                    "reason": matches[0]["reason"],
+                                    "matches": [],
+                                    "fallback": None,
+                                }
+                            )
+                        continue
+                if part.get("path_candidates"):
+                    if part["candidates"]:
+                        model_parts.append(part)
+                    else:
+                        direct.append(
+                            {
+                                "part_id": part["id"],
+                                "reason": part["path_issue"],
+                                "matches": [],
+                                "fallback": None,
+                            }
+                        )
+                elif part.get("validation_summary") and not part["candidates"]:
                     raw = owners[part["id"]][0]
                     command = _summary_command(
                         bundle,
@@ -646,10 +1043,10 @@ def align(bundle, semantic):
                     )
                 elif part["candidates"]:
                     candidate = part["candidates"][0]
-                    literal = part.get("explicit_failure") in {
-                        "missing_credential",
-                        "database_unavailable",
-                    }
+                    literal = part.get("explicit_failure") == "database_unavailable" or (
+                        bundle.get("coverage_policy") != GRAIN_POLICY
+                        and part.get("explicit_failure") == "missing_credential"
+                    )
                     options = (
                         mount_options(part) if literal and len(part["candidates"]) == 1 else []
                     )
@@ -675,17 +1072,26 @@ def align(bundle, semantic):
                     else:
                         model_parts.append(part)
             inputs["parts"] = model_parts
-            model_rows = (
-                validate_result(ALIGN, semantic(ALIGN, inputs), inputs)["parts"]
-                if model_parts
-                else []
-            )
+            model_rows = _model_matches(semantic, inputs) if model_parts else []
             results = {row["part_id"]: row for row in direct + model_rows}
+            for part in parts[offset : offset + 4]:
+                if part["id"] not in results:
+                    continue
+                row = results[part["id"]]
+                if matches := deterministic.get(part["id"]):
+                    row["matches"] = matches + row["matches"]
+                    if any(m["status"] != "none" for m in matches):
+                        row["fallback"] = None
+                results[part["id"]] = _auth_alignment(
+                    row, part, step_facts, part["failure_step_id"] or row.get("failure_step_id")
+                )
             independent = []
             for part in parts[offset : offset + 4]:
                 part_id = part["id"]
                 previous = results.get(part_id, {})
                 fallback = previous.get("fallback")
+                if part.get("path_candidates") or previous.get("conflicts"):
+                    continue
                 if part.get("resource_issue"):
                     results[part_id] = {
                         "part_id": part_id,
@@ -695,6 +1101,11 @@ def align(bundle, semantic):
                     }
                     continue
                 if any(match["status"] != "none" for match in previous.get("matches", [])):
+                    continue
+                if any(
+                    match["candidate_id"] == part.get("name_candidate_id")
+                    for match in previous.get("matches", [])
+                ):
                     continue
                 if check := part.get("resource_check"):
                     actual = part["failure_step_id"] or previous.get("failure_step_id")
@@ -786,6 +1197,50 @@ def align(bundle, semantic):
                         {"condition": part["condition"], "keys": part["keys"], **location}
                     )
                     continue
+                if row.get("conflicts"):
+                    source_id = raw["id"]
+                    if selected:
+                        source_id = _add_matches(
+                            bundle, channel, raw, part, selected, matches, location
+                        )
+                        audit["bindings"].append(
+                            {
+                                "record_id": source_id,
+                                "matches": [m for _, m in selected],
+                                **location,
+                            }
+                        )
+                    else:
+                        audit["rejected_bindings"].append(
+                            {
+                                "reason": decision_review.REASON,
+                                "condition": part["condition"],
+                                "matching_conflict": True,
+                            }
+                        )
+                    for candidate_id in row["conflicts"]:
+                        pair, left, right = (
+                            ("G_E", candidate_id, source_id)
+                            if channel == "E"
+                            else ("GT_G", source_id, candidate_id)
+                        )
+                        decision_review.record_conflict(
+                            bundle, pair, left, right, generated[candidate_id]["step_id"]
+                        )
+                    continue
+                independent_candidates = (
+                    matches
+                    if part.get("path_candidates")
+                    else [
+                        pair for pair in matches if pair[0]["id"] == part.get("name_candidate_id")
+                    ]
+                )
+                if independent_candidates and not selected:
+                    record_id = _add_matches(
+                        bundle, channel, raw, part, independent_candidates, matches, location
+                    )
+                    audit["bindings"].append({"record_id": record_id, "matches": [], **location})
+                    continue
                 if selected:
                     if part.get("resource_check") and not resource_alignment.in_scope(
                         bundle, part["resource_check"], location["failure_step_id"]
@@ -804,7 +1259,7 @@ def align(bundle, semantic):
                         {"record_id": record_id, "matches": [m for _, m in selected], **location}
                     )
                     continue
-                fallback = row.get("fallback")
+                fallback = None if part.get("path_candidates") else row.get("fallback")
                 target_note = None
                 if fallback:
                     fallback, target_note = binding_targets.resolve(fallback, step_facts, units)
@@ -893,6 +1348,8 @@ def align(bundle, semantic):
                     needs_semantic=False,
                 )
                 audit["reason"] = row["reason"]
+                if all(f.get("matching_conflict") for f in failures):
+                    row["step_id"] = None  # The conflict already tracks its exact candidate IDs.
                 if audit["bindings"]:
                     row.update(condition="；".join(f["condition"] for f in failures), step_id=None)
                 else:
@@ -900,6 +1357,9 @@ def align(bundle, semantic):
                 output["pending"].append(row)
         if channel == "GT":
             bundle["gt_identification_run_complete"] = bool(bundle.get("gt_source_available"))
+    from scene_completion.domain.ssd.matching import PAIRS
+
+    input_concerns.group_bundle(bundle, PAIRS)
 
 
 def strip_align_summary(result):
@@ -918,33 +1378,43 @@ def _auth_alignment(row, part, steps, actual):
         return row
     requests = failure_context.auth_requests(steps, actual)
     candidates = {candidate["id"]: candidate for candidate in part["candidates"]}
-    chosen = [
-        candidates[m["candidate_id"]]
-        for m in row["matches"]
-        if m["status"] != "none" and candidates[m["candidate_id"]]["key"] in security_keys
+    positive = [
+        (match, candidates[match["candidate_id"]])
+        for match in row["matches"]
+        if match["status"] != "none" and candidates[match["candidate_id"]]["key"] in security_keys
     ]
-    calls = {g.get("call_step_id") or g.get("step_id") for g in chosen}
-    conflict = len(calls) > 1 or any(
-        g["key"] in actor_security.SERVICE_KEYS
-        or g["target"] != "sender"
-        or call not in (requests if actual else failure_context.auth_requests(steps, call))
-        for g in chosen
-        for call in [g.get("call_step_id") or g.get("step_id")]
-    )
+    calls = {g.get("call_step_id") or g.get("step_id") for _, g in positive}
+    boundary_issue = "身份或权限异常未核实属于同一人类 Actor 请求边界，待定位"
+    rejected = set()
+    for match, candidate in positive:
+        call = candidate.get("call_step_id") or candidate.get("step_id")
+        if (
+            candidate["key"] in actor_security.SERVICE_KEYS
+            or candidate["target"] != "sender"
+            or (len(calls) > 1 and len(requests) != 1)
+            or call not in (requests if actual else failure_context.auth_requests(steps, call))
+        ):
+            rejected.add(match["candidate_id"])
     fallback = row.get("fallback")
+    invalid_fallback = False
     if fallback and fallback["key"] in security_keys:
         call = fallback["step_id"]
-        conflict = conflict or (
+        invalid_fallback = (
             fallback["key"] not in set(part["keys"]) & actor_security.HUMAN_KEYS
             or fallback["target"] not in {"sender", "human"}
             or call not in (requests if actual else failure_context.auth_requests(steps, call))
         )
-    if conflict:
+    if rejected or invalid_fallback:
         return {
             **row,
-            "matches": [{**m, "status": "none"} for m in row["matches"]],
-            "fallback": None,
-            "reason": "身份或权限异常的候选或挂载未对齐同一人类 Actor 请求边界，待定位",
+            "matches": [
+                {**match, "status": "none", "reason": boundary_issue}
+                if match["candidate_id"] in rejected
+                else match
+                for match in row["matches"]
+            ],
+            "fallback": None if invalid_fallback else fallback,
+            "reason": boundary_issue,
         }
     return row
 
@@ -1004,6 +1474,9 @@ def validate_result(task, result, inputs):
             continue
         allowed = _allowed_keys(part, steps, confirmed or actual)
         if fallback := row.get("fallback"):
+            if part.get("has_confirmed_match"):
+                row["fallback"] = None
+                continue
             if any(m["status"] != "none" for m in row["matches"]):
                 raise ValueError("已有 G 匹配的记录不能同时独立挂载")
             if fallback["key"] not in allowed or fallback["step_id"] not in steps:

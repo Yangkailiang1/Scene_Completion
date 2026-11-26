@@ -224,7 +224,13 @@ def export_html(project, body=None):
         )
     groups.sort(key=lambda group: group["case_id"] is None)
     consolidated = any(concern_policy.applies(item["bundle"]) for item in snapshot["items"])
-    definitions = current_registry(registry(), consolidated=consolidated)["definitions"]
+    definitions = current_registry(
+        registry(),
+        consolidated=consolidated,
+        name_characters=any(
+            concern_policy.name_characters(item["bundle"]) for item in snapshot["items"]
+        ),
+    )["definitions"]
     payload = {
         "format": FORMAT,
         "report": {

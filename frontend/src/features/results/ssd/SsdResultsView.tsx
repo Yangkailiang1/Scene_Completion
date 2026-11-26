@@ -2118,6 +2118,7 @@ export function SsdResultsView({
                       bundle={draft}
                       changed={changes.matches.has(decisionKey(candidate))}
                       title={stepName(pair.step_id)}
+                      pendingReason={pair.conflict ? pair.reason : undefined}
                       readonly={readonly}
                       onToggle={toggleMatch}
                       onDetails={openMatchDetails}

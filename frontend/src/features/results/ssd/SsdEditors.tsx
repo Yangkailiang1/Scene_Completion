@@ -755,7 +755,9 @@ export function ObservationEditor({
   }
   const destination = kind;
   const step = bundle.steps.find((s) => s.id === value.step_id);
-  const concerns = bundle.channels[channel].concerns;
+  const concerns = bundle.channels[channel].concerns.filter(
+    (row) => !row.input_group || row.step_id === value.step_id,
+  );
   const definitions =
     bundle.registry?.definitions ||
     Object.fromEntries(
@@ -789,7 +791,20 @@ export function ObservationEditor({
               [s.id, `${s.order}. ${s.operation.name}`] as [string, string],
           ),
         ]}
-        onChange={(step_id) => set({ ...value, step_id, field_id: null })}
+        onChange={(step_id) =>
+          set({
+            ...value,
+            step_id,
+            field_id: null,
+            concern_ids: value.concern_ids?.filter(
+              (id) =>
+                !bundle.channels[channel].concerns.some(
+                  (row) =>
+                    row.id === id && row.input_group && row.step_id !== step_id,
+                ),
+            ),
+          })
+        }
       />
       <Select
         label="挂载对象"
@@ -797,7 +812,7 @@ export function ObservationEditor({
         values={Object.entries(targetLabels)}
         onChange={(target) => set({ ...value, target, field_id: null })}
       />
-      {value.target === "data" && (
+      {value.target === "data" && !value.input_group && (
         <Select
           label="挂载字段"
           value={value.field_id || ""}

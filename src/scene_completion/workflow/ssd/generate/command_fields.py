@@ -160,6 +160,8 @@ def generate_fields(bundle, output, moved_atoms):
                             scenario_metadata(key, atom["operation"], "deterministic_constraint"),
                         )
                         _record_command_sources(scene, field)
+                        if atom["operation"] == "character_set":
+                            scene["input_character_rule"] = atom["value"]
     bundle["command_aliases"] = aliases
 
 
